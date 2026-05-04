@@ -11,7 +11,7 @@ const defaultZoneRules=[
 ].map(([zone,role,lunch,evening])=>({zone,role,lunch,evening}));
 const defaults=['Dimitri|Maitre d\'hotel|18','Iymane|Barman|15','Anxhelo|Barman|15','Arben|Chef de Rang|16','Metin|Chef de Rang|16','Khadija|Chef de Rang|16','Laundry|Chef de Rang|16','Joel|Chef de Rang|16','Pedro|Chef de Rang|16','Radhi|Chef de Rang|16','Hakim|Chef de Rang|16','Carl|Chef de Rang|16','Candy|Chef de Rang|16','Eva|Chef de Rang|16','Lea|Extra (flexi / student)|13.5','Anais|Extra (flexi / student)|13.5','Chloe|Extra (flexi / student)|13.5','Yassin|Extra (flexi / student)|13.5','Sam|Extra (flexi / student)|13.5','Loic|Extra (flexi / student)|13.5','Frantzchini|Extra (flexi / student)|13.5','Sophie|Extra (flexi / student)|13.5','Laura|Extra (flexi / student)|13.5','Jetmir|Extra (flexi / student)|13.5'];
 /* v20: restores missing swapFor helper so calendars render */
-let data,session={role:'employee',employeeId:null},loginRole='employee',pendingSwap=null,pendingZone=null,selectedCalendarRow='',metricFilter='week',showZeroRows=true,metricFocus=null,notifOpen=false,notifRead={},showMetrics=true;
+let data,session={role:'employee',employeeId:null},loginRole='employee',pendingSwap=null,pendingZone=null,selectedCalendarRow='',metricFilter='week',showZeroRows=true,metricFocus=null,notifOpen=false,notifRead={};
 function id(){return (crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random())).replaceAll('-','').slice(0,12)}
 function esc(s=''){return String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))}
 function cleanPositionName(p='') { return String(p).replace(/^\s*[A-Z]\.\s*/, '').trim(); }
@@ -53,8 +53,15 @@ function ensure(o=data){
   return o
 }
 function safeJSON(key,fallback){return window.DataAdapter.getJSON(key,fallback)}
-function load(){data=window.DataAdapter.readPlanner()||newData();data.weekStart=monday(data.weekStart||new Date());ensure();session=window.DataAdapter.readSession(session)||session;if(!session.employeeId||!emp(session.employeeId)){session.employeeId=activeEmployees()[0]?.id||data.employees[0]?.id||null}save()}
-function save(){window.DataAdapter.savePlanner(data);window.DataAdapter.saveSession(session)}
+function setCloudStatus(state,message){
+  const el=$('cloudStatus'); if(!el)return;
+  el.classList.remove('saving','saved','error');
+  el.classList.add(state||'saved');
+  el.textContent=message || (state==='error'?'Cloud error':state==='saving'?'Saving…':'Saved to cloud ✓');
+  el.title=el.textContent;
+}
+function load(){data=window.DataAdapter.readPlanner()||newData();data.weekStart=monday(data.weekStart||new Date());ensure();session=window.DataAdapter.readSession(session)||session;if(!session.employeeId||!emp(session.employeeId)){session.employeeId=activeEmployees()[0]?.id||data.employees[0]?.id||null}const err=window.DataAdapter.getLastError&&window.DataAdapter.getLastError();setCloudStatus(err?'error':'saved',err?'Cloud connection issue':'Loaded from cloud ✓');save()}
+function save(){setCloudStatus('saving','Saving…');const ok=window.DataAdapter.savePlanner(data);window.DataAdapter.saveSession(session);const err=window.DataAdapter.getLastError&&window.DataAdapter.getLastError();if(ok===false||err)setCloudStatus('error','Cloud save failed');else setCloudStatus('saved','Saved to cloud ✓');return ok!==false&&!err}
 function emp(id){return data.employees.find(e=>e.id===id)}
 function activeEmployees(){return sortEmployees(data.employees.filter(e=>e.active))}
 function selectedId(){return session.role==='owner'?employeeSelect.value:session.employeeId}
@@ -85,10 +92,9 @@ function rowClickAttr(key){return `data-rowkey="${esc(key)}" onclick="selectCalR
 function metricKey(kind,value){return kind+':'+String(value)}
 function scrollRowInsideCalendar(row){
   if(!row)return;
-  const sticky=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sticky-shell-h'))||300;
-  const h1=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--head1-h'))||54;
-  const h2=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--head2-h'))||46;
-  const target=window.scrollY + row.getBoundingClientRect().top - sticky - h1 - h2 - 10;
+  const isPhone=document.body.classList.contains('phone') || window.matchMedia('(max-width: 980px)').matches;
+  const sticky=isPhone?16:(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sticky-shell-h'))||140);
+  const target=window.scrollY + row.getBoundingClientRect().top - sticky - 18;
   window.scrollTo({top:Math.max(0,target), behavior:'smooth'});
 }
 
@@ -267,12 +273,6 @@ window.markAllNotificationsRead=(ev)=>{ev.stopPropagation();derivedNotifications
 
 function zoneDot(z){return `<span class="zone-dot" ${styleAttr(zoneStyle(z))}></span>`}
 
-function toggleMetricsFn(){
-  showMetrics=!showMetrics;
-  window.DataAdapter.savePreference(window.DataAdapter.KEYS.showMetrics, showMetrics?'1':'0');
-  document.body.classList.toggle('metrics-collapsed',!showMetrics);
-  render();
-}
 function rowsForWeeks(weeks){
   const rows=[];
   (weeks||[]).forEach(w=>rows.push(...snapshotRows(w)));
@@ -283,9 +283,10 @@ function setAnalyticsRange(r){
   analyticsRange=r||analyticsRange||'week';
   if(typeof renderDashboard==='function')renderDashboard();
 }
-function init(){showZeroRows=window.DataAdapter.readPreference(window.DataAdapter.KEYS.showZeroRows,'1')!=='0';showMetrics=window.DataAdapter.readPreference(window.DataAdapter.KEYS.showMetrics,'1')!=='0';document.body.classList.toggle('metrics-collapsed',!showMetrics);notifRead=window.DataAdapter.readNotificationsRead();load();bind();fillSelectors();if(window.DataAdapter.isLoggedIn()){enterApp(false)}else{document.body.className='desktop logged-out';$('login').style.display='grid'}render();updateStickyVars()}
-function bind(){roleEmployee.onclick=()=>setLoginRole('employee');roleOwner.onclick=()=>setLoginRole('owner');if($('notifBtn'))notifBtn.onclick=(e)=>{e.stopPropagation();notifOpen=!notifOpen;renderNotifications()};document.addEventListener('click',e=>{if(!e.target.closest('.notif-wrap')){notifOpen=false;renderNotifications()}if(!e.target.closest('.metric-detail-panel')&&!e.target.closest('.metric-card')&&!e.target.closest('.position-metric-card')&&!e.target.closest('.zone-metric-card'))clearMetricPanel();});enterBtn.onclick=()=>{session.role=loginRole;session.employeeId=employeeLogin.value;window.DataAdapter.setLoggedIn(true);save();enterApp(true)};switchBtn.onclick=()=>{window.DataAdapter.setLoggedIn(false);document.body.className=(document.body.classList.contains('phone')?'phone':'desktop')+' logged-out';$('login').style.display='grid'};pcBtn.onclick=()=>setPreview('desktop');phoneBtn.onclick=()=>setPreview('phone');document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>showPage(b.dataset.page));document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));prevWeek.onclick=()=>changeWeek(-7);nextWeek.onclick=()=>changeWeek(7);weekStart.onchange=()=>{saveWeekSnapshot();data.weekStart=monday(weekStart.value);loadWeekSnapshot();save();render()};employeeSelect.onchange=()=>{session.employeeId=employeeSelect.value;save();render()};submitAvailability.onclick=()=>{data.submitted[selectedId()]=true;let e=emp(selectedId());addNotification('availability-'+data.weekStart+'-'+selectedId(),'yellow','Availability submitted',`${e?.name||'Employee'} submitted availability for this week.`,{kind:'submission',id:selectedId()});save();render();alert('Availability submitted.')};clearMine.onclick=clearMyDraft;publishToggleBtn.onclick=togglePublish;copyLastWeek.onclick=copyPreviousWeek;messageBtn.onclick=openMessage;copySchedule.onclick=openMessage;if($('ownerCopySchedule'))ownerCopySchedule.onclick=openMessage;copyMessage.onclick=()=>navigator.clipboard.writeText(messageText.value).then(()=>alert('Copied.'));closeMessage.onclick=()=>messageDialog.close();printBtn.onclick=()=>print();if($('ownerPrintBtn'))ownerPrintBtn.onclick=()=>print();if($('toggleZeroRows'))toggleZeroRows.onclick=toggleZeroRowsFn;if($('ownerToggleZeroRows'))ownerToggleZeroRows.onclick=toggleZeroRowsFn;if($('toggleMetrics'))$('toggleMetrics').onclick=toggleMetricsFn;exportBtn.onclick=exportBackup;importInput.onchange=importBackup;resetBtn.onclick=()=>{if(confirm('Reset all local data?')){window.DataAdapter.resetPlanner();data=newData();save();render()}};addEmployee.onclick=addEmployeeFn;if($('addPositionBtn'))addPositionBtn.onclick=addPositionFn;if($('addZoneBtn'))addZoneBtn.onclick=addZoneFn;document.querySelectorAll('.analytics-controls .segmented button[data-range]').forEach(b=>b.onclick=()=>setAnalyticsRange(b.dataset.range));document.querySelectorAll('.metric-filter').forEach(sel=>sel.onchange=e=>setMetricFilter(e.target.value));document.querySelectorAll('.metric-day-btn').forEach(btn=>btn.onclick=()=>setMetricFilter(btn.dataset.metric));confirmSwap.onclick=confirmSwapFn;cancelSwap.onclick=()=>swapDialog.close();if($('saveZoneDialog'))saveZoneDialog.onclick=saveZoneDialogFn;if($('cancelZoneDialog'))cancelZoneDialog.onclick=()=>{pendingZone=null;zoneDialog.close()};if($('closeDayNote'))closeDayNote.onclick=()=>dayNoteDialog.close()}
-function setPreview(mode){document.body.classList.toggle('phone',mode==='phone');document.body.classList.toggle('desktop',mode==='desktop');pcBtn.classList.toggle('active',mode==='desktop');phoneBtn.classList.toggle('active',mode==='phone')}
+function init(){applyResponsiveMode();showZeroRows=window.DataAdapter.readPreference(window.DataAdapter.KEYS.showZeroRows,'1')!=='0';notifRead=window.DataAdapter.readNotificationsRead();load();bind();fillSelectors();if(window.DataAdapter.isLoggedIn()){enterApp(false)}else{document.body.classList.add('logged-out');$('login').style.display='grid'}render();updateStickyVars()}
+function bind(){roleEmployee.onclick=()=>setLoginRole('employee');roleOwner.onclick=()=>setLoginRole('owner');if($('notifBtn'))notifBtn.onclick=(e)=>{e.stopPropagation();notifOpen=!notifOpen;renderNotifications()};document.addEventListener('click',e=>{if(!e.target.closest('.notif-wrap')){notifOpen=false;renderNotifications()}if(!e.target.closest('.metric-detail-panel')&&!e.target.closest('.metric-card')&&!e.target.closest('.position-metric-card')&&!e.target.closest('.zone-metric-card'))clearMetricPanel();});enterBtn.onclick=()=>{session.role=loginRole;session.employeeId=employeeLogin.value;window.DataAdapter.setLoggedIn(true);save();enterApp(true)};switchBtn.onclick=()=>{window.DataAdapter.setLoggedIn(false);document.body.classList.remove('logged-in','owner','employee');document.body.classList.add('logged-out');applyResponsiveMode();$('login').style.display='grid'};document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>showPage(b.dataset.page));document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));prevWeek.onclick=()=>changeWeek(-7);nextWeek.onclick=()=>changeWeek(7);weekStart.onchange=()=>{saveWeekSnapshot();data.weekStart=monday(weekStart.value);loadWeekSnapshot();save();render()};employeeSelect.onchange=()=>{session.employeeId=employeeSelect.value;save();render()};submitAvailability.onclick=()=>{data.submitted[selectedId()]=true;let e=emp(selectedId());addNotification('availability-'+data.weekStart+'-'+selectedId(),'yellow','Availability submitted',`${e?.name||'Employee'} submitted availability for this week.`,{kind:'submission',id:selectedId()});save();render();alert('Availability submitted.')};clearMine.onclick=clearMyDraft;publishToggleBtn.onclick=togglePublish;copyLastWeek.onclick=copyPreviousWeek;messageBtn.onclick=openMessage;copySchedule.onclick=openMessage;if($('ownerCopySchedule'))ownerCopySchedule.onclick=openMessage;copyMessage.onclick=()=>navigator.clipboard.writeText(messageText.value).then(()=>alert('Copied.'));closeMessage.onclick=()=>messageDialog.close();printBtn.onclick=()=>print();if($('ownerPrintBtn'))ownerPrintBtn.onclick=()=>print();if($('toggleZeroRows'))toggleZeroRows.onclick=toggleZeroRowsFn;if($('ownerToggleZeroRows'))ownerToggleZeroRows.onclick=toggleZeroRowsFn;exportBtn.onclick=exportBackup;importInput.onchange=importBackup;addEmployee.onclick=addEmployeeFn;if($('addPositionBtn'))addPositionBtn.onclick=addPositionFn;if($('addZoneBtn'))addZoneBtn.onclick=addZoneFn;document.querySelectorAll('.analytics-controls .segmented button[data-range]').forEach(b=>b.onclick=()=>setAnalyticsRange(b.dataset.range));document.querySelectorAll('.metric-filter').forEach(sel=>sel.onchange=e=>setMetricFilter(e.target.value));document.querySelectorAll('.metric-day-btn').forEach(btn=>btn.onclick=()=>setMetricFilter(btn.dataset.metric));confirmSwap.onclick=confirmSwapFn;cancelSwap.onclick=()=>swapDialog.close();if($('saveZoneDialog'))saveZoneDialog.onclick=saveZoneDialogFn;if($('cancelZoneDialog'))cancelZoneDialog.onclick=()=>{pendingZone=null;zoneDialog.close()};if($('closeDayNote'))closeDayNote.onclick=()=>dayNoteDialog.close()}
+function applyResponsiveMode(){const isPhone=window.matchMedia('(max-width: 980px)').matches;document.body.classList.toggle('phone',isPhone);document.body.classList.toggle('desktop',!isPhone);updateStickyVars()}
+window.addEventListener('resize',()=>{applyResponsiveMode();requestAnimationFrame(updateStickyVars)});
 function setLoginRole(role){loginRole=role;roleEmployee.classList.toggle('active',role==='employee');roleOwner.classList.toggle('active',role==='owner');employeeLoginWrap.style.display=role==='employee'?'grid':'none'}
 function enterApp(goHome){document.body.classList.remove('logged-out');document.body.classList.add('logged-in');$('login').style.display='none';document.body.classList.toggle('owner',session.role==='owner');document.body.classList.toggle('employee',session.role==='employee');const defaultPage=session.role==='owner'?'owner':'published';const activePage=document.querySelector('.page.active');if(goHome||!activePage||(session.role==='owner'&&activePage.id!=='page-owner')||(session.role==='employee'&&activePage.id==='page-owner'))showPage(defaultPage);if(session.role==='owner'&&!document.querySelector('.tab.active'))showTab('planning');fillSelectors();render();updateStickyVars()}
 function fillSelectors(){
@@ -314,16 +315,14 @@ function updateStickyVars(){
   if(!document.body.classList.contains('logged-in'))return;
   const top=document.querySelector('.topbar');
   const toolbar=document.querySelector('.planner-toolbar');
-  const metrics=document.querySelector('.page.active .calendar-top-metrics');
   const th=top?Math.ceil(top.getBoundingClientRect().height):96;
   const bh=toolbar?Math.ceil(toolbar.getBoundingClientRect().height):58;
-  const hidden=!showMetrics || document.body.classList.contains('metrics-collapsed');
-  const mh=(!hidden && metrics)?Math.ceil(metrics.getBoundingClientRect().height):0;
-  const shell=th+bh+mh;
+  const isPhone=document.body.classList.contains('phone') || window.matchMedia('(max-width: 980px)').matches;
+  const shell=isPhone?0:(th+bh);
   setStickyCssVar('--topbar-h', th+'px');
   setStickyCssVar('--toolbar-h', bh+'px');
-  setStickyCssVar('--metrics-h', mh+'px');
-  setStickyCssVar('--metrics-top', (th+bh)+'px');
+  setStickyCssVar('--metrics-h', '0px');
+  setStickyCssVar('--metrics-top', shell+'px');
   setStickyCssVar('--sticky-shell-h', shell+'px');
   setStickyCssVar('--calendar-sticky-top', shell+'px');
 }
@@ -342,7 +341,7 @@ function render(){fillSelectors();weekStart.value=data.weekStart;let who=session
   if($('statusText'))statusText.textContent=data.status==='Published'?'Published – changes via owner-approved swaps only.':'Unpublished draft – owner can edit the week.';
   if($('publishedBanner')){publishedBanner.className='banner';publishedBanner.textContent='';}
   if($('publishedStatusIcon')){publishedStatusIcon.textContent=data.status==='Published'?'Published':'Draft';publishedStatusIcon.title=data.status==='Published'?'Published: employees can request swaps; owner approval required.':'Draft: employees can mark availability; owner can edit planning.';publishedStatusIcon.className='status-chip '+(data.status==='Published'?'published':'draft');} if($('ownerStatusChip')){ownerStatusChip.textContent=data.status==='Published'?'Published':'Draft';ownerStatusChip.title=data.status==='Published'?'Published: swaps need owner approval.':'Draft: employees can still fill availability.';ownerStatusChip.className='status-chip '+(data.status==='Published'?'published':'draft');}
-  document.querySelectorAll('.metric-filter').forEach(sel=>sel.value=metricFilter);document.querySelectorAll('.metric-day-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.metric===metricFilter));document.querySelectorAll('.toggle-zero').forEach(b=>{b.classList.toggle('active',!showZeroRows);b.textContent=showZeroRows?'Ø':'👁';b.title=showZeroRows?'Hide employees with 0 hours':'Show all employees';});if($('toggleMetrics')){$('toggleMetrics').classList.toggle('active',!showMetrics);$('toggleMetrics').textContent='';$('toggleMetrics').title=showMetrics?'Hide metrics':'Show metrics';$('toggleMetrics').setAttribute('aria-label', showMetrics?'Hide metrics':'Show metrics');}document.body.classList.toggle('metrics-collapsed',!showMetrics);
+  document.querySelectorAll('.metric-filter').forEach(sel=>sel.value=metricFilter);document.querySelectorAll('.metric-day-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.metric===metricFilter));document.querySelectorAll('.toggle-zero').forEach(b=>{b.classList.toggle('active',!showZeroRows);b.textContent=showZeroRows?'Ø':'👁';b.title=showZeroRows?'Hide employees with 0 hours':'Show all employees';});
   if($('publishToggleBtn')){publishToggleBtn.textContent='';publishToggleBtn.className=data.status==='Published'?'secondary icon-action publish-control':'primary icon-action publish-control';publishToggleBtn.title=data.status==='Published'?'Unpublish schedule':'Publish schedule';publishToggleBtn.setAttribute('aria-label', publishToggleBtn.title)};publishedCalendar.innerHTML=calendar(session.role==='employee'?'employee':'published');employeeCalendar.innerHTML=calendar('employee');ownerCalendar.innerHTML=calendar('owner');[publishedCalendar,employeeCalendar,ownerCalendar].forEach(el=>{if(el)el.classList.toggle('published-calendar',data.status==='Published')});renderNotes('publishedNotes',false);renderNotes('employeeNotes',false);renderNotes('ownerNotes',true);renderZones('publishedZones');renderZones('employeeZones');renderSwaps();if($('publishedEmployeeSwaps')) $('publishedEmployeeSwaps').innerHTML=swapCards('employee');renderSubmissions();renderEmployeeManager();renderZoneManager();renderCosts();renderPositionHours('ownerPositionHours');renderPositionHours('publishedPositionHours');renderPositionHours('employeePositionHours');renderZoneHours('ownerZoneHours');renderZoneHours('publishedZoneHours');renderZoneHours('employeeZoneHours');renderNotifications();requestAnimationFrame(updateStickyVars)}
 function hasAnyAvailability(employeeId){return days.some(d=>shifts.some(s=>!!data.availability?.[employeeId]?.[d]?.[s]))}
 function submissionIcon(employeeId){
@@ -701,7 +700,7 @@ function renderTrend(id,weeks,type){
   const rows=[]; weeks.forEach(w=>w.rows.forEach(r=>rows.push({...r,_group:w.label})));
   el.innerHTML=buildStackedBarsHTML(rows,weeks.map(w=>w.label),cats,type,dashboardMix,{maxHeight:170,labelMode:'auto',showLegend:false});
 }
-function setMetricFilter(v){metricFilter=v||'week';document.querySelectorAll('.metric-filter').forEach(sel=>sel.value=metricFilter);document.querySelectorAll('.metric-day-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.metric===metricFilter));document.querySelectorAll('.toggle-zero').forEach(b=>{b.classList.toggle('active',!showZeroRows);b.textContent=showZeroRows?'Ø':'👁';b.title=showZeroRows?'Hide employees with 0 hours':'Show all employees';});if($('toggleMetrics')){$('toggleMetrics').classList.toggle('active',!showMetrics);$('toggleMetrics').textContent='';$('toggleMetrics').title=showMetrics?'Hide metrics':'Show metrics';$('toggleMetrics').setAttribute('aria-label', showMetrics?'Hide metrics':'Show metrics');}document.body.classList.toggle('metrics-collapsed',!showMetrics);renderPositionHours('ownerPositionHours');renderPositionHours('publishedPositionHours');renderPositionHours('employeePositionHours');renderZoneHours('ownerZoneHours');renderZoneHours('publishedZoneHours');renderZoneHours('employeeZoneHours')}
+function setMetricFilter(v){metricFilter=v||'week';document.querySelectorAll('.metric-filter').forEach(sel=>sel.value=metricFilter);document.querySelectorAll('.metric-day-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.metric===metricFilter));document.querySelectorAll('.toggle-zero').forEach(b=>{b.classList.toggle('active',!showZeroRows);b.textContent=showZeroRows?'Ø':'👁';b.title=showZeroRows?'Hide employees with 0 hours':'Show all employees';});renderPositionHours('ownerPositionHours');renderPositionHours('publishedPositionHours');renderPositionHours('employeePositionHours');renderZoneHours('ownerZoneHours');renderZoneHours('publishedZoneHours');renderZoneHours('employeeZoneHours')}
 function metricDays(){return metricFilter==='week'?days:days.filter(d=>d.slice(0,3)===metricFilter)}
 function renderPositionHours(targetId){
   let el=$(targetId); if(!el)return;

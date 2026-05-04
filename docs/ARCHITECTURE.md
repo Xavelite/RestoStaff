@@ -25,7 +25,7 @@ window.DataAdapter.readPreference(...)
 window.DataAdapter.savePreference(...)
 ```
 
-The default implementation still uses browser `localStorage`, but the rest of the app no longer needs to know that.
+The online implementation uses Supabase for the shared planner data; small prototype session/preferences remain browser-local.
 
 ## Why this matters
 

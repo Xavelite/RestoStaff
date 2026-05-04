@@ -2,7 +2,7 @@
 
 Clean local build with a **local data adapter** (`v110-data-adapter-local`).
 
-The UI and prototype login behavior are unchanged. The important internal change is that the app no longer talks directly to `localStorage` from the main app logic.
+The UI and prototype login behavior are unchanged. Shared planner data is stored in Supabase; small prototype session/preferences remain browser-local.
 
 ## Run locally
 

@@ -12,7 +12,7 @@
       <img src="logo.png" alt="Bouillon Bruxelles" class="logo big" />
       <p class="eyebrow">Local prototype access</p>
       <h1>Who are you?</h1>
-      <p class="muted">Choose owner or employee. No password yet — this is only for local testing.</p>
+      <p class="muted">Choose owner or employee. Prototype access only — shared online data, no secure password yet.</p>
       <div class="segmented">
         <button id="roleEmployee" class="active">Employee</button>
         <button id="roleOwner">Owner</button>
@@ -20,7 +20,7 @@
       <label id="employeeLoginWrap">Employee
         <select id="employeeLogin"></select>
       </label>
-      <button id="enterBtn" class="primary wide">Enter planner</button>
+      <button id="enterBtn" class="primary wide">Login</button>
     </div>
   </section>
 
@@ -45,8 +45,6 @@
         <div id="notifPanel" class="notif-panel"></div>
       </div>
       <div class="user-pill" id="userPill">Not connected</div>
-      <button id="pcBtn" class="ghost active">PC</button>
-      <button id="phoneBtn" class="ghost">Phone</button>
       <button id="switchBtn" class="ghost">Switch user</button>
     </div>
   </header>
@@ -66,10 +64,9 @@
       <div class="metric-days shared-metric-days" role="group" aria-label="Metric period"><button type="button" class="metric-day-btn active" data-metric="week">W</button><button type="button" class="metric-day-btn" data-metric="Mon">M</button><button type="button" class="metric-day-btn" data-metric="Tue">T</button><button type="button" class="metric-day-btn" data-metric="Wed">W</button><button type="button" class="metric-day-btn" data-metric="Thu">T</button><button type="button" class="metric-day-btn" data-metric="Fri">F</button><button type="button" class="metric-day-btn" data-metric="Sat">S</button><button type="button" class="metric-day-btn" data-metric="Sun">S</button></div>
     </div>
     <div class="toolbar-right icon-actions">
+      <span id="cloudStatus" class="cloud-status" title="Cloud save status">Cloud ready</span>
       <button id="toggleZeroRows" class="secondary icon-action toggle-zero" title="Hide/show employees with 0 hours" aria-label="Hide/show employees with 0 hours"></button>
-      <button id="toggleMetrics" class="secondary icon-action toggle-metrics" title="Show/hide metrics" aria-label="Show/hide metrics">▦</button>
       <button id="copySchedule" class="secondary icon-action" title="Copy schedule" aria-label="Copy schedule"></button>
-      <button id="resetBtn" class="secondary icon-action owner-only" title="Reset local data" aria-label="Reset local data"></button>
       <span class="toolbar-separator owner-only" aria-hidden="true"></span>
       <button id="messageBtn" class="secondary icon-action whatsapp" title="Create WhatsApp message" aria-label="Create WhatsApp message"></button>
       <button id="printBtn" class="secondary icon-action" title="Print schedule" aria-label="Print schedule"></button>
