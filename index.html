@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bouillon Bruxelles Planner</title>
+  <link rel="stylesheet" href="assets/css/app.css" />
+</head>
+<body class="desktop logged-out">
+  <section id="login" class="login">
+    <div class="login-card">
+      <img src="logo.png" alt="Bouillon Bruxelles" class="logo big" />
+      <p class="eyebrow">Local prototype access</p>
+      <h1>Who are you?</h1>
+      <p class="muted">Choose owner or employee. No password yet — this is only for local testing.</p>
+      <div class="segmented">
+        <button id="roleEmployee" class="active">Employee</button>
+        <button id="roleOwner">Owner</button>
+      </div>
+      <label id="employeeLoginWrap">Employee
+        <select id="employeeLogin"></select>
+      </label>
+      <button id="enterBtn" class="primary wide">Enter planner</button>
+    </div>
+  </section>
+
+  <div class="phone-frame" id="phoneFrame">
+  <header class="topbar">
+    <div class="brand">
+      <img src="logo.png" alt="Bouillon Bruxelles" class="logo" />
+      <div>
+        <p class="eyebrow">Weekly staff planner</p>
+        <h1 id="appTitle">Calendar</h1>
+      </div>
+    </div>
+    <nav id="ownerTopTabs" class="tabs top-tabs owner-only">
+      <button data-tab="planning" class="active">Planning</button>
+      <button data-tab="costs">Costs</button>
+      <button data-tab="dashboard">Dashboard</button>
+      <button data-tab="setup">Setup</button>
+    </nav>
+    <div class="top-actions">
+      <div class="notif-wrap">
+        <button id="notifBtn" class="notif-btn" title="Notifications" aria-label="Notifications">🔔<span id="notifBadgeRed" class="notif-badge red-count"></span><span id="notifBadgeYellow" class="notif-badge yellow-count"></span><span id="notifBadge" class="notif-badge legacy-count"></span></button>
+        <div id="notifPanel" class="notif-panel"></div>
+      </div>
+      <div class="user-pill" id="userPill">Not connected</div>
+      <button id="pcBtn" class="ghost active">PC</button>
+      <button id="phoneBtn" class="ghost">Phone</button>
+      <button id="switchBtn" class="ghost">Switch user</button>
+    </div>
+  </header>
+
+  <section class="planner-toolbar">
+    <div class="toolbar-left">
+      <button id="publishToggleBtn" class="primary icon-action owner-only" title="Publish or unpublish schedule" aria-label="Publish or unpublish schedule"></button>
+      <span id="ownerStatusChip" class="status-chip owner-only" title=""></span>
+      <span id="publishedStatusIcon" class="status-chip employee-only" title=""></span>
+    </div>
+    <div class="toolbar-center">
+      <div class="week-nav compact-week-nav">
+        <button id="prevWeek" class="ghost">←</button>
+        <label>Week <input type="date" id="weekStart" /></label>
+        <button id="nextWeek" class="ghost">→</button>
+      </div>
+      <div class="metric-days shared-metric-days" role="group" aria-label="Metric period"><button type="button" class="metric-day-btn active" data-metric="week">W</button><button type="button" class="metric-day-btn" data-metric="Mon">M</button><button type="button" class="metric-day-btn" data-metric="Tue">T</button><button type="button" class="metric-day-btn" data-metric="Wed">W</button><button type="button" class="metric-day-btn" data-metric="Thu">T</button><button type="button" class="metric-day-btn" data-metric="Fri">F</button><button type="button" class="metric-day-btn" data-metric="Sat">S</button><button type="button" class="metric-day-btn" data-metric="Sun">S</button></div>
+    </div>
+    <div class="toolbar-right icon-actions">
+      <button id="toggleZeroRows" class="secondary icon-action toggle-zero" title="Hide/show employees with 0 hours" aria-label="Hide/show employees with 0 hours"></button>
+      <button id="toggleMetrics" class="secondary icon-action toggle-metrics" title="Show/hide metrics" aria-label="Show/hide metrics">▦</button>
+      <button id="copySchedule" class="secondary icon-action" title="Copy schedule" aria-label="Copy schedule"></button>
+      <button id="resetBtn" class="secondary icon-action owner-only" title="Reset local data" aria-label="Reset local data"></button>
+      <span class="toolbar-separator owner-only" aria-hidden="true"></span>
+      <button id="messageBtn" class="secondary icon-action whatsapp" title="Create WhatsApp message" aria-label="Create WhatsApp message"></button>
+      <button id="printBtn" class="secondary icon-action" title="Print schedule" aria-label="Print schedule"></button>
+      <button id="copyLastWeek" class="secondary icon-action owner-only secondary-utility" title="Copy previous week" aria-label="Copy previous week"></button>
+    </div>
+  </section>
+
+  <nav class="main-nav app-hidden-nav">
+    <button data-page="published" class="nav active">Calendar</button>
+    <button data-page="owner" class="nav owner-only">Owner zone</button>
+    <div class="status-box inline">
+      <span id="statusBadge" class="badge draft">Draft</span>
+      <span id="statusText">Owner is still preparing the week.</span>
+    </div>
+  </nav>
+
+  <main class="shell">
+    <section id="page-published" class="page active">
+      <!-- global planner toolbar above controls calendar actions -->
+      <div class="calendar-top-metrics grid two employee-top-metrics">
+        <section class="panel compact-panel position-summary mini-summary"><div class="metric-title-row"><h3>Total hours by position</h3></div><div id="publishedPositionHours" class="position-hours compact-metrics"></div></section>
+        <section class="panel compact-panel zone-summary mini-summary"><div class="metric-title-row"><h3>Total hours by zone</h3></div><div id="publishedZoneHours" class="zone-hours compact-metrics"></div></section>
+      </div>
+      <div id="publishedCalendar" class="calendar"></div>
+      <section class="panel employee-copy swap-panel-hidden"><h3>My swaps</h3><div id="publishedEmployeeSwaps" class="swap-list"></div></section>
+    </section>
+
+    <section id="page-employee" class="page">
+      <div class="page-head">
+        <div><h2>Employee zone</h2><p class="muted">Before publish: submit availability. After publish: click shifts to request/take swaps.</p></div>
+        <div class="toolbar"><label>I am <select id="employeeSelect"></select></label><button id="submitAvailability" class="primary">Submit availability</button><button id="clearMine" class="secondary">Clear draft</button></div>
+      </div>
+      <section class="panel compact-help"><strong>How swaps work:</strong> click your own published shift to offer it to anyone, or click someone else’s shift/open offer to volunteer. Owner approval is always required.</section>
+      <div id="employeeCalendar" class="calendar"></div>
+      <div class="grid two"><section class="panel compact-panel position-summary"><h3>Total hours by position</h3><div id="employeePositionHours" class="position-hours"></div></section><section class="panel compact-panel zone-summary"><h3>Total hours by zone</h3><div id="employeeZoneHours" class="zone-hours"></div></section></div>
+      <section class="panel"><h3>My swaps</h3><div id="employeeSwaps" class="swap-list"></div></section>
+    </section>
+
+    <section id="page-owner" class="page">
+      <div class="page-head owner-head visually-hidden-actions">
+        <div></div>
+        <div class="toolbar hidden-backup"><button id="exportBtn" class="secondary">Export backup</button><label class="secondary file-label">Import backup<input id="importInput" type="file" accept="application/json"></label></div>
+      </div>
+      <section id="tab-planning" class="tab active">
+        <!-- global planner toolbar above controls owner planning actions -->
+        <div class="calendar-top-metrics grid two">
+          <section class="panel compact-panel position-summary mini-summary"><div class="metric-title-row"><h3>Total hours by position</h3></div><div id="ownerPositionHours" class="position-hours compact-metrics"></div></section>
+          <section class="panel compact-panel zone-summary mini-summary"><div class="metric-title-row"><h3>Total hours by zone</h3></div><div id="ownerZoneHours" class="zone-hours compact-metrics"></div></section>
+        </div>
+        <div id="ownerCalendar" class="calendar"></div>
+        <section class="panel swap-panel-hidden"><h3>Swap requests</h3><div id="ownerSwaps" class="swap-list"></div></section>
+      </section>
+
+      <section id="tab-costs" class="tab costs-tab">
+        <div class="panel analytics-controls cost-analysis-header">
+          <div>
+            <h3>Cost Analysis</h3>
+            <p class="muted">Analyze the selected week or selected day from the planner. Use the week selector and W/M/T/W/T/F/S/S buttons above.</p>
+          </div>
+          <div class="cost-control-stack">
+            <div class="segmented small cost-toggle" aria-label="Stack by">
+              <button type="button" data-cost-stack="position">Position</button>
+              <button type="button" class="active" data-cost-stack="zone">Zone</button>
+            </div>
+          </div>
+        </div>
+
+        <section class="panel hero-chart-panel">
+          <div class="section-title-row"><div><h3 id="costHeroTitle">Planned cost by day</h3><p class="muted" id="costHeroSubtitle">Stacked colors show the cost mix for the selected plan.</p></div><span id="costSelectionBadge" class="mini-badge">Week</span></div>
+          <div id="costHeroChart" class="stacked-chart operational-chart"></div>
+        </section>
+
+        <div class="metrics kpi-grid cost-kpis">
+          <div><span>Total planned cost</span><strong id="analyticsCost">€0</strong><small id="analyticsCostCompare">Selected plan</small></div>
+          <div><span>Total planned hours</span><strong id="analyticsHours">0h</strong><small id="analyticsHoursCompare">Selected plan</small></div>
+          <div><span>Staffed employees</span><strong id="teamCount">0</strong><small>Distinct people scheduled</small></div>
+          <div><span>Avg cost / hour</span><strong id="analyticsAvgCost">€0</strong><small>Planning rate average</small></div>
+          <div><span>Highest-cost day/shift</span><strong id="topDay">—</strong><small id="topDayDetail">Cost driver</small></div>
+          <div><span>Top cost position</span><strong id="topPosition">—</strong><small id="topPositionDetail">Cost share</small></div>
+          <div><span>Top cost zone</span><strong id="topZone">—</strong><small id="topZoneDetail">Cost share</small></div>
+          <div><span>Assignments</span><strong id="assignmentCount">0</strong><small>Filled shift slots</small></div>
+        </div>
+
+        <section class="panel insight-alerts">
+          <h3>Quick insights</h3>
+          <div id="insightAlerts" class="alert-grid"></div>
+        </section>
+
+        <section class="panel">
+          <h3>Day breakdown: hours + cost</h3>
+          <div id="dayOverview"></div>
+        </section>
+
+        <section class="panel">
+          <h3>Employee workload & cost</h3>
+          <div id="employeeInsights"></div>
+        </section>
+
+        <div class="grid two dashboard-grid">
+          <section class="panel"><h3>Position breakdown</h3><p class="muted">WHO: hours, cost and share by position.</p><div id="positionBreakdown"></div></section>
+          <section class="panel zone-summary"><h3>Zone breakdown</h3><p class="muted">WHERE: hours, cost and share by zone.</p><div id="zoneBreakdown"></div></section>
+        </div>
+      </section>
+
+      <section id="tab-dashboard" class="tab dashboard-tab">
+        <div class="panel analytics-controls dashboard-range-header">
+          <div>
+            <h3>Dashboard</h3>
+            <p class="muted">Longer-term planning trends and comparisons. This uses saved weekly snapshots and the current week.</p>
+          </div>
+          <div class="cost-control-stack">
+            <div class="segmented small dashboard-range">
+              <button type="button" class="active" data-dashboard-range="4">4 weeks</button>
+              <button type="button" data-dashboard-range="12">12 weeks</button>
+              <button type="button" data-dashboard-range="52">YTD / 52w</button>
+            </div>
+            <div class="segmented small dashboard-group">
+              <button type="button" class="active" data-dashboard-mix="position">Position mix</button>
+              <button type="button" data-dashboard-mix="zone">Zone mix</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="metrics kpi-grid trend-kpis">
+          <div><span>Period cost</span><strong id="trendCost">€0</strong><small id="trendCostDelta">vs previous period</small></div>
+          <div><span>Period hours</span><strong id="trendHours">0h</strong><small id="trendHoursDelta">vs previous period</small></div>
+          <div><span>Avg weekly cost</span><strong id="trendAvgCost">€0</strong><small>Across selected range</small></div>
+          <div><span>Avg weekly hours</span><strong id="trendAvgHours">0h</strong><small>Across selected range</small></div>
+          <div><span>Peak week</span><strong id="trendPeakWeek">—</strong><small id="trendPeakDetail">Highest planned cost</small></div>
+          <div><span>Main cost driver</span><strong id="trendDriver">—</strong><small id="trendDriverDetail">Across selected range</small></div>
+        </div>
+
+        <div class="grid two dashboard-grid">
+          <section class="panel"><h3>Cost trend</h3><div id="dashboardCostTrend" class="trend-chart"></div></section>
+          <section class="panel"><h3>Hours trend</h3><div id="dashboardHoursTrend" class="trend-chart"></div></section>
+        </div>
+        <section class="panel">
+          <h3 id="dashboardMixTitle">Cost mix over time</h3>
+          <p class="muted">Stacked bars show how positions or zones contribute to planned cost over time.</p>
+          <div id="dashboardStackedMix" class="stacked-chart operational-chart"></div>
+        </section>
+        <div class="grid two dashboard-grid">
+          <section class="panel"><h3>Position evolution</h3><div id="dashboardPositionBreakdown"></div></section>
+          <section class="panel zone-summary"><h3>Zone evolution</h3><div id="dashboardZoneBreakdown"></div></section>
+        </div>
+      </section>
+
+      <section id="tab-setup" class="tab">
+        <section class="panel">
+          <h3>Manage employees</h3>
+          <div class="add-row"><input id="newName" placeholder="Name"><select id="newPosition"></select><input id="newRate" type="number" step="0.25" placeholder="€/hour"><button id="addEmployee" class="primary">Add employee</button></div>
+          <div id="employeeManager"></div>
+        </section>
+        <section class="panel">
+          <h3>Manage positions</h3>
+          <p class="muted">These positions appear in the employee manager.</p>
+          <div id="positionManager"></div>
+          <div class="add-row"><input id="newPositionName" placeholder="New position, e.g. Runner"><button id="addPositionBtn" class="primary">Add position</button></div>
+        </section>
+        <section class="panel">
+          <h3>Manage zones & shift hours</h3>
+          <p class="muted">This mirrors your Excel zone table: position/role, zone, lunch hours and evening hours.</p>
+          <div id="zoneManager"></div>
+          <div class="add-row zone-add"><input id="newZoneRole" placeholder="Role / position"><input id="newZoneName" placeholder="Zone"><input id="newZoneLunch" placeholder="Lunch, e.g. 11:00-15:00"><input id="newZoneEvening" placeholder="Evening, e.g. 17:50-23:00"><button id="addZoneBtn" class="primary">Add zone</button></div>
+        </section>
+      </section>
+
+    </section>
+  </main>
+  </div>
+
+  <dialog id="swapDialog">
+    <h2 id="swapTitle">Swap request</h2>
+    <p id="swapBody" class="muted"></p>
+    <label id="swapTargetWrap">Swap with<select id="swapTarget"></select></label>
+    <label>Optional note<textarea id="swapNote" rows="4" placeholder="Write a short reason or comment"></textarea></label>
+    <div class="dialog-actions"><button id="confirmSwap" class="primary">Confirm</button><button id="cancelSwap" class="secondary">Cancel</button></div>
+  </dialog>
+
+
+  <dialog id="zoneDialog" class="dialog zone-dialog">
+    <h3>Change zone</h3>
+    <p id="zoneDialogText" class="muted"></p>
+    <label>Zone
+      <select id="zoneDialogSelect"></select>
+    </label>
+    <div class="dialog-actions"><button id="saveZoneDialog" class="primary">Save zone</button><button id="cancelZoneDialog" class="secondary">Cancel</button></div>
+  </dialog>
+
+  <dialog id="messageDialog">
+    <h2>Schedule message</h2>
+    <textarea id="messageText" rows="16"></textarea>
+    <div class="dialog-actions"><button id="copyMessage" class="primary">Copy</button><button id="closeMessage" class="secondary">Close</button></div>
+  </dialog>
+
+  <dialog id="dayNoteDialog" class="note-dialog">
+    <h2 id="dayNoteTitle">Shift notes</h2>
+    <div id="dayNoteBody" class="day-note-body"></div>
+    <div class="dialog-actions"><button id="closeDayNote" class="secondary">Close</button></div>
+  </dialog>
+
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/data-adapter.local.js"></script>
+  <script src="assets/js/data-adapter.supabase.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
