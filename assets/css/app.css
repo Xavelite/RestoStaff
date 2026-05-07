@@ -3979,7 +3979,6 @@ body.logged-in:not(.terminal-mode) .shell,
 body.logged-in:not(.terminal-mode) .page,
 body.logged-in:not(.terminal-mode) .tab{color:var(--rs-text)!important;}
 body.logged-in:not(.terminal-mode) .muted,
-body.logged-in:not(.terminal-mode) small,
 body.logged-in:not(.terminal-mode) .person-position{color:var(--rs-muted)!important;}
 body.logged-in:not(.terminal-mode) .eyebrow{color:var(--rs-accent)!important;}
 body.logged-in.theme-modern:not(.terminal-mode) .eyebrow{color:color-mix(in srgb,var(--rs-accent) 62%,#fff)!important;}
@@ -4081,8 +4080,8 @@ body.theme-modern.logged-in:not(.terminal-mode) .metric-card,
 body.theme-modern.logged-in:not(.terminal-mode) .timeclock-hero,
 body.theme-modern.logged-in:not(.terminal-mode) .timeclock-manager,
 body.theme-modern.logged-in:not(.terminal-mode) .timeclock-terminal-card{backdrop-filter:blur(18px)!important;}
-body.logged-in:not(.terminal-mode) h1,body.logged-in:not(.terminal-mode) h2,body.logged-in:not(.terminal-mode) h3,body.logged-in:not(.terminal-mode) h4,body.logged-in:not(.terminal-mode) strong{color:var(--rs-text)!important;}
-body.theme-modern.logged-in:not(.terminal-mode) h1,body.theme-modern.logged-in:not(.terminal-mode) h2,body.theme-modern.logged-in:not(.terminal-mode) h3,body.theme-modern.logged-in:not(.terminal-mode) h4,body.theme-modern.logged-in:not(.terminal-mode) strong{color:#f8fafc!important;}
+body.logged-in:not(.terminal-mode) h1,body.logged-in:not(.terminal-mode) h2,body.logged-in:not(.terminal-mode) h3,body.logged-in:not(.terminal-mode) h4{color:var(--rs-text)!important;}
+body.theme-modern.logged-in:not(.terminal-mode) h1,body.theme-modern.logged-in:not(.terminal-mode) h2,body.theme-modern.logged-in:not(.terminal-mode) h3,body.theme-modern.logged-in:not(.terminal-mode) h4{color:#f8fafc!important;}
 body.logged-in:not(.terminal-mode) button.primary,
 body.logged-in:not(.terminal-mode) .primary{background:linear-gradient(135deg,var(--rs-accent),var(--rs-accent-dark))!important;color:#fff!important;border:1px solid transparent!important;box-shadow:0 14px 32px color-mix(in srgb,var(--rs-accent) 24%,transparent)!important;}
 body.logged-in:not(.terminal-mode) button.secondary,
@@ -4446,7 +4445,6 @@ body.theme-modern.logged-in:not(.terminal-mode) .timeclock-card{
   backdrop-filter:blur(16px)!important;
 }
 body.theme-modern.logged-in:not(.terminal-mode) .muted,
-body.theme-modern.logged-in:not(.terminal-mode) small,
 body.theme-modern.logged-in:not(.terminal-mode) .person-position,
 body.theme-modern.logged-in:not(.terminal-mode) .login-workspace-meta,
 body.theme-modern.logged-in:not(.terminal-mode) .slot .meta,
@@ -5534,8 +5532,7 @@ body.theme-light.logged-in:not(.terminal-mode){
 body.logged-in:not(.terminal-mode){font-weight:450!important;color:var(--rs-text)!important;}
 body.logged-in:not(.terminal-mode) h1,
 body.logged-in:not(.terminal-mode) h2,
-body.logged-in:not(.terminal-mode) h3,
-body.logged-in:not(.terminal-mode) strong{font-weight:650!important;}
+body.logged-in:not(.terminal-mode) h3{font-weight:650!important;}
 body.logged-in.desktop:not(.terminal-mode) .brand h1{font-size:28px!important;font-weight:620!important;letter-spacing:-.055em!important;color:#24202a!important;}
 body.theme-modern.logged-in.desktop:not(.terminal-mode) .brand h1{color:#f8fafc!important;}
 body.logged-in:not(.terminal-mode) .top-tabs{height:50px!important;max-width:660px!important;padding:5px!important;border-radius:25px!important;}
@@ -5816,10 +5813,8 @@ body.terminal-mode .terminal-action-panel.pin-success .terminal-success-card{
   body.terminal-mode .terminal-action-panel.pin-success .terminal-selected-card{width:min(560px,88%)!important;min-height:260px!important;}
 }
 
-/* v159 employee My Schedule -------------------------------------------------
-   Adds a terminal-inspired personal weekly schedule without touching the owner
-   planner calendar. Full planner remains available to employees only when the
-   owner marks them as manager/full-planner access in Setup. */
+/* Employee access shell helpers ---------------------------------------------
+   Dedicated My Schedule calendar styles live in assets/css/employee-schedule.css. */
 body.logged-in.employee:not(.employee-manager-access) .employee-manager-only{display:none!important;}
 body.logged-in.owner .employee-page-tabs{display:none!important;}
 body.logged-in.employee .employee-page-tabs{
@@ -5851,97 +5846,73 @@ body.logged-in.employee .employee-page-tabs button.active{
 body.theme-modern.logged-in.employee .employee-page-tabs{background:rgba(255,255,255,.055)!important;border-color:rgba(255,255,255,.12)!important;}
 body.theme-modern.logged-in.employee .employee-page-tabs button{color:#f8fafc!important;}
 body.theme-modern.logged-in.employee .employee-page-tabs button:not(.active){color:#c0cad8!important;}
-body.logged-in.employee.my-schedule-mode .planner-toolbar .shared-metric-days,
-body.logged-in.employee.my-schedule-mode #toggleZeroRows,
-body.logged-in.employee.my-schedule-mode #copySchedule,
-body.logged-in.employee.my-schedule-mode #messageBtn,
-body.logged-in.employee.my-schedule-mode #printBtn,
-body.logged-in.employee.my-schedule-mode .toolbar-separator{display:none!important;}
-body.logged-in.employee.my-schedule-mode .planner-toolbar .toolbar-center{justify-content:center!important;}
-body.logged-in.employee.my-schedule-mode .planner-toolbar .toolbar-right{min-width:0!important;}
-body.logged-in.employee.my-schedule-mode .main-nav{display:none!important;}
-.employee-my-schedule-page{padding-top:10px!important;}
-.my-schedule-shell{max-width:1160px;margin:0 auto;display:grid;gap:18px;}
-.my-schedule-hero{
-  display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:18px;
-  min-height:140px;padding:26px;border-radius:34px;overflow:hidden;position:relative;
-  background:radial-gradient(circle at 90% 120%,color-mix(in srgb,var(--rs-accent,var(--red)) 22%,transparent),transparent 26%),linear-gradient(135deg,#181d28,#10151e 62%,#0b1018);
-  border:1px solid rgba(255,255,255,.10);box-shadow:0 30px 90px rgba(0,0,0,.18);color:#fff;
+body.logged-in:not(.terminal-mode) .brand-workspace-chip{display:none!important;}
+body.logged-in.employee:not(.terminal-mode) .topbar .top-tabs{display:none!important;}
+body.logged-in.owner:not(.terminal-mode) .topbar .employee-page-tabs{display:none!important;}
+
+/* New Employee Schedule owns its own compact week controls.
+   These scoped rules only neutralize the legacy planner shell around that module. */
+body.logged-in.employee.my-schedule-mode{
+  overflow:hidden!important;
+  background:
+    radial-gradient(circle at 16% 10%,rgba(51,71,255,.18),transparent 28%),
+    radial-gradient(circle at 86% 16%,rgba(35,198,167,.12),transparent 23%),
+    radial-gradient(circle at 82% 92%,rgba(255,122,89,.10),transparent 24%),
+    linear-gradient(135deg,#06101d 0,#091325 52%,#101a31 100%)!important;
 }
-.my-schedule-hero::after{content:"";position:absolute;right:-90px;bottom:-110px;width:260px;height:260px;border-radius:50%;background:color-mix(in srgb,var(--rs-accent,var(--red)) 28%,transparent);filter:blur(1px);pointer-events:none;}
-.my-schedule-avatar{width:70px;height:70px;border-radius:24px;display:grid;place-items:center;background:linear-gradient(135deg,var(--rs-accent,var(--red)),var(--rs-accent-dark,var(--red2)));font-weight:950;font-size:24px;box-shadow:0 18px 40px color-mix(in srgb,var(--rs-accent,var(--red)) 28%,transparent);}
-.my-schedule-hero h2{margin:0;color:#fff!important;font-size:clamp(34px,4vw,56px);line-height:.95;letter-spacing:-.065em;}
-.my-schedule-hero-copy{display:grid;gap:6px;}
-.my-schedule-hero-copy .eyebrow{color:color-mix(in srgb,var(--rs-accent,var(--red)) 56%,#fff)!important;}
-.my-schedule-hero-copy span{color:#bac6d8;font-weight:750;}
-.my-schedule-status-card{position:relative;z-index:1;min-width:180px;border-radius:24px;padding:16px 18px;background:rgba(255,255,255,.075);border:1px solid rgba(255,255,255,.12);display:grid;gap:4px;text-align:left;}
-.my-schedule-status-card strong{color:#fff!important;font-size:20px;letter-spacing:-.03em;}
-.my-schedule-status-card span{color:#b8c4d6;font-weight:700;font-size:12px;}
-.my-schedule-status-card.published{background:rgba(34,197,94,.12);border-color:rgba(134,239,172,.25);}
-.my-schedule-status-card.draft{background:rgba(245,158,11,.12);border-color:rgba(251,191,36,.25);}
-.my-schedule-board{border-radius:34px;padding:18px;background:linear-gradient(135deg,#171d27,#10151d);border:1px solid rgba(255,255,255,.10);box-shadow:0 30px 90px rgba(0,0,0,.16);}
-.my-schedule-board-head,.my-schedule-row{display:grid;grid-template-columns:110px repeat(2,minmax(0,1fr));gap:12px;align-items:stretch;}
-.my-schedule-board-head{padding:0 4px 10px;color:#dbe5f4;text-transform:uppercase;letter-spacing:.08em;font-size:12px;}
-.my-schedule-board-head strong{color:#f8fafc!important;text-align:center;}
-.my-schedule-grid{display:grid;gap:12px;}
-.my-day-label{min-height:104px;border-radius:24px;padding:14px 12px;display:grid;place-items:center;text-align:center;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);}
-.my-day-label strong{display:block;color:#fff!important;font-size:22px;letter-spacing:-.04em;}
-.my-day-label span{color:#aebacc;font-weight:750;font-size:12px;}
-.my-shift-card{position:relative;min-height:104px;width:100%;display:grid;grid-template-rows:auto 1fr auto auto;gap:3px;text-align:left;padding:16px 18px;border-radius:24px;border:1px solid rgba(255,255,255,.10)!important;background:rgba(255,255,255,.055)!important;color:#fff!important;box-shadow:none!important;overflow:hidden;}
-.my-shift-card::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:5px;border-radius:0 999px 999px 0;background:var(--zone-accent,var(--pos-color,var(--rs-accent,var(--red))));opacity:.95;}
-.my-shift-card span{color:#aebacc;font-size:11px;font-weight:850;text-transform:uppercase;letter-spacing:.08em;}
-.my-shift-card strong{color:#fff!important;font-size:18px;font-weight:850;letter-spacing:-.035em;align-self:end;}
-.my-shift-card small{color:#cbd5e1;font-weight:720;font-size:12px;}
-.my-shift-card em{color:#94a3b8;font-style:normal;font-weight:800;font-size:11px;}
-.my-shift-card.planned{background:linear-gradient(135deg,rgba(255,255,255,.09),rgba(255,255,255,.045))!important;border-color:rgba(255,255,255,.14)!important;}
-.my-shift-card.off{opacity:.72;}
-.my-shift-card.off strong{color:#d6deea!important;}
-.my-shift-card:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--rs-accent,var(--red)) 42%,rgba(255,255,255,.20))!important;}
-.my-shift-tag{position:absolute!important;right:12px;top:12px;border-radius:999px;padding:4px 8px;background:rgba(255,255,255,.10);color:#fff!important;font-size:10px!important;font-weight:900!important;}
-.my-schedule-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;}
-.my-schedule-summary>div{min-height:88px;border-radius:26px;padding:16px 18px;background:rgba(255,255,255,.94);border:1px solid var(--rs-line,var(--line));box-shadow:var(--rs-shadow,0 18px 45px rgba(99,35,52,.09));display:grid;gap:3px;}
-.my-schedule-summary span{color:var(--rs-muted,var(--muted));font-size:12px;font-weight:800;}
-.my-schedule-summary strong{font-size:24px;font-weight:760;letter-spacing:-.04em;color:var(--rs-ink,var(--ink))!important;}
-.my-schedule-summary small{color:var(--rs-muted,var(--muted));font-weight:700;}
-.my-schedule-swaps{margin-bottom:0!important;}
-body.theme-modern.logged-in:not(.terminal-mode) .my-schedule-summary>div,
-body.theme-modern.logged-in:not(.terminal-mode) .my-schedule-swaps{background:rgba(255,255,255,.075)!important;border-color:rgba(255,255,255,.12)!important;color:#fff!important;}
-body.theme-modern.logged-in:not(.terminal-mode) .my-schedule-summary span,
-body.theme-modern.logged-in:not(.terminal-mode) .my-schedule-summary small{color:#aab6c8!important;}
-body.theme-modern.logged-in:not(.terminal-mode) .my-schedule-summary strong{color:#f8fafc!important;}
-body.theme-light.logged-in .my-schedule-hero{background:radial-gradient(circle at 90% 120%,color-mix(in srgb,var(--rs-accent,var(--red)) 14%,transparent),transparent 28%),linear-gradient(135deg,#fff,#fbf7f8 70%,#fff)!important;color:var(--rs-ink,var(--ink))!important;border-color:var(--rs-line-strong,var(--line));box-shadow:var(--rs-shadow,0 18px 45px rgba(99,35,52,.09));}
-body.theme-light.logged-in .my-schedule-hero h2{color:var(--rs-ink,var(--ink))!important;}
-body.theme-light.logged-in .my-schedule-hero-copy span{color:var(--rs-muted,var(--muted))!important;}
-body.theme-light.logged-in .my-schedule-status-card{background:rgba(255,255,255,.82);border-color:var(--rs-line,var(--line));}
-body.theme-light.logged-in .my-schedule-status-card strong{color:var(--rs-ink,var(--ink))!important;}
-body.theme-light.logged-in .my-schedule-status-card span{color:var(--rs-muted,var(--muted));}
-body.theme-light.logged-in .my-schedule-board{background:#fff!important;border-color:var(--rs-line-strong,var(--line));box-shadow:var(--rs-shadow,0 18px 45px rgba(99,35,52,.09));}
-body.theme-light.logged-in .my-schedule-board-head{color:var(--rs-muted,var(--muted));}
-body.theme-light.logged-in .my-schedule-board-head strong{color:var(--rs-ink,var(--ink))!important;}
-body.theme-light.logged-in .my-day-label{background:#fbf7f8;border-color:var(--rs-line,var(--line));}
-body.theme-light.logged-in .my-day-label strong{color:var(--rs-ink,var(--ink))!important;}
-body.theme-light.logged-in .my-day-label span{color:var(--rs-muted,var(--muted));}
-body.theme-light.logged-in .my-shift-card{background:#fbf8f9!important;border-color:var(--rs-line,var(--line))!important;color:var(--rs-ink,var(--ink))!important;}
-body.theme-light.logged-in .my-shift-card.planned{background:#fff!important;box-shadow:0 10px 24px rgba(99,35,52,.06)!important;}
-body.theme-light.logged-in .my-shift-card strong{color:var(--rs-ink,var(--ink))!important;}
-body.theme-light.logged-in .my-shift-card span,
-body.theme-light.logged-in .my-shift-card em{color:var(--rs-muted,var(--muted))!important;}
-body.theme-light.logged-in .my-shift-card small{color:#5d5360!important;}
-body.theme-light.logged-in .my-shift-tag{background:#fff!important;color:var(--rs-accent,var(--red))!important;border:1px solid var(--rs-line,var(--line));}
+body.logged-in.employee.my-schedule-mode .planner-toolbar,
+body.logged-in.employee.my-schedule-mode .main-nav,
+body.logged-in.employee.my-schedule-mode #themeToggleBtn{display:none!important;}
+body.logged-in.employee.my-schedule-mode:not(.employee-manager-access) .employee-page-tabs{display:none!important;}
+body.logged-in.employee.my-schedule-mode .topbar{
+  max-width:none!important;
+  min-height:74px!important;
+  padding:12px 24px!important;
+  background:linear-gradient(90deg,rgba(5,13,24,.96) 0%,rgba(6,16,29,.95) 52%,rgba(8,22,37,.92) 100%)!important;
+  border-bottom:1px solid rgba(255,255,255,.08)!important;
+  box-shadow:0 12px 30px rgba(0,0,0,.18)!important;
+  backdrop-filter:blur(16px)!important;
+}
+body.logged-in.employee.my-schedule-mode .brand{gap:14px!important;align-items:center!important;}
+body.logged-in.employee.my-schedule-mode .brand-restaurant-logo{max-height:52px!important;width:auto!important;object-fit:contain!important;}
+body.logged-in.employee.my-schedule-mode .brand-copy{font-family:Inter,"Segoe UI",Arial,sans-serif!important;}
+body.logged-in.employee.my-schedule-mode .brand-copy .eyebrow{color:#d62a57!important;letter-spacing:.18em!important;font-size:12px!important;font-weight:950!important;text-transform:uppercase!important;}
+body.logged-in.employee.my-schedule-mode #appTitle{font-family:Inter,"Segoe UI",Arial,sans-serif!important;font-size:28px!important;line-height:1!important;color:#f8fafc!important;font-weight:1000!important;letter-spacing:-.05em!important;}
+body.logged-in.employee.my-schedule-mode .top-actions{gap:10px!important;}
+body.logged-in.employee.my-schedule-mode .top-actions .user-pill,
+body.logged-in.employee.my-schedule-mode .top-actions .ghost,
+body.logged-in.employee.my-schedule-mode .notif-btn{
+  min-height:40px!important;
+  border-radius:16px!important;
+  border:1px solid rgba(255,255,255,.10)!important;
+  background:rgba(255,255,255,.05)!important;
+  color:#f8fafc!important;
+  box-shadow:none!important;
+}
+body.logged-in.employee.my-schedule-mode .top-actions .user-pill{padding:0 16px!important;display:inline-flex!important;align-items:center!important;}
+body.logged-in.employee.my-schedule-mode .top-actions .ghost{padding:0 12px!important;}
+body.logged-in.employee.my-schedule-mode .top-actions .btn-svg{stroke:#f8fafc!important;}
+body.logged-in.employee.my-schedule-mode .shell{
+  height:calc(100dvh - var(--topbar-h,74px))!important;
+  min-height:0!important;
+  max-width:none!important;
+  width:100%!important;
+  margin:0!important;
+  padding:12px 0!important;
+  overflow:hidden!important;
+  background:transparent!important;
+}
+body.logged-in.employee.my-schedule-mode .employee-my-schedule-page{
+  height:100%!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:0!important;
+  background:transparent!important;
+}
 @media(max-width:980px){
   body.logged-in.employee .employee-page-tabs{grid-area:tabs!important;width:100%!important;min-width:0!important;max-width:420px!important;}
-  .my-schedule-shell{max-width:100%;}
-  .my-schedule-hero{grid-template-columns:auto 1fr;gap:14px;padding:20px;border-radius:28px;}
-  .my-schedule-status-card{grid-column:1/-1;min-width:0;}
-  .my-schedule-board{padding:12px;border-radius:28px;overflow:auto;}
-  .my-schedule-board-head,.my-schedule-row{grid-template-columns:72px repeat(2,minmax(150px,1fr));gap:8px;min-width:390px;}
-  .my-day-label,.my-shift-card{min-height:96px;border-radius:20px;}
-  .my-schedule-summary{grid-template-columns:repeat(2,minmax(0,1fr));}
-}
-@media(max-width:520px){
-  .my-schedule-hero h2{font-size:34px;}
-  .my-schedule-avatar{width:58px;height:58px;border-radius:20px;}
-  .my-schedule-summary{grid-template-columns:1fr;}
+  body.logged-in.employee.my-schedule-mode{overflow:auto!important;}
+  body.logged-in.employee.my-schedule-mode .shell{height:auto!important;min-height:calc(100dvh - var(--topbar-h,74px))!important;overflow:visible!important;}
 }
 
 /* v159 precise shift time overrides */
@@ -5958,190 +5929,6 @@ body.logged-in:not(.terminal-mode) .slot .time-inline{
 }
 body.theme-light.logged-in:not(.terminal-mode) .slot .time-inline{background:#fff!important;color:var(--rs-ink,var(--ink))!important;border:1px solid var(--rs-line,var(--line))!important;}
 body.theme-modern.logged-in:not(.terminal-mode) .slot .time-inline{background:rgba(255,255,255,.08)!important;color:#f8fafc!important;border:1px solid rgba(255,255,255,.13)!important;}
-
-/* v160 My Schedule simplification and topbar polish */
-body.logged-in:not(.terminal-mode) .brand-workspace-chip{display:none!important;}
-body.logged-in.employee:not(.terminal-mode) .topbar .top-tabs{display:none!important;}
-body.logged-in.owner:not(.terminal-mode) .topbar .employee-page-tabs{display:none!important;}
-body.logged-in.employee.my-schedule-mode #publishedStatusIcon{display:none!important;}
-body.logged-in.employee.my-schedule-mode .planner-toolbar .toolbar-left{visibility:hidden!important;}
-
-.my-schedule-hero.simplified{
-  grid-template-columns:minmax(260px,1fr) auto!important;
-  min-height:110px!important;
-  padding:22px 26px!important;
-}
-.my-schedule-hero.simplified .my-schedule-status-card{
-  min-width:0!important;
-  width:100%!important;
-  padding:20px 22px!important;
-  border-radius:26px!important;
-  background:rgba(255,255,255,.075)!important;
-  border-color:rgba(255,255,255,.13)!important;
-}
-.my-schedule-hero.simplified .my-schedule-status-card strong{
-  font-size:clamp(30px,3vw,44px)!important;
-  line-height:.95!important;
-  letter-spacing:-.055em!important;
-}
-.my-schedule-hero.simplified .my-schedule-status-card span{
-  margin-top:6px!important;
-  font-size:13px!important;
-  font-weight:760!important;
-}
-.my-schedule-week-card{
-  position:relative;z-index:1;
-  min-width:180px;
-  border-radius:24px;
-  padding:16px 18px;
-  background:rgba(255,255,255,.07);
-  border:1px solid rgba(255,255,255,.12);
-  display:grid;
-  gap:5px;
-  text-align:right;
-}
-.my-schedule-week-card span{
-  color:#aebacc;
-  font-size:11px;
-  font-weight:900;
-  letter-spacing:.08em;
-  text-transform:uppercase;
-}
-.my-schedule-week-card strong{
-  color:#fff!important;
-  font-size:18px;
-  font-weight:850;
-  letter-spacing:-.035em;
-}
-.my-schedule-hero.simplified .my-schedule-status-card.published{
-  background:linear-gradient(135deg,rgba(34,197,94,.20),rgba(255,255,255,.07))!important;
-  border-color:rgba(134,239,172,.28)!important;
-}
-.my-schedule-hero.simplified .my-schedule-status-card.draft{
-  background:linear-gradient(135deg,rgba(245,158,11,.18),rgba(255,255,255,.07))!important;
-  border-color:rgba(251,191,36,.28)!important;
-}
-.my-shift-card{
-  grid-template-rows:1fr auto!important;
-  align-content:center!important;
-  transition:transform .14s ease,border-color .18s ease,background .18s ease,box-shadow .18s ease,opacity .18s ease!important;
-}
-.my-shift-card strong{
-  align-self:center!important;
-  font-size:20px!important;
-}
-.my-shift-card small{
-  align-self:end!important;
-  margin-top:4px!important;
-}
-.my-shift-card span:not(.my-shift-check):not(.my-shift-tag),
-.my-shift-card em{display:none!important;}
-.my-shift-card.draft.planned{
-  background:linear-gradient(135deg,rgba(34,197,94,.22),rgba(34,197,94,.10))!important;
-  border-color:rgba(134,239,172,.34)!important;
-  box-shadow:0 16px 36px rgba(34,197,94,.09)!important;
-}
-.my-shift-card.draft.planned::before{background:#22c55e!important;opacity:1!important;}
-.my-shift-card.draft.planned strong{color:#f0fdf4!important;}
-.my-shift-card.draft.off{opacity:.58;}
-.my-shift-check{
-  position:absolute!important;
-  right:14px!important;
-  top:14px!important;
-  width:25px!important;
-  height:25px!important;
-  border-radius:999px!important;
-  display:grid!important;
-  place-items:center!important;
-  background:rgba(34,197,94,.22)!important;
-  border:1px solid rgba(134,239,172,.35)!important;
-  color:#bbf7d0!important;
-  font-size:14px!important;
-  font-weight:1000!important;
-}
-.my-shift-card.just-tapped{animation:myScheduleTapPop .48s ease both!important;}
-@keyframes myScheduleTapPop{
-  0%{transform:scale(.985);}
-  45%{transform:scale(1.018);box-shadow:0 0 0 7px rgba(34,197,94,.10),0 18px 42px rgba(34,197,94,.13);}
-  100%{transform:scale(1);}
-}
-body.theme-light.logged-in .my-schedule-hero.simplified .my-schedule-status-card,
-body.theme-light.logged-in .my-schedule-week-card{
-  background:#fff!important;
-  border-color:var(--rs-line,var(--line))!important;
-}
-body.theme-light.logged-in .my-schedule-week-card span{color:var(--rs-muted,var(--muted))!important;}
-body.theme-light.logged-in .my-schedule-week-card strong{color:var(--rs-ink,var(--ink))!important;}
-body.theme-light.logged-in .my-shift-card.draft.planned{
-  background:linear-gradient(135deg,#ecfdf3,#f8fffb)!important;
-  border-color:#bfeccc!important;
-  box-shadow:0 14px 30px rgba(34,197,94,.10)!important;
-}
-body.theme-light.logged-in .my-shift-card.draft.planned strong{color:#116b35!important;}
-body.theme-light.logged-in .my-shift-check{background:#dcfce7!important;color:#15803d!important;border-color:#bbf7d0!important;}
-body.theme-light.logged-in .my-shift-card.draft.off{background:#fbf8f9!important;}
-@media(max-width:980px){
-  .my-schedule-hero.simplified{grid-template-columns:1fr!important;gap:12px!important;padding:18px!important;}
-  .my-schedule-week-card{text-align:left!important;min-width:0!important;}
-  body.logged-in.employee.my-schedule-mode .planner-toolbar .toolbar-left{display:none!important;}
-}
-
-/* v161 My Schedule time/zone polish + availability time editing */
-.my-schedule-board{padding:16px!important;}
-.my-schedule-grid{gap:10px!important;}
-.my-schedule-board-head,.my-schedule-row{gap:10px!important;}
-.my-day-label,.my-shift-card{min-height:88px!important;border-radius:22px!important;}
-.my-day-label strong{font-size:20px!important;}
-.my-shift-card{
-  padding:14px 16px!important;
-  padding-right:82px!important;
-  grid-template-rows:auto auto!important;
-  align-content:center!important;
-  gap:5px!important;
-  cursor:pointer!important;
-}
-.my-shift-card strong{font-size:18px!important;line-height:1.05!important;align-self:end!important;}
-.my-shift-card small{font-size:12px!important;line-height:1.25!important;align-self:start!important;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.my-shift-card.published.planned{
-  background:linear-gradient(135deg,rgba(59,130,246,.16),rgba(255,255,255,.055))!important;
-  border-color:color-mix(in srgb,var(--zone-accent,#3b82f6) 44%,rgba(255,255,255,.16))!important;
-  box-shadow:0 16px 36px rgba(59,130,246,.07)!important;
-}
-.my-shift-card.published.planned::before{background:var(--zone-accent,#3b82f6)!important;opacity:1!important;}
-.my-shift-time-action{
-  position:absolute!important;
-  right:12px!important;
-  bottom:12px!important;
-  min-height:28px!important;
-  padding:0 10px!important;
-  border-radius:999px!important;
-  border:1px solid rgba(134,239,172,.28)!important;
-  background:rgba(255,255,255,.08)!important;
-  color:#d1fae5!important;
-  font-size:11px!important;
-  font-weight:900!important;
-  letter-spacing:.02em!important;
-  cursor:pointer!important;
-}
-.my-shift-time-action:hover{background:rgba(34,197,94,.18)!important;border-color:rgba(134,239,172,.48)!important;transform:translateY(-1px)!important;}
-.my-shift-time-action:active{transform:scale(.97)!important;}
-.my-shift-card.off{padding-right:16px!important;}
-body.theme-light.logged-in .my-shift-card.published.planned{
-  background:linear-gradient(135deg,#eef6ff,#fff)!important;
-  border-color:color-mix(in srgb,var(--zone-accent,#3b82f6) 32%,var(--rs-line,var(--line)))!important;
-  box-shadow:0 14px 30px rgba(59,130,246,.08)!important;
-}
-body.theme-light.logged-in .my-shift-time-action{
-  background:#fff!important;
-  color:#15803d!important;
-  border-color:#bbf7d0!important;
-}
-@media(max-width:980px){
-  .my-day-label,.my-shift-card{min-height:82px!important;border-radius:19px!important;}
-  .my-shift-card{padding:13px 14px!important;padding-right:72px!important;}
-  .my-shift-card.off{padding-right:14px!important;}
-  .my-shift-time-action{right:10px!important;bottom:10px!important;min-height:26px!important;padding:0 8px!important;}
-}
 
 /* v163 — Weekly Timesheets simplified + premium cards */
 body.logged-in:not(.terminal-mode) .weekly-timesheet-panel{

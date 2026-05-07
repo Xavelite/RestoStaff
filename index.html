@@ -7,6 +7,7 @@
 <title>RestoStaff Planner</title>
 <link href="assets/css/base.css" rel="stylesheet"/>
 <link href="assets/css/app.css" rel="stylesheet"/>
+<link href="assets/css/employee-schedule.css" rel="stylesheet"/>
 <link href="assets/css/brand.css" rel="stylesheet"/>
 </head>
 <body class="desktop logged-out dev-gated">
@@ -217,25 +218,51 @@
 </div>
 </nav>
 <main class="shell">
-<section class="page employee-my-schedule-page" id="page-my-schedule">
-<div class="my-schedule-shell">
-<section class="my-schedule-hero simplified">
-<div class="my-schedule-status-card" id="myScheduleStatus">Draft</div>
-<div class="my-schedule-week-card">
-<span>Week</span>
-<strong id="myScheduleWeekMeta">Selected week</strong>
+<section class="page employee-my-schedule-page employee-schedule-v2" id="page-my-schedule">
+<div class="employee-schedule-shell">
+<section class="employee-schedule-panel" aria-label="Employee weekly schedule">
+<div class="employee-schedule-metrics" aria-label="Schedule summary and controls">
+<article class="employee-schedule-metric-card is-status">
+<span class="employee-schedule-metric-icon" aria-hidden="true">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5h6l4 4V20a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 20V5A1.5 1.5 0 0 1 7.5 3.5Z"></path><path d="M14 3.5V8h4"></path><path d="M9 12h6"></path><path d="M9 15.5h6"></path></svg>
+</span>
+<div class="employee-schedule-metric-copy">
+<span>Status</span>
+<strong id="myScheduleSummaryStatus">Draft</strong>
+<small id="myScheduleSummaryStatusMeta">Planning not final</small>
 </div>
-</section>
-<section class="my-schedule-board">
-<div class="my-schedule-board-head">
-<span></span>
+</article>
+<div class="employee-schedule-metric-card is-week employee-schedule-week-metric" role="button" tabindex="0" aria-label="Change week" onclick="employeeScheduleOpenPicker()" onkeydown="employeeScheduleOpenPickerFromKey(event)">
+<button class="employee-schedule-week-button" type="button" onclick="employeeScheduleChangeWeek(-7);event.stopPropagation();" aria-label="Previous week">←</button>
+<span class="employee-schedule-metric-icon" aria-hidden="true">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5.5" width="16" height="14" rx="2.5"></rect><path d="M8 3.5v4"></path><path d="M16 3.5v4"></path><path d="M4 9.5h16"></path></svg>
+</span>
+<label class="employee-schedule-week-display" aria-label="Select week start date">
+<span>Week range</span>
+<strong id="myScheduleWeekMeta">04/05 – 10/05</strong>
+<small id="myScheduleWeekHint">Click to change</small>
+<input id="employeeScheduleWeekStart" type="date" onchange="employeeScheduleSetWeek(this.value)"/>
+</label>
+<button class="employee-schedule-week-button" type="button" onclick="employeeScheduleChangeWeek(7);event.stopPropagation();" aria-label="Next week">→</button>
+</div>
+<article class="employee-schedule-metric-card is-hours">
+<span class="employee-schedule-metric-icon" aria-hidden="true">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"></circle><path d="M12 7.5v5l3 2"></path></svg>
+</span>
+<div class="employee-schedule-metric-copy">
+<span>Hours</span>
+<strong id="myScheduleSummaryHours">0h</strong>
+<small id="myScheduleSummaryHoursMeta">0 shifts this week</small>
+</div>
+</article>
+</div>
+<div class="employee-schedule-board-head">
+<span>Day</span>
 <strong>Lunch</strong>
 <strong>Evening</strong>
 </div>
-<div class="my-schedule-grid" id="myScheduleGrid"></div>
+<div class="employee-schedule-grid" id="myScheduleGrid"></div>
 </section>
-<section class="my-schedule-summary" id="myScheduleSummary"></section>
-<section class="panel my-schedule-swaps"><h3>My swaps</h3><div class="swap-list" id="myScheduleSwaps"></div></section>
 </div>
 </section>
 <section class="page active" id="page-published">
@@ -819,6 +846,7 @@
 <script src="assets/js/data-adapter.local.js"></script>
 <script src="assets/js/data-adapter.supabase.js"></script>
 <script src="assets/js/brand-entry.js"></script>
+<script src="assets/js/employee-schedule.js"></script>
 <script src="assets/js/app.js"></script>
 </body>
 </html>

@@ -1,0 +1,549 @@
+/*
+ * RestoStaff employee schedule — v206
+ * -----------------------------------
+ * Final polish: stronger typography ownership, cleaner cards,
+ * improved moon icon treatment, and subtle premium micro-interactions.
+ */
+
+.employee-schedule-v2,
+.employee-schedule-v2 *{
+  box-sizing:border-box;
+}
+
+.employee-schedule-v2{
+  color:#f8fafc;
+  font-family:Inter,"Segoe UI",Arial,sans-serif;
+  font-optical-sizing:auto;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  text-rendering:optimizeLegibility;
+}
+
+.employee-schedule-v2 :is(h1,h2,h3,h4,strong,b,label,small,span,button,input){
+  font-family:inherit;
+}
+
+.employee-schedule-shell{
+  width:min(1560px,calc(100% - 40px));
+  height:100%;
+  min-height:0;
+  margin:0 auto;
+  display:grid;
+}
+
+.employee-schedule-panel{
+  position:relative;
+  min-height:0;
+  overflow:hidden;
+  display:grid;
+  grid-template-rows:auto auto minmax(0,1fr);
+  gap:10px;
+  padding:12px;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:30px;
+  background:
+    radial-gradient(circle at 8% 0%,rgba(70,84,255,.14),transparent 28%),
+    radial-gradient(circle at 90% 10%,rgba(35,198,167,.10),transparent 24%),
+    radial-gradient(circle at 95% 96%,rgba(255,122,89,.11),transparent 22%),
+    linear-gradient(180deg,rgba(255,255,255,.070),rgba(255,255,255,.032));
+  box-shadow:0 28px 86px rgba(0,0,0,.34);
+  backdrop-filter:blur(14px);
+}
+
+.employee-schedule-panel::after{
+  content:"";
+  position:absolute;
+  right:-86px;
+  bottom:-134px;
+  width:290px;
+  height:290px;
+  border-radius:999px;
+  background:color-mix(in srgb,var(--rs-accent,var(--red)) 48%,transparent);
+  opacity:.24;
+  pointer-events:none;
+}
+
+.employee-schedule-metrics{
+  position:relative;
+  z-index:1;
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+}
+
+.employee-schedule-metric-card,
+.employee-schedule-day,
+.employee-schedule-shift{
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(255,255,255,.052);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
+}
+
+.employee-schedule-metric-card{
+  position:relative;
+  min-height:92px;
+  display:grid;
+  grid-template-columns:56px minmax(0,1fr);
+  align-items:center;
+  gap:14px;
+  padding:14px 16px;
+  border-radius:24px;
+  color:#f8fafc;
+  overflow:hidden;
+  transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease,background .18s ease;
+}
+
+.employee-schedule-metric-card::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(135deg,rgba(255,255,255,.032),transparent 58%);
+  pointer-events:none;
+}
+
+.employee-schedule-metric-card::after{
+  content:"";
+  position:absolute;
+  right:-28px;
+  bottom:-28px;
+  width:116px;
+  height:116px;
+  border-radius:999px;
+  background:rgba(255,255,255,.08);
+  opacity:.92;
+  pointer-events:none;
+}
+
+.employee-schedule-metric-card.is-status::after{background:rgba(123,102,255,.18);}
+.employee-schedule-metric-card.is-week::after{background:rgba(86,199,255,.16);}
+.employee-schedule-metric-card.is-hours::after{background:rgba(35,198,167,.17);}
+
+.employee-schedule-metric-card:hover,
+.employee-schedule-week-metric:focus-visible{
+  transform:translateY(-2px);
+  border-color:rgba(255,255,255,.16);
+  box-shadow:0 16px 38px rgba(0,0,0,.16), inset 0 1px 0 rgba(255,255,255,.07);
+}
+
+.employee-schedule-metric-icon{
+  position:relative;
+  z-index:1;
+  width:48px;
+  height:48px;
+  display:grid;
+  place-items:center;
+  border-radius:17px;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.06);
+  color:#dbe7ff;
+}
+
+.employee-schedule-metric-icon svg{
+  width:24px;
+  height:24px;
+  display:block;
+}
+
+.employee-schedule-metric-card.is-status .employee-schedule-metric-icon{
+  color:#a78bfa;
+  background:rgba(123,102,255,.14);
+  border-color:rgba(123,102,255,.24);
+}
+
+.employee-schedule-metric-card.is-week .employee-schedule-metric-icon{
+  color:#6fe6ff;
+  background:rgba(86,199,255,.12);
+  border-color:rgba(86,199,255,.22);
+}
+
+.employee-schedule-metric-card.is-hours .employee-schedule-metric-icon{
+  color:#7cf3cb;
+  background:rgba(35,198,167,.12);
+  border-color:rgba(35,198,167,.22);
+}
+
+.employee-schedule-metric-copy,
+.employee-schedule-week-display{
+  position:relative;
+  z-index:1;
+  min-width:0;
+  display:grid;
+  gap:5px;
+}
+
+.employee-schedule-metric-copy span,
+.employee-schedule-week-display span,
+.employee-schedule-board-head,
+.employee-schedule-shift__label{
+  color:#b9c7db;
+  font-size:11px;
+  font-weight:850;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
+
+.employee-schedule-metric-copy strong,
+.employee-schedule-week-display strong{
+  color:#ffffff;
+  font-size:21px;
+  line-height:1;
+  letter-spacing:-.045em;
+  font-weight:900;
+}
+
+.employee-schedule-metric-copy small,
+.employee-schedule-week-display small{
+  color:#dbe6f5;
+  font-size:13px;
+  line-height:1.15;
+  font-weight:700;
+}
+
+.employee-schedule-metric-card.is-hours .employee-schedule-metric-copy strong{color:#8df3d4;}
+
+.employee-schedule-week-metric{
+  grid-template-columns:32px 48px minmax(0,1fr) 32px;
+  gap:12px;
+  cursor:pointer;
+  outline:none;
+}
+
+.employee-schedule-week-button{
+  position:relative;
+  z-index:1;
+  width:32px;
+  height:32px;
+  min-width:32px;
+  display:grid;
+  place-items:center;
+  padding:0;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:12px;
+  background:rgba(255,255,255,.055);
+  color:#f8fafc;
+  font-size:14px;
+  font-weight:1000;
+  cursor:pointer;
+  transition:background .16s ease,border-color .16s ease,transform .16s ease;
+}
+
+.employee-schedule-week-button:hover{
+  transform:translateY(-1px);
+  background:rgba(255,255,255,.09);
+  border-color:rgba(255,255,255,.18);
+}
+
+.employee-schedule-week-display{
+  min-height:46px;
+  padding-right:24px;
+  cursor:pointer;
+}
+
+.employee-schedule-week-display::after{
+  content:"";
+  position:absolute;
+  right:0;
+  top:50%;
+  width:14px;
+  height:14px;
+  border:1.8px solid rgba(248,250,252,.68);
+  border-radius:4px;
+  box-shadow:0 -3px 0 rgba(248,250,252,.68) inset;
+  transform:translateY(-50%);
+  pointer-events:none;
+}
+
+.employee-schedule-week-display input{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  opacity:0;
+  cursor:pointer;
+}
+
+.employee-schedule-board-head,
+.employee-schedule-row{
+  position:relative;
+  z-index:1;
+  display:grid;
+  grid-template-columns:82px repeat(2,minmax(0,1fr));
+  gap:8px;
+  align-items:stretch;
+}
+
+.employee-schedule-board-head{
+  padding:0 4px;
+}
+
+.employee-schedule-board-head strong{
+  color:#eef5ff;
+  text-align:center;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
+
+.employee-schedule-grid{
+  position:relative;
+  z-index:1;
+  min-height:0;
+  display:grid;
+  grid-template-rows:repeat(7,minmax(0,1fr));
+  gap:7px;
+}
+
+.employee-schedule-day,
+.employee-schedule-shift{
+  min-height:0;
+  border-radius:18px;
+}
+
+.employee-schedule-day{
+  display:grid;
+  place-items:center;
+  align-content:center;
+  gap:2px;
+  text-align:center;
+  transition:background .18s ease,border-color .18s ease;
+}
+
+.employee-schedule-day strong{
+  color:#ffffff;
+  font-size:17px;
+  line-height:1;
+  letter-spacing:-.035em;
+  font-weight:850;
+}
+
+.employee-schedule-day span{
+  color:#d1dced;
+  font-size:11px;
+  font-weight:760;
+}
+
+.employee-schedule-shift{
+  position:relative;
+  width:100%;
+  display:grid;
+  align-content:center;
+  gap:2px;
+  padding:7px 64px 7px 70px;
+  overflow:hidden;
+  text-align:left;
+  cursor:pointer;
+  transition:transform .16s ease,border-color .18s ease,background .18s ease,box-shadow .18s ease,opacity .18s ease;
+}
+
+.employee-schedule-shift::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:10px;
+  bottom:10px;
+  width:4px;
+  border-radius:0 999px 999px 0;
+  background:var(--zone-accent,var(--pos-color,var(--rst-blue,#3347ff)));
+  opacity:.95;
+}
+
+.employee-schedule-shift:hover{
+  transform:translateY(-1px);
+  border-color:rgba(255,255,255,.16);
+  box-shadow:0 14px 32px rgba(0,0,0,.12);
+}
+
+.employee-schedule-shift:focus-visible{
+  outline:2px solid rgba(111,230,255,.44);
+  outline-offset:2px;
+}
+
+.employee-schedule-shift__icon,
+.employee-schedule-shift__check,
+.employee-schedule-shift__tag,
+.employee-schedule-time-button{
+  position:absolute;
+  z-index:1;
+}
+
+.employee-schedule-shift__icon{
+  left:16px;
+  top:50%;
+  width:40px;
+  height:40px;
+  display:grid;
+  place-items:center;
+  border-radius:16px;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.10);
+  transform:translateY(-50%);
+}
+
+.employee-schedule-shift__icon svg{
+  width:24px;
+  height:24px;
+  display:block;
+}
+
+.employee-schedule-shift.is-lunch .employee-schedule-shift__icon{
+  color:#6fe6ff;
+  background:rgba(86,199,255,.12);
+  border-color:rgba(86,199,255,.22);
+}
+
+.employee-schedule-shift.is-evening .employee-schedule-shift__icon{
+  color:#c0a7ff;
+  background:rgba(123,102,255,.13);
+  border-color:rgba(123,102,255,.24);
+}
+
+.employee-schedule-shift__body{
+  min-width:0;
+  display:grid;
+  gap:3px;
+}
+
+.employee-schedule-shift__label{
+  color:#9fe8cb;
+}
+
+.employee-schedule-shift.is-evening .employee-schedule-shift__label{
+  color:#c8bfff;
+}
+
+.employee-schedule-shift strong{
+  color:#ffffff;
+  font-size:15.5px;
+  line-height:1.04;
+  letter-spacing:-.025em;
+  font-weight:850;
+}
+
+.employee-schedule-shift small{
+  color:#dce7f6;
+  max-width:100%;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+  font-size:11px;
+  font-weight:700;
+}
+
+.employee-schedule-shift.is-draft.is-planned{
+  border-color:rgba(80,230,149,.30);
+  background:linear-gradient(135deg,rgba(34,197,94,.22),rgba(35,198,167,.075));
+  box-shadow:0 10px 24px rgba(34,197,94,.07);
+}
+
+.employee-schedule-shift.is-draft.is-planned::before{
+  background:#22c55e;
+}
+
+.employee-schedule-shift.is-published.is-planned{
+  border-color:color-mix(in srgb,var(--zone-accent,#23c6a7) 42%,rgba(255,255,255,.14));
+  background:linear-gradient(135deg,color-mix(in srgb,var(--zone-accent,#23c6a7) 20%,transparent),rgba(255,255,255,.055));
+  box-shadow:0 10px 24px rgba(51,71,255,.06);
+}
+
+.employee-schedule-shift.is-off{
+  padding-right:15px;
+  opacity:.52;
+  background:rgba(255,255,255,.03);
+}
+
+.employee-schedule-shift.is-off::before{
+  background:rgba(255,255,255,.18);
+}
+
+.employee-schedule-shift__check{
+  right:12px;
+  top:50%;
+  width:24px;
+  height:24px;
+  display:grid;
+  place-items:center;
+  border-radius:999px;
+  color:#bbf7d0;
+  background:rgba(34,197,94,.20);
+  border:1px solid rgba(134,239,172,.32);
+  font-size:13px;
+  font-weight:1000;
+  transform:translateY(-50%);
+}
+
+.employee-schedule-time-button{
+  right:44px;
+  top:50%;
+  min-height:24px;
+  padding:0 10px;
+  border:1px solid rgba(134,239,172,.22);
+  border-radius:999px;
+  background:rgba(255,255,255,.07);
+  color:#f4fffb;
+  font-size:10px;
+  font-weight:950;
+  letter-spacing:.02em;
+  cursor:pointer;
+  transform:translateY(-50%);
+  transition:background .16s ease,border-color .16s ease,transform .16s ease;
+}
+
+.employee-schedule-time-button:hover{
+  transform:translateY(calc(-50% - 1px));
+  background:rgba(34,197,94,.18);
+  border-color:rgba(134,239,172,.46);
+}
+
+.employee-schedule-shift__tag{
+  right:12px;
+  top:50%;
+  max-width:40%;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+  padding:5px 8px;
+  border-radius:999px;
+  color:#ffffff;
+  background:rgba(255,255,255,.11);
+  border:1px solid rgba(255,255,255,.12);
+  font-size:10px;
+  font-weight:1000;
+  transform:translateY(-50%);
+}
+
+.employee-schedule-shift.just-tapped{
+  animation:employeeScheduleTapPop .46s ease both;
+}
+
+@keyframes employeeScheduleTapPop{
+  0%{transform:scale(.986);}
+  45%{transform:scale(1.012);box-shadow:0 0 0 6px rgba(34,197,94,.10),0 16px 36px rgba(34,197,94,.12);}
+  100%{transform:scale(1);}
+}
+
+.employee-schedule-empty{
+  margin:0;
+  padding:20px;
+  color:#d8e2f1;
+  font-weight:760;
+}
+
+@media(max-width:1100px){
+  .employee-schedule-shell{width:min(100% - 24px,1560px);}
+  .employee-schedule-metric-card{grid-template-columns:48px minmax(0,1fr);}
+  .employee-schedule-week-metric{grid-template-columns:32px 44px minmax(0,1fr) 32px;}
+  .employee-schedule-metric-copy strong,
+  .employee-schedule-week-display strong{font-size:19px;}
+}
+
+@media(max-width:780px){
+  .employee-schedule-shell{width:min(100% - 18px,1560px);}
+  .employee-schedule-panel{border-radius:24px;overflow:auto;}
+  .employee-schedule-metrics{grid-template-columns:1fr;}
+  .employee-schedule-board-head,
+  .employee-schedule-row{grid-template-columns:70px repeat(2,minmax(156px,1fr));min-width:390px;}
+  .employee-schedule-day,.employee-schedule-shift{min-height:58px;border-radius:17px;}
+  .employee-schedule-shift{padding:8px 58px 8px 60px;}
+  .employee-schedule-shift__icon{width:36px;height:36px;}
+}
