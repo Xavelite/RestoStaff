@@ -1,0 +1,31 @@
+/*
+ * RestoStaff base styles — v193
+ * -----------------------------
+ * Shared design tokens and low-level reset. Keep this file small.
+ * Product/app module styling remains in app.css; brand entry styling lives in brand.css.
+ */
+:root{
+  --rst-blue:#3347ff;
+  --rst-indigo:#2833a8;
+  --rst-mint:#23c6a7;
+  --rst-coral:#ff7a59;
+  --rst-bg:#06101d;
+  --rst-panel:#111c2d;
+  --rst-ink:#f8fafc;
+  --rst-muted:#a9b7cc;
+  --rst-line:rgba(255,255,255,.10);
+}
+*,*::before,*::after{box-sizing:border-box;}
+html{-webkit-text-size-adjust:100%;}
+button,input,select,textarea{font:inherit;}
+.visually-hidden{
+  position:absolute;
+  width:1px;
+  height:1px;
+  padding:0;
+  margin:-1px;
+  overflow:hidden;
+  clip:rect(0,0,0,0);
+  white-space:nowrap;
+  border:0;
+}

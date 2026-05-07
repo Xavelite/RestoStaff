@@ -13,7 +13,9 @@
     loggedIn: 'bb_logged',
     notificationsRead: 'bb_notif_read',
     showZeroRows: 'bb_show_zero_rows',
-    showMetrics: 'bb_show_metrics'
+    showMetrics: 'bb_show_metrics',
+    workspaceId: 'restostaff_workspace_id',
+    workspaceCatalog: 'restostaff_workspace_catalog'
   });
 
   function readString(key, fallback = null){
@@ -67,15 +69,18 @@
     KEYS,
 
     readPlanner(){
-      return readJSON(KEYS.planner, null);
+      const workspaceId = this.getWorkspaceId ? this.getWorkspaceId() : 'local';
+      return readJSON(KEYS.planner + ':' + workspaceId, readJSON(KEYS.planner, null));
     },
 
     savePlanner(plannerData){
-      return writeJSON(KEYS.planner, plannerData);
+      const workspaceId = this.getWorkspaceId ? this.getWorkspaceId() : 'local';
+      return writeJSON(KEYS.planner + ':' + workspaceId, plannerData);
     },
 
     resetPlanner(){
-      return remove(KEYS.planner);
+      const workspaceId = this.getWorkspaceId ? this.getWorkspaceId() : 'local';
+      return remove(KEYS.planner + ':' + workspaceId);
     },
 
     readSession(fallback){
@@ -92,6 +97,29 @@
 
     setLoggedIn(value){
       return value ? writeString(KEYS.loggedIn, '1') : remove(KEYS.loggedIn);
+    },
+
+    getWorkspaceId(){
+      return readString(KEYS.workspaceId, 'local-restaurant');
+    },
+
+    getDefaultWorkspaceId(){
+      return 'local-restaurant';
+    },
+
+    sanitizeWorkspaceId(value){
+      const raw = String(value || '').trim().toLowerCase();
+      return raw.replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,64) || 'local-restaurant';
+    },
+
+    setWorkspaceId(value){
+      const id = this.sanitizeWorkspaceId(value || 'local-restaurant');
+      writeString(KEYS.workspaceId, id);
+      return id;
+    },
+
+    listWorkspaces(){
+      return readJSON(KEYS.workspaceCatalog, []);
     },
 
     readNotificationsRead(){
