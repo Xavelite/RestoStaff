@@ -1,0 +1,187 @@
+/*
+ * RestoStaff UI system — v210
+ * ---------------------------
+ * Shared v2 components used by the new brand login and new app modules.
+ * Page-specific files should extend these classes instead of recreating them.
+ */
+
+.rs-v2-page,
+.rs-v2-page *{
+  box-sizing:border-box;
+}
+
+.rs-v2-page{
+  color:var(--rst-ui-text);
+  font-family:var(--rst-ui-font);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  text-rendering:optimizeLegibility;
+}
+
+.rs-v2-page :is(h1,h2,h3,h4,p,span,strong,small,label,button,input,select,textarea){
+  font-family:inherit;
+}
+
+.rs-v2-bg{
+  background:
+    radial-gradient(circle at 14% 8%,rgba(51,71,255,.18),transparent 28%),
+    radial-gradient(circle at 86% 18%,rgba(35,198,167,.14),transparent 25%),
+    radial-gradient(circle at 78% 92%,rgba(255,122,89,.11),transparent 26%),
+    linear-gradient(135deg,var(--rst-ui-bg) 0,var(--rst-ui-bg-2) 52%,#101a31 100%);
+}
+
+.rs-v2-topbar{
+  border-bottom:1px solid var(--rst-ui-line);
+  background:rgba(4,11,21,.78);
+  backdrop-filter:blur(14px);
+}
+
+.rs-v2-shell{
+  width:min(1640px,calc(100% - 48px));
+  margin:0 auto;
+}
+
+.rs-v2-frame{
+  border:1px solid var(--rst-ui-line);
+  border-radius:var(--rst-ui-radius-xl);
+  background:linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,.035));
+  box-shadow:var(--rst-ui-shadow-frame);
+  backdrop-filter:blur(14px);
+}
+
+.rs-v2-card{
+  border:1px solid var(--rst-ui-line);
+  border-radius:var(--rst-ui-radius-lg);
+  background:linear-gradient(180deg,rgba(255,255,255,.085),rgba(255,255,255,.035));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08);
+}
+
+.rs-metric-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+}
+
+.rs-metric-card{
+  position:relative;
+  min-height:92px;
+  display:grid;
+  grid-template-columns:56px minmax(0,1fr);
+  align-items:center;
+  gap:14px;
+  padding:14px 16px;
+  border:1px solid var(--rst-ui-line);
+  border-radius:var(--rst-ui-radius-lg);
+  background:var(--rst-ui-card);
+  color:var(--rst-ui-text);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
+  overflow:hidden;
+  transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease,background .18s ease;
+}
+
+.rs-metric-card::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(135deg,rgba(255,255,255,.032),transparent 58%);
+  pointer-events:none;
+}
+
+.rs-metric-card::after{
+  content:"";
+  position:absolute;
+  right:-28px;
+  bottom:-28px;
+  width:116px;
+  height:116px;
+  border-radius:999px;
+  background:rgba(255,255,255,.08);
+  opacity:.92;
+  pointer-events:none;
+}
+
+.rs-metric-card:hover,
+.rs-metric-card:focus-visible{
+  transform:translateY(-2px);
+  border-color:var(--rst-ui-line-strong);
+  box-shadow:var(--rst-ui-shadow-soft),inset 0 1px 0 rgba(255,255,255,.07);
+}
+
+.rs-icon-badge{
+  position:relative;
+  z-index:1;
+  width:48px;
+  height:48px;
+  display:grid;
+  place-items:center;
+  border-radius:17px;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.06);
+  color:#dbe7ff;
+}
+
+.rs-icon-badge svg{
+  width:24px;
+  height:24px;
+  display:block;
+}
+
+.rs-metric-copy{
+  position:relative;
+  z-index:1;
+  min-width:0;
+  display:grid;
+  gap:5px;
+}
+
+.rs-metric-copy span,
+.rs-label{
+  color:var(--rst-ui-muted);
+  font-size:11px;
+  font-weight:850;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
+
+.rs-metric-copy strong{
+  color:#fff;
+  font-size:21px;
+  line-height:1;
+  letter-spacing:-.045em;
+  font-weight:900;
+}
+
+.rs-metric-copy small{
+  color:#dbe6f5;
+  font-size:13px;
+  line-height:1.15;
+  font-weight:700;
+}
+
+.rs-button-icon{
+  display:grid;
+  place-items:center;
+  border:1px solid var(--rst-ui-line);
+  border-radius:var(--rst-ui-radius-sm);
+  background:rgba(255,255,255,.055);
+  color:var(--rst-ui-text);
+  cursor:pointer;
+  transition:background .16s ease,border-color .16s ease,transform .16s ease;
+}
+
+.rs-button-icon:hover{
+  transform:translateY(-1px);
+  background:rgba(255,255,255,.09);
+  border-color:var(--rst-ui-line-strong);
+}
+
+@media(max-width:1100px){
+  .rs-v2-shell{width:min(100% - 24px,1640px);}
+  .rs-metric-card{grid-template-columns:48px minmax(0,1fr);}
+  .rs-metric-copy strong{font-size:19px;}
+}
+
+@media(max-width:780px){
+  .rs-v2-shell{width:min(100% - 18px,1640px);}
+  .rs-metric-grid{grid-template-columns:1fr;}
+}

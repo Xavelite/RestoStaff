@@ -1,13 +1,15 @@
-# RestoStaff v198 — Final Login CTA Polish
+# RestoStaff v209 — Design System Foundation
 
 RestoStaff is a premium restaurant staff planning and operations prototype for restaurants in Belgium.
 
 This package keeps the current vanilla static stack:
 
 - `index.html`
-- `assets/css/app.css`
 - `assets/css/base.css`
+- `assets/css/restostaff-ui.css`
 - `assets/css/brand.css`
+- `assets/css/employee-schedule.css`
+- `assets/css/legacy-app.css`
 - `assets/js/app.js`
 - `assets/js/brand-entry.js`
 - `assets/js/config.js`
@@ -15,9 +17,9 @@ This package keeps the current vanilla static stack:
 - `assets/js/data-adapter.supabase.js`
 - Supabase one-row JSONB persistence through `public.planner_state`
 
-## v198 focus
+## v209 focus
 
-v198 keeps the approved brand-entry structure, restores the cleaner line-style module icons, changes module paging to 1–6 then 4–9, and fixes the CTA brand gradient at the source by preventing legacy app button CSS from leaking into the isolated brand page.
+v209 extracts the approved RestoStaff v2 visual language from the brand/login page and Employee My Schedule into a small shared CSS foundation. New pages should use `base.css` tokens + `restostaff-ui.css` components, then keep page-specific styling in their own CSS file. The old operational prototype CSS is now clearly separated as `legacy-app.css`.
 
 ## Current modules
 
@@ -74,7 +76,7 @@ Each restaurant workspace is still one Supabase row. Supabase remains the source
 - Time Clock terminal flow
 - Photo proof behavior
 - Workspace routing
-- Modern Light and Modern Dark themes
+- Legacy operational module behavior
 - Sticky calendar behavior and existing module markup
 
 ## Deployment reminder

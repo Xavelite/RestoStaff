@@ -5850,70 +5850,7 @@ body.logged-in:not(.terminal-mode) .brand-workspace-chip{display:none!important;
 body.logged-in.employee:not(.terminal-mode) .topbar .top-tabs{display:none!important;}
 body.logged-in.owner:not(.terminal-mode) .topbar .employee-page-tabs{display:none!important;}
 
-/* New Employee Schedule owns its own compact week controls.
-   These scoped rules only neutralize the legacy planner shell around that module. */
-body.logged-in.employee.my-schedule-mode{
-  overflow:hidden!important;
-  background:
-    radial-gradient(circle at 16% 10%,rgba(51,71,255,.18),transparent 28%),
-    radial-gradient(circle at 86% 16%,rgba(35,198,167,.12),transparent 23%),
-    radial-gradient(circle at 82% 92%,rgba(255,122,89,.10),transparent 24%),
-    linear-gradient(135deg,#06101d 0,#091325 52%,#101a31 100%)!important;
-}
-body.logged-in.employee.my-schedule-mode .planner-toolbar,
-body.logged-in.employee.my-schedule-mode .main-nav,
-body.logged-in.employee.my-schedule-mode #themeToggleBtn{display:none!important;}
-body.logged-in.employee.my-schedule-mode:not(.employee-manager-access) .employee-page-tabs{display:none!important;}
-body.logged-in.employee.my-schedule-mode .topbar{
-  max-width:none!important;
-  min-height:74px!important;
-  padding:12px 24px!important;
-  background:linear-gradient(90deg,rgba(5,13,24,.96) 0%,rgba(6,16,29,.95) 52%,rgba(8,22,37,.92) 100%)!important;
-  border-bottom:1px solid rgba(255,255,255,.08)!important;
-  box-shadow:0 12px 30px rgba(0,0,0,.18)!important;
-  backdrop-filter:blur(16px)!important;
-}
-body.logged-in.employee.my-schedule-mode .brand{gap:14px!important;align-items:center!important;}
-body.logged-in.employee.my-schedule-mode .brand-restaurant-logo{max-height:52px!important;width:auto!important;object-fit:contain!important;}
-body.logged-in.employee.my-schedule-mode .brand-copy{font-family:Inter,"Segoe UI",Arial,sans-serif!important;}
-body.logged-in.employee.my-schedule-mode .brand-copy .eyebrow{color:#d62a57!important;letter-spacing:.18em!important;font-size:12px!important;font-weight:950!important;text-transform:uppercase!important;}
-body.logged-in.employee.my-schedule-mode #appTitle{font-family:Inter,"Segoe UI",Arial,sans-serif!important;font-size:28px!important;line-height:1!important;color:#f8fafc!important;font-weight:1000!important;letter-spacing:-.05em!important;}
-body.logged-in.employee.my-schedule-mode .top-actions{gap:10px!important;}
-body.logged-in.employee.my-schedule-mode .top-actions .user-pill,
-body.logged-in.employee.my-schedule-mode .top-actions .ghost,
-body.logged-in.employee.my-schedule-mode .notif-btn{
-  min-height:40px!important;
-  border-radius:16px!important;
-  border:1px solid rgba(255,255,255,.10)!important;
-  background:rgba(255,255,255,.05)!important;
-  color:#f8fafc!important;
-  box-shadow:none!important;
-}
-body.logged-in.employee.my-schedule-mode .top-actions .user-pill{padding:0 16px!important;display:inline-flex!important;align-items:center!important;}
-body.logged-in.employee.my-schedule-mode .top-actions .ghost{padding:0 12px!important;}
-body.logged-in.employee.my-schedule-mode .top-actions .btn-svg{stroke:#f8fafc!important;}
-body.logged-in.employee.my-schedule-mode .shell{
-  height:calc(100dvh - var(--topbar-h,74px))!important;
-  min-height:0!important;
-  max-width:none!important;
-  width:100%!important;
-  margin:0!important;
-  padding:12px 0!important;
-  overflow:hidden!important;
-  background:transparent!important;
-}
-body.logged-in.employee.my-schedule-mode .employee-my-schedule-page{
-  height:100%!important;
-  min-height:0!important;
-  margin:0!important;
-  padding:0!important;
-  background:transparent!important;
-}
-@media(max-width:980px){
-  body.logged-in.employee .employee-page-tabs{grid-area:tabs!important;width:100%!important;min-width:0!important;max-width:420px!important;}
-  body.logged-in.employee.my-schedule-mode{overflow:auto!important;}
-  body.logged-in.employee.my-schedule-mode .shell{height:auto!important;min-height:calc(100dvh - var(--topbar-h,74px))!important;overflow:visible!important;}
-}
+/* Employee Schedule v2 shell styles moved to assets/css/employee-schedule.css in v209. */
 
 /* v159 precise shift time overrides */
 body.logged-in:not(.terminal-mode) .slot .time-inline{

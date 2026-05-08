@@ -1,26 +1,79 @@
 /*
- * RestoStaff employee schedule — v206
+ * RestoStaff employee schedule — v210
  * -----------------------------------
- * Final polish: stronger typography ownership, cleaner cards,
- * improved moon icon treatment, and subtle premium micro-interactions.
+ * Page-specific styles only. Shared v2 tokens, frames and metric cards
+ * live in base.css and restostaff-ui.css.
  */
 
-.employee-schedule-v2,
-.employee-schedule-v2 *{
-  box-sizing:border-box;
+/* Employee Schedule owns its own compact app shell while this page is active. */
+body.logged-in.employee.my-schedule-mode{
+  --rst-ui-bg:#06101d;
+  --rst-ui-bg-2:#091325;
+  --rst-ui-text:#f8fafc;
+  --rst-ui-muted:#b9c7db;
+  --rst-ui-subtle:#d7deeb;
+  --rst-ui-card:rgba(255,255,255,.052);
+  --rst-ui-card-strong:rgba(255,255,255,.075);
+  --rst-ui-line:rgba(255,255,255,.10);
+  --rst-ui-line-strong:rgba(255,255,255,.16);
+  --rst-ui-info:#6fe6ff;
+  --rst-ui-purple:#a78bfa;
+  --rst-ui-success:#22c55e;
+  overflow:hidden!important;
+  background:
+    radial-gradient(circle at 16% 10%,rgba(51,71,255,.18),transparent 28%),
+    radial-gradient(circle at 86% 16%,rgba(35,198,167,.12),transparent 23%),
+    radial-gradient(circle at 82% 92%,rgba(255,122,89,.10),transparent 24%),
+    linear-gradient(135deg,var(--rst-ui-bg) 0,var(--rst-ui-bg-2) 52%,#101a31 100%)!important;
 }
-
-.employee-schedule-v2{
-  color:#f8fafc;
-  font-family:Inter,"Segoe UI",Arial,sans-serif;
-  font-optical-sizing:auto;
-  -webkit-font-smoothing:antialiased;
-  -moz-osx-font-smoothing:grayscale;
-  text-rendering:optimizeLegibility;
+body.logged-in.employee.my-schedule-mode .planner-toolbar,
+body.logged-in.employee.my-schedule-mode .main-nav,
+body.logged-in.employee.my-schedule-mode #themeToggleBtn{display:none!important;}
+body.logged-in.employee.my-schedule-mode:not(.employee-manager-access) .employee-page-tabs{display:none!important;}
+body.logged-in.employee.my-schedule-mode .topbar{
+  max-width:none!important;
+  min-height:74px!important;
+  padding:12px 24px!important;
+  background:linear-gradient(90deg,rgba(5,13,24,.96) 0%,rgba(6,16,29,.95) 52%,rgba(8,22,37,.92) 100%)!important;
+  border-bottom:1px solid var(--rst-ui-line)!important;
+  box-shadow:0 12px 30px rgba(0,0,0,.18)!important;
+  backdrop-filter:blur(16px)!important;
 }
-
-.employee-schedule-v2 :is(h1,h2,h3,h4,strong,b,label,small,span,button,input){
-  font-family:inherit;
+body.logged-in.employee.my-schedule-mode .brand{gap:14px!important;align-items:center!important;}
+body.logged-in.employee.my-schedule-mode .brand-restaurant-logo{max-height:52px!important;width:auto!important;object-fit:contain!important;}
+body.logged-in.employee.my-schedule-mode .brand-copy{font-family:var(--rst-ui-font)!important;}
+body.logged-in.employee.my-schedule-mode .brand-copy .eyebrow{color:#d62a57!important;letter-spacing:.18em!important;font-size:12px!important;font-weight:950!important;text-transform:uppercase!important;}
+body.logged-in.employee.my-schedule-mode #appTitle{font-family:var(--rst-ui-font)!important;font-size:28px!important;line-height:1!important;color:var(--rst-ui-text)!important;font-weight:1000!important;letter-spacing:-.05em!important;}
+body.logged-in.employee.my-schedule-mode .top-actions{gap:10px!important;}
+body.logged-in.employee.my-schedule-mode .top-actions .user-pill,
+body.logged-in.employee.my-schedule-mode .top-actions .ghost,
+body.logged-in.employee.my-schedule-mode .notif-btn{
+  min-height:40px!important;
+  border-radius:16px!important;
+  border:1px solid var(--rst-ui-line)!important;
+  background:rgba(255,255,255,.05)!important;
+  color:var(--rst-ui-text)!important;
+  box-shadow:none!important;
+}
+body.logged-in.employee.my-schedule-mode .top-actions .user-pill{padding:0 16px!important;display:inline-flex!important;align-items:center!important;}
+body.logged-in.employee.my-schedule-mode .top-actions .ghost{padding:0 12px!important;}
+body.logged-in.employee.my-schedule-mode .top-actions .btn-svg{stroke:var(--rst-ui-text)!important;}
+body.logged-in.employee.my-schedule-mode .shell{
+  height:calc(100dvh - var(--topbar-h,74px))!important;
+  min-height:0!important;
+  max-width:none!important;
+  width:100%!important;
+  margin:0!important;
+  padding:12px 0!important;
+  overflow:hidden!important;
+  background:transparent!important;
+}
+body.logged-in.employee.my-schedule-mode .employee-my-schedule-page{
+  height:100%!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:0!important;
+  background:transparent!important;
 }
 
 .employee-schedule-shell{
@@ -39,15 +92,11 @@
   grid-template-rows:auto auto minmax(0,1fr);
   gap:10px;
   padding:12px;
-  border:1px solid rgba(255,255,255,.10);
-  border-radius:30px;
   background:
     radial-gradient(circle at 8% 0%,rgba(70,84,255,.14),transparent 28%),
     radial-gradient(circle at 90% 10%,rgba(35,198,167,.10),transparent 24%),
     radial-gradient(circle at 95% 96%,rgba(255,122,89,.11),transparent 22%),
     linear-gradient(180deg,rgba(255,255,255,.070),rgba(255,255,255,.032));
-  box-shadow:0 28px 86px rgba(0,0,0,.34);
-  backdrop-filter:blur(14px);
 }
 
 .employee-schedule-panel::after{
@@ -58,7 +107,7 @@
   width:290px;
   height:290px;
   border-radius:999px;
-  background:color-mix(in srgb,var(--rs-accent,var(--red)) 48%,transparent);
+  background:color-mix(in srgb,var(--rst-ui-accent) 48%,transparent);
   opacity:.24;
   pointer-events:none;
 }
@@ -66,139 +115,27 @@
 .employee-schedule-metrics{
   position:relative;
   z-index:1;
-  display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:12px;
-}
-
-.employee-schedule-metric-card,
-.employee-schedule-day,
-.employee-schedule-shift{
-  border:1px solid rgba(255,255,255,.10);
-  background:rgba(255,255,255,.052);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
-}
-
-.employee-schedule-metric-card{
-  position:relative;
-  min-height:92px;
-  display:grid;
-  grid-template-columns:56px minmax(0,1fr);
-  align-items:center;
-  gap:14px;
-  padding:14px 16px;
-  border-radius:24px;
-  color:#f8fafc;
-  overflow:hidden;
-  transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease,background .18s ease;
-}
-
-.employee-schedule-metric-card::before{
-  content:"";
-  position:absolute;
-  inset:0;
-  background:linear-gradient(135deg,rgba(255,255,255,.032),transparent 58%);
-  pointer-events:none;
-}
-
-.employee-schedule-metric-card::after{
-  content:"";
-  position:absolute;
-  right:-28px;
-  bottom:-28px;
-  width:116px;
-  height:116px;
-  border-radius:999px;
-  background:rgba(255,255,255,.08);
-  opacity:.92;
-  pointer-events:none;
 }
 
 .employee-schedule-metric-card.is-status::after{background:rgba(123,102,255,.18);}
 .employee-schedule-metric-card.is-week::after{background:rgba(86,199,255,.16);}
 .employee-schedule-metric-card.is-hours::after{background:rgba(35,198,167,.17);}
 
-.employee-schedule-metric-card:hover,
-.employee-schedule-week-metric:focus-visible{
-  transform:translateY(-2px);
-  border-color:rgba(255,255,255,.16);
-  box-shadow:0 16px 38px rgba(0,0,0,.16), inset 0 1px 0 rgba(255,255,255,.07);
-}
-
-.employee-schedule-metric-icon{
-  position:relative;
-  z-index:1;
-  width:48px;
-  height:48px;
-  display:grid;
-  place-items:center;
-  border-radius:17px;
-  border:1px solid rgba(255,255,255,.12);
-  background:rgba(255,255,255,.06);
-  color:#dbe7ff;
-}
-
-.employee-schedule-metric-icon svg{
-  width:24px;
-  height:24px;
-  display:block;
-}
-
 .employee-schedule-metric-card.is-status .employee-schedule-metric-icon{
-  color:#a78bfa;
+  color:var(--rst-ui-purple);
   background:rgba(123,102,255,.14);
   border-color:rgba(123,102,255,.24);
 }
-
 .employee-schedule-metric-card.is-week .employee-schedule-metric-icon{
-  color:#6fe6ff;
+  color:var(--rst-ui-info);
   background:rgba(86,199,255,.12);
   border-color:rgba(86,199,255,.22);
 }
-
 .employee-schedule-metric-card.is-hours .employee-schedule-metric-icon{
   color:#7cf3cb;
   background:rgba(35,198,167,.12);
   border-color:rgba(35,198,167,.22);
 }
-
-.employee-schedule-metric-copy,
-.employee-schedule-week-display{
-  position:relative;
-  z-index:1;
-  min-width:0;
-  display:grid;
-  gap:5px;
-}
-
-.employee-schedule-metric-copy span,
-.employee-schedule-week-display span,
-.employee-schedule-board-head,
-.employee-schedule-shift__label{
-  color:#b9c7db;
-  font-size:11px;
-  font-weight:850;
-  letter-spacing:.14em;
-  text-transform:uppercase;
-}
-
-.employee-schedule-metric-copy strong,
-.employee-schedule-week-display strong{
-  color:#ffffff;
-  font-size:21px;
-  line-height:1;
-  letter-spacing:-.045em;
-  font-weight:900;
-}
-
-.employee-schedule-metric-copy small,
-.employee-schedule-week-display small{
-  color:#dbe6f5;
-  font-size:13px;
-  line-height:1.15;
-  font-weight:700;
-}
-
 .employee-schedule-metric-card.is-hours .employee-schedule-metric-copy strong{color:#8df3d4;}
 
 .employee-schedule-week-metric{
@@ -214,31 +151,40 @@
   width:32px;
   height:32px;
   min-width:32px;
-  display:grid;
-  place-items:center;
-  padding:0;
-  border:1px solid rgba(255,255,255,.10);
-  border-radius:12px;
-  background:rgba(255,255,255,.055);
-  color:#f8fafc;
   font-size:14px;
   font-weight:1000;
-  cursor:pointer;
-  transition:background .16s ease,border-color .16s ease,transform .16s ease;
-}
-
-.employee-schedule-week-button:hover{
-  transform:translateY(-1px);
-  background:rgba(255,255,255,.09);
-  border-color:rgba(255,255,255,.18);
 }
 
 .employee-schedule-week-display{
+  position:relative;
+  z-index:1;
+  min-width:0;
   min-height:46px;
+  display:grid;
+  gap:5px;
   padding-right:24px;
   cursor:pointer;
 }
-
+.employee-schedule-week-display span{
+  color:var(--rst-ui-muted);
+  font-size:11px;
+  font-weight:850;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
+.employee-schedule-week-display strong{
+  color:#fff;
+  font-size:21px;
+  line-height:1;
+  letter-spacing:-.045em;
+  font-weight:900;
+}
+.employee-schedule-week-display small{
+  color:#dbe6f5;
+  font-size:13px;
+  line-height:1.15;
+  font-weight:700;
+}
 .employee-schedule-week-display::after{
   content:"";
   position:absolute;
@@ -252,7 +198,6 @@
   transform:translateY(-50%);
   pointer-events:none;
 }
-
 .employee-schedule-week-display input{
   position:absolute;
   inset:0;
@@ -271,11 +216,14 @@
   gap:8px;
   align-items:stretch;
 }
-
 .employee-schedule-board-head{
   padding:0 4px;
+  color:var(--rst-ui-muted);
+  font-size:11px;
+  font-weight:850;
+  letter-spacing:.14em;
+  text-transform:uppercase;
 }
-
 .employee-schedule-board-head strong{
   color:#eef5ff;
   text-align:center;
@@ -297,9 +245,11 @@
 .employee-schedule-day,
 .employee-schedule-shift{
   min-height:0;
+  border:1px solid var(--rst-ui-line);
   border-radius:18px;
+  background:var(--rst-ui-card);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
 }
-
 .employee-schedule-day{
   display:grid;
   place-items:center;
@@ -308,19 +258,17 @@
   text-align:center;
   transition:background .18s ease,border-color .18s ease;
 }
-
 .employee-schedule-day strong{
-  color:#ffffff;
-  font-size:17px;
+  color:#fff;
+  font-size:18px;
   line-height:1;
-  letter-spacing:-.035em;
-  font-weight:850;
+  letter-spacing:-.045em;
+  font-weight:900;
 }
-
 .employee-schedule-day span{
-  color:#d1dced;
+  color:#bcc9dc;
   font-size:11px;
-  font-weight:760;
+  font-weight:800;
 }
 
 .employee-schedule-shift{
@@ -335,7 +283,6 @@
   cursor:pointer;
   transition:transform .16s ease,border-color .18s ease,background .18s ease,box-shadow .18s ease,opacity .18s ease;
 }
-
 .employee-schedule-shift::before{
   content:"";
   position:absolute;
@@ -344,16 +291,14 @@
   bottom:10px;
   width:4px;
   border-radius:0 999px 999px 0;
-  background:var(--zone-accent,var(--pos-color,var(--rst-blue,#3347ff)));
+  background:var(--zone-accent,var(--pos-color,var(--rst-blue)));
   opacity:.95;
 }
-
 .employee-schedule-shift:hover{
   transform:translateY(-1px);
-  border-color:rgba(255,255,255,.16);
+  border-color:var(--rst-ui-line-strong);
   box-shadow:0 14px 32px rgba(0,0,0,.12);
 }
-
 .employee-schedule-shift:focus-visible{
   outline:2px solid rgba(111,230,255,.44);
   outline-offset:2px;
@@ -366,7 +311,6 @@
   position:absolute;
   z-index:1;
 }
-
 .employee-schedule-shift__icon{
   left:16px;
   top:50%;
@@ -376,58 +320,52 @@
   place-items:center;
   border-radius:16px;
   background:rgba(255,255,255,.08);
-  border:1px solid rgba(255,255,255,.10);
+  border:1px solid var(--rst-ui-line);
   transform:translateY(-50%);
 }
-
 .employee-schedule-shift__icon svg{
   width:24px;
   height:24px;
   display:block;
 }
-
 .employee-schedule-shift.is-lunch .employee-schedule-shift__icon{
-  color:#6fe6ff;
+  color:var(--rst-ui-info);
   background:rgba(86,199,255,.12);
   border-color:rgba(86,199,255,.22);
 }
-
 .employee-schedule-shift.is-evening .employee-schedule-shift__icon{
   color:#c0a7ff;
   background:rgba(123,102,255,.13);
   border-color:rgba(123,102,255,.24);
 }
-
 .employee-schedule-shift__body{
   min-width:0;
   display:grid;
   gap:3px;
 }
-
 .employee-schedule-shift__label{
   color:#9fe8cb;
+  font-size:11px;
+  font-weight:850;
+  letter-spacing:.14em;
+  text-transform:uppercase;
 }
-
-.employee-schedule-shift.is-evening .employee-schedule-shift__label{
-  color:#c8bfff;
-}
-
+.employee-schedule-shift.is-evening .employee-schedule-shift__label{color:#c8bfff;}
 .employee-schedule-shift strong{
-  color:#ffffff;
-  font-size:15.5px;
-  line-height:1.04;
-  letter-spacing:-.025em;
+  color:#fff;
+  font-size:16px;
+  line-height:1.02;
+  letter-spacing:-.035em;
   font-weight:850;
 }
-
 .employee-schedule-shift small{
-  color:#dce7f6;
+  color:#dbe6f5;
   max-width:100%;
   overflow:hidden;
   white-space:nowrap;
   text-overflow:ellipsis;
   font-size:11px;
-  font-weight:700;
+  font-weight:720;
 }
 
 .employee-schedule-shift.is-draft.is-planned{
@@ -435,26 +373,18 @@
   background:linear-gradient(135deg,rgba(34,197,94,.22),rgba(35,198,167,.075));
   box-shadow:0 10px 24px rgba(34,197,94,.07);
 }
-
-.employee-schedule-shift.is-draft.is-planned::before{
-  background:#22c55e;
-}
-
+.employee-schedule-shift.is-draft.is-planned::before{background:var(--rst-ui-success);}
 .employee-schedule-shift.is-published.is-planned{
   border-color:color-mix(in srgb,var(--zone-accent,#23c6a7) 42%,rgba(255,255,255,.14));
   background:linear-gradient(135deg,color-mix(in srgb,var(--zone-accent,#23c6a7) 20%,transparent),rgba(255,255,255,.055));
   box-shadow:0 10px 24px rgba(51,71,255,.06);
 }
-
 .employee-schedule-shift.is-off{
   padding-right:15px;
   opacity:.52;
   background:rgba(255,255,255,.03);
 }
-
-.employee-schedule-shift.is-off::before{
-  background:rgba(255,255,255,.18);
-}
+.employee-schedule-shift.is-off::before{background:rgba(255,255,255,.18);}
 
 .employee-schedule-shift__check{
   right:12px;
@@ -471,7 +401,6 @@
   font-weight:1000;
   transform:translateY(-50%);
 }
-
 .employee-schedule-time-button{
   right:44px;
   top:50%;
@@ -482,19 +411,17 @@
   background:rgba(255,255,255,.07);
   color:#f4fffb;
   font-size:10px;
-  font-weight:950;
+  font-weight:900;
   letter-spacing:.02em;
   cursor:pointer;
   transform:translateY(-50%);
   transition:background .16s ease,border-color .16s ease,transform .16s ease;
 }
-
 .employee-schedule-time-button:hover{
   transform:translateY(calc(-50% - 1px));
   background:rgba(34,197,94,.18);
   border-color:rgba(134,239,172,.46);
 }
-
 .employee-schedule-shift__tag{
   right:12px;
   top:50%;
@@ -504,18 +431,15 @@
   text-overflow:ellipsis;
   padding:5px 8px;
   border-radius:999px;
-  color:#ffffff;
+  color:#fff;
   background:rgba(255,255,255,.11);
   border:1px solid rgba(255,255,255,.12);
   font-size:10px;
-  font-weight:1000;
+  font-weight:900;
   transform:translateY(-50%);
 }
 
-.employee-schedule-shift.just-tapped{
-  animation:employeeScheduleTapPop .46s ease both;
-}
-
+.employee-schedule-shift.just-tapped{animation:employeeScheduleTapPop .46s ease both;}
 @keyframes employeeScheduleTapPop{
   0%{transform:scale(.986);}
   45%{transform:scale(1.012);box-shadow:0 0 0 6px rgba(34,197,94,.10),0 16px 36px rgba(34,197,94,.12);}
@@ -531,16 +455,17 @@
 
 @media(max-width:1100px){
   .employee-schedule-shell{width:min(100% - 24px,1560px);}
-  .employee-schedule-metric-card{grid-template-columns:48px minmax(0,1fr);}
   .employee-schedule-week-metric{grid-template-columns:32px 44px minmax(0,1fr) 32px;}
-  .employee-schedule-metric-copy strong,
   .employee-schedule-week-display strong{font-size:19px;}
 }
-
+@media(max-width:980px){
+  body.logged-in.employee .employee-page-tabs{grid-area:tabs!important;width:100%!important;min-width:0!important;max-width:420px!important;}
+  body.logged-in.employee.my-schedule-mode{overflow:auto!important;}
+  body.logged-in.employee.my-schedule-mode .shell{height:auto!important;min-height:calc(100dvh - var(--topbar-h,74px))!important;overflow:visible!important;}
+}
 @media(max-width:780px){
   .employee-schedule-shell{width:min(100% - 18px,1560px);}
   .employee-schedule-panel{border-radius:24px;overflow:auto;}
-  .employee-schedule-metrics{grid-template-columns:1fr;}
   .employee-schedule-board-head,
   .employee-schedule-row{grid-template-columns:70px repeat(2,minmax(156px,1fr));min-width:390px;}
   .employee-schedule-day,.employee-schedule-shift{min-height:58px;border-radius:17px;}

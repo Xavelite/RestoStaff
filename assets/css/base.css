@@ -1,22 +1,91 @@
 /*
- * RestoStaff base styles — v193
+ * RestoStaff base styles — v210
  * -----------------------------
- * Shared design tokens and low-level reset. Keep this file small.
- * Product/app module styling remains in app.css; brand entry styling lives in brand.css.
+ * Shared design tokens and low-level reset only.
+ * Do not place page/module styling here.
  */
 :root{
+  /* Brand palette */
   --rst-blue:#3347ff;
   --rst-indigo:#2833a8;
   --rst-mint:#23c6a7;
   --rst-coral:#ff7a59;
-  --rst-bg:#06101d;
-  --rst-panel:#111c2d;
-  --rst-ink:#f8fafc;
-  --rst-muted:#a9b7cc;
-  --rst-line:rgba(255,255,255,.10);
+  --rst-red:#9b1734;
+
+  /* v2 app tokens. Use rst-ui-* for new pages to avoid legacy app.css theme conflicts. */
+  --rst-ui-font:Inter,"Segoe UI",Arial,sans-serif;
+  --rst-ui-bg:#06101d;
+  --rst-ui-bg-2:#091325;
+  --rst-ui-panel:#111c2d;
+  --rst-ui-card:rgba(255,255,255,.052);
+  --rst-ui-card-strong:rgba(255,255,255,.075);
+  --rst-ui-ink:#f8fafc;
+  --rst-ui-text:#f8fafc;
+  --rst-ui-muted:#b9c7db;
+  --rst-ui-subtle:#d7deeb;
+  --rst-ui-line:rgba(255,255,255,.10);
+  --rst-ui-line-strong:rgba(255,255,255,.16);
+  --rst-ui-accent:#9b1734;
+  --rst-ui-accent-dark:#7c1028;
+  --rst-ui-success:#22c55e;
+  --rst-ui-info:#6fe6ff;
+  --rst-ui-purple:#a78bfa;
+  --rst-ui-warn:#f59e0b;
+
+  --rst-ui-radius-sm:12px;
+  --rst-ui-radius-md:17px;
+  --rst-ui-radius-lg:24px;
+  --rst-ui-radius-xl:30px;
+  --rst-ui-shadow-soft:0 16px 38px rgba(0,0,0,.16);
+  --rst-ui-shadow-frame:0 28px 86px rgba(0,0,0,.34);
+  --rst-ui-focus:0 0 0 4px rgba(51,71,255,.16);
+
+  /* Backward-compatible aliases for new files only. Legacy CSS may overwrite these. */
+  --rs-font:var(--rst-ui-font);
+  --rs-bg:var(--rst-ui-bg);
+  --rs-bg-2:var(--rst-ui-bg-2);
+  --rs-panel:var(--rst-ui-panel);
+  --rs-card:var(--rst-ui-card);
+  --rs-card-strong:var(--rst-ui-card-strong);
+  --rs-ink:var(--rst-ui-ink);
+  --rs-text:var(--rst-ui-text);
+  --rs-muted:var(--rst-ui-muted);
+  --rs-subtle:var(--rst-ui-subtle);
+  --rs-line:var(--rst-ui-line);
+  --rs-line-strong:var(--rst-ui-line-strong);
+  --rs-accent:var(--rst-ui-accent);
+  --rs-accent-dark:var(--rst-ui-accent-dark);
+  --rs-success:var(--rst-ui-success);
+  --rs-info:var(--rst-ui-info);
+  --rs-purple:var(--rst-ui-purple);
+  --rs-warn:var(--rst-ui-warn);
+
+  --rs-radius-sm:var(--rst-ui-radius-sm);
+  --rs-radius-md:var(--rst-ui-radius-md);
+  --rs-radius-lg:var(--rst-ui-radius-lg);
+  --rs-radius-xl:var(--rst-ui-radius-xl);
+  --rs-shadow-soft:var(--rst-ui-shadow-soft);
+  --rs-shadow-frame:var(--rst-ui-shadow-frame);
+  --rs-focus:var(--rst-ui-focus);
+
+  /* Legacy aliases kept while old modules still exist. */
+  --red:#9b1734;
+  --red2:#7c1028;
+  --ink:#241b20;
+  --muted:#766b70;
+  --line:#eadde1;
+  --bg:#fbf7f8;
+  --card:#fff;
+  --soft:#fff4f6;
+  --ok:#e8f7ee;
+  --warn:#fff7df;
+  --bad:#fff0f0;
+  --shadow:0 18px 45px rgba(99,35,52,.09);
 }
+
 *,*::before,*::after{box-sizing:border-box;}
 html{-webkit-text-size-adjust:100%;}
+body{font-family:var(--rst-ui-font);}
 button,input,select,textarea{font:inherit;}
 .visually-hidden{
   position:absolute;

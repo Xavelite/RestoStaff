@@ -1,21 +1,23 @@
-# RestoStaff Architecture — v198
+# RestoStaff Architecture — v209
 
 RestoStaff is a vanilla HTML/CSS/JS restaurant staff planning and operations prototype deployed as a static site. Shared restaurant data is stored in Supabase through a small adapter layer.
 
-v198 is a v2 prototype access/polish baseline after the v158–v177 expansion. It keeps all current operational modules and the approved isolated brand/login page, while refining the final login CTA label and hover styling.
+v209 establishes the first shared RestoStaff v2 design-system foundation. The approved brand/login page and Employee My Schedule now share common tokens and reusable UI components, while the old operational prototype CSS is isolated as legacy styling until each module is migrated.
 
 ## Files
 
 - `index.html` — private dev gate, neutral RestoStaff restaurant access, app shell, employee My Schedule page, dialogs, and Time Clock terminal markup.
-- `assets/css/base.css` — shared brand/access design tokens and tiny utility helpers.
+- `assets/css/base.css` — shared design tokens, font stack, reset, and tiny utility helpers.
+- `assets/css/restostaff-ui.css` — reusable v2 UI components such as v2 page/frame/card, metric grid/card, icon badges, and button-icon interactions.
 - `assets/css/brand.css` — private gate and RestoStaff brand/login entry page styling.
-- `assets/css/app.css` — legacy app shell, calendar geometry, sticky headers/columns, terminal styling, Modern Light / Modern Dark themes, and module-specific styling.
+- `assets/css/employee-schedule.css` — Employee My Schedule page-specific layout, shift cards, icons, and active employee shell overrides.
+- `assets/css/legacy-app.css` — old prototype app shell, calendar geometry, sticky headers/columns, terminal styling, themes, and non-migrated module-specific styling.
 - `assets/js/config.js` — Supabase/runtime configuration.
 - `assets/js/data-adapter.local.js` — local prototype session/preferences/workspace compatibility.
 - `assets/js/data-adapter.supabase.js` — Supabase workspace storage through `public.planner_state`.
 - `assets/js/app.js` — planning, employee My Schedule, costs, dashboard, setup wizard, workspaces, notifications, Time Clock manager, terminal logic, Inventory, Daily Close, Team / HR, Exports, and Reservations / Covers Forecast.
 - `docs/TEST_CHECKLIST.md` — manual regression checklist for future changes.
-- `docs/CODE_REVIEW_v198.md` — reviewed baseline for the v195 brand entry polish pass.
+- `docs/CODE_REVIEW_v209.md` — notes for the v2 design-system foundation split.
 
 ## Storage
 
@@ -136,6 +138,6 @@ The Setup area manages restaurant identity, branding, positions, zones, employee
 5. Later: real Auth, RLS, billing, and structured SQL tables.
 
 
-## v198 access / split note
+## Current access / split note
 
 The visible restaurant card selector remains removed from the entry flow. During development, users first pass the private dev gate, then use a compact neutral RestoStaff login with restaurant dropdown + username/name + password/PIN. Workspace routing can still be inferred from query string/subdomain, but the prototype dropdown is available while real Auth and restaurant membership do not exist yet. Restaurant creation remains inside future Setup/onboarding work, not the front page.
