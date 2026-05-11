@@ -1,0 +1,32 @@
+body.logged-out .topbar,body.logged-out .shell {
+  display: none;
+}
+
+body:not(.logged-out) #login.brand-page {
+  display: none;
+}
+
+.page,.tab {
+  display: none;
+}
+
+.page.active,.tab.active {
+  display: block;
+}
+
+body.logged-in #devGate,body:not(.dev-gated) #devGate {
+  display: none;
+}
+
+.owner-planning-mode #page-my-schedule,.my-schedule-mode #page-owner {
+  display: none;
+}
+
+.owner-planning-mode #page-owner,.owner-planning-mode #tab-planning,.my-schedule-mode #page-my-schedule {
+  display: block;
+}
+
+.time-clock-mode #page-time-clock,
+.actual-timesheet-mode #page-actuals {
+  display: block;
+}

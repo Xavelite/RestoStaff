@@ -1,0 +1,370 @@
+/* Planning page states only. Shared weekly layout lives in weekly-grid.css. */
+.owner-publish-metric {
+  appearance: none;
+  margin: 0;
+  padding: 14px 16px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.owner-publish-metric.is-draft:is(:hover,:focus-visible) {
+  border-color: rgba(74,222,128,.46);
+  background: linear-gradient(180deg,rgba(34,197,94,.095),rgba(15,23,42,.86));
+  box-shadow: 0 18px 38px rgba(0,0,0,.20),0 0 0 1px rgba(74,222,128,.16),inset 0 1px 0 rgba(255,255,255,.08);
+}
+
+.owner-publish-metric.is-draft:is(:hover,:focus-visible) .rs-icon-badge {
+  color: #bbf7d0;
+  background: rgba(34,197,94,.20);
+  border-color: rgba(74,222,128,.42);
+}
+
+.owner-publish-metric.is-published:is(:hover,:focus-visible) {
+  border-color: rgba(248,113,113,.46);
+  background: linear-gradient(180deg,rgba(239,68,68,.10),rgba(15,23,42,.86));
+  box-shadow: 0 18px 38px rgba(0,0,0,.20),0 0 0 1px rgba(248,113,113,.12),inset 0 1px 0 rgba(255,255,255,.08);
+}
+
+.owner-publish-metric.is-published:is(:hover,:focus-visible) .rs-icon-badge {
+  color: #fecaca;
+  background: rgba(239,68,68,.18);
+  border-color: rgba(248,113,113,.38);
+}
+
+#ownerCalendar .owner-person {
+  cursor: pointer;
+}
+
+#ownerCalendar .owner-person:hover .rs-weekly-person-card {
+  background: rgba(255,255,255,.035);
+  border-radius: 14px;
+}
+
+#ownerCalendar thead th.day-group {
+  cursor: pointer;
+  transition: background .16s ease,box-shadow .16s ease,color .16s ease;
+}
+
+#ownerCalendar thead th.day-group:hover {
+  background: linear-gradient(180deg,rgba(59,130,246,.18),rgba(15,23,42,.86));
+}
+
+#ownerCalendar td.owner-day-cell {
+  --day-bg: linear-gradient(180deg,rgba(9,17,30,.94),rgba(7,13,24,.99));
+  background: var(--day-bg);
+}
+
+#ownerCalendar td.owner-day-cell.day-alt {
+  --day-bg: linear-gradient(180deg,rgba(12,23,42,.96),rgba(8,15,28,.99));
+}
+
+#ownerCalendar td.owner-day-cell:has(.overlay-available) {
+  --day-bg: rgba(28,130,94,.26);
+}
+
+#ownerCalendar td.owner-day-cell:has(.has-conflict) {
+  --day-bg: linear-gradient(180deg,rgba(244,63,94,.16),rgba(127,29,29,.15)),rgba(25,12,22,.72);
+}
+
+#ownerCalendar .owner-slot-zone {
+  position: relative;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: #f8fafc;
+  background: transparent;
+  box-shadow: inset 0 -1px 0 rgba(255,255,255,.045);
+  cursor: pointer;
+}
+
+#ownerCalendar .owner-slot-zone.is-lunch { justify-content: flex-end; }
+#ownerCalendar .owner-slot-zone.is-evening { justify-content: flex-start; }
+
+#ownerCalendar .owner-slot-zone.overlay-available {
+  background: rgba(28,130,94,.18);
+}
+
+#ownerCalendar .owner-slot-zone.overlay-available:hover {
+  background: rgba(35,150,108,.26);
+}
+
+#ownerCalendar .owner-slot-zone.overlay-partial {
+  background: repeating-linear-gradient(135deg,rgba(245,158,11,.16) 0 10px,rgba(245,158,11,.07) 10px 20px),rgba(114,74,16,.18);
+}
+
+#ownerCalendar .owner-slot-zone:is(.overlay-unavailable,.overlay-unknown) {
+  background: transparent;
+}
+
+#ownerCalendar .owner-slot-zone.has-conflict {
+  background: linear-gradient(180deg,rgba(244,63,94,.20),rgba(127,29,29,.18)),rgba(38,11,20,.62);
+  box-shadow: inset 0 0 0 1px rgba(244,63,94,.13),inset 0 -1px 0 rgba(244,63,94,.10);
+}
+
+#ownerCalendar .owner-slot-zone:hover {
+  outline: 1px solid rgba(111,230,255,.30);
+  outline-offset: -2px;
+  box-shadow: inset 0 0 0 1px rgba(111,230,255,.16),inset 0 -1px 0 rgba(255,255,255,.055);
+}
+
+#ownerCalendar .owner-slot-empty {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  color: #7f90a7;
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 900;
+  opacity: 0;
+  transform: scale(.96);
+  transition: opacity .16s ease,color .16s ease,transform .16s ease;
+}
+
+#ownerCalendar .owner-slot-zone.empty:hover .owner-slot-empty {
+  opacity: .46;
+  color: #b8c7da;
+  transform: scale(1);
+}
+
+#ownerCalendar .owner-slot-card {
+  display: grid;
+  align-content: center;
+  grid-template-rows: 19px 18px;
+  gap: 3px;
+  padding: 4px 6px;
+  border-radius: 2px;
+  overflow: visible;
+}
+
+#ownerCalendar .owner-slot-card.has-conflict {
+  border-color: rgba(244,63,94,.74);
+  box-shadow: 0 0 0 1px rgba(244,63,94,.18),inset 0 1px 0 rgba(255,255,255,.045),0 7px 14px rgba(0,0,0,.14);
+}
+
+#ownerCalendar .owner-slot-zone:hover .owner-slot-card {
+  border-color: color-mix(in srgb,var(--shift-accent) 62%,rgba(255,255,255,.20));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb,var(--shift-accent) 24%,transparent),0 8px 18px rgba(0,0,0,.18);
+}
+
+#ownerCalendar .owner-slot-time,
+#ownerCalendar .owner-zone-trigger,
+#ownerCalendar .owner-slot-position {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+#ownerCalendar .owner-slot-time {
+  appearance: none;
+  height: 19px;
+  min-height: 19px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: #f7fbff;
+  box-shadow: none;
+  line-height: 19px;
+  text-align: left;
+  text-overflow: clip;
+  cursor: text;
+  font-size: clamp(11.7px,.68vw,13.2px);
+  font-weight: 760;
+  letter-spacing: -.038em;
+}
+
+#ownerCalendar .owner-slot-time:focus {
+  outline: 0;
+  color: #fff;
+}
+
+#ownerCalendar .owner-slot-assignment {
+  position: relative;
+  min-height: 18px;
+  overflow: visible;
+}
+
+#ownerCalendar .owner-zone-trigger {
+  appearance: none;
+  height: 18px;
+  min-height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+#ownerCalendar .owner-slot-position,
+#ownerCalendar .owner-zone-trigger {
+  font-size: clamp(10.9px,.60vw,12.2px);
+}
+
+#ownerCalendar .owner-slot-position {
+  display: block;
+  color: color-mix(in srgb,var(--shift-accent) 82%,#ffffff);
+  line-height: 18px;
+  text-overflow: ellipsis;
+  letter-spacing: -.01em;
+  font-weight: 800;
+}
+
+#ownerCalendar td.owner-day-cell:has(.owner-slot-zone.is-zone-open),
+#ownerCalendar .owner-slot-zone.is-zone-open,
+#ownerCalendar .owner-slot-card:has(.owner-slot-assignment.is-open) {
+  overflow: visible;
+  z-index: 90;
+}
+
+#ownerCalendar .owner-zone-menu {
+  display: none;
+  position: absolute;
+  left: -7px;
+  top: calc(100% + 6px);
+  z-index: 120;
+  width: max(150px,calc(100% + 14px));
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+#ownerCalendar .owner-slot-assignment.is-open .owner-zone-menu {
+  display: grid;
+  gap: 4px;
+}
+
+#ownerCalendar .owner-slot-tag {
+  grid-column: 1/-1;
+  justify-self: start;
+  max-width: 100%;
+  margin-top: 1px;
+  padding-left: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #fff;
+  font-size: 8.5px;
+  font-weight: 850;
+}
+
+#ownerCalendar .calendar-row.row-selected > td {
+  background-image: linear-gradient(90deg,rgba(99,102,241,.13),rgba(14,165,233,.075));
+  box-shadow: inset 0 1px 0 rgba(125,211,252,.20),inset 0 -1px 0 rgba(125,211,252,.16);
+}
+
+#ownerCalendar .calendar-row.row-selected > td:is(.person,.total) {
+  background: linear-gradient(90deg,rgba(30,64,175,.30),rgba(15,23,42,.92));
+}
+
+#ownerCalendar thead th.day-group.col-selected,
+#ownerCalendar td.owner-day-cell.col-selected {
+  background-image: linear-gradient(180deg,rgba(59,130,246,.16),rgba(14,165,233,.08));
+  box-shadow: inset 2px 0 0 rgba(125,211,252,.26),inset -2px 0 0 rgba(125,211,252,.20);
+}
+
+#ownerCalendar .calendar-row.row-selected td.owner-day-cell.col-selected {
+  background-image: linear-gradient(180deg,rgba(59,130,246,.22),rgba(14,165,233,.12));
+  box-shadow: inset 0 0 0 1px rgba(125,211,252,.28);
+}
+
+#ownerCalendar .owner-conflict-banner {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 16px;
+  border-top: 1px solid rgba(255,255,255,.055);
+  border-bottom: 1px solid rgba(255,255,255,.055);
+  background: linear-gradient(90deg,rgba(244,63,94,.105),rgba(15,23,42,.10));
+}
+
+#ownerCalendar .owner-conflict-banner strong {
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 950;
+}
+
+#ownerCalendar .owner-conflict-banner span {
+  color: #aab8ca;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 760;
+}
+
+#ownerCalendar .owner-conflict-banner.is-flashing,
+#ownerCalendar .owner-conflict-banner.is-flashing strong,
+#ownerCalendar .owner-slot.is-updated :is(.owner-slot-card,.owner-slot-empty) {
+  animation-duration: .95s;
+  animation-timing-function: cubic-bezier(.2,.9,.25,1);
+}
+
+#ownerCalendar .owner-conflict-banner.is-flashing { animation-name: ownerConflictBannerFlash; }
+#ownerCalendar .owner-conflict-banner.is-flashing strong { display: inline-block; animation-name: ownerConflictNumberFlash; }
+#ownerCalendar .owner-slot.is-updated :is(.owner-slot-card,.owner-slot-empty) { animation-name: ownerSlotUpdatedPulse; }
+
+#ownerCalendar .owner-empty-row td {
+  height: auto;
+  padding: 0;
+}
+
+#ownerCalendar .owner-empty-state {
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  color: #dbe6f5;
+  text-align: center;
+}
+
+#ownerCalendar .owner-empty-state strong {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 950;
+}
+
+#ownerCalendar .owner-empty-state span {
+  color: #93a4bb;
+  font-size: 13px;
+  font-weight: 760;
+}
+
+@keyframes ownerSlotUpdatedPulse {
+  0%,100% { transform: scale(1); box-shadow: inset 0 0 0 1px rgba(255,255,255,.10); }
+  36% { transform: scale(1.012); box-shadow: inset 0 0 0 1px rgba(255,255,255,.16),0 0 0 3px rgba(52,211,153,.18),0 14px 28px rgba(0,0,0,.24); }
+}
+
+@keyframes ownerConflictBannerFlash {
+  0%,40%,100% { background: linear-gradient(90deg,rgba(56,27,48,.78),rgba(35,25,44,.72)); box-shadow: 0 10px 28px rgba(0,0,0,.18),inset 0 0 0 1px rgba(248,113,113,.16); }
+  18% { background: linear-gradient(90deg,rgba(127,29,29,.50),rgba(88,28,56,.46)); box-shadow: 0 16px 38px rgba(0,0,0,.28),inset 0 0 0 1px rgba(248,113,113,.55),0 0 34px rgba(248,113,113,.22); }
+  62% { background: linear-gradient(90deg,rgba(127,29,29,.42),rgba(88,28,56,.40)); box-shadow: 0 14px 34px rgba(0,0,0,.25),inset 0 0 0 1px rgba(251,146,60,.46),0 0 28px rgba(251,146,60,.16); }
+}
+
+@keyframes ownerConflictNumberFlash {
+  0%,40%,100% { transform: scale(1); color: #fff7ed; text-shadow: none; }
+  18% { transform: scale(1.075); color: #fff; text-shadow: 0 0 16px rgba(248,113,113,.52); }
+  62% { transform: scale(1.055); color: #fff; text-shadow: 0 0 14px rgba(251,146,60,.44); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #ownerCalendar .owner-conflict-banner.is-flashing,
+  #ownerCalendar .owner-conflict-banner.is-flashing strong,
+  #ownerCalendar .owner-slot.is-updated :is(.owner-slot-card,.owner-slot-empty) {
+    animation: none;
+  }
+}

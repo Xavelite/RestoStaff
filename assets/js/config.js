@@ -12,13 +12,13 @@ window.APP_CONFIG = {
   supabaseKey: "sb_publishable_-f96yE-hAbWr4XXrut5TUQ_1zLV1b7s",
   supabaseTable: "planner_state",
 
-  // v128+: prototype multi-restaurant workspaces.
-  // Each restaurant uses one planner_state row. The old "main" row remains a safe legacy fallback.
+  // Prototype multi-restaurant workspaces.
+  // Each restaurant uses one planner_state row. The optional "main" row can bootstrap the first clean workspace when present.
   supabaseRecordId: "bouillon-bruxelles",
-  supabaseLegacyRecordId: "main",
+  supabaseBootstrapRecordId: "main",
   defaultWorkspaceId: "bouillon-bruxelles",
 
-  // v128+ disables automatic version reseeding. Empty rows can still be created intentionally.
+  // Automatic version reseeding is disabled. Empty rows can still be created intentionally.
   seedSetupOnlyOnce: false,
-  setupSeedVersion: "v147-recovery"
+  setupSeedVersion: "clean-v2-base"
 };

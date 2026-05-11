@@ -4,228 +4,116 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
-<title>RestoStaff Planner</title>
+<title>restogogo</title>
+<!-- CSS order: tokens/base/state, shared v2 components, topbar/notifications, page modules. -->
+<link href="assets/css/tokens.css" rel="stylesheet"/>
 <link href="assets/css/base.css" rel="stylesheet"/>
-<link href="assets/css/legacy-app.css" rel="stylesheet"/>
-<link href="assets/css/restostaff-ui.css" rel="stylesheet"/>
-<link href="assets/css/employee-schedule.css" rel="stylesheet"/>
+<link href="assets/css/page-state.css" rel="stylesheet"/>
+<link href="assets/css/v2-components.css" rel="stylesheet"/>
+<link href="assets/css/v2-controls.css" rel="stylesheet"/>
+<link href="assets/css/weekly-grid.css" rel="stylesheet"/>
+<link href="assets/css/v2-feedback.css" rel="stylesheet"/>
+<link href="assets/css/topbar.css" rel="stylesheet"/>
+<link href="assets/css/notifications.css" rel="stylesheet"/>
 <link href="assets/css/brand.css" rel="stylesheet"/>
+<link href="assets/css/employee-schedule.css" rel="stylesheet"/>
+<link href="assets/css/owner-planning.css" rel="stylesheet"/>
+<link href="assets/css/time-clock.css" rel="stylesheet"/>
+<link href="assets/css/actual-timesheet.css" rel="stylesheet"/>
 </head>
 <body class="desktop logged-out dev-gated">
 <!-- Private development gate -->
 <section aria-label="Private development access" class="dev-gate-screen" id="devGate">
-  <div class="dev-gate-card">
-    <div class="dev-gate-mark" aria-hidden="true">RS</div>
-    <p class="eyebrow">Private preview</p>
-    <h1>RestoStaff is locked while we build.</h1>
-    <p class="dev-gate-note">Sign in to continue.</p>
-    <label>Username
-      <input id="devUsername" autocomplete="username" placeholder="Username" />
-    </label>
-    <label>Password
-      <input id="devPassword" autocomplete="current-password" type="password" inputmode="numeric" placeholder="Password" />
-    </label>
-    <button class="primary wide" id="devLoginBtn" type="button">Unlock</button>
-    <p class="dev-gate-message" id="devGateMessage"></p>
-  </div>
+<div class="dev-gate-card">
+<div aria-hidden="true" class="dev-gate-mark"><img alt="" src="assets/img/brand/restogogo_icon_transparent.png"/></div>
+<p class="eyebrow">Private preview</p>
+<h1>restogogo is locked while we build.</h1>
+<p class="dev-gate-note">Sign in to continue.</p>
+<label>Username
+      <input autocomplete="username" id="devUsername" placeholder="Username"/>
+</label>
+<label>Password
+      <input autocomplete="current-password" id="devPassword" inputmode="numeric" placeholder="Password" type="password"/>
+</label>
+<button class="primary wide" id="devLoginBtn" type="button">Unlock</button>
+<p class="dev-gate-message" id="devGateMessage"></p>
+</div>
 </section>
-<!-- Legacy workspace portal placeholder -->
-<section aria-label="RestoStaff welcome portal" class="workspace-screen restostaff-portal" id="workspace">
-  <div class="workspace-shell restostaff-portal-shell" aria-hidden="true"></div>
+<!-- restogogo brand login page -->
+<section aria-label="restogogo access" class="brand-page rs-v2-page" id="login">
+<header class="brand-topbar rs-v2-topbar">
+<div class="brand-topbar__inner rs-v2-topbar-inner">
+<div aria-label="restogogo" class="brand-logo">
+<img alt="restogogo" class="brand-logo__image" src="assets/img/brand/restogogo_logo_transparent.png"/>
+</div>
+<button aria-label="Lock prototype" class="brand-lock-button rs-icon-button" id="devLogoutBtn" title="Lock prototype" type="button">
+<svg aria-hidden="true" fill="none" viewbox="0 0 24 24"><path d="M8 10V8a4 4 0 1 1 8 0v2"></path><rect height="10" rx="3" width="14" x="5" y="10"></rect><path d="M12 13v3"></path></svg>
+</button>
+</div>
+</header>
+<div class="brand-shell rs-v2-shell">
+<main class="brand-card rs-panel">
+<section aria-label="Restaurant access form" class="brand-login-panel rs-card" id="brandLoginPanel">
+<div class="brand-login-head">
+<h2 id="loginRestaurantName">Welcome back</h2>
+<p class="brand-login-subtitle" id="loginWorkspaceBadge">Sign in to continue to your workspace.</p>
+</div>
+<div class="brand-login-form">
+<label>Restaurant
+            <select autocomplete="organization" id="restaurantLoginSelect"></select>
+</label>
+<label>Username
+            <input autocomplete="username" id="identityLoginName" placeholder="Owner or employee name"/>
+</label>
+<label>Password / PIN
+            <input autocomplete="current-password" id="accessPin" inputmode="numeric" maxlength="4" placeholder="Password / PIN" type="password"/>
+</label>
+<p class="brand-login-message login-pin-help" id="loginPinHelp"></p>
+<button class="brand-primary-button rs-primary-button" id="enterBtn" type="button">Login</button>
+</div>
 </section>
-<!-- RestoStaff brand login page -->
-<section class="brand-page rs-v2-page" id="login" aria-label="RestoStaff access">
-  <header class="brand-topbar rs-v2-topbar">
-    <div class="brand-topbar__inner">
-      <div class="brand-logo" aria-label="RestoStaff">
-        <span class="brand-logo__mark">RS</span>
-        <span class="brand-logo__copy"><strong>RestoStaff</strong><small>Premium restaurant operations</small></span>
-      </div>
-      <button class="brand-lock-button" id="devLogoutBtn" type="button" aria-label="Lock prototype" title="Lock prototype">
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 10V8a4 4 0 1 1 8 0v2"/><rect x="5" y="10" width="14" height="10" rx="3"/><path d="M12 13v3"/></svg>
-      </button>
-    </div>
-  </header>
-
-  <div class="brand-shell rs-v2-shell">
-    <main class="brand-card rs-v2-frame">
-      <section class="brand-login-panel rs-v2-card" id="brandLoginPanel" aria-label="Restaurant access form">
-        <div class="brand-login-head">
-          <h2 id="loginRestaurantName">Welcome back</h2>
-          <p class="brand-login-subtitle" id="loginWorkspaceBadge">Sign in to continue to your workspace.</p>
-        </div>
-
-        <div class="brand-login-form">
-          <label>Restaurant
-            <select id="restaurantLoginSelect" autocomplete="organization"></select>
-          </label>
-          <label>Username
-            <input id="identityLoginName" autocomplete="username" placeholder="Owner or employee name" />
-          </label>
-          <label>Password / PIN
-            <input id="accessPin" autocomplete="current-password" inputmode="numeric" maxlength="4" type="password" placeholder="Password / PIN"/>
-          </label>
-          <p class="brand-login-message login-pin-help" id="loginPinHelp"></p>
-          <button class="brand-primary-button" id="enterBtn" type="button">Login</button>
-        </div>
-
-        <div class="prototype-hidden-login-controls" aria-hidden="true">
-          <div class="segmented login-role-switch">
-            <button class="active" id="roleEmployee" type="button" tabindex="-1">Employee</button>
-            <button id="roleOwner" type="button" tabindex="-1">Owner</button>
-          </div>
-          <label id="ownerLoginWrap">Owner / manager name
-            <input id="ownerLoginName" autocomplete="name" placeholder="Owner name" tabindex="-1" />
-          </label>
-          <label id="employeeLoginWrap">Employee name
-            <select id="employeeLogin" tabindex="-1"></select>
-          </label>
-        </div>
-      </section>
-
-      <section class="brand-module-panel rs-v2-card" aria-label="RestoStaff modules preview">
-        <div class="brand-module-grid" id="entryModuleGrid" aria-label="RestoStaff main modules"></div>
-        <div class="brand-module-dots" id="moduleDots" aria-label="Module preview pages"></div>
-      </section>
-    </main>
-
-    <footer class="brand-sponsors" aria-label="Proud partners and stack">
-      <div class="brand-sponsor-track">
-        <span class="brand-sponsor-pill brand-sponsor-image"><img alt="Bouillon Bruxelles" src="logo.png"/></span>
-        <span class="brand-sponsor-pill"><img alt="Supabase" src="assets/img/auth/supabase.svg"/></span>
-        <span class="brand-sponsor-pill"><img alt="Vercel" src="assets/img/auth/vercel.svg"/></span>
-        <span class="brand-sponsor-pill"><img alt="OpenAI" src="assets/img/auth/openai.svg"/></span>
-        <span class="brand-sponsor-pill"><img alt="Hostinger" src="assets/img/auth/hostinger.svg"/></span>
-        <span class="brand-sponsor-pill"><img alt="RestoStaff" src="assets/img/auth/restostaff.svg"/></span>
-        <span class="brand-sponsor-pill brand-sponsor-image"><img alt="Bouillon Bruxelles" src="logo.png"/></span>
-        <span class="brand-sponsor-pill"><img alt="Supabase" src="assets/img/auth/supabase.svg"/></span>
-        <span class="brand-sponsor-pill"><img alt="Vercel" src="assets/img/auth/vercel.svg"/></span>
-        <span class="brand-sponsor-pill"><img alt="OpenAI" src="assets/img/auth/openai.svg"/></span>
-        <span class="brand-sponsor-pill"><img alt="Hostinger" src="assets/img/auth/hostinger.svg"/></span>
-        <span class="brand-sponsor-pill"><img alt="RestoStaff" src="assets/img/auth/restostaff.svg"/></span>
-      </div>
-    </footer>
-  </div>
+<section aria-label="restogogo modules preview" class="brand-module-panel rs-card">
+<div aria-label="restogogo main modules" class="brand-module-grid" id="entryModuleGrid"></div>
+<div aria-label="Module preview pages" class="brand-module-dots" id="moduleDots"></div>
 </section>
-<!-- Time Clock terminal -->
-<section aria-label="RestoStaff Time Clock terminal" class="terminal-screen" id="terminal">
-<div class="terminal-topbar">
-<div class="terminal-restaurant-brand">
-<span aria-hidden="true" class="terminal-restaurant-mark">
-<img alt="Restaurant logo" class="terminal-logo" id="terminalLogo" src="logo.png"/>
-<span class="terminal-initial" id="terminalRestaurantInitial">R</span>
-</span>
-<div>
-<strong id="terminalRestaurantName">Restaurant</strong>
-<small>RestoStaff Time Clock</small>
-</div>
-</div>
-<div class="terminal-clock-card">
-<strong id="terminalLiveTime">--:--</strong>
-<span id="terminalLiveDate">Today</span>
-</div>
-</div>
-<div class="terminal-shell">
-<aside class="terminal-people-panel">
-<div class="terminal-employee-list" id="terminalEmployeeList"></div>
-</aside>
-<main class="terminal-action-panel">
-<div class="terminal-selected-card" id="terminalSelectedCard"></div>
-<div class="terminal-pin-area">
-<div aria-label="PIN digits" class="terminal-pin-dots" id="terminalPinDots"></div>
-<div aria-label="PIN keypad" class="pin-pad terminal-pin-pad">
-<button onclick="pressTimeClockPin('1')" type="button">1</button><button onclick="pressTimeClockPin('2')" type="button">2</button><button onclick="pressTimeClockPin('3')" type="button">3</button>
-<button onclick="pressTimeClockPin('4')" type="button">4</button><button onclick="pressTimeClockPin('5')" type="button">5</button><button onclick="pressTimeClockPin('6')" type="button">6</button>
-<button onclick="pressTimeClockPin('7')" type="button">7</button><button onclick="pressTimeClockPin('8')" type="button">8</button><button onclick="pressTimeClockPin('9')" type="button">9</button>
-<button onclick="clearTimeClockPin()" type="button">Clear</button><button onclick="pressTimeClockPin('0')" type="button">0</button><button onclick="backspaceTimeClockPin()" type="button">⌫</button>
-</div>
-<button class="primary terminal-action" hidden="" id="terminalAction" onclick="submitTimeClock()" type="button"></button>
-<p class="terminal-message" id="terminalMessage"></p>
-</div>
 </main>
 </div>
 </section>
 <!-- Main application shell -->
 <div class="phone-frame" id="phoneFrame">
-<header class="topbar">
-<div class="brand">
+<header class="topbar app-topbar app-topbar-v2">
+<div class="brand app-topbar-v2__brand">
+<img alt="restogogo" class="app-product-logo" src="assets/img/brand/restogogo_logo_transparent.png"/>
 <span aria-hidden="true" class="restaurant-brand-mark">
 <img alt="Restaurant logo" class="brand-restaurant-logo" id="brandLogo" src="logo.png"/>
 <span class="brand-restaurant-initial" id="brandRestaurantInitial">R</span>
 </span>
 <div class="brand-copy">
-<p class="eyebrow" id="brandEyebrow">RestoStaff</p>
+<p class="eyebrow" id="brandEyebrow">restogogo</p>
 <h1 id="appTitle">Planning</h1>
 </div>
 </div>
-<nav class="tabs top-tabs owner-only" id="ownerTopTabs">
-<button class="active" data-tab="planning">Planning</button>
-<button data-tab="timeclock">Time Clock</button>
-<button data-tab="inventory">Inventory</button>
-<button data-tab="dailyclose">Daily Close</button>
-<button data-tab="forecast">Forecast</button>
-<button data-tab="team">Team</button>
-<button data-tab="exports">Exports</button>
-<button data-tab="costs">Costs</button>
-<button data-tab="dashboard">Dashboard</button>
-<button data-tab="setup">Setup</button>
-</nav>
-<nav class="employee-page-tabs employee-only" id="employeeTopTabs" aria-label="Employee planning views">
-<button class="active" data-employee-page="my-schedule" type="button">My Schedule</button>
-<button class="employee-manager-only" data-employee-page="published" type="button">Full Planner</button>
-</nav>
-<div class="top-actions">
+
+<nav aria-label="Main navigation" class="app-topbar-v2__nav" id="appTopNav"></nav>
+
+<div class="top-actions app-topbar-v2__actions">
 <div class="notif-wrap">
-<button aria-label="Notifications" class="notif-btn" id="notifBtn" title="Notifications"><svg aria-hidden="true" class="btn-svg" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg><span class="notif-badge red-count" id="notifBadgeRed"></span><span class="notif-badge yellow-count" id="notifBadgeYellow"></span><span class="notif-badge legacy-count" id="notifBadge"></span></button>
+<button aria-label="Notifications" class="notif-btn" id="notifBtn" title="Notifications"><svg aria-hidden="true" class="btn-svg" viewbox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg><span class="notif-badge red-count" id="notifBadgeRed"></span><span class="notif-badge yellow-count" id="notifBadgeYellow"></span></button>
 <div class="notif-panel" id="notifPanel"></div>
 </div>
-<div class="user-pill" id="userPill">Not connected</div>
-<button aria-label="Switch theme" class="ghost theme-toggle icon-only-top" id="themeToggleBtn" title="Switch theme">☀️</button>
-<button aria-label="Switch restaurant" class="ghost icon-only-top" id="switchWorkspaceBtn" title="Switch restaurant"><svg aria-hidden="true" class="btn-svg" viewBox="0 0 24 24"><path d="M4 21h16"></path><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"></path><path d="M9 7h1M14 7h1M9 11h1M14 11h1M9 15h1M14 15h1"></path></svg><span class="visually-hidden">Switch restaurant</span></button>
-<button aria-label="Switch user" class="ghost icon-only-top" id="switchBtn" title="Switch user"><svg aria-hidden="true" class="btn-svg" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M19 8v6"></path><path d="M22 11h-6"></path></svg><span class="visually-hidden">Switch user</span></button>
+<button type="button" class="user-pill" id="userPill" title="Log out / switch user">Not connected</button>
 </div>
 </header>
-<section class="planner-toolbar">
-<div class="toolbar-left">
-<button aria-label="Publish or unpublish schedule" class="primary icon-action owner-only" id="publishToggleBtn" title="Publish or unpublish schedule"></button>
-<span class="status-chip owner-only" id="ownerStatusChip" title=""></span>
-<span class="status-chip employee-only" id="publishedStatusIcon" title=""></span>
-</div>
-<div class="toolbar-center">
-<div class="week-nav compact-week-nav">
-<button class="ghost" id="prevWeek">←</button>
-<label>Week <input id="weekStart" type="date"/></label>
-<button class="ghost" id="nextWeek">→</button>
-</div>
-<div aria-label="Metric period" class="metric-days shared-metric-days" role="group"><button class="metric-day-btn active" data-metric="week" type="button">W</button><button class="metric-day-btn" data-metric="Mon" type="button">M</button><button class="metric-day-btn" data-metric="Tue" type="button">T</button><button class="metric-day-btn" data-metric="Wed" type="button">W</button><button class="metric-day-btn" data-metric="Thu" type="button">T</button><button class="metric-day-btn" data-metric="Fri" type="button">F</button><button class="metric-day-btn" data-metric="Sat" type="button">S</button><button class="metric-day-btn" data-metric="Sun" type="button">S</button></div>
-</div>
-<div class="toolbar-right icon-actions">
-<span class="cloud-status" id="cloudStatus" title="Cloud save status">Cloud ready</span>
-<button aria-label="Show/hide 0-hour employees" class="secondary icon-action toggle-zero" id="toggleZeroRows" title="Show/hide 0-hour employees"><svg aria-hidden="true" class="btn-svg" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
-<button aria-label="Copy schedule" class="secondary icon-action" id="copySchedule" title="Copy schedule"><svg aria-hidden="true" class="btn-svg" viewBox="0 0 24 24"><rect height="12" rx="2" width="12" x="8" y="8"></rect><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"></path></svg></button>
-<span aria-hidden="true" class="toolbar-separator owner-only"></span>
-<button aria-label="Create WhatsApp message" class="secondary icon-action whatsapp" id="messageBtn" title="Create WhatsApp message"><svg aria-hidden="true" class="btn-svg whatsapp-svg" viewBox="0 0 24 24"><path d="M20.5 3.5A11.6 11.6 0 0 0 12.2 0C5.7 0 .5 5.2.5 11.6c0 2 .5 3.9 1.5 5.7L.4 24l6.9-1.8a11.6 11.6 0 0 0 5 1.2h.1c6.4 0 11.6-5.2 11.6-11.6 0-3.1-1.2-6-3.5-8.3Zm-8.2 17.9h-.1a9.7 9.7 0 0 1-5-1.4l-.4-.2-4.1 1.1 1.1-4-.3-.4a9.6 9.6 0 1 1 8.8 4.9Zm5.3-7.2c-.3-.1-1.7-.8-1.9-.9-.3-.1-.5-.1-.7.1-.2.3-.8.9-.9 1.1-.2.2-.3.2-.6.1-.3-.1-1.2-.4-2.3-1.4-.8-.8-1.4-1.7-1.6-2-.2-.3 0-.4.1-.6l.5-.5c.2-.2.2-.3.3-.5.1-.2.1-.4 0-.5l-.9-2.1c-.2-.5-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.4s1 2.8 1.2 3c.1.2 2 3.1 4.9 4.3.7.3 1.2.5 1.6.6.7.2 1.3.2 1.8.1.6-.1 1.7-.7 1.9-1.3.2-.7.2-1.2.2-1.3-.1-.2-.3-.3-.5-.4Z"></path></svg></button>
-<button aria-label="Export / save as PDF" class="secondary icon-action" id="printBtn" title="Export / save as PDF"><svg aria-hidden="true" class="btn-svg pdf-svg" viewBox="0 0 24 24"><path class="pdf-sheet" d="M6 2h8l4 4v16H6z"></path><path class="pdf-fold" d="M14 2v5h5"></path><path class="pdf-line" d="M8 12h8M8 15h8"></path><text font-size="4.2" font-weight="900" text-anchor="middle" x="12" y="20">PDF</text></svg></button>
-<button aria-label="Export planning CSV" class="secondary icon-action owner-only csv-action" onclick="exportPlanningCsv()" title="Export planning CSV" type="button">CSV</button>
-<button aria-label="Copy previous week" class="secondary icon-action owner-only secondary-utility" id="copyLastWeek" title="Copy previous week"><svg aria-hidden="true" class="btn-svg" viewBox="0 0 24 24"><rect height="12" rx="2" width="12" x="8" y="8"></rect><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"></path><path d="M7 11 4 14l3 3"></path></svg></button>
-</div>
-</section>
-<nav class="main-nav app-hidden-nav">
-<button class="nav active" data-page="published">Calendar</button>
-<button class="nav owner-only" data-page="owner">Owner zone</button>
-<div class="status-box inline">
-<span class="badge draft" id="statusBadge">Draft</span>
-<span id="statusText">Owner is still preparing the week.</span>
-</div>
-</nav>
+
+
 <main class="shell">
 <section class="page employee-my-schedule-page employee-schedule-v2 rs-v2-page" id="page-my-schedule">
 <div class="employee-schedule-shell">
-<section class="employee-schedule-panel rs-v2-frame" aria-label="Employee weekly schedule">
-<div class="employee-schedule-metrics rs-metric-grid" aria-label="Schedule summary and controls">
+<section aria-label="Employee weekly schedule" class="employee-schedule-panel rs-v2-frame">
+<div aria-label="Schedule summary and controls" class="employee-schedule-metrics rs-metric-grid">
 <article class="employee-schedule-metric-card rs-metric-card is-status">
-<span class="employee-schedule-metric-icon rs-icon-badge" aria-hidden="true">
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5h6l4 4V20a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 20V5A1.5 1.5 0 0 1 7.5 3.5Z"></path><path d="M14 3.5V8h4"></path><path d="M9 12h6"></path><path d="M9 15.5h6"></path></svg>
+<span aria-hidden="true" class="employee-schedule-metric-icon rs-icon-badge">
+<svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewbox="0 0 24 24"><path d="M8 3.5h6l4 4V20a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 20V5A1.5 1.5 0 0 1 7.5 3.5Z"></path><path d="M14 3.5V8h4"></path><path d="M9 12h6"></path><path d="M9 15.5h6"></path></svg>
 </span>
 <div class="employee-schedule-metric-copy rs-metric-copy">
 <span>Status</span>
@@ -233,22 +121,22 @@
 <small id="myScheduleSummaryStatusMeta">Planning not final</small>
 </div>
 </article>
-<div class="employee-schedule-metric-card rs-metric-card is-week employee-schedule-week-metric" role="button" tabindex="0" aria-label="Change week" onclick="employeeScheduleOpenPicker()" onkeydown="employeeScheduleOpenPickerFromKey(event)">
-<button class="employee-schedule-week-button rs-button-icon" type="button" onclick="employeeScheduleChangeWeek(-7);event.stopPropagation();" aria-label="Previous week">←</button>
-<span class="employee-schedule-metric-icon rs-icon-badge" aria-hidden="true">
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5.5" width="16" height="14" rx="2.5"></rect><path d="M8 3.5v4"></path><path d="M16 3.5v4"></path><path d="M4 9.5h16"></path></svg>
+<div aria-label="Change week" class="employee-schedule-metric-card rs-metric-card is-week employee-schedule-week-metric rs-week-metric" id="employeeScheduleWeekMetric" role="button" tabindex="0">
+<button aria-label="Previous week" class="employee-schedule-week-button rs-button-icon rs-week-btn" id="employeeSchedulePrevWeek" type="button">←</button>
+<span aria-hidden="true" class="employee-schedule-metric-icon rs-icon-badge">
+<svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewbox="0 0 24 24"><rect height="14" rx="2.5" width="16" x="4" y="5.5"></rect><path d="M8 3.5v4"></path><path d="M16 3.5v4"></path><path d="M4 9.5h16"></path></svg>
 </span>
-<label class="employee-schedule-week-display" aria-label="Select week start date">
+<label aria-label="Select week start date" class="employee-schedule-week-display rs-week-field">
 <span>Week range</span>
 <strong id="myScheduleWeekMeta">04/05 – 10/05</strong>
 <small id="myScheduleWeekHint">Click to change</small>
-<input id="employeeScheduleWeekStart" type="date" onchange="employeeScheduleSetWeek(this.value)"/>
+<input id="employeeScheduleWeekStart" type="date"/>
 </label>
-<button class="employee-schedule-week-button rs-button-icon" type="button" onclick="employeeScheduleChangeWeek(7);event.stopPropagation();" aria-label="Next week">→</button>
+<button aria-label="Next week" class="employee-schedule-week-button rs-button-icon rs-week-btn" id="employeeScheduleNextWeek" type="button">→</button>
 </div>
 <article class="employee-schedule-metric-card rs-metric-card is-hours">
-<span class="employee-schedule-metric-icon rs-icon-badge" aria-hidden="true">
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"></circle><path d="M12 7.5v5l3 2"></path></svg>
+<span aria-hidden="true" class="employee-schedule-metric-icon rs-icon-badge">
+<svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewbox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><path d="M12 7.5v5l3 2"></path></svg>
 </span>
 <div class="employee-schedule-metric-copy rs-metric-copy">
 <span>Hours</span>
@@ -266,552 +154,71 @@
 </section>
 </div>
 </section>
-<section class="page active" id="page-published">
-<!-- global planner toolbar above controls calendar actions -->
-<div class="calendar-top-metrics grid two employee-top-metrics">
-<section class="panel compact-panel position-summary mini-summary"><div class="metric-title-row"><h3>Total hours by position</h3></div><div class="position-hours compact-metrics" id="publishedPositionHours"></div></section>
-<section class="panel compact-panel zone-summary mini-summary"><div class="metric-title-row"><h3>Total hours by zone</h3></div><div class="zone-hours compact-metrics" id="publishedZoneHours"></div></section>
-</div>
-<div class="calendar" id="publishedCalendar"></div>
-<section class="panel employee-copy swap-panel-hidden"><h3>My swaps</h3><div class="swap-list" id="publishedEmployeeSwaps"></div></section>
+
+<section class="page time-clock-page rs-v2-page" id="page-time-clock">
+  <div class="time-clock-shell">
+    <section aria-label="Time clock terminal" class="time-clock-panel rs-v2-frame" id="timeClockRoot"></section>
+  </div>
 </section>
-<section class="page" id="page-employee">
-<div class="page-head">
-<div><h2>Employee zone</h2></div>
-<div class="toolbar"><label>I am <select id="employeeSelect"></select></label><button class="primary" id="submitAvailability">Submit availability</button><button class="secondary" id="clearMine">Clear draft</button></div>
-</div>
-<div class="calendar" id="employeeCalendar"></div>
-<div class="grid two"><section class="panel compact-panel position-summary"><h3>Total hours by position</h3><div class="position-hours" id="employeePositionHours"></div></section><section class="panel compact-panel zone-summary"><h3>Total hours by zone</h3><div class="zone-hours" id="employeeZoneHours"></div></section></div>
-<section class="panel"><h3>My swaps</h3><div class="swap-list" id="employeeSwaps"></div></section>
+
+<section class="page actual-timesheet-page rs-v2-page" id="page-actuals">
+  <section aria-label="Actual timesheet summary" class="actual-timesheet-summary rs-metric-grid rs-weekly-metrics" id="actualTimesheetMetrics"></section>
+  <section aria-label="Actual timesheet board" class="actual-timesheet-board rs-panel" id="actualTimesheetRoot"></section>
 </section>
+
+
 <section class="page" id="page-owner">
-<div class="page-head owner-head visually-hidden-actions">
-<div></div>
-<div class="toolbar hidden-backup"><button class="secondary" id="exportBtn">Export backup</button><label class="secondary file-label">Import backup<input accept="application/json" id="importInput" type="file"/></label></div>
+
+<section class="tab active owner-planning-v2 rs-v2-page" id="tab-planning">
+
+<section aria-label="Owner planning summary" class="owner-planning-summary rs-weekly-metrics">
+<button aria-label="Publish or unpublish schedule" class="owner-planning-metric-card rs-metric-card is-status owner-publish-metric" id="ownerPublishMetricBtn" type="button"></button>
+<article aria-label="Change planning week" class="owner-planning-metric-card rs-metric-card is-week rs-week-metric" id="ownerWeekMetric" role="button" tabindex="0">
+<button aria-label="Previous week" class="owner-week-btn rs-week-btn" id="prevWeek" type="button">←</button>
+<span aria-hidden="true" class="owner-planning-metric-icon rs-icon-badge">
+<svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewbox="0 0 24 24"><rect height="14" rx="2.5" width="16" x="4" y="5.5"></rect><path d="M8 3.5v4M16 3.5v4M4 9.5h16"></path></svg>
+</span>
+<label aria-label="Select planning week" class="owner-week-field rs-week-field">
+<span>Week range</span>
+<strong id="ownerWeekLabel">—</strong>
+<small id="ownerPlanningV2WeekMeta">Click to change</small>
+<input id="weekStart" type="date"/>
+</label>
+<button aria-label="Next week" class="owner-week-btn rs-week-btn" id="nextWeek" type="button">→</button>
+</article>
+<article class="owner-planning-metric-card rs-metric-card is-hours">
+<span aria-hidden="true" class="owner-planning-metric-icon rs-icon-badge">
+<svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewbox="0 0 24 24"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7v5l3 2"></path></svg>
+</span>
+<div class="rs-metric-copy">
+<span>Planned hours</span>
+<strong id="ownerPlanningV2Hours">0h</strong>
+<small id="ownerPlanningV2HoursMeta">0 shifts</small>
 </div>
-<section class="tab active" id="tab-planning">
-<!-- global planner toolbar above controls owner planning actions -->
-<section class="module-hub planning-command owner-only" aria-label="Planning shortcuts">
-<button type="button" class="module-card featured" onclick="document.getElementById('ownerCalendar')?.scrollIntoView({behavior:'smooth',block:'start'})"><span>Planner</span><strong>Build the week</strong><small>Calendar, zones and hours.</small></button>
-<button type="button" class="module-card" onclick="showTab('costs')"><span>Costs</span><strong>Check cost impact</strong><small>Use the current filters.</small></button>
-<button type="button" class="module-card" onclick="showTab('timeclock')"><span>Actuals</span><strong>Review badging</strong><small>Terminal and timesheets.</small></button>
-</section>
-
-<div class="calendar-top-metrics grid two">
-<section class="panel compact-panel position-summary mini-summary"><div class="metric-title-row"><h3>Total hours by position</h3></div><div class="position-hours compact-metrics" id="ownerPositionHours"></div></section>
-<section class="panel compact-panel zone-summary mini-summary"><div class="metric-title-row"><h3>Total hours by zone</h3></div><div class="zone-hours compact-metrics" id="ownerZoneHours"></div></section>
+</article>
+<article class="owner-planning-metric-card rs-metric-card is-cost">
+<span aria-hidden="true" class="owner-planning-metric-icon rs-icon-badge">
+<svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewbox="0 0 24 24"><path d="M15.5 6.5a5.5 5.5 0 1 0 0 11"></path><path d="M4 10h10M4 14h9"></path></svg>
+</span>
+<div class="rs-metric-copy">
+<span>Cost impact</span>
+<strong id="ownerPlanningV2Cost">€0.00</strong>
+<small id="ownerPlanningV2CostMeta">Projected weekly cost</small>
 </div>
-<div class="calendar" id="ownerCalendar"></div>
-<section class="panel swap-panel-hidden"><h3>Swap requests</h3><div class="swap-list" id="ownerSwaps"></div></section>
-</section>
-<section class="tab timeclock-tab" id="tab-timeclock">
-<section class="timeclock-page active" data-timeclock-view="hub">
-  <section class="timeclock-home-header">
-    <p class="eyebrow">Time clock</p>
-    <h3>Simple clock-ins and actual hours.</h3>
-    <p class="muted">Open the module you need.</p>
-  </section>
-  <section class="timeclock-launch-grid" aria-label="Time clock modules">
-    <button type="button" class="timeclock-launch-card terminal with-image" onclick="openTimeClockTerminal()">
-      <div class="timeclock-launch-media"><img src="assets/img/timeclock-terminal-card.png" alt="Terminal illustration"></div>
-      <div class="timeclock-launch-copy"><span>Terminal</span><strong>Open badging terminal</strong><small>Wall / tablet check-in flow.</small></div>
-    </button>
-    <button type="button" class="timeclock-launch-card timesheet with-image" onclick="setTimeClockView('timesheet')">
-      <div class="timeclock-launch-media"><img src="assets/img/timeclock-timesheet-card.png" alt="Actual timesheet illustration"></div>
-      <div class="timeclock-launch-copy"><span>Actual timesheet</span><strong>Review weekly actual hours</strong><small>Lunch / evening entries, day totals.</small></div>
-    </button>
-    <button type="button" class="timeclock-launch-card monitor with-image" onclick="setTimeClockView('monitor')">
-      <div class="timeclock-launch-media"><img src="assets/img/timeclock-monitor-card.png" alt="Badge monitor illustration"></div>
-      <div class="timeclock-launch-copy"><span>Badge monitor</span><strong>See who is in right now</strong><small>Live status and recent entries.</small></div>
-    </button>
-  </section>
-</section>
-<section class="timeclock-page" data-timeclock-view="timesheet">
-  <div class="timeclock-subnav panel slim">
-    <div class="timeclock-subnav-main">
-      <button class="secondary" type="button" onclick="setTimeClockView('hub')">← Back</button>
-      <div>
-        <p class="eyebrow">Time clock</p>
-        <h3>Actual timesheet</h3>
-      </div>
-    </div>
-    <div class="timeclock-subnav-actions">
-      <button class="secondary" onclick="renderTimeClock()" type="button">Refresh</button>
-      <button class="primary" onclick="openTimeClockTerminal()" type="button">Open Terminal</button>
-    </div>
-  </div>
-  <section class="panel weekly-timesheet-panel">
-    <div class="section-title-row timesheet-title-row">
-      <div>
-        <p class="eyebrow">Weekly timesheet</p>
-        <h3>Weekly actual hours</h3>
-        <p class="muted">Review actual clock-ins and corrections for the selected week.</p>
-      </div>
-      <div class="timesheet-title-actions">
-        <span class="mini-badge" id="weeklyTimesheetWeek">Selected week</span>
-        <button class="secondary mini" onclick="printTimesheet()" type="button">Print</button>
-        <button class="secondary mini" onclick="exportTimesheetCsv()" type="button">CSV</button>
-        <button class="secondary mini" onclick="renderTimeClock()" type="button">Refresh</button>
-      </div>
-    </div>
-    <div class="weekly-timesheet" id="weeklyTimesheet"></div>
-  </section>
-</section>
-<section class="timeclock-page" data-timeclock-view="monitor">
-  <div class="timeclock-subnav panel slim">
-    <div class="timeclock-subnav-main">
-      <button class="secondary" type="button" onclick="setTimeClockView('hub')">← Back</button>
-      <div>
-        <p class="eyebrow">Time clock</p>
-        <h3>Badge monitor</h3>
-      </div>
-    </div>
-    <div class="timeclock-subnav-actions">
-      <button class="secondary" onclick="renderTimeClock()" type="button">Refresh</button>
-      <button class="primary" onclick="openTimeClockTerminal()" type="button">Open Terminal</button>
-    </div>
-  </div>
-  <section class="panel timeclock-manager">
-    <div class="section-title-row">
-      <div>
-        <p class="eyebrow">Manager overview</p>
-        <h3>Today’s time entries</h3>
-      </div>
-      <div class="timeclock-live-card compact">
-        <span id="timeClockTodayLabel">Today</span>
-        <strong id="timeClockLiveTime">--:--</strong>
-        <small id="timeClockLiveDate">—</small>
-      </div>
-    </div>
-    <div class="timeclock-stats" id="timeClockStats"></div>
-    <div class="timeclock-now" id="timeClockNow"></div>
-    <h4>Entries</h4>
-    <div class="timeclock-entries" id="timeClockEntries"></div>
-  </section>
-</section>
+</article>
 </section>
 
-<section class="tab inventory-tab" id="tab-inventory">
-  <section class="inventory-home-header">
-    <p class="eyebrow">Inventory</p>
-    <h3>Restaurant stock, simple and clear.</h3>
-    <p class="muted">Track what comes in, what goes out, waste, counts and low-stock items.</p>
-  </section>
-  <section class="inventory-launch-grid" aria-label="Inventory shortcuts">
-    <button type="button" class="inventory-launch-card overview" onclick="document.getElementById('inventoryOverview')?.scrollIntoView({behavior:'smooth',block:'start'})">
-      <div class="inventory-launch-icon">📦</div>
-      <span>Stock overview</span>
-      <strong>Know what needs attention</strong>
-      <small>Low stock, stock value and recent activity.</small>
-    </button>
-    <button type="button" class="inventory-launch-card items" onclick="document.getElementById('inventoryItemsPanel')?.scrollIntoView({behavior:'smooth',block:'start'})">
-      <div class="inventory-launch-icon">🥬</div>
-      <span>Items</span>
-      <strong>Manage ingredients and supplies</strong>
-      <small>Units, par levels, costs, suppliers and storage.</small>
-    </button>
-    <button type="button" class="inventory-launch-card movement" onclick="document.getElementById('inventoryMovementsPanel')?.scrollIntoView({behavior:'smooth',block:'start'})">
-      <div class="inventory-launch-icon">↕️</div>
-      <span>Movements</span>
-      <strong>Stock in, out and waste</strong>
-      <small>Restaurant-oriented movement history.</small>
-    </button>
-    <button type="button" class="inventory-launch-card count" onclick="document.getElementById('inventoryCountPanel')?.scrollIntoView({behavior:'smooth',block:'start'})">
-      <div class="inventory-launch-icon">✓</div>
-      <span>Stock count</span>
-      <strong>Correct actual quantities</strong>
-      <small>Quick weekly or monthly count adjustments.</small>
-    </button>
-  </section>
-  <section class="panel inventory-overview-panel" id="inventoryOverview">
-    <div class="section-title-row">
-      <div><p class="eyebrow">Stock overview</p><h3>Inventory health</h3></div>
-      <div class="inventory-actions"><button class="primary" type="button" onclick="addInventoryItem()">Add item</button><button class="secondary" type="button" onclick="printInventory()">Print</button><button class="secondary" type="button" onclick="exportInventoryCsv()">Stock CSV</button><button class="secondary" type="button" onclick="exportInventoryMovementsCsv()">Movements CSV</button></div>
-    </div>
-    <div class="inventory-kpis" id="inventoryKpis"></div>
-    <div class="inventory-low-grid" id="inventoryLowList"></div>
-  </section>
-  <section class="panel inventory-items-panel" id="inventoryItemsPanel">
-    <div class="section-title-row">
-      <div><p class="eyebrow">Items</p><h3>Item catalog</h3><p class="muted">Food, drinks, cleaning, packaging and bar stock.</p></div>
-      <div class="inventory-actions"><button class="primary" type="button" onclick="addInventoryItem()">Add item</button><button class="secondary" type="button" onclick="addInventorySupplier()">Add supplier</button></div>
-    </div>
-    <div class="inventory-table-wrap" id="inventoryItems"></div>
-  </section>
-  <section class="grid two inventory-bottom-grid">
-    <section class="panel" id="inventoryMovementsPanel">
-      <div class="section-title-row"><div><p class="eyebrow">Movements</p><h3>Recent stock activity</h3></div></div>
-      <div id="inventoryMovements"></div>
-    </section>
-    <section class="panel" id="inventoryCountPanel">
-      <div class="section-title-row"><div><p class="eyebrow">Stock count</p><h3>Quick count mode</h3><p class="muted">Click Count on any item to correct the real quantity.</p></div></div>
-      <div id="inventorySuppliers"></div>
-    </section>
-  </section>
-</section>
-
-
-<section class="tab dailyclose-tab" id="tab-dailyclose">
-  <section class="dailyclose-home-header">
-    <p class="eyebrow">Daily close</p>
-    <h3>Payments, cash and end-of-day control.</h3>
-    <p class="muted">Track cash, cards, meal vouchers, tips and daily differences without becoming an accounting system.</p>
-  </section>
-  <section class="dailyclose-launch-grid" aria-label="Daily close shortcuts">
-    <button type="button" class="dailyclose-launch-card today" onclick="document.getElementById('dailyCloseWorkspace')?.scrollIntoView({behavior:'smooth',block:'start'})">
-      <div class="dailyclose-launch-icon">💶</div>
-      <span>Today</span>
-      <strong>Close the day</strong>
-      <small>Opening float, payments, actual cash and notes.</small>
-    </button>
-    <button type="button" class="dailyclose-launch-card payments" onclick="document.getElementById('dailyClosePayments')?.scrollIntoView({behavior:'smooth',block:'start'})">
-      <div class="dailyclose-launch-icon">💳</div>
-      <span>Payments</span>
-      <strong>Cash, cards, vouchers</strong>
-      <small>Bancontact, Visa, Amex, meal vouchers and platforms.</small>
-    </button>
-    <button type="button" class="dailyclose-launch-card cash" onclick="document.getElementById('dailyCloseMovementsPanel')?.scrollIntoView({behavior:'smooth',block:'start'})">
-      <div class="dailyclose-launch-icon">↕️</div>
-      <span>Cash movements</span>
-      <strong>Cash in / cash out</strong>
-      <small>Deposits, expenses, tips and corrections.</small>
-    </button>
-  </section>
-  <section class="panel dailyclose-workspace" id="dailyCloseWorkspace">
-    <div class="section-title-row dailyclose-title-row">
-      <div>
-        <p class="eyebrow">Daily close</p>
-        <h3>Close one service day</h3>
-        <p class="muted">Simple operational closing for the manager. Accounting/legal exports can come later.</p>
-      </div>
-      <div class="dailyclose-actions">
-        <input id="dailyCloseDate" type="date" onchange="setDailyCloseDate(this.value)"/>
-        <button class="secondary" type="button" onclick="printDailyCloseReport()">Print</button>
-        <button class="secondary" type="button" onclick="exportDailyCloseCsv()">CSV</button>
-        <button class="primary" type="button" onclick="closeDailyClose()" id="dailyCloseStatusBtn">Close day</button>
-      </div>
-    </div>
-    <div class="dailyclose-kpis" id="dailyCloseKpis"></div>
-  </section>
-  <div class="grid two dailyclose-grid">
-    <section class="panel" id="dailyClosePayments">
-      <div class="section-title-row"><div><p class="eyebrow">Payments</p><h3>Payment mix</h3><p class="muted">Enter the totals from your POS / payment terminal.</p></div></div>
-      <div class="dailyclose-payment-grid" id="dailyClosePaymentGrid"></div>
-    </section>
-    <section class="panel dailyclose-cash-panel">
-      <div class="section-title-row"><div><p class="eyebrow">Cash control</p><h3>Expected vs counted</h3><p class="muted">Opening float + cash sales + movements = expected cash.</p></div></div>
-      <div class="dailyclose-cash-form" id="dailyCloseCashForm"></div>
-    </section>
-  </div>
-  <div class="grid two dailyclose-grid">
-    <section class="panel" id="dailyCloseMovementsPanel">
-      <div class="section-title-row"><div><p class="eyebrow">Cash movements</p><h3>Cash in / cash out</h3></div><div class="dailyclose-actions"><button class="secondary mini" onclick="addCashMovement('in')" type="button">Cash in</button><button class="secondary mini" onclick="addCashMovement('out')" type="button">Cash out</button><button class="secondary mini" onclick="addCashMovement('deposit')" type="button">Deposit</button><button class="secondary mini" onclick="addCashMovement('expense')" type="button">Expense</button><button class="secondary mini" onclick="addCashMovement('tipsOut')" type="button">Tips out</button></div></div>
-      <div id="dailyCloseMovements"></div>
-    </section>
-    <section class="panel">
-      <div class="section-title-row"><div><p class="eyebrow">History</p><h3>Recent daily closes</h3></div></div>
-      <div id="dailyCloseHistory"></div>
-    </section>
-  </div>
+<div class="calendar rs-panel" id="ownerCalendar"></div>
 </section>
 
 
 
-<section class="tab forecast-tab" id="tab-forecast">
-  <section class="forecast-home-header">
-    <p class="eyebrow">Reservations / Covers</p>
-    <h3>Forecast each service before planning.</h3>
-    <p class="muted">Expected covers, private bookings and busy-day notes for lunch and evening.</p>
-  </section>
-  <section class="forecast-launch-grid" aria-label="Forecast shortcuts">
-    <button type="button" class="forecast-launch-card covers" onclick="document.getElementById('forecastWeekPanel')?.scrollIntoView({behavior:'smooth',block:'start'})">
-      <div class="forecast-launch-icon">🍽️</div>
-      <span>Covers</span>
-      <strong>Lunch and evening forecast</strong>
-      <small>Expected guests by service.</small>
-    </button>
-    <button type="button" class="forecast-launch-card events" onclick="document.getElementById('forecastEventsPanel')?.scrollIntoView({behavior:'smooth',block:'start'})">
-      <div class="forecast-launch-icon">⭐</div>
-      <span>Events</span>
-      <strong>Private bookings and notes</strong>
-      <small>Busy days, groups and special services.</small>
-    </button>
-    <button type="button" class="forecast-launch-card helper" onclick="document.getElementById('forecastHelperPanel')?.scrollIntoView({behavior:'smooth',block:'start'})">
-      <div class="forecast-launch-icon">👥</div>
-      <span>Planning helper</span>
-      <strong>Compare covers to staffing</strong>
-      <small>Simple service pressure indicators.</small>
-    </button>
-  </section>
-  <section class="panel forecast-overview-panel" id="forecastWeekPanel">
-    <div class="section-title-row forecast-title-row">
-      <div>
-        <p class="eyebrow">Weekly forecast</p>
-        <h3>Covers by service</h3>
-        <p class="muted">Use this before creating or adjusting the staff planner.</p>
-      </div>
-      <div class="forecast-actions">
-        <button class="secondary" type="button" onclick="printForecastReport()">Print</button>
-        <button class="secondary" type="button" onclick="exportForecastCsv()">CSV</button>
-      </div>
-    </div>
-    <div class="forecast-kpis" id="forecastKpis"></div>
-    <div class="forecast-grid" id="forecastGrid"></div>
-  </section>
-  <div class="grid two forecast-bottom-grid">
-    <section class="panel" id="forecastHelperPanel">
-      <div class="section-title-row"><div><p class="eyebrow">Planning helper</p><h3>Service pressure</h3><p class="muted">Simple covers-per-staff guidance. This is not a rule engine.</p></div></div>
-      <div id="forecastHelper"></div>
-    </section>
-    <section class="panel" id="forecastEventsPanel">
-      <div class="section-title-row"><div><p class="eyebrow">Events</p><h3>Private bookings and notes</h3><p class="muted">Anything the manager should know before staffing the week.</p></div></div>
-      <div id="forecastEvents"></div>
-    </section>
-  </div>
-</section>
 
 
-<section class="tab team-tab" id="tab-team">
-  <section class="team-home-header">
-    <p class="eyebrow">Team / HR</p>
-    <h3>Employee profiles, documents and absences.</h3>
-    <p class="muted">Keep practical staff details together without becoming a heavy HR system.</p>
-  </section>
-  <section class="team-launch-grid" aria-label="Team shortcuts">
-    <button type="button" class="team-launch-card profiles" onclick="document.getElementById('teamProfilesPanel')?.scrollIntoView({behavior:'smooth',block:'start'})">
-      <div class="team-launch-icon">👥</div>
-      <span>Profiles</span>
-      <strong>Employee details</strong>
-      <small>Contact, contract type, payroll ID and notes.</small>
-    </button>
-    <button type="button" class="team-launch-card documents" onclick="document.getElementById('teamDocumentsPanel')?.scrollIntoView({behavior:'smooth',block:'start'})">
-      <div class="team-launch-icon">📄</div>
-      <span>Documents</span>
-      <strong>Contracts and files</strong>
-      <small>Prototype upload stored inside the app state.</small>
-    </button>
-    <button type="button" class="team-launch-card absences" onclick="document.getElementById('teamAbsencesPanel')?.scrollIntoView({behavior:'smooth',block:'start'})">
-      <div class="team-launch-icon">🌙</div>
-      <span>Absences</span>
-      <strong>Leave, sick days, no-shows</strong>
-      <small>Record and approve staff absences.</small>
-    </button>
-  </section>
-  <section class="panel team-overview-panel">
-    <div class="section-title-row">
-      <div><p class="eyebrow">Team overview</p><h3>Staff status</h3></div>
-      <div class="team-actions"><button class="secondary mini" type="button" onclick="exportTeamCsv()">Team CSV</button><button class="secondary mini" type="button" onclick="exportAbsencesCsv()">Absences CSV</button><button class="secondary mini" type="button" onclick="printAbsencesReport()">Print absences</button></div>
-    </div>
-    <div class="team-kpis" id="teamKpis"></div>
-  </section>
-  <section class="panel" id="teamProfilesPanel">
-    <div class="section-title-row"><div><p class="eyebrow">Profiles</p><h3>Employee profiles</h3><p class="muted">Select an employee, update practical HR details and attach files.</p></div></div>
-    <div class="team-profile-layout">
-      <aside class="team-employee-list" id="teamEmployeeList"></aside>
-      <div class="team-profile-card" id="teamProfileCard"></div>
-    </div>
-  </section>
-  <section class="panel" id="teamDocumentsPanel">
-    <div class="section-title-row"><div><p class="eyebrow">Documents</p><h3>Contracts and employee files</h3><p class="muted">Prototype storage: small files are kept as base64 in the JSON state. Later, move this to Supabase Storage.</p></div></div>
-    <div id="teamDocuments"></div>
-  </section>
-  <section class="panel" id="teamAbsencesPanel">
-    <div class="section-title-row"><div><p class="eyebrow">Absences</p><h3>Absence management</h3><p class="muted">Record vacation, sick leave, no-shows and other absence events.</p></div><div class="team-actions"><button class="primary" type="button" onclick="addAbsenceRecord()">Add absence</button></div></div>
-    <div id="teamAbsences"></div>
-  </section>
-</section>
 
-<section class="tab exports-tab" id="tab-exports">
-  <section class="export-home-header">
-    <p class="eyebrow">Exports</p>
-    <h3>Reports for owners, accountants and operations.</h3>
-    <p class="muted">Download clean CSV files or print focused reports for the selected week.</p>
-  </section>
-  <section class="export-launch-grid" aria-label="Export center">
-    <article class="export-card payroll">
-      <span>Payroll</span>
-      <strong>Payroll CSV</strong>
-      <small>Actual worked hours by employee/day/shift. No Belgian payroll calculation yet.</small>
-      <div class="export-card-actions"><button class="primary" type="button" onclick="exportPayrollCsv()">Download CSV</button><button class="secondary" type="button" onclick="printPayrollReport()">Print</button></div>
-    </article>
 
-    <article class="export-card dailyclose">
-      <span>Daily close</span>
-      <strong>Payments + cash</strong>
-      <small>Cash, cards, meal vouchers, platforms, cash movements and daily difference.</small>
-      <div class="export-card-actions"><button class="primary" type="button" onclick="exportDailyCloseCsv()">Download CSV</button><button class="secondary" type="button" onclick="printDailyCloseReport()">Print</button></div>
-    </article>
-    <article class="export-card forecast">
-      <span>Forecast</span>
-      <strong>Covers forecast</strong>
-      <small>Expected covers, events, service notes and staffing pressure for the selected week.</small>
-      <div class="export-card-actions"><button class="primary" type="button" onclick="exportForecastCsv()">Download CSV</button><button class="secondary" type="button" onclick="printForecastReport()">Print</button></div>
-    </article>
-    <article class="export-card team">
-      <span>Team / HR</span>
-      <strong>Profiles + absences</strong>
-      <small>Employee details, contract metadata, document counts and absence records.</small>
-      <div class="export-card-actions"><button class="primary" type="button" onclick="exportTeamCsv()">Team CSV</button><button class="secondary" type="button" onclick="exportAbsencesCsv()">Absences CSV</button><button class="secondary" type="button" onclick="printAbsencesReport()">Print</button></div>
-    </article>
-    <article class="export-card timesheet">
-      <span>Timesheet</span>
-      <strong>Weekly actual hours</strong>
-      <small>Lunch/evening clock-in and clock-out details for the selected week.</small>
-      <div class="export-card-actions"><button class="primary" type="button" onclick="exportTimesheetCsv()">Download CSV</button><button class="secondary" type="button" onclick="printTimesheet()">Print</button></div>
-    </article>
-    <article class="export-card planning">
-      <span>Planning</span>
-      <strong>Planned schedule</strong>
-      <small>Employee, date, shift, time, zone and planned hours.</small>
-      <div class="export-card-actions"><button class="primary" type="button" onclick="exportPlanningCsv()">Download CSV</button><button class="secondary" type="button" onclick="printPlanningReport()">Print</button></div>
-    </article>
-    <article class="export-card inventory">
-      <span>Inventory</span>
-      <strong>Stock report</strong>
-      <small>Current stock, value, par levels, suppliers and storage areas.</small>
-      <div class="export-card-actions"><button class="primary" type="button" onclick="exportInventoryCsv()">Stock CSV</button><button class="secondary" type="button" onclick="printInventory()">Print</button></div>
-    </article>
-    <article class="export-card movements">
-      <span>Movements</span>
-      <strong>Stock movements</strong>
-      <small>Stock in, stock out, waste and stock count adjustments.</small>
-      <div class="export-card-actions"><button class="primary" type="button" onclick="exportInventoryMovementsCsv()">Download CSV</button><button class="secondary" type="button" onclick="printInventoryMovements()">Print</button></div>
-    </article>
-    <article class="export-card backup">
-      <span>Backup</span>
-      <strong>Full JSON backup</strong>
-      <small>Prototype safety export of the complete current workspace state.</small>
-      <div class="export-card-actions"><button class="secondary" type="button" onclick="exportBackup()">Export backup</button></div>
-    </article>
-  </section>
-</section>
-<section class="tab costs-tab" id="tab-costs">
-<section class="module-hub costs-command" aria-label="Costs shortcuts">
-<button type="button" class="module-card featured" onclick="document.getElementById('costHeroChart')?.scrollIntoView({behavior:'smooth',block:'start'})"><span>Costs</span><strong>Current analysis</strong><small>Week/day filters stay here.</small></button>
-<button type="button" class="module-card" onclick="document.getElementById('dayOverview')?.scrollIntoView({behavior:'smooth',block:'start'})"><span>Breakdowns</span><strong>Day + team view</strong><small>Hours, cost and workload.</small></button>
-<button type="button" class="module-card" onclick="showTab('dashboard')"><span>Trends</span><strong>Open dashboard</strong><small>Longer-term evolution.</small></button>
-</section>
-<div class="panel analytics-controls cost-analysis-header">
-<div>
-<h3>Cost Analysis</h3>
-</div>
-<div class="cost-control-stack">
-<div aria-label="Stack by" class="segmented small cost-toggle">
-<button data-cost-stack="position" type="button">Position</button>
-<button class="active" data-cost-stack="zone" type="button">Zone</button>
-</div>
-</div>
-</div>
-<section class="panel hero-chart-panel">
-<div class="section-title-row"><div><h3 id="costHeroTitle">Planned cost by day</h3><p class="muted" id="costHeroSubtitle"></p></div><span class="mini-badge" id="costSelectionBadge">Week</span></div>
-<div class="stacked-chart operational-chart" id="costHeroChart"></div>
-</section>
-<div class="metrics kpi-grid cost-kpis">
-<div><span>Total planned cost</span><strong id="analyticsCost">€0</strong><small id="analyticsCostCompare">Selected plan</small></div>
-<div><span>Total planned hours</span><strong id="analyticsHours">0h</strong><small id="analyticsHoursCompare">Selected plan</small></div>
-<div><span>Staffed employees</span><strong id="teamCount">0</strong><small>Distinct people scheduled</small></div>
-<div><span>Avg cost / hour</span><strong id="analyticsAvgCost">€0</strong><small>Planning rate average</small></div>
-<div><span>Highest-cost day/shift</span><strong id="topDay">—</strong><small id="topDayDetail">Cost driver</small></div>
-<div><span>Top cost position</span><strong id="topPosition">—</strong><small id="topPositionDetail">Cost share</small></div>
-<div><span>Top cost zone</span><strong id="topZone">—</strong><small id="topZoneDetail">Cost share</small></div>
-<div><span>Assignments</span><strong id="assignmentCount">0</strong><small>Filled shift slots</small></div>
-</div>
-<section class="panel insight-alerts">
-<h3>Quick insights</h3>
-<div class="alert-grid" id="insightAlerts"></div>
-</section>
-<section class="panel">
-<h3>Day breakdown: hours + cost</h3>
-<div id="dayOverview"></div>
-</section>
-<section class="panel">
-<h3>Employee workload &amp; cost</h3>
-<div id="employeeInsights"></div>
-</section>
-<div class="grid two dashboard-grid">
-<section class="panel"><h3>Position breakdown</h3><div id="positionBreakdown"></div></section>
-<section class="panel zone-summary"><h3>Zone breakdown</h3><div id="zoneBreakdown"></div></section>
-</div>
-</section>
-<section class="tab dashboard-tab" id="tab-dashboard">
-<section class="module-hub dashboard-command" aria-label="Dashboard shortcuts">
-<button type="button" class="module-card featured" onclick="document.getElementById('dashboardCostTrend')?.scrollIntoView({behavior:'smooth',block:'start'})"><span>Trends</span><strong>Cost + hours</strong><small>Use 4w / 12w / 52w.</small></button>
-<button type="button" class="module-card" onclick="document.getElementById('dashboardStackedMix')?.scrollIntoView({behavior:'smooth',block:'start'})"><span>Mix</span><strong>Position or zone</strong><small>Keep the dynamic toggle.</small></button>
-<button type="button" class="module-card" onclick="showTab('costs')"><span>Week</span><strong>Back to costs</strong><small>Detailed current week.</small></button>
-</section>
-<div class="panel analytics-controls dashboard-range-header">
-<div>
-<h3>Dashboard</h3>
-</div>
-<div class="cost-control-stack">
-<div class="segmented small dashboard-range">
-<button class="active" data-dashboard-range="4" type="button">4 weeks</button>
-<button data-dashboard-range="12" type="button">12 weeks</button>
-<button data-dashboard-range="52" type="button">YTD / 52w</button>
-</div>
-<div class="segmented small dashboard-group">
-<button class="active" data-dashboard-mix="position" type="button">Position mix</button>
-<button data-dashboard-mix="zone" type="button">Zone mix</button>
-</div>
-</div>
-</div>
-<div class="metrics kpi-grid trend-kpis">
-<div><span>Period cost</span><strong id="trendCost">€0</strong><small id="trendCostDelta">vs previous period</small></div>
-<div><span>Period hours</span><strong id="trendHours">0h</strong><small id="trendHoursDelta">vs previous period</small></div>
-<div><span>Avg weekly cost</span><strong id="trendAvgCost">€0</strong><small>Across selected range</small></div>
-<div><span>Avg weekly hours</span><strong id="trendAvgHours">0h</strong><small>Across selected range</small></div>
-<div><span>Peak week</span><strong id="trendPeakWeek">—</strong><small id="trendPeakDetail">Highest planned cost</small></div>
-<div><span>Main cost driver</span><strong id="trendDriver">—</strong><small id="trendDriverDetail">Across selected range</small></div>
-</div>
-<div class="grid two dashboard-grid">
-<section class="panel"><h3>Cost trend</h3><div class="trend-chart" id="dashboardCostTrend"></div></section>
-<section class="panel"><h3>Hours trend</h3><div class="trend-chart" id="dashboardHoursTrend"></div></section>
-</div>
-<section class="panel">
-<h3 id="dashboardMixTitle">Cost mix over time</h3>
-<div class="stacked-chart operational-chart" id="dashboardStackedMix"></div>
-</section>
-<div class="grid two dashboard-grid">
-<section class="panel"><h3>Position evolution</h3><div id="dashboardPositionBreakdown"></div></section>
-<section class="panel zone-summary"><h3>Zone evolution</h3><div id="dashboardZoneBreakdown"></div></section>
-</div>
-</section>
-<section class="tab" id="tab-setup">
-<section class="module-hub setup-command" aria-label="Setup shortcuts">
-<button type="button" class="module-card featured" onclick="openSetupWizard('edit')"><span>Wizard</span><strong>Restaurant setup</strong><small>Identity, brand and team.</small></button>
-<button type="button" class="module-card" onclick="document.getElementById('employeeManager')?.scrollIntoView({behavior:'smooth',block:'start'})"><span>Team</span><strong>Employees</strong><small>Rates and manager access.</small></button>
-<button type="button" class="module-card" onclick="document.getElementById('zoneManager')?.scrollIntoView({behavior:'smooth',block:'start'})"><span>Rules</span><strong>Zones + hours</strong><small>Shift defaults and colors.</small></button>
-</section>
-<section class="panel setup-wizard-hero">
-<div class="setup-wizard-copy">
-<p class="eyebrow">Setup</p>
-<h3>Restaurant Setup Wizard</h3>
-<div class="setup-wizard-summary" id="setupWizardSummary"></div>
-</div>
-<div class="setup-wizard-actions">
-<button class="primary" id="openSetupWizard" type="button">Edit restaurant setup</button>
-</div>
-</section>
-<section class="panel workspace-info-panel">
-<h3>Restaurant workspace</h3>
-<div class="workspace-info-grid" id="workspaceInfoPanel"></div>
-</section>
-<section class="panel">
-<h3>Manage employees</h3>
-<div class="add-row"><input id="newName" placeholder="Name"/><select id="newPosition"></select><input id="newRate" placeholder="€/hour" step="0.25" type="number"/><input class="pin-input" id="newPin" readonly="" title="PIN 0000" value="0000"/><button class="primary" id="addEmployee">Add employee</button></div>
-<div id="employeeManager"></div>
-</section>
-<section class="panel">
-<h3>Manage positions</h3>
-<div id="positionManager"></div>
-<div class="add-row"><input id="newPositionName" placeholder="New position, e.g. Runner"/><button class="primary" id="addPositionBtn">Add position</button></div>
-</section>
-<section class="panel">
-<h3>Manage zones &amp; shift hours</h3>
-<div id="zoneManager"></div>
-<div class="add-row zone-add"><input id="newZoneRole" placeholder="Role / position"/><input id="newZoneName" placeholder="Zone"/><input id="newZoneLunch" placeholder="Lunch, e.g. 11:00-15:00"/><input id="newZoneEvening" placeholder="Evening, e.g. 17:50-23:00"/><button class="primary" id="addZoneBtn">Add zone</button></div>
-</section>
-</section>
+
+
 </section>
 </main>
 </div>
@@ -822,32 +229,23 @@
 <label>Optional note<textarea id="swapNote" placeholder="Write a short reason or comment" rows="4"></textarea></label>
 <div class="dialog-actions"><button class="primary" id="confirmSwap">Confirm</button><button class="secondary" id="cancelSwap">Cancel</button></div>
 </dialog>
-<dialog class="dialog zone-dialog" id="zoneDialog">
-<h3>Change zone</h3>
-<p class="muted" id="zoneDialogText"></p>
-<label>Zone
-      <select id="zoneDialogSelect"></select>
-</label>
-<div class="dialog-actions"><button class="primary" id="saveZoneDialog">Save zone</button><button class="secondary" id="cancelZoneDialog">Cancel</button></div>
-</dialog>
+
 <dialog id="messageDialog">
 <h2>Schedule message</h2>
 <textarea id="messageText" rows="16"></textarea>
 <div class="dialog-actions"><button class="primary" id="copyMessage">Copy</button><button class="secondary" id="closeMessage">Close</button></div>
 </dialog>
-<dialog class="note-dialog" id="dayNoteDialog">
-<h2 id="dayNoteTitle">Shift notes</h2>
-<div class="day-note-body" id="dayNoteBody"></div>
-<div class="dialog-actions"><button class="secondary" id="closeDayNote">Close</button></div>
-</dialog>
-<dialog class="dialog setup-wizard-dialog" id="setupWizardDialog">
-<div id="setupWizardRoot"></div>
-</dialog>
+
+
 <script src="assets/js/config.js"></script>
 <script src="assets/js/data-adapter.local.js"></script>
 <script src="assets/js/data-adapter.supabase.js"></script>
+<script src="assets/js/restogogo-ui.js"></script>
 <script src="assets/js/brand-entry.js"></script>
 <script src="assets/js/employee-schedule.js"></script>
+<script src="assets/js/owner-planning.js"></script>
+<script src="assets/js/time-clock.js"></script>
+<script src="assets/js/actual-timesheet.js"></script>
 <script src="assets/js/app.js"></script>
 </body>
 </html>

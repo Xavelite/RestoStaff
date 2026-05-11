@@ -1,0 +1,41 @@
+/* restogogo v2 design tokens */
+:root {
+  --rst-blue: #3347ff;
+  --rst-indigo: #2833a8;
+  --rst-mint: #23c6a7;
+  --rst-coral: #ff7a59;
+  --rst-red: #9b1734;
+  --rst-ui-font: Inter, "Segoe UI", Arial, sans-serif;
+  --rst-ui-bg: #06101d;
+  --rst-ui-bg-2: #091325;
+  --rst-ui-panel: #111c2d;
+  --rst-ui-card: rgba(255,255,255,.052);
+  --rst-ui-card-strong: rgba(255,255,255,.075);
+  --rst-ui-ink: #f8fafc;
+  --rst-ui-text: #f8fafc;
+  --rst-ui-muted: #b9c7db;
+  --rst-ui-subtle: #d7deeb;
+  --rst-ui-line: rgba(255,255,255,.10);
+  --rst-ui-line-strong: rgba(255,255,255,.16);
+  --rst-ui-accent: var(--rst-red);
+  --rst-ui-accent-dark: #7c1028;
+  --rst-ui-action: #3b82f6;
+  --rst-ui-action-2: #7c3aed;
+  --rst-ui-success: #22c55e;
+  --rst-ui-info: #6fe6ff;
+  --rst-ui-purple: #a78bfa;
+  --rst-ui-warn: #f59e0b;
+  --rst-ui-risk: #ec4899;
+  --rst-ui-radius-sm: 12px;
+  --rst-ui-radius-md: 17px;
+  --rst-ui-radius-lg: 24px;
+  --rst-ui-radius-xl: 30px;
+  --rst-ui-shadow-soft: 0 16px 38px rgba(0,0,0,.16);
+  --rst-ui-shadow-frame: 0 28px 86px rgba(0,0,0,.34);
+  --rst-ui-focus: 0 0 0 4px rgba(51, 71, 255, .16);
+  --rst-v2-content-max: 1640px;
+  --rst-v2-gutter: 48px;
+  --rst-v2-topbar-h: 64px;
+  --rst-v2-topbar-bg: rgba(4, 11, 21, .94);
+  --rst-v2-topbar-line: rgba(255,255,255,.08);
+}

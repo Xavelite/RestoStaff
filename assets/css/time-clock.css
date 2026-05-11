@@ -1,0 +1,564 @@
+/* Time Clock page: kiosk/tablet badge terminal.
+   Structure lives here only because the terminal is a separate employee-facing surface.
+   Shared primitives reused: rs-card, buttons, avatar colors, feedback/toasts, tokens. */
+html.time-clock-mode,
+body.time-clock-mode {
+  height: 100svh;
+  overflow: hidden;
+}
+
+body.time-clock-mode {
+  --time-clock-page-pad-x: max(28px,calc((100vw - var(--rst-v2-content-max)) / 2));
+  --time-clock-page-pad-y: clamp(18px,2.5vh,30px);
+  color: var(--rst-ui-text);
+  background:
+    radial-gradient(circle at 50% -10%,rgba(51,71,255,.15),transparent 34%),
+    radial-gradient(circle at 85% 18%,rgba(37,99,235,.10),transparent 30%),
+    linear-gradient(135deg,var(--rst-ui-bg) 0,var(--rst-ui-bg-2) 56%,#0f1930 100%);
+}
+
+body.time-clock-mode .app-topbar-v2 {
+  display: none;
+}
+
+body.time-clock-mode .phone-frame,
+body.time-clock-mode .shell {
+  width: 100%;
+  height: 100svh;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+body.time-clock-mode #page-time-clock {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.time-clock-page {
+  min-height: 0;
+  padding: 0;
+}
+
+.time-clock-shell {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: var(--time-clock-page-pad-y) var(--time-clock-page-pad-x);
+  overflow: hidden;
+}
+
+.time-clock-panel {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  overflow: hidden;
+}
+
+.time-clock-terminal {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0,1fr);
+  gap: clamp(16px,2.2vh,24px);
+  overflow: hidden;
+}
+
+.time-clock-kiosk-header {
+  min-height: clamp(56px,8vh,82px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.time-clock-kiosk-brand {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: clamp(14px,1.8vw,24px);
+}
+
+.time-clock-kiosk-logo {
+  display: block;
+  width: clamp(156px,14vw,226px);
+  max-width: 38vw;
+  height: auto;
+  object-fit: contain;
+}
+
+.time-clock-kiosk-divider {
+  width: 1px;
+  height: 34px;
+  background: rgba(203,213,225,.34);
+}
+
+.time-clock-kiosk-title {
+  color: rgba(226,232,240,.78);
+  font-size: clamp(17px,1.35vw,24px);
+  font-weight: 820;
+  letter-spacing: -.035em;
+  white-space: nowrap;
+}
+
+.time-clock-live {
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+.time-clock-live span {
+  display: block;
+  color: #fff;
+  font-size: clamp(42px,5.5vw,70px);
+  line-height: .88;
+  font-weight: 950;
+  letter-spacing: -.055em;
+}
+
+.time-clock-live small {
+  display: block;
+  margin-top: 12px;
+  color: rgba(203,213,225,.72);
+  font-size: clamp(13px,1.25vw,18px);
+  font-weight: 760;
+}
+
+.time-clock-layout {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(280px,360px) minmax(0,1fr);
+  gap: clamp(16px,2vw,22px);
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.time-clock-people,
+.time-clock-terminal-card {
+  min-height: 0;
+  height: 100%;
+  border-color: rgba(148,163,184,.18);
+  background:
+    radial-gradient(circle at 0% 0%,rgba(96,165,250,.10),transparent 34%),
+    linear-gradient(135deg,rgba(15,25,44,.80),rgba(7,16,32,.76));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06),0 28px 80px rgba(0,0,0,.28);
+}
+
+.time-clock-people {
+  padding: clamp(12px,1.4vh,16px);
+  overflow: hidden;
+}
+
+.time-clock-people-list {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-auto-rows: minmax(clamp(62px,8.2vh,86px),auto);
+  align-content: start;
+  gap: clamp(7px,1vh,10px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: 4px 4px 4px 2px;
+}
+
+.time-clock-person {
+  width: 100%;
+  min-height: clamp(62px,8.2vh,86px);
+  display: grid;
+  grid-template-columns: clamp(48px,4vw,58px) minmax(0,1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 10px clamp(14px,1.4vw,20px);
+  border: 1px solid rgba(255,255,255,.075);
+  border-radius: 22px;
+  background: linear-gradient(135deg,rgba(255,255,255,.060),rgba(255,255,255,.026));
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition: transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease;
+}
+
+.time-clock-person:hover,
+.time-clock-person:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(96,165,250,.34);
+  background: linear-gradient(135deg,rgba(59,130,246,.15),rgba(255,255,255,.035));
+  outline: 0;
+}
+
+.time-clock-person.is-active {
+  border-color: rgba(99,102,241,.90);
+  background: linear-gradient(135deg,rgba(59,130,246,.24),rgba(49,46,129,.18));
+  box-shadow: 0 0 0 1px rgba(99,102,241,.18),0 16px 36px rgba(37,99,235,.14);
+}
+
+.time-clock-avatar {
+  width: clamp(46px,4vw,56px);
+  height: clamp(46px,4vw,56px);
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  border: 1px solid var(--pos-border,rgba(96,165,250,.32));
+  background:
+    radial-gradient(circle at 25% 15%,rgba(255,255,255,.22),transparent 30%),
+    linear-gradient(135deg,var(--pos-color,#2563eb),#4338ca);
+  color: #fff;
+  font-size: clamp(17px,1.5vw,22px);
+  font-weight: 950;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.15);
+}
+
+.time-clock-person-name {
+  min-width: 0;
+  overflow: hidden;
+  color: #fff;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(17px,1.35vw,22px);
+  line-height: 1.1;
+  font-weight: 920;
+  letter-spacing: -.035em;
+}
+
+.time-clock-terminal-card {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: clamp(18px,3.2vw,42px);
+  isolation: isolate;
+}
+
+.time-clock-orbit {
+  position: absolute;
+  inset: auto;
+  width: min(72vw,900px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid rgba(96,165,250,.08);
+  box-shadow: inset 0 0 0 88px rgba(96,165,250,.025),inset 0 0 0 1px rgba(255,255,255,.025);
+  transform: translate(4%,-1%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.time-clock-center-copy {
+  display: grid;
+  justify-items: center;
+  gap: clamp(9px,1.2vh,13px);
+  text-align: center;
+}
+
+.time-clock-state-icon {
+  width: clamp(48px,5vw,62px);
+  height: clamp(48px,5vw,62px);
+  display: grid;
+  place-items: center;
+  margin-bottom: 2px;
+  border-radius: 50%;
+  border: 1px solid rgba(99,102,241,.58);
+  background:
+    radial-gradient(circle at 50% 20%,rgba(255,255,255,.20),transparent 34%),
+    linear-gradient(135deg,rgba(29,78,216,.34),rgba(67,56,202,.24));
+  color: #a5b4fc;
+  box-shadow: 0 0 42px rgba(59,130,246,.18),inset 0 1px 0 rgba(255,255,255,.13);
+}
+
+.time-clock-state-icon svg {
+  width: 48%;
+  height: 48%;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 9px rgba(129,140,248,.55));
+}
+
+.time-clock-kicker {
+  color: #8cecff;
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.time-clock-center-copy h2 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(36px,5.4vw,76px);
+  line-height: .92;
+  font-weight: 950;
+  letter-spacing: -.07em;
+}
+
+.time-clock-center-copy p {
+  margin: 0;
+  color: rgba(203,213,225,.74);
+  font-size: clamp(18px,2.25vw,32px);
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -.04em;
+}
+
+.time-clock-center-copy small {
+  color: rgba(226,232,240,.72);
+  font-size: 14px;
+  font-weight: 780;
+}
+
+.time-clock-pin-flow {
+  width: min(680px,100%);
+  display: grid;
+  justify-items: center;
+  gap: clamp(10px,1.7vh,16px);
+}
+
+.time-clock-pin-flow.is-error {
+  animation: timeClockShake .36s ease;
+}
+
+.time-clock-selected-person {
+  display: grid;
+  grid-template-columns: clamp(48px,4vw,56px) minmax(0,1fr);
+  align-items: center;
+  gap: 14px;
+  min-width: min(420px,100%);
+  padding: 9px 14px;
+  border: 1px solid rgba(96,165,250,.20);
+  border-radius: 22px;
+  background: rgba(15,23,42,.52);
+}
+
+.time-clock-selected-person strong,
+.time-clock-selected-person small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.time-clock-selected-person strong {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 920;
+}
+
+.time-clock-selected-person small {
+  margin-top: 2px;
+  color: rgba(203,213,225,.70);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.time-clock-pin-entry {
+  width: min(390px,100%);
+  display: grid;
+  gap: clamp(10px,1.3vh,13px);
+}
+
+.time-clock-pin-dots {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.time-clock-pin-dots span {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.22);
+  background: rgba(255,255,255,.08);
+  transition: background .14s ease,border-color .14s ease,box-shadow .14s ease,transform .14s ease;
+}
+
+.time-clock-pin-dots span.is-filled {
+  transform: scale(1.04);
+  background: #8cecff;
+  border-color: rgba(140,236,255,.70);
+  box-shadow: 0 0 18px rgba(140,236,255,.24);
+}
+
+.time-clock-keypad {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: clamp(7px,1vh,9px);
+}
+
+.time-clock-keypad button {
+  min-height: clamp(46px,6vh,56px);
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 16px;
+  background: linear-gradient(135deg,rgba(255,255,255,.075),rgba(255,255,255,.035));
+  color: #fff;
+  font: inherit;
+  font-size: clamp(18px,1.7vw,22px);
+  font-weight: 950;
+  cursor: pointer;
+  transition: transform .14s ease,background .14s ease,border-color .14s ease;
+}
+
+.time-clock-keypad button:hover,
+.time-clock-keypad button:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(96,165,250,.34);
+  background: linear-gradient(135deg,rgba(59,130,246,.16),rgba(255,255,255,.055));
+  outline: 0;
+}
+
+.time-clock-keypad button.is-clear,
+.time-clock-keypad button.is-back {
+  font-size: 17px;
+  letter-spacing: -.02em;
+}
+
+.time-clock-terminal-card.is-processing .time-clock-keypad,
+.time-clock-terminal-card.is-processing .time-clock-pin-dots {
+  opacity: .46;
+  pointer-events: none;
+}
+
+
+.time-clock-terminal-card.has-employee {
+  align-content: center;
+}
+
+.time-clock-terminal-card.has-employee .time-clock-orbit {
+  transform: translate(4%,0) scale(.94);
+}
+
+.time-clock-terminal-card.has-employee .time-clock-center-copy {
+  gap: clamp(6px,1vh,9px);
+}
+
+.time-clock-terminal-card.has-employee .time-clock-center-copy p {
+  font-size: clamp(22px,2.7vw,38px);
+  line-height: .98;
+  color: rgba(241,245,249,.88);
+}
+
+.time-clock-terminal-card.has-employee .time-clock-center-copy small {
+  font-size: clamp(12px,1.05vw,14px);
+}
+
+.time-clock-pin-flow h2:empty {
+  display: none;
+}
+
+.time-clock-pin-flow,
+.time-clock-pin-entry,
+.time-clock-keypad {
+  min-height: 0;
+}
+
+@keyframes timeClockShake {
+  0%,100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(7px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(4px); }
+}
+
+@media (max-width: 980px) {
+  body.time-clock-mode {
+    --time-clock-page-pad-x: 14px;
+    --time-clock-page-pad-y: 14px;
+  }
+
+  .time-clock-kiosk-header {
+    align-items: flex-start;
+  }
+
+  .time-clock-kiosk-logo {
+    width: 148px;
+  }
+
+  .time-clock-kiosk-divider,
+  .time-clock-kiosk-title {
+    display: none;
+  }
+
+  .time-clock-live span {
+    font-size: 42px;
+  }
+
+  .time-clock-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .time-clock-people {
+    max-height: 32vh;
+  }
+}
+
+
+@media (max-height: 900px) and (min-width: 981px) {
+  .time-clock-terminal {
+    gap: 14px;
+  }
+
+  .time-clock-kiosk-header {
+    min-height: 60px;
+  }
+
+  .time-clock-live span {
+    font-size: clamp(44px,4.8vw,64px);
+  }
+
+  .time-clock-terminal-card {
+    padding: clamp(14px,2.4vw,34px);
+  }
+
+  .time-clock-selected-person {
+    min-width: min(390px,100%);
+  }
+
+  .time-clock-center-copy h2 {
+    font-size: clamp(30px,4.5vw,58px);
+  }
+}
+
+@media (max-height: 760px) and (min-width: 981px) {
+  body.time-clock-mode {
+    --time-clock-page-pad-y: 16px;
+  }
+
+  .time-clock-kiosk-header {
+    min-height: 54px;
+  }
+
+  .time-clock-layout {
+    grid-template-columns: minmax(260px,330px) minmax(0,1fr);
+  }
+
+  .time-clock-person,
+  .time-clock-people-list {
+    grid-auto-rows: minmax(58px,auto);
+  }
+
+  .time-clock-person {
+    min-height: 58px;
+    border-radius: 19px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .time-clock-person,
+  .time-clock-keypad button,
+  .time-clock-pin-flow.is-error {
+    transition: none;
+    animation: none;
+  }
+}

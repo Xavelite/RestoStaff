@@ -14,8 +14,8 @@
     notificationsRead: 'bb_notif_read',
     showZeroRows: 'bb_show_zero_rows',
     showMetrics: 'bb_show_metrics',
-    workspaceId: 'restostaff_workspace_id',
-    workspaceCatalog: 'restostaff_workspace_catalog'
+    workspaceId: 'restogogo_workspace_id',
+    workspaceCatalog: 'restogogo_workspace_catalog'
   });
 
   function readString(key, fallback = null){

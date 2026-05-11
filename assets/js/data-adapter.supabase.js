@@ -3,7 +3,7 @@
  * ---------------------
  * Supabase-only planner storage for the online prototype.
  *
- * v128+ use prototype restaurant workspaces: every restaurant is a separate
+ * Prototype restaurant workspaces: every restaurant is a separate
  * public.planner_state row keyed by id. This is not yet secure multi-tenant auth;
  * session/preferences remain local until Supabase Auth + RLS are introduced.
  */
@@ -21,13 +21,13 @@
   const KEYS = Local.KEYS;
   const table = config.supabaseTable || 'planner_state';
   const defaultWorkspaceId = sanitizeWorkspaceId(config.defaultWorkspaceId || config.supabaseRecordId || 'bouillon-bruxelles');
-  const legacyRecordId = config.supabaseLegacyRecordId || '';
-  const workspaceKey = 'restostaff_workspace_id';
+  const bootstrapRecordId = config.supabaseBootstrapRecordId || '';
+  const workspaceKey = 'restogogo_workspace_id';
   let currentRecordId = sanitizeWorkspaceId(Local.readPreference(workspaceKey, defaultWorkspaceId) || defaultWorkspaceId);
   const baseUrl = String(config.supabaseUrl || '').replace(/\/rest\/v1\/?$/,'').replace(/\/+$/,'');
   const restUrl = `${baseUrl}/rest/v1/${encodeURIComponent(table)}`;
   const apiKey = config.supabaseKey;
-  const seedVersion = config.setupSeedVersion || 'v131-timeclock';
+  const seedVersion = config.setupSeedVersion || 'clean-v2-base';
   let lastError = '';
   let lastReadStatus = 'idle';
   let needsSetupSeed = false;
@@ -113,13 +113,13 @@
       return remote;
     }
 
-    // v128 migration convenience: first Bouillon workspace can bootstrap from the old "main" row.
-    if(currentRecordId === defaultWorkspaceId && legacyRecordId && legacyRecordId !== currentRecordId){
-      const legacy = fetchPlannerRow(legacyRecordId);
-      if(legacy.ok){
-        remote = extractPlannerData(legacy);
+    // Bootstrap convenience: the first Bouillon workspace can seed from the optional "main" row when present.
+    if(currentRecordId === defaultWorkspaceId && bootstrapRecordId && bootstrapRecordId !== currentRecordId){
+      const bootstrap = fetchPlannerRow(bootstrapRecordId);
+      if(bootstrap.ok){
+        remote = extractPlannerData(bootstrap);
         if(remote){
-          lastReadStatus = 'legacy-ok';
+          lastReadStatus = 'bootstrap-ok';
           needsSetupSeed = false;
           return remote;
         }
