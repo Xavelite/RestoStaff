@@ -2,7 +2,6 @@
 
 ## Login
 
-- Dev gate unlocks with `admin` / `0000`.
 - Restaurant login accepts owner / employee identities with PIN `0000`.
 - Login page remains visually consistent and no app shell leaks behind it.
 

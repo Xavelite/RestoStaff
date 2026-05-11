@@ -517,12 +517,6 @@ function ownerPlanningFilterMenu(info){
   ].join('');
 }
 
-function ownerPlanningTerminalButton(){
-  return [`<button type="button" class="rs-control-button rs-terminal-launch" data-launch-time-clock aria-label="Open badge terminal" title="Open badge terminal in a new window">`,
-    `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="4" width="14" height="16" rx="3"></rect><path d="M9 8h6M9 12h6M10 16h4"></path></svg>`,
-    `<span>Badge terminal</span>`,
-  `</button>`].join('');
-}
 
 function ownerPlanningActionsMenu(){
   const actions=[
@@ -547,7 +541,6 @@ function ownerPlanningGridToolbar(info){
     `<div class="rs-grid-toolbar__controls">`,
     ownerPlanningSearchControl(),
     ownerPlanningFilterMenu(info),
-    ownerPlanningTerminalButton(),
     ownerPlanningActionsMenu(),
     `</div>`,
     `</section>`

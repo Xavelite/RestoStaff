@@ -123,17 +123,13 @@
     return !!document.querySelector('#login.brand-page[style*="grid"], #login.brand-page');
   }
 
-  function signalDevGateError(){
-    pulse(document.querySelector('.dev-gate-card'));
-  }
 
   const brandEntryApi = {
     renderEntryModules,
     resetLoginState,
     signalLoginError,
     signalLoginSuccess,
-    shouldDelayEntry,
-    signalDevGateError
+    shouldDelayEntry
   };
 
   window.RestogogoBrandEntry = brandEntryApi;

@@ -21,24 +21,7 @@
 <link href="assets/css/time-clock.css" rel="stylesheet"/>
 <link href="assets/css/actual-timesheet.css" rel="stylesheet"/>
 </head>
-<body class="desktop logged-out dev-gated">
-<!-- Private development gate -->
-<section aria-label="Private development access" class="dev-gate-screen" id="devGate">
-<div class="dev-gate-card">
-<div aria-hidden="true" class="dev-gate-mark"><img alt="" src="assets/img/brand/restogogo_icon_transparent.png"/></div>
-<p class="eyebrow">Private preview</p>
-<h1>restogogo is locked while we build.</h1>
-<p class="dev-gate-note">Sign in to continue.</p>
-<label>Username
-      <input autocomplete="username" id="devUsername" placeholder="Username"/>
-</label>
-<label>Password
-      <input autocomplete="current-password" id="devPassword" inputmode="numeric" placeholder="Password" type="password"/>
-</label>
-<button class="primary wide" id="devLoginBtn" type="button">Unlock</button>
-<p class="dev-gate-message" id="devGateMessage"></p>
-</div>
-</section>
+<body class="desktop logged-out">
 <!-- restogogo brand login page -->
 <section aria-label="restogogo access" class="brand-page rs-v2-page" id="login">
 <header class="brand-topbar rs-v2-topbar">
@@ -46,9 +29,7 @@
 <div aria-label="restogogo" class="brand-logo">
 <img alt="restogogo" class="brand-logo__image" src="assets/img/brand/restogogo_logo_transparent.png"/>
 </div>
-<button aria-label="Lock prototype" class="brand-lock-button rs-icon-button" id="devLogoutBtn" title="Lock prototype" type="button">
-<svg aria-hidden="true" fill="none" viewbox="0 0 24 24"><path d="M8 10V8a4 4 0 1 1 8 0v2"></path><rect height="10" rx="3" width="14" x="5" y="10"></rect><path d="M12 13v3"></path></svg>
-</button>
+
 </div>
 </header>
 <div class="brand-shell rs-v2-shell">
@@ -163,7 +144,7 @@
 
 <section class="page actual-timesheet-page rs-v2-page" id="page-actuals">
   <section aria-label="Actual timesheet summary" class="actual-timesheet-summary rs-metric-grid rs-weekly-metrics" id="actualTimesheetMetrics"></section>
-  <section aria-label="Actual timesheet board" class="actual-timesheet-board rs-panel" id="actualTimesheetRoot"></section>
+  <section aria-label="Actual timesheet board" class="actual-timesheet-board rs-weekly-board rs-panel" id="actualTimesheetRoot"></section>
 </section>
 
 
@@ -208,7 +189,7 @@
 </article>
 </section>
 
-<div class="calendar rs-panel" id="ownerCalendar"></div>
+<div class="calendar rs-weekly-board rs-panel" id="ownerCalendar"></div>
 </section>
 
 

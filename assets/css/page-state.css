@@ -14,19 +14,20 @@ body:not(.logged-out) #login.brand-page {
   display: block;
 }
 
-body.logged-in #devGate,body:not(.dev-gated) #devGate {
-  display: none;
-}
 
 .owner-planning-mode #page-my-schedule,.my-schedule-mode #page-owner {
   display: none;
 }
 
-.owner-planning-mode #page-owner,.owner-planning-mode #tab-planning,.my-schedule-mode #page-my-schedule {
-  display: block;
+/* Page-state only decides which page is visible. Weekly pages need a flex
+   display type so their shared board can constrain the internal table scroll. */
+.owner-planning-mode #page-owner,
+.owner-planning-mode #tab-planning,
+.actual-timesheet-mode #page-actuals {
+  display: flex;
 }
 
-.time-clock-mode #page-time-clock,
-.actual-timesheet-mode #page-actuals {
+.my-schedule-mode #page-my-schedule,
+.time-clock-mode #page-time-clock {
   display: block;
 }

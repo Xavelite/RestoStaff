@@ -74,7 +74,6 @@ Page CSS should only style page-specific layout and content.
 
 ## Prototype access
 
-- Dev gate: `admin` / `0000`
 - Owner password/PIN: `0000`
 - Employee password/PIN: `0000`
 

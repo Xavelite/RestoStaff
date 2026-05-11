@@ -45,9 +45,6 @@ let storageReadOnly = false;
 let workspaceCatalog = [];
 
 const PROTOTYPE_PIN = '0000';
-const DEV_GATE_USER = 'admin';
-const DEV_GATE_PASSWORD = '0000';
-const DEV_GATE_KEY = 'restogogo_dev_gate_unlocked';
 const WORKSPACE_ROUTE_ALIASES = {bouillon:'bouillon-bruxelles', demo:'demo-restaurant'};
 
 function id(){return (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()+Math.random())).replaceAll('-','').slice(0,12);}
@@ -215,8 +212,6 @@ function requestedWorkspaceId(){const raw=getUrlWorkspaceId()||directWorkspaceFr
 function isTimeClockLaunchRoute(){try{const p=new URLSearchParams(location.search||''); const value=String(p.get('terminal')||p.get('kiosk')||'').toLowerCase(); return ['time-clock','timeclock','badge','badge-terminal'].includes(value);}catch{return false;}}
 function timeClockTerminalUrl(){const url=new URL(location.href); url.searchParams.set('terminal','time-clock'); url.searchParams.set('workspace',workspaceId()); return url.href;}
 function openTimeClockTerminal(){save?.(); const win=window.open(timeClockTerminalUrl(),'_blank','noopener'); if(!win)window.RestogogoUI?.toast?.('Allow pop-ups to open the badge terminal.',{tone:'warning',icon:'!',centered:true,timeout:2200}); else win.focus?.();}
-function isDevAccessUnlocked(){return window.DataAdapter.readPreference(DEV_GATE_KEY,'0')==='1';}
-function setDevAccessUnlocked(value){return value?window.DataAdapter.savePreference(DEV_GATE_KEY,'1'):window.DataAdapter.remove(DEV_GATE_KEY);}
 function workspaceNameFromMeta(w){return (w?.restaurant?.name||w?.name||w?.id||'Restaurant').trim()||'Restaurant';}
 function defaultWorkspaceCards(){return [{id:'bouillon-bruxelles',status:'Pilot',restaurant:{name:'Bouillon Bruxelles',ownerName:'Xavier',city:'Brussels',accentColor:'#9b1734'}},{id:'demo-restaurant',status:'Demo',restaurant:{name:'Demo Restaurant',ownerName:'Demo Manager',city:'Brussels',accentColor:'#7c3aed'}}];}
 function mergedWorkspaceList(){const byId={}; defaultWorkspaceCards().forEach(w=>byId[w.id]=clone(w)); readLocalWorkspaceCatalog().forEach(w=>{if(w?.id)byId[w.id]=Object.assign({},byId[w.id]||{},w,{restaurant:Object.assign({},byId[w.id]?.restaurant||{},w.restaurant||{})});}); if(window.DataAdapter.listWorkspaces){try{window.DataAdapter.listWorkspaces().forEach(w=>{if(!w?.id)return; const id=w.id==='main'?'bouillon-bruxelles':w.id; byId[id]=Object.assign({},byId[id]||{},w,{id,restaurant:Object.assign({},byId[id]?.restaurant||{},w.restaurant||{})});});}catch{}} return Object.values(byId).sort((a,b)=>(a.id==='bouillon-bruxelles'?0:a.id==='demo-restaurant'?1:2)-(b.id==='bouillon-bruxelles'?0:b.id==='demo-restaurant'?1:2)||workspaceNameFromMeta(a).localeCompare(workspaceNameFromMeta(b)));}
@@ -239,13 +234,10 @@ function resolveLoginIdentity(){
   return fail('Name not found for this workspace.');
 }
 function enterSelectedWorkspace(){const identity=resolveLoginIdentity(); if(!identity)return; session.role=identity.role; session.employeeId=identity.employeeId; window.RestogogoBrandEntry?.signalLoginSuccess?.(); window.DataAdapter.setLoggedIn(true); const finish=()=>{save(); enterApp(true);}; window.RestogogoBrandEntry?.shouldDelayEntry?.()?setTimeout(finish,180):finish();}
-function showDevGate(){document.documentElement.classList.remove('time-clock-mode'); window.DataAdapter.setLoggedIn(false); document.body.classList.remove('logged-in','owner','employee','owner-planning-mode','my-schedule-mode','time-clock-mode','actual-timesheet-mode'); document.body.classList.add('logged-out','dev-gated'); if($('login'))login.style.display='none'; if($('devGate'))devGate.style.display='grid'; setTimeout(()=>($('devPassword')||$('devUsername'))?.focus?.(),0);}
-function loginDevGate(){const user=String($('devUsername')?.value||'').trim().toLowerCase(); const pass=String($('devPassword')?.value||'').trim(); const msg=$('devGateMessage'); if(user!==DEV_GATE_USER||pass!==DEV_GATE_PASSWORD){if(msg)msg.textContent='Access denied.'; window.RestogogoBrandEntry?.signalDevGateError?.(); return false;} setDevAccessUnlocked(true); if(msg)msg.textContent=''; const requested=requestedWorkspaceId(); if(requested&&window.DataAdapter.setWorkspaceId)window.DataAdapter.setWorkspaceId(requested); showRestaurantLogin(); return true;}
-function logoutDevGate(){setDevAccessUnlocked(false); window.DataAdapter.setLoggedIn(false); showDevGate();}
-function showRestaurantLogin(){document.documentElement.classList.remove('time-clock-mode'); if(!isDevAccessUnlocked())return showDevGate(); document.body.classList.remove('dev-gated','logged-in','owner','employee','owner-planning-mode','my-schedule-mode','time-clock-mode','actual-timesheet-mode'); document.body.classList.add('logged-out'); if($('devGate'))devGate.style.display='none'; load(); populateRestaurantLoginSelect(); fillSelectors(); applyRestaurantBrand(); window.RestogogoBrandEntry?.renderEntryModules?.(); if($('login'))login.style.display='grid'; if($('accessPin'))accessPin.value=''; if($('identityLoginName'))identityLoginName.value=''; if($('loginPinHelp')){loginPinHelp.textContent=''; loginPinHelp.classList.remove('error');} window.RestogogoBrandEntry?.resetLoginState?.(); setTimeout(()=>($('identityLoginName')||$('accessPin'))?.focus?.(),0);}
+function showRestaurantLogin(){document.documentElement.classList.remove('time-clock-mode'); document.body.classList.remove('logged-in','owner','employee','owner-planning-mode','my-schedule-mode','time-clock-mode','actual-timesheet-mode'); document.body.classList.add('logged-out'); load(); populateRestaurantLoginSelect(); fillSelectors(); applyRestaurantBrand(); window.RestogogoBrandEntry?.renderEntryModules?.(); if($('login'))login.style.display='grid'; if($('accessPin'))accessPin.value=''; if($('identityLoginName'))identityLoginName.value=''; if($('loginPinHelp')){loginPinHelp.textContent=''; loginPinHelp.classList.remove('error');} window.RestogogoBrandEntry?.resetLoginState?.(); setTimeout(()=>($('identityLoginName')||$('accessPin'))?.focus?.(),0);}
 
 function fillSelectors(){const employees=activeEmployees(); if(!employees.some(e=>e.id===session.employeeId))session.employeeId=employees[0]?.id||'';}
-function enterApp(goHome=false){document.body.classList.remove('logged-out','dev-gated'); document.body.classList.add('logged-in'); if($('devGate'))devGate.style.display='none'; if($('login'))login.style.display='none'; document.body.classList.toggle('owner',session.role==='owner'); document.body.classList.toggle('employee',session.role==='employee'); fillSelectors(); applyRestaurantBrand(); const target=isTimeClockLaunchRoute()?'time-clock':(session.role==='owner'?'owner':'my-schedule'); if(goHome||!document.querySelector('.page.active'))showPage(target); render(); updateStickyVars();}
+function enterApp(goHome=false){document.body.classList.remove('logged-out'); document.body.classList.add('logged-in'); if($('login'))login.style.display='none'; document.body.classList.toggle('owner',session.role==='owner'); document.body.classList.toggle('employee',session.role==='employee'); fillSelectors(); applyRestaurantBrand(); const target=isTimeClockLaunchRoute()?'time-clock':(session.role==='owner'?'owner':'my-schedule'); if(goHome||!document.querySelector('.page.active'))showPage(target); render(); updateStickyVars();}
 function showPage(pageName){if(pageName==='actuals'&&session.role!=='owner')pageName='my-schedule'; const page=$('page-'+pageName); if(!page)return; document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); page.classList.add('active'); if(pageName==='owner')showTab('planning'); updateAppTitle(); updatePlanningMode(); renderAppNav(); if(data)render(); requestAnimationFrame(updateStickyVars);}
 function showTab(tabName){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); $('tab-'+tabName)?.classList.add('active'); updateAppTitle(); updatePlanningMode(); requestAnimationFrame(updateStickyVars);}
 function updateAppTitle(){if(!$('appTitle'))return; const active=activePageName(); const labels={owner:'Planning',actuals:'Actuals','time-clock':'Time Clock','my-schedule':'My Schedule'}; appTitle.textContent=labels[active]||(session.role==='owner'?'Planning':'My Schedule');}
@@ -296,10 +288,6 @@ function bind(){
   on('enterBtn','click',enterSelectedWorkspace);
   on('accessPin','keydown',e=>{if(e.key==='Enter')enterSelectedWorkspace();});
   on('identityLoginName','keydown',e=>{if(e.key==='Enter')enterSelectedWorkspace();});
-  on('devLoginBtn','click',loginDevGate);
-  on('devUsername','keydown',e=>{if(e.key==='Enter')loginDevGate();});
-  on('devPassword','keydown',e=>{if(e.key==='Enter')loginDevGate();});
-  on('devLogoutBtn','click',logoutDevGate);
   on('restaurantLoginSelect','change',e=>changeLoginWorkspace(e.target.value));
   on('userPill','click',()=>{window.DataAdapter.setLoggedIn(false); showRestaurantLogin();});
   on('notifBtn','click',e=>{e.stopPropagation(); notifOpen=!notifOpen; renderNotifications();});
@@ -322,6 +310,6 @@ function bind(){
 
 window.RestogogoApp={render,changeWeek,saveWeekSnapshot,loadWeekSnapshot,openTimeClockTerminal};
 
-function init(){applyResponsiveMode(); window.OwnerPlanning?.init?.(); notifRead=window.DataAdapter.readNotificationsRead(); bind(); if(!isDevAccessUnlocked()){showDevGate(); return;} const requested=requestedWorkspaceId(); if(requested&&window.DataAdapter.setWorkspaceId)window.DataAdapter.setWorkspaceId(requested); if(window.DataAdapter.isLoggedIn()){load(); enterApp(true);} else {showRestaurantLogin();} updateStickyVars();}
+function init(){applyResponsiveMode(); window.OwnerPlanning?.init?.(); notifRead=window.DataAdapter.readNotificationsRead(); bind(); const requested=requestedWorkspaceId(); if(requested&&window.DataAdapter.setWorkspaceId)window.DataAdapter.setWorkspaceId(requested); if(window.DataAdapter.isLoggedIn()){load(); enterApp(true);} else {showRestaurantLogin();} updateStickyVars();}
 
 init();

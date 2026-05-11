@@ -15,7 +15,7 @@
     linear-gradient(135deg,#06101d 0,#091325 52%,#101a31 100%);
 }
 
-body.logged-out:not(.dev-gated) #login.brand-page {
+body.logged-out #login.brand-page {
   display: grid;
 }
 
@@ -40,31 +40,8 @@ body.logged-out:not(.dev-gated) #login.brand-page {
 }
 
 
-.brand-lock-button {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  min-height: 44px;
-  padding: 0;
-  border: 1px solid rgba(255,255,255,.12);
-  border-radius: 15px;
-  background: rgba(255,255,255,.06);
-  color: #fff;
-  cursor: pointer;
-  transition: transform .18s ease,background .18s ease,border-color .18s ease;
-}
 
-.brand-lock-button:hover {
-  transform: translateY(-1px);
-  background: rgba(255,255,255,.10);
-  border-color: rgba(255,255,255,.20);
-}
 
-.brand-lock-button svg {
-  width: 18px;
-  height: 18px;
-}
 
 .brand-shell {
   height: 100%;
@@ -263,8 +240,7 @@ body.logged-out:not(.dev-gated) #login.brand-page {
   box-shadow: 0 0 0 4px rgba(248,113,113,.08),inset 0 1px 0 rgba(255,255,255,.08);
 }
 
-.brand-login-panel.is-shaking,
-.dev-gate-card.is-shaking {
+.brand-login-panel.is-shaking {
   animation: brandShake .42s ease;
 }
 

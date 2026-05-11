@@ -28,10 +28,23 @@
   overflow: hidden;
 }
 
-.owner-planning-v2,
+/* Planning is nested as page-owner > tab-planning, while Actuals sits
+   directly in .shell. Keep that extra Planning wrapper constrained so
+   the shared board can own the vertical scroll instead of the page. */
+.owner-planning-mode #page-owner {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.owner-planning-mode #tab-planning.owner-planning-v2,
 .actual-timesheet-mode #page-actuals {
   flex: 1 1 auto;
   min-height: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -63,9 +76,7 @@
   transform: translateY(1px) scale(.995);
 }
 
-.rs-weekly-board,
-#ownerCalendar.calendar,
-.actual-timesheet-board {
+.rs-weekly-board {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -73,6 +84,16 @@
   overflow: hidden;
   border-radius: 22px;
   box-shadow: 0 26px 70px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.05);
+}
+
+.rs-weekly-board > .rs-grid-toolbar,
+.rs-weekly-board > .owner-conflict-banner {
+  flex: 0 0 auto;
+}
+
+.rs-weekly-board > .rs-weekly-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .rs-weekly-scroll,
