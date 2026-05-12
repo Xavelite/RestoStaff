@@ -108,6 +108,7 @@
 
   function setView(view){
     activeTab = view === 'worked' ? 'worked' : 'schedule';
+    if(typeof session === 'object' && session) session.employeeView = activeTab;
   }
 
   function activeView(){
@@ -232,6 +233,7 @@
   function render(){
     const root=$("employeeScheduleRoot");
     if(!root||!data)return;
+    activeTab = session.employeeView === 'worked' ? 'worked' : 'schedule';
 
     const employee=currentEmployee();
     if(!employee){

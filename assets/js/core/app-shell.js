@@ -20,23 +20,29 @@ function enterApp(goHome=false){
   updateStickyVars();
 }
 
-function showPage(pageName){
-  const requestedPage = pageName;
-  if(pageName==='employee-time'){
-    pageName='employee-schedule';
+function setEmployeeView(view){
+  session.employeeView = view === 'worked' ? 'worked' : 'schedule';
+  Restogogo.employeeSchedule?.setView?.(session.employeeView);
+}
+
+function showPage(pageName, options={}){
+  let targetPage = pageName;
+
+  if(session.role==='employee'){
+    if(pageName==='employee-time' || options.employeeView==='worked')setEmployeeView('worked');
+    else if(pageName==='employee-schedule' || options.employeeView==='schedule')setEmployeeView('schedule');
+    targetPage='employee-schedule';
+  }else if(['actuals','planning','team','restaurant','badge-terminal'].includes(pageName)){
+    targetPage=pageName;
+  }else{
+    targetPage='planning';
   }
-  if(['actuals','planning','team','restaurant'].includes(pageName)&&session.role!=='owner'){
-    pageName='employee-schedule';
-  }
-  if(pageName==='employee-schedule'){
-    const view = requestedPage==='employee-time' ? 'worked' : 'schedule';
-    Restogogo.employeeSchedule?.setView?.(view);
-  }
-  const page=$('page-'+pageName);
+
+  const page=$('page-'+targetPage);
   if(!page)return;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   page.classList.add('active');
-  applyDefaultWeekForPage(pageName);
+  applyDefaultWeekForPage(targetPage);
   updateAppTitle();
   updatePageMode();
   renderAppNav();
@@ -48,7 +54,7 @@ function updateAppTitle(){
   const titleEl=$('appTitle');
   if(!titleEl)return;
   const active=activePageName();
-  const labels={planning:'Planning',actuals:'Actuals','badge-terminal':'Badge Terminal','employee-schedule':(Restogogo.employeeSchedule?.activeView?.()==='worked'?'My Time':'My Schedule'),team:'Team',restaurant:'Restaurant'};
+  const labels={planning:'Planning',actuals:'Actuals','badge-terminal':'Badge Terminal','employee-schedule':((session.employeeView||'schedule')==='worked'?'My Time':'My Schedule'),team:'Team',restaurant:'Restaurant'};
   titleEl.textContent=labels[active]||(session.role==='owner'?'Planning':'My Schedule');
 }
 
@@ -95,7 +101,7 @@ function activePageName(){
 function navItemsForSession(){
   return session.role==='owner'
     ? [{page:'planning',label:'Planning'},{page:'actuals',label:'Actuals'},{page:'team',label:'Team'},{page:'restaurant',label:'Restaurant'}]
-    : [{page:'employee-schedule',label:'My Schedule',employeeView:'schedule'},{page:'employee-time',label:'My Time',employeeView:'worked'}];
+    : [{page:'employee-schedule',label:'My Schedule',employeeView:'schedule'},{page:'employee-schedule',label:'My Time',employeeView:'worked'}];
 }
 
 function renderAppNav(){
@@ -103,8 +109,8 @@ function renderAppNav(){
   if(!nav)return;
   const active=activePageName();
   nav.innerHTML=navItemsForSession().map(item=>{
-    const employeeView=Restogogo.employeeSchedule?.activeView?.() || 'schedule';
-    const isActive = item.page===active || (active==='employee-schedule' && item.employeeView===employeeView);
+    const employeeView=session.employeeView || 'schedule';
+    const isActive = item.employeeView ? (active==='employee-schedule' && item.employeeView===employeeView) : item.page===active;
     const viewAttr = item.employeeView ? ` data-employee-view="${esc(item.employeeView)}"` : '';
     return `<button type="button" class="app-nav-link${isActive?' is-active':''}" data-app-page="${esc(item.page)}"${viewAttr}>${esc(item.label)}</button>`;
   }).join('');
@@ -201,8 +207,7 @@ function bind(){
     if(!button)return;
     event.preventDefault();
     if(button.dataset.employeeView){
-      Restogogo.employeeSchedule?.setView?.(button.dataset.employeeView);
-      showPage(button.dataset.employeeView==='worked'?'employee-time':'employee-schedule');
+      showPage('employee-schedule',{employeeView:button.dataset.employeeView});
       return;
     }
     showPage(button.dataset.appPage);
@@ -223,7 +228,7 @@ function bind(){
   window.addEventListener('resize',()=>requestAnimationFrame(updateStickyVars));
 }
 
-const appShellApi={render,changeWeek,saveWeekSnapshot,loadWeekSnapshot,openBadgeTerminal,showPilotGuide,showPage,enterApp,activePageName};
+const appShellApi={render,changeWeek,saveWeekSnapshot,loadWeekSnapshot,openBadgeTerminal,showPilotGuide,showPage,enterApp,activePageName,setEmployeeView};
 Restogogo.router=appShellApi;
 
 async function initRestogogoApp(){

@@ -356,6 +356,7 @@ async function load(){
   Restogogo.state.supabaseBaselineCounts = coreSetupCounts(data);
   Restogogo.state.validation = validatePlannerState(data);
   session=window.DataAdapter.readSession(session)||session;
+  if(session.employeeView!=='worked')session.employeeView='schedule';
   if(!session.employeeId||!emp(session.employeeId))session.employeeId=activeEmployees()[0]?.id||null;
   applyRestaurantBrand();
   console.info('[restogogo:supabase-load]', {
