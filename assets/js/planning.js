@@ -352,7 +352,6 @@ function planningChangeWeek(delta){changeWeek(delta);}
 function planningSetWeek(value){
   if(!data||!value)return;
   setWeekStartAndLoad(value);
-  void save({reason:'planning-week-change'});
   render();
 }
 
@@ -580,7 +579,7 @@ function planningEmployeeRow(e){
 function planningEmptyRow(){
   return Grid.emptyRow({
     className:'planning-empty-row',
-    content:'<div class="planning-empty-state rs-empty-state"><span class="rs-empty-state__icon">•</span><strong>No employees match this view.</strong><span>Switch to Relevant or All employees, or clear filters.</span><span class="rs-empty-state__actions"><button type="button" class="rs-empty-state__action" data-planning-action="clear-filters">Clear filters</button></span></div>'
+    content:'<div class="planning-empty-state rs-empty-state"><span class="rs-empty-state__icon">•</span><strong>No employees found.</strong><span>Try another search term.</span><span class="rs-empty-state__actions"><button type="button" class="rs-empty-state__action" data-planning-action="clear-filters">Clear search</button></span></div>'
   });
 }
 

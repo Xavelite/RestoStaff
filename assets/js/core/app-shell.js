@@ -21,7 +21,17 @@ function enterApp(goHome=false){
 }
 
 function showPage(pageName){
-  if(['actuals','planning','team','restaurant'].includes(pageName)&&session.role!=='owner')pageName='employee-schedule';
+  const requestedPage = pageName;
+  if(pageName==='employee-time'){
+    pageName='employee-schedule';
+  }
+  if(['actuals','planning','team','restaurant'].includes(pageName)&&session.role!=='owner'){
+    pageName='employee-schedule';
+  }
+  if(pageName==='employee-schedule'){
+    const view = requestedPage==='employee-time' ? 'worked' : 'schedule';
+    Restogogo.employeeSchedule?.setView?.(view);
+  }
   const page=$('page-'+pageName);
   if(!page)return;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -38,8 +48,8 @@ function updateAppTitle(){
   const titleEl=$('appTitle');
   if(!titleEl)return;
   const active=activePageName();
-  const labels={planning:'Planning',actuals:'Actuals','badge-terminal':'Badge Terminal','employee-schedule':'Employee Schedule',team:'Team',restaurant:'Restaurant'};
-  titleEl.textContent=labels[active]||(session.role==='owner'?'Planning':'Employee Schedule');
+  const labels={planning:'Planning',actuals:'Actuals','badge-terminal':'Badge Terminal','employee-schedule':(Restogogo.employeeSchedule?.activeView?.()==='worked'?'My Time':'My Schedule'),team:'Team',restaurant:'Restaurant'};
+  titleEl.textContent=labels[active]||(session.role==='owner'?'Planning':'My Schedule');
 }
 
 function updatePageMode(){
@@ -85,14 +95,19 @@ function activePageName(){
 function navItemsForSession(){
   return session.role==='owner'
     ? [{page:'planning',label:'Planning'},{page:'actuals',label:'Actuals'},{page:'team',label:'Team'},{page:'restaurant',label:'Restaurant'}]
-    : [{page:'employee-schedule',label:'Employee Schedule'}];
+    : [{page:'employee-schedule',label:'My Schedule',employeeView:'schedule'},{page:'employee-time',label:'My Time',employeeView:'worked'}];
 }
 
 function renderAppNav(){
   const nav=$('appTopNav');
   if(!nav)return;
   const active=activePageName();
-  nav.innerHTML=navItemsForSession().map(item=>`<button type="button" class="app-nav-link${item.page===active?' is-active':''}" data-app-page="${esc(item.page)}">${esc(item.label)}</button>`).join('');
+  nav.innerHTML=navItemsForSession().map(item=>{
+    const employeeView=Restogogo.employeeSchedule?.activeView?.() || 'schedule';
+    const isActive = item.page===active || (active==='employee-schedule' && item.employeeView===employeeView);
+    const viewAttr = item.employeeView ? ` data-employee-view="${esc(item.employeeView)}"` : '';
+    return `<button type="button" class="app-nav-link${isActive?' is-active':''}" data-app-page="${esc(item.page)}"${viewAttr}>${esc(item.label)}</button>`;
+  }).join('');
 }
 
 function pilotGuideRows(){
@@ -163,7 +178,6 @@ function render(){
 
 function changeWeek(delta){
   setWeekStartAndLoad(addDays(data.weekStart,delta));
-  void save({reason:'week-navigation'});
   render();
 }
 
@@ -184,7 +198,14 @@ function bind(){
   });
   $('appTopNav')?.addEventListener('click',event=>{
     const button=event.target.closest('[data-app-page]');
-    if(button)showPage(button.dataset.appPage);
+    if(!button)return;
+    event.preventDefault();
+    if(button.dataset.employeeView){
+      Restogogo.employeeSchedule?.setView?.(button.dataset.employeeView);
+      showPage(button.dataset.employeeView==='worked'?'employee-time':'employee-schedule');
+      return;
+    }
+    showPage(button.dataset.appPage);
   });
   $('notifPanel')?.addEventListener('click',event=>{
     const markAll=event.target.closest('[data-notification-action="mark-all-read"]');

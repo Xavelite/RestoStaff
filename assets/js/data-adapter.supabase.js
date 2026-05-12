@@ -129,6 +129,30 @@
     }
     return true;
   }
+  async function upsertRows(table, rows, conflictColumns){
+    const payload = (rows || []).filter(Boolean);
+    if(!payload.length)return true;
+    const conflict = Array.isArray(conflictColumns) ? conflictColumns.join(',') : String(conflictColumns || '');
+    const query = conflict ? `on_conflict=${conflict}` : '';
+    const chunkSize = 400;
+    for(let i=0;i<payload.length;i+=chunkSize){
+      const result = await request('POST', table, query, payload.slice(i,i+chunkSize), {Prefer:'resolution=merge-duplicates,return=minimal'});
+      if(!result.ok)return false;
+    }
+    return true;
+  }
+  async function deleteScopedRows(table, query){
+    const result = await request('DELETE', table, query, undefined, {Prefer:'return=minimal'});
+    return result.ok;
+  }
+  async function deleteWeekRows(table, weekStart){
+    const week = validDate(weekStart) ? monday(weekStart) : monday();
+    return deleteScopedRows(table, `restaurant_id=eq.${encodeURIComponent(currentRecordId)}&week_start=eq.${encodeURIComponent(week)}`);
+  }
+  async function replaceRows(table, rows, deleteQuery, conflictColumns){
+    if(!await deleteScopedRows(table, deleteQuery))return false;
+    return upsertRows(table, rows, conflictColumns);
+  }
   async function upsertRestaurant(row){
     const result = await request('POST', TABLES.restaurants, 'on_conflict=id', row, {Prefer:'resolution=merge-duplicates,return=minimal'});
     return result.ok;
@@ -357,7 +381,7 @@
         accentColor:normalizeHexColor(restaurant.accent_color),
         theme:text(restaurant.theme)
       },
-      weekStart:validDate(restaurant.active_week_start) || monday(),
+      weekStart:monday(),
       status:'Draft',
       employees:employees.map((row,index)=>Object.assign(mapEmployee(row, absencesByEmployee, docsByEmployee), {_sortOrder:index})),
       positions:positionNames,
@@ -556,32 +580,84 @@
     return result;
   }
 
-  async function saveRemotePlanner(plannerData){
+  function saveReasonScope(reason){
+    const clean = String(reason || '').toLowerCase();
+    if(clean.startsWith('team-'))return 'team';
+    if(clean.startsWith('restaurant-'))return 'restaurant';
+    if(clean.startsWith('badge-') || clean.startsWith('actuals-'))return 'actuals';
+    if(clean.startsWith('employee-schedule'))return 'availability';
+    if(clean.startsWith('planning-') || clean === 'week-navigation')return 'planning';
+    return 'safe';
+  }
+  function rowsForWeek(rows, key, weekStart){
+    const week = validDate(weekStart) ? monday(weekStart) : monday();
+    return (rows[key] || []).filter(row=>validDate(row.week_start) === week);
+  }
+  async function saveWeeklyScoped(rows, weekStart, options={}){
+    const week = validDate(weekStart) ? monday(weekStart) : monday();
+    const include = Object.assign({availability:true, planning:true, submissions:true, notes:true, actuals:true}, options || {});
+    const childTables = [];
+    if(include.availability)childTables.push(TABLES.availabilitySlots);
+    if(include.planning)childTables.push(TABLES.plannedShifts);
+    if(include.submissions)childTables.push(TABLES.employeeWeekSubmissions);
+    if(include.notes)childTables.push(TABLES.weeklyNotes);
+    if(include.actuals)childTables.push(TABLES.actualShiftEntries);
+    for(const table of childTables){if(!await deleteWeekRows(table, week))return false;}
+    if(!await upsertRows(TABLES.weeklyStatus, rowsForWeek(rows,'weeklyStatus',week), ['restaurant_id','week_start']))return false;
+    if(include.availability && !await upsertRows(TABLES.availabilitySlots, rowsForWeek(rows,'availabilitySlots',week), ['restaurant_id','week_start','employee_id','day_name','shift_name']))return false;
+    if(include.planning && !await upsertRows(TABLES.plannedShifts, rowsForWeek(rows,'plannedShifts',week), ['restaurant_id','week_start','employee_id','day_name','shift_name']))return false;
+    if(include.submissions && !await upsertRows(TABLES.employeeWeekSubmissions, rowsForWeek(rows,'employeeWeekSubmissions',week), ['restaurant_id','week_start','employee_id']))return false;
+    if(include.notes && !await upsertRows(TABLES.weeklyNotes, rowsForWeek(rows,'weeklyNotes',week), ['restaurant_id','week_start','day_name','shift_name']))return false;
+    if(include.actuals && !await upsertRows(TABLES.actualShiftEntries, rowsForWeek(rows,'actualShiftEntries',week), ['restaurant_id','week_start','employee_id','day_name','shift_name']))return false;
+    return true;
+  }
+
+  async function saveRemotePlanner(plannerData, options={}){
     const source = cloneData(plannerData || {});
+    const reason = typeof options === 'string' ? options : (options && options.reason) || 'save';
+    const scope = saveReasonScope(reason);
+    const rows = rowsFromState(source);
     const restaurantOk = await upsertRestaurant(restaurantRowFromState(source));
     if(!restaurantOk)return false;
 
-    const deleteOrder = [TABLES.availabilitySlots,TABLES.plannedShifts,TABLES.employeeWeekSubmissions,TABLES.weeklyNotes,TABLES.actualShiftEntries,TABLES.employeeAbsences,TABLES.employeeDocuments,TABLES.restaurantDocuments,TABLES.employees,TABLES.openingHours,TABLES.zones,TABLES.positions,TABLES.weeklyStatus];
-    for(const table of deleteOrder){if(!await deleteRestaurantRows(table))return false;}
+    if(scope === 'team'){
+      if(!rows.employees.length){setError('Team save blocked: runtime state has zero employees. Refresh before saving.'); return false;}
+      if(!await upsertRows(TABLES.employees, rows.employees, ['restaurant_id','id']))return false;
+      const employeeChildQuery = `restaurant_id=eq.${encodeURIComponent(currentRecordId)}`;
+      if(!await replaceRows(TABLES.employeeAbsences, rows.employeeAbsences, employeeChildQuery, ['restaurant_id','employee_id','id']))return false;
+      if(!await replaceRows(TABLES.employeeDocuments, rows.employeeDocuments, employeeChildQuery, ['restaurant_id','employee_id','id']))return false;
+      return true;
+    }
 
-    const rows = rowsFromState(source);
-    const insertPlan = [
-      [TABLES.positions, rows.positions],
-      [TABLES.zones, rows.zones],
-      [TABLES.openingHours, rows.openingHours],
-      [TABLES.employees, rows.employees],
-      [TABLES.employeeAbsences, rows.employeeAbsences],
-      [TABLES.employeeDocuments, rows.employeeDocuments],
-      [TABLES.restaurantDocuments, rows.restaurantDocuments],
-      [TABLES.weeklyStatus, rows.weeklyStatus],
-      [TABLES.availabilitySlots, rows.availabilitySlots],
-      [TABLES.plannedShifts, rows.plannedShifts],
-      [TABLES.employeeWeekSubmissions, rows.employeeWeekSubmissions],
-      [TABLES.weeklyNotes, rows.weeklyNotes],
-      [TABLES.actualShiftEntries, rows.actualShiftEntries]
-    ];
-    for(const [table,rowSet] of insertPlan){if(!await insertRows(table,rowSet))return false;}
-    return true;
+    if(scope === 'restaurant'){
+      if(!rows.zones.length){setError('Restaurant save blocked: runtime state has zero zones. Refresh before saving.'); return false;}
+      if(!rows.positions.length){setError('Restaurant save blocked: runtime state has zero positions. Refresh before saving.'); return false;}
+      if(!await upsertRows(TABLES.positions, rows.positions, ['restaurant_id','id']))return false;
+      if(!await upsertRows(TABLES.zones, rows.zones, ['restaurant_id','id']))return false;
+      if(!await upsertRows(TABLES.openingHours, rows.openingHours, ['restaurant_id','day_name']))return false;
+      if(!await replaceRows(TABLES.restaurantDocuments, rows.restaurantDocuments, `restaurant_id=eq.${encodeURIComponent(currentRecordId)}`, ['restaurant_id','id']))return false;
+      return true;
+    }
+
+    if(scope === 'availability'){
+      return saveWeeklyScoped(rows, source.weekStart, {availability:true, submissions:true, planning:false, notes:false, actuals:false});
+    }
+
+    if(scope === 'actuals'){
+      return saveWeeklyScoped(rows, source.weekStart, {availability:false, submissions:false, planning:false, notes:false, actuals:true});
+    }
+
+    if(scope === 'planning'){
+      return saveWeeklyScoped(rows, source.weekStart, {availability:false, submissions:false, planning:true, notes:true, actuals:false});
+    }
+
+    // Safe fallback for manual/unknown saves: upsert master rows and replace only the active week.
+    // Never delete master data from the browser.
+    if(rows.employees.length && !await upsertRows(TABLES.employees, rows.employees, ['restaurant_id','id']))return false;
+    if(rows.positions.length && !await upsertRows(TABLES.positions, rows.positions, ['restaurant_id','id']))return false;
+    if(rows.zones.length && !await upsertRows(TABLES.zones, rows.zones, ['restaurant_id','id']))return false;
+    if(rows.openingHours.length && !await upsertRows(TABLES.openingHours, rows.openingHours, ['restaurant_id','day_name']))return false;
+    return saveWeeklyScoped(rows, source.weekStart, {availability:true, submissions:true, planning:true, notes:true, actuals:true});
   }
 
   async function listRemoteWorkspaces(){
@@ -607,7 +683,7 @@
 
   const SupabaseDataAdapter = Object.assign({}, failAdapter, {
     readPlanner(){return readRemotePlanner();},
-    savePlanner(plannerData){return saveRemotePlanner(plannerData);},
+    savePlanner(plannerData, options){return saveRemotePlanner(plannerData, options || {});},
     getLastError(){return lastError;},
     getLastReadStatus(){return lastReadStatus;},
     wasLastReadError(){return lastReadStatus === 'error';},

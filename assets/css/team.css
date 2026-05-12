@@ -15,47 +15,7 @@ body.team-mode {
   min-height: 0;
   padding: 14px;
   display: grid;
-  grid-template-rows: auto auto auto minmax(0,1fr) auto;
-}
-
-.team-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  margin-bottom: 12px;
-}
-
-.team-filter {
-  min-height: 30px;
-  padding: 0 10px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid rgba(255,255,255,.07);
-  border-radius: 10px;
-  background: rgba(255,255,255,.045);
-  color: #b9c7db;
-  font-size: 11px;
-  font-weight: 850;
-  cursor: pointer;
-}
-
-.team-filter small {
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  background: rgba(255,255,255,.08);
-  color: #e7eef9;
-  font-size: 10px;
-}
-
-.team-filter.is-active {
-  color: #fff;
-  background: linear-gradient(135deg,rgba(51,71,255,.25),rgba(59,130,246,.12));
-  border-color: rgba(96,165,250,.28);
+  grid-template-rows: auto auto minmax(0,1fr) auto;
 }
 
 .team-list {
@@ -93,17 +53,10 @@ body.team-mode {
 }
 
 .team-avatar {
-  --team-avatar: #3b82f6;
   width: 34px;
   height: 34px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  background: linear-gradient(135deg,var(--team-avatar),rgba(124,58,237,.92));
-  color: #fff;
-  font-size: 14px;
-  font-weight: 950;
-  box-shadow: 0 10px 22px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.22);
+  font-size: 13px;
+  flex: 0 0 auto;
 }
 
 .team-profile-head .team-avatar {

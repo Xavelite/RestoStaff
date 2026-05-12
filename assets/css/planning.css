@@ -59,13 +59,6 @@
   --day-bg: linear-gradient(180deg,rgba(12,23,42,.96),rgba(8,15,28,.99));
 }
 
-.planning-board .rs-weekly-day-cell:has(.overlay-available) {
-  --day-bg: rgba(28,130,94,.26);
-}
-
-.planning-board .rs-weekly-day-cell:has(.has-conflict) {
-  --day-bg: linear-gradient(180deg,rgba(244,63,94,.16),rgba(127,29,29,.15)),rgba(25,12,22,.72);
-}
 
 .planning-board .planning-slot-zone {
   position: relative;

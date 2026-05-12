@@ -1,4 +1,4 @@
-# restogogo — v355 shared visual architecture polish
+# restogogo — v363 employee nav and cleanup
 
 This package is the first real prototype foundation for restogogo:
 
@@ -7,7 +7,7 @@ This package is the first real prototype foundation for restogogo:
 Active surfaces:
 
 - Login / workspace access
-- Employee Schedule
+- Employee My Schedule / My Time
 - Planning
 - Actuals
 - Badge Terminal
@@ -222,3 +222,21 @@ To clear only weekly operational data while preserving employees/setup, run:
 ```txt
 docs/sql/clear_bouillon_operational_data.sql
 ```
+
+## v357 Supabase persistence safety refactor
+
+This build removes the dangerous browser-side full workspace replace save.
+
+Persistence is now scoped by domain:
+
+- Team actions upsert employees and refresh employee absences/documents only.
+- Restaurant actions upsert zones, positions, opening hours and restaurant document metadata only.
+- Planning actions replace only the active week's planning rows/notes.
+- Employee schedule actions replace only the active week's availability/submission rows.
+- Badge/actuals actions replace only the active week's actual shift entries.
+
+Master data such as employees, zones and positions is never deleted by generic browser saves. Extra guards block saves if previously loaded master data would become empty in runtime state.
+
+## v363 cleanup note
+
+Employee navigation now uses the topbar directly: **My Schedule** and **My Time**. My Time renders the worked-time calendar view through the employee schedule module without inner tabs.

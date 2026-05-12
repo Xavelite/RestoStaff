@@ -2,7 +2,6 @@
   const Metrics = Restogogo.services.metrics;
   let selectedEmployeeId = '';
   let teamSearch = '';
-  let teamFilter = 'all';
   let teamTab = 'personal';
   let bound = false;
 
@@ -45,8 +44,7 @@
     return {label:'Active',tone:'success'};
   }
   function initialsAvatar(employee){
-    const color = colorForPosition(employee.position);
-    return `<span class="team-avatar" style="--team-avatar:${esc(color)}">${esc(employeeInitials(employee.name).slice(0,1))}</span>`;
+    return `<span class="rs-weekly-avatar team-avatar" style="${esc(positionStyle(employee.position))}">${esc(employeeInitials(employee.name).slice(0,1))}</span>`;
   }
   function payrollPercent(){
     const employees = data.employees || [];
@@ -70,16 +68,9 @@
   }
   function teamVisibleEmployees(){
     let employees = [...(data.employees || [])];
-    if(teamFilter==='active')employees=employees.filter(employee=>employee.active);
-    if(teamFilter==='missing')employees=employees.filter(employee=>missingFields(employee).length>0);
-    if(teamFilter==='expiring')employees=employees.filter(expiringSoon);
-    if(teamFilter==='leave')employees=employees.filter(absenceThisMonth);
     const q=teamSearch.trim().toLowerCase();
     if(q)employees=employees.filter(employee=>`${employee.name} ${employee.position} ${employee.email} ${employee.phone}`.toLowerCase().includes(q));
     return sortEmployees(employees);
-  }
-  function filterButton(label,value,count=''){
-    return `<button type="button" class="team-filter ${teamFilter===value?'is-active':''}" data-team-filter="${esc(value)}"><span>${esc(label)}</span>${count!==''?`<small>${esc(count)}</small>`:''}</button>`;
   }
   function directory(){
     const employees=teamVisibleEmployees();
@@ -94,17 +85,10 @@
         <span class="team-dot is-${esc(status.tone)}"></span>
         ${issues?`<span class="team-issue-dot" title="${issues} missing payroll fields">${issues}</span>`:''}
       </button>`;
-    }).join('') || `<div class="ops-empty"><strong>No employees found</strong><span>Clear filters or add a new employee.</span></div>`;
+    }).join('') || `<div class="ops-empty"><strong>No employees found</strong><span>Search another name or add a new employee.</span></div>`;
     return `<aside class="team-directory rs-panel">
       <div class="ops-panel-head"><h2>Team Directory</h2><button type="button" class="ops-mini-action" data-team-action="add-employee">+ Add</button></div>
       <label class="ops-search"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="6"></circle><path d="m16 16 4 4"></path></svg><input value="${esc(teamSearch)}" placeholder="Search employees..." data-team-search></label>
-      <div class="team-filters">
-        ${filterButton('All','all',all.length)}
-        ${filterButton('Active','active',all.filter(e=>e.active).length)}
-        ${filterButton('Missing info','missing',all.filter(e=>missingFields(e).length>0).length)}
-        ${filterButton('Expiring','expiring',all.filter(expiringSoon).length)}
-        ${filterButton('On leave','leave',all.filter(absenceThisMonth).length)}
-      </div>
       <div class="team-list">${rows}</div>
       <div class="ops-panel-foot"><span>Showing ${employees.length} of ${all.length}</span></div>
     </aside>`;
@@ -207,17 +191,20 @@
   function profile(employee){
     if(!employee)return `<main class="team-profile rs-panel"><div class="ops-empty"><strong>No employee selected</strong><span>Add an employee to start building the Team module.</span><button type="button" class="rs-primary-button" data-team-action="add-employee">Add employee</button></div></main>`;
     return `<main class="team-profile rs-panel">
-      ${profileHeader(employee)}
       ${profileTabs(employee)}
+      ${profileHeader(employee)}
       ${profileTabContent(employee)}
     </main>`;
   }
   function render(){
     const root=$('teamRoot');
     if(!root||!data)return;
+    const listScroll=root.querySelector('.team-list')?.scrollTop || 0;
     ensure(data);
     const employee=selectedEmployee();
     root.innerHTML=`${teamMetrics()}<section class="ops-shell-grid team-layout">${directory()}${profile(employee)}</section>`;
+    const nextList=root.querySelector('.team-list');
+    if(nextList)nextList.scrollTop=listScroll;
   }
 
   function ensurePosition(name){
@@ -372,8 +359,6 @@
     root?.addEventListener('click',event=>{
       const select=event.target.closest('[data-team-select]');
       if(select){selectedEmployeeId=select.dataset.teamSelect; render(); return;}
-      const filter=event.target.closest('[data-team-filter]');
-      if(filter){teamFilter=filter.dataset.teamFilter || 'all'; render(); return;}
       const tab=event.target.closest('[data-team-tab]');
       if(tab){teamTab=tab.dataset.teamTab || 'personal'; render(); return;}
       const action=event.target.closest('[data-team-action]');

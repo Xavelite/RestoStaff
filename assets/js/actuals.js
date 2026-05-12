@@ -148,7 +148,6 @@
   function actualsSetWeek(value){
     if(!data||!value)return;
     setWeekStartAndLoad(value);
-    void save({reason:'actuals-week-change'});
     Restogogo.router?.render?.();
   }
 

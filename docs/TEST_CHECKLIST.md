@@ -106,3 +106,13 @@
 - `restaurant.css` contains Restaurant-specific layout/content only.
 - Restaurant has no redundant left setup menu and no permanent right action panel; actions live inside the relevant tab.
 - Topbar remains shared and unchanged across modules.
+
+## v357 Supabase persistence safety refactor
+
+- Load Bouillon and confirm 24 employees, 12 zones and 5 positions are visible.
+- Navigate between Planning, Actuals, Team and Restaurant: no master data should change in Supabase.
+- Change planning for one week: only weekly planning tables should change.
+- Badge in/out: only actual shift entries should change.
+- Edit one employee: employee remains in `restogogo_employees`; no full employee wipe occurs.
+- Edit one zone: zones remain in `restogogo_zones`; no full zone wipe occurs.
+- Check browser console for `[restogogo:supabase-load]` counts after load.

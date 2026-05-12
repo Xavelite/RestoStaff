@@ -382,12 +382,15 @@ async function persistCurrentState(reason='save'){
     return false;
   }
   const baseline = Restogogo.state.supabaseBaselineCounts || {employees:0,zones:0,positions:0};
-  const hadCoreSetup = (baseline.employees + baseline.zones + baseline.positions) > 0;
-  if(hadCoreSetup && coreSetupIsEmpty(data)){
-    const message='Save blocked: this would erase all employees, zones and positions. Refresh before continuing.';
+  const currentCounts = coreSetupCounts(data);
+  const destructiveMasterLoss = (baseline.employees > 0 && currentCounts.employees === 0)
+    || (baseline.zones > 0 && currentCounts.zones === 0)
+    || (baseline.positions > 0 && currentCounts.positions === 0);
+  if(destructiveMasterLoss){
+    const message='Save blocked: loaded master data would be erased. Refresh before continuing.';
     updateSaveController({status:'error', lastError:message, lastReason:reason});
     notifySaveIssue(message, 'danger');
-    console.error('[restogogo:supabase-save-blocked]', {reason, baseline, current:coreSetupCounts(data)});
+    console.error('[restogogo:supabase-save-blocked]', {reason, baseline, current:currentCounts});
     return false;
   }
   if(storageReadOnly){
@@ -395,7 +398,7 @@ async function persistCurrentState(reason='save'){
     notifySaveIssue('Workspace is read-only until Supabase data is initialized.', 'warning');
     return false;
   }
-  const ok=await Promise.resolve(window.DataAdapter.savePlanner(data));
+  const ok=await Promise.resolve(window.DataAdapter.savePlanner(data, {reason}));
   if(ok!==false){
     Restogogo.state.supabaseBaselineCounts = coreSetupCounts(data);
     dataLoadedFromSupabase = true;

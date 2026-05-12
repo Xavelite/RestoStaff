@@ -182,7 +182,7 @@
     const root=$('restaurantRoot');
     if(!root||!data)return;
     ensure(data);
-    root.innerHTML=`${restaurantMetrics()}<section class="ops-shell-grid restaurant-layout"><main class="restaurant-main rs-panel">${restaurantHead()}<nav class="ops-tabs restaurant-tabs">${['general','zones','positions','hours','payroll','documents'].map(value=>`<button type="button" class="ops-tab ${section===value?'is-active':''}" data-restaurant-section="${esc(value)}">${esc(value==='hours'?'Opening hours':value==='payroll'?'Payroll / export':value.charAt(0).toUpperCase()+value.slice(1))}</button>`).join('')}</nav>${activeSection()}</main></section>`;
+    root.innerHTML=`${restaurantMetrics()}<section class="ops-shell-grid restaurant-layout"><main class="restaurant-main rs-panel"><nav class="ops-tabs restaurant-tabs">${['general','zones','positions','hours','payroll','documents'].map(value=>`<button type="button" class="ops-tab ${section===value?'is-active':''}" data-restaurant-section="${esc(value)}">${esc(value==='hours'?'Opening hours':value==='payroll'?'Payroll / export':value.charAt(0).toUpperCase()+value.slice(1))}</button>`).join('')}</nav>${restaurantHead()}${activeSection()}</main></section>`;
   }
   function persist(reason='restaurant-setup'){
     ensure(data);

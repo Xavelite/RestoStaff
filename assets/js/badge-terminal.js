@@ -105,7 +105,7 @@
     return employees.map(employee=>{
       const active=employee.id===selectedEmployeeId;
       return `<button class="badge-terminal-person${active?' is-active':''}" type="button" data-badge-terminal-action="select-employee" data-employee-id="${esc(employee.id)}">
-        <span class="badge-terminal-avatar" style="${positionStyle(employee.position)}">${esc(employeeInitials(employee.name).slice(0,1))}</span>
+        <span class="rs-weekly-avatar badge-terminal-avatar" style="${positionStyle(employee.position)}">${esc(employeeInitials(employee.name).slice(0,1))}</span>
         <span class="badge-terminal-person-name">${esc(employee.name)}</span>
       </button>`;
     }).join('');
@@ -138,7 +138,7 @@
     const copy=targetCopy(employee);
     return `<div class="badge-terminal-pin-flow${pinError?' is-error':''}">
       <div class="badge-terminal-selected-person">
-        <span class="badge-terminal-avatar" style="${positionStyle(employee.position)}">${esc(employeeInitials(employee.name).slice(0,1))}</span>
+        <span class="rs-weekly-avatar badge-terminal-avatar" style="${positionStyle(employee.position)}">${esc(employeeInitials(employee.name).slice(0,1))}</span>
         <span><strong>${esc(employee.name)}</strong><small>${esc(employee.position)}</small></span>
       </div>
       <div class="badge-terminal-center-copy">
@@ -167,6 +167,7 @@
   function render(){
     const root=$('badgeTerminalRoot');
     if(!root||!data)return;
+    const listScroll=root.querySelector('.badge-terminal-people-list')?.scrollTop || 0;
     const employees=activeEmployees();
     const employee=selectedEmployee();
     root.innerHTML=`<div class="badge-terminal-terminal">
@@ -185,6 +186,8 @@
         ${renderClockPanel(employee)}
       </div>
     </div>`;
+    const nextList=root.querySelector('.badge-terminal-people-list');
+    if(nextList)nextList.scrollTop=listScroll;
     startLiveClock();
   }
 
@@ -256,16 +259,23 @@
       target.entry.source='badge-terminal';
       target.entry.updatedAt=stamp;
     }else{
-      if(target.entry.clockIn && target.entry.clockOut){
-        Restogogo.ui?.toast?.('This shift is already complete.',{tone:'warning',icon:'!',centered:true,timeout:2200});
-        return {action:'complete',time,proof};
+      const isResume=!!(target.entry.clockIn && target.entry.clockOut);
+      if(!target.entry.clockIn){
+        target.entry.clockIn=time;
+        target.entry.clockInAt=stamp;
+        target.entry.clockInPhoto=proof.dataUrl;
+        target.entry.clockInPhotoStatus=proof.status;
+        target.entry.clockInPhotoCapturedAt=proof.dataUrl?stamp:'';
+      }else if(isResume){
+        target.entry.lastBreakOut=target.entry.clockOut;
+        target.entry.lastBreakOutAt=target.entry.clockOutAt || '';
       }
-      target.entry.clockIn=time;
       target.entry.clockOut='';
-      target.entry.clockInAt=stamp;
-      target.entry.clockInPhoto=proof.dataUrl;
-      target.entry.clockInPhotoStatus=proof.status;
-      target.entry.clockInPhotoCapturedAt=proof.dataUrl?stamp:'';
+      target.entry.clockOutAt='';
+      target.entry.clockOutPhoto='';
+      target.entry.clockOutPhotoStatus='';
+      target.entry.clockOutPhotoCapturedAt='';
+      target.entry.resumeAt=isResume?stamp:(target.entry.resumeAt||'');
       target.entry.source='badge-terminal';
       target.entry.createdAt=target.entry.createdAt||stamp;
       target.entry.updatedAt=stamp;

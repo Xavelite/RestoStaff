@@ -324,3 +324,9 @@ body.restaurant-mode {
 .restaurant-document button {
   font-size: 16px;
 }
+
+/* Keep Restaurant tabs visually identical to Team shared tabs. */
+.restaurant-main > .restaurant-tabs {
+  margin: 0;
+  padding: 0 2px 10px;
+}
