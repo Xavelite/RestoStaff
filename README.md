@@ -191,6 +191,19 @@ history           -> all weekly tables grouped by week_start
 - Owner password/PIN: `0000` for the pilot owner login only
 - Employee password/PIN: whatever is stored on the employee row; the seed uses `0000`
 
+
+## Vercel Web Analytics
+
+This build includes the plain HTML Vercel Web Analytics snippet in `index.html`.
+
+After deploying to Vercel, open the live site once, then check:
+
+```txt
+Vercel → Project → Analytics
+```
+
+Local `file:///` usage is not counted as real website traffic; analytics start from the deployed Vercel URL.
+
 ## Deployment
 
 1. Run the Supabase schema SQL.
