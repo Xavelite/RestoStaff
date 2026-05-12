@@ -9,6 +9,13 @@
   --rst-ui-bg: #06101d;
   --rst-ui-bg-2: #091325;
   --rst-ui-panel: #111c2d;
+  --rst-ui-surface-board: linear-gradient(180deg,rgba(17,30,53,.64),rgba(9,20,37,.78));
+  --rst-ui-surface-panel: var(--rst-ui-surface-board);
+  --rst-ui-surface-card: linear-gradient(180deg,rgba(17,30,53,.50),rgba(9,20,37,.68));
+  --rst-ui-surface-subpanel: linear-gradient(180deg,rgba(9,20,37,.52),rgba(6,14,25,.64));
+  --rst-ui-surface-field: rgba(255,255,255,.026);
+  --rst-ui-surface-field-strong: rgba(255,255,255,.040);
+  --rst-ui-metric-card: var(--rst-ui-surface-board);
   --rst-ui-card: rgba(255,255,255,.052);
   --rst-ui-card-strong: rgba(255,255,255,.075);
   --rst-ui-ink: #f8fafc;

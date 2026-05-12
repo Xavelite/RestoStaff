@@ -2,32 +2,36 @@ body.logged-out .topbar,body.logged-out .shell {
   display: none;
 }
 
-body:not(.logged-out) #login.brand-page {
+body:not(.logged-out) .brand-page {
   display: none;
 }
 
-.page,.tab {
+.page {
   display: none;
 }
 
-.page.active,.tab.active {
+.page.active {
   display: block;
 }
 
-
-.owner-planning-mode #page-my-schedule,.my-schedule-mode #page-owner {
-  display: none;
-}
 
 /* Page-state only decides which page is visible. Weekly pages need a flex
    display type so their shared board can constrain the internal table scroll. */
-.owner-planning-mode #page-owner,
-.owner-planning-mode #tab-planning,
-.actual-timesheet-mode #page-actuals {
+.planning-mode .planning-page,
+.actuals-mode .actuals-page {
   display: flex;
 }
 
-.my-schedule-mode #page-my-schedule,
-.time-clock-mode #page-time-clock {
+.team-mode .team-page,
+.restaurant-mode .restaurant-page {
   display: block;
+}
+
+.employee-schedule-mode .employee-schedule-page,
+.badge-terminal-mode .badge-terminal-page {
+  display: block;
+}
+
+body.badge-terminal-mode .app-topbar-v2 {
+  display: none;
 }

@@ -1,4 +1,4 @@
-#login.brand-page {
+.brand-page {
   position: fixed;
   inset: 0;
   z-index: 50;
@@ -15,7 +15,7 @@
     linear-gradient(135deg,#06101d 0,#091325 52%,#101a31 100%);
 }
 
-body.logged-out #login.brand-page {
+body.logged-out .brand-page {
   display: grid;
 }
 
@@ -145,7 +145,7 @@ body.logged-out #login.brand-page {
   background-repeat: no-repeat;
 }
 
-.brand-login-form #accessPin {
+.brand-login-form input[type="password"] {
   letter-spacing: .02em;
 }
 
@@ -252,5 +252,37 @@ body.logged-out #login.brand-page {
   80% { transform: translateX(3px); }
 }
 
+
+
+
+/* Pilot login polish */
+.brand-pilot-pill {
+  justify-self: end;
+  display: inline-grid;
+  justify-items: end;
+  gap: 2px;
+  padding: 9px 13px;
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 16px;
+  background: rgba(255,255,255,.045);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.055);
+  text-align: right;
+}
+
+.brand-pilot-pill span {
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 950;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.brand-pilot-pill small {
+  color: #94a3b8;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 760;
+}
 
 

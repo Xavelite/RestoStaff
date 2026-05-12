@@ -101,7 +101,8 @@
     },timeout);
   }
 
-  window.RestogogoUI={
+  window.Restogogo = window.Restogogo || {};
+  window.Restogogo.ui={
     toast,
     alert: options => openModal(Object.assign({mode:'alert',confirmText:'OK'}, typeof options==='string'?{message:options}:options)),
     confirm: options => openModal(Object.assign({mode:'confirm'}, typeof options==='string'?{message:options}:options)).then(Boolean),

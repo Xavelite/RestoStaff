@@ -3,24 +3,11 @@
  */
 
 (function(){
-  let pendingSwap = null;
   let bound = false;
+  const Metrics = Restogogo.services.metrics;
 
   const lunchIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"></circle><path d="M12 2.8v2.4"></path><path d="M12 18.8v2.4"></path><path d="M2.8 12h2.4"></path><path d="M18.8 12h2.4"></path><path d="M5.5 5.5l1.7 1.7"></path><path d="M16.8 16.8l1.7 1.7"></path><path d="M18.5 5.5l-1.7 1.7"></path><path d="M7.2 16.8l-1.7 1.7"></path></svg>';
   const eveningIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 3.2a8.9 8.9 0 1 0 6.1 15.3 7.1 7.1 0 1 1-6.1-15.3Z"></path><path d="M17.4 6.1h.01"></path></svg>';
-
-  function ensureEmployeeSlot(employeeId,day,shift){
-    data.availability = data.availability || {};
-    data.assignments = data.assignments || {};
-    data.assignmentTimes = data.assignmentTimes || {};
-    data.submitted = data.submitted || {};
-    data.availability[employeeId] = data.availability[employeeId] || {};
-    data.availability[employeeId][day] = data.availability[employeeId][day] || {};
-    data.assignments[employeeId] = data.assignments[employeeId] || {};
-    data.assignments[employeeId][day] = data.assignments[employeeId][day] || {};
-    data.assignmentTimes[employeeId] = data.assignmentTimes[employeeId] || {};
-    data.assignmentTimes[employeeId][day] = data.assignmentTimes[employeeId][day] || {};
-  }
 
   function flashSlot(day,shift){
     requestAnimationFrame(()=>{
@@ -34,17 +21,14 @@
   }
 
   function render(){
-    const root=$("myScheduleGrid");
+    const root=$("employeeScheduleRoot");
     if(!root||!data)return;
 
     const employee=emp(session.employeeId)||activeEmployees()[0];
     if(!employee){
-      root.innerHTML='<p class="employee-schedule-empty">No employee selected.</p>';
+      root.innerHTML='<div class="employee-schedule-shell"><section class="employee-schedule-panel rs-v2-frame"><p class="employee-schedule-empty">No employee selected.</p></section></div>';
       return;
     }
-
-    if($("myScheduleWeekMeta"))myScheduleWeekMeta.textContent=weekDisplayRange();
-    if($("employeeScheduleWeekStart"))employeeScheduleWeekStart.value=data.weekStart||'';
 
     const published=data.status==='Published';
     let totalHours=0;
@@ -52,24 +36,22 @@
     let lunchCount=0;
     let eveningCount=0;
 
-    root.innerHTML=days.map(day=>{
+    const rows=days.map(day=>{
       const date=dateForDay(day);
       const cells=shifts.map(shift=>{
         const available=!!data.availability?.[employee.id]?.[day]?.[shift];
         const zone=data.assignments?.[employee.id]?.[day]?.[shift]||suggestZone(employee,shift)||'Unassigned';
         const range=timeRangeFor(employee,day,shift);
         const hours=available?slotHours(employee,day,shift):0;
-        const swap=swapFor(employee.id,day,shift);
         const timeText=displayTimeRange(range);
         const title=available?(published?timeText:'Available'):'Off';
         const detail=available?(published?`${zone} · ${fmtHours(hours)}`:`${timeText} · ${zone}`):'No shift';
-        const swapTag=swap?`<span class="employee-schedule-shift__tag">${esc(swap.status)}</span>`:'';
         const style=available?(positionStyle(employee.position)+';'+zoneStyle(zone)):'';
         const check=(!published&&available)?'<span class="employee-schedule-shift__check" aria-hidden="true">✓</span>':'';
         const timeButton=(!published&&available)?`<button type="button" class="employee-schedule-time-button" title="Set available time" data-action="edit-time" data-day="${esc(day)}" data-shift="${esc(shift)}">Time</button>`:'';
         const shiftTone=shift==='Lunch'?'is-lunch':'is-evening';
         const shiftIcon=shift==='Lunch'?lunchIcon:eveningIcon;
-        const className=['employee-schedule-shift','rs-shift-card',shiftTone,available?'is-planned':'is-off',published?'is-published':'is-draft',zoneClass(zone)].join(' ');
+        const className=['employee-schedule-shift','rs-shift-card',shiftTone,available?'is-planned':'is-off',published?'is-published':'is-draft'].join(' ');
 
         if(available){
           totalHours+=hours;
@@ -78,20 +60,33 @@
           if(shift==='Evening') eveningCount+=1;
         }
 
-        return `<article role="button" tabindex="0" data-day="${esc(day)}" data-shift="${esc(shift)}" class="${className}" ${styleAttr(style)}><span class="employee-schedule-shift__icon" aria-hidden="true">${shiftIcon}</span><div class="employee-schedule-shift__body"><span class="employee-schedule-shift__label">${esc(shift)}</span><strong>${esc(title)}</strong><small>${esc(detail)}</small></div>${check}${timeButton}${swapTag}</article>`;
+        return `<article role="button" tabindex="0" data-day="${esc(day)}" data-shift="${esc(shift)}" class="${className}" ${styleAttr(style)}><span class="employee-schedule-shift__icon" aria-hidden="true">${shiftIcon}</span><div class="employee-schedule-shift__body"><span class="employee-schedule-shift__label">${esc(shift)}</span><strong>${esc(title)}</strong><small>${esc(detail)}</small></div>${check}${timeButton}</article>`;
       }).join('');
       return `<article class="employee-schedule-row"><div class="employee-schedule-day"><strong>${esc(day.slice(0,3))}</strong><span>${esc(shortDisplayDate(date))}</span></div>${cells}</article>`;
     }).join('');
 
-    const summaryStatus=$("myScheduleSummaryStatus");
-    const summaryStatusMeta=$("myScheduleSummaryStatusMeta");
-    const summaryHours=$("myScheduleSummaryHours");
-    const summaryHoursMeta=$("myScheduleSummaryHoursMeta");
+    const metrics=[
+      Metrics.card({tone:'status',icon:'document',label:'Status',value:published?'Published':'Draft',meta:published?'Confirmed shifts':'Planning not final'}),
+      Metrics.week({
+        tag:'div',
+        id:'employeeScheduleWeekMetric',
+        ariaLabel:'Change week',
+        prevId:'employeeSchedulePrevWeek',
+        nextId:'employeeScheduleNextWeek',
+        inputId:'employeeScheduleWeekStart',
+        inputAriaLabel:'Select week start date',
+        valueId:'employeeScheduleWeekLabel',
+        value:weekDisplayRange(),
+        inputValue:data.weekStart
+      }),
+      Metrics.card({tone:'hours',icon:'clock',label:'Hours',value:fmtHours(totalHours),meta:`${totalAvailable} shifts · Lunch ${lunchCount} · Evening ${eveningCount}`})
+    ].join('');
 
-    if(summaryStatus) summaryStatus.textContent=published?'Published':'Draft';
-    if(summaryStatusMeta) summaryStatusMeta.textContent=published?'Confirmed shifts':'Planning not final';
-    if(summaryHours) summaryHours.textContent=fmtHours(totalHours);
-    if(summaryHoursMeta) summaryHoursMeta.textContent=`${totalAvailable} shifts · Lunch ${lunchCount} · Evening ${eveningCount}`;
+    root.innerHTML=`<div class="employee-schedule-shell"><section aria-label="Employee weekly schedule" class="employee-schedule-panel rs-v2-frame">
+      <div aria-label="Schedule summary and controls" class="employee-schedule-metrics rs-metric-grid">${metrics}</div>
+      <div class="employee-schedule-board-head"><span>Day</span><strong>Lunch</strong><strong>Evening</strong></div>
+      <div class="employee-schedule-grid" id="employeeScheduleGrid">${rows}</div>
+    </section></div>`;
   }
 
   function handleSlotClick(day,shift){
@@ -99,17 +94,16 @@
     const employeeId=session.employeeId;
 
     if(data.status!=='Published'){
-      ensureEmployeeSlot(employeeId,day,shift);
-      data.availability[employeeId][day][shift]=!data.availability[employeeId][day][shift];
-      data.submitted[employeeId]=true;
-      save();
+      const next=!data.availability?.[employeeId]?.[day]?.[shift];
+      setAvailabilitySlot(employeeId,day,shift,next);
+      setSubmitted(employeeId,true);
+      void save({reason:'employee-schedule'});
       render();
       flashSlot(day,shift);
       return;
     }
 
-    const planned=data.planning?.[employeeId]?.[day]?.[shift];
-    if(planned)openSwapFlow(employeeId,day,shift);
+    Restogogo.ui?.toast?.('Published schedule is read-only.',{tone:'warning',icon:'!',centered:false,timeout:1600});
   }
 
   function handleSlotKey(event,day,shift){
@@ -126,9 +120,9 @@
     const employee=emp(employeeId);
     if(!employeeId||!employee)return;
     const current=timeRangeFor(employee,day,shift);
-    const value=await window.RestogogoUI?.prompt?.({
+    const value=await Restogogo.ui?.prompt?.({
       title:`${day} ${shift}`,
-      message:'Set your available time. Leave empty to use the default time for this slot.',
+      message:'Set your available time. Leave empty to use the restaurant opening-hours setup for this slot.',
       label:'Available time',
       defaultValue:displayTimeRange(current),
       placeholder:'11:00-15:00',
@@ -142,19 +136,18 @@
     if(raw){
       range=normalizeTimeRangeInput(raw);
       if(!range){
-        await window.RestogogoUI?.alert?.({title:'Invalid time',message:'Use time format HH:MM-HH:MM, for example 11:00-15:00.',confirmText:'OK',icon:'!',tone:'danger'});
+        await Restogogo.ui?.alert?.({title:'Invalid time',message:'Use time format HH:MM-HH:MM, for example 11:00-15:00.',confirmText:'OK',icon:'!',tone:'danger'});
         return;
       }
     }
-    ensureEmployeeSlot(employeeId,day,shift);
-    data.availability[employeeId][day][shift]=true;
-    data.assignments[employeeId][day][shift]=data.assignments[employeeId][day][shift]||suggestZone(employee,shift);
-    data.assignmentTimes[employeeId][day][shift]=range;
-    data.submitted[employeeId]=true;
-    save();
+    setAvailabilitySlot(employeeId,day,shift,true);
+    if(!data.assignments?.[employeeId]?.[day]?.[shift])setAssignmentSlot(employeeId,day,shift,suggestZone(employee,shift));
+    setAssignmentTimeSlot(employeeId,day,shift,range);
+    setSubmitted(employeeId,true);
+    void save({reason:'employee-schedule'});
     render();
     flashSlot(day,shift);
-    window.RestogogoUI?.toast?.('Availability time updated.',{tone:'success',icon:'✓',centered:false,timeout:1600});
+    Restogogo.ui?.toast?.('Availability time updated.',{tone:'success',icon:'✓',centered:false,timeout:1600});
   }
 
   function openPicker(){
@@ -165,90 +158,56 @@
   }
 
   function changeWeek(delta){
-    window.RestogogoApp?.changeWeek?.(delta);
+    Restogogo.router?.changeWeek?.(delta);
   }
 
   function setWeek(value){
     if(!data||!value)return;
-    window.RestogogoApp?.saveWeekSnapshot?.();
-    data.weekStart=typeof monday==='function'?monday(value):value;
-    window.RestogogoApp?.loadWeekSnapshot?.();
-    if($('weekStart'))$('weekStart').value=data.weekStart;
-    save();
+    setWeekStartAndLoad(value);
+    void save({reason:'employee-schedule-week-change'});
     renderApp();
   }
 
   function renderApp(){
-    window.RestogogoApp?.render?.();
-  }
-
-  function openSwapFlow(employeeId,day,shift){
-    pendingSwap={type:employeeId===session.employeeId?'offer':'request',id:employeeId,day,shift};
-    const dialog=$('swapDialog');
-    if(!dialog)return;
-    if($('swapTitle'))swapTitle.textContent=employeeId===session.employeeId?'Offer shift':'Request shift';
-    if($('swapBody'))swapBody.textContent=`${day} ${shift} · ${emp(employeeId)?.name||'Employee'}`;
-    if($('confirmSwap'))confirmSwap.textContent='Send request';
-    if($('swapNote'))swapNote.value='';
-    dialog.showModal?.();
-  }
-
-  function confirmSwap(){
-    if(!pendingSwap)return;
-    const swap=pendingSwap;
-    const note=String($('swapNote')?.value||'').trim();
-    data.swaps=data.swaps||[];
-    data.swaps.push({
-      id:id(),
-      from:swap.id,
-      to:swap.type==='request'?session.employeeId:'',
-      day:swap.day,
-      shift:swap.shift,
-      note,
-      status:swap.type==='request'?'Employee approval':'Waiting'
-    });
-    addNotification('swap-'+Date.now(),'yellow','Swap request created',`${swap.day} ${swap.shift}`,{kind:'swap'});
-    pendingSwap=null;
-    $('swapDialog')?.close?.();
-    save();
-    renderApp();
+    Restogogo.router?.render?.();
   }
 
   function bind(){
     if(bound)return;
     bound=true;
-    const on=(idValue,event,handler)=>{$(idValue)?.addEventListener(event,handler);};
+    const page=$('page-employee-schedule');
 
-    on('employeeSchedulePrevWeek','click',event=>{event.stopPropagation();changeWeek(-7);});
-    on('employeeScheduleNextWeek','click',event=>{event.stopPropagation();changeWeek(7);});
-    on('employeeScheduleWeekStart','change',event=>setWeek(event.target.value));
-    on('employeeScheduleWeekMetric','click',event=>{
-      if(event.target.closest('button,input'))return;
-      openPicker();
-    });
-    on('employeeScheduleWeekMetric','keydown',event=>{
-      if(event.target.closest('button,input'))return;
-      if(event.key==='Enter'||event.key===' '){event.preventDefault();openPicker();}
-    });
-
-    const grid=$('myScheduleGrid');
-    grid?.addEventListener('click',event=>{
+    page?.addEventListener('click',event=>{
+      if(event.target.closest('#employeeSchedulePrevWeek')){event.stopPropagation();changeWeek(-7);return;}
+      if(event.target.closest('#employeeScheduleNextWeek')){event.stopPropagation();changeWeek(7);return;}
+      if(event.target.closest('#employeeScheduleWeekMetric')){
+        if(!event.target.closest('button,input'))openPicker();
+        return;
+      }
       const timeButton=event.target.closest('.employee-schedule-time-button');
-      if(timeButton&&grid.contains(timeButton)){
+      if(timeButton&&page.contains(timeButton)){
         editAvailabilityTime(timeButton.dataset.day,timeButton.dataset.shift,event);
         return;
       }
       const card=event.target.closest('.employee-schedule-shift');
-      if(card&&grid.contains(card))handleSlotClick(card.dataset.day,card.dataset.shift);
-    });
-    grid?.addEventListener('keydown',event=>{
-      const card=event.target.closest('.employee-schedule-shift');
-      if(card&&grid.contains(card))handleSlotKey(event,card.dataset.day,card.dataset.shift);
+      if(card&&page.contains(card))handleSlotClick(card.dataset.day,card.dataset.shift);
     });
 
-    on('confirmSwap','click',confirmSwap);
-    on('cancelSwap','click',()=>{$('swapDialog')?.close?.();pendingSwap=null;});
+    page?.addEventListener('change',event=>{
+      if(event.target?.id==='employeeScheduleWeekStart')setWeek(event.target.value);
+    });
+
+    page?.addEventListener('keydown',event=>{
+      if(event.target.closest?.('#employeeScheduleWeekMetric')){
+        if(event.target.closest('button,input'))return;
+        if(event.key==='Enter'||event.key===' '){event.preventDefault();openPicker();return;}
+      }
+      const card=event.target.closest?.('.employee-schedule-shift');
+      if(card&&page.contains(card))handleSlotKey(event,card.dataset.day,card.dataset.shift);
+    });
+
   }
 
-  window.EmployeeSchedule={render,bind,openPicker,changeWeek,setWeek,editAvailabilityTime};
+  const employeeScheduleApi={render,bind,openPicker,changeWeek,setWeek,editAvailabilityTime};
+  Restogogo.employeeSchedule=employeeScheduleApi;
 })();

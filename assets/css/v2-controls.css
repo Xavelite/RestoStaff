@@ -351,3 +351,21 @@
 .rs-terminal-launch svg {
   opacity: .86;
 }
+
+
+/* Toolbar overflow and compact layout rules live with shared controls. */
+.rs-grid-toolbar__title,
+.rs-grid-toolbar__title span {
+  min-width: 0;
+}
+
+.rs-grid-toolbar__title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+
+
+

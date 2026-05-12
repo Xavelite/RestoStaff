@@ -1,4 +1,4 @@
-.my-schedule-mode {
+.employee-schedule-mode {
   --employee-topbar-h: var(--rst-v2-topbar-h);
   --topbar-h: var(--employee-topbar-h);
   --rst-ui-card: rgba(17,30,53,.54);
@@ -6,7 +6,7 @@
   overflow: hidden;
 }
 
-.my-schedule-mode .shell {
+.employee-schedule-mode .shell {
   width: 100%;
   max-width: none;
   height: calc(100dvh - var(--employee-topbar-h));
@@ -16,10 +16,15 @@
   overflow: hidden;
 }
 
-.employee-my-schedule-page,
+.employee-schedule-page,
+.employee-schedule-root,
 .employee-schedule-shell {
   height: 100%;
   min-height: 0;
+}
+
+.employee-schedule-root {
+  display: grid;
 }
 
 .employee-schedule-shell {
@@ -37,37 +42,6 @@
   overflow: hidden;
   background: linear-gradient(180deg,rgba(17,30,53,.64),rgba(9,20,37,.78));
   backdrop-filter: none;
-}
-
-.employee-schedule-metric-card {
-  --metric-glow: rgba(255,255,255,.14);
-}
-
-.employee-schedule-metric-card::after {
-  right: -18px;
-  bottom: -18px;
-  width: 92px;
-  height: 92px;
-  opacity: .22;
-}
-
-.employee-schedule-metric-card.is-status {
-  --metric-accent: var(--rst-ui-purple);
-  --metric-icon-bg: rgba(123,102,255,.14);
-  --metric-icon-border: rgba(123,102,255,.24);
-  --metric-glow: rgba(123,102,255,.14);
-}
-
-.employee-schedule-metric-card.is-week {
-  --metric-glow: rgba(86,199,255,.13);
-}
-
-.employee-schedule-metric-card.is-hours {
-  --metric-accent: #7cf3cb;
-  --metric-icon-bg: rgba(35,198,167,.12);
-  --metric-icon-border: rgba(35,198,167,.22);
-  --metric-glow: rgba(35,198,167,.14);
-  --metric-strong: #8df3d4;
 }
 
 .employee-schedule-board-head,
@@ -163,7 +137,6 @@
 
 .employee-schedule-shift__icon,
 .employee-schedule-shift__check,
-.employee-schedule-shift__tag,
 .employee-schedule-time-button {
   position: absolute;
   z-index: 1;
@@ -253,8 +226,7 @@
 }
 
 .employee-schedule-shift__check,
-.employee-schedule-time-button,
-.employee-schedule-shift__tag {
+.employee-schedule-time-button {
   top: 50%;
   transform: translateY(-50%);
 }
@@ -294,20 +266,6 @@
   border-color: rgba(134,239,172,.46);
 }
 
-.employee-schedule-shift__tag {
-  right: 12px;
-  max-width: 40%;
-  padding: 5px 8px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.11);
-  color: #fff;
-  border: 1px solid rgba(255,255,255,.12);
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-size: 10px;
-  font-weight: 900;
-}
 
 .employee-schedule-shift.just-tapped {
   animation: employeeScheduleTapPop .46s ease both;

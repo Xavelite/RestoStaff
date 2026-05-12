@@ -2,21 +2,21 @@
    This file owns structure: page shell, metric rhythm, board, toolbar host,
    table widths, sticky headers, employee identity cells, day dividers,
    slot shell sizing and week total cells. Page CSS should only add states. */
-.owner-planning-mode,
-.actual-timesheet-mode {
+.planning-mode,
+.actuals-mode {
   --weekly-topbar-h: var(--rst-v2-topbar-h);
   --weekly-person-col: 168px;
   --weekly-total-col: 70px;
   --weekly-row-h: 86px;
   --weekly-day-separator: rgba(148,163,184,.34);
-  --weekly-board-bg: linear-gradient(180deg,rgba(17,30,53,.64),rgba(9,20,37,.78));
-  --rst-ui-metric-card: var(--weekly-board-bg);
+  --weekly-board-bg: var(--rst-ui-surface-board);
+  --rst-ui-metric-card: var(--rst-ui-surface-board);
   color: var(--rst-ui-text);
   overflow: hidden;
 }
 
-.owner-planning-mode .shell,
-.actual-timesheet-mode .shell {
+.planning-mode .shell,
+.actuals-mode .shell {
   width: min(var(--rst-v2-content-max),calc(100% - var(--rst-v2-gutter)));
   height: calc(100vh - var(--weekly-topbar-h));
   max-height: calc(100vh - var(--weekly-topbar-h));
@@ -28,20 +28,9 @@
   overflow: hidden;
 }
 
-/* Planning is nested as page-owner > tab-planning, while Actuals sits
-   directly in .shell. Keep that extra Planning wrapper constrained so
-   the shared board can own the vertical scroll instead of the page. */
-.owner-planning-mode #page-owner {
-  flex: 1 1 auto;
-  min-height: 0;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.owner-planning-mode #tab-planning.owner-planning-v2,
-.actual-timesheet-mode #page-actuals {
+/* Planning and Actuals share the same constrained weekly page shell. */
+.planning-mode .planning-page,
+.actuals-mode .actuals-page {
   flex: 1 1 auto;
   min-height: 0;
   height: 100%;
@@ -87,7 +76,7 @@
 }
 
 .rs-weekly-board > .rs-grid-toolbar,
-.rs-weekly-board > .owner-conflict-banner {
+.rs-weekly-board > .planning-conflict-banner {
   flex: 0 0 auto;
 }
 
@@ -96,9 +85,7 @@
   min-height: 0;
 }
 
-.rs-weekly-scroll,
-.owner-calendar-scroll,
-.actual-table-wrap {
+.rs-weekly-scroll {
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden auto;
@@ -157,8 +144,8 @@
   width: calc((100% - var(--weekly-person-col) - var(--weekly-total-col)) / 7);
 }
 
-.rs-weekly-day-head {
-  border-right: 2px solid var(--weekly-day-separator) !important;
+.rs-weekly-table .rs-weekly-day-head {
+  border-right: 2px solid var(--weekly-day-separator);
 }
 
 .rs-weekly-day-head-copy,
@@ -275,7 +262,7 @@
   padding: 0;
   overflow: hidden;
   background: linear-gradient(180deg,rgba(9,17,30,.94),rgba(7,13,24,.99));
-  border-right: 2px solid var(--weekly-day-separator) !important;
+  border-right: 2px solid var(--weekly-day-separator);
   vertical-align: stretch;
 }
 
@@ -361,3 +348,25 @@
   line-height: 1;
   font-weight: 850;
 }
+
+/* Compact desktop height behavior for Planning + Actuals weekly boards. */
+
+
+
+
+@media (max-height: 760px) and (min-width: 981px) {
+  .rs-weekly-metrics {
+    gap: 10px;
+    margin: 10px 0;
+  }
+
+  .rs-weekly-metrics .rs-metric-card {
+    min-height: 84px;
+    padding-block: 10px;
+  }
+
+  .rs-metric-copy strong {
+    font-size: 19px;
+  }
+}
+

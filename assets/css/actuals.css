@@ -1,9 +1,9 @@
 /* Actuals page states only. Shared weekly layout lives in weekly-grid.css. */
-.actual-slot-empty {
+.actuals-slot-empty {
   display: block;
 }
 
-.actual-slot-card {
+.actuals-slot-card {
   position: relative;
   padding: 4px 6px;
   border-radius: 2px;
@@ -14,29 +14,29 @@
   overflow: hidden;
 }
 
-.actual-slot-card.is-good {
+.actuals-slot-card.is-good {
   --shift-bg: rgba(18,70,76,.82);
   --shift-border: rgba(99,224,219,.28);
   --shift-accent: #6ee7f9;
 }
 
-.actual-slot-card.is-warn {
+.actuals-slot-card.is-warn {
   --shift-bg: rgba(84,62,26,.86);
   --shift-border: rgba(245,158,11,.34);
   --shift-accent: #fbbf24;
 }
 
-.actual-slot-card.is-pending {
+.actuals-slot-card.is-pending {
   --shift-bg: rgba(12,25,43,.58);
   --shift-border: rgba(148,163,184,.10);
   --shift-accent: #64748b;
   opacity: .70;
 }
 
-.actual-slot-card strong,
-.actual-slot-card small,
-.actual-slot-card em,
-.actual-slot-card b {
+.actuals-slot-card strong,
+.actuals-slot-card small,
+.actuals-slot-card em,
+.actuals-slot-card b {
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
@@ -44,7 +44,7 @@
   font-style: normal;
 }
 
-.actual-slot-card strong {
+.actuals-slot-card strong {
   color: #fff;
   font-size: clamp(11.7px,.68vw,13.2px);
   line-height: 17px;
@@ -52,37 +52,31 @@
   letter-spacing: -.038em;
 }
 
-.actual-slot-card small {
+.actuals-slot-card small {
   color: rgba(219,230,245,.52);
   font-size: 9.5px;
   line-height: 13px;
   font-weight: 720;
 }
 
-.actual-slot-card em,
-.actual-slot-card b {
+.actuals-slot-card em,
+.actuals-slot-card b {
   color: color-mix(in srgb,var(--shift-accent) 82%,#ffffff);
   font-size: clamp(10.4px,.58vw,11.8px);
   line-height: 13px;
   font-weight: 800;
 }
 
-.actual-slot-card b {
+.actuals-slot-card b {
   color: var(--shift-accent);
 }
 
-.actual-empty {
-  height: 220px;
-  color: #93a4bb;
-  text-align: center;
-  font-weight: 800;
-}
 
-.actual-slot-card.has-proof {
+.actuals-slot-card.has-proof {
   cursor: pointer;
 }
 
-.actual-proof-dot {
+.actuals-proof-dot {
   position: absolute;
   right: 4px;
   bottom: 3px;
@@ -97,7 +91,7 @@
   box-shadow: 0 0 0 1px rgba(255,255,255,.10);
 }
 
-.actual-proof-dialog {
+.actuals-proof-dialog {
   width: min(640px,calc(100vw - 36px));
   padding: 0;
   border: 0;
@@ -105,12 +99,12 @@
   color: #f8fafc;
 }
 
-.actual-proof-dialog::backdrop {
+.actuals-proof-dialog::backdrop {
   background: rgba(2,6,23,.64);
   backdrop-filter: blur(8px);
 }
 
-.actual-proof-card {
+.actuals-proof-card {
   display: grid;
   gap: 18px;
   padding: 22px;
@@ -121,19 +115,19 @@
   font-family: var(--rst-ui-font);
 }
 
-.actual-proof-head {
+.actuals-proof-head {
   display: grid;
   grid-template-columns: 52px minmax(0,1fr);
   align-items: center;
   gap: 14px;
 }
 
-.actual-proof-head h2,
-.actual-proof-head p {
+.actuals-proof-head h2,
+.actuals-proof-head p {
   margin: 0;
 }
 
-.actual-proof-head h2 {
+.actuals-proof-head h2 {
   color: #fff;
   font-size: 21px;
   line-height: 1.05;
@@ -141,27 +135,27 @@
   letter-spacing: -.035em;
 }
 
-.actual-proof-head p {
+.actuals-proof-head p {
   margin-top: 5px;
   color: #94a3b8;
   font-size: 13px;
   font-weight: 760;
 }
 
-.actual-proof-grid {
+.actuals-proof-grid {
   display: grid;
   grid-template-columns: repeat(2,minmax(0,1fr));
   gap: 12px;
 }
 
-.actual-proof-tile {
+.actuals-proof-tile {
   overflow: hidden;
   border: 1px solid rgba(255,255,255,.10);
   border-radius: 18px;
   background: rgba(255,255,255,.045);
 }
 
-.actual-proof-tile__media {
+.actuals-proof-tile__media {
   aspect-ratio: 4 / 3;
   display: grid;
   place-items: center;
@@ -171,7 +165,7 @@
   font-weight: 950;
 }
 
-.actual-proof-tile__media img {
+.actuals-proof-tile__media img {
   width: 100%;
   height: 100%;
   display: block;
@@ -179,39 +173,39 @@
   image-rendering: auto;
 }
 
-.actual-proof-tile div:last-child {
+.actuals-proof-tile div:last-child {
   display: grid;
   gap: 3px;
   padding: 11px 12px;
 }
 
-.actual-proof-tile strong,
-.actual-proof-tile small {
+.actuals-proof-tile strong,
+.actuals-proof-tile small {
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.actual-proof-tile strong {
+.actuals-proof-tile strong {
   color: #fff;
   font-size: 13px;
   font-weight: 900;
 }
 
-.actual-proof-tile small {
+.actuals-proof-tile small {
   color: #94a3b8;
   font-size: 11px;
   font-weight: 760;
 }
 
-.actual-proof-actions {
+.actuals-proof-actions {
   display: flex;
   justify-content: flex-end;
 }
 
-.actual-proof-dot svg,
-.actual-proof-head .rs-icon-badge svg {
+.actuals-proof-dot svg,
+.actuals-proof-head .rs-icon-badge svg {
   width: 100%;
   height: 100%;
   stroke: currentColor;

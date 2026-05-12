@@ -1,24 +1,37 @@
 /*
  * App configuration
  * -----------------
- * storageMode:
- *   - "local"    = browser localStorage only
- *   - "supabase" = shared Supabase planner_state rows
+ * This build is Supabase-only for operational data.
+ * Core business objects live in normalized Supabase tables; JSONB is reserved
+ * for flexible settings such as payroll rules and small UI preferences.
  */
 window.APP_CONFIG = {
   storageMode: "supabase",
   supabaseOnly: true,
   supabaseUrl: "https://pmdfczjomqaglqshbdlw.supabase.co",
   supabaseKey: "sb_publishable_-f96yE-hAbWr4XXrut5TUQ_1zLV1b7s",
-  supabaseTable: "planner_state",
 
-  // Prototype multi-restaurant workspaces.
-  // Each restaurant uses one planner_state row. The optional "main" row can bootstrap the first clean workspace when present.
-  supabaseRecordId: "bouillon-bruxelles",
-  supabaseBootstrapRecordId: "main",
+  supabaseTables: {
+    restaurants: "restogogo_restaurants",
+    employees: "restogogo_employees",
+    employeeAbsences: "restogogo_employee_absences",
+    employeeDocuments: "restogogo_employee_documents",
+    restaurantDocuments: "restogogo_restaurant_documents",
+    positions: "restogogo_positions",
+    zones: "restogogo_zones",
+    openingHours: "restogogo_opening_hours",
+    weeklyStatus: "restogogo_weekly_status",
+    availabilitySlots: "restogogo_availability_slots",
+    plannedShifts: "restogogo_planned_shifts",
+    employeeWeekSubmissions: "restogogo_employee_week_submissions",
+    weeklyNotes: "restogogo_weekly_notes",
+    actualShiftEntries: "restogogo_actual_shift_entries"
+  },
+
   defaultWorkspaceId: "bouillon-bruxelles",
+  // Initial selected workspace id only. The actual workspace must exist in Supabase.
+  exposeWorkspaceCatalog: false,
+  showDemoWorkspace: false,
 
-  // Automatic version reseeding is disabled. Empty rows can still be created intentionally.
-  seedSetupOnlyOnce: false,
-  setupSeedVersion: "clean-v2-base"
+  setupSeedVersion: "restogogo_strict_supabase_source_v3"
 };

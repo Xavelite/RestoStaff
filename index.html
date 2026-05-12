@@ -5,23 +5,28 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
 <title>restogogo</title>
-<!-- CSS order: tokens/base/state, shared v2 components, topbar/notifications, page modules. -->
+<!-- CSS order: tokens/base/state, shared components/controls, weekly grid, feedback, shell, page modules, print. -->
 <link href="assets/css/tokens.css" rel="stylesheet"/>
 <link href="assets/css/base.css" rel="stylesheet"/>
 <link href="assets/css/page-state.css" rel="stylesheet"/>
 <link href="assets/css/v2-components.css" rel="stylesheet"/>
 <link href="assets/css/v2-controls.css" rel="stylesheet"/>
+<link href="assets/css/operations.css" rel="stylesheet"/>
 <link href="assets/css/weekly-grid.css" rel="stylesheet"/>
 <link href="assets/css/v2-feedback.css" rel="stylesheet"/>
 <link href="assets/css/topbar.css" rel="stylesheet"/>
 <link href="assets/css/notifications.css" rel="stylesheet"/>
 <link href="assets/css/brand.css" rel="stylesheet"/>
+<link href="assets/css/pilot-guide.css" rel="stylesheet"/>
 <link href="assets/css/employee-schedule.css" rel="stylesheet"/>
-<link href="assets/css/owner-planning.css" rel="stylesheet"/>
-<link href="assets/css/time-clock.css" rel="stylesheet"/>
-<link href="assets/css/actual-timesheet.css" rel="stylesheet"/>
+<link href="assets/css/planning.css" rel="stylesheet"/>
+<link href="assets/css/badge-terminal.css" rel="stylesheet"/>
+<link href="assets/css/actuals.css" rel="stylesheet"/>
+<link href="assets/css/team.css" rel="stylesheet"/>
+<link href="assets/css/restaurant.css" rel="stylesheet"/>
+<link href="assets/css/print.css" rel="stylesheet"/>
 </head>
-<body class="desktop logged-out">
+<body class="logged-out">
 <!-- restogogo brand login page -->
 <section aria-label="restogogo access" class="brand-page rs-v2-page" id="login">
 <header class="brand-topbar rs-v2-topbar">
@@ -29,7 +34,10 @@
 <div aria-label="restogogo" class="brand-logo">
 <img alt="restogogo" class="brand-logo__image" src="assets/img/brand/restogogo_logo_transparent.png"/>
 </div>
-
+<div class="brand-pilot-pill" aria-label="Private pilot workspace">
+<span>Private pilot</span>
+<small>Workspace access only</small>
+</div>
 </div>
 </header>
 <div class="brand-shell rs-v2-shell">
@@ -56,13 +64,17 @@
 <section aria-label="restogogo modules preview" class="brand-module-panel rs-card">
 <div aria-label="restogogo main modules" class="brand-module-grid" id="entryModuleGrid"></div>
 <div aria-label="Module preview pages" class="brand-module-dots" id="moduleDots"></div>
+<button type="button" class="brand-pilot-guide-action" id="pilotGuideLoginBtn" aria-label="Open private pilot guide">
+<span>Private pilot guide</span>
+<small>How to test Planning, Badge Terminal and Actuals</small>
+</button>
 </section>
 </main>
 </div>
 </section>
 <!-- Main application shell -->
-<div class="phone-frame" id="phoneFrame">
-<header class="topbar app-topbar app-topbar-v2">
+<div class="app-frame" id="appFrame">
+<header class="topbar app-topbar app-topbar-v2" id="appTopbar">
 <div class="brand app-topbar-v2__brand">
 <img alt="restogogo" class="app-product-logo" src="assets/img/brand/restogogo_logo_transparent.png"/>
 <span aria-hidden="true" class="restaurant-brand-mark">
@@ -87,146 +99,60 @@
 </header>
 
 
-<main class="shell">
-<section class="page employee-my-schedule-page employee-schedule-v2 rs-v2-page" id="page-my-schedule">
-<div class="employee-schedule-shell">
-<section aria-label="Employee weekly schedule" class="employee-schedule-panel rs-v2-frame">
-<div aria-label="Schedule summary and controls" class="employee-schedule-metrics rs-metric-grid">
-<article class="employee-schedule-metric-card rs-metric-card is-status">
-<span aria-hidden="true" class="employee-schedule-metric-icon rs-icon-badge">
-<svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewbox="0 0 24 24"><path d="M8 3.5h6l4 4V20a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 20V5A1.5 1.5 0 0 1 7.5 3.5Z"></path><path d="M14 3.5V8h4"></path><path d="M9 12h6"></path><path d="M9 15.5h6"></path></svg>
-</span>
-<div class="employee-schedule-metric-copy rs-metric-copy">
-<span>Status</span>
-<strong id="myScheduleSummaryStatus">Draft</strong>
-<small id="myScheduleSummaryStatusMeta">Planning not final</small>
-</div>
-</article>
-<div aria-label="Change week" class="employee-schedule-metric-card rs-metric-card is-week employee-schedule-week-metric rs-week-metric" id="employeeScheduleWeekMetric" role="button" tabindex="0">
-<button aria-label="Previous week" class="employee-schedule-week-button rs-button-icon rs-week-btn" id="employeeSchedulePrevWeek" type="button">←</button>
-<span aria-hidden="true" class="employee-schedule-metric-icon rs-icon-badge">
-<svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewbox="0 0 24 24"><rect height="14" rx="2.5" width="16" x="4" y="5.5"></rect><path d="M8 3.5v4"></path><path d="M16 3.5v4"></path><path d="M4 9.5h16"></path></svg>
-</span>
-<label aria-label="Select week start date" class="employee-schedule-week-display rs-week-field">
-<span>Week range</span>
-<strong id="myScheduleWeekMeta">04/05 – 10/05</strong>
-<small id="myScheduleWeekHint">Click to change</small>
-<input id="employeeScheduleWeekStart" type="date"/>
-</label>
-<button aria-label="Next week" class="employee-schedule-week-button rs-button-icon rs-week-btn" id="employeeScheduleNextWeek" type="button">→</button>
-</div>
-<article class="employee-schedule-metric-card rs-metric-card is-hours">
-<span aria-hidden="true" class="employee-schedule-metric-icon rs-icon-badge">
-<svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewbox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><path d="M12 7.5v5l3 2"></path></svg>
-</span>
-<div class="employee-schedule-metric-copy rs-metric-copy">
-<span>Hours</span>
-<strong id="myScheduleSummaryHours">0h</strong>
-<small id="myScheduleSummaryHoursMeta">0 shifts this week</small>
-</div>
-</article>
-</div>
-<div class="employee-schedule-board-head">
-<span>Day</span>
-<strong>Lunch</strong>
-<strong>Evening</strong>
-</div>
-<div class="employee-schedule-grid" id="myScheduleGrid"></div>
-</section>
-</div>
+<main class="shell" id="appShell">
+<section class="page employee-schedule-page employee-schedule-page-v2 rs-v2-page" id="page-employee-schedule">
+  <section aria-label="Employee weekly schedule" class="employee-schedule-root" id="employeeScheduleRoot"></section>
 </section>
 
-<section class="page time-clock-page rs-v2-page" id="page-time-clock">
-  <div class="time-clock-shell">
-    <section aria-label="Time clock terminal" class="time-clock-panel rs-v2-frame" id="timeClockRoot"></section>
+<section class="page badge-terminal-page rs-v2-page" id="page-badge-terminal">
+  <div class="badge-terminal-shell">
+    <section aria-label="Badge terminal" class="badge-terminal-panel rs-v2-frame" id="badgeTerminalRoot"></section>
   </div>
 </section>
 
-<section class="page actual-timesheet-page rs-v2-page" id="page-actuals">
-  <section aria-label="Actual timesheet summary" class="actual-timesheet-summary rs-metric-grid rs-weekly-metrics" id="actualTimesheetMetrics"></section>
-  <section aria-label="Actual timesheet board" class="actual-timesheet-board rs-weekly-board rs-panel" id="actualTimesheetRoot"></section>
+<section class="page actuals-page rs-v2-page" id="page-actuals">
+  <section aria-label="Actuals summary" class="actuals-summary rs-metric-grid rs-weekly-metrics" id="actualsMetrics"></section>
+  <section aria-label="Actuals board" class="actuals-board rs-weekly-board rs-panel" id="actualsRoot"></section>
 </section>
 
-
-<section class="page" id="page-owner">
-
-<section class="tab active owner-planning-v2 rs-v2-page" id="tab-planning">
-
-<section aria-label="Owner planning summary" class="owner-planning-summary rs-weekly-metrics">
-<button aria-label="Publish or unpublish schedule" class="owner-planning-metric-card rs-metric-card is-status owner-publish-metric" id="ownerPublishMetricBtn" type="button"></button>
-<article aria-label="Change planning week" class="owner-planning-metric-card rs-metric-card is-week rs-week-metric" id="ownerWeekMetric" role="button" tabindex="0">
-<button aria-label="Previous week" class="owner-week-btn rs-week-btn" id="prevWeek" type="button">←</button>
-<span aria-hidden="true" class="owner-planning-metric-icon rs-icon-badge">
-<svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewbox="0 0 24 24"><rect height="14" rx="2.5" width="16" x="4" y="5.5"></rect><path d="M8 3.5v4M16 3.5v4M4 9.5h16"></path></svg>
-</span>
-<label aria-label="Select planning week" class="owner-week-field rs-week-field">
-<span>Week range</span>
-<strong id="ownerWeekLabel">—</strong>
-<small id="ownerPlanningV2WeekMeta">Click to change</small>
-<input id="weekStart" type="date"/>
-</label>
-<button aria-label="Next week" class="owner-week-btn rs-week-btn" id="nextWeek" type="button">→</button>
-</article>
-<article class="owner-planning-metric-card rs-metric-card is-hours">
-<span aria-hidden="true" class="owner-planning-metric-icon rs-icon-badge">
-<svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewbox="0 0 24 24"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7v5l3 2"></path></svg>
-</span>
-<div class="rs-metric-copy">
-<span>Planned hours</span>
-<strong id="ownerPlanningV2Hours">0h</strong>
-<small id="ownerPlanningV2HoursMeta">0 shifts</small>
-</div>
-</article>
-<article class="owner-planning-metric-card rs-metric-card is-cost">
-<span aria-hidden="true" class="owner-planning-metric-icon rs-icon-badge">
-<svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewbox="0 0 24 24"><path d="M15.5 6.5a5.5 5.5 0 1 0 0 11"></path><path d="M4 10h10M4 14h9"></path></svg>
-</span>
-<div class="rs-metric-copy">
-<span>Cost impact</span>
-<strong id="ownerPlanningV2Cost">€0.00</strong>
-<small id="ownerPlanningV2CostMeta">Projected weekly cost</small>
-</div>
-</article>
+<section class="page team-page rs-v2-page" id="page-team">
+  <section aria-label="Team management" class="team-root" id="teamRoot"></section>
 </section>
 
-<div class="calendar rs-weekly-board rs-panel" id="ownerCalendar"></div>
+<section class="page restaurant-page rs-v2-page" id="page-restaurant">
+  <section aria-label="Restaurant management" class="restaurant-root" id="restaurantRoot"></section>
 </section>
 
-
-
-
-
-
-
-
-
+<section class="page planning-page planning-page-v2 rs-v2-page" id="page-planning">
+  <section aria-label="Planning summary" class="planning-summary rs-weekly-metrics" id="planningMetrics"></section>
+  <div class="planning-board rs-weekly-board rs-panel" id="planningBoard"></div>
 </section>
 </main>
 </div>
-<dialog id="swapDialog">
-<h2 id="swapTitle">Swap request</h2>
-<p class="muted" id="swapBody"></p>
-<label id="swapTargetWrap">Swap with<select id="swapTarget"></select></label>
-<label>Optional note<textarea id="swapNote" placeholder="Write a short reason or comment" rows="4"></textarea></label>
-<div class="dialog-actions"><button class="primary" id="confirmSwap">Confirm</button><button class="secondary" id="cancelSwap">Cancel</button></div>
-</dialog>
-
-<dialog id="messageDialog">
-<h2>Schedule message</h2>
-<textarea id="messageText" rows="16"></textarea>
-<div class="dialog-actions"><button class="primary" id="copyMessage">Copy</button><button class="secondary" id="closeMessage">Close</button></div>
-</dialog>
-
 
 <script src="assets/js/config.js"></script>
-<script src="assets/js/data-adapter.local.js"></script>
 <script src="assets/js/data-adapter.supabase.js"></script>
 <script src="assets/js/restogogo-ui.js"></script>
+<script src="assets/js/core/app-globals.js"></script>
+<script src="assets/js/core/app-utils.js"></script>
+<script src="assets/js/core/data-contract.js"></script>
+<script src="assets/js/core/data-factory.js"></script>
+<script src="assets/js/core/state-service.js"></script>
+<script src="assets/js/core/brand-service.js"></script>
+<script src="assets/js/core/notification-service.js"></script>
+<script src="assets/js/core/workspace-auth.js"></script>
+<script src="assets/js/core/app-shell.js"></script>
+<script src="assets/js/services/export-service.js"></script>
+<script src="assets/js/services/metric-renderer.js"></script>
+<script src="assets/js/services/weekly-grid-renderer.js"></script>
+<script src="assets/js/services/business-logic.js"></script>
 <script src="assets/js/brand-entry.js"></script>
 <script src="assets/js/employee-schedule.js"></script>
-<script src="assets/js/owner-planning.js"></script>
-<script src="assets/js/time-clock.js"></script>
-<script src="assets/js/actual-timesheet.js"></script>
+<script src="assets/js/planning.js"></script>
+<script src="assets/js/badge-terminal.js"></script>
+<script src="assets/js/actuals.js"></script>
+<script src="assets/js/team.js"></script>
+<script src="assets/js/restaurant.js"></script>
 <script src="assets/js/app.js"></script>
 </body>
 </html>
