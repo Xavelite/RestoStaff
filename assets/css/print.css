@@ -19,7 +19,7 @@
   }
 
   .brand-page,
-  .app-topbar-v2,
+  .app-topbar-main,
   .rs-grid-toolbar,
   .planning-conflict-banner,
   .rs-toast,
@@ -61,7 +61,7 @@
 
   .rs-metric-card,
   .rs-panel,
-  .rs-v2-frame {
+  .rs-frame {
     border: 1px solid #cbd5e1;
     background: #fff;
     color: #0f172a;

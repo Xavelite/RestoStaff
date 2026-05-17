@@ -1,0 +1,96 @@
+/* restogogo shared empty state primitives. */
+/* Shared empty / soft-warning state for premium pilot screens. */
+.rs-empty-state {
+  min-height: 220px;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 24px;
+  color: #dbe6f5;
+  text-align: center;
+}
+
+.rs-empty-state__icon {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 2px;
+  border-radius: 16px;
+  border: 1px solid rgba(96,165,250,.20);
+  background: linear-gradient(135deg,rgba(59,130,246,.13),rgba(124,58,237,.09));
+  color: #93c5fd;
+  font-size: 18px;
+  font-weight: 950;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+}
+
+.rs-empty-state__icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.rs-empty-state strong {
+  color: #fff;
+  font-size: 16px;
+  line-height: 1.05;
+  font-weight: 950;
+  letter-spacing: 0;
+}
+
+.rs-empty-state span {
+  max-width: 420px;
+  color: #93a4bb;
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 760;
+}
+
+.rs-empty-state__actions {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.rs-empty-state__action {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid rgba(96,165,250,.20);
+  border-radius: 12px;
+  background: linear-gradient(135deg,rgba(59,130,246,.13),rgba(124,58,237,.09));
+  color: #eef6ff;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.055);
+  transition: transform .16s ease,border-color .16s ease,background .16s ease;
+}
+
+.rs-empty-state__action:hover,
+.rs-empty-state__action:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(147,197,253,.36);
+  background: linear-gradient(135deg,rgba(59,130,246,.20),rgba(124,58,237,.14));
+}
+
+
+.rs-empty-state--compact {
+  min-height: 68px;
+  padding: 12px;
+  gap: 6px;
+}
+
+.rs-empty-state--compact strong {
+  font-size: 13px;
+}
+
+.rs-empty-state--compact span {
+  max-width: 320px;
+  font-size: 12px;
+}

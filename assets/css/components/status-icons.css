@@ -1,0 +1,75 @@
+/* Shared icon-only status primitive. Text labels stay in edit fields; display states use this component. */
+.rs-status-icon {
+  --rs-status-bg: rgba(148,163,184,.12);
+  --rs-status-border: rgba(148,163,184,.18);
+  --rs-status-fg: #cbd5e1;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--rs-status-border);
+  border-radius: 999px;
+  background: var(--rs-status-bg);
+  color: var(--rs-status-fg);
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.rs-status-icon svg {
+  width: 13px;
+  height: 13px;
+}
+
+.rs-status-icon.is-success {
+  --rs-status-bg: rgba(34,197,94,.13);
+  --rs-status-border: rgba(34,197,94,.26);
+  --rs-status-fg: #86efac;
+  box-shadow: 0 0 16px rgba(34,197,94,.16);
+}
+
+.rs-status-icon.is-warn {
+  --rs-status-bg: rgba(245,158,11,.14);
+  --rs-status-border: rgba(245,158,11,.26);
+  --rs-status-fg: #f8d77a;
+}
+
+.rs-status-icon.is-danger {
+  --rs-status-bg: rgba(239,68,68,.14);
+  --rs-status-border: rgba(239,68,68,.28);
+  --rs-status-fg: #fca5a5;
+}
+
+.rs-status-icon.is-info {
+  --rs-status-bg: rgba(56,189,248,.13);
+  --rs-status-border: rgba(56,189,248,.26);
+  --rs-status-fg: #7dd3fc;
+}
+
+.rs-status-icon.is-muted {
+  --rs-status-bg: rgba(148,163,184,.10);
+  --rs-status-border: rgba(148,163,184,.16);
+  --rs-status-fg: #94a3b8;
+}
+
+.rs-status-icon.is-inline {
+  width: 20px;
+  height: 20px;
+  flex-basis: 20px;
+}
+
+.rs-status-icon.is-inline svg {
+  width: 11px;
+  height: 11px;
+}
+
+.rs-inline-icon {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+}
+
+.rs-picklist-check svg {
+  width: 14px;
+  height: 14px;
+}

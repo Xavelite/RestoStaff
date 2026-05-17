@@ -9,28 +9,45 @@
 <link href="assets/css/tokens.css" rel="stylesheet"/>
 <link href="assets/css/base.css" rel="stylesheet"/>
 <link href="assets/css/page-state.css" rel="stylesheet"/>
-<link href="assets/css/v2-components.css" rel="stylesheet"/>
-<link href="assets/css/v2-controls.css" rel="stylesheet"/>
-<link href="assets/css/operations.css" rel="stylesheet"/>
+<link href="assets/css/components/foundation.css" rel="stylesheet"/>
+<link href="assets/css/components/buttons.css" rel="stylesheet"/>
+<link href="assets/css/components/metrics.css" rel="stylesheet"/>
+<link href="assets/css/components/module-cards.css" rel="stylesheet"/>
+<link href="assets/css/components/shift-cards.css" rel="stylesheet"/>
+<link href="assets/css/components/empty-state.css" rel="stylesheet"/>
+<link href="assets/css/components/entity-header.css" rel="stylesheet"/>
+<link href="assets/css/components/form-fields.css" rel="stylesheet"/>
+<link href="assets/css/components/status-icons.css" rel="stylesheet"/>
+<link href="assets/css/components/action-primitives.css" rel="stylesheet"/>
+<link href="assets/css/components/picklists.css" rel="stylesheet"/>
+<link href="assets/css/controls.css" rel="stylesheet"/>
+<link href="assets/css/operations/ops-layout.css" rel="stylesheet"/>
+<link href="assets/css/operations/ops-panels.css" rel="stylesheet"/>
+<link href="assets/css/operations/ops-tabs.css" rel="stylesheet"/>
 <link href="assets/css/weekly-grid.css" rel="stylesheet"/>
-<link href="assets/css/v2-feedback.css" rel="stylesheet"/>
+<link href="assets/css/feedback.css" rel="stylesheet"/>
 <link href="assets/css/topbar.css" rel="stylesheet"/>
 <link href="assets/css/notifications.css" rel="stylesheet"/>
 <link href="assets/css/brand.css" rel="stylesheet"/>
-<link href="assets/css/pilot-guide.css" rel="stylesheet"/>
-<link href="assets/css/employee-schedule.css" rel="stylesheet"/>
-<link href="assets/css/planning.css" rel="stylesheet"/>
-<link href="assets/css/badge-terminal.css" rel="stylesheet"/>
-<link href="assets/css/actuals.css" rel="stylesheet"/>
-<link href="assets/css/team.css" rel="stylesheet"/>
-<link href="assets/css/restaurant.css" rel="stylesheet"/>
+<link href="assets/css/modules/pilot-guide.css" rel="stylesheet"/>
+<link href="assets/css/modules/employee-schedule.css" rel="stylesheet"/>
+<link href="assets/css/modules/planning.css" rel="stylesheet"/>
+<link href="assets/css/modules/badge-terminal.css" rel="stylesheet"/>
+<link href="assets/css/modules/actuals.css" rel="stylesheet"/>
+<link href="assets/css/modules/team.css" rel="stylesheet"/>
+<link href="assets/css/modules/team/team-profile.css" rel="stylesheet"/>
+<link href="assets/css/modules/team/team-fields.css" rel="stylesheet"/>
+<link href="assets/css/modules/team/team-absences.css" rel="stylesheet"/>
+<link href="assets/css/modules/restaurant.css" rel="stylesheet"/>
+<link href="assets/css/modules/restaurant/restaurant-fields.css" rel="stylesheet"/>
+<link href="assets/css/modules/restaurant/restaurant-operations.css" rel="stylesheet"/>
 <link href="assets/css/print.css" rel="stylesheet"/>
 </head>
 <body class="logged-out">
 <!-- restogogo brand login page -->
-<section aria-label="restogogo access" class="brand-page rs-v2-page" id="login">
-<header class="brand-topbar rs-v2-topbar">
-<div class="brand-topbar__inner rs-v2-topbar-inner">
+<section aria-label="restogogo access" class="brand-page rs-page" id="login">
+<header class="brand-topbar rs-topbar">
+<div class="brand-topbar__inner rs-topbar-inner">
 <div aria-label="restogogo" class="brand-logo">
 <img alt="restogogo" class="brand-logo__image" src="assets/img/brand/restogogo_logo_transparent.png"/>
 </div>
@@ -40,7 +57,7 @@
 </div>
 </div>
 </header>
-<div class="brand-shell rs-v2-shell">
+<div class="brand-shell rs-shell">
 <main class="brand-card rs-panel">
 <section aria-label="Restaurant access form" class="brand-login-panel rs-card" id="brandLoginPanel">
 <div class="brand-login-head">
@@ -48,13 +65,13 @@
 <p class="brand-login-subtitle" id="loginWorkspaceBadge">Sign in to continue to your workspace.</p>
 </div>
 <div class="brand-login-form">
-<label>Restaurant
+<label class="rs-field brand-login-field"><span>Restaurant</span>
             <select autocomplete="organization" id="restaurantLoginSelect"></select>
 </label>
-<label>Username
+<label class="rs-field brand-login-field"><span>Username</span>
             <input autocomplete="username" id="identityLoginName" placeholder="Owner or employee name"/>
 </label>
-<label>Password / PIN
+<label class="rs-field brand-login-field"><span>Password / PIN</span>
             <input autocomplete="current-password" id="accessPin" inputmode="numeric" maxlength="4" placeholder="Password / PIN" type="password"/>
 </label>
 <p class="brand-login-message login-pin-help" id="loginPinHelp"></p>
@@ -74,22 +91,14 @@
 </section>
 <!-- Main application shell -->
 <div class="app-frame" id="appFrame">
-<header class="topbar app-topbar app-topbar-v2" id="appTopbar">
-<div class="brand app-topbar-v2__brand">
+<header class="topbar app-topbar app-topbar-main" id="appTopbar">
+<div class="brand app-topbar__brand">
 <img alt="restogogo" class="app-product-logo" src="assets/img/brand/restogogo_logo_transparent.png"/>
-<span aria-hidden="true" class="restaurant-brand-mark">
-<img alt="Restaurant logo" class="brand-restaurant-logo" id="brandLogo" src="logo.png"/>
-<span class="brand-restaurant-initial" id="brandRestaurantInitial">R</span>
-</span>
-<div class="brand-copy">
-<p class="eyebrow" id="brandEyebrow">restogogo</p>
-<h1 id="appTitle">Planning</h1>
-</div>
 </div>
 
-<nav aria-label="Main navigation" class="app-topbar-v2__nav" id="appTopNav"></nav>
+<nav aria-label="Main navigation" class="app-topbar__nav" id="appTopNav"></nav>
 
-<div class="top-actions app-topbar-v2__actions">
+<div class="top-actions app-topbar__actions">
 <div class="notif-wrap">
 <button aria-label="Notifications" class="notif-btn" id="notifBtn" title="Notifications"><svg aria-hidden="true" class="btn-svg" viewbox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg><span class="notif-badge red-count" id="notifBadgeRed"></span><span class="notif-badge yellow-count" id="notifBadgeYellow"></span></button>
 <div class="notif-panel" id="notifPanel"></div>
@@ -100,34 +109,34 @@
 
 
 <main class="shell" id="appShell">
-<section class="page employee-schedule-page employee-schedule-page-v2 rs-v2-page" id="page-employee-schedule">
+<section class="page employee-schedule-page employee-schedule-page-core rs-page" id="page-employee-schedule">
   <section aria-label="Employee weekly schedule" class="employee-schedule-root" id="employeeScheduleRoot"></section>
 </section>
 
-<section class="page employee-schedule-page employee-time-page employee-schedule-page-v2 rs-v2-page" id="page-employee-time">
+<section class="page employee-schedule-page employee-time-page employee-schedule-page-core rs-page" id="page-employee-time">
   <section aria-label="Employee worked time" class="employee-schedule-root" id="employeeTimeRoot"></section>
 </section>
 
-<section class="page badge-terminal-page rs-v2-page" id="page-badge-terminal">
+<section class="page badge-terminal-page rs-page" id="page-badge-terminal">
   <div class="badge-terminal-shell">
-    <section aria-label="Badge terminal" class="badge-terminal-panel rs-v2-frame" id="badgeTerminalRoot"></section>
+    <section aria-label="Badge terminal" class="badge-terminal-panel rs-frame" id="badgeTerminalRoot"></section>
   </div>
 </section>
 
-<section class="page actuals-page rs-v2-page" id="page-actuals">
+<section class="page actuals-page rs-page" id="page-actuals">
   <section aria-label="Actuals summary" class="actuals-summary rs-metric-grid rs-weekly-metrics" id="actualsMetrics"></section>
   <section aria-label="Actuals board" class="actuals-board rs-weekly-board rs-panel" id="actualsRoot"></section>
 </section>
 
-<section class="page team-page rs-v2-page" id="page-team">
+<section class="page team-page rs-page" id="page-team">
   <section aria-label="Team management" class="team-root" id="teamRoot"></section>
 </section>
 
-<section class="page restaurant-page rs-v2-page" id="page-restaurant">
+<section class="page restaurant-page rs-page" id="page-restaurant">
   <section aria-label="Restaurant management" class="restaurant-root" id="restaurantRoot"></section>
 </section>
 
-<section class="page planning-page planning-page-v2 rs-v2-page" id="page-planning">
+<section class="page planning-page planning-page-core rs-page" id="page-planning">
   <section aria-label="Planning summary" class="planning-summary rs-weekly-metrics" id="planningMetrics"></section>
   <div class="planning-board rs-weekly-board rs-panel" id="planningBoard"></div>
 </section>
@@ -135,36 +144,76 @@
 </div>
 
 <script src="assets/js/config.js"></script>
-<script src="assets/js/data-adapter.supabase.js"></script>
+<script src="assets/js/data/supabase-utils.js"></script>
+<script src="assets/js/data/session-store.js"></script>
+<script src="assets/js/data/supabase-repository.js"></script>
+<script src="assets/js/data/mappers/supabase-read-mapper.js"></script>
+<script src="assets/js/data/mappers/supabase-write-mapper.js"></script>
+<script src="assets/js/data/repositories/weekly-repository.js"></script>
+<script src="assets/js/data/supabase-data-adapter.js"></script>
 <script src="assets/js/restogogo-ui.js"></script>
 <script src="assets/js/core/app-globals.js"></script>
 <script src="assets/js/core/app-utils.js"></script>
+<script src="assets/js/services/icon-service.js"></script>
+<script src="assets/js/services/picklist-service.js"></script>
+<script src="assets/js/core/app-registry.js"></script>
+<script src="assets/js/core/app-layout.js"></script>
 <script src="assets/js/core/data-contract.js"></script>
+<script src="assets/js/core/contracts/actual-entry-contract.js"></script>
+<script src="assets/js/core/contracts/availability-contract.js"></script>
+<script src="assets/js/core/contracts/absence-contract.js"></script>
+<script src="assets/js/core/contracts/employee-contract.js"></script>
+<script src="assets/js/core/contracts/restaurant-contract.js"></script>
+<script src="assets/js/core/contracts/planner-validation.js"></script>
 <script src="assets/js/core/data-factory.js"></script>
+<script src="assets/js/core/state/weekly-state.js"></script>
+<script src="assets/js/core/state/save-controller.js"></script>
+<script src="assets/js/core/state/state-normalizer.js"></script>
+<script src="assets/js/core/state/state-selectors.js"></script>
 <script src="assets/js/core/state-service.js"></script>
 <script src="assets/js/core/brand-service.js"></script>
 <script src="assets/js/core/notification-service.js"></script>
 <script src="assets/js/core/workspace-auth.js"></script>
 <script src="assets/js/core/app-shell.js"></script>
+<script src="assets/js/core/boot-diagnostics.js"></script>
 <script src="assets/js/services/export-service.js"></script>
 <script src="assets/js/services/metric-renderer.js"></script>
 <script src="assets/js/services/weekly-grid-renderer.js"></script>
-<script src="assets/js/services/business-logic.js"></script>
+<script src="assets/js/services/logic/planning-logic.js"></script>
+<script src="assets/js/services/logic/coverage-logic.js"></script>
+<script src="assets/js/services/logic/actuals-logic.js"></script>
 <script src="assets/js/brand-entry.js"></script>
-<script src="assets/js/employee-schedule.js"></script>
-<script src="assets/js/planning.js"></script>
-<script src="assets/js/badge-terminal.js"></script>
-<script src="assets/js/actuals.js"></script>
-<script src="assets/js/team.js"></script>
-<script src="assets/js/restaurant.js"></script>
+<script src="assets/js/modules/employee-schedule/employee-schedule.page.js"></script>
+<script src="assets/js/modules/planning/planning.state.js"></script>
+<script src="assets/js/modules/planning/planning.metrics.js"></script>
+<script src="assets/js/modules/planning/planning.selectors.js"></script>
+<script src="assets/js/modules/planning/planning.actions.js"></script>
+<script src="assets/js/modules/planning/planning.view.js"></script>
+<script src="assets/js/modules/planning/planning.page.js"></script>
+<script src="assets/js/modules/badge-terminal/badge-terminal.page.js"></script>
+<script src="assets/js/modules/actuals/actuals.state.js"></script>
+<script src="assets/js/modules/actuals/actuals.view.js"></script>
+<script src="assets/js/modules/actuals/actuals.actions.js"></script>
+<script src="assets/js/modules/actuals/actuals.page.js"></script>
+<script src="assets/js/modules/team/team.model.js"></script>
+<script src="assets/js/modules/team/team.view.js"></script>
+<script src="assets/js/modules/team/team.page.js"></script>
+<script src="assets/js/modules/restaurant/restaurant.model.js"></script>
+<script src="assets/js/modules/restaurant/restaurant.view.js"></script>
+<script src="assets/js/modules/restaurant/restaurant.page.js"></script>
 <script src="assets/js/app.js"></script>
-<!-- Vercel Web Analytics: counts visits/page views on deployed Vercel environments. -->
+<!-- Vercel Web Analytics: loaded only on hosted http(s) environments, never on local file:// QA. -->
 <script>
-  window.va = window.va || function () {
-    (window.vaq = window.vaq || []).push(arguments);
-  };
+  if (location.protocol === 'http:' || location.protocol === 'https:') {
+    window.va = window.va || function () {
+      (window.vaq = window.vaq || []).push(arguments);
+    };
+    const vercelAnalyticsScript = document.createElement('script');
+    vercelAnalyticsScript.defer = true;
+    vercelAnalyticsScript.src = '/_vercel/insights/script.js';
+    document.head.appendChild(vercelAnalyticsScript);
+  }
 </script>
-<script defer src="/_vercel/insights/script.js"></script>
 
 </body>
 </html>

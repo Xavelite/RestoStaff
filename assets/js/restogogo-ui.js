@@ -1,12 +1,29 @@
 /*
  * restogogo shared UI helpers
- * Branded toast, alert, confirm and prompt helpers for v2 pages.
+ * Branded toast, alert, confirm and prompt helpers for product pages.
  */
 
 (function(){
   const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   let toastTimer=null;
   let activeResolve=null;
+
+  function iconName(value,tone){
+    const raw=String(value || '').trim();
+    if(raw==='✓')return 'check';
+    if(raw==='!'||raw==='⚠')return 'alert';
+    if(raw==='↺')return 'alert';
+    if(raw)return raw;
+    if(tone==='danger')return 'alert';
+    if(tone==='warning')return 'alert';
+    if(tone==='success')return 'check';
+    return 'info';
+  }
+
+  function iconMarkup(value,tone){
+    const name=iconName(value,tone);
+    return window.Restogogo?.icons?.svg?.(name) || escapeHtml(value || (tone==='danger'?'!':tone==='success'?'✓':''));
+  }
 
   function ensureModal(){
     let modal=document.getElementById('rsModal');
@@ -59,7 +76,7 @@
     card.dataset.tone=tone;
     card.dataset.mode=mode;
     modal.dataset.mode=mode;
-    icon.textContent=options.icon || (tone==='danger'?'!':tone==='success'?'✓':'');
+    icon.innerHTML=iconMarkup(options.icon,tone);
     title.textContent=options.title||'restogogo';
     body.textContent=options.message||'';
     field.hidden=mode!=='prompt';
@@ -91,8 +108,7 @@
     toastEl.className=`rs-toast ${centered?'is-centered':'is-corner'} is-${tone}`;
     toastEl.setAttribute('role','status');
     toastEl.setAttribute('aria-live','polite');
-    const icon=options.icon || (tone==='danger'?'↺':tone==='warning'?'!':'✓');
-    toastEl.innerHTML=`<span class="rs-toast__icon">${escapeHtml(icon)}</span><span>${escapeHtml(message)}</span>`;
+    toastEl.innerHTML=`<span class="rs-toast__icon" aria-hidden="true">${iconMarkup(options.icon,tone)}</span><span>${escapeHtml(message)}</span>`;
     document.body.appendChild(toastEl);
     requestAnimationFrame(()=>toastEl.classList.add('is-visible'));
     toastTimer=setTimeout(()=>{

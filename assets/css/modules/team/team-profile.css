@@ -1,0 +1,282 @@
+/* Team employee profile shell, cards, Contract/Payroll layouts and shared readiness component. */
+
+.team-profile-title small,
+.team-profile-title p {
+  color: #98a8bf;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+/* Employee profile shell and shared header. */
+.team-profile {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0,1fr) auto;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.team-profile-hero {
+  background:
+    radial-gradient(circle at 88% 35%,rgba(78,70,229,.13),transparent 34%),
+    radial-gradient(circle at 12% 0%, rgba(59,130,246,.10), transparent 32%),
+    linear-gradient(135deg, rgba(255,255,255,.022), rgba(255,255,255,.010));
+}
+
+.team-profile-head .team-avatar {
+  font-size: 18px;
+}
+
+.team-profile-chip:first-child svg { color: #c4b5fd; }
+
+.team-profile-illustration {
+  color: rgba(111,117,255,.50);
+  opacity: .86;
+}
+
+.team-profile-illustration svg {
+  filter: drop-shadow(0 0 18px rgba(79,70,229,.18));
+}
+
+.team-tabs {
+  min-height: 46px;
+  margin: 0;
+  padding: 0 18px;
+  border-bottom: 1px solid rgba(255,255,255,.055);
+}
+
+.team-tab-panel {
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 16px 12px;
+  scrollbar-gutter: stable;
+}
+
+.team-profile-card-grid-layout {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+  gap: 12px;
+  align-items: start;
+  padding-bottom: 2px;
+}
+
+.team-profile-card {
+  min-width: 0;
+  padding: 13px;
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(255,255,255,.075);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(96,165,250,.07), transparent 30%),
+    rgba(15,23,42,.42);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+}
+
+.team-profile-card.is-wide { grid-column: 1 / -1; }
+
+.team-profile-card > header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #f8fafc;
+}
+
+.team-profile-card > header span {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  color: #c4b5fd;
+  background: rgba(124,58,237,.11);
+  border: 1px solid rgba(167,139,250,.16);
+}
+
+.team-profile-card > header span svg {
+  width: 14px;
+  height: 14px;
+}
+
+.team-profile-card > header strong {
+  font-size: 13px;
+  font-weight: 950;
+  letter-spacing: 0;
+}
+
+.team-profile-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 7px;
+}
+
+.team-profile-card.is-wide .team-profile-card-grid {
+  grid-template-columns: repeat(3,minmax(0,1fr));
+}
+
+
+/* Shared profile cards and tab dashboard scrolling.
+   Tab-specific layout ownership stays in each tab CSS file. */
+.team-profile-dashboard,
+.team-general-dashboard,
+.team-contract-dashboard {
+  min-height: 0;
+  overflow: auto;
+}
+
+.team-profile-card > header div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+
+/* Contract tab layout. */
+.team-contract-stack {
+  display: grid;
+  gap: 12px;
+  min-height: 0;
+}
+
+.team-contract-layout {
+  display: grid;
+  grid-template-columns: minmax(0,1fr);
+  gap: 12px;
+  align-items: start;
+  padding-bottom: 2px;
+}
+
+.team-contract-main {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.team-contract-split {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) minmax(0,.78fr);
+  gap: 12px;
+}
+
+.team-contract-dates .team-profile-card-grid,
+.team-contract-cost .team-profile-card-grid {
+  grid-template-columns: 1fr;
+}
+
+.team-contract-employment .team-profile-card-grid {
+  grid-template-columns: repeat(3,minmax(0,1fr));
+}
+
+
+
+
+/* Shared readiness component used by Contract and Payroll. */
+.team-readiness-panel {
+  grid-column: 1 / -1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 76px minmax(130px,.32fr) minmax(0,1fr);
+  gap: 16px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid rgba(255,255,255,.070);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(96,165,250,.055), transparent 30%),
+    rgba(15,23,42,.42);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+}
+
+.team-readiness-ring {
+  --readiness: 0;
+  width: 62px;
+  height: 62px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at center, rgba(9,16,30,.96) 0 54%, transparent 55%),
+    conic-gradient(#fbbf24 calc(var(--readiness) * 1%), rgba(56,72,101,.54) 0);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.055), 0 14px 28px rgba(0,0,0,.18);
+}
+
+.team-readiness-panel.is-ready .team-readiness-ring {
+  background:
+    radial-gradient(circle at center, rgba(9,16,30,.96) 0 54%, transparent 55%),
+    conic-gradient(#22c55e calc(var(--readiness) * 1%), rgba(56,72,101,.54) 0);
+}
+
+.team-readiness-ring strong {
+  color: #f8fafc;
+  font-size: 16px;
+  font-weight: 950;
+  letter-spacing: 0;
+}
+
+.team-readiness-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.team-readiness-summary strong {
+  color: #f8fafc;
+  font-size: 13px;
+  font-weight: 930;
+}
+
+.team-readiness-summary span:not(.rs-status-icon) {
+  color: #9fb0ca;
+  font-size: 11.5px;
+  line-height: 1.3;
+  font-weight: 760;
+}
+
+.team-readiness-missing {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.team-readiness-chip {
+  min-height: 27px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(245,158,11,.44);
+  border-radius: 10px;
+  background: rgba(245,158,11,.075);
+  color: #fde68a;
+  font-size: 11px;
+  font-weight: 860;
+  white-space: nowrap;
+}
+
+.team-readiness-chip i {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #fbbf24;
+  box-shadow: 0 0 0 3px rgba(251,191,36,.10);
+}
+
+.team-readiness-chip.is-ok {
+  border-color: rgba(34,197,94,.30);
+  background: rgba(34,197,94,.08);
+  color: #bbf7d0;
+}
+
+.team-readiness-panel.is-ready {
+  border-color: rgba(34,197,94,.14);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(34,197,94,.055), transparent 30%),
+    rgba(15,23,42,.42);
+}
+
+/* Desktop baseline: adaptive/mobile layout rules are intentionally deferred to the final product pass. */

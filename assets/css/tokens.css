@@ -1,4 +1,4 @@
-/* restogogo v2 design tokens */
+/* restogogo design tokens */
 :root {
   --rst-blue: #3347ff;
   --rst-indigo: #2833a8;
@@ -40,9 +40,17 @@
   --rst-ui-shadow-soft: 0 16px 38px rgba(0,0,0,.16);
   --rst-ui-shadow-frame: 0 28px 86px rgba(0,0,0,.34);
   --rst-ui-focus: 0 0 0 4px rgba(51, 71, 255, .16);
-  --rst-v2-content-max: 1640px;
-  --rst-v2-gutter: 48px;
-  --rst-v2-topbar-h: 64px;
-  --rst-v2-topbar-bg: rgba(4, 11, 21, .94);
-  --rst-v2-topbar-line: rgba(255,255,255,.08);
+  --rst-content-max: 1640px;
+  --rst-gutter: 48px;
+  --rst-topbar-h: 64px;
+  --rst-topbar-bg: rgba(4, 11, 21, .94);
+  --rst-topbar-line: rgba(255,255,255,.08);
+
+  --rst-ui-text-strong: var(--rst-ui-text);
+  --rst-ui-text-heading: #dbe6f5;
+  --rst-ui-divider-soft: rgba(255,255,255,.058);
+  --rst-ui-divider: rgba(255,255,255,.07);
+  --rst-ui-divider-strong: rgba(148,163,184,.34);
+  --rst-ui-week-head: rgba(15,27,47,.97);
+  --rst-ui-empty-bg: rgba(255,255,255,.022);
 }

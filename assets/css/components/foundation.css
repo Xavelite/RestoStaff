@@ -1,0 +1,56 @@
+/* restogogo shared page, shell, panel and card foundations. */
+.rs-page,
+.rs-page * {
+  box-sizing: border-box;
+}
+
+.rs-page {
+  color: var(--rst-ui-text);
+  font-family: var(--rst-ui-font);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+.rs-page :is(h1,h2,h3,h4,p,span,strong,small,label,button,input,select,textarea) {
+  font-family: inherit;
+}
+
+.rs-topbar {
+  min-height: var(--rst-topbar-h);
+  border-bottom: 1px solid var(--rst-topbar-line);
+  background: var(--rst-topbar-bg);
+  backdrop-filter: blur(14px);
+}
+
+.rs-topbar-inner {
+  width: min(var(--rst-content-max),calc(100% - var(--rst-gutter)));
+  min-height: var(--rst-topbar-h);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.rs-shell {
+  width: min(var(--rst-content-max),calc(100% - var(--rst-gutter)));
+  margin: 0 auto;
+}
+
+.rs-panel,
+.rs-frame {
+  border: 1px solid var(--rst-ui-line);
+  border-radius: var(--rst-ui-radius-xl);
+  background: var(--rst-ui-surface-panel,var(--rst-ui-surface-board));
+  box-shadow: var(--rst-ui-shadow-frame),inset 0 1px 0 rgba(255,255,255,.05);
+  backdrop-filter: blur(14px);
+}
+
+.rs-card {
+  border: 1px solid var(--rst-ui-line);
+  border-radius: var(--rst-ui-radius-lg);
+  background: var(--rst-ui-surface-card,var(--rst-ui-card));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+}
+

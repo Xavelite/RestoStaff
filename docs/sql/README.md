@@ -1,0 +1,28 @@
+# SQL files — v428.6 baseline
+
+For a project already updated to v428.5, no structural migration is required.
+
+Optional schema-marker script:
+
+```txt
+restogogo_v428_6_coverage_editor_binding_cleanup.sql
+```
+
+Full historical migration order if rebuilding an old DB:
+
+```txt
+restogogo_v418_position_zone_cleanup.sql
+restogogo_v419_picklist_employee_contract_cleanup.sql
+restogogo_v420_contract_integrity_cleanup.sql
+restogogo_v423_id_contract_hardening.sql
+restogogo_v424_1_planning_save_hotfix.sql
+restogogo_v425_coverage_data_model.sql
+restogogo_v428_naming_redundancy_cleanup.sql
+restogogo_v428_1_zone_coverage_editor_polish.sql
+restogogo_v428_2_coverage_persistence_layout_fix.sql
+restogogo_v428_2_1_coverage_rls_hotfix.sql
+restogogo_v428_3_coverage_contract_hardening.sql
+restogogo_v428_4_restaurant_save_pipeline_cleanup.sql
+restogogo_v428_5_coverage_save_truth_reset.sql
+restogogo_v428_6_coverage_editor_binding_cleanup.sql
+```

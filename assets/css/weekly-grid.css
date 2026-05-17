@@ -4,11 +4,11 @@
    slot shell sizing and week total cells. Page CSS should only add states. */
 .planning-mode,
 .actuals-mode {
-  --weekly-topbar-h: var(--rst-v2-topbar-h);
+  --weekly-topbar-h: var(--rst-topbar-h);
   --weekly-person-col: 168px;
   --weekly-total-col: 70px;
   --weekly-row-h: 86px;
-  --weekly-day-separator: rgba(148,163,184,.34);
+  --weekly-day-separator: var(--rst-ui-divider-strong);
   --weekly-board-bg: var(--rst-ui-surface-board);
   --rst-ui-metric-card: var(--rst-ui-surface-board);
   color: var(--rst-ui-text);
@@ -17,7 +17,7 @@
 
 .planning-mode .shell,
 .actuals-mode .shell {
-  width: min(var(--rst-v2-content-max),calc(100% - var(--rst-v2-gutter)));
+  width: min(var(--rst-content-max),calc(100% - var(--rst-gutter)));
   height: calc(100vh - var(--weekly-topbar-h));
   max-height: calc(100vh - var(--weekly-topbar-h));
   min-height: 0;
@@ -100,12 +100,12 @@
   table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
-  color: #f8fafc;
+  color: var(--rst-ui-text);
 }
 
 .rs-weekly-table :is(th,td) {
-  border-right: 1px solid rgba(255,255,255,.058);
-  border-bottom: 1px solid rgba(255,255,255,.07);
+  border-right: 1px solid var(--rst-ui-divider-soft);
+  border-bottom: 1px solid var(--rst-ui-divider);
 }
 
 .rs-weekly-table thead th {
@@ -114,8 +114,8 @@
   z-index: 4;
   height: 54px;
   padding: 7px 9px;
-  background: rgba(15,27,47,.97);
-  color: #dbe6f5;
+  background: var(--rst-ui-week-head);
+  color: var(--rst-ui-text-heading);
   text-align: center;
   backdrop-filter: blur(12px);
 }
@@ -351,22 +351,12 @@
 
 /* Compact desktop height behavior for Planning + Actuals weekly boards. */
 
-
-
-
-@media (max-height: 760px) and (min-width: 981px) {
-  .rs-weekly-metrics {
-    gap: 10px;
-    margin: 10px 0;
-  }
-
-  .rs-weekly-metrics .rs-metric-card {
-    min-height: 84px;
-    padding-block: 10px;
-  }
-
-  .rs-metric-copy strong {
-    font-size: 19px;
-  }
+/* Actuals can legitimately contain fewer rows than Planning. Keep the board deliberate instead of looking like an accidental empty table. */
+.actuals-mode .rs-weekly-scroll:has(.actuals-empty-row),
+.actuals-mode .rs-weekly-scroll:has(tbody tr:nth-child(-n+4):last-child) {
+  background: linear-gradient(180deg,rgba(9,20,37,.08),var(--rst-ui-empty-bg));
 }
 
+.actuals-mode .rs-weekly-table tbody tr:last-child td {
+  border-bottom-color: transparent;
+}

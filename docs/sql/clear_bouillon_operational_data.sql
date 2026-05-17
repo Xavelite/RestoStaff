@@ -1,6 +1,6 @@
 -- restogogo relational pilot reset
 -- Clears Bouillon operational weekly data while preserving restaurant setup,
--- employees, positions, zones and documents.
+-- employees, positions and zones.
 
 begin;
 

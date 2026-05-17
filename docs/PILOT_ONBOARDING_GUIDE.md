@@ -13,7 +13,7 @@ This pilot build is shared only for testing and feedback. Please do not copy, re
 ## Recommended setup before the first test
 
 1. Run the Supabase schema SQL if this is a fresh database.
-2. Optional: run the Bouillon seed SQL for the v295 Bouillon setup: 24 employees, 12 operational zones, 5 positions and PIN `0000` for each employee. Without the seed, create at least one employee, one zone and one position from the app.
+2. Optional: run the Bouillon seed SQL for the Bouillon pilot setup: 24 employees, 12 operational zones, 5 positions and PIN `0000` for each employee. Without the seed, create at least one employee, one zone and one position from the app.
 3. Open the Bouillon workspace.
 4. Check **Restaurant** setup: zones, positions and opening hours.
 5. Check **Team** setup: active employees, PINs, payroll readiness and absences.

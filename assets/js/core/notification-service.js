@@ -1,8 +1,24 @@
 /* restogogo notification helpers. */
+function notificationData(){return data && typeof data==='object' ? data : null;}
 function notificationKey(n){return `${n.id||''}-${n.title||''}`;}
-function addNotification(idValue,tone,title,body,meta={}){data.notifications=data.notifications||[]; const existing=data.notifications.find(n=>n.id===idValue); const next={id:idValue,tone:tone||'yellow',title,body,meta,createdAt:new Date().toISOString()}; if(existing)Object.assign(existing,next); else data.notifications.unshift(next); data.notifications=data.notifications.slice(0,50);}
+function addNotification(idValue,tone,title,body,meta={}){
+  const state=notificationData();
+  if(!state)return;
+  state.notifications=Array.isArray(state.notifications)?state.notifications:[];
+  const existing=state.notifications.find(n=>n.id===idValue);
+  const next={id:idValue,tone:tone||'yellow',title,body,meta,createdAt:new Date().toISOString()};
+  if(existing)Object.assign(existing,next); else state.notifications.unshift(next);
+  state.notifications=state.notifications.slice(0,50);
+}
 function notificationAudience(n){if(session.role==='owner')return true; if(!n.meta)return true; if(n.meta.kind==='employee')return n.meta.id===session.employeeId; if(n.meta.kind==='submission'||n.meta.kind==='status')return true; return true;}
-function derivedNotifications(){const base=(data.notifications||[]).filter(notificationAudience); const conflicts=(Restogogo.planning?.conflicts&&session.role==='owner')?Restogogo.planning.conflicts():[]; if(conflicts.length)base.unshift({id:'derived-conflicts-'+data.weekStart,tone:'red',title:`${conflicts.length} conflict${conflicts.length===1?'':'s'} found`,body:'Some shifts are outside availability.',meta:{kind:'conflict'}}); return base.slice(0,20);}
+function derivedNotifications(){
+  const state=notificationData();
+  if(!state)return [];
+  const base=(Array.isArray(state.notifications)?state.notifications:[]).filter(notificationAudience);
+  const conflicts=(Restogogo.planning?.conflicts&&session.role==='owner')?Restogogo.planning.conflicts():[];
+  if(conflicts.length)base.unshift({id:'derived-conflicts-'+state.weekStart,tone:'red',title:`${conflicts.length} conflict${conflicts.length===1?'':'s'} found`,body:'Some shifts are outside availability.',meta:{kind:'conflict'}});
+  return base.slice(0,20);
+}
 function renderNotifications(){
   const list=derivedNotifications();
   const unread=list.filter(n=>!notifRead[notificationKey(n)]);

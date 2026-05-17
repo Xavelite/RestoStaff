@@ -5,16 +5,7 @@
  */
 (function(){
   const services = Restogogo.services = Restogogo.services || {};
-
-  const iconPaths = {
-    calendar:'<rect height="14" rx="2.5" width="16" x="4" y="5.5"></rect><path d="M8 3.5v4M16 3.5v4M4 9.5h16"></path>',
-    clock:'<circle cx="12" cy="12" r="8.5"></circle><path d="M12 7v5l3 2"></path>',
-    open:'<circle cx="12" cy="12" r="8"></circle><path d="M12 8v5"></path><path d="M12 16h.01"></path>',
-    variance:'<path d="M4 14l4-4 4 4 7-7"></path><path d="M4 20h16"></path>',
-    document:'<path d="M8 4h7l4 4v12H8a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3Z"></path><path d="M15 4v5h4"></path><path d="M9 13h6"></path><path d="M9 16h4"></path>',
-    check:'<path d="M20 6 9 17l-5-5"></path>',
-    euro:'<path d="M15.5 6.5a5.5 5.5 0 1 0 0 11"></path><path d="M4 10h10M4 14h9"></path>'
-  };
+  const Icons = Restogogo.icons;
 
   function attrs(attributes){
     return Object.entries(attributes || {})
@@ -24,11 +15,11 @@
   }
 
   function icon(name){
-    return `<svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewBox="0 0 24 24">${iconPaths[name]||''}</svg>`;
+    return Icons.svg(name);
   }
 
   function iconBadge(name,className=''){
-    return `<span aria-hidden="true" class="rs-icon-badge${className?` ${esc(className)}`:''}">${icon(name)}</span>`;
+    return Icons.badge(name,className);
   }
 
   function card(options={}){

@@ -1,0 +1,144 @@
+/* Shared entity header used by Team and Restaurant profile modules. */
+.rs-entity-header {
+  min-height: 78px;
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(255,255,255,.055);
+}
+
+.rs-entity-identity {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+.rs-entity-avatar {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  display: grid;
+  place-items: center;
+}
+
+.rs-entity-copy {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.rs-entity-title-line {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.rs-entity-title-line h2 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  font-weight: 950;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rs-entity-chips {
+  margin: 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rs-entity-chip {
+  min-height: 22px;
+  padding: 0 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(255,255,255,.075);
+  border-radius: 9px;
+  background: rgba(255,255,255,.045);
+  color: #c9d6e8;
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.rs-entity-chip svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.rs-entity-chip i {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: #93c5fd;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.rs-entity-illustration {
+  position: relative;
+  z-index: 0;
+  flex: 0 1 310px;
+  min-width: 210px;
+  align-self: stretch;
+  display: grid;
+  place-items: center end;
+  pointer-events: none;
+}
+
+.rs-entity-illustration svg {
+  width: 100%;
+  max-height: 58px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.rs-entity-header--team .rs-entity-illustration,
+.rs-entity-header--restaurant .rs-entity-illustration {
+  color: rgba(111,117,255,.52);
+}
+
+.rs-entity-header--team .rs-entity-illustration {
+  opacity: .86;
+}
+
+.rs-entity-header--restaurant .rs-entity-illustration {
+  opacity: .92;
+}
+
+.rs-entity-header + .ops-tabs {
+  min-height: 46px;
+  margin: 0;
+  padding: 0 18px;
+  border-bottom: 1px solid rgba(255,255,255,.055);
+}

@@ -26,7 +26,7 @@
   }
 
   function toast(message){
-    Restogogo.ui?.toast?.(message,{tone:'success',icon:'✓',centered:false,timeout:1800});
+    Restogogo.ui?.toast?.(message,{tone:'success',icon:'check',centered:false,timeout:1800});
   }
 
   function actualsLogic(){
@@ -45,7 +45,7 @@
       row.shift,
       A.employeeCode(row.employee),
       row.employee.name,
-      row.employee.position,
+      employeePositionName(row.employee),
       row.zone,
       row.planned ? displayTimeRange(row.planned) : '',
       actualTimeLabel(row),
@@ -75,7 +75,7 @@
         addDays(data.weekStart,6),
         A.employeeCode(employee),
         employee.name,
-        employee.position,
+        employeePositionName(employee),
         decimalHours(totals.planned),
         decimalHours(totals.actual),
         decimalHours(totals.variance),
@@ -108,7 +108,7 @@
         A.employeeCode(employee),
         employee.payrollId || employee.employeeNumber || '',
         employee.name,
-        employee.position,
+        employeePositionName(employee),
         employee.contractType || '',
         decimalHours(totals.actual),
         decimalHours(totals.planned),

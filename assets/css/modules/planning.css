@@ -1,0 +1,660 @@
+/* Planning page states only. Shared weekly layout lives in weekly-grid.css. */
+.planning-publish-metric {
+  appearance: none;
+  margin: 0;
+  padding: 14px 16px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.planning-publish-metric.is-draft:is(:hover,:focus-visible) {
+  border-color: rgba(74,222,128,.46);
+  background: linear-gradient(180deg,rgba(34,197,94,.095),rgba(15,23,42,.86));
+  box-shadow: 0 18px 38px rgba(0,0,0,.20),0 0 0 1px rgba(74,222,128,.16),inset 0 1px 0 rgba(255,255,255,.08);
+}
+
+.planning-publish-metric.is-draft:is(:hover,:focus-visible) .rs-icon-badge {
+  color: #bbf7d0;
+  background: rgba(34,197,94,.20);
+  border-color: rgba(74,222,128,.42);
+}
+
+.planning-publish-metric.is-published:is(:hover,:focus-visible) {
+  border-color: rgba(248,113,113,.46);
+  background: linear-gradient(180deg,rgba(239,68,68,.10),rgba(15,23,42,.86));
+  box-shadow: 0 18px 38px rgba(0,0,0,.20),0 0 0 1px rgba(248,113,113,.12),inset 0 1px 0 rgba(255,255,255,.08);
+}
+
+.planning-publish-metric.is-published:is(:hover,:focus-visible) .rs-icon-badge {
+  color: #fecaca;
+  background: rgba(239,68,68,.18);
+  border-color: rgba(248,113,113,.38);
+}
+
+.planning-board .rs-weekly-person-cell {
+  cursor: pointer;
+}
+
+.planning-board .rs-weekly-person-cell:hover .rs-weekly-person-card {
+  background: rgba(255,255,255,.035);
+  border-radius: 14px;
+}
+
+.planning-board thead th.day-group {
+  cursor: pointer;
+  transition: background .16s ease,box-shadow .16s ease,color .16s ease;
+}
+
+.planning-board thead th.day-group:hover {
+  background: linear-gradient(180deg,rgba(59,130,246,.18),rgba(15,23,42,.86));
+}
+
+.planning-board .rs-weekly-day-cell {
+  --day-bg: linear-gradient(180deg,rgba(9,17,30,.94),rgba(7,13,24,.99));
+  background: var(--day-bg);
+}
+
+.planning-board .rs-weekly-day-cell.day-alt {
+  --day-bg: linear-gradient(180deg,rgba(12,23,42,.96),rgba(8,15,28,.99));
+}
+
+.planning-board .planning-slot-zone {
+  position: relative;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: #f8fafc;
+  background: transparent;
+  box-shadow: inset 0 -1px 0 rgba(255,255,255,.045);
+  cursor: pointer;
+}
+
+.planning-board .planning-slot-zone.is-lunch { justify-content: flex-end; }
+.planning-board .planning-slot-zone.is-evening { justify-content: flex-start; }
+
+.planning-board .planning-slot-zone.overlay-available {
+  background: rgba(20,148,112,.30);
+}
+
+.planning-board .planning-slot-zone.overlay-available:hover {
+  background: rgba(31,176,132,.38);
+}
+
+.planning-board .planning-slot-zone.overlay-partial {
+  background: repeating-linear-gradient(135deg,rgba(245,158,11,.16) 0 10px,rgba(245,158,11,.07) 10px 20px),rgba(114,74,16,.18);
+}
+
+.planning-board .planning-slot-zone:is(.overlay-unavailable,.overlay-unknown) {
+  background: transparent;
+}
+
+.planning-board .planning-slot-zone.has-conflict {
+  background: linear-gradient(180deg,rgba(244,63,94,.20),rgba(127,29,29,.18)),rgba(38,11,20,.62);
+  box-shadow: inset 0 0 0 1px rgba(244,63,94,.13),inset 0 -1px 0 rgba(244,63,94,.10);
+}
+
+.planning-board .planning-slot-zone:hover {
+  outline: 1px solid rgba(111,230,255,.30);
+  outline-offset: -2px;
+  box-shadow: inset 0 0 0 1px rgba(111,230,255,.16),inset 0 -1px 0 rgba(255,255,255,.055);
+}
+
+.planning-board .planning-slot-empty {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  color: #7f90a7;
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 900;
+  opacity: 0;
+  transform: scale(.96);
+  transition: opacity .16s ease,color .16s ease,transform .16s ease;
+}
+
+.planning-board .planning-slot-zone.empty:hover .planning-slot-empty {
+  opacity: .46;
+  color: #b8c7da;
+  transform: scale(1);
+}
+
+.planning-board .planning-slot-card {
+  display: grid;
+  align-content: center;
+  grid-template-rows: 19px 18px;
+  gap: 3px;
+  padding: 4px 6px;
+  border-radius: 2px;
+  overflow: visible;
+}
+
+.planning-board .planning-slot-card.has-conflict {
+  border-color: rgba(244,63,94,.74);
+  box-shadow: 0 0 0 1px rgba(244,63,94,.18),inset 0 1px 0 rgba(255,255,255,.045),0 7px 14px rgba(0,0,0,.14);
+}
+
+.planning-board .planning-slot-zone:hover .planning-slot-card {
+  border-color: color-mix(in srgb,var(--shift-accent) 62%,rgba(255,255,255,.20));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb,var(--shift-accent) 24%,transparent),0 8px 18px rgba(0,0,0,.18);
+}
+
+.planning-board .planning-slot-time,
+.planning-board .planning-zone-trigger,
+.planning-board .planning-slot-position {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.planning-board .planning-slot-time {
+  appearance: none;
+  height: 19px;
+  min-height: 19px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: #f7fbff;
+  box-shadow: none;
+  line-height: 19px;
+  text-align: left;
+  text-overflow: clip;
+  cursor: text;
+  font-size: clamp(11.7px,.68vw,13.2px);
+  font-weight: 760;
+  letter-spacing: 0;
+}
+
+.planning-board .planning-slot-time:focus {
+  outline: 0;
+  color: #fff;
+}
+
+.planning-board .planning-slot-assignment {
+  position: relative;
+  min-height: 18px;
+  overflow: visible;
+}
+
+.planning-board .planning-zone-trigger {
+  appearance: none;
+  height: 18px;
+  min-height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.planning-board .planning-slot-position,
+.planning-board .planning-zone-trigger {
+  font-size: clamp(10.9px,.60vw,12.2px);
+}
+
+.planning-board .planning-slot-position {
+  display: block;
+  color: color-mix(in srgb,var(--shift-accent) 82%,#ffffff);
+  line-height: 18px;
+  text-overflow: ellipsis;
+  letter-spacing: 0;
+  font-weight: 800;
+}
+
+.planning-board .rs-weekly-day-cell:has(.planning-slot-zone.is-zone-open),
+.planning-board .planning-slot-zone.is-zone-open,
+.planning-board .planning-slot-card:has(.planning-slot-assignment.is-open) {
+  overflow: visible;
+  z-index: 90;
+}
+
+.planning-board .planning-zone-menu {
+  display: none;
+}
+
+.planning-board .planning-slot-assignment.is-open .planning-zone-menu {
+  display: grid;
+  gap: 4px;
+}
+
+
+.planning-board .calendar-row.row-selected > td {
+  background-image: linear-gradient(90deg,rgba(99,102,241,.13),rgba(14,165,233,.075));
+  box-shadow: inset 0 1px 0 rgba(125,211,252,.20),inset 0 -1px 0 rgba(125,211,252,.16);
+}
+
+.planning-board .calendar-row.row-selected > td:is(.rs-weekly-person-cell,.rs-weekly-total-cell) {
+  background: linear-gradient(90deg,rgba(30,64,175,.30),rgba(15,23,42,.92));
+}
+
+.planning-board thead th.day-group.col-selected,
+.planning-board .rs-weekly-day-cell.col-selected {
+  background-image: linear-gradient(180deg,rgba(59,130,246,.16),rgba(14,165,233,.08));
+  box-shadow: inset 2px 0 0 rgba(125,211,252,.26),inset -2px 0 0 rgba(125,211,252,.20);
+}
+
+.planning-board .calendar-row.row-selected .rs-weekly-day-cell.col-selected {
+  background-image: linear-gradient(180deg,rgba(59,130,246,.22),rgba(14,165,233,.12));
+  box-shadow: inset 0 0 0 1px rgba(125,211,252,.28);
+}
+
+.planning-board .planning-conflict-banner {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 16px;
+  border-top: 1px solid rgba(255,255,255,.055);
+  border-bottom: 1px solid rgba(255,255,255,.055);
+  background: linear-gradient(90deg,rgba(244,63,94,.105),rgba(15,23,42,.10));
+}
+
+.planning-board .planning-conflict-banner strong {
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 950;
+}
+
+.planning-board .planning-conflict-banner span {
+  color: #aab8ca;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 760;
+}
+
+.planning-board .planning-conflict-banner.is-flashing,
+.planning-board .planning-conflict-banner.is-flashing strong,
+.planning-board .planning-slot.is-updated :is(.planning-slot-card,.planning-slot-empty) {
+  animation-duration: .95s;
+  animation-timing-function: cubic-bezier(.2,.9,.25,1);
+}
+
+.planning-board .planning-conflict-banner.is-flashing { animation-name: planningConflictBannerFlash; }
+.planning-board .planning-conflict-banner.is-flashing strong { display: inline-block; animation-name: planningConflictNumberFlash; }
+.planning-board .planning-slot.is-updated :is(.planning-slot-card,.planning-slot-empty) { animation-name: planningSlotUpdatedPulse; }
+
+.planning-board .planning-empty-row td {
+  height: auto;
+  padding: 0;
+}
+
+.planning-board .planning-empty-state {
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  color: #dbe6f5;
+  text-align: center;
+}
+
+.planning-board .planning-empty-state strong {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 950;
+}
+
+.planning-board .planning-empty-state span {
+  color: #93a4bb;
+  font-size: 13px;
+  font-weight: 760;
+}
+
+@keyframes planningSlotUpdatedPulse {
+  0%,100% { transform: scale(1); box-shadow: inset 0 0 0 1px rgba(255,255,255,.10); }
+  36% { transform: scale(1.012); box-shadow: inset 0 0 0 1px rgba(255,255,255,.16),0 0 0 3px rgba(52,211,153,.18),0 14px 28px rgba(0,0,0,.24); }
+}
+
+@keyframes planningConflictBannerFlash {
+  0%,40%,100% { background: linear-gradient(90deg,rgba(56,27,48,.78),rgba(35,25,44,.72)); box-shadow: 0 10px 28px rgba(0,0,0,.18),inset 0 0 0 1px rgba(248,113,113,.16); }
+  18% { background: linear-gradient(90deg,rgba(127,29,29,.50),rgba(88,28,56,.46)); box-shadow: 0 16px 38px rgba(0,0,0,.28),inset 0 0 0 1px rgba(248,113,113,.55),0 0 34px rgba(248,113,113,.22); }
+  62% { background: linear-gradient(90deg,rgba(127,29,29,.42),rgba(88,28,56,.40)); box-shadow: 0 14px 34px rgba(0,0,0,.25),inset 0 0 0 1px rgba(251,146,60,.46),0 0 28px rgba(251,146,60,.16); }
+}
+
+@keyframes planningConflictNumberFlash {
+  0%,40%,100% { transform: scale(1); color: #fff7ed; text-shadow: none; }
+  18% { transform: scale(1.075); color: #fff; text-shadow: 0 0 16px rgba(248,113,113,.52); }
+  62% { transform: scale(1.055); color: #fff; text-shadow: 0 0 14px rgba(251,146,60,.44); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .planning-board .planning-conflict-banner.is-flashing,
+  .planning-board .planning-conflict-banner.is-flashing strong,
+  .planning-board .planning-slot.is-updated :is(.planning-slot-card,.planning-slot-empty) {
+    animation: none;
+  }
+}
+
+
+.planning-board .planning-coverage-banner {
+  display: grid;
+  gap: 8px;
+  padding: 9px 14px 10px;
+  border-top: 1px solid rgba(255,255,255,.055);
+  border-bottom: 1px solid rgba(255,255,255,.055);
+  background: linear-gradient(90deg,rgba(245,158,11,.10),rgba(15,23,42,.10));
+}
+
+.planning-board .planning-coverage-banner.is-missing {
+  background: linear-gradient(90deg,rgba(59,130,246,.10),rgba(15,23,42,.08));
+}
+
+.planning-board .planning-coverage-banner__head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.planning-board .planning-coverage-banner__head strong {
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 950;
+}
+
+.planning-board .planning-coverage-banner__head em {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #aab8ca;
+  font-style: normal;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 760;
+}
+
+.planning-board .planning-coverage-list {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.planning-board .planning-coverage-chip {
+  appearance: none;
+  height: 32px;
+  min-width: max-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0 9px 0 6px;
+  border: 1px solid rgba(255,255,255,.095);
+  border-radius: 999px;
+  background: rgba(15,23,42,.74);
+  color: #eef6ff;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.055);
+  font: inherit;
+  cursor: pointer;
+}
+
+.planning-board .planning-coverage-chip:is(:hover,:focus-visible) {
+  border-color: rgba(125,211,252,.28);
+  background: rgba(30,41,59,.88);
+  outline: 0;
+}
+
+.planning-board .planning-coverage-chip.is-under {
+  border-color: rgba(248,113,113,.22);
+  background: rgba(73,24,34,.46);
+}
+
+.planning-board .planning-coverage-chip.is-over {
+  border-color: rgba(251,191,36,.22);
+  background: rgba(74,54,16,.42);
+}
+
+.planning-board .planning-coverage-chip b,
+.planning-board .planning-coverage-chip strong,
+.planning-board .planning-coverage-chip em,
+.planning-board .planning-coverage-chip i {
+  font-style: normal;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.planning-board .planning-coverage-chip b {
+  color: #fff;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.planning-board .planning-coverage-chip em {
+  color: #cbd7e8;
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.planning-board .planning-coverage-chip strong {
+  color: #f8fafc;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.planning-board .planning-coverage-chip i {
+  color: #fff;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.planning-board .planning-coverage-more {
+  color: #92a3b7;
+  font-size: 11px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.planning-board .planning-slot-card.has-coverage-over {
+  border-color: rgba(251,191,36,.66);
+  box-shadow: 0 0 0 1px rgba(251,191,36,.14),inset 0 1px 0 rgba(255,255,255,.055),0 7px 14px rgba(0,0,0,.16);
+}
+
+.planning-board .planning-slot-card.has-coverage-under {
+  border-color: rgba(248,113,113,.66);
+  box-shadow: 0 0 0 1px rgba(248,113,113,.15),inset 0 1px 0 rgba(255,255,255,.055),0 7px 14px rgba(0,0,0,.16);
+}
+
+
+/* Absence and leave states: availability is the background, absence is the slot layer, planned shifts stay as foreground cards. */
+.planning-board .planning-slot-zone.has-absence-approved,
+.planning-board .planning-slot-zone.has-absence-pending:not(.has-absence-approved) {
+  background: rgba(126,78,170,.46);
+  box-shadow: inset 0 0 0 1px rgba(216,180,254,.18), inset 0 -1px 0 rgba(255,255,255,.05);
+}
+
+.planning-board .planning-slot-zone.has-absence-approved .planning-slot-empty,
+.planning-board .planning-slot-zone.has-absence-pending .planning-slot-empty {
+  opacity: 0;
+}
+
+.planning-board .planning-absence-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-rows: 18px 1fr 18px;
+  align-items: center;
+  justify-items: center;
+  padding: 5px 6px 4px;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.planning-board .planning-absence-status.rs-status-icon {
+  justify-self: end;
+  width: 18px;
+  height: 18px;
+  flex-basis: 18px;
+}
+
+.planning-board .planning-absence-status.rs-status-icon svg {
+  width: 10px;
+  height: 10px;
+}
+
+.planning-board .planning-absence-icon {
+  opacity: .78;
+  color: rgba(255,244,255,.96);
+  line-height: 1;
+  font-style: normal;
+  filter: none;
+  transform: translateY(1px);
+}
+
+.planning-board .planning-absence-icon svg {
+  width: clamp(19px,1.6vw,28px);
+  height: clamp(19px,1.6vw,28px);
+}
+
+.planning-board .planning-absence-layer b {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: rgba(255,255,255,.86);
+  font-size: clamp(9px,.58vw,11px);
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-align: center;
+}
+
+
+.planning-board .planning-slot-card {
+  z-index: 3;
+  --shift-accent: #60a5fa;
+  --shift-bg: rgba(25,70,126,.88);
+  --shift-border: rgba(96,165,250,.34);
+}
+
+.planning-board .planning-slot-card.has-absence-approved,
+.planning-board .planning-slot-card.has-absence-pending {
+  padding-bottom: 4px;
+  grid-template-rows: 19px 18px;
+}
+
+.planning-board .planning-slot-card .planning-absence-layer {
+  display: none;
+}
+
+.planning-board .planning-slot-zone.is-planned.has-absence-approved {
+  background: rgba(126,42,86,.42);
+  box-shadow: inset 0 0 0 1px rgba(244,114,182,.24), inset 0 -1px 0 rgba(255,255,255,.05);
+}
+
+.planning-board .planning-slot-zone.is-planned.has-absence-pending:not(.has-absence-approved) {
+  background: rgba(126,78,170,.26);
+  box-shadow: inset 0 0 0 1px rgba(216,180,254,.14), inset 0 -1px 0 rgba(255,255,255,.045);
+}
+
+.planning-board .planning-slot-card.has-absence-approved.has-conflict {
+  border-color: rgba(244,114,182,.78);
+  box-shadow: 0 0 0 1px rgba(244,114,182,.28), inset 0 1px 0 rgba(255,255,255,.05), 0 8px 18px rgba(0,0,0,.20);
+}
+
+.planning-board .planning-slot-conflict-note {
+  grid-column: 1 / -1;
+  align-self: end;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #fecdd3;
+  font-size: clamp(8px,.52vw,10px);
+  line-height: 1;
+  font-weight: 950;
+  letter-spacing: 0;
+}
+
+.planning-board .planning-slot-card.has-absence-pending .planning-slot-conflict-note {
+  color: #e9d5ff;
+}
+
+.planning-absence-decision-dialog {
+  width: min(620px,calc(100vw - 38px));
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #f8fafc;
+}
+
+.planning-absence-decision-dialog::backdrop {
+  background: rgba(2,6,23,.62);
+  backdrop-filter: blur(8px);
+}
+
+.planning-absence-decision-card {
+  display: grid;
+  grid-template-columns: 54px minmax(0,1fr);
+  gap: 16px;
+  padding: 22px;
+  border: 1px solid rgba(216,180,254,.18);
+  border-radius: 24px;
+  background: radial-gradient(circle at 8% 0%,rgba(168,85,247,.14),transparent 34%),linear-gradient(135deg,rgba(9,17,31,.98),rgba(17,24,43,.97));
+  box-shadow: 0 34px 90px rgba(0,0,0,.52),inset 0 1px 0 rgba(255,255,255,.08);
+  font-family: var(--rst-ui-font);
+}
+
+.planning-absence-decision-icon {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border-radius: 17px;
+  border: 1px solid rgba(216,180,254,.22);
+  background: rgba(126,78,170,.22);
+  font-size: 28px;
+}
+
+.planning-absence-decision-copy {
+  display: grid;
+  gap: 9px;
+}
+
+.planning-absence-decision-copy h2 {
+  margin: 0;
+  color: #fff;
+  font-size: 21px;
+  line-height: 1.1;
+  letter-spacing: 0;
+  font-weight: 950;
+}
+
+.planning-absence-decision-copy p {
+  margin: 0;
+  color: #cbd7e8;
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 650;
+}
+
+.planning-absence-decision-actions {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 5px;
+}
+

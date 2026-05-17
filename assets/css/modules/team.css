@@ -1,0 +1,178 @@
+/* Team module shell and directory.
+   Profile, fields, and Absences styles are split into sibling Team CSS files.
+*/
+
+body.team-mode {
+  overflow: hidden;
+}
+
+.team-layout {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 320px minmax(0,1fr);
+  gap: 12px;
+}
+
+.team-directory {
+  height: 100%;
+  min-height: 0;
+  padding: 14px;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0,1fr) auto;
+  gap: 10px;
+}
+
+.team-directory .rs-search { margin: 0; }
+
+.team-directory-filters {
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: 6px;
+}
+
+.team-directory-filter {
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 11px;
+  background: rgba(255,255,255,.026);
+  color: #9fb0ca;
+  cursor: pointer;
+  transition: background .18s ease, border-color .18s ease, color .18s ease;
+}
+
+.team-directory-filter:hover {
+  color: #f8fafc;
+  background: rgba(255,255,255,.045);
+}
+
+.team-directory-filter.is-active {
+  color: #fff;
+  border-color: rgba(129,140,248,.40);
+  background: linear-gradient(135deg,rgba(79,70,229,.32),rgba(37,99,235,.13));
+}
+
+.team-directory-filter span {
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-directory-filter strong {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255,255,255,.075);
+  color: #dbeafe;
+  font-size: 10px;
+  font-weight: 950;
+}
+
+.team-list {
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding-right: 3px;
+}
+
+.team-person {
+  position: relative;
+  width: 100%;
+  min-height: 54px;
+  padding: 8px 10px;
+  display: grid;
+  grid-template-columns: 34px minmax(0,1fr);
+  align-items: center;
+  gap: 10px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  color: #f8fafc;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .18s ease,background .18s ease;
+}
+
+.team-person:hover { background: rgba(255,255,255,.045); }
+
+.team-person.is-active {
+  background: linear-gradient(135deg,rgba(51,71,255,.24),rgba(59,130,246,.10));
+  border-color: rgba(96,165,250,.34);
+}
+
+.team-avatar {
+  width: 34px;
+  height: 34px;
+  font-size: 13px;
+  flex: 0 0 auto;
+}
+
+.team-person-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.team-person-line {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.team-person-line strong {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-person-copy small {
+  color: #98a8bf;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+
+.team-person-badges {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.team-person-badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(245,158,11,.16);
+  color: #ffd383;
+  font-size: 10px;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.team-person-badge.is-action {
+  background: rgba(129,140,248,.16);
+  color: #c7d2fe;
+}

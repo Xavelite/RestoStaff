@@ -1,0 +1,325 @@
+/* Actuals page states only. Shared weekly layout lives in weekly-grid.css. */
+.actuals-slot-empty {
+  display: block;
+}
+
+.actuals-slot-card {
+  position: relative;
+  padding: 4px 6px;
+  border-radius: 2px;
+  display: grid;
+  align-content: center;
+  grid-template-rows: 17px 13px 15px 13px;
+  gap: 1px;
+  overflow: hidden;
+}
+
+.actuals-slot-card.is-good {
+  --shift-bg: rgba(18,70,76,.82);
+  --shift-border: rgba(99,224,219,.28);
+  --shift-accent: #6ee7f9;
+}
+
+.actuals-slot-card.is-warn {
+  --shift-bg: rgba(84,62,26,.86);
+  --shift-border: rgba(245,158,11,.34);
+  --shift-accent: #fbbf24;
+}
+
+.actuals-slot-card.is-pending {
+  --shift-bg: rgba(12,25,43,.58);
+  --shift-border: rgba(148,163,184,.10);
+  --shift-accent: #64748b;
+  opacity: .70;
+}
+
+.actuals-slot-card strong,
+.actuals-slot-card small,
+.actuals-slot-card em,
+.actuals-slot-card b {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-style: normal;
+}
+
+.actuals-slot-card strong {
+  color: #fff;
+  font-size: clamp(11.7px,.68vw,13.2px);
+  line-height: 17px;
+  font-weight: 760;
+  letter-spacing: 0;
+}
+
+.actuals-slot-card small {
+  color: rgba(219,230,245,.52);
+  font-size: 9.5px;
+  line-height: 13px;
+  font-weight: 720;
+}
+
+.actuals-slot-card em,
+.actuals-slot-card b {
+  color: color-mix(in srgb,var(--shift-accent) 82%,#ffffff);
+  font-size: clamp(10.4px,.58vw,11.8px);
+  line-height: 13px;
+  font-weight: 800;
+}
+
+.actuals-slot-card b {
+  color: var(--shift-accent);
+}
+
+
+.actuals-slot-card.has-proof {
+  cursor: pointer;
+}
+
+.actuals-proof-dot {
+  position: absolute;
+  right: 4px;
+  bottom: 3px;
+  width: 14px;
+  height: 14px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(15,23,42,.72);
+  font-size: 8px;
+  line-height: 1;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.10);
+}
+
+.actuals-proof-dialog {
+  width: min(640px,calc(100vw - 36px));
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #f8fafc;
+}
+
+.actuals-proof-dialog::backdrop {
+  background: rgba(2,6,23,.64);
+  backdrop-filter: blur(8px);
+}
+
+.actuals-proof-card {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 24px;
+  background: radial-gradient(circle at 10% 0%,rgba(255,255,255,.10),transparent 34%),linear-gradient(135deg,rgba(9,17,31,.98),rgba(13,24,42,.96));
+  box-shadow: 0 34px 90px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.08);
+  font-family: var(--rst-ui-font);
+}
+
+.actuals-proof-head {
+  display: grid;
+  grid-template-columns: 52px minmax(0,1fr);
+  align-items: center;
+  gap: 14px;
+}
+
+.actuals-proof-head h2,
+.actuals-proof-head p {
+  margin: 0;
+}
+
+.actuals-proof-head h2 {
+  color: #fff;
+  font-size: 21px;
+  line-height: 1.05;
+  font-weight: 950;
+  letter-spacing: 0;
+}
+
+.actuals-proof-head p {
+  margin-top: 5px;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.actuals-proof-grid {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 12px;
+}
+
+.actuals-proof-tile {
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 18px;
+  background: rgba(255,255,255,.045);
+}
+
+.actuals-proof-tile__media {
+  aspect-ratio: 4 / 3;
+  display: grid;
+  place-items: center;
+  background: rgba(2,6,23,.48);
+  color: #64748b;
+  font-size: 26px;
+  font-weight: 950;
+}
+
+.actuals-proof-tile__media img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  image-rendering: auto;
+}
+
+.actuals-proof-tile div:last-child {
+  display: grid;
+  gap: 3px;
+  padding: 11px 12px;
+}
+
+.actuals-proof-tile strong,
+.actuals-proof-tile small {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.actuals-proof-tile strong {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.actuals-proof-tile small {
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.actuals-proof-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.actuals-proof-dot svg,
+.actuals-proof-head .rs-icon-badge svg {
+  width: 100%;
+  height: 100%;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Absence states in Actuals: approved/pending leave explains expected non-worked slots without looking like an error. */
+.actuals-slot-card.is-absence-approved,
+.actuals-slot-card.is-absence-pending {
+  position: relative;
+  overflow: hidden;
+  --shift-bg: rgba(126,78,170,.52);
+  --shift-border: rgba(216,180,254,.20);
+  --shift-accent: #f3e8ff;
+}
+
+.actuals-slot-card.is-absence-approved > :not(.actuals-absence-layer):not(.actuals-proof-dot),
+.actuals-slot-card.is-absence-pending > :not(.actuals-absence-layer):not(.actuals-proof-dot) {
+  opacity: 0;
+}
+
+.actuals-slot-card.has-absence:not(.is-absence-approved):not(.is-absence-pending) {
+  box-shadow: inset 0 0 0 1px rgba(216,180,254,.14),0 8px 18px rgba(0,0,0,.16);
+}
+
+.actuals-absence-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  grid-template-rows: 18px 1fr 18px;
+  align-items: center;
+  justify-items: center;
+  padding: 5px 6px 4px;
+  pointer-events: none;
+}
+
+.actuals-absence-layer .rs-status-icon {
+  justify-self: end;
+  width: 18px;
+  height: 18px;
+  flex-basis: 18px;
+}
+
+.actuals-absence-layer .rs-status-icon svg {
+  width: 10px;
+  height: 10px;
+}
+
+.actuals-absence-layer em {
+  color: rgba(255,244,255,.98);
+  opacity: .78;
+  line-height: 1;
+  font-style: normal;
+  filter: none;
+}
+
+.actuals-absence-layer em svg {
+  width: clamp(19px,1.6vw,28px);
+  height: clamp(19px,1.6vw,28px);
+}
+
+.actuals-absence-layer b {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: rgba(255,255,255,.86);
+  font-size: clamp(9px,.58vw,11px);
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-align: center;
+}
+
+
+.actuals-absence-badge {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 3px;
+  height: 18px;
+  padding: 0 5px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  overflow: hidden;
+  white-space: nowrap;
+  color: #fff;
+  background: rgba(88,28,135,.84);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.10);
+}
+
+.actuals-absence-badge .rs-status-icon {
+  width: 12px;
+  height: 12px;
+  flex-basis: 12px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.actuals-absence-badge .rs-status-icon svg {
+  width: 9px;
+  height: 9px;
+}
+
+.actuals-absence-badge > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 8.5px;
+  font-weight: 900;
+}

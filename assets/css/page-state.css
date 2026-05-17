@@ -29,6 +29,3 @@ body:not(.logged-out) .brand-page {
   display: block;
 }
 
-body.badge-terminal-mode .app-topbar-v2 {
-  display: none;
-}

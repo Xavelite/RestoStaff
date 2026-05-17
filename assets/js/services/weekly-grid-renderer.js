@@ -37,7 +37,7 @@
     const attrString = attrs(attributes);
     const style = avatarStyle ? ` style="${esc(avatarStyle)}"` : '';
     const Tag = tag === 'th' ? 'th' : 'td';
-    return `<${Tag} class="${joinClasses([cellClass, 'rs-weekly-person-cell'])}"${attrString?` ${attrString}`:''}><div class="${joinClasses([cardClass, 'rs-weekly-person-card'])}"><span class="${joinClasses([avatarClass, 'rs-weekly-avatar'])}"${style}>${esc(employeeInitials(employee.name))}</span><span class="${joinClasses([copyClass, 'rs-weekly-person-copy'])}"><strong>${leadingHtml || ''}${esc(employee.name)}</strong><small>${esc(employee.position)}</small></span></div></${Tag}>`;
+    return `<${Tag} class="${joinClasses([cellClass, 'rs-weekly-person-cell'])}"${attrString?` ${attrString}`:''}><div class="${joinClasses([cardClass, 'rs-weekly-person-card'])}"><span class="${joinClasses([avatarClass, 'rs-weekly-avatar'])}"${style}>${esc(employeeInitials(employee.name))}</span><span class="${joinClasses([copyClass, 'rs-weekly-person-copy'])}"><strong>${leadingHtml || ''}${esc(employee.name)}</strong><small>${esc(employeePositionName(employee))}</small></span></div></${Tag}>`;
   }
 
   function dayCell({moduleName,day,index,content='',cellClass='',slotsClass='',extraClass=''}){

@@ -1,0 +1,624 @@
+/* restogogo employee pages: My Schedule + My Time.
+   Navigation is page-based; this file owns only employee-page layout/content. */
+
+.employee-schedule-mode {
+  --employee-topbar-h: var(--rst-topbar-h);
+  --topbar-h: var(--employee-topbar-h);
+  --rst-ui-card: rgba(17,30,53,.54);
+  --rst-ui-metric-card: linear-gradient(180deg,rgba(17,30,53,.64),rgba(9,20,37,.78));
+  overflow: hidden;
+}
+
+.employee-schedule-mode .shell {
+  width: 100%;
+  max-width: none;
+  height: calc(100dvh - var(--employee-topbar-h));
+  min-height: 0;
+  margin: 0;
+  padding: 12px 0;
+  overflow: hidden;
+}
+
+.employee-schedule-page,
+.employee-schedule-root,
+.employee-schedule-shell {
+  height: 100%;
+  min-height: 0;
+}
+
+.employee-schedule-root {
+  display: grid;
+}
+
+.employee-schedule-shell {
+  width: min(1560px,calc(100% - 40px));
+  margin: 0 auto;
+  display: grid;
+}
+
+.employee-schedule-panel {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0,1fr);
+  gap: 10px;
+  padding: 12px;
+  overflow: hidden;
+  background: var(--rst-ui-surface-panel,linear-gradient(180deg,rgba(17,30,53,.64),rgba(9,20,37,.78)));
+  backdrop-filter: none;
+}
+
+.employee-schedule-empty {
+  margin: 0;
+  padding: 20px;
+  color: #d8e2f1;
+  font-weight: 760;
+}
+
+/* My Schedule */
+.employee-schedule-tab-panel {
+  min-height: 0;
+  overflow: hidden;
+  background: var(--rst-ui-surface-panel,linear-gradient(180deg,rgba(17,30,53,.64),rgba(9,20,37,.78)));
+}
+
+.employee-schedule-tab-panel.is-schedule {
+  display: grid;
+  grid-template-rows: auto minmax(0,1fr);
+  gap: 8px;
+  padding: 12px;
+}
+
+.employee-schedule-actionbar {
+  min-height: 36px;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--rst-ui-line);
+  border-radius: 18px;
+  background: linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.028));
+}
+
+.employee-schedule-actionbar span {
+  color: #b9c7db;
+  font-size: 12px;
+  font-weight: 760;
+  text-align: right;
+}
+
+.employee-schedule-mode-toggle {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.055);
+}
+
+.employee-schedule-mode-toggle button {
+  min-height: 26px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 11px;
+  color: #aebdd2;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.employee-schedule-mode-toggle button.is-active {
+  color: #fff;
+  background: linear-gradient(135deg,rgba(59,130,246,.88),rgba(124,58,237,.74));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.17),0 10px 24px rgba(59,130,246,.14);
+}
+
+.employee-schedule-board-head,
+.employee-schedule-row {
+  display: grid;
+  grid-template-columns: 82px repeat(2,minmax(0,1fr));
+  gap: 8px;
+  align-items: stretch;
+}
+
+.employee-schedule-board-head {
+  padding: 0 4px;
+  color: var(--rst-ui-muted);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.employee-schedule-board-head strong {
+  color: #eef5ff;
+  text-align: center;
+}
+
+.employee-schedule-grid {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: repeat(7,minmax(0,1fr));
+  gap: 7px;
+}
+
+.employee-schedule-day,
+.employee-schedule-shift {
+  min-height: 0;
+  border-radius: 18px;
+}
+
+.employee-schedule-day {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  border: 1px solid var(--rst-ui-line);
+  background: linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.028));
+  text-align: center;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+}
+
+.employee-schedule-day strong {
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+  letter-spacing: 0;
+  font-weight: 900;
+}
+
+.employee-schedule-day span {
+  color: #bcc9dc;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.employee-schedule-shift {
+  position: relative;
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0,1fr);
+  align-items: center;
+  gap: 14px;
+  min-height: 74px;
+  padding: 12px 16px;
+  overflow: hidden;
+  text-align: left;
+  cursor: default;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.035);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.045);
+  transition: transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease;
+}
+
+.employee-schedule-shift__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(148,163,184,.9);
+  box-shadow: 0 0 0 5px rgba(148,163,184,.08);
+}
+
+.employee-schedule-shift__body {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.employee-schedule-shift strong {
+  color: #fff;
+  font-size: 18px;
+  line-height: 1.05;
+  letter-spacing: 0;
+  font-weight: 900;
+}
+
+.employee-schedule-shift small {
+  color: #cbd8ec;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.employee-schedule-shift.is-planned {
+  border-color: rgba(96,165,250,.58);
+  background: linear-gradient(180deg,rgba(37,99,235,.94),rgba(20,83,199,.86));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.16),0 16px 34px rgba(37,99,235,.18);
+  opacity: 1;
+}
+
+.employee-schedule-shift.is-planned .employee-schedule-shift__dot {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  background: rgba(255,255,255,.13);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14);
+}
+
+.employee-schedule-shift.is-planned.is-lunch .employee-schedule-shift__dot::after {
+  content: "🍴";
+  font-size: 20px;
+}
+
+.employee-schedule-shift.is-planned.is-evening .employee-schedule-shift__dot::after {
+  content: "☾";
+  font-size: 23px;
+  color: #dbeafe;
+}
+
+.employee-schedule-shift.is-planned strong,
+.employee-schedule-shift.is-planned small {
+  color: #fff;
+}
+
+.employee-schedule-shift.is-available {
+  border-color: rgba(74,222,128,.28);
+  background: linear-gradient(180deg,rgba(34,197,94,.12),rgba(20,184,166,.055));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+}
+
+.employee-schedule-shift.is-available .employee-schedule-shift__dot {
+  background: #65d982;
+  box-shadow: 0 0 0 5px rgba(101,217,130,.10);
+}
+
+.employee-schedule-shift.is-available strong {
+  color: #dffeed;
+}
+
+.employee-schedule-shift.is-off {
+  border-color: rgba(255,255,255,.075);
+  background: rgba(255,255,255,.025);
+  opacity: .70;
+}
+
+.employee-schedule-shift.is-off strong {
+  color: #a9b6ca;
+}
+
+.employee-schedule-shift.is-off small {
+  color: #7f8ca3;
+}
+
+.employee-schedule-shift.is-selected {
+  outline: 2px solid rgba(111,230,255,.52);
+  outline-offset: 2px;
+}
+
+/* Leave states in Employee Schedule. Status is handled by text/badges; the slot itself stays in the shared absence color family. */
+.employee-schedule-shift.is-leave-approved,
+.employee-schedule-shift.is-leave-pending {
+  border-color: rgba(216,180,254,.24);
+  background: rgba(126,78,170,.34);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+  opacity: 1;
+}
+
+.employee-schedule-shift.is-leave-approved .employee-schedule-shift__dot,
+.employee-schedule-shift.is-leave-pending .employee-schedule-shift__dot {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(255,255,255,.13);
+  color: rgba(255,244,255,.96);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
+  font-size: 18px;
+  font-weight: 900;
+  opacity: .88;
+}
+
+.employee-schedule-shift.is-leave-approved .employee-schedule-shift__dot::after,
+.employee-schedule-shift.is-leave-pending .employee-schedule-shift__dot::after {
+  content: none;
+}
+
+.employee-leave-panel {
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 20px;
+  background: linear-gradient(180deg,rgba(15,23,42,.90),rgba(9,18,33,.94));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06),0 18px 42px rgba(0,0,0,.18);
+}
+
+.employee-leave-panel header,
+.employee-leave-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.employee-leave-panel header div {
+  display: grid;
+  gap: 2px;
+}
+
+.employee-leave-panel header strong {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 950;
+  letter-spacing: 0;
+}
+
+.employee-leave-panel header span {
+  color: #9fb0c8;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+
+.employee-leave-fields {
+  display: grid;
+  grid-template-columns: 1.1fr .8fr .8fr .8fr 1.6fr;
+  gap: 8px;
+}
+
+.employee-leave-field {
+  --rs-field-min-height: 36px;
+  --rs-field-padding: 7px 10px;
+  --rs-field-radius: 12px;
+  --rs-field-gap: 4px;
+  --rs-field-bg: rgba(255,255,255,.055);
+  --rs-field-bg-hover: rgba(255,255,255,.075);
+  --rs-field-bg-focus: rgba(59,130,246,.10);
+  --rs-field-border: rgba(255,255,255,.10);
+  --rs-field-border-focus: rgba(96,165,250,.36);
+  --rs-field-shadow-focus: 0 0 0 3px rgba(59,130,246,.10);
+  --rs-field-label: #9fb0c8;
+  --rs-field-label-size: 11px;
+  --rs-field-label-weight: 850;
+  --rs-field-control-size: 12px;
+  --rs-field-control-weight: 800;
+  --rs-field-control-height: 20px;
+}
+
+.employee-leave-actions {
+  justify-content: flex-end;
+}
+
+.employee-worked-slot.just-tapped {
+  animation: employeeScheduleTapPop .46s ease both;
+}
+
+@keyframes employeeScheduleTapPop {
+  0% { transform: scale(.986); }
+  45% { transform: scale(1.012); box-shadow: 0 0 0 6px rgba(34,197,94,.10),0 16px 36px rgba(34,197,94,.12); }
+  100% { transform: scale(1); }
+}
+
+/* My Time */
+.employee-schedule-tab-panel.is-worked {
+  display: grid;
+  grid-template-rows: auto minmax(0,1fr);
+  gap: 8px;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.employee-schedule-tab-panel.is-worked.has-leave-panel {
+  grid-template-rows: auto auto minmax(0,1fr);
+}
+
+.employee-time-calendar-panel {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0,1fr);
+  gap: 8px;
+  overflow: hidden;
+}
+
+.employee-worked-month-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 0 2px 2px;
+}
+
+.employee-worked-month-head strong {
+  color: #fff;
+  font-size: 18px;
+  letter-spacing: 0;
+  font-weight: 950;
+}
+
+.employee-worked-month-head span {
+  color: var(--rst-ui-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.employee-worked-weekdays,
+.employee-worked-calendar {
+  display: grid;
+  grid-template-columns: repeat(7,minmax(0,1fr));
+  gap: 7px;
+}
+
+.employee-worked-weekdays span {
+  color: #9fb4d2;
+  font-size: 10px;
+  font-weight: 950;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.employee-worked-calendar {
+  min-height: 0;
+  grid-template-rows: repeat(6,minmax(0,1fr));
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.employee-worked-day {
+  min-height: 0;
+  min-width: 0;
+  padding: 7px;
+  display: grid;
+  grid-template-rows: auto minmax(0,1fr);
+  gap: 5px;
+  border-radius: 14px;
+  border: 1px solid var(--rst-ui-line);
+  background: var(--rst-ui-surface-card,linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.028)));
+  overflow: hidden;
+}
+
+.employee-worked-day.is-outside {
+  opacity: .34;
+}
+
+.employee-worked-day.is-live header b {
+  background: rgba(34,197,94,.15);
+  color: #bbf7d0;
+}
+
+.employee-worked-day header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.employee-worked-day header div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.employee-worked-day header strong {
+  color: #fff;
+  font-size: 15px;
+  line-height: 1;
+  font-weight: 950;
+  letter-spacing: 0;
+}
+
+.employee-worked-day header span {
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.employee-worked-day header b {
+  min-height: 20px;
+  padding: 0 7px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(59,130,246,.12);
+  color: #bfdbfe;
+  font-size: 10px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.employee-worked-slots {
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.employee-worked-slot {
+  min-height: 0;
+  padding: 5px 6px;
+  display: grid;
+  align-content: center;
+  gap: 1px;
+  cursor: pointer;
+  border: 1px solid rgba(255,255,255,.075);
+  border-radius: 10px;
+  background: rgba(255,255,255,.035);
+  overflow: hidden;
+  transition: transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease;
+}
+
+.employee-worked-slot:hover {
+  transform: translateY(-1px);
+}
+
+.employee-worked-slot:focus-visible {
+  outline: 2px solid rgba(111,230,255,.44);
+  outline-offset: 2px;
+}
+
+.employee-worked-slot span {
+  color: #93c5fd;
+  font-size: 8px;
+  font-weight: 950;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.employee-worked-slot strong {
+  color: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.employee-worked-slot small {
+  display: none;
+}
+
+.employee-worked-slot.is-live {
+  border-color: rgba(34,197,94,.32);
+  background: linear-gradient(180deg,rgba(34,197,94,.14),rgba(255,255,255,.035));
+}
+
+.employee-worked-slot.is-done {
+  border-color: rgba(96,165,250,.20);
+  background: linear-gradient(180deg,rgba(59,130,246,.10),rgba(255,255,255,.035));
+}
+
+.employee-worked-slot.is-pending {
+  border-color: rgba(245,158,11,.20);
+  background: linear-gradient(180deg,rgba(245,158,11,.08),rgba(255,255,255,.03));
+}
+
+.employee-worked-slot.is-available {
+  border-color: rgba(74,222,128,.28);
+  background: linear-gradient(180deg,rgba(34,197,94,.12),rgba(20,184,166,.045));
+}
+
+.employee-worked-slot.is-available span,
+.employee-worked-slot.is-available small {
+  color: #bbf7d0;
+}
+
+.employee-worked-slot.is-empty {
+  opacity: .64;
+}
+
+.employee-worked-slot.is-selected {
+  outline: 2px solid rgba(111,230,255,.52);
+  outline-offset: 2px;
+}
+
+/* Leave states in My Time. */
+.employee-worked-slot.is-leave-approved,
+.employee-worked-slot.is-leave-pending {
+  border-color: rgba(216,180,254,.16);
+  background: rgba(126,78,170,.16);
+}
+
+.employee-worked-slot.is-leave-approved span,
+.employee-worked-slot.is-leave-approved small,
+.employee-worked-slot.is-leave-pending span,
+.employee-worked-slot.is-leave-pending small {
+  color: #f3e8ff;
+}

@@ -1,0 +1,122 @@
+/* restogogo shared form fields. Picklist visuals live in components/picklists.css. */
+:root {
+  color-scheme: dark;
+  --rs-field-bg: rgba(6,12,24,.22);
+  --rs-field-bg-hover: rgba(15,23,42,.32);
+  --rs-field-bg-focus: rgba(79,70,229,.075);
+  --rs-field-bg-disabled: rgba(15,23,42,.20);
+  --rs-field-border: rgba(255,255,255,.055);
+  --rs-field-border-hover: rgba(148,163,184,.14);
+  --rs-field-border-focus: rgba(129,140,248,.36);
+  --rs-field-shadow-focus: 0 0 0 3px rgba(79,70,229,.08);
+  --rs-field-label: #889ab3;
+  --rs-field-value: #edf4ff;
+  --rs-field-placeholder: #64748b;
+}
+
+.rs-field {
+  min-width: 0;
+  min-height: var(--rs-field-min-height,48px);
+  padding: var(--rs-field-padding,8px 10px);
+  display: grid;
+  gap: var(--rs-field-gap,6px);
+  border: 1px solid var(--rs-field-border);
+  border-radius: var(--rs-field-radius,11px);
+  background: var(--rs-field-bg);
+  color: var(--rs-field-label);
+  transition: border-color .16s ease, background .16s ease, box-shadow .16s ease, opacity .16s ease;
+}
+
+.rs-field.wide,
+.rs-field.is-wide { grid-column: 1 / -1; }
+
+.rs-field:hover {
+  border-color: var(--rs-field-border-hover);
+  background: var(--rs-field-bg-hover);
+}
+
+.rs-field:focus-within {
+  border-color: var(--rs-field-border-focus);
+  background: var(--rs-field-bg-focus);
+  box-shadow: var(--rs-field-shadow-focus);
+}
+
+.rs-field > span {
+  color: var(--rs-field-label);
+  font-size: var(--rs-field-label-size,9.5px);
+  font-weight: var(--rs-field-label-weight,760);
+  line-height: 1.1;
+  letter-spacing: var(--rs-field-label-spacing,.01em);
+  text-transform: var(--rs-field-label-transform,none);
+}
+
+.rs-field :is(input,select,textarea) {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background-color: transparent;
+  color: var(--rs-field-value);
+  color-scheme: dark;
+  font: inherit;
+  font-size: var(--rs-field-control-size,12.5px);
+  font-weight: var(--rs-field-control-weight,780);
+  line-height: 1.25;
+  box-shadow: none;
+}
+
+.rs-field :is(input,select) {
+  height: var(--rs-field-control-height,22px);
+  padding: 0;
+}
+
+.rs-field textarea {
+  min-height: var(--rs-field-textarea-min-height,42px);
+  padding: 0;
+  resize: vertical;
+}
+
+.rs-field :is(input,textarea)::placeholder {
+  color: var(--rs-field-placeholder);
+  opacity: 1;
+}
+
+.rs-field :is(input,select,textarea):disabled {
+  cursor: not-allowed;
+  opacity: .66;
+}
+
+.rs-field:has(:disabled) {
+  background: var(--rs-field-bg-disabled);
+  opacity: .78;
+}
+
+.rs-field.is-required-missing {
+  border-color: rgba(245,158,11,.22);
+  background: rgba(120,53,15,.065);
+  box-shadow: inset 0 0 0 1px rgba(245,158,11,.035);
+}
+
+.rs-field.is-required-missing > span::before {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 6px;
+  border-radius: 999px;
+  background: #fbbf24;
+  box-shadow: 0 0 10px rgba(245,158,11,.22);
+  vertical-align: 1px;
+}
+
+.rs-field.is-required-missing:hover,
+.rs-field.is-required-missing:focus-within {
+  border-color: rgba(245,158,11,.38);
+  background: rgba(120,53,15,.095);
+  box-shadow: 0 0 0 3px rgba(245,158,11,.045), inset 0 0 0 1px rgba(245,158,11,.055);
+}
+
+.rs-field.is-compact-note textarea {
+  min-height: 42px;
+}
+

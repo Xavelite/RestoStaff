@@ -45,10 +45,10 @@
 
 .notif-panel.open {
   display: block;
-  animation: v2TopbarPanelIn .14s ease-out both;
+  animation: topbarPanelIn .14s ease-out both;
 }
 
-@keyframes v2TopbarPanelIn {
+@keyframes topbarPanelIn {
   from {
     opacity: 0;
     transform: translateY(-4px) scale(.985);
