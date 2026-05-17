@@ -20,22 +20,15 @@ function enterApp(goHome=false){
   updateStickyVars();
 }
 
-function setEmployeeView(view){
-  session.employeeView = view === 'worked' ? 'worked' : 'schedule';
-  Restogogo.employeeSchedule?.setView?.(session.employeeView);
-}
-
-function showPage(pageName, options={}){
+function showPage(pageName){
+  const ownerPages = ['actuals','planning','team','restaurant','badge-terminal'];
+  const employeePages = ['employee-schedule','employee-time','badge-terminal'];
   let targetPage = pageName;
 
   if(session.role==='employee'){
-    if(pageName==='employee-time' || options.employeeView==='worked')setEmployeeView('worked');
-    else if(pageName==='employee-schedule' || options.employeeView==='schedule')setEmployeeView('schedule');
-    targetPage='employee-schedule';
-  }else if(['actuals','planning','team','restaurant','badge-terminal'].includes(pageName)){
-    targetPage=pageName;
+    targetPage = employeePages.includes(pageName) ? pageName : 'employee-schedule';
   }else{
-    targetPage='planning';
+    targetPage = ownerPages.includes(pageName) ? pageName : 'planning';
   }
 
   const page=$('page-'+targetPage);
@@ -54,19 +47,21 @@ function updateAppTitle(){
   const titleEl=$('appTitle');
   if(!titleEl)return;
   const active=activePageName();
-  const labels={planning:'Planning',actuals:'Actuals','badge-terminal':'Badge Terminal','employee-schedule':((session.employeeView||'schedule')==='worked'?'My Time':'My Schedule'),team:'Team',restaurant:'Restaurant'};
+  const labels={planning:'Planning',actuals:'Actuals','badge-terminal':'Badge Terminal','employee-schedule':'My Schedule','employee-time':'My Time',team:'Team',restaurant:'Restaurant'};
   titleEl.textContent=labels[active]||(session.role==='owner'?'Planning':'My Schedule');
 }
 
 function updatePageMode(){
   const employeeSchedule=$('page-employee-schedule')?.classList.contains('active');
+  const employeeTime=$('page-employee-time')?.classList.contains('active');
   const planning=$('page-planning')?.classList.contains('active');
   const badgeTerminal=$('page-badge-terminal')?.classList.contains('active');
   const actuals=$('page-actuals')?.classList.contains('active');
   const team=$('page-team')?.classList.contains('active');
   const restaurant=$('page-restaurant')?.classList.contains('active');
   document.body.classList.toggle('planning-mode',!!planning);
-  document.body.classList.toggle('employee-schedule-mode',!!(session.role==='employee'&&employeeSchedule));
+  document.body.classList.toggle('employee-schedule-mode',!!(session.role==='employee'&&(employeeSchedule||employeeTime)));
+  document.body.classList.toggle('employee-time-mode',!!(session.role==='employee'&&employeeTime));
   document.body.classList.toggle('badge-terminal-mode',!!badgeTerminal);
   document.documentElement.classList.toggle('badge-terminal-mode',!!badgeTerminal);
   document.body.classList.toggle('actuals-mode',!!actuals);
@@ -101,7 +96,7 @@ function activePageName(){
 function navItemsForSession(){
   return session.role==='owner'
     ? [{page:'planning',label:'Planning'},{page:'actuals',label:'Actuals'},{page:'team',label:'Team'},{page:'restaurant',label:'Restaurant'}]
-    : [{page:'employee-schedule',label:'My Schedule',employeeView:'schedule'},{page:'employee-schedule',label:'My Time',employeeView:'worked'}];
+    : [{page:'employee-schedule',label:'My Schedule'},{page:'employee-time',label:'My Time'}];
 }
 
 function renderAppNav(){
@@ -109,10 +104,8 @@ function renderAppNav(){
   if(!nav)return;
   const active=activePageName();
   nav.innerHTML=navItemsForSession().map(item=>{
-    const employeeView=session.employeeView || 'schedule';
-    const isActive = item.employeeView ? (active==='employee-schedule' && item.employeeView===employeeView) : item.page===active;
-    const viewAttr = item.employeeView ? ` data-employee-view="${esc(item.employeeView)}"` : '';
-    return `<button type="button" class="app-nav-link${isActive?' is-active':''}" data-app-page="${esc(item.page)}"${viewAttr}>${esc(item.label)}</button>`;
+    const isActive = item.page===active;
+    return `<button type="button" class="app-nav-link${isActive?' is-active':''}" data-app-page="${esc(item.page)}">${esc(item.label)}</button>`;
   }).join('');
 }
 
@@ -206,10 +199,6 @@ function bind(){
     const button=event.target.closest('[data-app-page]');
     if(!button)return;
     event.preventDefault();
-    if(button.dataset.employeeView){
-      showPage('employee-schedule',{employeeView:button.dataset.employeeView});
-      return;
-    }
     showPage(button.dataset.appPage);
   });
   $('notifPanel')?.addEventListener('click',event=>{
@@ -228,7 +217,7 @@ function bind(){
   window.addEventListener('resize',()=>requestAnimationFrame(updateStickyVars));
 }
 
-const appShellApi={render,changeWeek,saveWeekSnapshot,loadWeekSnapshot,openBadgeTerminal,showPilotGuide,showPage,enterApp,activePageName,setEmployeeView};
+const appShellApi={render,changeWeek,saveWeekSnapshot,loadWeekSnapshot,openBadgeTerminal,showPilotGuide,showPage,enterApp,activePageName};
 Restogogo.router=appShellApi;
 
 async function initRestogogoApp(){

@@ -58,7 +58,7 @@
       tabindex: options.tabIndex ?? 0
     });
     return `<${tag} class="${esc(className)}"${extraAttrs}>
-      <button aria-label="Previous week" class="${esc(buttonClass)}" id="${esc(options.prevId || '')}" type="button">←</button>
+      <button aria-label="${esc(options.prevAriaLabel || 'Previous week')}" class="${esc(buttonClass)}" id="${esc(options.prevId || '')}" type="button">←</button>
       ${iconBadge(options.icon || 'calendar',options.iconClass || '')}
       <label aria-label="${esc(options.inputAriaLabel || 'Select week')}" class="${esc(fieldClass)}">
         <span>${esc(options.label || 'Week range')}</span>
@@ -66,7 +66,7 @@
         <small${options.metaId?` id="${esc(options.metaId)}"`:''}>${esc(options.meta || 'Click to change')}</small>
         <input id="${esc(options.inputId || '')}" type="date" value="${esc(options.inputValue || '')}" />
       </label>
-      <button aria-label="Next week" class="${esc(buttonClass)}" id="${esc(options.nextId || '')}" type="button">→</button>
+      <button aria-label="${esc(options.nextAriaLabel || 'Next week')}" class="${esc(buttonClass)}" id="${esc(options.nextId || '')}" type="button">→</button>
     </${tag}>`;
   }
 

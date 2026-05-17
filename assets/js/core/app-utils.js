@@ -23,7 +23,7 @@ function weekRangeLabel(){return `${shortDateLabel(data.weekStart)} – ${shortD
 function currentWeekStart(){return monday(todayISO());}
 function nextWeekStart(){return monday(addDays(todayISO(),7));}
 function defaultWeekForPage(pageName){
-  if(pageName==='planning'||pageName==='actuals'||pageName==='badge-terminal')return currentWeekStart();
+  if(pageName==='planning'||pageName==='actuals'||pageName==='badge-terminal'||pageName==='employee-schedule'||pageName==='employee-time')return currentWeekStart();
   return '';
 }
 function applyDefaultWeekForPage(pageName){

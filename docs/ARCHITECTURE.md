@@ -98,7 +98,7 @@ New modules should attach APIs to `Restogogo.<module>` or `Restogogo.services.<s
 - `planning.css` — planning slot/content states only.
 - `actuals.css` — actual slot/content states only.
 - `badge-terminal.css` — standalone badge terminal surface only.
-- `employee-schedule.css` — employee schedule page only.
+- `employee-schedule.css` — employee-facing My Schedule and My Time pages only.
 - `team.css` — Team page only.
 - `restaurant.css` — Restaurant page only.
 - `print.css` — print-only rules.

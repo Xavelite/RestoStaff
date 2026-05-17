@@ -587,7 +587,7 @@
     if(clean.startsWith('badge-') || clean.startsWith('actuals-'))return 'actuals';
     if(clean.startsWith('employee-schedule'))return 'availability';
     if(clean.startsWith('planning-') || clean === 'week-navigation')return 'planning';
-    return 'safe';
+    return 'unknown';
   }
   function rowsForWeek(rows, key, weekStart){
     const week = validDate(weekStart) ? monday(weekStart) : monday();
@@ -651,13 +651,8 @@
       return saveWeeklyScoped(rows, source.weekStart, {availability:false, submissions:false, planning:true, notes:true, actuals:false});
     }
 
-    // Safe fallback for manual/unknown saves: upsert master rows and replace only the active week.
-    // Never delete master data from the browser.
-    if(rows.employees.length && !await upsertRows(TABLES.employees, rows.employees, ['restaurant_id','id']))return false;
-    if(rows.positions.length && !await upsertRows(TABLES.positions, rows.positions, ['restaurant_id','id']))return false;
-    if(rows.zones.length && !await upsertRows(TABLES.zones, rows.zones, ['restaurant_id','id']))return false;
-    if(rows.openingHours.length && !await upsertRows(TABLES.openingHours, rows.openingHours, ['restaurant_id','day_name']))return false;
-    return saveWeeklyScoped(rows, source.weekStart, {availability:true, submissions:true, planning:true, notes:true, actuals:true});
+    setError(`Save blocked: unscoped save reason "${reason}". Use a domain-specific workflow save.`);
+    return false;
   }
 
   async function listRemoteWorkspaces(){

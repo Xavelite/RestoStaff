@@ -5,7 +5,6 @@
 
 (function(){
   let bound = false;
-  let activeTab = 'schedule';
   const Metrics = Restogogo.services.metrics;
   const A = () => Restogogo.logic?.actuals;
 
@@ -84,36 +83,30 @@
     return 'No shift planned';
   }
 
-  function renderMetrics(employee){
+  function renderMetrics(employee, view='schedule'){
     const stats=employeeWeekStats(employee);
     const status=data.status==='Published'?'Published':'Draft';
     return [
-      Metrics.card({tone:'status',icon:'document',label:activeTab==='worked'?'My time':'My schedule',value:status,meta:activeTab==='schedule'?'Tap empty slots to set availability':'Monthly recap'}),
+      Metrics.card({tone:'status',icon:'document',label:view==='worked'?'My time':'My schedule',value:status,meta:view==='schedule'?'Tap empty slots to set availability':'Monthly recap'}),
       Metrics.week({
         tag:'div',
-        id:'employeeScheduleWeekMetric',
-        ariaLabel:'Change week',
-        prevId:'employeeSchedulePrevWeek',
-        nextId:'employeeScheduleNextWeek',
-        inputId:'employeeScheduleWeekStart',
-        inputAriaLabel:'Select week start date',
-        valueId:'employeeScheduleWeekLabel',
-        value:activeTab==='worked'?monthLabel():weekDisplayRange(),
+        id:view==='worked'?'employeeTimeWeekMetric':'employeeScheduleWeekMetric',
+        ariaLabel:view==='worked'?'Change month':'Change week',
+        prevId:view==='worked'?'employeeTimePrevMonth':'employeeSchedulePrevWeek',
+        nextId:view==='worked'?'employeeTimeNextMonth':'employeeScheduleNextWeek',
+        inputId:view==='worked'?'employeeTimeMonthStart':'employeeScheduleWeekStart',
+        inputAriaLabel:view==='worked'?'Select month reference date':'Select week start date',
+        prevAriaLabel:view==='worked'?'Previous month':'Previous week',
+        nextAriaLabel:view==='worked'?'Next month':'Next week',
+        valueId:view==='worked'?'employeeTimeMonthLabel':'employeeScheduleWeekLabel',
+        value:view==='worked'?monthLabel():weekDisplayRange(),
         inputValue:data.weekStart
       }),
-      Metrics.card({tone:'hours',icon:'clock',label:activeTab==='worked'?'Worked time':'Planned hours',value:activeTab==='worked'?fmtHours(stats.workedHours):fmtHours(stats.plannedHours),meta:activeTab==='worked'?`${stats.workedDays} worked days · ${stats.openBadges} live`:`${stats.plannedSlots} planned · ${stats.availableSlots} available`}),
+      Metrics.card({tone:'hours',icon:'clock',label:view==='worked'?'Worked time':'Planned hours',value:view==='worked'?fmtHours(stats.workedHours):fmtHours(stats.plannedHours),meta:view==='worked'?`${stats.workedDays} worked days · ${stats.openBadges} live`:`${stats.plannedSlots} planned · ${stats.availableSlots} available`}),
       Metrics.card({tone:'cost',icon:'check',label:'Next shift',value:stats.plannedSlots?String(stats.plannedSlots):'0',meta:nextPlannedShift(employee)})
     ].join('');
   }
 
-  function setView(view){
-    activeTab = view === 'worked' ? 'worked' : 'schedule';
-    if(typeof session === 'object' && session) session.employeeView = activeTab;
-  }
-
-  function activeView(){
-    return activeTab;
-  }
 
   function renderScheduleSlot(employee, day, shift){
     const planned=isSlotPlanned(employee,day,shift);
@@ -230,10 +223,9 @@
     return `<section class="employee-schedule-tab-panel ops-tab-panel is-worked"><div class="employee-worked-month-head"><strong>${esc(monthLabel())}</strong><span>Calendar view of your badge time</span></div><div class="employee-worked-weekdays"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div><div class="employee-worked-calendar">${rows}</div></section>`;
   }
 
-  function render(){
-    const root=$("employeeScheduleRoot");
+  function renderEmployeePage(rootId, view){
+    const root=$(rootId);
     if(!root||!data)return;
-    activeTab = session.employeeView === 'worked' ? 'worked' : 'schedule';
 
     const employee=currentEmployee();
     if(!employee){
@@ -241,14 +233,20 @@
       return;
     }
 
-    root.innerHTML=`<div class="employee-schedule-shell"><section aria-label="Employee weekly schedule" class="employee-schedule-panel rs-v2-frame">
-      <div aria-label="Schedule summary and controls" class="employee-schedule-metrics rs-weekly-metrics">${renderMetrics(employee)}</div>
-      ${activeTab==='worked'?renderWorked(employee):renderSchedule(employee)}
+    const aria = view==='worked' ? 'Employee worked time' : 'Employee weekly schedule';
+    const content = view==='worked' ? renderWorked(employee) : renderSchedule(employee);
+    root.innerHTML=`<div class="employee-schedule-shell"><section aria-label="${aria}" class="employee-schedule-panel rs-v2-frame">
+      <div aria-label="${view==='worked'?'Worked time summary and controls':'Schedule summary and controls'}" class="employee-schedule-metrics rs-weekly-metrics">${renderMetrics(employee, view)}</div>
+      ${content}
     </section></div>`;
   }
 
+  function render(){
+    renderEmployeePage('employeeScheduleRoot','schedule');
+    renderEmployeePage('employeeTimeRoot','worked');
+  }
+
   function handleSlotClick(day,shift){
-    if(activeTab!=='schedule')return;
     if(!session.employeeId)return;
     const employee=currentEmployee();
     if(!employee)return;
@@ -315,34 +313,32 @@
     Restogogo.ui?.toast?.('Availability time updated.',{tone:'success',icon:'✓',centered:false,timeout:1600});
   }
 
-  function openPicker(){
-    const input=$("employeeScheduleWeekStart");
+  function openPicker(inputId){
+    const input=$(inputId);
     if(!input)return;
     if(typeof input.showPicker==='function')input.showPicker();
     else {input.focus();input.click();}
   }
 
-  function changeWeek(delta){
-    if(activeTab==='worked'){
-      setWeekStartAndLoad(addMonths(data?.weekStart || new Date(), delta > 0 ? 1 : -1));
-      renderApp();
-      return;
-    }
+  function changeScheduleWeek(delta){
     Restogogo.router?.changeWeek?.(delta);
   }
+
+  function changeWorkedMonth(delta){
+    setWeekStartAndLoad(addMonths(data?.weekStart || new Date(), delta > 0 ? 1 : -1));
+    renderApp();
+  }
+
   function setWeek(value){if(!data||!value)return; setWeekStartAndLoad(value); renderApp();}
   function renderApp(){Restogogo.router?.render?.();}
 
-  function bind(){
-    if(bound)return;
-    bound=true;
+  function bindSchedulePage(){
     const page=$('page-employee-schedule');
-
     page?.addEventListener('click',event=>{
-      if(event.target.closest('#employeeSchedulePrevWeek')){event.stopPropagation();changeWeek(-7);return;}
-      if(event.target.closest('#employeeScheduleNextWeek')){event.stopPropagation();changeWeek(7);return;}
+      if(event.target.closest('#employeeSchedulePrevWeek')){event.stopPropagation();changeScheduleWeek(-7);return;}
+      if(event.target.closest('#employeeScheduleNextWeek')){event.stopPropagation();changeScheduleWeek(7);return;}
       if(event.target.closest('#employeeScheduleWeekMetric')){
-        if(!event.target.closest('button,input'))openPicker();
+        if(!event.target.closest('button,input'))openPicker('employeeScheduleWeekStart');
         return;
       }
       const timeButton=event.target.closest('.employee-schedule-time-button');
@@ -359,13 +355,38 @@
     page?.addEventListener('keydown',event=>{
       if(event.target.closest?.('#employeeScheduleWeekMetric')){
         if(event.target.closest('button,input'))return;
-        if(event.key==='Enter'||event.key===' '){event.preventDefault();openPicker();return;}
+        if(event.key==='Enter'||event.key===' '){event.preventDefault();openPicker('employeeScheduleWeekStart');return;}
       }
       const card=event.target.closest?.('.employee-schedule-shift');
       if(card&&page.contains(card))handleSlotKey(event,card.dataset.day,card.dataset.shift);
     });
   }
 
-  const employeeScheduleApi={render,bind,openPicker,changeWeek,setWeek,editAvailabilityTime,setView,activeView};
+  function bindTimePage(){
+    const page=$('page-employee-time');
+    page?.addEventListener('click',event=>{
+      if(event.target.closest('#employeeTimePrevMonth')){event.stopPropagation();changeWorkedMonth(-1);return;}
+      if(event.target.closest('#employeeTimeNextMonth')){event.stopPropagation();changeWorkedMonth(1);return;}
+      if(event.target.closest('#employeeTimeWeekMetric')){
+        if(!event.target.closest('button,input'))openPicker('employeeTimeMonthStart');
+      }
+    });
+    page?.addEventListener('change',event=>{if(event.target?.id==='employeeTimeMonthStart')setWeek(event.target.value);});
+    page?.addEventListener('keydown',event=>{
+      if(event.target.closest?.('#employeeTimeWeekMetric')){
+        if(event.target.closest('button,input'))return;
+        if(event.key==='Enter'||event.key===' '){event.preventDefault();openPicker('employeeTimeMonthStart');}
+      }
+    });
+  }
+
+  function bind(){
+    if(bound)return;
+    bound=true;
+    bindSchedulePage();
+    bindTimePage();
+  }
+
+  const employeeScheduleApi={render,bind,openPicker,changeScheduleWeek,changeWorkedMonth,setWeek,editAvailabilityTime};
   Restogogo.employeeSchedule=employeeScheduleApi;
 })();

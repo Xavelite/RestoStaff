@@ -17,18 +17,15 @@ body:not(.logged-out) .brand-page {
 
 /* Page-state only decides which page is visible. Weekly pages need a flex
    display type so their shared board can constrain the internal table scroll. */
-.planning-mode .planning-page,
-.actuals-mode .actuals-page {
+.planning-mode .planning-page.active,
+.actuals-mode .actuals-page.active {
   display: flex;
 }
 
-.team-mode .team-page,
-.restaurant-mode .restaurant-page {
-  display: block;
-}
-
-.employee-schedule-mode .employee-schedule-page,
-.badge-terminal-mode .badge-terminal-page {
+.team-mode .team-page.active,
+.restaurant-mode .restaurant-page.active,
+.employee-schedule-mode .employee-schedule-page.active,
+.badge-terminal-mode .badge-terminal-page.active {
   display: block;
 }
 

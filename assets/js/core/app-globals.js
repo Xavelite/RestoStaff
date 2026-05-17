@@ -17,7 +17,7 @@ var shifts = ['Lunch','Evening'];
 var defaultPositionPalette = ['#14b8a6','#f0b84a','#8b5cf6','#60a5fa','#64748b','#22c7d7','#c084fc'];
 var defaultZonePalette = ['#b0183b','#2f80ed','#8b5cf6','#f59e0b','#0891b2','#64748b','#db2777','#8a7b82'];
 var data;
-var session = {role:'employee', employeeId:null, employeeView:'schedule'};
+var session = {role:'employee', employeeId:null};
 var positions = [];
 var zoneRules = [];
 var notifOpen = false;

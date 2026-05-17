@@ -1,4 +1,4 @@
-# restogogo — v363 employee nav and cleanup
+# restogogo — v365 employee page routing cleanup
 
 This package is the first real prototype foundation for restogogo:
 
@@ -237,6 +237,13 @@ Persistence is now scoped by domain:
 
 Master data such as employees, zones and positions is never deleted by generic browser saves. Extra guards block saves if previously loaded master data would become empty in runtime state.
 
-## v363 cleanup note
+Additional persistence cleanup in v365: unscoped/generic browser saves are now blocked. Every write must come from a clear domain workflow such as `planning-*`, `employee-schedule`, `badge-*`, `actuals-*`, `team-*`, or `restaurant-*`.
 
-Employee navigation now uses the topbar directly: **My Schedule** and **My Time**. My Time renders the worked-time calendar view through the employee schedule module without inner tabs.
+## v365 employee routing cleanup
+
+Employee navigation now uses real pages, exactly like the manager navigation:
+
+- `page-employee-schedule` = **My Schedule**
+- `page-employee-time` = **My Time**
+
+There is no virtual employee route and no hidden `employeeView` state. My Time renders the worked-time calendar from its own page root, while the employee schedule module only shares rendering helpers and styling.
