@@ -1,199 +1,224 @@
-/** Planning module slice. Loaded in order by index.html. */
-function planningFilterButton(label,value,current,kind){
-  const selected=String(value)===String(current);
-  return [
-    `<button type="button" class="rs-picklist-option ${selected?'is-selected':''}"`,
-    ` data-filter-kind="${esc(kind)}" data-filter-value="${esc(value)}"`,
-    ` aria-pressed="${selected?'true':'false'}">`,
-    `<span class="rs-picklist-option-label">${esc(label)}</span>`,
-    selected?Restogogo.icons.checkmark():'',
-    `</button>`
-  ].join('');
-}
+/* restogogo planning module — calendar view renderer. */
+(function(){
+  const P = Restogogo.planningModule;
+  const PlanningLogic = Restogogo.logic.planning;
+  const Grid = Restogogo.services.weeklyGrid;
+  const Metrics = Restogogo.services.metrics;
 
-function planningSearchControl(){
-  return [
-    `<label class="rs-control rs-search-control" aria-label="Search employees">`,
-    `${Restogogo.icons.svg('search')}`,
-    `<input value="${esc(planningSearch||'')}" placeholder="Search" data-planning-search="true">`,
-    `</label>`
-  ].join('');
-}
+  /* --- IIFE-local render helpers --- */
 
-function planningFilterMenu(info){
-  const positions=planningPositionsForFilter(info.all);
-  const currentRole=cleanPositionName(planningPositionFilter||'all');
-  const employeeViews=[
-    ['All employees','all'],
-    ['Relevant employees','relevant'],
-    ['Planned only','planned'],
-    ['Available only','available'],
-    ['Conflicts only','conflicts']
-  ];
-  const employeeOptions=employeeViews.map(([label,value])=>planningFilterButton(label,value,planningView||'all','employees')).join('');
-  const roleOptions=[planningFilterButton('All roles','all',currentRole,'role')]
-    .concat(positions.map(p=>planningFilterButton(p,p,currentRole,'role')))
-    .join('');
-
-  return [
-    `<details class="rs-toolbar-picklist">`,
-    `<summary class="rs-control-button" aria-label="Planning filters" title="Filters">${Restogogo.icons.svg('filter')}<span>Filters</span>${Restogogo.icons.svg('chevronDown')}</summary>`,
-    `<div class="rs-picklist-menu rs-picklist-menu--toolbar rs-picklist-menu--anchored">`,
-    `<div class="rs-picklist-group"><span class="rs-picklist-label">Employees</span><div class="rs-picklist-options">${employeeOptions}</div></div>`,
-    `<div class="rs-picklist-group"><span class="rs-picklist-label">Role</span><div class="rs-picklist-options">${roleOptions}</div></div>`,
-    `</div>`,
-    `</details>`
-  ].join('');
-}
-
-
-function planningActionsMenu(){
-  const actions=[
-    ['copy-previous-week','Copy previous week'],
-    ['print','Print view'],
-    ['export-csv','Export CSV']
-  ].map(([action,label])=>`<button type="button" data-planning-action="${action}">${label}</button>`).join('');
-
-  return [
-    `<details class="rs-actions-menu">`,
-    `<summary class="rs-control-button rs-icon-button" aria-label="Planning actions" title="Planning actions">${Restogogo.icons.svg('more')}</summary>`,
-    `<div class="rs-actions-menu__panel">${actions}</div>`,
-    `</details>`
-  ].join('');
-}
-
-function planningGridToolbar(info){
-  return [
-    `<section class="planning-grid-toolbar rs-grid-toolbar" aria-label="Planning calendar controls">`,
-    `<div class="rs-grid-toolbar__title"><strong>Employees</strong><span>${info.planned} planned / ${info.total} total</span></div>`,
-    `<div class="rs-grid-toolbar__controls">`,
-    planningSearchControl(),
-    planningFilterMenu(info),
-    planningActionsMenu(),
-    `</div>`,
-    `</section>`
-  ].join('');
-}
-
-function planningConflictBanner(info){
-  if(!info.conflictCount)return '';
-  return `<section class="planning-conflict-banner" role="status"><strong>${info.conflictCount} conflict${info.conflictCount===1?'':'s'} found</strong><span>Some shifts are outside availability.</span></section>`;
-}
-
-function planningShortDay(day){
-  return String(day || '').slice(0,3);
-}
-
-function planningCoverageIssueLabel(issue){
-  const delta=Number(issue.delta || 0);
-  const sign=delta>0?'+':'';
-  const gap=delta<0?`${Math.abs(delta)} missing`:`${sign}${delta} extra`;
-  return `${planningShortDay(issue.day)} ${issue.serviceKey} · ${issue.zoneName || 'Zone'} · ${issue.positionName || 'Role'} · ${gap}`;
-}
-
-function planningCoverageBanner(){
-  const coverage=Restogogo.logic?.coverage;
-  if(!coverage)return '';
-  const summary=coverage.weekSummary(data);
-  if(!summary.requirementCount){
-    return `<section class="planning-coverage-banner is-missing" role="status"><div class="planning-coverage-banner__head"><span>${Restogogo.icons.status('warning',{label:'Coverage setup missing',className:'is-inline'})}</span><strong>Coverage setup missing</strong><em>Define expected staffing by zone, service and position in Restaurant setup.</em></div></section>`;
+  function planningSearchControl(){
+    return Restogogo.services.toolbar.searchControl({
+      ariaLabel:'Search employees',
+      value:P.state.search||'',
+      data:{'data-planning-search':'true'}
+    });
   }
-  if(!summary.issueCount)return '';
-  const visibleIssues=summary.issues.slice(0,8).map(issue=>{
-    const tone=issue.status==='under'?'under':'over';
-    const label=planningCoverageIssueLabel(issue);
-    return `<button type="button" class="planning-coverage-chip is-${tone}" data-planning-coverage-day="${esc(issue.day)}" data-planning-coverage-shift="${esc(issue.serviceKey)}" title="${esc(label)}"><span>${Restogogo.icons.status(issue.status==='under'?'danger':'warning',{label:issue.status==='under'?'Under-covered':'Over-covered',className:'is-inline'})}</span><b>${esc(planningShortDay(issue.day))} ${esc(issue.serviceKey)}</b><em>${esc(issue.zoneName || 'Zone')}</em><strong>${esc(issue.positionName || 'Role')}</strong><i>${issue.delta<0?`-${Math.abs(issue.delta)}`:`+${issue.delta}`}</i></button>`;
-  }).join('');
-  const more=summary.issues.length>8?`<span class="planning-coverage-more">+${summary.issues.length-8} more</span>`:'';
-  return `<section class="planning-coverage-banner" role="status"><div class="planning-coverage-banner__head"><span>${Restogogo.icons.status('warning',{label:'Coverage issues',className:'is-inline'})}</span><strong>${summary.issueCount} coverage issue${summary.issueCount===1?'':'s'}</strong><em>${summary.missingPeople} missing · ${summary.extraPeople} extra</em></div><div class="planning-coverage-list">${visibleIssues}${more}</div></section>`;
-}
 
+  function planningFilterMenu(info){
+    const positions=P.positionsForFilter(info.all);
+    const currentRole=cleanPositionName(P.state.positionFilter||'all');
+    const employeeViews=[
+      ['All employees','all'],
+      ['Relevant employees','relevant'],
+      ['Planned only','planned'],
+      ['Available only','available'],
+      ['Conflicts only','conflicts']
+    ];
+    return Restogogo.services.toolbar.filterMenu({
+      ariaLabel:'Planning filters',
+      groups:[
+        {
+          label:'Employees',
+          options:employeeViews.map(([label,value])=>({label,value,current:P.state.view||'all',kind:'employees',kindAttr:'data-filter-kind',valueAttr:'data-filter-value'}))
+        },
+        {
+          label:'Role',
+          options:[{label:'All roles',value:'all',current:currentRole,kind:'role',kindAttr:'data-filter-kind',valueAttr:'data-filter-value'}]
+            .concat(positions.map(position=>({label:position,value:position,current:currentRole,kind:'role',kindAttr:'data-filter-kind',valueAttr:'data-filter-value'})))
+        }
+      ]
+    });
+  }
 
-function planningDayHeader(d,di,totals){
-  const selected=selectedPlanningDay===d?'col-selected':'';
-  return Grid.dayHeader({
-    moduleName:'planning',
-    day:d,
-    index:di,
-    totals,
-    headClass:'day-group',
-    extraClass:selected,
-    attributes:{
-      'data-planning-action':'select-day',
-      'data-day':d,
-      title:`Select ${d}`,
-      tabindex:'0',
-      role:'button'
+  function planningPublishButton(){
+    const isPublished=data.status==='Published';
+    const editability=P.statusEditability();
+    const label=isPublished?'Revert to draft':'Publish planning';
+    const tone=isPublished?'is-secondary':'is-primary';
+    const icon=isPublished?'edit':'check';
+    return `<button type="button" class="rs-action-button ${tone} planning-publish-action" data-planning-action="publish" aria-label="${esc(label)}" title="${esc(editability.message||label)}" ${editability.ok?'':'disabled'}>${Restogogo.icons.svg(icon)}<span>${esc(label)}</span></button>`;
+  }
+
+  function planningActionsMenu(){
+    const editability=P.editability();
+    return Restogogo.services.toolbar.actionMenu({
+      ariaLabel:'Planning actions',
+      title:'Planning actions',
+      actionAttr:'data-planning-action',
+      items:[
+        {action:'copy-previous-week',label:'Copy previous week',disabled:!editability.ok,title:editability.message||'Copy previous week'},
+        {action:'print',label:'Print view'},
+        {action:'export-csv',label:'Export CSV'}
+      ]
+    });
+  }
+
+  function planningPresenceChips(){
+    const rt      = window.Restogogo?.services?.realtime;
+    const presence = rt?.getPresence?.() || {};
+    // getPresence() already excludes self (keyed by session-key; self removed in service).
+    // Each key is a unique session — no name-based dedup needed.
+    // Show only users currently on the planning page for the same week.
+    const weekStart = data?.weekStart || '';
+    const others = Object.values(presence)
+      .filter(p => p?.name && p.page === 'planning' && p.weekStart === weekStart);
+    if(!others.length) return '';
+    const chips = others.slice(0,5).map(p =>
+      `<span class="rs-presence-chip" title="${esc(p.name)} · ${esc(p.role||'')}">` +
+      `${esc(String(p.name||'?').trim().charAt(0).toUpperCase())}</span>`
+    ).join('');
+    const label = others.length === 1
+      ? `${esc(others[0].name)} is also editing this week`
+      : `${others.length} others editing this week`;
+    return `<div class="rs-presence-bar" aria-label="${label}" title="${label}">${chips}</div>`;
+  }
+
+  function planningGridToolbar(info){
+    return Restogogo.services.toolbar.gridToolbar({
+      tag:'section',
+      className:'rs-weekly-toolbar planning-grid-toolbar',
+      ariaLabel:'Planning calendar controls',
+      leading:[planningSearchControl(),planningFilterMenu(info)],
+      center:Metrics.periodSelector({
+        id:'planningWeekMetric',
+        ariaLabel:'Change planning week',
+        prevId:'prevWeek',
+        nextId:'nextWeek',
+        inputId:'weekStart',
+        inputAriaLabel:'Select planning week',
+        valueId:'planningWeekLabel',
+        label:'Week',
+        value:weekDisplayRange(),
+        inputValue:data.weekStart
+      }),
+      actions:[planningPresenceChips(),planningPublishButton(),planningActionsMenu()]
+    });
+  }
+
+  /* Triggered by the planning page's onPresenceSync listener — kept on P so
+   * planning.page.js can call it without duplicating the chip-render logic. */
+  P.renderPresenceChips = function renderPresenceChips(){
+    const toolbar = document.querySelector('.planning-grid-toolbar');
+    if(!toolbar) return;
+    const existing = toolbar.querySelector('.rs-presence-bar');
+    const next = planningPresenceChips();
+    if(next){
+      if(existing){ existing.outerHTML = next; }
+      else{
+        const actionsArea = toolbar.querySelector('.rs-grid-toolbar__actions');
+        if(actionsArea) actionsArea.insertAdjacentHTML('afterbegin', next);
+      }
+    } else if(existing){
+      existing.remove();
     }
-  });
-}
+  };
 
-function planningTableHead(totals){
-  return Grid.tableHead({
-    moduleName:'planning',
-    totals,
-    dayHeaderRenderer:planningDayHeader,
-    totalHeadHtml:`<div class="rs-weekly-total-head-copy"><span>WEEK</span><strong>${esc(fmtHours(totals.grand))}</strong></div>`
-  });
-}
+  function planningLegend(){
+    return Grid.legend({
+      ariaLabel:'Planning legend',
+      items:[
+        {className:'is-planned',label:'Scheduled shift'},
+        {className:'is-available',label:'Available'},
+        {className:'is-unavailable',label:'Unavailable'},
+        {className:'is-absence',label:'Leave / absence'},
+        {className:'is-conflict',label:'Coverage conflict'}
+      ]
+    });
+  }
 
-function planningPersonCell(e,rowKey){
-  return Grid.personCell({
-    moduleName:'planning',
-    employee:e,
-    tag:'td',
-    avatarStyle:planningAvatarStyle(e.position),
-    leadingHtml:submissionIcon(e.id),
-    attributes:{
-      'data-planning-action':'select-row',
-      'data-rowkey':rowKey,
-      title:`Select ${e.name}`,
-      tabindex:'0',
-      role:'button'
-    }
-  });
-}
+  function planningTodayIndex(){
+    if(!data||!data.weekStart)return -1;
+    const offset=Math.round((parseISO(todayISO())-parseISO(data.weekStart))/86400000);
+    return (offset>=0&&offset<=6)?offset:-1;
+  }
 
-function planningEmployeeDayCell(e,d,di){
-  const selected=selectedPlanningDay===d?'col-selected':'';
-  return Grid.dayCell({
-    moduleName:'planning',
-    day:d,
-    index:di,
-    extraClass:selected,
-    content:shifts.map(sh=>planningSlotCard(e,d,sh)).join('')
-  });
-}
+  function planningDayHeader(d,di,totals){
+    const selected=P.state.selectedDay===d?'col-selected':'';
+    const isToday=planningTodayIndex()===di?'is-today':'';
+    const dayTotals=totals.dayTotals||{};
+    const dayPeople=totals.dayPeople||{};
+    const people=dayPeople[d] instanceof Set ? dayPeople[d].size : Number(dayPeople[d]||0);
+    const classes=['day-group','rs-weekly-day-head',Grid.dayTone(di),selected,isToday].filter(Boolean).join(' ');
+    return `<th class="${esc(classes)}" data-planning-action="select-day" data-day="${esc(d)}" title="${esc(`Select ${d}`)}" tabindex="0" role="button"><div class="rs-weekly-day-head-copy"><strong>${esc(d.slice(0,3))}</strong><span>${esc(shortDisplayDate(dateForDay(d)))}</span><small>${esc(fmtHours(dayTotals[d]||0))} · ${esc(fmtPeople(people))}</small></div></th>`;
+  }
 
-function planningEmployeeRow(e){
-  const rowKey='emp:'+e.id;
-  const selected=selectedPlanningRow===rowKey?'row-selected':'';
-  return Grid.row({
-    moduleName:'planning',
-    employee:e,
-    rowClass:selected,
-    rowAttributes:{'data-rowkey':rowKey},
-    personCellHtml:planningPersonCell(e,rowKey),
-    dayCellRenderer:(d,di)=>planningEmployeeDayCell(e,d,di),
-    totalCellHtml:Grid.totalCell({
+  function planningTableHead(totals){
+    return Grid.tableHead({
       moduleName:'planning',
-      content:`<strong>${esc(fmtHours(PlanningLogic.employeeWeekTotal(e)))}</strong>`
-    })
-  });
-}
+      totals,
+      dayHeaderRenderer:planningDayHeader,
+      totalHeadHtml:`<div class="rs-weekly-total-head-copy"><span>WEEK</span><strong>${esc(fmtHours(totals.grand))}</strong></div>`
+    });
+  }
 
-function planningEmptyRow(){
-  return Grid.emptyRow({
-    className:'planning-empty-row',
-    content:`<div class="planning-empty-state rs-empty-state"><span class="rs-empty-state__icon">${Restogogo.icons.svg('search')}</span><strong>No employees found.</strong><span>Try another search term.</span><span class="rs-empty-state__actions"><button type="button" class="rs-empty-state__action" data-planning-action="clear-filters">Clear search</button></span></div>`
-  });
-}
+  function planningPersonCell(e,rowKey){
+    return Grid.personCell({
+      moduleName:'planning',
+      employee:e,
+      tag:'th',
+      avatarStyle:positionStyle(employeePositionName(e)),
+      attributes:{
+        'data-planning-action':'select-row',
+        'data-rowkey':rowKey,
+        title:`Select ${e.name}`,
+        tabindex:'0',
+        role:'button'
+      }
+    });
+  }
 
-function planningCalendar(){
-  const info=planningVisibleEmployeeInfo();
-  planningApplyMicroFeedback(info.conflictCount);
-  const list=info.list;
-  const totals=PlanningLogic.dayTotals(list);
-  const rows=list.map(planningEmployeeRow).join('') || planningEmptyRow();
-  return `${planningGridToolbar(info)}${planningConflictBanner(info)}${planningCoverageBanner()}<div class="rs-weekly-scroll"><table class="rs-weekly-table">${Grid.colgroup('planning')}${planningTableHead(totals)}<tbody>${rows}</tbody></table></div>`;
-}
+  function planningEmployeeDayCell(e,d,di){
+    const selected=P.state.selectedDay===d?'col-selected':'';
+    const isToday=planningTodayIndex()===di?'is-today':'';
+    return Grid.dayCell({
+      moduleName:'planning',
+      day:d,
+      index:di,
+      extraClass:[selected,isToday].filter(Boolean).join(' '),
+      content:shifts.map(sh=>P.slotCard(e,d,sh)).join('')
+    });
+  }
+
+  function planningEmployeeRow(e){
+    const rowKey='emp:'+e.id;
+    const selected=P.state.selectedRow===rowKey?'row-selected':'';
+    return Grid.row({
+      moduleName:'planning',
+      employee:e,
+      rowClass:selected,
+      rowAttributes:{'data-rowkey':rowKey},
+      personCellHtml:planningPersonCell(e,rowKey),
+      dayCellRenderer:(d,di)=>planningEmployeeDayCell(e,d,di),
+      totalCellHtml:Grid.totalCell({
+        moduleName:'planning',
+        content:`<strong>${esc(fmtHours(PlanningLogic.employeeWeekTotal(e)))}</strong>`
+      })
+    });
+  }
+
+  function planningEmptyRow(){
+    return Grid.emptyRow({
+      className:'planning-empty-row',
+      content:`<div class="planning-empty-state rs-empty-state"><span class="rs-empty-state__icon">${Restogogo.icons.svg('search')}</span><strong>No employees found.</strong><span>Try another search term.</span><span class="rs-empty-state__actions"><button type="button" class="rs-empty-state__action" data-planning-action="clear-filters">Clear search</button></span></div>`
+    });
+  }
+
+  P.calendar = function calendar(){
+    const info=P.visibleEmployeeInfo();
+    const list=info.list;
+    const totals=PlanningLogic.dayTotals(list);
+    const rows=list.map(planningEmployeeRow).join('')||planningEmptyRow();
+    return `${planningGridToolbar(info)}<div class="rs-workspace-body rs-weekly-body"><div class="rs-weekly-scroll"><table class="rs-weekly-table">${Grid.colgroup('planning')}${planningTableHead(totals)}<tbody>${rows}</tbody></table></div>${planningLegend()}</div>`;
+  };
+})();

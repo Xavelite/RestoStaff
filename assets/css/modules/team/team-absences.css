@@ -1,282 +1,52 @@
-/* Team Absences dashboard — operational absence overview, request panel and review table. */
-
-.team-absence-actions{
-  display:flex;
-  flex-wrap:nowrap;
-  justify-content:flex-end;
-  gap:8px;
-}
-.team-absence-actions small{
-  color:var(--rst-ui-muted);
-  font-size:12px;
-}
-.rs-action-button.success{
-  border-color:rgba(73, 222, 128, .32);
-  background:rgba(73, 222, 128, .1);
-}
-.rs-action-button.danger{
-  border-color:rgba(248, 113, 113, .36);
-  background:rgba(248, 113, 113, .1);
-}
-.rs-action-button.secondary{
-  opacity:.86;
-}
-
-.team-absence-dashboard {
-  display: grid;
-  grid-template-columns: 1fr;
-  align-content: start;
-  gap: 12px;
-}
-
+/* Team absences: layout and table sizing only. */
+.team-absence-actions { display: flex; flex-wrap: nowrap; justify-content: flex-end; gap: 8px; }
+.team-absence-actions small { color: var(--rst-ui-muted); font-size: 12px; }
+.team-absence-dashboard { display: grid; align-content: start; gap: 12px; }
 .team-absence-overview-card,
-.team-absence-table-card {
-  width: 100%;
-  min-width: 0;
-}
+.team-absence-table-card { width: 100%; min-width: 0; }
+.team-absence-table-card { display: grid; }
+.team-absence-table-card > header { display: flex; align-items: center; gap: 10px; }
+.team-absence-table-card > header .rs-action-button { margin-left: auto; }
 
-.team-absence-facts {
-  width: 100%;
-  min-width: 0;
-  display: grid;
-  grid-template-columns: repeat(5,minmax(0,1fr));
-  gap: 0;
-  padding: 2px 0 0;
-}
+.team-absence-facts { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 0; }
+.team-absence-fact { min-width: 0; display: grid; align-content: start; gap: 3px; padding: 2px 18px 2px 0; }
+.team-absence-fact + .team-absence-fact { padding-left: 18px; border-left: 1px solid var(--rst-ui-divider-soft); }
+.team-absence-fact :is(small,em) { color: var(--rst-ui-muted); font-size: 10.5px; font-weight: var(--rst-fw-medium); line-height: 1.15; }
+.team-absence-fact small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.team-absence-fact strong { color: var(--rst-ui-text); font-size: 15px; font-weight: var(--rst-fw-display); overflow-wrap: anywhere; }
+.team-absence-fact em { font-style: normal; }
 
-
-
-.team-absence-fact {
-  min-width: 0;
-  display: grid;
-  align-content: start;
-  gap: 3px;
-  padding: 2px 18px 2px 0;
-}
-
-.team-absence-fact + .team-absence-fact {
-  padding-left: 18px;
-  border-left: 1px solid rgba(255,255,255,.065);
-}
-
-.team-absence-fact small {
-  color: #9fb0ca;
-  font-size: 10.5px;
-  font-weight: 820;
-  letter-spacing: .01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.team-absence-fact strong {
-  min-width: 0;
-  color: #f8fafc;
-  font-size: 15px;
-  font-weight: 930;
-  letter-spacing: 0;
-  line-height: 1.08;
-  overflow-wrap: anywhere;
-}
-
-.team-absence-fact em {
-  color: #8ba0bc;
-  font-size: 10.5px;
-  font-style: normal;
-  font-weight: 760;
-  line-height: 1.15;
-}
-
-.team-absence-fact.is-warning strong {
-  color: #fde68a;
-}
-
-.team-absence-table-card {
-  display: grid;
-}
-
-.team-absence-table-card > header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.team-absence-table-card > header .rs-action-button {
-  margin-left: auto;
-}
-
-.team-absence-entry-panel {
-  padding: 12px;
-  border: 1px solid rgba(129,140,248,.16);
-  border-radius: 16px;
-  background: rgba(79,70,229,.055);
-}
-
-.team-absence-form {
-  display: grid;
-  grid-template-columns: repeat(4,minmax(0,1fr)) auto;
-  gap: 8px;
-  align-items: end;
-  margin: 0;
-}
-
-.team-absence-form .team-inline-field {
-  min-height: 54px;
-}
-
-.team-absence-form .team-inline-field.wide {
-  grid-column: span 3;
-}
-
-.team-card-action {
-  min-height: 46px;
-  align-self: stretch;
-  justify-content: center;
-}
-
-.team-absence-table-wrap {
-  overflow-x: auto;
-  border: 1px solid rgba(255,255,255,.055);
-  border-radius: 16px;
-  background: rgba(5,13,26,.18);
-}
-
-.team-absence-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-}
-
-.team-absence-table th:nth-child(1),
-.team-absence-table td:nth-child(1) { width: 15%; }
-.team-absence-table th:nth-child(2),
-.team-absence-table td:nth-child(2) { width: 13%; }
-.team-absence-table th:nth-child(3),
-.team-absence-table td:nth-child(3) { width: 10%; }
-.team-absence-table th:nth-child(4),
-.team-absence-table td:nth-child(4) { width: 13%; }
-.team-absence-table th:nth-child(5),
-.team-absence-table td:nth-child(5) { width: 10%; }
-.team-absence-table th:nth-child(6),
-.team-absence-table td:nth-child(6) { width: 16%; }
-.team-absence-table th:nth-child(7),
-.team-absence-table td:nth-child(7) {
-  width: 23%;
-}
-
-.team-absence-table th,
-.team-absence-table td {
-  padding: 11px 12px;
-  border-bottom: 1px solid rgba(255,255,255,.055);
-  text-align: left;
-  vertical-align: middle;
-}
-
-.team-absence-table th {
-  color: #9fb0ca;
-  font-size: 10.5px;
-  font-weight: 850;
-  letter-spacing: .02em;
-  white-space: nowrap;
-}
-
-.team-absence-table td {
-  color: #dbeafe;
-  font-size: 12px;
-  font-weight: 760;
-  overflow-wrap: anywhere;
-}
-
-.team-absence-table th:nth-child(7),
-.team-absence-table td:nth-child(7) {
-  text-align: right;
-}
-
-.team-absence-table tr:last-child td { border-bottom: 0; }
-
-.team-absence-table td small {
-  display: block;
-  margin-top: 2px;
-  color: #8ba0bc;
-  font-size: 10.5px;
-  font-weight: 760;
-}
-
-.team-absence-type {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  min-width: 0;
-}
-
-.team-absence-type i {
-  width: 26px;
-  height: 26px;
-  display: grid;
-  place-items: center;
-  border-radius: 10px;
-  background: rgba(79,70,229,.16);
-  font-style: normal;
-}
-
-.team-absence-type i svg {
-  width: 15px;
-  height: 15px;
-}
-
-.team-absence-type strong {
-  color: #f8fafc;
-  font-size: 12px;
-  font-weight: 900;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.team-absence-actions .rs-action-button {
-  min-width: 68px;
-  padding-inline: 9px;
-}
-
-.team-absence-table-row.is-pending td { background: rgba(245,158,11,.025); }
-.team-absence-table-row.is-approved td { background: rgba(34,197,94,.018); }
-
-
-.team-absence-empty-row td {
-  padding: 26px 12px;
-  text-align: center;
-}
-
-.team-absence-empty-row strong,
-.team-absence-empty-row span {
-  display: block;
-}
-
-.team-absence-empty-row span {
-  margin-top: 4px;
-  color: #8ba0bc;
-  font-size: 11px;
-}
-
+.team-absence-entry-panel,
+.team-absence-table-wrap,
 .team-absence-history-details {
-  border: 1px solid rgba(255,255,255,.055);
-  border-radius: 16px;
-  background: rgba(255,255,255,.018);
+  border: 1px solid var(--rst-ui-divider-soft);
+  border-radius: var(--rst-ui-radius-lg);
+  background: transparent;
 }
+.team-absence-entry-panel { padding: 12px; }
+.team-absence-form { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)) auto; gap: 8px; align-items: end; margin: 0; }
+.team-absence-form .team-inline-field { --rs-field-min-height: 44px; min-height: 54px; }
+.team-absence-form .team-inline-field.wide { grid-column: span 3; }
+.team-card-action { min-height: 46px; align-self: stretch; justify-content: center; }
 
-.team-absence-history-details summary {
-  padding: 11px 13px;
-  cursor: pointer;
-  color: #dbeafe;
-  font-size: 12px;
-  font-weight: 900;
-  list-style: none;
-}
+.team-absence-table-wrap { overflow-x: auto; }
+.team-absence-table { table-layout: fixed; }
+.team-absence-table th:nth-child(1), .team-absence-table td:nth-child(1) { width: 15%; }
+.team-absence-table th:nth-child(2), .team-absence-table td:nth-child(2) { width: 13%; }
+.team-absence-table th:nth-child(3), .team-absence-table td:nth-child(3) { width: 10%; }
+.team-absence-table th:nth-child(4), .team-absence-table td:nth-child(4) { width: 13%; }
+.team-absence-table th:nth-child(5), .team-absence-table td:nth-child(5) { width: 10%; }
+.team-absence-table th:nth-child(6), .team-absence-table td:nth-child(6) { width: 16%; }
+.team-absence-table th:nth-child(7), .team-absence-table td:nth-child(7) { width: 23%; text-align: right; }
+.team-absence-table td small { display: block; margin-top: 2px; color: var(--rst-ui-muted); font-size: 10.5px; font-weight: var(--rst-fw-medium); }
 
+.team-absence-type { display: inline-flex; align-items: center; gap: 9px; min-width: 0; }
+.team-absence-type .team-absence-type-icon { --rs-absence-icon-size: 15px; --rs-absence-icon-box: 26px; width: 26px; height: 26px; flex: 0 0 26px; background: transparent; }
+.team-absence-type strong { overflow: hidden; color: var(--rst-ui-text); font-size: 12px; font-weight: var(--rst-fw-bold); text-overflow: ellipsis; white-space: nowrap; }
+.team-absence-actions .rs-action-button { min-width: 68px; padding-inline: 9px; }
+.team-absence-empty-row td { padding: 26px 12px; text-align: center; }
+.team-absence-empty-row :is(strong,span) { display: block; }
+.team-absence-empty-row span { margin-top: 4px; color: var(--rst-ui-muted); font-size: 11px; }
+.team-absence-history-details summary { padding: 11px 13px; cursor: pointer; color: var(--rst-ui-text); font-size: 12px; font-weight: var(--rst-fw-bold); list-style: none; }
 .team-absence-history-details summary::-webkit-details-marker { display: none; }
-
-.team-absence-history-details .team-absence-table-wrap {
-  border: 0;
-  border-top: 1px solid rgba(255,255,255,.055);
-  border-radius: 0 0 16px 16px;
-}
+.team-absence-history-details .team-absence-table-wrap { border: 0; border-top: 1px solid var(--rst-ui-divider-soft); border-radius: 0 0 var(--rst-ui-radius-lg) var(--rst-ui-radius-lg); }

@@ -1,0 +1,37 @@
+/* Shared chip/badge primitive.
+   Chips are neutral content labels; strong operational colour belongs in metrics or explicit state components. */
+.rs-chip {
+  min-height: 22px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--rst-ui-line);
+  border-radius: var(--rst-ui-radius-sm);
+  background: var(--rst-ui-divider-soft);
+  color: var(--rst-ui-muted);
+  font-size: 11px;
+  font-weight: var(--rst-fw-bold);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.rs-chip svg {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.rs-chip:is(.is-success,.is-warning,.is-danger,.is-info,.is-neutral) {
+  border-color: var(--rst-ui-line);
+  background: var(--rst-ui-divider-soft);
+  color: var(--rst-ui-muted);
+}
+
+.rs-chip.is-pill {
+  border-radius: var(--rst-ui-radius-pill);
+}

@@ -1,34 +1,9 @@
-/* restogogo shared picklist system.
-   One visual language for form selects, toolbar filters and inline choice menus. */
-:root {
-  --rs-picklist-surface: linear-gradient(180deg,rgba(8,17,31,.99),rgba(6,13,24,.99));
-  --rs-picklist-border: rgba(148,163,184,.18);
-  --rs-picklist-border-active: rgba(125,161,255,.30);
-  --rs-picklist-text: #e8f1ff;
-  --rs-picklist-muted: #8fb4e8;
-  --rs-picklist-hover: rgba(255,255,255,.07);
-  --rs-picklist-selected: linear-gradient(135deg,rgba(59,130,246,.20),rgba(124,58,237,.16));
-  --rs-picklist-check-bg: rgba(74,222,128,.16);
-  --rs-picklist-check-text: #a7f3d0;
-  --rs-picklist-shadow: 0 22px 56px rgba(0,0,0,.46), inset 0 1px 0 rgba(255,255,255,.05);
-}
-
-.rs-picklist {
-  position: relative;
-  min-width: 0;
-  display: block;
-  width: 100%;
-}
-
-.rs-picklist-native {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  opacity: 0;
-  pointer-events: none;
-}
+/* Shared picklist/menu system. */
+.rs-picklist,
+.rs-toolbar-picklist,
+.rs-actions-menu { position: relative; display: block; min-width: 0; }
+.rs-picklist { width: 100%; }
+.rs-picklist-native { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; }
 
 .rs-picklist-trigger {
   appearance: none;
@@ -43,114 +18,36 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--rs-picklist-text);
-  box-shadow: none;
-  cursor: pointer;
+  color: var(--rst-ui-text);
   font: inherit;
   font-size: var(--rs-field-control-size,12.5px);
-  font-weight: var(--rs-field-control-weight,780);
-  line-height: 1.2;
+  font-weight: var(--rs-field-control-weight,var(--rst-fw-medium));
   text-align: left;
+  cursor: pointer;
 }
-
-.rs-picklist-trigger:disabled {
-  cursor: not-allowed;
-  opacity: .62;
-}
-
-.rs-picklist-trigger:focus-visible {
-  outline: 0;
-}
-
-.rs-picklist-trigger-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.rs-picklist-caret {
-  width: 0;
-  height: 0;
-  flex: 0 0 auto;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 6px solid #dbeafe;
-  opacity: .9;
-  transition: transform .16s ease, opacity .16s ease;
-}
-
-.rs-picklist.is-open .rs-picklist-caret {
-  transform: rotate(180deg);
-  opacity: 1;
-}
+.rs-picklist-trigger:disabled { cursor: not-allowed; opacity: .62; }
+.rs-picklist-trigger-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rs-picklist-caret { width: 0; height: 0; flex: 0 0 auto; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid var(--rst-state-info-text); }
+.rs-picklist.is-open .rs-picklist-caret { transform: rotate(180deg); }
 
 .rs-picklist-menu {
-  z-index: 1000;
+  z-index: var(--rst-z-overlay);
   display: grid;
   gap: 4px;
   padding: 7px;
-  border: 1px solid var(--rs-picklist-border);
-  border-radius: 12px;
-  background: var(--rs-picklist-surface);
-  color: var(--rs-picklist-text);
-  box-shadow: var(--rs-picklist-shadow);
+  border: 1px solid var(--rst-ui-divider);
+  border-radius: var(--rst-ui-radius-md);
+  background: var(--rst-ui-workspace-header);
+  color: var(--rst-ui-text);
   overflow-y: auto;
-  overscroll-behavior: contain;
 }
+.rs-picklist-menu--floating { position: fixed; max-height: min(320px,calc(100vh - 32px)); }
+.rs-picklist-menu--anchored { position: absolute; top: calc(100% + 8px); right: 0; min-width: 260px; max-height: min(440px,calc(100vh - 150px)); gap: 12px; padding: 12px; }
+.rs-picklist-menu--inline { position: absolute; left: -7px; top: calc(100% + 6px); z-index: var(--rst-z-popover); width: max(150px,calc(100% + 14px)); max-height: 220px; }
 
-.rs-picklist-menu--floating {
-  position: fixed;
-  max-height: min(320px,calc(100vh - 32px));
-}
-
-.rs-picklist-menu--anchored {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  min-width: 260px;
-  max-height: min(440px,calc(100vh - 150px));
-  display: grid;
-  gap: 12px;
-  padding: 12px;
-}
-
-.rs-picklist-menu--inline {
-  position: absolute;
-  left: -7px;
-  top: calc(100% + 6px);
-  z-index: 120;
-  width: max(150px,calc(100% + 14px));
-  max-height: 220px;
-}
-
-.rs-picklist-menu--field {
-  border-radius: 11px;
-}
-
-.rs-picklist-menu--toolbar {
-  border-radius: 14px;
-}
-
-.rs-picklist-group {
-  display: grid;
-  gap: 7px;
-}
-
-.rs-picklist-label {
-  color: var(--rs-picklist-muted);
-  font-size: 10px;
-  font-weight: 950;
-  text-transform: uppercase;
-  letter-spacing: .095em;
-  line-height: 1;
-}
-
-.rs-picklist-options {
-  display: grid;
-  gap: 4px;
-}
-
+.rs-picklist-group,
+.rs-picklist-options { display: grid; gap: 4px; }
+.rs-picklist-label { color: var(--rst-ui-muted); font-size: 10px; font-weight: var(--rst-fw-bold); text-transform: uppercase; letter-spacing: .09em; }
 .rs-picklist-option {
   appearance: none;
   width: 100%;
@@ -162,119 +59,25 @@
   margin: 0;
   padding: 0 9px;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--rst-ui-radius-xs);
   background: transparent;
-  color: var(--rs-picklist-text);
-  box-shadow: none;
-  cursor: pointer;
+  color: var(--rst-ui-text);
   font: inherit;
   font-size: 12.5px;
-  font-weight: 780;
-  line-height: 1.1;
+  font-weight: var(--rst-fw-bold);
   text-align: left;
+  cursor: pointer;
 }
-
-.rs-picklist-menu--toolbar .rs-picklist-option {
-  min-height: 34px;
-  gap: 10px;
-  padding: 0 10px;
-  border-radius: 9px;
-  font-size: 13px;
-  font-weight: 820;
-}
-
-.rs-picklist-option:hover,
-.rs-picklist-option:focus-visible {
-  background: var(--rs-picklist-hover);
-  color: #fff;
-  outline: 0;
-}
-
-.rs-picklist-option.is-selected {
-  background: var(--rs-picklist-selected);
-  border-color: var(--rs-picklist-border-active);
-  color: #fff;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.055);
-}
-
+.rs-picklist-option:is(:hover,:focus-visible,.is-selected) { background: var(--rst-ui-section-row-hover); outline: 0; }
 .rs-picklist-option:disabled,
-.rs-picklist-option.is-disabled {
-  cursor: not-allowed;
-  opacity: .52;
-}
-
-.rs-picklist-option-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.rs-picklist-check {
-  width: 17px;
-  height: 17px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: var(--rs-picklist-check-bg);
-  color: var(--rs-picklist-check-text);
-  font-size: 11px;
-  font-weight: 950;
-}
-
-.rs-picklist-menu--toolbar .rs-picklist-check {
-  width: 18px;
-  height: 18px;
-  font-size: 12px;
-}
-
-.rs-toolbar-picklist,
-.rs-actions-menu {
-  position: relative;
-  display: block;
-}
+.rs-picklist-option.is-disabled { cursor: not-allowed; opacity: .52; }
+.rs-picklist-option-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rs-picklist-check { width: 17px; height: 17px; display: grid; place-items: center; border-radius: var(--rst-ui-radius-round); color: var(--rst-state-success-text); font-size: 11px; font-weight: var(--rst-fw-display); }
 
 .rs-toolbar-picklist > summary,
-.rs-actions-menu > summary {
-  list-style: none;
-  cursor: pointer;
-  user-select: none;
-}
-
+.rs-actions-menu > summary { list-style: none; cursor: pointer; user-select: none; }
 .rs-toolbar-picklist > summary::-webkit-details-marker,
-.rs-actions-menu > summary::-webkit-details-marker {
-  display: none;
-}
-
-.rs-toolbar-picklist .rs-control-button {
-  width: 136px;
-  min-width: 136px;
-  font-size: 14px;
-  font-weight: 850;
-}
-
+.rs-actions-menu > summary::-webkit-details-marker { display: none; }
+.rs-toolbar-picklist .rs-control-button { width: 136px; min-width: 136px; font-size: 14px; font-weight: var(--rst-fw-bold); }
 .rs-toolbar-picklist[open] .rs-control-button,
-.rs-actions-menu[open] .rs-control-button {
-  border-color: rgba(96,165,250,.18);
-  background: rgba(59,130,246,.075);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.075);
-}
-
-.rs-toolbar-picklist[open] .rs-picklist-menu--anchored,
-.rs-actions-menu[open] .rs-actions-menu__panel,
-.rs-picklist-menu--floating.is-open {
-  animation: rsPicklistSoftIn .14s ease-out;
-}
-
-@keyframes rsPicklistSoftIn {
-  from { opacity: .72; transform: translateY(-3px) scale(.985); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-@media (prefers-reduced-motion:reduce) {
-  .rs-toolbar-picklist[open] .rs-picklist-menu--anchored,
-  .rs-actions-menu[open] .rs-actions-menu__panel,
-  .rs-picklist-menu--floating.is-open { animation: none; }
-}
+.rs-actions-menu[open] .rs-control-button { border-color: var(--rst-ui-divider); background: var(--rst-ui-section-row-hover); }

@@ -11,12 +11,8 @@ function normalizeRuntimeState(target=data){
 
   o.restaurantSetup = normalizeRestaurantSetup(o.restaurantSetup, {restaurant:o.restaurant});
 
-  o.positions = o.restaurantSetup.positions
-    .filter(position=>position.active !== false)
-    .map(position=>cleanPositionName(position.name))
-    .filter(Boolean);
-  o.positions = o.positions.filter((p,i,a)=>a.indexOf(p)===i);
-  positions = o.positions;
+  // Keep positions single-sourced in restaurantSetup.positions; modules must use selectors.
+  delete o.positions;
 
   if(!Array.isArray(o.employees)) o.employees = [];
   const seenEmployeeIds = new Set();
@@ -32,20 +28,12 @@ function normalizeRuntimeState(target=data){
     return normalized;
   });
 
-  o.assignments = canonicalizeAssignmentMap(o.assignments, o.restaurantSetup);
-  o.assignmentPositions = canonicalizeAssignmentPositionMap(o.assignmentPositions, o.restaurantSetup);
   o.weekStart = monday(o.weekStart || new Date());
   o.status = normalizeStatus(o.status);
   o.history = normalizeHistory(o.history);
-  Object.values(o.history).forEach(week=>{
-    week.assignments = canonicalizeAssignmentMap(week.assignments, o.restaurantSetup);
-    week.assignmentPositions = canonicalizeAssignmentPositionMap(week.assignmentPositions, o.restaurantSetup);
-  });
   o.notifications = Array.isArray(o.notifications) ? o.notifications : [];
 
   applyWeeklyPayloadToState(o, weeklyPayloadFromState(o));
-  o.assignments = canonicalizeAssignmentMap(o.assignments, o.restaurantSetup);
-  o.assignmentPositions = canonicalizeAssignmentPositionMap(o.assignmentPositions, o.restaurantSetup);
   return o;
 }
 

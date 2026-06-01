@@ -1,7 +1,14 @@
 (function(){
   const Metrics = Restogogo.services.metrics;
+  const Toolbar = Restogogo.services.toolbar;
   const TeamModel = Restogogo.modules.TeamModel;
+  const SetupReadiness = Restogogo.services.setupReadiness;
+  const SetupGuide = Restogogo.services.setupGuide;
   const Icons = Restogogo.icons;
+
+  function canSeeSensitiveTeamData(){
+    return Restogogo.registry?.isOwner?.(session.role) === true;
+  }
 
   const OPTION_GROUPS = {
     contractType:[
@@ -57,25 +64,27 @@
 
   function employeeStatusState(employee,status=TeamModel.employeeStatus(employee)){
     if(employee?.active === false)return 'inactive';
-    return status.tone === 'warn' ? 'warning' : 'active';
+    return status.tone === 'warning' ? 'warning' : 'active';
   }
 
   function employeeStatusIcon(employee){
     const status = TeamModel.employeeStatus(employee);
-    return statusIcon(employeeStatusState(employee,status),{label:status.label,className:'is-inline'});
+    const state = employeeStatusState(employee,status);
+    return `<span class="rs-status-dot is-${esc(state)}" title="${esc(status.label)}" aria-label="${esc(status.label)}"></span>`;
+  }
+
+  function employeeStatusPill(employee){
+    const status = TeamModel.employeeStatus(employee);
+    return `<span class="rs-chip rs-chip--status is-pill">${esc(status.label)}</span>`;
   }
 
   function absenceStatusState(status){
-    const clean = String(status || 'Pending');
-    if(clean === 'Approved')return 'approved';
-    if(clean === 'Rejected')return 'rejected';
-    if(clean === 'Cancelled')return 'cancelled';
-    return 'pending';
+    return Restogogo.logic?.absences?.statusState?.(status) || 'pending';
   }
 
   function initialsAvatar(employee){
     const name = employee.name || `${employee.firstName || ''} ${employee.lastName || ''}`.trim() || 'New';
-    return `<span class="rs-weekly-avatar team-avatar" style="${esc(positionStyle(employeePositionName(employee)))}">${esc(employeeInitials(name).slice(0,1))}</span>`;
+    return `<span class="rs-avatar rs-person-avatar team-avatar" style="${esc(positionStyle(employeePositionName(employee)))}">${esc(employeeInitials(name).slice(0,1))}</span>`;
   }
 
   function payrollPercent(employees){
@@ -89,30 +98,21 @@
     const nextExpiry = expiring.map(employee=>TeamModel.daysUntil(employee.contractEnd)).filter(Number.isFinite).sort((a,b)=>a-b)[0];
     const absences = TeamModel.countAbsencesThisMonth(employees);
     const ready = employees.filter(TeamModel.isPayrollReady).length;
-    return `<section class="team-metrics rs-page-metrics rs-weekly-metrics">
-      ${Metrics.card({tone:'status',icon:'document',label:'Total employees',value:String(employees.length),meta:`${active} active · ${inactive} inactive`})}
-      ${Metrics.card({tone:'week',icon:'calendar',label:'Contracts expiring',value:String(expiring.length),meta:nextExpiry!==undefined?`Next: ${nextExpiry} days`:'No urgent renewals'})}
-      ${Metrics.card({tone:'hours',icon:'clock',label:'Absences this month',value:String(absences),meta:'Linked to planning availability'})}
-      ${Metrics.card({tone:'status',icon:'check',label:'Payroll ready',value:`${payrollPercent(employees)}%`,meta:`${ready} of ${employees.length || 0} employees ready`})}
-    </section>`;
+    return `${Metrics.card({detailKey:'team.employees',className:'rs-metric--hero',tone:'status',icon:'users',label:'Total employees',value:String(employees.length),meta:`${active} active · ${inactive} inactive`})}
+      ${Metrics.card({detailKey:'team.contracts',tone:expiring.length?'warning':'success',icon:'document',label:'Contracts expiring',value:String(expiring.length),meta:nextExpiry!==undefined?`Next: ${nextExpiry} days`:'No urgent renewals'})}
+      ${Metrics.card({detailKey:'team.absences',tone:'hours',icon:'palm',label:'Absences this month',value:String(absences),meta:'Linked to planning availability'})}
+      ${Metrics.card({detailKey:'team.payroll',tone:ready === (employees.length || 0)?'success':'warning',icon:'payroll',label:'Payroll ready',value:`${payrollPercent(employees)}%`,meta:`${ready} of ${employees.length || 0} employees ready`})}`;
   }
 
   function directoryFilterButton(label,value,current,count){
-    return `<button type="button" class="team-directory-filter ${current===value?'is-active':''}" data-team-filter="${esc(value)}"><span>${esc(label)}</span><strong>${esc(String(count))}</strong></button>`;
+    return `<button type="button" class="rs-filter-chip team-directory-filter ${current===value?'is-active':''}" data-team-filter="${esc(value)}"><span>${esc(label)}</span><strong>${esc(String(count))}</strong></button>`;
   }
 
   function directoryIssueBadges(employee){
     const issues = TeamModel.setupIssues(employee);
-    const setup = issues.general + issues.contract + issues.payroll;
-    const badges = [];
-    if(setup){
-      badges.push(`<small class="team-person-badge is-warning" title="${esc(String(setup))} setup items" aria-label="${esc(String(setup))} setup items">${esc(String(setup))}</small>`);
-    }
-    if(issues.absences){
-      const label = issues.absences === 1 ? '1 pending approval' : `${issues.absences} pending approvals`;
-      badges.push(`<small class="team-person-badge is-action" title="${esc(label)}" aria-label="${esc(label)}">${esc(String(issues.absences))}</small>`);
-    }
-    return badges.join('');
+    if(!issues.absences) return '';
+    const label = issues.absences === 1 ? '1 pending approval' : `${issues.absences} pending approvals`;
+    return `<small class="rs-person-badge is-warning" title="${esc(label)}" aria-label="${esc(label)}">${esc(String(issues.absences))}</small>`;
   }
 
   function directory(ctx){
@@ -123,23 +123,23 @@
       const status = TeamModel.employeeStatus(employee);
       const active = employee.id === ctx.selectedEmployeeId;
       const name = employee.name || 'New employee';
-      return `<button type="button" class="team-person ${active?'is-active':''}" data-team-select="${esc(employee.id)}">
+      return `<button type="button" class="rs-person-row team-person ${active?'is-active':''}" data-team-select="${esc(employee.id)}">
         ${initialsAvatar(employee)}
-        <span class="team-person-copy">
-          <span class="team-person-line"><strong>${esc(name)}</strong><span class="team-person-badges">${directoryIssueBadges(employee)}</span>${employeeStatusIcon(employee)}</span>
+        <span class="rs-person-copy team-person-copy">
+          <span class="rs-person-line team-person-line"><strong>${esc(name)}</strong><span class="rs-person-badges team-person-badges">${directoryIssueBadges(employee)}</span>${employeeStatusIcon(employee)}</span>
           <small>${esc(currentPositionName(employee, ctx))}</small>
         </span>
       </button>`;
     }).join('') || `<div class="rs-empty-state"><strong>No employees found</strong><span>Search another name or add a new employee.</span></div>`;
-    return `<aside class="team-directory rs-panel">
-      <div class="rs-panel-head"><h2>Team Directory</h2><button type="button" class="rs-action-button is-compact" data-team-action="add-employee">+ Add</button></div>
-      <label class="rs-search">${icon('search')}<input value="${esc(ctx.teamSearch)}" placeholder="Search employees..." data-team-search></label>
+    return `<aside class="rs-section-surface rs-workbench-list rs-workbench-list--directory team-directory">
+      <div class="rs-panel-head"><h2>Employees</h2><button type="button" class="rs-action-button is-compact" data-team-action="add-employee">${icon('plus')}<span>Add</span></button></div>
+      ${Toolbar.searchControl({className:'team-directory-search',ariaLabel:'Search employees',placeholder:'Search employees...',value:ctx.teamSearch,data:{'data-team-search':true}})}
       <div class="team-directory-filters" aria-label="Team directory filters">
         ${directoryFilterButton('All','all',filter,counts.all)}
         ${directoryFilterButton('Active','active',filter,counts.active)}
-        ${directoryFilterButton('Needs','action',filter,counts.action)}
+        ${directoryFilterButton('Issues','action',filter,counts.action)}
       </div>
-      <div class="team-list">${rows}</div>
+      <div class="rs-workbench-list-scroll team-list">${rows}</div>
       <div class="rs-panel-foot"><span>Showing ${employees.length} of ${ctx.employees.length}</span></div>
     </aside>`;
   }
@@ -148,44 +148,27 @@
     return value ? shortDisplayDate(value) : fallback;
   }
 
-
-  function teamHeaderIllustration(){
-    return `<div class="team-profile-illustration rs-entity-illustration" aria-hidden="true"><svg viewBox="0 0 260 96" fill="none">
-      <path d="M22 78h216"></path>
-      <circle cx="74" cy="34" r="16"></circle><path d="M43 80c5-20 16-31 31-31s26 11 31 31"></path>
-      <circle cx="134" cy="29" r="18"></circle><path d="M99 80c6-23 19-35 35-35s29 12 35 35"></path>
-      <circle cx="194" cy="36" r="14"></circle><path d="M168 80c5-18 14-28 26-28s22 10 26 28"></path>
-      <path d="M31 21h28M204 20h25M215 31h15M112 18h44"></path>
-    </svg></div>`;
-  }
-
   function profileChip(iconName,label){
     return `<span class="rs-entity-chip team-profile-chip">${icon(iconName,'rs-inline-icon')}${esc(label)}</span>`;
   }
 
+
   function profileHeader(employee, ctx){
-    const status = TeamModel.employeeStatus(employee);
-    const endDays = TeamModel.daysUntil(employee.contractEnd);
-    const renewal = Number.isFinite(endDays) ? (endDays < 0 ? 'Expired' : `Ends in ${endDays} days`) : 'No end';
     const name = employee.name || `${employee.firstName || ''} ${employee.lastName || ''}`.trim() || 'New employee';
-    const contract = employee.contractType ? optionLabel(OPTION_GROUPS.contractType, employee.contractType) : 'No contract';
     const weeklyHours = employee.contractHours ? `${fmtHours(employee.contractHours)} / week` : '0h / week';
     const avatar = initialsAvatar({...employee,name}).replace('team-avatar', 'team-avatar rs-entity-avatar');
     return `<header class="team-profile-head team-profile-hero rs-entity-header rs-entity-header--team">
       <div class="team-profile-main rs-entity-identity">
         ${avatar}
         <div class="team-profile-title rs-entity-copy">
-          <div class="rs-entity-title-line"><h2>${esc(name)}</h2>${statusIcon(employeeStatusState(employee,status),{label:status.label})}</div>
+          <div class="rs-entity-title-line"><h2>${esc(name)}</h2>${employeeStatusPill(employee)}</div>
           <p class="team-profile-meta-chips rs-entity-chips" aria-label="Employee summary">
             ${profileChip('position', currentPositionName(employee, ctx))}
             ${profileChip('clock', weeklyHours)}
-            ${profileChip('document', contract)}
-            ${profileChip('calendar', formatProfileDate(employee.contractStart,'No start'))}
-            ${profileChip('timer', renewal)}
           </p>
         </div>
       </div>
-      ${teamHeaderIllustration()}
+      ${profileActions(ctx)}
     </header>`;
   }
 
@@ -194,7 +177,7 @@
   }
 
   function inputField(label,name,value,type='text',attrs='',fieldClass=''){
-    return `<label class="rs-field team-inline-field${fieldClass}"><span>${esc(label)}</span><input name="${esc(name)}" value="${esc(value ?? '')}" type="${esc(type)}" data-team-field="${esc(name)}" ${attrs}></label>`;
+    return `<label class="rs-field team-inline-field${fieldClass}"><span>${esc(label)}</span><input name="${esc(name)}" value="${esc(value ?? '')}" type="${esc(type)}" placeholder="${esc(label)}" data-team-field="${esc(name)}" ${attrs}></label>`;
   }
 
   function selectField(label,name,value,options,fieldClass=''){
@@ -230,13 +213,13 @@
     const status = String(absence.status || 'Pending');
     if(status === 'Pending'){
       return `<div class="team-absence-actions">
-        <button type="button" class="rs-action-button is-compact success" data-team-action="approve-absence" data-absence-id="${idValue}">Approve</button>
-        <button type="button" class="rs-action-button is-compact danger" data-team-action="reject-absence" data-absence-id="${idValue}">Reject</button>
+        <button type="button" class="rs-action-button is-compact is-success" data-team-action="approve-absence" data-absence-id="${idValue}">Approve</button>
+        <button type="button" class="rs-action-button is-compact is-danger" data-team-action="reject-absence" data-absence-id="${idValue}">Reject</button>
       </div>`;
     }
     if(status === 'Approved'){
       return `<div class="team-absence-actions">
-        <button type="button" class="rs-action-button is-compact secondary" data-team-action="cancel-absence" data-absence-id="${idValue}">Cancel</button>
+        <button type="button" class="rs-action-button is-compact is-secondary" data-team-action="cancel-absence" data-absence-id="${idValue}">Cancel</button>
       </div>`;
     }
     return `<div class="team-absence-actions"><small>History</small></div>`;
@@ -244,40 +227,27 @@
 
 
   function absenceDateValue(value){
-    return String(value || '').slice(0,10);
+    return Restogogo.logic?.absences?.dateValue?.(value) || String(value || '').slice(0,10);
   }
 
   function absenceDurationDays(absence){
-    const start = new Date(`${absenceDateValue(absence?.start)}T00:00:00`);
-    const end = new Date(`${absenceDateValue(absence?.end || absence?.start)}T00:00:00`);
-    if(Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()))return 1;
-    return Math.max(1, Math.round((end - start) / 86400000) + 1);
+    return Restogogo.logic?.absences?.calendarDays?.(absence,1) || 1;
   }
 
   function absenceYear(absence){
-    const start = absenceDateValue(absence?.start);
-    return Number(start.slice(0,4)) || new Date().getFullYear();
+    return Restogogo.logic?.absences?.year?.(absence) || new Date().getFullYear();
   }
 
   function absenceTypeIcon(label){
-    return /sick|ill|medical|doctor|health|malad/i.test(String(label || '')) ? 'medical' : 'palm';
+    return Restogogo.logic?.absences?.iconNameForText?.(label) || 'palm';
   }
 
   function absenceDateRange(absence){
-    const start = absenceDateValue(absence?.start);
-    const end = absenceDateValue(absence?.end || absence?.start);
-    if(!start)return '—';
-    if(!end || end === start)return shortDisplayDate(start);
-    return `${shortDisplayDate(start)} → ${shortDisplayDate(end)}`;
+    return Restogogo.logic?.absences?.dateRangeLabel?.(absence) || '—';
   }
 
   function absenceDayRange(absence){
-    const start = absenceDateValue(absence?.start);
-    const end = absenceDateValue(absence?.end || absence?.start);
-    if(!start)return '';
-    const startDay = new Date(`${start}T00:00:00`).toLocaleDateString(undefined,{weekday:'short'});
-    const endDay = end && end !== start ? new Date(`${end}T00:00:00`).toLocaleDateString(undefined,{weekday:'short'}) : '';
-    return endDay ? `${startDay} → ${endDay}` : startDay;
+    return Restogogo.logic?.absences?.weekdayRangeLabel?.(absence) || '';
   }
 
   function absenceManager(absence){
@@ -307,8 +277,10 @@
     return rows.map(absence=>{
       const label = absenceTypeLabel(types, absence.absenceTypeId, absence.reason || 'Leave');
       const duration = absenceDurationDays(absence);
+      const absenceIcon = absenceTypeIcon(label);
+      const absenceIconClass = Restogogo.logic?.absences?.iconClassName?.(absenceIcon) || 'calendar';
       return `<tr class="team-absence-table-row is-${esc(String(absence.status || 'Pending').toLowerCase())}">
-        <td><span class="team-absence-type"><i aria-hidden="true">${icon(absenceTypeIcon(label))}</i><strong>${esc(label)}</strong></span></td>
+        <td><span class="team-absence-type"><i class="rs-absence-icon team-absence-type-icon is-${esc(absenceIconClass)}" aria-hidden="true">${icon(absenceIcon)}</i><strong>${esc(label)}</strong></span></td>
         <td><strong>${esc(absenceDateRange(absence))}</strong><small>${esc(absenceDayRange(absence))}</small></td>
         <td>${esc(duration === 1 ? '1 day' : `${duration} days`)}${absence.shift && absence.shift !== 'Full day' ? `<small>${esc(absence.shift)}</small>` : ''}</td>
         <td>${absenceStatusBadge(absence.status)}</td>
@@ -320,8 +292,7 @@
   }
 
   function absenceStatusRank(status){
-    const value = String(status || 'Pending');
-    return value === 'Pending' ? 0 : value === 'Approved' ? 1 : value === 'Rejected' ? 2 : 3;
+    return Restogogo.logic?.absences?.statusRank?.(status,'workflow') ?? 9;
   }
 
   function absenceFact(label,value,meta='',tone=''){
@@ -350,122 +321,128 @@
       ${absenceFact('Upcoming',String(upcoming),upcoming === 1 ? 'record' : 'records')}
     </div>`;
   }
-  function tabButton(label,value,teamTab,badge=''){
-    return `<button type="button" class="ops-tab team-tab ${teamTab===value?'is-active':''}" data-team-tab="${esc(value)}"><span>${esc(label)}</span>${badge?`<small>${esc(badge)}</small>`:''}</button>`;
+  function tabButton(label,value,teamTab,iconName=''){
+    return `<button type="button" class="rs-tab team-tab ${teamTab===value?'is-active':''}" data-team-tab="${esc(value)}">${iconName?icon(iconName,'rs-inline-icon'):''}<span>${esc(label)}</span></button>`;
   }
 
   function profileTabs(employee,teamTab){
-    const generalMissing = TeamModel.generalMissingFields(employee);
-    const contractMissing = TeamModel.contractMissingFields(employee);
-    const payrollMissing = TeamModel.payrollMissingFields(employee);
-    const absences = TeamModel.pendingAbsenceApprovalCount(employee);
-    const contractBadge = contractMissing.length ? String(contractMissing.length) : (TeamModel.expiringSoon(employee) ? '!' : '');
-    return `<nav class="ops-tabs team-tabs" aria-label="Employee detail sections">
-      ${tabButton('General','general',teamTab,generalMissing.length?String(generalMissing.length):'')}
-      ${tabButton('Contract','contract',teamTab,contractBadge)}
-      ${tabButton('Payroll','payroll',teamTab,payrollMissing.length?String(payrollMissing.length):'')}
-      ${tabButton('Absences','absences',teamTab,absences?String(absences):'')}
+    if(!employee){
+      return `<nav class="rs-tabs team-tabs" aria-label="Team detail sections">
+        ${tabButton('Setup guide','setup',teamTab,'list')}
+      </nav>`;
+    }
+    const sensitiveTabs = canSeeSensitiveTeamData()
+      ? `${tabButton('Contract','contract',teamTab,'document')}${tabButton('Payroll','payroll',teamTab,'payroll')}`
+      : '';
+    return `<nav class="rs-tabs team-tabs" aria-label="Employee detail sections">
+      ${tabButton('Setup guide','setup',teamTab,'list')}
+      ${tabButton('General','general',teamTab,'user')}
+      ${sensitiveTabs}
+      ${tabButton('Absences','absences',teamTab,'calendar')}
     </nav>`;
   }
 
 
-  function profileCard(title,iconName,content,extraClass='',meta=''){
-    const help = meta ? ` title="${esc(meta)}"` : '';
-    return `<article class="team-profile-card ${extraClass}"${help}><header><span aria-hidden="true">${icon(iconName)}</span><div><strong>${esc(title)}</strong></div></header><div class="team-profile-card-grid">${content}</div></article>`;
+
+  function profileCardHead(title,iconName,action=''){
+    const headIcon = iconName ? `<span class="rs-section-title-icon" aria-hidden="true">${icon(iconName)}</span>` : '';
+    return `<header class="rs-section-surface__head"><div class="rs-content-head-title">${headIcon}<strong>${esc(title)}</strong></div>${action}</header>`;
   }
 
-  function readinessPanel(title,missing,total){
-    const list = Array.isArray(missing) ? missing.filter(Boolean) : [];
-    const requiredTotal = Math.max(Number(total) || list.length || 1, list.length);
-    const complete = Math.max(0, requiredTotal - list.length);
-    const percent = Math.round((complete / requiredTotal) * 100);
-    const ready = list.length === 0;
-    const chips = ready
-      ? `<span class="team-readiness-chip is-ok">All essentials complete</span>`
-      : list.map(item=>`<span class="team-readiness-chip"><i aria-hidden="true"></i>${esc(item)}</span>`).join('');
-    return `<article class="team-readiness-panel ${ready?'is-ready':'is-missing'}" aria-label="${esc(title)}">
-      <div class="team-readiness-ring" style="--readiness:${percent};" aria-label="${esc(percent)}% complete"><strong>${esc(String(percent))}%</strong></div>
-      <div class="team-readiness-summary"><strong>${esc(`${complete} of ${requiredTotal} completed`)}</strong>${statusIcon(ready?'ready':'missing',{label:ready?'Ready':'Missing information',className:'is-inline'})}</div>
-      <div class="team-readiness-missing" aria-label="Missing fields">${chips}</div>
-    </article>`;
+  function panelKey(title){
+    return String(title || 'panel').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'panel';
+  }
+
+  function profileCard(title,iconName,content,extraClass='',meta='',gridClass='rs-section-grid'){
+    const help = meta ? ` title="${esc(meta)}"` : '';
+    return `<article class="rs-section-surface rs-workbench-card team-profile-card ${extraClass}" data-team-profile-panel="${esc(panelKey(title))}"${help}>${profileCardHead(title,iconName)}<div class="${esc(gridClass)}">${content}</div></article>`;
+  }
+
+  function accessLabel(employee){
+    if(employee.active === false)return 'Disabled';
+    if(employee.quickLoginEnabled === false)return 'Quick login disabled';
+    if(employee.mustChangePin)return 'Temporary PIN — change required';
+    const status = String(employee.pinStatus || '').trim();
+    if(status === 'active')return 'Active';
+    if(status === 'reset_required')return 'PIN reset required';
+    if(status === 'disabled')return 'PIN disabled';
+    return 'Not configured';
   }
 
   function generalTabContent(employee,ctx){
     const missing = TeamModel.generalMissingFields(employee);
     const missingSet = new Set(missing);
-    return `<section class="ops-tab-panel team-tab-panel team-general-dashboard">
-      <div class="team-profile-card-grid-layout">
-        ${profileCard('Identity','identity',`
-          ${inputField('First name','firstName',employee.firstName,'text','',requiredFieldClass(missingSet.has('First name')))}${inputField('Last name','lastName',employee.lastName,'text','',requiredFieldClass(missingSet.has('Last name')))}
-          ${inputField('Display name','name',employee.name,'text','placeholder="Name shown in planning"')}${inputField('Nationality','nationality',employee.nationality)}
-        `)}
-        ${profileCard('Work profile','position',`
-          ${positionSelect(employee, ctx)}${selectField('Status','active',employee.active === false ? 'false' : 'true',[['true','Active'],['false','Inactive']])}
-        `)}
-        ${profileCard('Contact information','phone',`
-          ${inputField('Email','email',employee.email,'email')}${inputField('Phone','phone',employee.phone,'text','',requiredFieldClass(missingSet.has('Phone')))}
-          ${inputField('Address','address',employee.address)}${inputField('Postal code','postalCode',employee.postalCode)}${inputField('City','city',employee.city)}
-        `,'is-wide')}
-        ${profileCard('Access & identifiers','key',`
-          ${inputField('PIN code','pin',employee.pin,'text','maxlength="4" inputmode="numeric" placeholder="4 digits"')}${inputField('Employee code','employeeNumber',employee.employeeNumber || employee.id)}
-          ${selectField('Manager access','managerAccess',employee.managerAccess ? 'true' : 'false',[['false','No'],['true','Yes']])}
-        `)}
-        ${profileCard('Emergency contact','heart',`
-          ${inputField('Contact name','emergencyName',employee.emergencyName)}${inputField('Relationship','emergencyRelation',employee.emergencyRelation)}${inputField('Emergency phone','emergencyPhone',employee.emergencyPhone)}
-        `)}
-        ${profileCard('Notes','note',`
-          <label class="rs-field team-inline-field wide"><span>Notes</span><textarea name="notes" data-team-field="notes">${esc(employee.notes || '')}</textarea></label>
-        `,'is-wide')}
-      </div>
-    </section>`;
+    return `${profileCard('Identity','identity',`
+        ${inputField('First name','firstName',employee.firstName,'text','',requiredFieldClass(missingSet.has('First name')))}${inputField('Last name','lastName',employee.lastName,'text','',requiredFieldClass(missingSet.has('Last name')))}
+        ${inputField('Display name','name',employee.name,'text','placeholder="Name shown in planning"')}${inputField('Nationality','nationality',employee.nationality)}
+      `)}
+      ${profileCard('Work profile','position',`
+        ${positionSelect(employee, ctx)}${selectField('Status','active',employee.active === false ? 'false' : 'true',[['true','Active'],['false','Inactive']])}
+      `)}
+      ${profileCard('Contact information','phone',`
+        ${inputField('Email','email',employee.email,'email')}${inputField('Phone','phone',employee.phone,'text','',requiredFieldClass(missingSet.has('Phone')))}
+        ${inputField('Address','address',employee.address)}${inputField('Postal code','postalCode',employee.postalCode)}${inputField('City','city',employee.city)}
+      `)}
+      ${profileCard('Access & quick login','key',`
+        ${inputField('Quick login','loginName',employee.loginName || `${employee.firstName || ''}.${employee.lastName || ''}`.replace(/\s+/g,''),'text','placeholder="First.Last"')}
+        ${selectField('Quick login enabled','quickLoginEnabled',employee.quickLoginEnabled === false ? 'false' : 'true',[['true','Yes'],['false','No']])}
+        <label class="rs-field team-inline-field"><span>PIN status</span><input value="${esc(accessLabel(employee))}" disabled></label>
+        <label class="rs-field team-inline-field"><span>New PIN (feeds Reset button)</span><input data-team-pin-input="true" inputmode="numeric" maxlength="4" pattern="[0-9]*" placeholder="Leave blank to auto-generate" type="password"></label>
+        <button class="rs-action-button is-secondary team-inline-action" data-team-action="reset-pin" type="button">Reset PIN</button>
+      `)}
+      ${profileCard('Emergency contact','heart',`
+        ${inputField('Contact name','emergencyName',employee.emergencyName)}${inputField('Relationship','emergencyRelation',employee.emergencyRelation)}${inputField('Emergency phone','emergencyPhone',employee.emergencyPhone)}
+      `)}
+      ${profileCard('Notes','note',`
+        <label class="rs-field team-inline-field is-wide"><span>Notes</span><textarea name="notes" data-team-field="notes">${esc(employee.notes || '')}</textarea></label>
+      `,'','', 'rs-section-stack')}`;
+  }
+
+  function teamSetupGuide(){
+    const summary = SetupReadiness.buildTeam(data);
+    return SetupGuide.guide({
+      summary,
+      title:'Team setup guide',
+      description:'Prepare employees for Planning, Badge Terminal, Absences and payroll readiness.',
+      targetAttr:'data-team-setup-target'
+    });
   }
 
   function profileTabContent(employee,teamTab,ctx){
+    if(teamTab==='setup' || !employee)return teamSetupGuide();
+    if(!canSeeSensitiveTeamData() && ['contract','payroll'].includes(teamTab)){
+      return profileCard('Owner-only details','lock',`<p class="team-muted-copy">Contract and payroll information is owner-only. Managers can continue with General, Absences and quick-access operations.</p>`,'is-wide','', 'rs-section-stack');
+    }
     const missing = TeamModel.payrollMissingFields(employee);
     if(teamTab==='contract'){
       const contractMissing = TeamModel.contractMissingFields(employee);
-      return `<section class="ops-tab-panel team-tab-panel team-profile-dashboard team-contract-dashboard">
-        <div class="team-contract-stack">
-          ${readinessPanel('Contract readiness', contractMissing, 5)}
-          <div class="team-contract-layout">
-            <div class="team-contract-main">
-              ${profileCard('Employment','document',`
-                ${selectField('Contract type','contractType',employee.contractType,OPTION_GROUPS.contractType,requiredFieldClass(contractMissing.includes('Contract type')))}
-                ${selectField('Work regime','workRegime',employee.workRegime,OPTION_GROUPS.workRegime,requiredFieldClass(contractMissing.includes('Work regime')))}
-                ${inputField('Weekly hours','contractHours',employee.contractHours,'number','min="0" step="0.5"',requiredFieldClass(contractMissing.includes('Weekly hours')))}
-              `,'is-wide team-contract-employment','Core contract details used by planning and payroll prep.')}
-              <div class="team-contract-split">
-                ${profileCard('Contract dates','calendar',`
-                  ${inputField('Start date','contractStart',employee.contractStart,'date','',requiredFieldClass(contractMissing.includes('Start date')))}
-                  ${inputField('Contract end','contractEnd',employee.contractEnd,'date')}
-                `,'team-contract-dates','Leave contract end empty for open-ended contracts.')}
-                ${profileCard('Cost setup','euro',`
-                  ${inputField('Hourly cost','hourlyCost',employee.hourlyCost,'number','min="0" step="0.01"')}
-                  ${inputField('Annual leave entitlement','annualLeaveEntitlementDays',employee.annualLeaveEntitlementDays || 0,'number','min="0" step="0.5"',requiredFieldClass(contractMissing.includes('Annual leave entitlement')))}
-                `,'team-contract-cost','Employee cost is used by Planning and Actuals. Defaults can come from the selected Restaurant position.')}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>`;
+      return `${profileCard('Employment','document',`
+          ${selectField('Contract type','contractType',employee.contractType,OPTION_GROUPS.contractType,requiredFieldClass(contractMissing.includes('Contract type')))}
+          ${selectField('Work regime','workRegime',employee.workRegime,OPTION_GROUPS.workRegime,requiredFieldClass(contractMissing.includes('Work regime')))}
+          ${inputField('Weekly hours','contractHours',employee.contractHours,'number','min="0" step="0.5"',requiredFieldClass(contractMissing.includes('Weekly hours')))}
+        `,'team-contract-employment','Core contract details used by planning and payroll prep.','rs-section-grid rs-section-grid--three')}
+        ${profileCard('Contract dates','calendar',`
+          ${inputField('Start date','contractStart',employee.contractStart,'date','',requiredFieldClass(contractMissing.includes('Start date')))}
+          ${inputField('Contract end','contractEnd',employee.contractEnd,'date')}
+        `,'team-contract-dates','Leave contract end empty for open-ended contracts.','rs-section-stack')}
+        ${profileCard('Cost setup','euro',`
+          ${inputField('Hourly cost','hourlyCost',employee.hourlyCost,'number','min="0" step="0.01"')}
+          ${inputField('Annual leave entitlement','annualLeaveEntitlementDays',employee.annualLeaveEntitlementDays || 0,'number','min="0" step="0.5"',requiredFieldClass(contractMissing.includes('Annual leave entitlement')))}
+        `,'team-contract-cost','Employee cost is used by Planning and Actuals. Defaults can come from the selected Restaurant position.','rs-section-stack')}`;
     }
     if(teamTab==='payroll'){
-      const essentials = `<div class="team-profile-card-grid-layout">
-        ${readinessPanel('Payroll readiness', missing, 4)}
-        ${profileCard('Payroll setup','payroll',`
+      return `${profileCard('Payroll setup','payroll',`
           ${selectField('Payroll provider','payrollProvider',employee.payrollProvider,OPTION_GROUPS.payrollProvider,requiredFieldClass(missing.includes('Payroll provider')))}
           ${inputField('Payroll employee ID','payrollId',employee.payrollId,'text','',requiredFieldClass(missing.includes('Payroll employee ID')))}
-        `,'is-wide','Provider and employee identifier used for handoff/export.')}
+        `,'','Provider and employee identifier used for handoff/export.')}
         ${profileCard('Identity & banking','bank',`
           ${inputField('NISS / social security no.','socialSecurityNo',employee.socialSecurityNo,'text','',requiredFieldClass(missing.includes('NISS / social security no.')))}
           ${inputField('IBAN','iban',employee.iban,'text','',requiredFieldClass(missing.includes('IBAN')))}
           ${inputField('BIC','bic',employee.bic)}
-        `,'is-wide','Only the essentials needed for payroll handoff.')}
+        `,'','Only the essentials needed for payroll handoff.')}
         ${profileCard('Payroll notes','note',`
-          <label class="rs-field team-inline-field wide is-compact-note"><span>Payroll notes</span><textarea name="payrollNotes" data-team-field="payrollNotes">${esc(employee.payrollNotes || '')}</textarea></label>
-        `,'is-wide','Optional notes for the person preparing payroll.')}
-      </div>`;
-      return `<section class="ops-tab-panel team-tab-panel team-profile-dashboard">${essentials}</section>`;
+          <label class="rs-field team-inline-field is-wide is-compact-note"><span>Payroll notes</span><textarea name="payrollNotes" data-team-field="payrollNotes">${esc(employee.payrollNotes || '')}</textarea></label>
+        `,'','Optional notes for the person preparing payroll.','rs-section-stack')}`;
     }
     if(teamTab==='absences'){
       const typeOptions = [['','Select absence type'], ...absenceTypeOptions(ctx)];
@@ -475,19 +452,15 @@
         ${inputField('End date','absenceEnd',todayISO(),'date','required')}
         ${selectField('Shift','absenceShift','Full day',['Full day','Lunch','Evening'])}
         ${selectField('Status','absenceStatus','Approved',['Pending','Approved','Rejected','Cancelled'])}
-        <label class="rs-field team-inline-field wide"><span>Manager comment</span><input name="managerComment" value="" type="text" placeholder="Optional note"></label>
-        <button type="button" class="rs-action-button is-compact team-card-action" data-team-action="add-absence">Add absence</button>
+        <label class="rs-field team-inline-field is-wide"><span>Manager comment</span><input name="managerComment" value="" type="text" placeholder="Optional note"></label>
+        <button type="button" class="rs-action-button is-compact team-card-action" data-team-action="add-absence">Add</button>
       </form>` : '';
-      return `<section class="ops-tab-panel team-tab-panel team-profile-dashboard team-absence-dashboard">
-        <section class="team-profile-card team-absence-overview-card is-wide">
-          <header><span aria-hidden="true">${icon('palm')}</span><div><strong>Absence balance</strong></div></header>
-          ${absenceOverview(employee)}
-        </section>
-        <section class="team-profile-card team-absence-table-card is-wide">
-          <header><span aria-hidden="true">${icon('list')}</span><div><strong>Upcoming absences</strong></div><button type="button" class="rs-action-button is-compact" data-team-toggle-request>${ctx.absenceEntryOpen?'Close form':'+ Add absence'}</button></header>
+      return `${profileCard('Absence balance','palm',absenceOverview(employee),'team-absence-overview-card','', 'rs-section-stack')}
+        <section class="rs-section-surface rs-workbench-card team-profile-card team-absence-table-card" data-team-profile-panel="upcoming-absences">
+          ${profileCardHead('Upcoming absences','list',`<button type="button" class="rs-action-button is-compact" data-team-toggle-request>${ctx.absenceEntryOpen?'Close':'Add'}</button>`)}
           ${absenceEntryForm}
           <div class="team-absence-table-wrap">
-            <table class="team-absence-table">
+            <table class="team-absence-table rs-table">
               <thead><tr><th>Type</th><th>Dates</th><th>Duration</th><th>Status</th><th>Manager</th><th>Created</th><th>Actions</th></tr></thead>
               <tbody>${absenceRows(employee,ctx)}</tbody>
             </table>
@@ -495,41 +468,92 @@
           <details class="team-absence-history-details">
             <summary>View history</summary>
             <div class="team-absence-table-wrap">
-              <table class="team-absence-table is-history">
+              <table class="team-absence-table rs-table is-history">
                 <thead><tr><th>Type</th><th>Dates</th><th>Duration</th><th>Status</th><th>Manager</th><th>Created</th><th>Actions</th></tr></thead>
                 <tbody>${absenceRows(employee,ctx,{history:true})}</tbody>
               </table>
             </div>
           </details>
-        </section>
-      </section>`;
+        </section>`;
     }
     return generalTabContent(employee,ctx);
   }
 
-  function saveBar(ctx){
-    const dirty = ctx.dirty ? 'is-dirty' : '';
-    return `<div class="rs-save-bar ${dirty}" data-team-save-bar>
-      <span>${ctx.dirty ? (ctx.isNew ? 'New employee draft' : 'Unsaved profile changes') : 'Click any field to edit'}</span>
-      <button type="button" class="rs-modal-btn secondary" data-team-action="cancel-profile" ${ctx.dirty?'':'disabled'}>Cancel</button>
-      <button type="button" class="rs-modal-btn primary" data-team-action="save-profile" ${ctx.dirty?'':'disabled'}>Save changes</button>
-    </div>`;
+  function profileActions(ctx){
+    const dirty=!!ctx.dirty;
+    return Toolbar.saveActions({
+      className:'rs-action-row rs-entity-actions team-profile-actions',
+      dirty,
+      actionAttr:'data-team-action',
+      cancelAction:'cancel-profile',
+      clickAction:'save-profile',
+      data:{'data-team-actions':true},
+      cancelLabel:'Cancel employee changes',
+      saveLabel:'Save employee changes',
+      extraHtml:Toolbar.actionMenu({
+        className:'team-profile-menu',
+        ariaLabel:'Employee actions',
+        title:'Employee actions',
+        actionAttr:'data-team-action',
+        items:[
+          {action:'renew-contract',label:'Renew contract'}
+        ]
+      })
+    });
+  }
+
+  function teamWorkbenchHead(employee,ctx){
+    if(employee)return profileHeader(employee,ctx);
+    const employeeCount = (ctx.employees || []).length;
+    const status = employeeCount ? `${employeeCount} employees` : 'Needs employee';
+    const chip = employeeCount ? 'Team setup readiness' : 'Add employees to start planning';
+    return `<header class="team-profile-head team-profile-hero rs-entity-header rs-entity-header--team">
+      <div class="team-profile-main rs-entity-identity">
+        <span class="rs-weekly-avatar team-avatar rs-entity-avatar">T</span>
+        <div class="team-profile-title rs-entity-copy">
+          <div class="rs-entity-title-line"><h2>Team setup</h2><span class="rs-chip rs-chip--status is-pill">${esc(status)}</span></div>
+          <p class="team-profile-meta-chips rs-entity-chips" aria-label="Team setup summary">
+            ${profileChip('users', chip)}
+          </p>
+        </div>
+      </div>
+    </header>`;
   }
 
   function profile(employee,teamTab,ctx){
-    if(!employee)return `<main class="team-profile rs-panel"><div class="rs-empty-state"><strong>No employee selected</strong><span>Add an employee to start building the Team module.</span><button type="button" class="rs-primary-button" data-team-action="add-employee">Add employee</button></div></main>`;
-    return `<main class="team-profile rs-panel">
-      ${profileHeader(employee,ctx)}
-      ${profileTabs(employee,teamTab)}
-      ${profileTabContent(employee,teamTab,ctx)}
-      ${saveBar(ctx)}
-    </main>`;
+    const isSetupTab = teamTab === 'setup' || !employee;
+    const addEmployeePanel = employee ? '' : profileCard('Add first employee','users',`<p class="team-muted-copy">Create an employee to unlock General, Contract, Payroll and Absences details.</p><button type="button" class="rs-primary-button" data-team-action="add-employee">Add employee</button>`,'team-add-employee-panel','', 'rs-section-stack');
+    return `<div class="rs-workbench-detail rs-workbench-detail-stack team-profile-stack">${profileTabContent(employee, isSetupTab ? 'setup' : teamTab, ctx)}${addEmployeePanel}</div>`;
   }
 
   function render(ctx){
     const employees = ctx.employees || [];
     const positionChoices = Array.isArray(ctx.positionChoices) ? ctx.positionChoices : [];
-    return `${metrics(employees)}<section class="ops-shell-grid team-layout">${directory({...ctx, employees, positionChoices})}${profile(ctx.employee, ctx.teamTab, {...ctx, positionChoices})}</section>`;
+    const employee = ctx.employee || null;
+    const teamTab = employee ? (ctx.teamTab || 'setup') : 'setup';
+    const isSetupTab = teamTab === 'setup';
+    const workbenchHead = teamWorkbenchHead(isSetupTab ? null : employee,{...ctx, employees, positionChoices});
+    const tabs = profileTabs(employee,teamTab);
+    const workbenchLayoutClass = `rs-workbench-layout team-workbench-layout ${isSetupTab ? 'rs-workbench-layout--single team-workbench-layout--setup' : ''}`.trim();
+    const workbenchHtml = isSetupTab
+      ? profile(employee, 'setup', {...ctx, employees, positionChoices})
+      : `${directory({...ctx, employees, positionChoices})}${profile(employee, teamTab, {...ctx, employees, positionChoices})}`;
+    return Restogogo.services.pageShell.standard({
+      moduleName:'team',
+      title:'Team',
+      headerHtml:Restogogo.services.moduleHeader.content({
+        moduleName:'team',
+        title:'Team',
+        subtitle:'Your people. Contracts, absences and payroll readiness.'
+      }),
+      metricsClass:'team-metrics rs-metrics--hero-first',
+      metricsAria:'Team summary',
+      metricsHtml:metrics(employees),
+      boardTag:'main',
+      boardClass:'rs-workbench-grid rs-workbench-grid--single team-layout',
+      boardAria:'Team workspace',
+      boardHtml:`<section class="rs-workbench-shell team-main rs-card">${workbenchHead}<div class="rs-workspace-body rs-workbench-body"><div class="rs-tab-bar">${tabs}</div><section class="${esc(workbenchLayoutClass)}">${workbenchHtml}</section></div></section>`
+    });
   }
 
   Restogogo.modules.TeamView = {render, optionGroups:OPTION_GROUPS};

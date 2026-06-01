@@ -1,0 +1,422 @@
+/* restogogo onboarding wizard — full-page setup flow for new restaurants.
+   Shares brand-page backdrop and brand-field/brand-primary-button primitives from login.css.
+   Only layout and wizard-specific styling lives here. */
+
+/* ── Page shell ─────────────────────────────────────────────────────── */
+
+.onboarding-page {
+  position: fixed;
+  inset: 0;
+  z-index: var(--rst-z-page);
+  overflow: hidden;
+  color: var(--rst-ui-text);
+  isolation: isolate;
+  background: radial-gradient(circle at 50% 0%,rgba(51,71,255,.14),transparent 34%),linear-gradient(135deg,#071426 0,#0a1830 52%,#13243f 100%);
+}
+
+.onboarding-shell {
+  width: 100%;
+  height: 100dvh;
+  display: grid;
+  grid-template-columns: 280px minmax(0,1fr);
+  overflow: hidden;
+}
+
+/* ── Left nav / progress ─────────────────────────────────────────────── */
+
+.onboarding-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: clamp(24px,3vh,40px) 28px;
+  border-right: 1px solid var(--rst-ui-divider);
+  background: rgba(6,16,29,.52);
+  overflow: hidden;
+}
+
+.onboarding-logo {
+  display: block;
+  width: 148px;
+  height: auto;
+  margin-bottom: clamp(28px,4vh,48px);
+  object-fit: contain;
+}
+
+.onboarding-steps {
+  flex: 1 1 auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.onboarding-step {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--rst-ui-radius-md);
+  color: rgba(219,229,244,.46);
+  font-size: 13px;
+  font-weight: var(--rst-fw-bold);
+  transition: background var(--rst-motion-ui) var(--rst-motion-smooth), color var(--rst-motion-ui) var(--rst-motion-smooth);
+}
+
+.onboarding-step.is-active {
+  color: var(--rst-ui-text);
+  background: var(--rst-ui-divider);
+}
+
+.onboarding-step.is-done {
+  color: rgba(134,239,172,.82);
+}
+
+.onboarding-step-num {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--rst-ui-radius-round);
+  border: 1px solid rgba(255,255,255,.14);
+  font-size: 12px;
+  font-weight: var(--rst-fw-display);
+  transition: border-color var(--rst-motion-ui) var(--rst-motion-smooth), background var(--rst-motion-ui) var(--rst-motion-smooth), color var(--rst-motion-ui) var(--rst-motion-smooth);
+}
+
+.onboarding-step.is-active .onboarding-step-num {
+  border-color: rgba(96,165,250,.50);
+  background: rgba(51,71,255,.22);
+  color: var(--rst-state-info-text);
+}
+
+.onboarding-step.is-done .onboarding-step-num {
+  border-color: rgba(134,239,172,.40);
+  background: var(--rst-state-success-bg);
+  color: var(--rst-state-success-text);
+}
+
+.onboarding-step-label {
+  letter-spacing: 0;
+}
+
+.onboarding-back-to-login {
+  margin-top: auto;
+  padding-top: 24px;
+  font-size: 13px;
+  text-align: left;
+}
+
+/* ── Content area ────────────────────────────────────────────────────── */
+
+.onboarding-content {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  align-items: flex-start;
+  padding: clamp(32px,5vh,72px) clamp(36px,6vw,80px);
+}
+
+/* ── Step panels ─────────────────────────────────────────────────────── */
+
+.onboarding-step-panel {
+  display: none;
+  width: min(560px,100%);
+  flex-direction: column;
+  gap: 28px;
+}
+
+.onboarding-step-panel.is-active {
+  display: flex;
+}
+
+.onboarding-step-head {
+  display: grid;
+  gap: 10px;
+}
+
+.onboarding-kicker {
+  margin: 0;
+  color: rgba(147,197,253,.80);
+  font-size: 12px;
+  font-weight: var(--rst-fw-display);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.onboarding-step-head h1 {
+  margin: 0;
+  color: var(--rst-ui-text);
+  font-size: clamp(26px,2.6vw,38px);
+  line-height: 1.06;
+  font-weight: var(--rst-fw-display);
+  letter-spacing: -.025em;
+}
+
+.onboarding-step-desc {
+  margin: 0;
+  color: rgba(219,229,244,.68);
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: var(--rst-fw-regular);
+}
+
+/* ── Forms ───────────────────────────────────────────────────────────── */
+
+.onboarding-form {
+  display: grid;
+  gap: 14px;
+}
+
+.onboarding-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.onboarding-required {
+  color: var(--rst-state-danger);
+  font-weight: var(--rst-fw-display);
+}
+
+.onboarding-field-error,
+.onboarding-inline-error {
+  margin: -4px 0 0;
+  min-height: 14px;
+  color: var(--rst-state-danger-text);
+  font-size: 12px;
+  font-weight: var(--rst-fw-bold);
+}
+
+.onboarding-inline-error {
+  margin-top: -8px;
+}
+
+.onboarding-helper {
+  margin: -2px 0 0;
+  color: rgba(219,229,244,.52);
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: var(--rst-fw-bold);
+}
+
+/* ── Actions row ─────────────────────────────────────────────────────── */
+
+.onboarding-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+/* Reuse brand-secondary-button as back button; just left-align the row */
+.onboarding-prev {
+  min-height: 44px;
+  padding: 0 18px;
+  font-size: 14px;
+}
+
+/* ── Employee list (step 3) ──────────────────────────────────────────── */
+
+.onboarding-employee-empty {
+  margin: 0;
+  padding: 14px 0 6px;
+  color: rgba(219,229,244,.52);
+  font-size: 13px;
+  font-weight: var(--rst-fw-bold);
+}
+
+.onboarding-employee-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--rst-topbar-line);
+  border-radius: var(--rst-ui-radius-md);
+  background: rgba(255,255,255,.035);
+}
+
+.onboarding-employee-info {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.onboarding-employee-info strong {
+  color: var(--rst-ui-text);
+  font-size: 14px;
+  font-weight: var(--rst-fw-bold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.onboarding-employee-info small {
+  color: rgba(219,229,244,.62);
+  font-size: 12px;
+  font-weight: var(--rst-fw-bold);
+}
+
+.onboarding-employee-info code {
+  font-family: inherit;
+  font-weight: var(--rst-fw-display);
+  color: var(--rst-state-info-text);
+  letter-spacing: .08em;
+}
+
+.onboarding-remove-employee {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--rst-ui-radius-round);
+  color: rgba(219,229,244,.52);
+  background: transparent;
+  font-size: 18px;
+  cursor: pointer;
+  transition: color var(--rst-motion-ui) var(--rst-motion-smooth), background var(--rst-motion-ui) var(--rst-motion-smooth);
+}
+
+.onboarding-remove-employee:hover {
+  color: var(--rst-state-danger-text);
+  background: rgba(251,113,133,.12);
+}
+
+.onboarding-add-employee {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px dashed rgba(96,165,250,.28);
+  border-radius: var(--rst-ui-radius-md);
+  color: rgba(147,197,253,.80);
+  background: transparent;
+  font-size: 13px;
+  font-weight: var(--rst-fw-bold);
+  cursor: pointer;
+  transition: border-color var(--rst-motion-ui) var(--rst-motion-smooth), color var(--rst-motion-ui) var(--rst-motion-smooth), background var(--rst-motion-ui) var(--rst-motion-smooth);
+}
+
+.onboarding-add-employee:hover {
+  border-color: rgba(96,165,250,.50);
+  color: var(--rst-state-info-text);
+  background: rgba(51,71,255,.06);
+}
+
+.onboarding-add-employee svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ── Inline add-employee form ─────────────────────────────────────────── */
+
+.onboarding-add-emp-form {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(96,165,250,.22);
+  border-radius: var(--rst-ui-radius-md);
+  background: rgba(10,22,43,.50);
+}
+
+.onboarding-add-emp-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+/* ── Summary (step 4) ────────────────────────────────────────────────── */
+
+.onboarding-summary-card {
+  display: grid;
+  gap: 0;
+  border: 1px solid rgba(var(--rst-state-neutral-rgb),.16);
+  border-radius: var(--rst-ui-radius-md);
+  background: rgba(10,22,43,.50);
+  overflow: hidden;
+}
+
+.onboarding-summary-row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 16px;
+  align-items: baseline;
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--rst-ui-divider);
+}
+
+.onboarding-summary-row:last-child {
+  border-bottom: 0;
+}
+
+.onboarding-summary-label {
+  color: rgba(219,229,244,.56);
+  font-size: 12px;
+  font-weight: var(--rst-fw-bold);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.onboarding-summary-value {
+  color: var(--rst-ui-text);
+  font-size: 14px;
+  font-weight: var(--rst-fw-bold);
+}
+
+/* ── Enter button variant ────────────────────────────────────────────── */
+
+.onboarding-enter {
+  padding-left: 28px;
+}
+
+/* Temporary access credentials shown after owner setup. */
+.onboarding-access-summary {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid rgba(125, 211, 252, .20);
+  border-radius: var(--rst-ui-radius-md);
+  background: rgba(8, 18, 35, .40);
+}
+
+.onboarding-access-summary strong {
+  color: rgba(248, 251, 255, .96);
+  font-size: .9rem;
+}
+
+.onboarding-access-summary small {
+  color: rgba(214, 224, 242, .70);
+  line-height: 1.45;
+}
+
+.onboarding-access-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 0;
+  border-top: 1px solid rgba(148, 163, 184, .12);
+  color: rgba(235, 243, 255, .90);
+}
+
+.onboarding-access-row code,
+.onboarding-access-row b {
+  padding: 4px 8px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .08);
+  color: rgba(255, 255, 255, .94);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: .78rem;
+}

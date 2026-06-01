@@ -1,0 +1,92 @@
+/* Shared absence rendering primitives for Planning, Actuals and Employee schedule.
+   Status dots and badges live in status-icons.css. */
+
+
+.rs-absence-slot {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: block;
+  border: 1px solid var(--rst-op-absence-border);
+  border-radius: var(--rst-ui-radius-sm);
+  background: var(--rst-op-absence-card-bg,var(--rst-op-absence-bg));
+  color: var(--rst-ui-text);
+  overflow: hidden;
+}
+
+.rs-absence-layer {
+  --rs-absence-layer-z: 2;
+  --rs-absence-layer-rows: 18px minmax(0,1fr) auto;
+  --rs-absence-layer-padding: 4px 6px 5px;
+  --rs-absence-label-size: 9.5px;
+  --rs-absence-label-weight: var(--rst-fw-bold);
+  position: absolute;
+  inset: 0;
+  z-index: var(--rs-absence-layer-z);
+  display: grid;
+  grid-template-rows: var(--rs-absence-layer-rows);
+  align-items: center;
+  justify-items: center;
+  padding: var(--rs-absence-layer-padding);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.rs-absence-layer .rs-absence-status.rs-status-icon {
+  justify-self: end;
+  width: 16px;
+  height: 16px;
+  flex-basis: 16px;
+}
+
+.rs-absence-layer .rs-absence-status.rs-status-icon svg {
+  width: 9px;
+  height: 9px;
+}
+
+.rs-absence-layer b {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--rst-ui-muted);
+  font-size: var(--rs-absence-label-size);
+  line-height: 1;
+  font-weight: var(--rs-absence-label-weight);
+  letter-spacing: 0;
+  text-align: center;
+}
+
+.rs-absence-icon {
+  --rs-absence-icon-size: 20px;
+  --rs-absence-icon-color: var(--rst-op-absence-accent);
+  width: var(--rs-absence-icon-box,var(--rs-absence-icon-size));
+  height: var(--rs-absence-icon-box,var(--rs-absence-icon-size));
+  display: inline-grid;
+  place-items: center;
+  color: var(--rs-absence-icon-color);
+  line-height: 1;
+  font-style: normal;
+  opacity: .86;
+}
+
+.rs-absence-icon svg {
+  width: var(--rs-absence-icon-size);
+  height: var(--rs-absence-icon-size);
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.rs-absence-icon:is(.is-palm,.is-thermometer,.is-celebration) { --rs-absence-icon-color: var(--rst-op-absence-accent); }
+
+.calendar-absence-decision-dialog { width: min(620px,calc(100vw - 38px)); }
+.calendar-absence-decision-dialog::backdrop { background: var(--rst-overlay-bg); }
+.calendar-absence-decision-card { grid-template-columns: 54px minmax(0,1fr); gap: 16px; border: 1px solid var(--rst-ui-line); background: var(--rst-ui-workspace-body); }
+.calendar-absence-decision-icon { width: 54px; height: 54px; display: grid; place-items: center; border: 1px solid var(--rst-ui-divider); border-radius: var(--rst-ui-radius-lg); overflow: hidden; }
+.calendar-absence-decision-icon .rs-absence-layer { position: relative; }
+.calendar-absence-decision-copy { display: grid; gap: 9px; }
+.calendar-absence-decision-copy h2 { margin: 0; color: var(--rst-ui-text); font-size: 21px; font-weight: var(--rst-fw-display); }
+.calendar-absence-decision-copy p { margin: 0; color: var(--rst-ui-muted); font-size: 14px; line-height: 1.45; font-weight: var(--rst-fw-medium); }
+.calendar-absence-decision-actions { grid-column: 2; flex-wrap: wrap; margin-top: 5px; }
+.rs-absence-slot[data-calendar-absence] { cursor: pointer; }
+.rs-absence-slot:is(:hover,:focus-visible,:focus-within) { border-color: var(--rst-op-absence-accent); }

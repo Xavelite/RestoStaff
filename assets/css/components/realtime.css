@@ -1,0 +1,58 @@
+/* Shared realtime collaboration UI: presence chips and reload banners. */
+/* ── Realtime: presence chips (planning toolbar) ──────────────────────────
+   Show co-editors on the same planning week. Owned by realtime.css because
+   collaboration feedback is not app shell chrome.                       */
+.rs-presence-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 8px;
+}
+.rs-presence-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--rst-ui-radius-round);
+  background: rgba(var(--rst-blue-rgb),.22);
+  border: 1.5px solid var(--rst-ui-line-strong);
+  color: var(--rst-ui-text);
+  font-size: 0.7rem;
+  font-weight: var(--rst-fw-bold);
+  letter-spacing: 0;
+  cursor: default;
+  user-select: none;
+}
+
+/* ── Realtime: planning update banner ─────────────────────────────────────
+   Appears between the metrics and the board when another session saves.
+   Owned by realtime.css because it is workspace-level feedback, not module content. */
+.rs-realtime-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  margin-bottom: 8px;
+  background: var(--rst-ui-surface-panel);
+  border: 1px solid var(--rst-state-warning-border);
+  border-radius: var(--rst-ui-radius-lg);
+  font-size: 0.875rem;
+}
+.rs-realtime-banner[hidden] { display: none; }
+.rs-realtime-banner__msg {
+  flex: 1;
+  color: var(--rst-ui-text);
+}
+.rs-realtime-banner__dismiss {
+  background: none;
+  border: none;
+  color: var(--rst-ui-muted);
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0 4px;
+}
+.rs-realtime-banner__dismiss:hover {
+  color: var(--rst-ui-text);
+}

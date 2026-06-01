@@ -1,73 +1,76 @@
-/* restogogo data contract constants and shared primitives. */
-var DATA_CONTRACT_VERSION = 40;
-var WEEKLY_STATE_KEYS = Object.freeze([
-  'availability',
-  'planning',
-  'assignments',
-  'assignmentPositions',
-  'assignmentTimes',
-  'submitted',
-  'notes',
-  'actualEntries',
-  'status'
-]);
-var ACTUAL_PHOTO_STATUSES = Object.freeze(['ok','blocked','unsupported','error','skipped']);
+/* restogogo data contract constants and shared primitives.
+   Wrapped in an IIFE to contain private internals.
+   Public API is re-exposed on window below for backward compatibility. */
+(function(){
+  const DATA_PRIMITIVES = window.RestogogoPrimitives;
+  if(!window.APP_CONFIG?.dataContractVersion){
+    throw new Error('[data-contract] APP_CONFIG.dataContractVersion is missing. Check config.js is loaded before data-contract.js.');
+  }
+  const DATA_CONTRACT_VERSION = Number(window.APP_CONFIG.dataContractVersion);
+  const ACTUAL_PHOTO_STATUSES = Object.freeze(['captured','denied','unavailable','failed','waived','not_required','missing']);
 
-function isPlainObject(value){
-  return !!value && typeof value === 'object' && !Array.isArray(value);
-}
+  function isPlainObject(value){
+    return DATA_PRIMITIVES.isPlainObject(value);
+  }
 
-function emptyWeeklyPayload(){
-  return {
-    availability:{},
-    planning:{},
-    assignments:{},
-    assignmentPositions:{},
-    assignmentTimes:{},
-    submitted:{},
-    notes:{},
-    actualEntries:{},
-    status:'Draft'
-  };
-}
+  function emptyWeeklyPayload(){
+    return {
+      availability:{},
+      planningSlots:{},
+      submitted:{},
+      notes:{},
+      actualEntries:{},
+      status:'Draft',
+      actualsStatus:'open',
+      updatedAt:null
+    };
+  }
 
-function normalizeStatus(value){
-  return value === 'Published' ? 'Published' : 'Draft';
-}
+  function normalizeStatus(value){
+    if(value === 'Published')return 'Published';
+    if(value === 'Locked' || value === 'locked')return 'Locked';
+    if(value !== 'Draft' && value !== undefined && value !== null && value !== ''){
+      Restogogo?.warn?.(`[data-contract] unknown status "${value}" — normalising to "Draft"`);
+    }
+    return 'Draft';
+  }
 
-function normalizeWeekStartKey(value){
-  const raw = String(value || '').trim();
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return '';
-  return monday(raw);
-}
+  function normalizeWeekStartKey(value){
+    const raw = String(value || '').trim();
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return '';
+    return DATA_PRIMITIVES.monday(raw);
+  }
 
-function normalizeDateString(value){
-  const raw = String(value || '').trim();
-  if(!raw) return '';
-  if(/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
-  const time = Date.parse(raw);
-  return Number.isFinite(time) ? new Date(time).toISOString().slice(0,10) : '';
-}
+  function normalizeDateString(value){
+    return DATA_PRIMITIVES.validDateUtc(value);
+  }
 
-function normalizeIsoStamp(value){
-  const raw = String(value || '').trim();
-  if(!raw) return '';
-  const time = Date.parse(raw);
-  return Number.isFinite(time) ? new Date(time).toISOString() : '';
-}
+  function normalizeIsoStamp(value){
+    return DATA_PRIMITIVES.validIso(value);
+  }
 
-function normalizeSlug(value,prefix='item'){
-  const raw = String(value || '').trim().toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
-  return raw || `${prefix}-${id()}`;
-}
+  function normalizeSlug(value,prefix='item'){
+    return DATA_PRIMITIVES.normalizeSlug(value,prefix);
+  }
 
-function normalizeSparseString(value){
-  const raw = String(value || '').trim();
-  return raw || undefined;
-}
+  function normalizeSparseString(value){
+    return DATA_PRIMITIVES.normalizeSparseString(value);
+  }
 
-function isValidDayShift(day, shift){
-  return days.includes(day) && shifts.includes(shift);
-}
+  function isValidDayShift(day, shift){
+    return days.includes(day) && shifts.includes(shift);
+  }
+
+  /* Public API — re-exposed on window so existing callers need no changes */
+  window.DATA_CONTRACT_VERSION  = DATA_CONTRACT_VERSION;
+  window.ACTUAL_PHOTO_STATUSES  = ACTUAL_PHOTO_STATUSES;
+  window.isPlainObject          = isPlainObject;
+  window.emptyWeeklyPayload     = emptyWeeklyPayload;
+  window.normalizeStatus        = normalizeStatus;
+  window.normalizeWeekStartKey  = normalizeWeekStartKey;
+  window.normalizeDateString    = normalizeDateString;
+  window.normalizeIsoStamp      = normalizeIsoStamp;
+  window.normalizeSlug          = normalizeSlug;
+  window.normalizeSparseString  = normalizeSparseString;
+  window.isValidDayShift        = isValidDayShift;
+})();

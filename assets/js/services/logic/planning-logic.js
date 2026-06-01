@@ -4,9 +4,9 @@
   R.logic = R.logic || {};
 
   function plannedRangeFor(employee, day, shift, source = data){
-    if(!employee || !source?.planning?.[employee.id]?.[day]?.[shift]) return '';
-    const custom = source.assignmentTimes?.[employee.id]?.[day]?.[shift];
-    if(custom) return custom;
+    const slot = source?.planningSlots?.[employee.id]?.[day]?.[shift];
+    if(!employee || !slot?.planned) return '';
+    if(slot.timeRange) return slot.timeRange;
     const zoneId = assignmentZoneId(employee.id, day, shift, source) || suggestZoneId(employee, shift, source);
     const zone = zoneById(zoneId, source);
     return normalizeTimeRangeInput(zone?.defaultTimes?.[shift]) || openingRangeForDayShift(day, shift, source);
@@ -25,7 +25,7 @@
   function planningWeekRows(source = data, employees = activeEmployees(source)){
     const rows = [];
     (employees || []).forEach(employee => days.forEach(day => shifts.forEach(shift => {
-      if(source?.planning?.[employee.id]?.[day]?.[shift]){
+      if(source?.planningSlots?.[employee.id]?.[day]?.[shift]?.planned){
         const range = plannedRangeFor(employee, day, shift, source);
         const hours = hoursFromRange(range);
         rows.push({

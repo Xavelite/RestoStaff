@@ -1,130 +1,287 @@
 /*
- * restogogo brand entry
+ * restogogo premium login entry.
+ * Handles login screen tabs (Real login / Quick login), password toggle,
+ * entry module grid, and login state signals. Onboarding lives in onboarding.js.
  */
 
 (function(){
   const $ = id => document.getElementById(id);
-  const esc = (value='') => String(value).replace(/[&<>\"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+  const esc = window.RestogogoPrimitives.esc;
 
   const modules = [
-    {title:'Planning',subtitle:'Build schedules',color:'#6e83ff',glow:'rgba(84,103,255,.22)',icon:`<svg class="brand-module-icon" viewBox="0 0 48 48" aria-hidden="true"><rect x="8" y="10" width="32" height="28" rx="6"/><path d="M15 8v7M33 8v7M8 18h32"/><rect class="fill" x="15" y="22" width="6" height="6" rx="2" opacity=".42"/><rect class="fill" x="23" y="22" width="6" height="6" rx="2"/><rect class="fill" x="31" y="22" width="6" height="6" rx="2" opacity=".3"/><rect class="fill" x="15" y="30" width="6" height="6" rx="2"/><path d="M24 33l3 3 7-8"/></svg>`},
-    {title:'Actuals',subtitle:'Review real hours',color:'#54d1b4',glow:'rgba(84,209,180,.18)',icon:`<svg class="brand-module-icon" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="15"/><path d="M24 16v9l6 5"/><path d="M24 9v2M24 37v2M39 24h-2M11 24H9"/></svg>`},
-    {title:'Badge Terminal',subtitle:'Tablet clock-in',color:'#58d28a',glow:'rgba(88,210,138,.18)',icon:`<svg class="brand-module-icon" viewBox="0 0 48 48" aria-hidden="true"><rect x="10" y="8" width="28" height="32" rx="7"/><path d="M18 17h12M18 24h12M18 31h7"/><circle class="fill" cx="33" cy="33" r="5"/></svg>`},
-    {title:'Team',subtitle:'Employees & contracts',color:'#8f74ff',glow:'rgba(143,116,255,.18)',icon:`<svg class="brand-module-icon" viewBox="0 0 48 48" aria-hidden="true"><circle cx="18" cy="18" r="6"/><circle cx="31" cy="20" r="5" opacity=".7"/><path d="M8 36c1.6-5.4 5.8-8 10-8s8.4 2.6 10 8"/><path d="M26 36c1.1-3.8 4-5.8 7-5.8 2.4 0 4.8 1.1 6 3.2"/></svg>`},
-    {title:'Restaurant',subtitle:'Zones & setup',color:'#a7b3c5',glow:'rgba(167,179,197,.17)',icon:`<svg class="brand-module-icon" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="6"/><path d="M24 10v5M24 33v5M38 24h-5M15 24h-5M33.9 14.1l-3.5 3.5M17.6 30.4l-3.5 3.5M33.9 33.9l-3.5-3.5M17.6 17.6l-3.5-3.5"/></svg>`}
+    {title:'Planning',subtitle:'Build smarter schedules.',color:'#9b6dff',glow:'rgba(155,109,255,.20)',icon:`<svg class="brand-module-icon" viewBox="0 0 48 48" aria-hidden="true"><rect x="8" y="10" width="32" height="28" rx="6"/><path d="M15 8v7M33 8v7M8 18h32"/><path d="M17 29l5 5 10-11"/></svg>`},
+    {title:'Actuals',subtitle:'Track real performance.',color:'#44d4ff',glow:'rgba(68,212,255,.18)',icon:`<svg class="brand-module-icon" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="15"/><path d="M24 16v9l6 5"/></svg>`},
+    {title:'Badge terminal',subtitle:'Clock in fast, secure time tracking.',color:'#52df83',glow:'rgba(82,223,131,.18)',icon:`<svg class="brand-module-icon" viewBox="0 0 48 48" aria-hidden="true"><rect x="10" y="12" width="28" height="24" rx="5"/><path d="M18 20h12M18 27h8"/><circle cx="34" cy="32" r="4"/></svg>`},
+    {title:'Team',subtitle:'Manage your team.',color:'#a970ff',glow:'rgba(169,112,255,.18)',icon:`<svg class="brand-module-icon" viewBox="0 0 48 48" aria-hidden="true"><circle cx="18" cy="18" r="6"/><circle cx="31" cy="20" r="5"/><path d="M8 36c1.6-5.4 5.8-8 10-8s8.4 2.6 10 8"/><path d="M26 36c1.1-3.8 4-5.8 7-5.8 2.4 0 4.8 1.1 6 3.2"/></svg>`},
+    {title:'Restaurant',subtitle:'Configure zones and settings.',color:'#ffb14a',glow:'rgba(255,177,74,.18)',icon:`<svg class="brand-module-icon" viewBox="0 0 48 48" aria-hidden="true"><path d="M10 32h28"/><path d="M14 32a10 10 0 0 1 20 0"/><path d="M24 12v4"/><path d="M8 38h32"/></svg>`},
   ];
 
-  const pages = [modules];
-  let activePage = 0;
-  let switchTimer = null;
+  const loginFields = {
+    real: {
+      mode: 'real',
+      workspaceInputId: 'emailLoginRestaurant',
+      identityId: 'emailLoginName',
+      secretId: 'emailLoginPassword',
+      helpId: 'emailLoginHelp',
+      buttonId: 'emailLoginBtn',
+      defaultButtonLabel: 'Sign in',
+    },
+    quick: {
+      mode: 'quick',
+      workspaceInputId: 'quickLoginRestaurant',
+      identityId: 'quickLoginName',
+      secretId: 'quickLoginPin',
+      helpId: 'quickLoginHelp',
+      buttonId: 'quickLoginBtn',
+      defaultButtonLabel: 'Sign in',
+    },
+  };
 
-  function renderModulePage(grid, dots){
-    const pageModules = pages[activePage] || pages[0];
+  let activeMode = 'real'; // 'real' | 'quick'
 
-    grid.innerHTML = pageModules.map(mod => (
-      `<article class="brand-module-card rs-module-card" style="--tile-color:${esc(mod.color)};--tile-glow:${esc(mod.glow)}">` +
-        `<span class="brand-module-art rs-module-card__art" aria-hidden="true">${mod.icon}</span>` +
-        `<span class="brand-module-copy rs-module-card__copy"><b>${esc(mod.title)}</b><small>${esc(mod.subtitle)}</small></span>` +
+  function loginButtonHtml(label='Sign in'){
+    return `<span>${esc(label)}</span><span class="brand-login-arrow" aria-hidden="true">→</span>`;
+  }
+
+  function fieldSet(mode=activeMode){
+    return loginFields[mode] || loginFields.real;
+  }
+
+  function getLoginContext(mode=activeMode){
+    const fields = fieldSet(mode);
+    const workspaceEl = $(fields.workspaceInputId);
+    const identityEl = $(fields.identityId);
+    const secretEl = $(fields.secretId);
+    const helpEl = $(fields.helpId);
+    const buttonEl = $(fields.buttonId);
+    return {
+      mode: fields.mode,
+      workspaceEl,
+      identityEl,
+      secretEl,
+      helpEl,
+      buttonEl,
+      workspaceId: workspaceEl?.value || '',
+      identity: String(identityEl?.value || '').trim(),
+      secret: String(secretEl?.value || '').trim(),
+    };
+  }
+
+  function renderEntryModules(){
+    const grid = $('entryModuleGrid');
+    if(!grid) return;
+    grid.innerHTML = modules.map(mod => (
+      `<article class="brand-module-card" style="--tile-color:${esc(mod.color)};--tile-glow:${esc(mod.glow)}">` +
+        `<span class="brand-module-art" aria-hidden="true">${mod.icon}</span>` +
+        `<span class="brand-module-copy"><b>${esc(mod.title)}</b><small>${esc(mod.subtitle)}</small></span>` +
       `</article>`
     )).join('');
+  }
 
-    if(dots){
-      dots.innerHTML = pages.map((_, index) => (
-        `<button class="brand-module-dot ${index===activePage?'active':''}" type="button" aria-label="Show module preview ${index+1}" data-module-page="${index}"></button>`
-      )).join('');
-      dots.querySelectorAll('[data-module-page]').forEach(button => {
-        button.addEventListener('click', () => renderEntryModules(Number(button.dataset.modulePage)));
-      });
+  function clearLoginMessages(){
+    Object.values(loginFields).forEach(fields => {
+      const help = $(fields.helpId);
+      if(help){
+        help.textContent = '';
+        help.classList.remove('error');
+      }
+    });
+  }
+
+  /* Keep both workspace text inputs in sync when switching tabs. */
+  function syncWorkspaceInputs(sourceId){
+    const emailInput = $('emailLoginRestaurant');
+    const quickInput = $('quickLoginRestaurant');
+    if(!emailInput || !quickInput) return;
+    const value = $(sourceId)?.value || emailInput.value || quickInput.value || '';
+    if(value){
+      emailInput.value = value;
+      quickInput.value = value;
     }
   }
 
-  function renderEntryModules(pageIndex=activePage){
-    const grid = $('entryModuleGrid');
-    const dots = $('moduleDots');
-    if(!grid) return;
+  function switchLoginRole(mode){
+    if(!loginFields[mode]) return;
+    if(mode === activeMode) return;
+    activeMode = mode;
 
-    const nextPage = Math.max(0, Math.min(pages.length - 1, Number(pageIndex) || 0));
-    const panel = grid.closest('.brand-module-panel');
-    const changed = nextPage !== activePage && grid.children.length > 0;
+    const realForm  = $('loginFormEmail');
+    const quickForm = $('loginFormQuick');
+    const tabs      = document.querySelectorAll('.brand-login-tab');
 
-    clearTimeout(switchTimer);
+    tabs.forEach(tab => {
+      const isActive = tab.dataset.loginRole === mode;
+      tab.classList.toggle('is-active', isActive);
+      tab.setAttribute('aria-selected', String(isActive));
+    });
 
-    if(!changed){
-      activePage = nextPage;
-      renderModulePage(grid, dots);
-      return;
+    if(mode === 'quick'){
+      realForm?.classList.add('is-hidden');
+      quickForm?.classList.remove('is-hidden');
+      syncWorkspaceInputs('emailLoginRestaurant');
+      setTimeout(() => $('quickLoginName')?.focus?.(), 20);
+    } else {
+      quickForm?.classList.add('is-hidden');
+      realForm?.classList.remove('is-hidden');
+      syncWorkspaceInputs('quickLoginRestaurant');
+      setTimeout(() => $('emailLoginName')?.focus?.(), 20);
     }
 
-    activePage = nextPage;
-    panel?.classList.add('is-switching');
-    switchTimer = setTimeout(() => {
-      renderModulePage(grid, dots);
-      requestAnimationFrame(() => panel?.classList.remove('is-switching'));
-    }, 120);
+    clearLoginMessages();
   }
 
-  function pulse(el){
-    if(!el) return;
-    el.classList.remove('is-shaking');
-    void el.offsetWidth;
-    el.classList.add('is-shaking');
-    setTimeout(() => el.classList.remove('is-shaking'), 420);
+  function bindLoginTabs(){
+    document.querySelectorAll('.brand-login-tab').forEach(tab => {
+      tab.addEventListener('click', () => switchLoginRole(tab.dataset.loginRole));
+    });
+  }
+
+  function bindQuickLogin(){
+    const btn = $('quickLoginBtn');
+    if(!btn || btn.dataset.bound) return;
+    btn.dataset.bound = 'true';
+    const doLogin = () => {
+      void window.Restogogo?.auth?.enterSelectedWorkspace?.({ mode: 'quick' });
+    };
+    btn.addEventListener('click', doLogin);
+    $('quickLoginPin')?.addEventListener('keydown', e => { if(e.key === 'Enter') doLogin(); });
+    $('quickLoginName')?.addEventListener('keydown', e => { if(e.key === 'Enter') doLogin(); });
+  }
+
+
+  function setPinChangeError(message=''){
+    const help = $('pinChangeHelp');
+    if(help){
+      help.textContent = message;
+      help.classList.toggle('error', !!message);
+    }
+  }
+
+  function showPinChangePanel(onSubmit){
+    const realForm = $('loginFormEmail');
+    const quickForm = $('loginFormQuick');
+    const panel = $('pinChangePanel');
+    if(!panel)return;
+    realForm?.classList.add('is-hidden');
+    quickForm?.classList.add('is-hidden');
+    panel.classList.remove('is-hidden');
+    setPinChangeError('');
+    ['pinChangeCurrent','pinChangeNew','pinChangeConfirm'].forEach(id=>{const el=$(id); if(el)el.value='';});
+    const btn = $('confirmPinChangeBtn');
+    if(btn){
+      btn.disabled = false;
+      btn.onclick = async()=>{
+        const current = String($('pinChangeCurrent')?.value || '').trim();
+        const next = String($('pinChangeNew')?.value || '').trim();
+        const confirm = String($('pinChangeConfirm')?.value || '').trim();
+        if(!/^\d{4}$/.test(current))return setPinChangeError('Enter your temporary 4-digit PIN.');
+        if(!/^\d{4}$/.test(next))return setPinChangeError('Choose a new 4-digit PIN.');
+        if(next !== confirm)return setPinChangeError('The new PIN confirmation does not match.');
+        btn.disabled = true;
+        try{ await onSubmit?.(current, next); }
+        catch(error){ btn.disabled = false; setPinChangeError(error?.message || 'PIN change failed.'); }
+      };
+    }
+    setTimeout(()=>$('pinChangeCurrent')?.focus?.(), 20);
+  }
+
+  function hidePinChangePanel(){
+    $('pinChangePanel')?.classList.add('is-hidden');
+  }
+
+  function bindOnboardingTrigger(){
+    const btn = $('openOnboardingBtn');
+    if(!btn) return;
+    btn.addEventListener('click', () => {
+      window.Restogogo?.onboarding?.show?.();
+    });
   }
 
   function resetLoginState(){
+    hidePinChangePanel();
     const panel = $('brandLoginPanel');
-    const button = $('enterBtn');
-    if(panel) panel.classList.remove('is-error','is-success','is-shaking');
-    if(button){
-      button.disabled = false;
-      button.classList.remove('is-loading');
-      button.textContent = 'Login';
-    }
+    if(panel) panel.classList.remove('is-error','is-success');
+    Object.values(loginFields).forEach(fields => {
+      const button = $(fields.buttonId);
+      if(button){
+        button.disabled = false;
+        button.classList.remove('is-loading');
+        button.innerHTML = loginButtonHtml(fields.defaultButtonLabel);
+      }
+    });
   }
 
   function signalLoginError(message=''){
     const panel = $('brandLoginPanel');
-    const pin = $('accessPin');
-    const identity = $('identityLoginName');
+    const ctx = getLoginContext();
 
     resetLoginState();
+    clearLoginMessages();
+
+    if(ctx.helpEl){
+      ctx.helpEl.textContent = message;
+      ctx.helpEl.classList.add('error');
+    }
 
     if(panel){
       panel.classList.add('is-error');
-      pulse(panel);
       setTimeout(() => panel.classList.remove('is-error'), 1400);
     }
 
     const msg = String(message || '').toLowerCase();
-    if(msg.includes('wrong') && pin) pin.value = '';
-    const target = msg.includes('name') ? identity : pin || identity;
+    if((msg.includes('wrong') || msg.includes('password') || msg.includes('pin')) && ctx.secretEl){
+      ctx.secretEl.value = '';
+    }
+    const target = msg.includes('name') || msg.includes('email') || msg.includes('staff') ? ctx.identityEl : ctx.secretEl || ctx.identityEl;
     setTimeout(() => target?.focus?.(), 20);
   }
 
   function signalLoginSuccess(){
     const panel = $('brandLoginPanel');
-    const button = $('enterBtn');
+    const ctx = getLoginContext();
     if(panel) panel.classList.add('is-success');
-    if(button){
-      button.disabled = true;
-      button.classList.add('is-loading');
-      button.textContent = 'Logging in…';
+    if(ctx.buttonEl){
+      ctx.buttonEl.disabled = true;
+      ctx.buttonEl.classList.add('is-loading');
+      ctx.buttonEl.innerHTML = loginButtonHtml('Signing in…');
     }
   }
 
   function shouldDelayEntry(){
-    return !!document.querySelector('#login.brand-page[style*="grid"], #login.brand-page');
+    const el = $('login');
+    return !!el && getComputedStyle(el).display !== 'none';
   }
 
+  function bindPasswordToggle(){
+    const toggle = $('toggleLoginPassword');
+    const input  = $('emailLoginPassword');
+    if(!toggle || !input || toggle.dataset.bound) return;
+    toggle.dataset.bound = 'true';
+    toggle.addEventListener('click', () => {
+      input.type = input.type === 'password' ? 'text' : 'password';
+      toggle.setAttribute('aria-label', input.type === 'password' ? 'Show password' : 'Hide password');
+      input.focus?.();
+    });
+  }
 
-  const brandEntryApi = {
-    renderEntryModules,
-    resetLoginState,
-    signalLoginError,
-    signalLoginSuccess,
-    shouldDelayEntry
-  };
+  bindPasswordToggle();
+  bindLoginTabs();
+  bindQuickLogin();
+  bindOnboardingTrigger();
 
   window.Restogogo = window.Restogogo || {};
-  window.Restogogo.brandEntry = brandEntryApi;
+  window.Restogogo.brandEntry = Object.freeze({
+    renderEntryModules,
+    resetLoginState,
+    showPinChangePanel,
+    hidePinChangePanel,
+    signalLoginError,
+    signalLoginSuccess,
+    shouldDelayEntry,
+    bindPasswordToggle,
+    switchLoginRole,
+    getLoginContext,
+    syncWorkspaceInputs,
+    clearLoginMessages,
+  });
 })();

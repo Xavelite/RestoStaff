@@ -1,0 +1,229 @@
+/* Shared weekly calendar structure for Planning + Actuals. Calendar card visuals live in components/calendar.css. */
+/* Weekly grid variables — base.css already sets color + overflow for all app modes. */
+.planning-mode,
+.actuals-mode {
+  --weekly-person-col: var(--rst-calendar-employee-col);
+  --weekly-total-col: var(--rst-calendar-week-total-col);
+  --weekly-row-h: var(--rst-calendar-row-height-comfortable);
+  --weekly-day-col-min: var(--rst-calendar-day-col-min);
+  --weekly-service-col-min: var(--rst-calendar-service-col-min);
+  --weekly-readable-grid-min: calc(var(--weekly-person-col) + var(--weekly-total-col) + (7 * var(--weekly-day-col-min)));
+  --weekly-day-separator: var(--rst-ui-divider-strong);
+}
+
+
+.rs-weekly-board {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--rst-ui-line);
+  border-radius: var(--rst-ui-radius-xl);
+  background: var(--rst-calendar-board-bg);
+}
+.rs-weekly-body,
+.rs-weekly-scroll {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  background: var(--rst-calendar-board-bg);
+}
+.rs-weekly-body { display: flex; flex-direction: column; overflow: hidden; }
+.rs-weekly-scroll { overflow-x: auto; overflow-y: auto; scrollbar-gutter: stable; overscroll-behavior: contain; }
+
+.rs-weekly-toolbar {
+  display: grid;
+  grid-template-columns: var(--weekly-person-col) repeat(7,minmax(0,1fr)) var(--weekly-total-col);
+  align-items: center;
+  min-height: 54px;
+  padding: 0;
+}
+.rs-weekly-toolbar :is(.rs-grid-toolbar__leading,.rs-grid-toolbar__center,.rs-grid-toolbar__actions) { min-width: 0; display: flex; align-items: center; gap: 10px; }
+.rs-weekly-toolbar .rs-grid-toolbar__leading { grid-column: 1 / 3; padding: 0 12px; }
+.rs-weekly-toolbar .rs-grid-toolbar__center { grid-column: 3 / 8; justify-self: center; justify-content: center; }
+.rs-weekly-toolbar .rs-grid-toolbar__actions { grid-column: 8 / 10; justify-self: end; justify-content: flex-end; width: max-content; padding: 0 12px; }
+.rs-weekly-toolbar .rs-search-control { width: min(280px,28vw); min-width: 220px; }
+
+.rs-weekly-table {
+  width: max(100%, var(--weekly-readable-grid-min));
+  min-width: var(--weekly-readable-grid-min);
+  max-width: none;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: var(--rst-ui-text);
+  background: var(--rst-calendar-board-bg);
+}
+.rs-weekly-table :is(th,td) { border-right: 1px solid var(--rst-ui-divider-soft); border-bottom: 1px solid var(--rst-ui-divider); }
+.rs-weekly-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  height: 54px;
+  padding: 7px 9px;
+  background: var(--rst-calendar-header-bg);
+  color: var(--rst-ui-text-heading);
+  text-align: center;
+}
+.rs-weekly-table thead th.is-today { border-top: 2px solid var(--module-accent,var(--rst-ui-line-strong)); }
+
+.rs-weekly-person-col,
+.rs-weekly-person-head,
+.rs-weekly-person-cell { width: var(--weekly-person-col); min-width: var(--weekly-person-col); max-width: var(--weekly-person-col); }
+.rs-weekly-total-col,
+.rs-weekly-total-head,
+.rs-weekly-total-cell { width: var(--weekly-total-col); min-width: var(--weekly-total-col); max-width: var(--weekly-total-col); }
+.rs-weekly-day-col { width: calc((100% - var(--weekly-person-col) - var(--weekly-total-col)) / 7); }
+.rs-weekly-table .rs-weekly-day-head,
+.rs-weekly-table .rs-weekly-day-cell { border-right: 2px solid var(--weekly-day-separator); }
+
+.rs-weekly-day-head-copy,
+.rs-weekly-total-head-copy {
+  height: 100%;
+  min-height: 40px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 3px;
+}
+.rs-weekly-day-head-copy strong,
+.rs-weekly-total-head-copy strong,
+.rs-weekly-total-head-copy span { color: var(--rst-ui-text); font-size: 12.5px; line-height: 1.1; font-weight: var(--rst-fw-display); white-space: nowrap; }
+.rs-weekly-day-head-copy :is(span,small),
+.rs-weekly-total-head-copy span { color: var(--rst-ui-muted); font-size: 10.5px; font-weight: var(--rst-fw-bold); }
+.rs-weekly-total-head-copy span { letter-spacing: .08em; text-transform: uppercase; }
+
+.rs-weekly-person-head,
+.rs-weekly-person-cell { position: sticky; left: 0; z-index: 5; background: var(--rst-calendar-person-bg); text-align: left; }
+.rs-weekly-person-cell { height: var(--weekly-row-h); padding: 10px; vertical-align: middle; }
+.rs-weekly-day-cell,
+.rs-weekly-total-cell { height: var(--weekly-row-h); padding: 0; vertical-align: stretch; }
+.rs-weekly-day-cell { position: relative; overflow: hidden; background: var(--rst-calendar-cell-bg); }
+.rs-weekly-day-cell.day-alt { background: var(--rst-calendar-cell-alt-bg); }
+.rs-weekly-total-cell { background: var(--rst-calendar-total-bg); text-align: center; vertical-align: middle; }
+.rs-weekly-table .rs-weekly-total-head { padding: 0; background: var(--rst-calendar-header-bg); text-align: center; }
+
+.rs-weekly-person-card { display: grid; grid-template-columns: 40px minmax(0,1fr); align-items: center; gap: 11px; }
+.rs-weekly-avatar { width: 38px; height: 38px; flex: 0 0 38px; font-size: 13px; }
+.rs-weekly-person-copy { min-width: 0; display: grid; gap: 3px; }
+.rs-weekly-person-copy :is(strong,small) { min-width: 0; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rs-weekly-person-copy strong { color: var(--rst-ui-text); font-size: 14px; font-weight: var(--rst-fw-display); }
+.rs-weekly-person-copy small { color: var(--rst-ui-muted); font-size: 11px; font-weight: var(--rst-fw-bold); }
+
+.rs-weekly-day-slots,
+.rs-calendar-slot-grid {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  display: grid;
+  grid-template-columns: repeat(2,minmax(var(--weekly-service-col-min),1fr));
+}
+.rs-weekly-day-slots::before,
+.rs-calendar-slot-grid::before {
+  content: '';
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  transform: translateX(-.5px);
+  background: var(--rst-ui-divider-soft);
+  pointer-events: none;
+}
+.rs-weekly-day-slots > *,
+.rs-calendar-slot-grid > * {
+  position: relative;
+  z-index: 1;
+  min-width: var(--weekly-service-col-min);
+  min-height: 0;
+  align-self: stretch;
+  justify-self: stretch;
+}
+.rs-weekly-day-slots > .rs-calendar-card {
+  width: auto;
+  min-width: var(--rst-calendar-card-min-width);
+  max-width: none;
+  height: calc(100% - 8px);
+  margin: 4px;
+}
+.rs-weekly-slot { width: auto; max-width: none; height: 100%; align-self: stretch; }
+
+
+.rs-weekly-total-value { min-height: var(--weekly-row-h); display: grid; place-items: center; align-content: center; padding: 0 6px; }
+.rs-weekly-total-value :is(strong,small,b) { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rs-weekly-total-value strong { color: var(--rst-ui-text); font-size: 14px; font-weight: var(--rst-fw-display); }
+.rs-weekly-total-value small,
+.rs-weekly-total-value b { margin-top: 6px; color: var(--rst-ui-muted); font-size: 10px; font-weight: var(--rst-fw-bold); }
+.rs-weekly-total-value b { color: var(--rst-op-planned-accent); font-size: 11px; }
+
+.rs-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.rs-slot-add { display: grid; place-items: center; padding: 0; border: 1px solid transparent; background: transparent; color: var(--module-accent,var(--rst-op-planned-accent)); font: inherit; font-size: 17px; font-weight: var(--rst-fw-bold); line-height: 1; cursor: pointer; opacity: 0; }
+.rs-slot-add:is(:hover,:focus-visible) { opacity: 1; }
+.rs-slot-add span[aria-hidden="true"] { display: inline; width: auto; height: auto; border: 0; border-radius: 0; background: transparent; color: inherit; font: inherit; line-height: 1; }
+
+
+/* Shared weekly interaction states. Planning and Actuals must behave identically here. */
+.rs-weekly-board .rs-weekly-person-cell[role="button"],
+.rs-weekly-board thead th.rs-weekly-day-head[role="button"] { cursor: pointer; }
+.rs-weekly-board .rs-weekly-person-cell[role="button"]:hover,
+.rs-weekly-board thead th.rs-weekly-day-head[role="button"]:hover { background: var(--rst-ui-section-row-hover); }
+.rs-weekly-board .calendar-row.row-selected > :is(td,th),
+.rs-weekly-board thead th.col-selected,
+.rs-weekly-board .rs-weekly-day-cell.col-selected { background: var(--rst-op-selected-bg); }
+.rs-weekly-board .calendar-row.row-selected .rs-weekly-day-cell.col-selected { background: var(--rst-op-selected-bg); }
+
+.rs-weekly-legend {
+  min-height: 44px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 0 16px;
+  border-top: 1px solid var(--rst-ui-divider);
+  background: var(--rst-calendar-header-bg);
+  color: var(--rst-op-empty-accent);
+  font-size: 12px;
+  font-weight: var(--rst-fw-bold);
+}
+.rs-weekly-legend__item { min-width: 0; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.rs-weekly-legend__item i { width: 14px; height: 14px; flex: 0 0 14px; border-radius: 4px; border: 1px solid var(--rst-ui-divider-strong); background: transparent; }
+.rs-weekly-legend__item i.is-planned { border-color: var(--rst-op-planned-border); }
+.rs-weekly-legend__item i.is-actual { border-color: var(--rst-op-actual-border); }
+.rs-weekly-legend__item i.is-available { border-color: var(--rst-op-available-border); }
+.rs-weekly-legend__item i.is-open { border-color: var(--rst-op-live-border); }
+.rs-weekly-legend__item i:is(.is-adjusted,.is-draft) { border-color: var(--rst-op-partial-border); }
+.rs-weekly-legend__item i.is-warning { border-color: var(--rst-op-partial-border); }
+.rs-weekly-legend__item i.is-conflict { border-color: var(--rst-op-conflict-border); }
+.rs-weekly-legend__item i.is-absence { border-color: var(--rst-op-absence-border); }
+.rs-weekly-legend__item i.is-conflict::after { content: "!"; display: grid; place-items: center; color: var(--rst-op-conflict-accent); font-size: 10px; font-weight: var(--rst-fw-display); }
+
+@media (max-width:1180px), (max-height:760px) {
+  .planning-mode,
+  .actuals-mode {
+    --weekly-row-h: var(--rst-calendar-row-height-compact);
+  }
+}
+
+@media (max-width:980px) {
+  .planning-mode,
+  .actuals-mode {
+    --weekly-row-h: var(--rst-calendar-row-height-min);
+  }
+}
+
+@media (max-width:1180px) {
+  .rs-weekly-toolbar { grid-template-columns: 1fr; gap: 8px; padding: 10px 12px; }
+  .rs-weekly-toolbar :is(.rs-grid-toolbar__leading,.rs-grid-toolbar__center,.rs-grid-toolbar__actions) { grid-column: 1; justify-self: stretch; justify-content: flex-start; width: auto; padding: 0; flex-wrap: wrap; }
+  .rs-weekly-toolbar .rs-search-control { width: min(280px,100%); }
+  .rs-weekly-legend { justify-content: flex-start; overflow-x: auto; }
+  /* employee legend override (from employee-schedule.css, Pass 2 ownership) */
+  .employee-calendar-card .rs-weekly-legend { justify-content: flex-start; }
+}

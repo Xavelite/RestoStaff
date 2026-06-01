@@ -53,19 +53,19 @@ function validateOperationalIntegrity(state){
     }
   });
 
-  Object.entries(isPlainObject(source.planning) ? source.planning : {}).forEach(([employeeId, employeePlan])=>{
+  Object.entries(isPlainObject(source.planningSlots) ? source.planningSlots : {}).forEach(([employeeId, employeePlan])=>{
     if(!employeeIds.has(employeeId))warnings.push(`Planning exists for unknown employee id: ${employeeId}.`);
     Object.entries(isPlainObject(employeePlan) ? employeePlan : {}).forEach(([day, shiftsByName])=>{
       if(!days.includes(day))warnings.push(`Planning contains unknown day: ${day}.`);
-      Object.entries(isPlainObject(shiftsByName) ? shiftsByName : {}).forEach(([shift, planned])=>{
-        if(!planned)return;
+      Object.entries(isPlainObject(shiftsByName) ? shiftsByName : {}).forEach(([shift, slot])=>{
+        if(!slot?.planned)return;
         if(!shifts.includes(shift))warnings.push(`Planning contains unknown shift: ${shift}.`);
-        const zoneId = canonicalZoneId(source.assignments?.[employeeId]?.[day]?.[shift], setup);
+        const zoneId = canonicalZoneId(slot.zoneId, setup);
         const zone = zoneList.find(item=>String(item?.id || '').trim()===String(zoneId || '').trim());
         if(zoneId && (!zone || zone.active === false)){
           warnings.push(`Planning assignment uses inactive or unknown zone for ${employeeId} ${day} ${shift}.`);
         }
-        const plannedPositionId = canonicalPositionId(source.assignmentPositions?.[employeeId]?.[day]?.[shift] || employees.find(employee=>employee.id===employeeId)?.positionId, setup.positions || []);
+        const plannedPositionId = canonicalPositionId(slot.positionId || employees.find(employee=>employee.id===employeeId)?.positionId, setup.positions || []);
         if(plannedPositionId && !positionsById.has(plannedPositionId)){
           warnings.push(`Planning assignment for ${employeeId} ${day} ${shift} references an unknown position.`);
         }
@@ -102,7 +102,7 @@ function validatePlannerState(source){
   errors.push(...operational.errors);
   warnings.push(...operational.warnings);
 
-  const weeklyObjects = ['availability','planning','assignments','assignmentPositions','assignmentTimes','submitted','notes','actualEntries'];
+  const weeklyObjects = ['availability','planningSlots','submitted','notes','actualEntries'];
   weeklyObjects.forEach(key=>{
     if(state[key] !== undefined && !isPlainObject(state[key])) errors.push(`${key} must be an object.`);
   });

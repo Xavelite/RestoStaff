@@ -10,7 +10,7 @@
     width: auto;
     height: auto;
     overflow: visible;
-    background: #fff;
+    background: var(--rst-ui-text);
   }
 
   body * {
@@ -21,21 +21,20 @@
   .brand-page,
   .app-topbar-main,
   .rs-grid-toolbar,
-  .planning-conflict-banner,
   .rs-toast,
   .rs-modal,
+  .rs-detail-dialog,
   .notif-panel,
-  .brand-pilot-guide-action,
   .pilot-guide-dialog {
     display: none;
   }
 
-  body:not(.planning-mode):not(.actuals-mode) .shell {
+  body:not(.planning-mode):not(.actuals-mode) .app-shell {
     display: none;
   }
 
-  .planning-mode .shell,
-  .actuals-mode .shell,
+  .planning-mode .app-shell,
+  .actuals-mode .app-shell,
   .planning-mode .planning-page,
   .actuals-mode .actuals-page,
   .rs-weekly-board,
@@ -49,10 +48,10 @@
     display: block;
     overflow: visible;
     border: 0;
-    background: #fff;
+    background: var(--rst-ui-text);
   }
 
-  .rs-weekly-metrics {
+  .rs-metrics-row {
     display: grid;
     grid-template-columns: repeat(4,1fr);
     gap: 6px;
@@ -60,15 +59,12 @@
   }
 
   .rs-metric-card,
-  .rs-panel,
   .rs-frame {
-    border: 1px solid #cbd5e1;
-    background: #fff;
+    border: 1px solid var(--rst-state-neutral-text);
+    background: var(--rst-ui-text);
     color: #0f172a;
   }
 
-  .rs-metric-card::before,
-  .rs-metric-card::after,
   .rs-icon-badge {
     display: none;
   }
@@ -94,8 +90,8 @@
   }
 
   .rs-weekly-table :is(th,td) {
-    border: 1px solid #cbd5e1;
-    background: #fff;
+    border: 1px solid var(--rst-state-neutral-text);
+    background: var(--rst-ui-text);
     color: #0f172a;
   }
 
@@ -110,7 +106,7 @@
   .rs-weekly-day-cell.day-alt,
   .rs-weekly-total-cell,
   .rs-weekly-total-head {
-    background: #fff;
+    background: var(--rst-ui-text);
   }
 
   .rs-weekly-day-head-copy strong,
@@ -134,22 +130,21 @@
   }
 
   .rs-weekly-avatar {
-    border: 1px solid #94a3b8;
+    border: 1px solid var(--rst-ui-muted);
     background: #e2e8f0;
     color: #0f172a;
   }
 
-  .rs-shift-card,
+  .rs-calendar-card,
   .planning-slot-card,
   .actuals-slot-card {
-    border: 1px solid #94a3b8;
-    background: #fff;
+    border: 1px solid var(--rst-ui-muted);
+    background: var(--rst-ui-text);
     color: #0f172a;
   }
 
   .actuals-proof-dot,
   .planning-slot-empty,
-  .planning-zone-trigger svg,
   .planning-slot-time,
   .planning-slot-assignment {
     display: none;

@@ -40,39 +40,6 @@ function canonicalZoneId(value, setup){
   return byName ? String(byName.id || '').trim() : '';
 }
 
-function canonicalizeAssignmentMap(assignments, setup){
-  const compact = {};
-  if(!isPlainObject(assignments))return compact;
-  Object.entries(assignments).forEach(([employeeId, employeeMap])=>{
-    if(!isPlainObject(employeeMap))return;
-    Object.entries(employeeMap).forEach(([day, dayMap])=>{
-      if(!days.includes(day) || !isPlainObject(dayMap))return;
-      Object.entries(dayMap).forEach(([shift, value])=>{
-        if(!shifts.includes(shift))return;
-        const zoneId = canonicalZoneId(value, setup);
-        if(zoneId)setSparseSlot(compact, employeeId, day, shift, zoneId);
-      });
-    });
-  });
-  return compact;
-}
-
-function canonicalizeAssignmentPositionMap(assignments, setup){
-  const compact = {};
-  if(!isPlainObject(assignments))return compact;
-  Object.entries(assignments).forEach(([employeeId, employeeMap])=>{
-    if(!isPlainObject(employeeMap))return;
-    Object.entries(employeeMap).forEach(([day, dayMap])=>{
-      if(!days.includes(day) || !isPlainObject(dayMap))return;
-      Object.entries(dayMap).forEach(([shift, value])=>{
-        if(!shifts.includes(shift))return;
-        const positionId = canonicalPositionId(value, setup?.positions || []);
-        if(positionId)setSparseSlot(compact, employeeId, day, shift, positionId);
-      });
-    });
-  });
-  return compact;
-}
 
 function coverageRequirementKey(requirement){
   return [requirement.zoneId, requirement.serviceKey, requirement.positionId].join('|');
@@ -86,8 +53,8 @@ function normalizeCoverageRequirements(requirements, setup={}, options={}){
   list.forEach((item,index)=>{
     const source = isPlainObject(item) ? item : {};
     const zoneId = canonicalZoneId(source.zoneId || source.zone_id || source.zone, setup);
-    const serviceKey = shifts.includes(source.serviceKey || source.service_key || source.shift || source.shiftName || source.shift_name)
-      ? (source.serviceKey || source.service_key || source.shift || source.shiftName || source.shift_name)
+    const serviceKey = shifts.includes(source.serviceKey || source.shiftName)
+      ? (source.serviceKey || source.shiftName)
       : '';
     const positionId = canonicalPositionId(source.positionId || source.position_id || source.position, setup.positions || []);
     const requiredCount = Math.max(0, Math.round(Number(source.requiredCount ?? source.required_count ?? source.count ?? 0)));

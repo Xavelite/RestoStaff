@@ -22,6 +22,7 @@ function normalizePhotoDataUrl(value){
 function normalizeActualEntry(entry){
   const source = isPlainObject(entry) ? entry : {};
   const normalized = Object.assign({}, source, {
+    id: String(source.id || '').trim(),
     clockIn: normalizeClockValue(source.clockIn),
     clockOut: normalizeClockValue(source.clockOut),
     clockInAt: normalizeIsoStamp(source.clockInAt),
@@ -33,7 +34,13 @@ function normalizeActualEntry(entry){
     clockInPhotoStatus: normalizePhotoStatus(source.clockInPhotoStatus),
     clockOutPhotoStatus: normalizePhotoStatus(source.clockOutPhotoStatus),
     clockInPhotoCapturedAt: normalizeIsoStamp(source.clockInPhotoCapturedAt),
-    clockOutPhotoCapturedAt: normalizeIsoStamp(source.clockOutPhotoCapturedAt)
+    clockOutPhotoCapturedAt: normalizeIsoStamp(source.clockOutPhotoCapturedAt),
+    adjustedAt: normalizeIsoStamp(source.adjustedAt),
+    cancelledAt: normalizeIsoStamp(source.cancelledAt),
+    status: String(source.status || '').trim(),
+    source: String(source.source || '').trim(),
+    adjustmentReason: String(source.adjustmentReason || '').trim(),
+    cancellationReason: String(source.cancellationReason || '').trim()
   });
 
   if(normalized.clockOut && !normalized.clockIn){
@@ -51,7 +58,9 @@ function hasActualEntryValue(entry){
     normalized.clockInAt || normalized.clockOutAt ||
     normalized.clockInPhoto || normalized.clockOutPhoto ||
     normalized.clockInPhotoStatus || normalized.clockOutPhotoStatus ||
-    normalized.clockInPhotoCapturedAt || normalized.clockOutPhotoCapturedAt
+    normalized.clockInPhotoCapturedAt || normalized.clockOutPhotoCapturedAt ||
+    normalized.id || normalized.status || normalized.adjustedAt || normalized.cancelledAt ||
+    normalized.adjustmentReason || normalized.cancellationReason
   );
 }
 
@@ -62,7 +71,8 @@ function compactActualEntry(entry){
   [
     'clockIn','clockOut','clockInAt','clockOutAt','createdAt','updatedAt',
     'clockInPhoto','clockOutPhoto','clockInPhotoStatus','clockOutPhotoStatus',
-    'clockInPhotoCapturedAt','clockOutPhotoCapturedAt','source'
+    'clockInPhotoCapturedAt','clockOutPhotoCapturedAt','source','status','id',
+    'adjustedAt','adjustmentReason','cancelledAt','cancellationReason'
   ].forEach(key=>{
     const value = normalized[key];
     if(value !== undefined && value !== null && String(value).trim() !== '') compact[key] = value;

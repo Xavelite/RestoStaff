@@ -1,23 +1,43 @@
 /* restogogo design tokens */
 :root {
   --rst-blue: #3347ff;
+  --rst-blue-rgb: 51,71,255;
   --rst-indigo: #2833a8;
   --rst-mint: #23c6a7;
   --rst-coral: #ff7a59;
   --rst-red: #9b1734;
-  --rst-ui-font: Inter, "Segoe UI", Arial, sans-serif;
+  --rst-ui-font: Manrope, "Segoe UI", Arial, sans-serif;
   --rst-ui-bg: #06101d;
   --rst-ui-bg-2: #091325;
+  --rst-ui-bg-deep: rgba(15,23,42,1); /* deepest navy — use instead of raw rgba(15,23,42,...) */
   --rst-ui-panel: #111c2d;
-  --rst-ui-surface-board: linear-gradient(180deg,rgba(17,30,53,.64),rgba(9,20,37,.78));
-  --rst-ui-surface-panel: var(--rst-ui-surface-board);
-  --rst-ui-surface-card: linear-gradient(180deg,rgba(17,30,53,.50),rgba(9,20,37,.68));
-  --rst-ui-surface-subpanel: linear-gradient(180deg,rgba(9,20,37,.52),rgba(6,14,25,.64));
-  --rst-ui-surface-field: rgba(255,255,255,.026);
-  --rst-ui-surface-field-strong: rgba(255,255,255,.040);
-  --rst-ui-metric-card: var(--rst-ui-surface-board);
-  --rst-ui-card: rgba(255,255,255,.052);
-  --rst-ui-card-strong: rgba(255,255,255,.075);
+  /* Surface system — intentionally flat.
+     Atmosphere belongs to the app/module header layers; cards and panels stay boring and readable. */
+  --rst-ui-workspace-header: #0a1a2e;
+  --rst-ui-workspace-body: #071325;
+  --rst-ui-workspace-body-flat: var(--rst-ui-workspace-body);
+  --rst-ui-section-header: var(--rst-ui-workspace-header);
+  --rst-ui-section-body: var(--rst-ui-workspace-body);
+  --rst-ui-section-row: transparent;
+  --rst-ui-section-row-hover: rgba(255,255,255,.026);
+  /* Surface contract — one visual language for page boards, panels and inner sections.
+     Use these tokens instead of reusing raw workspace variables inside components. */
+  --rst-ui-surface-board: var(--rst-ui-workspace-body);
+  --rst-ui-surface-panel: var(--rst-ui-workspace-body);
+  --rst-ui-surface-panel-head: var(--rst-ui-workspace-header);
+  --rst-ui-surface-panel-body: var(--rst-ui-workspace-body);
+  --rst-ui-surface-section: transparent;
+  --rst-ui-surface-section-head: var(--rst-ui-workspace-header);
+  --rst-ui-surface-subpanel: transparent;
+  --rst-ui-surface-body: var(--rst-ui-workspace-body);
+  --rst-ui-surface-field: transparent;
+  --rst-ui-surface-field-strong: rgba(255,255,255,.026);
+  --rst-ui-surface-panel-border: var(--rst-ui-line);
+  --rst-ui-surface-section-border: var(--rst-ui-divider-soft);
+  --rst-ui-surface-divider: var(--rst-ui-divider-soft);
+  --rst-ui-metric-card: var(--rst-ui-workspace-body);
+  --rst-ui-card: var(--rst-ui-workspace-body);
+  --rst-ui-card-strong: var(--rst-ui-workspace-body);
   --rst-ui-ink: #f8fafc;
   --rst-ui-text: #f8fafc;
   --rst-ui-muted: #b9c7db;
@@ -28,29 +48,187 @@
   --rst-ui-accent-dark: #7c1028;
   --rst-ui-action: #3b82f6;
   --rst-ui-action-2: #7c3aed;
-  --rst-ui-success: #22c55e;
-  --rst-ui-info: #6fe6ff;
-  --rst-ui-purple: #a78bfa;
-  --rst-ui-warn: #f59e0b;
-  --rst-ui-risk: #ec4899;
-  --rst-ui-radius-sm: 12px;
-  --rst-ui-radius-md: 17px;
-  --rst-ui-radius-lg: 24px;
-  --rst-ui-radius-xl: 30px;
-  --rst-ui-shadow-soft: 0 16px 38px rgba(0,0,0,.16);
-  --rst-ui-shadow-frame: 0 28px 86px rgba(0,0,0,.34);
-  --rst-ui-focus: 0 0 0 4px rgba(51, 71, 255, .16);
+  /* Business state palette — single source of truth for green/yellow/red/blue/purple meanings. */
+  --rst-state-success: #22c55e;
+  --rst-state-info: #38bdf8;
+  --rst-state-absence: #a78bfa;
+  --rst-state-warning: #f59e0b;
+  --rst-state-danger: #ef4444;
+
+  --rst-ui-success: var(--rst-state-success);
+  --rst-ui-info: var(--rst-state-info);
+  --rst-ui-purple: var(--rst-state-absence);
+  --rst-ui-warn: var(--rst-state-warning);
+  --rst-ui-risk: var(--rst-state-danger);
+  --rst-ui-radius-xxs: 3px;
+  --rst-ui-radius-xs: 4px;
+  --rst-ui-radius-sm: 6px;
+  --rst-ui-radius-md: 8px;
+  --rst-ui-radius-lg: 10px;
+  --rst-ui-radius-xl: 12px;
+  --rst-ui-radius-pill: 999px;
+  --rst-ui-radius-round: 50%;
+  --rst-ui-shadow-soft: none;
+  --rst-ui-shadow-frame: none;
+  --rst-ui-shadow-floating: none;
+  --rst-ui-focus: 0 0 0 3px rgba(51,71,255,.18);
   --rst-content-max: 1640px;
   --rst-gutter: 48px;
   --rst-topbar-h: 64px;
   --rst-topbar-bg: rgba(4, 11, 21, .94);
   --rst-topbar-line: rgba(255,255,255,.08);
+  --rst-overlay-bg: rgba(2,6,23,.62);
 
   --rst-ui-text-strong: var(--rst-ui-text);
   --rst-ui-text-heading: #dbe6f5;
+  --rst-ui-panel-title: #a8cfee;
   --rst-ui-divider-soft: rgba(255,255,255,.058);
   --rst-ui-divider: rgba(255,255,255,.07);
   --rst-ui-divider-strong: rgba(148,163,184,.34);
   --rst-ui-week-head: rgba(15,27,47,.97);
-  --rst-ui-empty-bg: rgba(255,255,255,.022);
+  --rst-ui-empty-bg: transparent;
+
+  /* Font-weight axis — four steps map directly to Manrope variable-font stops.
+     All CSS must use these four tokens; do not introduce raw numeric weights. */
+  --rst-fw-regular: 500;   /* body text, descriptions, placeholder copy */
+  --rst-fw-medium:  600;   /* slightly emphasized body, form values */
+  --rst-fw-bold:    700;   /* UI labels, captions, nav, section headings */
+  --rst-fw-display: 800;   /* metric values, module headings, hero numbers */
+
+  /* Z-index scale — all positioned elements must use these tokens.
+     Small integers (1–5) are local stacking and stay as literals.
+     Semantic tokens cover all global-chrome layers. */
+  --rst-z-toolbar: 6;          /* floating toolbars and grid action bars */
+  --rst-z-menu: 30;            /* inline action menus and dropdowns */
+  --rst-z-page: 50;            /* full-page layers (login screen) */
+  --rst-z-cell-open: 90;       /* active cells lifted above siblings */
+  --rst-z-topbar: 100;         /* app topbar — highest persistent chrome */
+  --rst-z-popover: 120;        /* floating pickers and autocomplete */
+  --rst-z-panel: 200;          /* notification and slide-in panels */
+  --rst-z-overlay: 1000;       /* full-screen overlays */
+  --rst-z-toast: 9999;         /* toast notifications — always topmost */
+
+  /* Semantic tone system.
+     Keep all success / warning / danger / info / absence tints here so components do not invent their own colours. */
+  --rst-state-success-rgb: 34,197,94;
+  --rst-state-warning-rgb: 245,158,11;
+  --rst-state-danger-rgb: 239,68,68;
+  --rst-state-info-rgb: 56,189,248;
+  --rst-state-neutral-rgb: 148,163,184;
+  --rst-state-absence-rgb: 168,85,247;
+  --rst-state-indigo-rgb: 99,102,241;
+
+  --rst-state-success-text: #86efac;
+  --rst-state-warning-text: #fde68a;
+  --rst-state-danger-text: #fca5a5;
+  --rst-state-info-text: #93c5fd;
+  --rst-state-neutral-text: #cbd5e1;
+  --rst-state-absence-text: #d8b4fe;
+
+  --rst-state-success-bg: rgba(var(--rst-state-success-rgb),.12);
+  --rst-state-warning-bg: rgba(var(--rst-state-warning-rgb),.12);
+  --rst-state-danger-bg: rgba(var(--rst-state-danger-rgb),.12);
+  --rst-state-info-bg: rgba(var(--rst-state-info-rgb),.12);
+  --rst-state-neutral-bg: rgba(var(--rst-state-neutral-rgb),.08);
+  --rst-state-absence-bg: rgba(var(--rst-state-absence-rgb),.12);
+
+  --rst-state-success-border: rgba(var(--rst-state-success-rgb),.28);
+  --rst-state-warning-border: rgba(var(--rst-state-warning-rgb),.28);
+  --rst-state-danger-border: rgba(var(--rst-state-danger-rgb),.28);
+  --rst-state-info-border: rgba(var(--rst-state-info-rgb),.28);
+  --rst-state-neutral-border: rgba(var(--rst-state-neutral-rgb),.18);
+  --rst-state-absence-border: rgba(var(--rst-state-absence-rgb),.28);
+
+  --rst-state-selected-bg: rgba(var(--module-accent-rgb,99,102,241),.10);
+  --rst-state-selected-border: rgba(var(--module-accent-rgb,99,102,241),.30);
+
+  /* Operational state aliases — source of truth for schedule/actuals/availability/absence meaning.
+     Components should read these operational names instead of deciding that "available" means green, etc. */
+  --rst-op-available-accent: var(--rst-state-success-text);
+  --rst-op-available-bg: rgba(var(--rst-state-success-rgb),.32);
+  --rst-op-available-border: rgba(var(--rst-state-success-rgb),.52);
+
+  --rst-op-planned-accent: var(--rst-state-info-text);
+  --rst-op-planned-bg: var(--rst-state-info-bg);
+  --rst-op-planned-border: var(--rst-state-info-border);
+  --rst-op-planned-card-bg: #123f7a;
+
+  --rst-op-actual-accent: var(--rst-state-info-text);
+  --rst-op-actual-bg: var(--rst-state-info-bg);
+  --rst-op-actual-border: var(--rst-state-info-border);
+  --rst-op-actual-card-bg: #0b3c63;
+
+  --rst-op-live-accent: var(--rst-state-success-text);
+  --rst-op-live-bg: var(--rst-state-success-bg);
+  --rst-op-live-border: var(--rst-state-success-border);
+  --rst-op-live-card-bg: #0b3a2d;
+
+  --rst-op-partial-accent: var(--rst-state-warning-text);
+  --rst-op-partial-bg: var(--rst-state-warning-bg);
+  --rst-op-partial-border: var(--rst-state-warning-border);
+  --rst-op-partial-card-bg: #3a2e13;
+
+  --rst-op-unavailable-accent: var(--rst-state-neutral-text);
+  --rst-op-unavailable-bg: transparent;
+  --rst-op-unavailable-border: var(--rst-state-neutral-border);
+
+  --rst-op-conflict-accent: var(--rst-state-danger-text);
+  --rst-op-conflict-bg: var(--rst-state-danger-bg);
+  --rst-op-conflict-border: var(--rst-state-danger-border);
+  --rst-op-conflict-card-bg: #3b1720;
+
+  --rst-op-absence-accent: var(--rst-state-absence-text);
+  --rst-op-absence-bg: var(--rst-state-absence-bg);
+  --rst-op-absence-border: var(--rst-state-absence-border);
+  --rst-op-absence-card-bg: #2f2146;
+
+  --rst-op-pending-accent: var(--rst-state-neutral-text);
+  --rst-op-pending-bg: transparent;
+  --rst-op-pending-border: var(--rst-state-neutral-border);
+  --rst-op-pending-card-bg: #101827;
+
+  --rst-op-empty-accent: var(--rst-ui-muted);
+  --rst-op-empty-bg: var(--rst-state-neutral-bg);
+  --rst-op-empty-border: var(--rst-state-neutral-border);
+
+  --rst-op-selected-bg: var(--rst-state-selected-bg);
+  --rst-op-selected-border: var(--rst-state-selected-border);
+
+  /* Calendar visual contract — grid cells stay calmer than cards; headers remain dark. */
+  --rst-calendar-board-bg: var(--rst-ui-surface-board);
+  --rst-calendar-header-bg: var(--rst-ui-workspace-body);
+  --rst-calendar-cell-bg: #132842;
+  --rst-calendar-cell-alt-bg: #17304d;
+  --rst-calendar-person-bg: var(--rst-ui-workspace-body);
+  --rst-calendar-total-bg: var(--rst-ui-workspace-body);
+  --rst-calendar-slot-conflict-bg: rgba(var(--rst-state-danger-rgb),.16);
+  --rst-calendar-slot-hover-border: var(--module-accent,var(--rst-op-planned-accent));
+
+  /* Calendar density contract — weekly grids compact slightly, then lock at readable size.
+     Do not let service columns collapse into tall unreadable cards; use horizontal scroll instead. */
+  --rst-calendar-employee-col: 168px;
+  --rst-calendar-week-total-col: 70px;
+  --rst-calendar-day-col-comfortable: 168px;
+  --rst-calendar-day-col-compact: 154px;
+  --rst-calendar-day-col-min: 154px;
+  --rst-calendar-service-col-min: 77px;
+  --rst-calendar-row-height-comfortable: 86px;
+  --rst-calendar-row-height-compact: 84px;
+  --rst-calendar-row-height-min: 82px;
+  --rst-calendar-card-min-width: 68px;
+  --rst-calendar-simple-day-min: 132px;
+  --rst-calendar-simple-day-h: 116px;
+
+  /* Service time source of truth — lunch/day and evening/night markers. */
+  --rst-service-lunch-rgb: 45,212,191;
+  --rst-service-evening-rgb: 129,140,248;
+  --rst-service-lunch-accent: #99f6e4;
+  --rst-service-lunch-bg: rgba(var(--rst-service-lunch-rgb),.12);
+  --rst-service-lunch-border: rgba(var(--rst-service-lunch-rgb),.28);
+  --rst-service-evening-accent: #c7d2fe;
+  --rst-service-evening-bg: rgba(var(--rst-service-evening-rgb),.12);
+  --rst-service-evening-border: rgba(var(--rst-service-evening-rgb),.28);
+
+  /* Semantic helper — white text for use on accent-colored surfaces (primary buttons, etc.) */
+  --rst-on-accent-text: #ffffff;
 }

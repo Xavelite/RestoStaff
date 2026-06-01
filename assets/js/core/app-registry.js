@@ -3,77 +3,180 @@
  * Single source of truth for page access, labels and module ownership.
  */
 (function registerAppPages(){
+  const OWNER = 'owner';
+  const MANAGER = 'manager';
+  const EMPLOYEE = 'employee';
+  const MANAGERIAL_ROLES = Object.freeze([OWNER, MANAGER]);
+
   const pages = {
+    home: {
+      id: 'home',
+      title: 'Home',
+      icon: 'home',
+      route: 'home',
+      mountId: 'homeRoot',
+      roles: [OWNER, MANAGER],
+      nav: true,
+      moduleKey: 'home',
+      repository: 'workspace',
+      shell: 'standard',
+      metricsProvider: 'module',
+      actionsProvider: 'module',
+      stateProvider: 'module',
+      modeClass: 'home-mode',
+      defaultPeriod: 'week',
+      defaultWeek: true
+    },
     planning: {
       id: 'planning',
       title: 'Planning',
-      roles: ['owner'],
+      icon: 'calendar',
+      route: 'planning',
+      mountId: 'planningRoot',
+      roles: [OWNER, MANAGER],
       nav: true,
       moduleKey: 'planning',
+      repository: 'planning',
+      shell: 'weekly',
+      metricsProvider: 'module',
+      actionsProvider: 'module',
+      stateProvider: 'module',
       modeClass: 'planning-mode',
+      defaultPeriod: 'week',
       defaultWeek: true
     },
     actuals: {
       id: 'actuals',
       title: 'Actuals',
-      roles: ['owner'],
+      icon: 'clock',
+      route: 'actuals',
+      mountId: 'actualsRoot',
+      roles: [OWNER, MANAGER],
       nav: true,
       moduleKey: 'actuals',
+      repository: 'actuals',
+      shell: 'weekly',
+      metricsProvider: 'module',
+      actionsProvider: 'module',
+      stateProvider: 'module',
       modeClass: 'actuals-mode',
+      defaultPeriod: 'week',
       defaultWeek: true
-    },
-    team: {
-      id: 'team',
-      title: 'Team',
-      roles: ['owner'],
-      nav: true,
-      moduleKey: 'team',
-      modeClass: 'team-mode'
     },
     restaurant: {
       id: 'restaurant',
       title: 'Restaurant',
-      roles: ['owner'],
+      icon: 'restaurant',
+      route: 'restaurant',
+      mountId: 'restaurantRoot',
+      roles: [OWNER],
       nav: true,
       moduleKey: 'restaurant',
-      modeClass: 'restaurant-mode'
+      repository: 'restaurant',
+      shell: 'workbench',
+      metricsProvider: 'module',
+      actionsProvider: 'module',
+      stateProvider: 'module',
+      modeClass: 'restaurant-mode',
+      defaultPeriod: 'none'
     },
-    'badge-terminal': {
-      id: 'badge-terminal',
-      title: 'Badge Terminal',
-      roles: ['owner','employee'],
-      nav: false,
-      moduleKey: 'badge',
-      modeClass: 'badge-terminal-mode',
-      htmlModeClass: 'badge-terminal-mode',
-      defaultWeek: true
+    team: {
+      id: 'team',
+      title: 'Team',
+      icon: 'users',
+      route: 'team',
+      mountId: 'teamRoot',
+      roles: [OWNER, MANAGER],
+      nav: true,
+      moduleKey: 'team',
+      repository: 'team',
+      shell: 'workbench',
+      metricsProvider: 'module',
+      actionsProvider: 'module',
+      stateProvider: 'module',
+      modeClass: 'team-mode',
+      defaultPeriod: 'none'
     },
     'employee-schedule': {
       id: 'employee-schedule',
       title: 'My Schedule',
-      roles: ['employee'],
+      icon: 'calendar',
+      route: 'employee-schedule',
+      mountId: 'employeeScheduleRoot',
+      roles: [EMPLOYEE],
       nav: true,
-      moduleKey: 'employeeSchedule',
+      moduleKey: 'employee-self-service',
+      repository: 'employee-self-service',
+      shell: 'employee-weekly',
+      metricsProvider: 'module',
+      actionsProvider: 'module',
+      stateProvider: 'module',
       modeClass: 'employee-schedule-mode',
+      defaultPeriod: 'week',
       defaultWeek: true
     },
     'employee-time': {
       id: 'employee-time',
       title: 'My Time',
-      roles: ['employee'],
+      icon: 'clock',
+      route: 'employee-time',
+      mountId: 'employeeTimeRoot',
+      roles: [EMPLOYEE],
       nav: true,
-      moduleKey: 'employeeSchedule',
+      moduleKey: 'employee-self-service',
+      repository: 'employee-self-service',
+      shell: 'employee-weekly',
+      metricsProvider: 'module',
+      actionsProvider: 'module',
+      stateProvider: 'module',
       modeClass: 'employee-time-mode',
+      defaultPeriod: 'week',
+      defaultWeek: true
+    },
+    'badge-terminal': {
+      id: 'badge-terminal',
+      title: 'Badge Terminal',
+      icon: 'badge',
+      route: 'badge-terminal',
+      mountId: 'badgeTerminalRoot',
+      roles: [OWNER, MANAGER, EMPLOYEE],
+      nav: false,
+      moduleKey: 'badge',
+      repository: 'badge',
+      shell: 'kiosk',
+      metricsProvider: 'module',
+      actionsProvider: 'module',
+      stateProvider: 'module',
+      modeClass: 'badge-terminal-mode',
+      htmlModeClass: 'badge-terminal-mode',
+      defaultPeriod: 'day',
       defaultWeek: true
     }
   };
 
+  // Delegate to the canonical implementations in auth-domain.js.
+  function normalizeRole(role){
+    return window.RestogogoAuthDomain.normalizeRole(role);
+  }
+  function isKnownRole(role){
+    return window.RestogogoAuthDomain.isKnownRole(role);
+  }
+
+  function isOwner(role){ return normalizeRole(role) === OWNER; }
+  function isManager(role){ return normalizeRole(role) === MANAGER; }
+  function isEmployee(role){ return normalizeRole(role) === EMPLOYEE; }
+  function isOwnerOrManager(role){ return MANAGERIAL_ROLES.includes(normalizeRole(role)); }
+
   function roleHome(role){
-    return normalizeRole(role) === 'owner' ? 'planning' : 'employee-schedule';
+    const normalizedRole = normalizeRole(role);
+    if(MANAGERIAL_ROLES.includes(normalizedRole))return 'home';
+    if(normalizedRole === EMPLOYEE)return 'employee-schedule';
+    return '';
   }
 
   function canAccess(pageId, role){
-    return !!pages[pageId]?.roles?.includes(normalizeRole(role));
+    const normalizedRole = normalizeRole(role);
+    return !!normalizedRole && !!pages[pageId]?.roles?.includes(normalizedRole);
   }
 
   function resolvePage(pageId, role){
@@ -85,19 +188,16 @@
     return `page-${pageId}`;
   }
 
-  function normalizeRole(role){
-    const clean = String(role || '').trim().toLowerCase();
-    return ['owner','manager','admin'].includes(clean) ? 'owner' : 'employee';
-  }
-
   function navItems(role){
     const normalizedRole = normalizeRole(role);
+    if(!normalizedRole)return [];
     return Object.values(pages).filter(page => page.nav && page.roles.includes(normalizedRole));
   }
 
   function pageTitle(pageId, role){
-    const resolved = pages[pageId] ? pageId : roleHome(role);
-    return pages[resolved]?.title || pages[roleHome(role)].title;
+    const home = roleHome(role) || 'home';
+    const resolved = pages[pageId] ? pageId : home;
+    return pages[resolved]?.title || pages[home]?.title || '';
   }
 
   function defaultWeekPages(){
@@ -119,10 +219,12 @@
 
   function renderActiveModule(){
     const moduleKey = activeModuleKey();
+    if(Restogogo.modulePlatform?.renderPage)return Restogogo.modulePlatform.renderPage(activePage());
     Restogogo[moduleKey]?.render?.();
   }
 
   function bindModules(){
+    if(Restogogo.modulePlatform?.bindAll)return Restogogo.modulePlatform.bindAll();
     moduleKeys().forEach(moduleKey => Restogogo[moduleKey]?.bind?.());
   }
 
@@ -133,6 +235,11 @@
     resolvePage,
     pageElementId,
     normalizeRole,
+    isKnownRole,
+    isOwner,
+    isManager,
+    isEmployee,
+    isOwnerOrManager,
     navItems,
     pageTitle,
     defaultWeekPages,

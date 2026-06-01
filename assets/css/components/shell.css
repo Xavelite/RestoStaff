@@ -1,0 +1,157 @@
+/* App shell: viewport rhythm, ambient hero layers, per-module accent tokens.
+   Owns the full-height layout skeleton and the decorative backgrounds that
+   sit behind all module content. Extracted from foundation.css. */
+
+body:is(.home-mode,.planning-mode,.actuals-mode,.team-mode,.restaurant-mode,.employee-schedule-mode,.employee-time-mode) .app-frame {
+  position: relative;
+  isolation: isolate;
+  height: 100dvh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 100% 52% at 50% 0%, rgba(51,71,255,.09), transparent 58%),
+    linear-gradient(180deg,rgba(51,71,255,.06),rgba(51,71,255,0) 38%),
+    linear-gradient(135deg,rgba(7,20,38,.44),rgba(9,20,37,.18) 46%,rgba(14,31,56,.32));
+}
+
+body.has-app-chrome .app-frame::before {
+  content: "";
+  position: fixed;
+  inset: var(--rst-topbar-h) 0 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 40% 108% at 5% 14%, rgba(var(--module-accent-rgb),.16), transparent 70%),
+    radial-gradient(ellipse 52% 76% at 24% 10%, rgba(var(--module-accent-rgb),.052), transparent 74%),
+    radial-gradient(ellipse 66% 90% at 46% 2%, rgba(var(--module-accent-2-rgb),.052), transparent 76%),
+    radial-gradient(ellipse 58% 42% at 50% 154px, rgba(var(--module-accent-rgb),.026), transparent 78%),
+    linear-gradient(90deg,rgba(var(--module-accent-rgb),.014) 0%,transparent 34%,rgba(var(--module-accent-2-rgb),.012) 100%),
+    linear-gradient(rgba(255,255,255,.020) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.016) 1px,transparent 1px);
+  background-size: auto,auto,auto,auto,auto,128px 128px,128px 128px;
+  mask-image: linear-gradient(180deg,#000 0%,#000 206px,rgba(0,0,0,.28) 312px,rgba(0,0,0,.07) 420px,transparent 560px);
+  opacity: .80;
+}
+
+body.has-app-chrome:is(.home-mode,.planning-mode,.actuals-mode,.team-mode,.restaurant-mode,.employee-schedule-mode,.employee-time-mode) .app-frame::after {
+  content: "";
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--rst-topbar-h);
+  height: var(--module-hero-photo-h,236px);
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg,rgba(5,12,24,.00) 0%,rgba(5,12,24,.04) 36%,rgba(5,12,24,.60) 100%),
+    linear-gradient(90deg,rgba(5,12,24,.92) 0%,rgba(5,12,24,.66) 18%,rgba(5,12,24,.20) 42%,rgba(5,12,24,.10) 66%,rgba(5,12,24,.52) 100%),
+    radial-gradient(circle at 16% 20%, rgba(var(--module-accent-rgb),.045), transparent 34%),
+    radial-gradient(circle at 44% 14%, rgba(var(--module-accent-2-rgb),.028), transparent 36%),
+    var(--module-scene-image) var(--module-scene-position,right -10px top) / auto var(--module-scene-size,252px) no-repeat;
+  background-blend-mode: normal,normal,screen,screen,normal;
+  -webkit-mask-image:
+    linear-gradient(90deg,rgba(0,0,0,.14) 0%,rgba(0,0,0,.74) 16%,#000 34%,#000 90%,rgba(0,0,0,.34) 100%),
+    linear-gradient(180deg,#000 0%,#000 72%,rgba(0,0,0,.72) 84%,rgba(0,0,0,.18) 96%,transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(90deg,rgba(0,0,0,.14) 0%,rgba(0,0,0,.74) 16%,#000 34%,#000 90%,rgba(0,0,0,.34) 100%),
+    linear-gradient(180deg,#000 0%,#000 72%,rgba(0,0,0,.72) 84%,rgba(0,0,0,.18) 96%,transparent 100%);
+  mask-composite: intersect;
+  opacity: 1;
+}
+
+/* Per-module accent palette — single source of truth.
+   Drives ::before ambient glow, ::after hero scene, and the module-header
+   subtitle/underline. Metric cards use their own semantic tone state.
+   Fallback covers pages that load before a mode class is applied. */
+body {
+  --module-accent: var(--rst-state-info);
+  --module-accent-rgb: 111,230,255;
+  --module-accent-2: #7b66ff;
+  --module-accent-2-rgb: 123,102,255;
+}
+
+body.home-mode {
+  --module-accent: #f59e0b;
+  --module-accent-rgb: 245,158,11;
+  --module-accent-2: #f97316;
+  --module-accent-2-rgb: 249,115,22;
+  --module-scene-image: url("../../img/module-scenes/home-scene.webp");
+}
+
+body.planning-mode {
+  --module-accent: #6366f1;
+  --module-accent-rgb: 99,102,241;
+  --module-accent-2: #818cf8;
+  --module-accent-2-rgb: 129,140,248;
+  --module-scene-image: url("../../img/module-scenes/planning-scene.webp");
+}
+
+body.actuals-mode {
+  --module-accent: #0ea5e9;
+  --module-accent-rgb: 14,165,233;
+  --module-accent-2: var(--rst-state-info);
+  --module-accent-2-rgb: 56,189,248;
+  --module-scene-image: url("../../img/module-scenes/actuals-scene.webp");
+}
+
+body.team-mode {
+  --module-accent: #22c55e;
+  --module-accent-rgb: 34,197,94;
+  --module-accent-2: #4ade80;
+  --module-accent-2-rgb: 74,222,128;
+  --module-scene-image: url("../../img/module-scenes/team-scene.webp");
+}
+
+body.restaurant-mode {
+  --module-accent: #14b8a6;
+  --module-accent-rgb: 20,184,166;
+  --module-accent-2: #2dd4bf;
+  --module-accent-2-rgb: 45,212,191;
+  --module-scene-image: url("../../img/module-scenes/restaurant-scene.webp");
+}
+
+body.employee-schedule-mode {
+  --module-accent: #818cf8;
+  --module-accent-rgb: 129,140,248;
+  --module-accent-2: #6366f1;
+  --module-accent-2-rgb: 99,102,241;
+  --module-scene-image: url("../../img/module-scenes/employee-schedule-scene.webp");
+}
+
+body.employee-time-mode {
+  --module-accent: var(--rst-state-info);
+  --module-accent-rgb: 56,189,248;
+  --module-accent-2: #0ea5e9;
+  --module-accent-2-rgb: 14,165,233;
+  --module-scene-image: url("../../img/module-scenes/employee-time-scene.webp");
+}
+
+
+body.has-app-chrome .app-shell {
+  position: relative;
+  z-index: 1;
+}
+
+body:is(.home-mode,.planning-mode,.actuals-mode,.team-mode,.restaurant-mode,.employee-schedule-mode,.employee-time-mode) .app-shell {
+  width: min(var(--rst-content-max),calc(100% - var(--rst-gutter)));
+  height: calc(100dvh - var(--rst-topbar-h));
+  max-height: calc(100dvh - var(--rst-topbar-h));
+  min-height: 0;
+  margin: 0 auto;
+  padding: 0 0 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: transparent;
+}
+
+body:is(.home-mode,.planning-mode,.actuals-mode,.team-mode,.restaurant-mode,.employee-schedule-mode,.employee-time-mode) .page.active {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+}

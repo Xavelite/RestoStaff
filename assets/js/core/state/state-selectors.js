@@ -17,9 +17,9 @@ function employeePositionIndex(employee, source=data){
   const byName=setupPositions.findIndex(position=>cleanPositionName(position.name)===clean);
   return byName<0?999:byName;
 }
-function positionIndex(position){
+function positionIndex(position, source=data){
   const clean=cleanPositionName(position);
-  const index=restaurantPositions(true).findIndex(p=>cleanPositionName(p.name)===clean);
+  const index=restaurantPositions(true, source).findIndex(p=>cleanPositionName(p.name)===clean);
   return index<0?999:index;
 }
 function sortEmployees(list, source=data){return [...list].sort((a,b)=>employeePositionIndex(a,source)-employeePositionIndex(b,source)||String(a.name).localeCompare(String(b.name)));}
@@ -30,6 +30,12 @@ function activeRestaurantZones(shift='', source=data){
 function restaurantPositions(includeInactive=false, source=data){
   const setupPositions = Array.isArray(setupFrom(source).positions) ? setupFrom(source).positions : [];
   return setupPositions.filter(position=>includeInactive || position.active !== false);
+}
+function activePositionNames(source=data){
+  return restaurantPositions(false, source)
+    .map(position=>cleanPositionName(position.name))
+    .filter((name,index,array)=>name && array.indexOf(name)===index)
+    .sort((a,b)=>positionIndex(a, source)-positionIndex(b, source)||a.localeCompare(b));
 }
 function zoneById(zoneId, source=data){
   const idValue=String(zoneId || '').trim();
@@ -54,12 +60,12 @@ function zoneDefaultPositionNames(zone){
   return ids.map(positionId=>positionById(positionId)?.name || '').filter(Boolean);
 }
 function assignmentZoneId(employeeId, day, shift, source=data){
-  return canonicalZoneId(source?.assignments?.[employeeId]?.[day]?.[shift], source?.restaurantSetup || data?.restaurantSetup);
+  return canonicalZoneId(source?.planningSlots?.[employeeId]?.[day]?.[shift]?.zoneId, source?.restaurantSetup || data?.restaurantSetup);
 }
 function assignmentZoneName(employeeId, day, shift, source=data){return zoneDisplayName(assignmentZoneId(employeeId, day, shift, source), source);}
 function assignmentPositionId(employeeId, day, shift, source=data){
   const setup=setupFrom(source);
-  const saved = canonicalPositionId(source?.assignmentPositions?.[employeeId]?.[day]?.[shift], setup.positions || []);
+  const saved = canonicalPositionId(source?.planningSlots?.[employeeId]?.[day]?.[shift]?.positionId, setup.positions || []);
   if(saved)return saved;
   const employee = emp(employeeId, source);
   return canonicalPositionId(employee?.positionId, setup.positions || []);
@@ -84,7 +90,7 @@ function suggestZoneId(employee, shift, source=data){
 }
 function suggestZone(employee, shift, source=data){return zoneDisplayName(suggestZoneId(employee, shift, source), source);}
 function timeRangeFor(e,d,s,source=data){
-  const custom=source?.assignmentTimes?.[e.id]?.[d]?.[s];
+  const custom=source?.planningSlots?.[e.id]?.[d]?.[s]?.timeRange;
   if(custom)return custom;
   const zoneId=assignmentZoneId(e.id,d,s,source)||suggestZoneId(e,s,source);
   const zone = zoneById(zoneId, source);
@@ -93,60 +99,51 @@ function timeRangeFor(e,d,s,source=data){
   return openingRangeForDayShift(d,s,source);
 }
 function hoursFromRange(range){const bounds=timeRangeBounds(range); return bounds?Math.max(0,(bounds.end-bounds.start)/60):0;}
-function slotHours(e,d,s,source=data){return source?.availability?.[e.id]?.[d]?.[s]?hoursFromRange(timeRangeFor(e,d,s,source)):0;}
-function plannedSlotHours(e,d,s,source=data){return source?.planning?.[e.id]?.[d]?.[s]?hoursFromRange(timeRangeFor(e,d,s,source)):0;}
-function isPlanned(employeeId,day,shift,source=data){return !!source?.planning?.[employeeId]?.[day]?.[shift];}
+function slotHours(e,d,s,source=data){
+  const raw=source?.availability?.[e.id]?.[d]?.[s];
+  return (raw===true||raw==='available'||raw?.state==='available')?hoursFromRange(timeRangeFor(e,d,s,source)):0;
+}
+function plannedSlotHours(e,d,s,source=data){return source?.planningSlots?.[e.id]?.[d]?.[s]?.planned?hoursFromRange(timeRangeFor(e,d,s,source)):0;}
+function isPlanned(employeeId,day,shift,source=data){return !!source?.planningSlots?.[employeeId]?.[day]?.[shift]?.planned;}
 function employeePlannedWeekTotal(e,source=data){return days.reduce((sum,d)=>sum+shifts.reduce((slotSum,s)=>slotSum+plannedSlotHours(e,d,s,source),0),0);}
 function absenceStatusRank(status){
-  return {Approved:0, Pending:1, Rejected:2, Cancelled:3}[status] ?? 9;
+  return Restogogo.logic?.absences?.statusRank?.(status,'planning') ?? 9;
 }
-function absenceAffectsPlanning(absence){
-  if(!absence)return false;
-  const type = absenceTypeById(data?.restaurantSetup?.absenceTypes, absence.absenceTypeId);
-  return type?.affectsPlanning !== false;
+function absenceAffectsPlanning(absence, source=data){
+  return Restogogo.logic?.absences?.affectsPlanning?.(absence, source) || false;
 }
 function absenceCoversDateShift(absence,date,shift){
-  const start=normalizeDateString(absence?.start);
-  const end=normalizeDateString(absence?.end || absence?.start) || start;
-  const dateValue=normalizeDateString(date);
-  if(!start || !dateValue || dateValue < start || dateValue > end)return false;
-  return !absence.shift || absence.shift === 'Full day' || absence.shift === shift;
+  return Restogogo.logic?.absences?.coversDateShift?.(absence,date,shift) || false;
 }
-function employeeAbsencesForDateShift(employee,date,shift,statuses=['Approved','Pending']){
-  const allowed = new Set(statuses || []);
-  return (employee?.absences || [])
-    .filter(absence=>(!allowed.size || allowed.has(absence.status)) && absenceAffectsPlanning(absence) && absenceCoversDateShift(absence,date,shift))
-    .sort((a,b)=>absenceStatusRank(a.status)-absenceStatusRank(b.status)||String(a.start).localeCompare(String(b.start)));
+function employeeAbsencesForDateShift(employee,date,shift,statuses=['Approved','Pending'], source=data){
+  return Restogogo.logic?.absences?.forDateShift?.(employee,date,shift,{statuses,source,requirePlanningEffect:true,order:'planning',startOrder:'asc'}) || [];
 }
-function employeePrimaryAbsenceForDateShift(employee,date,shift,statuses=['Approved','Pending']){
-  return employeeAbsencesForDateShift(employee,date,shift,statuses)[0] || null;
+function absenceForDate(employee,date,shift,statuses=['Approved','Pending'], source=data){
+  return Restogogo.logic?.absences?.primaryForDateShift?.(employee,date,shift,{statuses,source,requirePlanningEffect:true,order:'planning',startOrder:'asc'}) || null;
 }
-function employeeAbsencesForSlot(employeeId,day,shift,statuses=['Approved','Pending']){
-  return employeeAbsencesForDateShift(emp(employeeId),dateForDay(day),shift,statuses);
+function employeeAbsencesForSlot(employeeId,day,shift,statuses=['Approved','Pending'], source=data){
+  return employeeAbsencesForDateShift(emp(employeeId,source),dateForDay(day),shift,statuses,source);
 }
-function employeePrimaryAbsenceForSlot(employeeId,day,shift,statuses=['Approved','Pending']){
-  return employeeAbsencesForSlot(employeeId,day,shift,statuses)[0] || null;
+function absenceForDayShift(employeeId,day,shift,statuses=['Approved','Pending'], source=data){
+  return employeeAbsencesForSlot(employeeId,day,shift,statuses,source)[0] || null;
 }
 function employeeAbsentForSlot(employeeId,day,shift){
-  return !!employeePrimaryAbsenceForSlot(employeeId,day,shift,['Approved']);
+  return !!absenceForDayShift(employeeId,day,shift,['Approved']);
 }
-function absenceDisplayLabel(absence,fallback='Leave'){
-  return absenceTypeLabel(data?.restaurantSetup?.absenceTypes, absence?.absenceTypeId, absence?.reason || fallback);
+function absenceDisplayLabel(absence,fallback='Leave', source=data){
+  return Restogogo.logic?.absences?.label?.(absence,fallback,source) || String(fallback || 'Leave');
 }
-function absenceTypeMeta(absence){
-  return absenceTypeById(data?.restaurantSetup?.absenceTypes, absence?.absenceTypeId) || {id:'other', name:absence?.reason || 'Leave', code:'OTHER', category:'other'};
+function absenceTypeMeta(absence, source=data){
+  return Restogogo.logic?.absences?.typeFor?.(absence,source) || {id:'other', name:absence?.reason || 'Leave', code:'OTHER', category:'other'};
 }
-function absenceIconName(absence){
-  const type=absenceTypeMeta(absence);
-  const key=`${type.id || ''} ${type.code || ''} ${type.category || ''} ${type.name || absence?.reason || ''}`.toLowerCase();
-  if(/sick|ill|medical|doctor|health|malad/.test(key))return 'medical';
-  return 'palm';
+function absenceIconName(absence, source=data){
+  return Restogogo.logic?.absences?.iconName?.(absence,source) || 'palm';
 }
-function absenceIconMarkup(absence,className=''){
-  return Restogogo.icons?.svg?.(absenceIconName(absence),className) || '';
+function absenceIconMarkup(absence,className='', source=data){
+  return Restogogo.logic?.absences?.iconMarkup?.(absence,className,source) || '';
 }
-function absenceIcon(absence){
-  return absenceIconName(absence) === 'medical' ? 'Medical leave' : 'Leave';
+function absenceIcon(absence, source=data){
+  return Restogogo.logic?.absences?.iconLabel?.(absence,source) || 'Leave';
 }
 function availabilityOverlayState(employeeId,day,shift){
   if(employeeAbsentForSlot(employeeId,day,shift))return 'unavailable';

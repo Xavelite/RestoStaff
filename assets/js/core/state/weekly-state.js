@@ -75,18 +75,43 @@ function compactActualEntryMap(source){
   return compactEmployeeSlotMap(source, rawValue => compactActualEntry(rawValue));
 }
 
+function compactPlanningSlots(source){
+  const compact = {};
+  if(!isPlainObject(source)) return compact;
+  Object.entries(source).forEach(([employeeId, employeeMap])=>{
+    if(!isPlainObject(employeeMap)) return;
+    Object.entries(employeeMap).forEach(([day, dayMap])=>{
+      if(!isPlainObject(dayMap)) return;
+      Object.entries(dayMap).forEach(([shift, slot])=>{
+        if(!isValidDayShift(day, shift)) return;
+        if(!isPlainObject(slot) || !slot.planned) return;
+        const zoneId = normalizeSparseString(slot.zoneId);
+        const positionId = normalizeSparseString(slot.positionId);
+        const timeRange = normalizeTimeRangeInput(slot.timeRange) || undefined;
+        const compacted = {planned:true};
+        if(zoneId) compacted.zoneId = zoneId;
+        if(positionId) compacted.positionId = positionId;
+        if(timeRange) compacted.timeRange = timeRange;
+        setSparseSlot(compact, employeeId, day, shift, compacted);
+      });
+    });
+  });
+  return compact;
+}
+
 function compactWeeklyPayload(payload){
   const source = isPlainObject(payload) ? payload : {};
   return {
     availability:compactEmployeeSlotMap(source.availability, value => normalizeAvailabilityValue(value)),
-    planning:compactEmployeeSlotMap(source.planning, value => value ? true : undefined),
-    assignments:compactEmployeeSlotMap(source.assignments, value => normalizeSparseString(value)),
-    assignmentPositions:compactEmployeeSlotMap(source.assignmentPositions, value => normalizeSparseString(value)),
-    assignmentTimes:compactEmployeeSlotMap(source.assignmentTimes, value => normalizeTimeRangeInput(value) || undefined),
+    planningSlots:compactPlanningSlots(source.planningSlots),
     submitted:compactSubmittedMap(source.submitted),
     notes:compactNotesMap(source.notes),
     actualEntries:compactActualEntryMap(source.actualEntries),
-    status:normalizeStatus(source.status)
+    status:normalizeStatus(source.status),
+    actualsStatus:['open','approved','locked'].includes(String(source.actualsStatus || '').toLowerCase()) ? String(source.actualsStatus || '').toLowerCase() : 'open',
+    // Optimistic-lock version token from work_weeks.updated_at — never mutated locally,
+    // passed as-is to save_manager_planning so the DB can detect concurrent writes.
+    updatedAt:source.updatedAt || null
   };
 }
 
@@ -97,28 +122,26 @@ function normalizeWeeklyPayload(payload){
 function weeklyPayloadFromState(source=data){
   return compactWeeklyPayload({
     availability:source?.availability,
-    planning:source?.planning,
-    assignments:source?.assignments,
-    assignmentPositions:source?.assignmentPositions,
-    assignmentTimes:source?.assignmentTimes,
+    planningSlots:source?.planningSlots,
     submitted:source?.submitted,
     notes:source?.notes,
     actualEntries:source?.actualEntries,
-    status:source?.status
+    status:source?.status,
+    actualsStatus:source?.actualsStatus,
+    updatedAt:source?.updatedAt
   });
 }
 
 function applyWeeklyPayloadToState(target=data, payload={}){
   const weekly = normalizeWeeklyPayload(payload);
   target.availability = weekly.availability;
-  target.planning = weekly.planning;
-  target.assignments = weekly.assignments;
-  target.assignmentPositions = weekly.assignmentPositions;
-  target.assignmentTimes = weekly.assignmentTimes;
+  target.planningSlots = weekly.planningSlots;
   target.submitted = weekly.submitted;
   target.notes = weekly.notes;
   target.actualEntries = weekly.actualEntries;
   target.status = weekly.status;
+  target.actualsStatus = weekly.actualsStatus;
+  target.updatedAt = weekly.updatedAt ?? null;
   ensureWeeklyShape(target);
   return target;
 }
@@ -127,14 +150,12 @@ function ensureWeeklyShape(target=data){
   if(!target) return target;
   const weekly = compactWeeklyPayload(target);
   target.availability = weekly.availability;
-  target.planning = weekly.planning;
-  target.assignments = weekly.assignments;
-  target.assignmentPositions = weekly.assignmentPositions;
-  target.assignmentTimes = weekly.assignmentTimes;
+  target.planningSlots = weekly.planningSlots;
   target.submitted = weekly.submitted;
   target.notes = weekly.notes;
   target.actualEntries = weekly.actualEntries;
   target.status = weekly.status;
+  target.actualsStatus = weekly.actualsStatus;
   return target;
 }
 
@@ -144,26 +165,56 @@ function setAvailabilitySlot(employeeId, day, shift, value, source=data){
   setSparseSlot(source.availability, employeeId, day, shift, normalized);
 }
 
+/* Shared helper: safely read-modify-write a planningSlots slot object.
+ * If the mutator returns an object with planned:true, the slot is stored.
+ * Otherwise the slot is removed from the sparse map. */
+function mutatePlanningSlot(source, employeeId, day, shift, mutator){
+  source.planningSlots = isPlainObject(source.planningSlots) ? source.planningSlots : {};
+  const existing = isPlainObject(source.planningSlots?.[employeeId]?.[day]?.[shift])
+    ? source.planningSlots[employeeId][day][shift]
+    : {};
+  const updated = mutator(Object.assign({}, existing));
+  if(!updated || !updated.planned){
+    deleteSparseSlot(source.planningSlots, employeeId, day, shift);
+  } else {
+    setSparseSlot(source.planningSlots, employeeId, day, shift, updated);
+  }
+}
+
 function setPlanningSlot(employeeId, day, shift, value, source=data){
-  source.planning = isPlainObject(source.planning) ? source.planning : {};
-  setSparseSlot(source.planning, employeeId, day, shift, value ? true : undefined);
+  if(value){
+    mutatePlanningSlot(source, employeeId, day, shift, slot => Object.assign({}, slot, {planned:true}));
+  } else {
+    source.planningSlots = isPlainObject(source.planningSlots) ? source.planningSlots : {};
+    deleteSparseSlot(source.planningSlots, employeeId, day, shift);
+  }
 }
 
 function setAssignmentSlot(employeeId, day, shift, value, source=data){
-  source.assignments = isPlainObject(source.assignments) ? source.assignments : {};
   const zoneId = canonicalZoneId(value, source?.restaurantSetup || data?.restaurantSetup);
-  setSparseSlot(source.assignments, employeeId, day, shift, zoneId);
+  mutatePlanningSlot(source, employeeId, day, shift, slot => {
+    const s = Object.assign({}, slot);
+    if(zoneId) s.zoneId = zoneId; else delete s.zoneId;
+    return s;
+  });
 }
 
 function setAssignmentTimeSlot(employeeId, day, shift, value, source=data){
-  source.assignmentTimes = isPlainObject(source.assignmentTimes) ? source.assignmentTimes : {};
-  setSparseSlot(source.assignmentTimes, employeeId, day, shift, normalizeTimeRangeInput(value) || undefined);
+  const timeRange = normalizeTimeRangeInput(value) || undefined;
+  mutatePlanningSlot(source, employeeId, day, shift, slot => {
+    const s = Object.assign({}, slot);
+    if(timeRange) s.timeRange = timeRange; else delete s.timeRange;
+    return s;
+  });
 }
 
 function setAssignmentPositionSlot(employeeId, day, shift, value, source=data){
-  source.assignmentPositions = isPlainObject(source.assignmentPositions) ? source.assignmentPositions : {};
   const positionId = canonicalPositionId(value, source?.restaurantSetup?.positions || data?.restaurantSetup?.positions || []);
-  setSparseSlot(source.assignmentPositions, employeeId, day, shift, positionId);
+  mutatePlanningSlot(source, employeeId, day, shift, slot => {
+    const s = Object.assign({}, slot);
+    if(positionId) s.positionId = positionId; else delete s.positionId;
+    return s;
+  });
 }
 
 function setSubmitted(employeeId, value=true, source=data){
@@ -173,13 +224,13 @@ function setSubmitted(employeeId, value=true, source=data){
 }
 
 
-function saveWeekSnapshot(){
+function archiveActiveWeek(){
   if(!data) return;
   data.history = isPlainObject(data.history) ? data.history : {};
   data.history[monday(data.weekStart)] = weeklyPayloadFromState(data);
 }
 
-function loadWeekSnapshot(){
+function restoreActiveWeek(){
   if(!data) return;
   data.history = isPlainObject(data.history) ? data.history : {};
   const snapshot = data.history[monday(data.weekStart)] || emptyWeeklyPayload();
@@ -188,9 +239,11 @@ function loadWeekSnapshot(){
 
 function setWeekStartAndLoad(weekStart){
   if(!data || !weekStart) return;
-  saveWeekSnapshot();
-  data.weekStart = monday(weekStart);
-  loadWeekSnapshot();
+  const resolved = monday(weekStart);
+  if(!validDate(resolved)) return;
+  archiveActiveWeek();
+  data.weekStart = resolved;
+  restoreActiveWeek();
 }
 
 function ensureActualEntry(employeeId, day, shift, source=data){
@@ -205,4 +258,3 @@ function ensureActualEntry(employeeId, day, shift, source=data){
 function getActualEntry(employeeId, day, shift, source=data){
   return normalizeActualEntry(source?.actualEntries?.[employeeId]?.[day]?.[shift]);
 }
-

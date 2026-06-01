@@ -1,0 +1,44 @@
+/* Shared access-state screens. Shell owns page chrome; this file owns blocking access/role feedback. */
+/* ── Invalid-role blocking screen ─────────────────────────────────────────────
+   Shown when the authenticated user's DB role is not a recognised value.
+   Blocks all module navigation; the only action is sign out.                   */
+.rs-invalid-role-screen {
+  position: fixed;
+  inset: 0;
+  z-index: var(--rst-z-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--rst-ui-bg);
+}
+.rs-invalid-role-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  max-width: 400px;
+  width: 100%;
+  padding: 40px 32px;
+  background: var(--rst-ui-surface-panel);
+  border: 1px solid var(--rst-ui-line);
+  border-radius: var(--rst-ui-radius-xl);
+  text-align: center;
+}
+.rs-invalid-role-icon {
+  font-size: 2rem;
+  line-height: 1;
+  color: var(--rst-state-warning);
+}
+.rs-invalid-role-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: var(--rst-fw-bold);
+  color: var(--rst-ui-text);
+}
+.rs-invalid-role-body {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--rst-ui-muted);
+}

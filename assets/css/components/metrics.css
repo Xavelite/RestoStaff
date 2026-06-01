@@ -1,105 +1,80 @@
-/* restogogo shared metric and week selector cards. */
-.rs-metric-grid {
-  display: grid;
-  grid-template-columns: repeat(3,minmax(0,1fr));
-  gap: 12px;
-}
-
+/* restogogo shared metric cards. Period selector visuals live in controls.css. */
 .rs-metric-card {
-  --metric-accent: #dbe7ff;
-  --metric-icon-bg: rgba(255,255,255,.06);
-  --metric-icon-border: rgba(255,255,255,.12);
-  --metric-glow: rgba(255,255,255,.08);
-  --metric-strong: #fff;
+  --metric-card-border: var(--rst-ui-surface-panel-border);
+  --metric-state-rgb: var(--rst-state-neutral-rgb);
+  --metric-accent: var(--rst-state-neutral-text);
+  --metric-icon-bg: var(--rst-state-neutral-bg);
+  --metric-icon-border: var(--rst-state-neutral-border);
+  --metric-strong: var(--rst-ui-text);
+  --rs-icon-badge-bg: var(--metric-icon-bg);
+  --rs-icon-badge-border: var(--metric-icon-border);
+  --rs-icon-badge-color: var(--metric-accent);
   position: relative;
-  min-height: 92px;
+  min-height: 56px;
   display: grid;
-  grid-template-columns: 56px minmax(0,1fr);
+  grid-template-columns: 36px minmax(0,1fr);
   align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
-  border: 1px solid var(--rst-ui-line);
-  border-radius: var(--rst-ui-radius-lg);
-  background: var(--rst-ui-metric-card,var(--rst-ui-surface-board));
-  color: var(--rst-ui-text);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+  gap: 10px;
+  padding: 8px 12px;
   overflow: hidden;
-  transition: transform .18s ease,border-color .18s ease,box-shadow .18s ease,background .18s ease;
-}
-
-.rs-metric-card::before,
-.rs-metric-card::after {
-  content: "";
-  position: absolute;
-  pointer-events: none;
+  border: 1px solid var(--metric-card-border);
+  border-radius: var(--rst-ui-radius-md);
+  background:
+    linear-gradient(135deg,rgba(var(--metric-state-rgb),.085),rgba(var(--metric-state-rgb),.038) 48%,rgba(var(--metric-state-rgb),0)),
+    var(--rst-ui-metric-card,var(--rst-ui-surface-board));
+  color: var(--rst-ui-text);
+  transition: transform var(--rst-motion-ui) var(--rst-motion-smooth),border-color var(--rst-motion-ui) var(--rst-motion-smooth),box-shadow var(--rst-motion-ui) var(--rst-motion-smooth);
 }
 
 .rs-metric-card::before {
-  inset: 0;
-  background: linear-gradient(135deg,rgba(255,255,255,.032),transparent 58%);
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 46%;
+  pointer-events: none;
+  background: linear-gradient(90deg,rgba(var(--metric-state-rgb),.055),rgba(var(--metric-state-rgb),0));
 }
 
-.rs-metric-card::after {
-  right: -28px;
-  bottom: -28px;
-  width: 116px;
-  height: 116px;
-  border-radius: 999px;
-  background: var(--metric-glow);
-  opacity: .92;
-}
+.rs-metric-card > * { position: relative; z-index: 1; }
 
 .rs-metric-card:hover,
 .rs-metric-card:focus-visible {
   transform: translateY(-2px);
   border-color: var(--rst-ui-line-strong);
-  box-shadow: var(--rst-ui-shadow-soft),inset 0 1px 0 rgba(255,255,255,.07);
+  box-shadow: var(--rst-ui-shadow-soft);
 }
 
-.rs-icon-badge {
-  position: relative;
-  z-index: 1;
-  width: 48px;
-  height: 48px;
-  display: grid;
-  place-items: center;
-  border-radius: 17px;
-  border: 1px solid var(--metric-icon-border);
-  background: var(--metric-icon-bg);
-  color: var(--metric-accent);
+.rs-metric-card.rs-metric--hero {
+  min-height: 62px;
+  grid-template-columns: 40px minmax(0,1fr);
+  padding: 9px 13px;
+  --metric-card-border: rgba(var(--module-accent-rgb),.44);
+  border-color: var(--metric-card-border);
+  background:
+    linear-gradient(135deg,rgba(var(--metric-state-rgb),.095),rgba(var(--metric-state-rgb),.040) 48%,rgba(var(--metric-state-rgb),.004)),
+    var(--rst-ui-metric-card,var(--rst-ui-surface-board));
+  box-shadow: inset 3px 0 0 var(--module-accent,var(--rst-ui-line-strong));
 }
 
-.rs-icon-badge svg,
-.rs-icon-badge .btn-svg {
-  width: 24px;
-  height: 24px;
-  display: block;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.9;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.rs-metric-card.rs-metric--hero::before {
+  background: linear-gradient(90deg,rgba(var(--metric-state-rgb),.085),rgba(var(--metric-state-rgb),0));
 }
 
-.rs-icon-badge svg :is(path,circle,rect,line,polyline,polygon),
-.rs-icon-badge .btn-svg :is(path,circle,rect,line,polyline,polygon) {
-  fill: none;
-  stroke: currentColor;
+.rs-metric-card.rs-metric--hero:is(:hover,:focus-visible) {
+  border-color: rgba(var(--module-accent-rgb),.58);
 }
 
 .rs-metric-copy {
-  position: relative;
-  z-index: 1;
   min-width: 0;
   display: grid;
-  gap: 5px;
+  gap: 2px;
 }
 
 .rs-metric-copy span {
   color: var(--rst-ui-muted);
-  font-size: 11px;
-  font-weight: 850;
-  letter-spacing: .14em;
+  font-size: 9px;
+  font-weight: var(--rst-fw-bold);
+  letter-spacing: .12em;
   text-transform: uppercase;
 }
 
@@ -108,171 +83,117 @@
   font-size: 21px;
   line-height: 1;
   letter-spacing: 0;
-  font-weight: 900;
+  font-weight: var(--rst-fw-display);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .rs-metric-copy small {
-  color: #dbe6f5;
-  font-size: 13px;
-  line-height: 1.15;
-  font-weight: 700;
+  color: var(--rst-ui-text-heading);
+  font-size: 10.5px;
+  line-height: 1.1;
+  font-weight: var(--rst-fw-medium);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-.rs-metric-card:is(.is-week,.is-hours) {
-  --metric-accent: #6fe6ff;
-  --metric-icon-bg: rgba(86,199,255,.12);
-  --metric-icon-border: rgba(86,199,255,.24);
-}
-
-.rs-metric-card.is-cost {
-  --metric-accent: #ff7aa8;
-  --metric-icon-bg: rgba(214,42,87,.13);
-  --metric-icon-border: rgba(214,42,87,.25);
-}
-
+.rs-metric-card:is(.is-week,.is-hours,.is-info),
 .rs-metric-card.is-status {
-  --metric-accent: var(--rst-ui-purple);
-  --metric-icon-bg: rgba(123,102,255,.14);
-  --metric-icon-border: rgba(123,102,255,.24);
-  --metric-glow: rgba(123,102,255,.14);
+  --metric-state-rgb: var(--rst-state-info-rgb);
+  --metric-accent: var(--rst-state-info-text);
+  --metric-icon-bg: var(--rst-state-info-bg);
+  --metric-icon-border: var(--rst-state-info-border);
 }
 
-.rs-metric-card.is-status.is-draft {
-  --metric-accent: #f8d77a;
-  --metric-icon-bg: rgba(245,158,11,.13);
-  --metric-icon-border: rgba(245,158,11,.28);
-  --metric-glow: rgba(245,158,11,.18);
-  --metric-strong: #fff3c4;
+.rs-metric-card.is-cost,
+.rs-metric-card.is-danger {
+  --metric-state-rgb: var(--rst-state-danger-rgb);
+  --metric-accent: var(--rst-state-danger-text);
+  --metric-icon-bg: var(--rst-state-danger-bg);
+  --metric-icon-border: var(--rst-state-danger-border);
+  --metric-strong: var(--rst-state-danger-text);
 }
 
-.rs-metric-card.is-status.is-published {
-  --metric-accent: #86efac;
-  --metric-icon-bg: rgba(34,197,94,.12);
-  --metric-icon-border: rgba(34,197,94,.25);
-  --metric-glow: rgba(34,197,94,.16);
-  --metric-strong: #bbf7d0;
-}
-
-.rs-metric-card.is-week:hover {
-  border-color: rgba(111,230,255,.28);
-}
-
-.rs-week-metric {
-  grid-template-columns: 32px 48px minmax(0,1fr) 32px;
-  gap: 12px;
-  cursor: pointer;
-  outline: none;
-}
-
-.rs-week-btn {
-  position: relative;
-  z-index: 2;
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  min-height: 32px;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--rst-ui-line);
-  border-radius: 12px;
-  background: rgba(255,255,255,.055);
-  color: #dbe7ff;
-  box-shadow: none;
-  font-size: 14px;
-  line-height: 1;
-  font-weight: 950;
-}
-
-.rs-week-btn:hover {
-  transform: translateY(-1px);
-  background: rgba(255,255,255,.09);
-  border-color: var(--rst-ui-line-strong);
-}
-
-.rs-week-field {
-  position: relative;
-  z-index: 2;
-  min-width: 0;
-  min-height: 46px;
-  display: grid;
-  gap: 5px;
-  margin: 0;
-  padding-right: 24px;
-  color: #dbe6f5;
-  cursor: pointer;
-}
-
-.rs-week-field span {
-  color: var(--rst-ui-muted);
-  font-size: 11px;
-  line-height: 1;
-  font-weight: 850;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-}
-
-.rs-week-field strong {
-  color: #fff;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-size: 21px;
-  line-height: 1;
-  letter-spacing: 0;
-  font-weight: 950;
-}
-
-.rs-week-field small {
-  color: #dbe6f5;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-size: 13px;
-  line-height: 1.15;
-  font-weight: 720;
-}
-
-.rs-week-field::after {
-  content: "";
-  position: absolute;
-  right: 0;
-  top: 50%;
-  width: 14px;
-  height: 14px;
-  border: 1.8px solid rgba(248,250,252,.68);
-  border-radius: 4px;
-  box-shadow: 0 -3px 0 rgba(248,250,252,.68) inset;
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-
-.rs-week-field input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
-
-.rs-metric-card.is-success {
-  --metric-accent: #86efac;
-  --metric-icon-bg: rgba(34,197,94,.12);
-  --metric-icon-border: rgba(34,197,94,.25);
-  --metric-glow: rgba(34,197,94,.16);
-  --metric-strong: #bbf7d0;
-}
-
+.rs-metric-card.is-status.is-draft,
 .rs-metric-card.is-warning {
-  --metric-accent: #f8d77a;
-  --metric-icon-bg: rgba(245,158,11,.13);
-  --metric-icon-border: rgba(245,158,11,.28);
-  --metric-glow: rgba(245,158,11,.18);
-  --metric-strong: #fff3c4;
+  --metric-state-rgb: var(--rst-state-warning-rgb);
+  --metric-accent: var(--rst-state-warning-text);
+  --metric-icon-bg: var(--rst-state-warning-bg);
+  --metric-icon-border: var(--rst-state-warning-border);
+  --metric-strong: var(--rst-state-warning-text);
+}
+
+.rs-metric-card.is-status.is-published,
+.rs-metric-card.is-success {
+  --metric-state-rgb: var(--rst-state-success-rgb);
+  --metric-accent: var(--rst-state-success-text);
+  --metric-icon-bg: var(--rst-state-success-bg);
+  --metric-icon-border: var(--rst-state-success-border);
+  --metric-strong: var(--rst-state-success-text);
+}
+
+.rs-metric-card.is-neutral {
+  --metric-state-rgb: var(--rst-state-neutral-rgb);
+  --metric-accent: var(--rst-state-neutral-text);
+  --metric-icon-bg: var(--rst-state-neutral-bg);
+  --metric-icon-border: var(--rst-state-neutral-border);
+}
+
+/* Page-level metrics row container — shared across every authenticated module page. */
+.rs-page-metrics {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: visible;
+}
+
+.rs-metrics-row {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(4,minmax(0,1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.rs-metrics-row.rs-metrics--hero-first { grid-template-columns: minmax(0,1.35fr) repeat(3,minmax(0,1fr)); }
+.rs-metrics-row .rs-metric-card { width: 100%; min-width: 0; min-height: 56px; }
+.rs-metrics-row .rs-metric-card:active { transform: translateY(1px) scale(.995); }
+
+
+@media (max-width: 1180px) {
+  .rs-metrics-row,
+  .rs-metrics-row.rs-metrics--hero-first {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  /* metric detail rows — from metric-detail.css (Pass 2 ownership) */
+  .rs-detail-row { grid-template-columns: 34px minmax(0,1fr); }
+  .rs-detail-row b,
+  .rs-detail-row__actions { grid-column: 2; justify-self: start; }
+}
+
+@media (max-width: 520px) {
+  .rs-metrics-row,
+  .rs-metrics-row.rs-metrics--hero-first {
+    grid-template-columns: minmax(0,1fr);
+  }
+  /* metric card compaction — from responsive-flow.css (Pass 2 ownership) */
+  .rs-metric-card,
+  .rs-metric-card.rs-metric--hero {
+    min-height: 58px;
+    grid-template-columns: 34px minmax(0,1fr);
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  .rs-metric-copy strong { font-size: 19px; }
 }

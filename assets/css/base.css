@@ -4,11 +4,14 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  color-scheme: dark;
 }
 
 body {
   margin: 0;
   font-family: var(--rst-ui-font);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "ss01" 1;
   background: var(--rst-ui-bg);
 }
 
@@ -16,21 +19,39 @@ button,input,select,textarea {
   font: inherit;
 }
 
-body:is(.planning-mode,.employee-schedule-mode,.actuals-mode,.team-mode,.restaurant-mode) {
+body:is(.home-mode,.planning-mode,.employee-schedule-mode,.employee-time-mode,.actuals-mode,.team-mode,.restaurant-mode) {
   --rst-ui-accent: var(--rst-blue);
   --rst-ui-accent-dark: var(--rst-indigo);
   color: var(--rst-ui-text);
   overflow: hidden;
-  background: radial-gradient(circle at 50% 0%,rgba(51,71,255,.09),transparent 32%),linear-gradient(135deg,var(--rst-ui-bg) 0,var(--rst-ui-bg-2) 52%,#101a31 100%);
+  background: var(--rst-ui-bg);
 }
 
-body:is(.planning-mode,.employee-schedule-mode,.actuals-mode,.team-mode,.restaurant-mode) .app-frame,body:is(.planning-mode,.employee-schedule-mode,.actuals-mode,.team-mode,.restaurant-mode) .shell {
-  background: transparent;
+/* Shared inline SVG icon class — used across buttons, action buttons, topbar
+   actions and anywhere an SVG needs consistent stroke rendering. */
+.btn-svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  color: currentColor;
+}
+
+.btn-svg :is(path,circle,rect,line,polyline,polygon) {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 /* Shared accessibility polish. */
 :where(button,[role="button"],summary,input,select,textarea):focus-visible {
-  outline: 2px solid rgba(96,165,250,.72);
+  outline: 2px solid var(--rst-state-info-border);
   outline-offset: 3px;
 }
 
@@ -38,3 +59,18 @@ body:is(.planning-mode,.employee-schedule-mode,.actuals-mode,.team-mode,.restaur
   -webkit-tap-highlight-color: transparent;
 }
 
+body.logged-out .app-topbar-main,body.logged-out .app-shell {
+  display: none;
+}
+
+body:not(.logged-out) .brand-page {
+  display: none;
+}
+
+.page {
+  display: none;
+}
+
+.page.active {
+  display: flex;
+}

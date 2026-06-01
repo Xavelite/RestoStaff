@@ -2,27 +2,19 @@
 (function(){
   let bound=false;
   let selectedEmployeeId='';
+  let selectedShiftOverride='';
   let pin='';
   let isProcessing=false;
   let pinError=false;
+  let pinAttempts=0;
+  let pinLockout=false;
   let liveTimer=null;
+  let resetTimer=null;
 
   const PHOTO_WIDTH=160;
   const PHOTO_HEIGHT=120;
-
-  function now(){return new Date();}
-
-  function clockTime(date=now()){
-    return `${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
-  }
-
-  function fullClockDate(date=now()){
-    return date.toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-  }
-
-  function currentDay(){
-    return days[(now().getDay()+6)%7] || 'Monday';
-  }
+  const MAX_PIN_ATTEMPTS=3;
+  const BadgeTime=Restogogo.modules.BadgeTerminalTime;
 
   function findOpenEntry(employeeId){
     for(const day of days){
@@ -39,7 +31,7 @@
   }
 
   function bestCurrentShift(employee,day){
-    const current=now();
+    const current=BadgeTime.now();
     let minute=current.getHours()*60+current.getMinutes();
     const candidates=shifts.map(shift=>{
       const range=plannedRange(employee,day,shift);
@@ -65,8 +57,9 @@
     if(open){
       return {mode:'out',day:open.day,shift:open.shift,entry:open.entry,range:plannedRange(employee,open.day,open.shift)};
     }
-    const day=currentDay();
-    const shift=bestCurrentShift(employee,day) || shifts[0];
+    const day=BadgeTime.currentDay();
+    /* Use employee's explicit shift choice when set, otherwise fall back to heuristic */
+    const shift=(selectedShiftOverride && shifts.includes(selectedShiftOverride)) ? selectedShiftOverride : (bestCurrentShift(employee,day) || shifts[0]);
     const entry=write ? ensureActualEntry(employee.id,day,shift) : getActualEntry(employee.id,day,shift);
     return {mode:'in',day,shift,entry,range:plannedRange(employee,day,shift)};
   }
@@ -89,13 +82,6 @@
       body:'Clock in now',
       meta:planned
     };
-  }
-
-  function proofStatusLabel(status){
-    if(status==='ok')return 'Photo proof captured';
-    if(status==='unsupported')return 'Camera not available';
-    if(status==='blocked')return 'Camera permission blocked';
-    return 'Photo proof skipped';
   }
 
   function renderEmployeeList(employees){
@@ -135,8 +121,13 @@
   }
 
   function renderPinPanel(employee){
+    const target=badgeTarget(employee);
     const copy=targetCopy(employee);
-    return `<div class="badge-terminal-pin-flow${pinError?' is-error':''}">
+    /* Shift toggle shown for clock-in only: shift is locked once employee has an open entry */
+    const shiftToggle=target.mode==='in' ? `<div class="badge-terminal-shift-toggle" aria-label="Select shift" role="group">
+      ${shifts.map(shift=>`<button type="button" class="badge-terminal-shift-btn${target.shift===shift?' is-active':''}" data-badge-shift="${esc(shift)}">${esc(shift)}</button>`).join('')}
+    </div>` : '';
+    return `<div class="badge-terminal-pin-flow${pinError?' is-error':''}${pinLockout?' is-locked':''}">
       <div class="badge-terminal-selected-person">
         <span class="rs-weekly-avatar badge-terminal-avatar" style="${esc(positionStyle(employeePositionName(employee)))}">${esc(employeeInitials(employee.name).slice(0,1))}</span>
         <span><strong>${esc(employee.name)}</strong><small>${esc(employeePositionName(employee))}</small></span>
@@ -147,13 +138,14 @@
         </span>
         <span class="badge-terminal-kicker">${esc(copy.kicker)}</span>
         ${isProcessing ? '<h2>Checking…</h2>' : ''}
-        <p>${isProcessing?'Taking photo proof and recording the badge.':esc(copy.body)}</p>
+        <p>${isProcessing?'Checking PIN before photo proof.':esc(copy.body)}</p>
         <small>${esc(copy.meta)}</small>
       </div>
-      <div class="badge-terminal-pin-entry" aria-label="PIN entry">
-        <div class="badge-terminal-pin-dots">${renderPinDots()}</div>
-        ${renderKeypad()}
-      </div>
+      ${pinLockout
+        ?`<div class="badge-terminal-pin-entry badge-terminal-pin-entry--locked" role="alert">
+            <p class="badge-terminal-lockout-msg">Too many failed attempts — tap another name or contact your manager.</p>
+          </div>`
+        :`${shiftToggle}<div class="badge-terminal-pin-entry" aria-label="PIN entry"><div class="badge-terminal-pin-dots">${renderPinDots()}</div>${renderKeypad()}</div>`}
     </div>`;
   }
 
@@ -177,7 +169,7 @@
           <span class="badge-terminal-kiosk-divider" aria-hidden="true"></span>
           <span class="badge-terminal-kiosk-title">Badge terminal</span>
         </div>
-        <div class="badge-terminal-live" aria-label="Current time"><span>${esc(clockTime())}</span><small>${esc(fullClockDate())}</small></div>
+        <div class="badge-terminal-live" aria-label="Current time"><span>${esc(BadgeTime.clockTime())}</span><small>${esc(BadgeTime.fullClockDate())}</small></div>
       </header>
       <div class="badge-terminal-layout">
         <aside class="badge-terminal-people rs-card" aria-label="Employees">
@@ -197,20 +189,25 @@
       if(!document.body.classList.contains('badge-terminal-mode'))return;
       const live=document.querySelector('.badge-terminal-live');
       if(!live)return;
-      live.innerHTML=`<span>${esc(clockTime())}</span><small>${esc(fullClockDate())}</small>`;
+      live.innerHTML=`<span>${esc(BadgeTime.clockTime())}</span><small>${esc(BadgeTime.fullClockDate())}</small>`;
     },1000*20);
   }
 
   function setEmployee(employeeId){
+    /* Cancel any pending auto-reset so it can't interrupt this new session */
+    if(resetTimer){window.clearTimeout(resetTimer);resetTimer=null;}
     selectedEmployeeId=employeeId||'';
+    selectedShiftOverride='';
     pin='';
     pinError=false;
+    pinAttempts=0;
+    pinLockout=false;
     isProcessing=false;
     render();
   }
 
   async function captureProofPhoto(){
-    if(!navigator.mediaDevices?.getUserMedia)return {dataUrl:'',status:'unsupported'};
+    if(!navigator.mediaDevices?.getUserMedia)return {dataUrl:'',status:'unavailable'};
     let stream=null;
     try{
       stream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:320},height:{ideal:240},facingMode:'user'},audio:false});
@@ -229,10 +226,14 @@
       canvas.width=PHOTO_WIDTH;
       canvas.height=PHOTO_HEIGHT;
       const ctx=canvas.getContext('2d');
+      if(!ctx)return {dataUrl:'',status:'failed'};
       ctx.drawImage(video,0,0,PHOTO_WIDTH,PHOTO_HEIGHT);
-      return {dataUrl:canvas.toDataURL('image/jpeg',0.45),status:'ok'};
+      return {dataUrl:canvas.toDataURL('image/jpeg',0.45),status:'captured'};
     }catch(error){
-      return {dataUrl:'',status:error?.name==='NotAllowedError'?'blocked':'error'};
+      const errorName=String(error?.name || '');
+      const denied=errorName==='NotAllowedError' || errorName==='SecurityError' || errorName==='PermissionDeniedError';
+      const unavailable=errorName==='NotFoundError' || errorName==='DevicesNotFoundError';
+      return {dataUrl:'',status:denied?'denied':(unavailable?'unavailable':'failed')};
     }finally{
       stream?.getTracks?.().forEach(track=>track.stop());
     }
@@ -240,63 +241,69 @@
 
   function addBadgeNotification(employee,target,action,time){
     const title=action==='out'?'Clock-out recorded':'Clock-in recorded';
-    addNotification(`actual-${action}-${employee.id}-${Date.now()}`,'yellow',title,`${employee.name} · ${target.day} ${target.shift} · ${time}`,{kind:'actual'});
+    addNotification(`actual-${action}-${employee.id}-${Date.now()}`,'warning',title,`${employee.name} · ${target.day} ${target.shift} · ${time}`,{kind:'actual'});
   }
 
-  async function recordBadge(employee){
-    const proof=await captureProofPhoto();
-    const time=clockTime();
-    const stamp=now().toISOString();
-    let savedResult=null;
-    const ok=await Restogogo.stateService.commitStateMutation({
-      reason:'badge-entry',
-      mutate:()=>{
-        const target=badgeTarget(employee,true);
-        const action=target.mode;
-        if(action==='out'){
-          target.entry.clockOut=time;
-          target.entry.clockOutAt=stamp;
-          target.entry.clockOutPhoto=proof.dataUrl;
-          target.entry.clockOutPhotoStatus=proof.status;
-          target.entry.clockOutPhotoCapturedAt=proof.dataUrl?stamp:'';
-          target.entry.source='badge-terminal';
-          target.entry.updatedAt=stamp;
-        }else{
-          const isResume=!!(target.entry.clockIn && target.entry.clockOut);
-          if(!target.entry.clockIn){
-            target.entry.clockIn=time;
-            target.entry.clockInAt=stamp;
-            target.entry.clockInPhoto=proof.dataUrl;
-            target.entry.clockInPhotoStatus=proof.status;
-            target.entry.clockInPhotoCapturedAt=proof.dataUrl?stamp:'';
-          }else if(isResume){
-            target.entry.lastBreakOut=target.entry.clockOut;
-            target.entry.lastBreakOutAt=target.entry.clockOutAt || '';
-          }
-          target.entry.clockOut='';
-          target.entry.clockOutAt='';
-          target.entry.clockOutPhoto='';
-          target.entry.clockOutPhotoStatus='';
-          target.entry.clockOutPhotoCapturedAt='';
-          target.entry.resumeAt=isResume?stamp:(target.entry.resumeAt||'');
-          target.entry.source='badge-terminal';
-          target.entry.createdAt=target.entry.createdAt||stamp;
-          target.entry.updatedAt=stamp;
-        }
-        addBadgeNotification(employee,target,action,time);
-        savedResult={action,time,target,proof};
-      },
-      render,
-      errorMessage:'Badge entry was not saved. Please try again.'
+  function ensureCurrentBadgeWeek(){
+    const currentWeek=Restogogo.logic?.workflow?.currentWeekStart?.() || currentWeekStart();
+    if(data?.weekStart !== currentWeek)setWeekStartAndLoad(currentWeek);
+  }
+
+  async function recordBadge(employee, submittedPin){
+    ensureCurrentBadgeWeek();
+    const editability=Restogogo.logic?.workflow?.canRecordBadge?.(data) || {ok:true};
+    if(!editability.ok){
+      Restogogo.ui?.toast?.(editability.message || 'Badging is locked for this week.',{tone:'warning',icon:'alert',centered:true,timeout:1800});
+      return null;
+    }
+    const target=badgeTarget(employee,true);
+    const restaurantId=Restogogo.workspace?.current?.()?.restaurant?.id || window.DataAdapter?.getWorkspaceId?.();
+    const pinValue=String(submittedPin || '').trim();
+    await RestogogoAuthService.verifyBadgePin({
+      p_restaurant_id:restaurantId,
+      p_employee_id:employee.id,
+      p_pin:pinValue
     });
-    return ok ? savedResult : null;
+    const proof=await captureProofPhoto();
+    const payload={
+      p_restaurant_id:restaurantId,
+      p_employee_id:employee.id,
+      p_pin:pinValue,
+      p_business_date:BadgeTime.businessDateForDay(target.day),
+      p_service_key:BadgeTime.serviceKeyFromShift(target.shift),
+      p_photo_url:proof.dataUrl || null,
+      p_photo_status:proof.status || 'missing'
+    };
+    const result=await RestogogoAuthService.recordBadgeEntry(payload);
+    // Notify Actuals sessions so they can refresh the board live.
+    window.Restogogo?.services?.realtime?.broadcastBadgeEntry?.(employee.id, target.day, target.shift);
+    const action=String(result?.action || target.mode || '').toLowerCase();
+    const time=BadgeTime.clockTime();
+    const stamp=BadgeTime.now().toISOString();
+    if(result?.runtime_snapshot){
+      window.DataAdapter?.applyRuntimeSnapshot?.(result.runtime_snapshot);
+    }else{
+      // The RPC succeeded but returned no runtime_snapshot — this is a broken contract.
+      // We do NOT silently mutate local state to fabricate a clock-in/out that the DB
+      // may or may not reflect. Per project motto: no hidden fallbacks for internal defects.
+      // The badge notification below still shows the employee their recorded time (from `time`
+      // and `action` variables set from the RPC result). Local state will be corrected on next sync.
+      Restogogo.warn?.('[badge-terminal] recordBadgeEntry succeeded with no runtime_snapshot — local state not updated.', {employee:employee?.id, action, time});
+    }
+    addBadgeNotification(employee,target,action,time);
+    return {action,time,target,proof,result};
   }
 
   function resetToHome(delay=1700){
-    window.setTimeout(()=>{
+    if(resetTimer){window.clearTimeout(resetTimer);resetTimer=null;}
+    resetTimer=window.setTimeout(()=>{
+      resetTimer=null;
       selectedEmployeeId='';
+      selectedShiftOverride='';
       pin='';
       pinError=false;
+      pinAttempts=0;
+      pinLockout=false;
       isProcessing=false;
       render();
     },delay);
@@ -304,20 +311,38 @@
 
   async function submitPin(){
     const employee=selectedEmployee();
-    if(!employee||isProcessing)return;
-    if(!sanitizePin(employee.pin) || pin!==sanitizePin(employee.pin)){
+    if(!employee||isProcessing||pinLockout)return;
+    if(!/^\d{4}$/.test(pin)){
       pin='';
       pinError=true;
       render();
-      Restogogo.ui?.toast?.('Wrong PIN. Please try again.',{tone:'danger',icon:'alert',centered:true,timeout:1600});
+      Restogogo.ui?.toast?.('Enter your 4-digit PIN.',{tone:'danger',icon:'alert',centered:true,timeout:1600});
       window.setTimeout(()=>{pinError=false;render();},520);
       return;
     }
 
     isProcessing=true;
     render();
-    const result=await recordBadge(employee);
-    const proofText=result?.proof ? ` · ${proofStatusLabel(result.proof.status)}` : '';
+    let result=null;
+    try{
+      result=await recordBadge(employee, pin);
+    }catch(error){
+      pin='';
+      isProcessing=false;
+      pinAttempts++;
+      if(pinAttempts>=MAX_PIN_ATTEMPTS){
+        pinLockout=true;
+        render();
+        Restogogo.ui?.toast?.('Too many failed attempts — select another employee or contact your manager.',{tone:'danger',icon:'alert',centered:true,timeout:4000});
+        return;
+      }
+      pinError=true;
+      render();
+      Restogogo.ui?.toast?.(error?.message || 'Wrong PIN. Please try again.',{tone:'danger',icon:'alert',centered:true,timeout:1800});
+      window.setTimeout(()=>{pinError=false;render();},520);
+      return;
+    }
+    const proofText=result?.proof ? ` · ${BadgeTime.proofStatusLabel(result.proof.status)}` : '';
     if(result?.action==='in'){
       Restogogo.ui?.toast?.(`${employee.name} checked in at ${result.time}${proofText}` ,{tone:'success',icon:'check',centered:true,timeout:2400});
     }else if(result?.action==='out'){
@@ -330,12 +355,12 @@
       return;
     }
     pin='';
-    Restogogo.router?.render?.();
+    render();
     resetToHome();
   }
 
   function setPinKey(key){
-    if(!selectedEmployeeId||isProcessing)return;
+    if(!selectedEmployeeId||isProcessing||pinLockout)return;
     if(key==='clear')pin='';
     else if(key==='back')pin=pin.slice(0,-1);
     else if(/^\d$/.test(key) && pin.length<4)pin+=key;
@@ -361,6 +386,8 @@
       if(!root || !root.contains(event.target))return;
       const employeeButton=event.target.closest('[data-badge-terminal-action="select-employee"]');
       if(employeeButton){setEmployee(employeeButton.dataset.employeeId||''); return;}
+      const shiftButton=event.target.closest('[data-badge-shift]');
+      if(shiftButton){selectedShiftOverride=shiftButton.dataset.badgeShift||''; render(); return;}
       const keyButton=event.target.closest('[data-badge-terminal-key]');
       if(keyButton){setPinKey(keyButton.dataset.badgeTerminalKey); return;}
     });

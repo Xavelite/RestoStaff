@@ -1,5 +1,5 @@
 (function(){
-  let section = 'restaurant';
+  let section = 'setup';
   let operationMode = 'zones';
   let selectedZoneId = '';
   let selectedPositionId = '';
@@ -54,14 +54,16 @@
       selectedPosition:selectedPosition(),
       dirty
     });
+    Restogogo.ui?.animateCounters?.(root.querySelector('.restaurant-metrics'));
   }
 
   function showDirtyState(){
-    const bar=document.querySelector('[data-restaurant-save-bar]');
-    if(!bar)return;
-    bar.classList.add('is-dirty');
-    bar.querySelector('span').textContent='Unsaved restaurant setup changes';
-    bar.querySelectorAll('button').forEach(button=>button.disabled=false);
+    const actions=document.querySelector('[data-restaurant-actions]');
+    if(!actions)return;
+    actions.classList.remove('is-clean');
+    actions.classList.add('is-dirty');
+    actions.querySelectorAll('button').forEach(button=>button.disabled=false);
+    actions.querySelector('.is-save')?.classList.add('is-active');
   }
 
   function markDirty({rerender=false}={}){
@@ -71,20 +73,23 @@
     else showDirtyState();
   }
 
-  async function persist(reason='restaurant-setup'){
+  async function persist(){
     ensure(data);
-    const ok = await save({reason});
-    if(!ok){
-      dirty = true;
-      showDirtyState();
-      Restogogo.ui?.toast?.('Restaurant setup could not be saved. Check the save warning and try again.',{tone:'danger',icon:'alert',centered:true});
-      return false;
-    }
-    savedSnapshot = snapshot();
-    dirty = false;
-    Restogogo.router?.render?.();
-    Restogogo.ui?.toast?.('Restaurant setup saved.',{tone:'success',icon:'check',centered:true});
-    return true;
+    const ok = await Restogogo.stateService.commitStateMutation({
+      saveAction:window.RestogogoSaveContract.actions.restaurantSetup(),
+      mutate:()=>{},
+      rollback:false,
+      renderBeforeSave:false,
+      successMessage:'Restaurant setup saved.',
+      errorMessage:'Restaurant setup could not be saved. The changes were rolled back.',
+      onSuccess:()=>{
+        savedSnapshot = snapshot();
+        dirty = false;
+        Restogogo.shell?.render?.();
+      },
+      onError:()=>restoreSnapshot()
+    });
+    return ok === true;
   }
 
   function restoreSnapshot(){
@@ -97,7 +102,7 @@
 
   function addZone(){
     const name=`Zone ${zones(true).length + 1}`;
-    const zone={id:`zone-${id()}`,name,active:true,defaultTimes:{Lunch:'',Evening:''},notes:''};
+    const zone={id:(crypto.randomUUID ? crypto.randomUUID() : `zone-${id()}`),name,active:true,defaultTimes:{Lunch:'',Evening:''},notes:''};
     const restaurantSetup=setup();
     restaurantSetup.zones.push(zone);
     selectedZoneId=zone.id;
@@ -109,13 +114,66 @@
 
   function addPosition(){
     const name=`Position ${setupPositions(true).length + 1}`;
-    const position={id:`position-${id()}`,name,active:true,hourlyCost:0,metadata:{}};
+    const position={id:(crypto.randomUUID ? crypto.randomUUID() : `position-${id()}`),name,active:true,hourlyCost:0,metadata:{}};
     const restaurantSetup=setup();
     restaurantSetup.positions.push(position);
     selectedPositionId=position.id;
     operationMode='positions';
     section='operations';
     markDirty({rerender:true});
+  }
+
+  function absenceTypeCode(name, fallback){
+    const raw=String(name || fallback || 'CUSTOM').trim().toUpperCase().replace(/[^A-Z0-9_]+/g,'_').replace(/^_+|_+$/g,'');
+    return raw || 'CUSTOM';
+  }
+
+  function addAbsenceType(){
+    const restaurantSetup=setup();
+    const existing=normalizeAbsenceTypeList(restaurantSetup.absenceTypes || []);
+    const count=existing.length + 1;
+    const name=`Custom absence ${count}`;
+    const code=absenceTypeCode(name,`CUSTOM_${count}`);
+    restaurantSetup.absenceTypes=existing.concat([{
+      id:(crypto.randomUUID ? crypto.randomUUID() : `absence-type-${id()}`),
+      name,
+      code,
+      category:'other',
+      paidPolicy:'neutral',
+      payrollCode:code,
+      color:'#94a3b8',
+      requiresApproval:true,
+      affectsPlanning:true,
+      affectsPayroll:false,
+      active:true,
+      sortOrder:count * 10,
+      metadata:{}
+    }]);
+    section='general';
+    markDirty({rerender:true});
+  }
+
+  function updateAbsenceType(input){
+    const typeId=String(input?.dataset?.absenceTypeId || '').trim();
+    const field=String(input?.dataset?.absenceTypeField || '').trim();
+    if(!typeId || !field)return false;
+    const restaurantSetup=setup();
+    const types=normalizeAbsenceTypeList(restaurantSetup.absenceTypes || []);
+    const type=types.find(item=>String(item.id || '')===typeId);
+    if(!type)return false;
+    const value=input.type==='checkbox' ? !!input.checked : String(input.value || '').trim();
+    if(field==='name')type.name=value || type.name;
+    else if(field==='code')type.code=absenceTypeCode(value,type.code);
+    else if(field==='category')type.category=['holiday','sick','unpaid','training','other'].includes(value) ? value : 'other';
+    else if(field==='paidPolicy')type.paidPolicy=['paid','unpaid','neutral'].includes(value) ? value : 'neutral';
+    else if(field==='payrollCode')type.payrollCode=absenceTypeCode(value,type.code);
+    else if(field==='color')type.color=/^#[0-9a-fA-F]{6}$/.test(value) ? value : type.color;
+    else if(['requiresApproval','affectsPlanning','affectsPayroll','active'].includes(field))type[field]=!!value;
+    else return false;
+    restaurantSetup.absenceTypes=types;
+    if(field==='code')input.value=type.code;
+    if(field==='payrollCode')input.value=type.payrollCode || '';
+    return true;
   }
 
 
@@ -247,7 +305,6 @@
   function applyGeneral(form){
     const values=Object.fromEntries(new FormData(form).entries());
     data.restaurant.name=String(values.name||data.restaurant.name).trim();
-    data.restaurant.ownerName=String(values.ownerName||data.restaurant.ownerName).trim();
     data.restaurant.city=String(values.city||'').trim();
     const restaurantSetup=setup();
     Object.assign(restaurantSetup.general,{
@@ -281,12 +338,13 @@
   async function handleAction(action,target){
     if(action==='add-zone')return addZone();
     if(action==='add-position')return addPosition();
-    if(action==='open-team')return Restogogo.router?.showPage?.('team');
+    if(action==='add-absence-type')return addAbsenceType();
+    if(action==='open-team')return Restogogo.shell?.showPage?.('team');
     if(action==='save-restaurant'){
       const activeCoverageInput=document.activeElement?.closest?.('[data-coverage-zone][data-coverage-service][data-coverage-position]');
       if(activeCoverageInput)syncCoverageInput(activeCoverageInput,activeCoverageInput.value);
       applyVisibleForms();
-      return persist('restaurant-setup-save');
+      return persist();
     }
     if(action==='cancel-restaurant')return restoreSnapshot();
   }
@@ -301,11 +359,23 @@
     render();
   }
 
+
+  function openSetupTarget(key){
+    const target=String(key || '').trim();
+    if(['team','badges'].includes(target))return Restogogo.shell?.showPage?.('team');
+    if(target==='payroll'){section='payroll'; render(); return;}
+    if(target==='positions'){section='operations'; operationMode='positions'; render(); return;}
+    if(['zones','coverage'].includes(target)){section='operations'; operationMode='zones'; render(); return;}
+    section='general'; render();
+  }
+
   function bind(){
     if(bound)return;
     bound=true;
     const root=$('restaurantRoot');
     root?.addEventListener('click',event=>{
+      const setupTarget=event.target.closest('[data-restaurant-setup-target]');
+      if(setupTarget){event.preventDefault(); openSetupTarget(setupTarget.dataset.restaurantSetupTarget); return;}
       const coverageStep=event.target.closest('[data-coverage-step]');
       if(coverageStep){
         event.preventDefault();
@@ -318,7 +388,7 @@
         return;
       }
       const sec=event.target.closest('[data-restaurant-section]');
-      if(sec){section=sec.dataset.restaurantSection||'restaurant'; render(); return;}
+      if(sec){section=sec.dataset.restaurantSection||'general'; render(); return;}
       const ops=event.target.closest('[data-restaurant-ops]');
       if(ops){operationMode=ops.dataset.restaurantOps||'zones'; section='operations'; render(); return;}
       const page=event.target.closest('[data-restaurant-page]');
@@ -338,6 +408,8 @@
       markDirty();
     });
     root?.addEventListener('input',event=>{
+      const absenceType=event.target.closest('[data-absence-type-id][data-absence-type-field]');
+      if(absenceType){updateAbsenceType(absenceType); markDirty(); return;}
       const hours=event.target.closest('[data-hours-day][data-hours-field]');
       if(hours){updateHours(hours); markDirty(); return;}
       const coverageInput=event.target.closest('[data-coverage-zone][data-coverage-service][data-coverage-position]');
@@ -348,6 +420,8 @@
       markDirty();
     });
     root?.addEventListener('change',event=>{
+      const absenceType=event.target.closest('[data-absence-type-id][data-absence-type-field]');
+      if(absenceType){updateAbsenceType(absenceType); markDirty({rerender:absenceType.dataset.absenceTypeField==='active'}); return;}
       const hours=event.target.closest('[data-hours-day][data-hours-field]');
       if(hours){updateHours(hours); markDirty({rerender:hours.dataset.hoursField==='open'}); return;}
       const coverageInput=event.target.closest('[data-coverage-zone][data-coverage-service][data-coverage-position]');
@@ -359,5 +433,5 @@
     });
   }
 
-  Restogogo.restaurant={render,bind};
+  Restogogo.restaurant={render,bind,model:Restogogo.modules.RestaurantModel};
 })();

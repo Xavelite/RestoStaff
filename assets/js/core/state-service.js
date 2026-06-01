@@ -24,12 +24,14 @@ async function load(){
     notifySaveIssue(message, readStatus==='empty'?'warning':'danger');
   }
   ensure(data);
-  Restogogo.state.supabaseBaselineCounts = coreSetupCounts(data);
+  Restogogo.state.loadedDataCounts = coreSetupCounts(data);
   Restogogo.state.validation = validatePlannerState(data);
   const storedSession=window.DataAdapter.readSession(session)||session;
-  session={role:storedSession.role==='owner'?'owner':'employee', employeeId:storedSession.employeeId||null};
-  if(!session.employeeId||!emp(session.employeeId))session.employeeId=activeEmployees()[0]?.id||null;
-  applyProductBrand();
+  session={role:Restogogo.registry.normalizeRole(storedSession.role), employeeId:storedSession.employeeId||null};
+  if(Restogogo.registry.isEmployee(session.role) && (!session.employeeId || !activeEmployees().some(employee=>String(employee.id) === String(session.employeeId)))){
+    Restogogo.warn?.('[restogogo:employee-session-missing]', {employeeId: session.employeeId || null});
+    session.employeeId = null;
+  }
   Restogogo.log?.('[restogogo:supabase-load]', {
     workspace: workspaceId(),
     readStatus,
@@ -41,9 +43,39 @@ async function load(){
 }
 
 
-async function persistCurrentState(reason='save'){
+function normalizeSaveOptions(options='save'){
+  if(window.RestogogoSaveContract?.normalize)return window.RestogogoSaveContract.normalize(options);
+  return typeof options === 'string' ? {reason:options} : Object.assign({reason:'save'}, options || {});
+}
+
+
+function applySaveResultSnapshot(result){
+  const normalized = window.RestogogoRepositoryResult?.fromSaveOutcome?.(result) || {ok:result !== false, snapshot:null, details:null, message:''};
+  if(normalized.ok !== true)return normalized;
+  if(normalized.snapshot){
+    const details = normalized.details || {};
+    window.DataAdapter.applyRuntimeSnapshot(normalized.snapshot);
+    if(details.activeWeekStart && data){
+      const week = monday(details.activeWeekStart);
+      if(week)data.weekStart = week;
+    }
+    ensure(data);
+    // restoreActiveWeek applies the history snapshot for the active week through
+    // applyWeeklyPayloadToState → ensureWeeklyShape, which normalises weekly fields.
+    // A second full ensure() is not needed because restoreActiveWeek does not touch
+    // employees, restaurant or history; those were already normalised by the call above.
+    if(details.restoreActiveWeek === true)restoreActiveWeek();
+  }else{
+    ensure(data);
+  }
+  return normalized;
+}
+
+async function persistCurrentState(options='save'){
+  const saveOptions = normalizeSaveOptions(options);
+  const reason = String(saveOptions.reason || 'save');
   ensure(data);
-  saveWeekSnapshot();
+  archiveActiveWeek();
   const validation = validateStateBeforeSave();
   window.DataAdapter.saveSession(session);
   if(!validation.ok)return false;
@@ -53,7 +85,7 @@ async function persistCurrentState(reason='save'){
     notifySaveIssue(message, 'warning');
     return false;
   }
-  const baseline = Restogogo.state.supabaseBaselineCounts || {employees:0,zones:0,positions:0};
+  const baseline = Restogogo.state.loadedDataCounts || {employees:0,zones:0,positions:0};
   const currentCounts = coreSetupCounts(data);
   const destructiveMasterLoss = (baseline.employees > 0 && currentCounts.employees === 0)
     || (baseline.zones > 0 && currentCounts.zones === 0)
@@ -70,16 +102,17 @@ async function persistCurrentState(reason='save'){
     notifySaveIssue('Workspace is read-only until Supabase data is initialized.', 'warning');
     return false;
   }
-  const ok=await Promise.resolve(window.DataAdapter.savePlanner(data, {reason}));
-  if(ok!==false){
-    Restogogo.state.supabaseBaselineCounts = coreSetupCounts(data);
+  const saveOutcome=await Promise.resolve(window.DataAdapter.savePlanner(data, saveOptions));
+  const saveResult=applySaveResultSnapshot(saveOutcome);
+  if(saveResult.ok === true){
+    Restogogo.state.loadedDataCounts = coreSetupCounts(data);
     dataLoadedFromSupabase = true;
     lastDataReadStatus = 'ok';
     updateSaveController({status:'saved', lastError:'', lastSavedAt:new Date().toISOString(), lastReason:reason});
     clearSaveIssueNotice();
     return true;
   }
-  const err=window.DataAdapter.getLastError&&window.DataAdapter.getLastError();
+  const err=(saveResult.message || '') || (window.DataAdapter.getLastError&&window.DataAdapter.getLastError());
   const message=err||'Save failed';
   try{ console.error('[restogogo:save-failed]', {reason, message}); }catch{}
   updateSaveController({status:'error', lastError:message, lastReason:reason});
@@ -88,21 +121,24 @@ async function persistCurrentState(reason='save'){
 }
 
 async function save(options={}){
-  const reason=typeof options==='string'?options:(options.reason||'save');
+  const initialSaveOptions = normalizeSaveOptions(options);
+  const reason=String(initialSaveOptions.reason || 'save');
   if(saveController.inFlight){
-    updateSaveController({pending:true, pendingReason:reason, status:'queued', lastReason:reason});
+    updateSaveController({pending:true, pendingReason:reason, pendingOptions:initialSaveOptions, status:'queued', lastReason:reason});
     return activeSavePromise || Promise.resolve(false);
   }
 
   activeSavePromise = (async()=>{
     let ok=false;
+    let currentSaveOptions=initialSaveOptions;
     let currentReason=reason;
-    updateSaveController({inFlight:true, pending:false, pendingReason:'', status:'saving', lastReason:currentReason});
+    updateSaveController({inFlight:true, pending:false, pendingReason:'', pendingOptions:null, status:'saving', lastReason:currentReason});
     try{
       do{
-        updateSaveController({pending:false, pendingReason:'', status:'saving', lastReason:currentReason});
-        ok=await persistCurrentState(currentReason);
-        currentReason=saveController.pendingReason || currentReason;
+        currentReason=String(currentSaveOptions.reason || 'save');
+        updateSaveController({pending:false, pendingReason:'', pendingOptions:null, status:'saving', lastReason:currentReason});
+        ok=await persistCurrentState(currentSaveOptions);
+        currentSaveOptions=saveController.pendingOptions || {reason:saveController.pendingReason || currentReason};
       }while(saveController.pending);
     }catch(error){
       const message=error?.message||String(error);
@@ -111,7 +147,7 @@ async function save(options={}){
       notifySaveIssue(message, 'danger');
       ok=false;
     }finally{
-      updateSaveController({inFlight:false, pending:false, pendingReason:''});
+      updateSaveController({inFlight:false, pending:false, pendingReason:'', pendingOptions:null});
       activeSavePromise=null;
     }
     return ok;
@@ -135,7 +171,8 @@ function restoreRuntimeState(snapshot){
 
 async function commitStateMutation(options={}){
   const opts = typeof options === 'function' ? {mutate:options} : (options || {});
-  const reason = String(opts.reason || 'save');
+  const saveAction = normalizeSaveOptions(opts.saveAction || {domain:opts.domain, action:opts.action, reason:opts.reason});
+  const reason = String(saveAction.reason || 'save');
   const mutate = typeof opts.mutate === 'function' ? opts.mutate : null;
   const renderFn = typeof opts.render === 'function' ? opts.render : null;
   const renderBeforeSave = opts.renderBeforeSave !== false;
@@ -153,7 +190,9 @@ async function commitStateMutation(options={}){
     if(mutate) await mutate(data);
     ensure(data);
     if(renderFn && renderBeforeSave)renderFn();
-    const ok = await save({reason});
+    const saveOptions = normalizeSaveOptions(Object.assign({}, opts.saveOptions || {}, saveAction));
+    if(Array.isArray(opts.weekStarts))saveOptions.weekStarts = opts.weekStarts.slice();
+    const ok = await save(saveOptions);
     if(ok){
       if(typeof opts.onSuccess === 'function')opts.onSuccess(data);
       if(renderFn && renderOnSuccess)renderFn();
@@ -165,7 +204,21 @@ async function commitStateMutation(options={}){
       if(typeof opts.restoreLocal === 'function')opts.restoreLocal(localSnapshot);
       if(renderFn)renderFn();
     }
-    if(errorMessage)Restogogo.ui?.toast?.(errorMessage,{tone:'danger',icon:'alert',centered:true,timeout:3600});
+    const persistenceError = String(saveController.lastError || '').trim();
+    // CONFLICT detection — Phase 4C optimistic locking.
+    // Currently only save_manager_planning (planning week saves) raises CONFLICT errors.
+    // If you add optimistic locking to other RPCs (actuals, team, restaurant setup),
+    // update the toast message below to name the resource that conflicted.
+    const isConflict = persistenceError.startsWith('CONFLICT:');
+    const message = isConflict
+      ? 'Planning was changed by another session — reload to get the latest version.'
+      : (/^Database save command ".+" is missing from Supabase\./.test(persistenceError)
+          ? 'Database save commands are missing. Run the current SQL baseline, then verify it.'
+          : errorMessage);
+    const toastTone    = isConflict ? 'warning' : 'danger';
+    const toastIcon    = isConflict ? 'info'    : 'alert';  // 'info' = concurrent-save notice, not an error
+    const toastTimeout = isConflict ? 5000      : 3600;
+    if(message)Restogogo.ui?.toast?.(message,{tone:toastTone,icon:toastIcon,centered:true,timeout:toastTimeout});
     if(typeof opts.onError === 'function')opts.onError(saveController.lastError || 'Save failed');
     return false;
   }catch(error){
@@ -184,51 +237,12 @@ async function commitStateMutation(options={}){
   }
 }
 
+/* Public API — consume these via Restogogo.stateService.*.
+ * Save-result snapshot application stays in this file so repositories never
+ * reach upward into state orchestration after an RPC succeeds. */
 Restogogo.stateService = {
-  ensure,
-  load,
-  save,
+  /* Trigger a mutation + save round-trip with rollback on failure. */
   commitStateMutation,
-  saveController,
-  validateStateBeforeSave,
-  setupRequirements,
-  isSetupReady,
-  emp,
-  activeEmployees,
-  sortEmployees,
-  activeRestaurantZones,
-  restaurantPositions,
-  openingRangeForDayShift,
-  saveWeekSnapshot,
-  loadWeekSnapshot,
-  setWeekStartAndLoad,
-  weeklyPayloadFromState,
-  applyWeeklyPayloadToState,
-  compactWeeklyPayload,
-  getActualEntry,
-  ensureActualEntry,
-  setAvailabilitySlot,
-  setPlanningSlot,
-  setAssignmentSlot,
-  setAssignmentPositionSlot,
-  setAssignmentTimeSlot,
-  setSubmitted,
-  isPlanned,
-  employeePlannedWeekTotal,
-  employeeAbsentForSlot,
-  availabilityOverlayState,
-  timeRangeFor,
-  plannedSlotHours,
-  slotHours,
-  hoursFromRange
+  /* Reload all workspace data from Supabase (used e.g. after a realtime reload). */
+  load
 };
-Object.assign(Restogogo.employees, {
-  get: emp,
-  active: activeEmployees,
-  sort: sortEmployees,
-  plannedWeekTotal: employeePlannedWeekTotal
-});
-Restogogo.actuals = Object.assign(Restogogo.actuals || {}, {
-  getEntry: getActualEntry,
-  ensureEntry: ensureActualEntry
-});

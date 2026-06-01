@@ -25,7 +25,7 @@
     if(!nav) return;
 
     if(!showChrome){
-      nav.innerHTML = '';
+      nav.replaceChildren();
       nav.hidden = true;
       return;
     }
@@ -33,7 +33,8 @@
     const items = Restogogo.registry.navItems(role);
     nav.innerHTML = items.map(item => {
       const activeClass = item.id === pageId ? ' is-active' : '';
-      return `<button type="button" class="app-nav-link${activeClass}" data-app-page="${esc(item.id)}">${esc(item.title)}</button>`;
+      const icon = item.icon && Restogogo.icons ? `<span class="app-nav-link__icon">${Restogogo.icons.svg(item.icon)}</span>` : '';
+      return `<button type="button" class="app-nav-link${activeClass}" data-app-page="${esc(item.id)}">${icon}<span>${esc(item.title)}</span></button>`;
     }).join('');
     nav.hidden = items.length === 0;
   }

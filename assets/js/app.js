@@ -3,4 +3,4 @@
  * Core/services/page modules are loaded before this file.
  */
 
-void initRestogogoApp();
+void Restogogo.init();

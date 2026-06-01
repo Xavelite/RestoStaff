@@ -42,7 +42,7 @@
   }
 
   function actualSlotState(employee, day, shift, source = data){
-    const planned = !!source?.planning?.[employee.id]?.[day]?.[shift];
+    const planned = !!source?.planningSlots?.[employee.id]?.[day]?.[shift]?.planned;
     const entry = actualEntry(employee.id, day, shift, source);
     const range = plannedRangeFor(employee, day, shift, source);
     if(entry.clockIn && !entry.clockOut) return 'live';
@@ -55,8 +55,9 @@
   }
 
   function actualSlotTone(state){
-    if(state === 'on-time' || state === 'live') return 'good';
-    if(state === 'variance' || state === 'unplanned') return 'warn';
+    if(state === 'live') return 'live';
+    if(state === 'on-time') return 'actual';
+    if(state === 'variance' || state === 'unplanned') return 'warning';
     if(state === 'planned-empty') return 'pending';
     return 'empty';
   }
@@ -86,12 +87,12 @@
   }
 
   function employeeHasPlanning(employee, source = data){
-    return days.some(day => shifts.some(shift => !!source?.planning?.[employee.id]?.[day]?.[shift]));
+    return days.some(day => shifts.some(shift => !!source?.planningSlots?.[employee.id]?.[day]?.[shift]?.planned));
   }
 
   function employeeHasVisibleAbsence(employee, source = data){
     if(source !== data)return false;
-    return days.some(day => shifts.some(shift => !!employeePrimaryAbsenceForSlot(employee.id, day, shift, ['Approved','Pending'])));
+    return days.some(day => shifts.some(shift => !!absenceForDayShift(employee.id, day, shift, ['Approved','Pending'])));
   }
 
   function isRelevantEmployee(employee, source = data){
@@ -176,8 +177,6 @@
     const photo = entry?.[`${field}Photo`];
     const status = entry?.[`${field}PhotoStatus`];
     if(photo) return 'captured';
-    if(status === 'blocked') return 'blocked';
-    if(status === 'unsupported') return 'not available';
     return status || '';
   }
 
@@ -217,7 +216,7 @@
   function actualEmployeeStats(employee, source = data){
     const stats = {missingBadges:0, openClockouts:0, unplannedBadges:0, varianceIssues:0, proofCaptured:0, proofWarnings:0};
     days.forEach(day => shifts.forEach(shift => {
-      const planned = !!source?.planning?.[employee.id]?.[day]?.[shift];
+      const planned = !!source?.planningSlots?.[employee.id]?.[day]?.[shift]?.planned;
       const entry = actualEntry(employee.id, day, shift, source);
       const plannedRange = plannedRangeFor(employee, day, shift, source);
       if(planned && !entry.clockIn) stats.missingBadges++;
@@ -239,7 +238,8 @@
       if(entry.clockIn && !entry.clockOut) issues.push('Missing clock-out');
       if(!row.planned && entry.clockIn) issues.push('Unplanned badge');
       if(entry.clockIn && entry.clockOut && row.planned && Math.abs(row.variance) > 0.25) issues.push('Variance > 15 min');
-      if((entry.clockIn && !entry.clockInPhoto && entry.clockInPhotoStatus === 'blocked') || (entry.clockOut && !entry.clockOutPhoto && entry.clockOutPhotoStatus === 'blocked')) issues.push('Camera blocked');
+      const proofIssueStatus = ['denied','unavailable','failed','missing'];
+      if((entry.clockIn && !entry.clockInPhoto && proofIssueStatus.includes(entry.clockInPhotoStatus)) || (entry.clockOut && !entry.clockOutPhoto && proofIssueStatus.includes(entry.clockOutPhotoStatus))) issues.push('Photo proof issue');
       issues.forEach(issue => anomalies.push({issue, ...row}));
     });
     return anomalies;

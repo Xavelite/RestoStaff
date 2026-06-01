@@ -4,6 +4,7 @@ var saveController = {
   inFlight:false,
   pending:false,
   pendingReason:'',
+  pendingOptions:null,
   lastError:'',
   lastSavedAt:'',
   lastReason:''
@@ -43,8 +44,8 @@ function clearSaveIssueNotice(){
   lastSaveNotice='';
 }
 
-function updateSaveController(patch={}){
-  Object.assign(saveController, patch);
+function updateSaveController(nextState={}){
+  Object.assign(saveController, nextState);
   Restogogo.state.save = Object.assign({}, saveController);
 }
 
@@ -57,4 +58,3 @@ function validateStateBeforeSave(){
   }
   return validation;
 }
-

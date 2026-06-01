@@ -1,74 +1,58 @@
-/** Planning module slice. Loaded in order by index.html. */
-const PlanningLogic = Restogogo.logic.planning;
-const Grid = Restogogo.services.weeklyGrid;
-const Export = Restogogo.export;
-const Metrics = Restogogo.services.metrics;
+/* restogogo planning module — state, mutation helper and core utils.
+ * Establishes Restogogo.planningModule (P); extended by subsequent files.
+ * No planning symbols are exposed on window. */
+(function(){
+  const P = Restogogo.planningModule = {};
+  const PlanningLogic = Restogogo.logic.planning;
 
-let selectedPlanningDay = '';
-let selectedPlanningRow = '';
-let planningOpenZoneKey = '';
-let planningSearch = '';
-let planningPositionFilter = 'all';
-let planningView = 'all';
-let planningLastConflictCount = null;
-let planningPendingConflictFlash = false;
-let planningPendingSlotKey = '';
+  P.state = {
+    selectedDay:    '',
+    selectedRow:    '',
+    openZoneKey:    '',
+    openEditKey:    '',
+    search:         '',
+    positionFilter: 'all',
+    view:           'all'
+  };
 
-function planningSlotKey(id,d,s){return `${id}|${d}|${s}`;}
-function markPlanningMutation(id,d,s){
-  planningPendingConflictFlash = true;
-  planningPendingSlotKey = planningSlotKey(id,d,s);
-}
+  P.workflow = function workflow(){
+    return Restogogo.logic?.workflow;
+  };
 
+  P.editability = function editability(){
+    return P.workflow()?.canEditPlanning?.(data) || {ok:true,reason:'editable',message:''};
+  };
 
-function planningShowToast(message,type='success'){
-  Restogogo.ui?.toast?.(message,{tone:type==='danger'?'danger':'success',icon:type==='danger'?'alert':'check',centered:true,timeout:2600});
-}
+  P.statusEditability = function statusEditability(){
+    return P.workflow()?.canChangePlanningStatus?.(data) || {ok:true,reason:'editable',message:''};
+  };
 
-function planningCommitMutation(reason, mutate, options={}){
-  return Restogogo.stateService.commitStateMutation(Object.assign({
-    reason,
-    mutate,
-    render,
-    errorMessage:'Planning change was not saved. The change was rolled back.'
-  }, options || {}));
-}
+  P.blocked = function blocked(check){
+    if(check?.ok !== false)return false;
+    Restogogo.ui?.toast?.(check.message || 'This planning week is locked.',{tone:'warning',icon:'alert',centered:true,timeout:2200});
+    return true;
+  };
 
-function planningRefreshAll(){
-  return planningCommitMutation('planning-refresh', null);
-}
+  P.showToast = function showToast(message,type='success'){
+    Restogogo.ui?.toast?.(message,{tone:type==='danger'?'danger':'success',icon:type==='danger'?'alert':'check',centered:true,timeout:2600});
+  };
 
-function planningSnapshotRows(weekStart){
-  const h=data.history?.[weekStart];
-  if(!h)return [];
-  return PlanningLogic.weekRows({
-    planning:h.planning||{},
-    assignments:h.assignments||{},
-    assignmentPositions:h.assignmentPositions||{},
-    assignmentTimes:h.assignmentTimes||{}
-  });
-}
+  P.commitMutation = function commitMutation(saveAction,mutate,options){
+    return Restogogo.stateService.commitStateMutation(Object.assign({
+      saveAction,
+      mutate,
+      render(){ Restogogo.shell.render(); },
+      errorMessage:'Planning change was not saved. The change was rolled back.'
+    }, options || {}));
+  };
 
-function planningRestartClass(el,className,duration=900){
-  if(!el)return;
-  el.classList.remove(className);
-  void el.offsetWidth;
-  el.classList.add(className);
-  setTimeout(()=>el.classList.remove(className),duration);
-}
+  P.refreshAll = function refreshAll(){
+    return P.commitMutation(window.RestogogoSaveContract.actions.planningUpdate(), null);
+  };
 
-function planningApplyMicroFeedback(conflictCount){
-  requestAnimationFrame(()=>{
-    const countChanged = planningLastConflictCount !== null && planningLastConflictCount !== conflictCount;
-    if(planningPendingConflictFlash && countChanged){
-      planningRestartClass(document.querySelector('.planning-board .planning-conflict-banner'),'is-flashing',950);
-    }
-    planningLastConflictCount = conflictCount;
-    if(planningPendingSlotKey){
-      const slot=[...document.querySelectorAll('.planning-board .planning-slot[data-planning-slot-key]')].find(el=>el.dataset.planningSlotKey===planningPendingSlotKey);
-      planningRestartClass(slot,'is-updated',760);
-    }
-    planningPendingConflictFlash = false;
-    planningPendingSlotKey = '';
-  });
-}
+  P.snapshotRows = function snapshotRows(weekStart){
+    const h = data.history?.[weekStart];
+    if(!h) return [];
+    return PlanningLogic.weekRows({planningSlots:h.planningSlots||{}});
+  };
+})();

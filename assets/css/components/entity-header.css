@@ -1,29 +1,30 @@
 /* Shared entity header used by Team and Restaurant profile modules. */
 .rs-entity-header {
-  min-height: 78px;
-  padding: 10px 18px;
+  min-height: 56px;
+  padding: 10px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   position: relative;
-  overflow: hidden;
-  border-bottom: 1px solid rgba(255,255,255,.055);
+  overflow: visible;
+  border-bottom: 1px solid var(--rst-ui-surface-divider);
+  background: var(--rst-ui-surface-panel-head);
 }
 
 .rs-entity-identity {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   position: relative;
   z-index: 1;
 }
 
 .rs-entity-avatar {
-  width: 46px;
-  height: 46px;
-  flex: 0 0 46px;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
   display: grid;
   place-items: center;
 }
@@ -31,7 +32,7 @@
 .rs-entity-copy {
   min-width: 0;
   display: grid;
-  gap: 6px;
+  gap: 5px;
 }
 
 .rs-entity-title-line {
@@ -45,11 +46,11 @@
 .rs-entity-title-line h2 {
   min-width: 0;
   margin: 0;
-  overflow: hidden;
-  color: #fff;
-  font-size: 20px;
+  overflow: visible;
+  color: var(--rst-ui-text);
+  font-size: 17px;
   line-height: 1;
-  font-weight: 950;
+  font-weight: var(--rst-fw-display);
   letter-spacing: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -61,28 +62,28 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .rs-entity-chip {
-  min-height: 22px;
-  padding: 0 9px;
+  min-height: 20px;
+  padding: 0;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  border: 1px solid rgba(255,255,255,.075);
-  border-radius: 9px;
-  background: rgba(255,255,255,.045);
-  color: #c9d6e8;
-  font-size: 11px;
-  font-weight: 850;
+  gap: 6px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--rst-ui-muted);
+  font-size: 10.5px;
+  font-weight: var(--rst-fw-bold);
   line-height: 1;
   white-space: nowrap;
 }
 
 .rs-entity-chip svg {
-  width: 15px;
-  height: 15px;
+  width: 13px;
+  height: 13px;
   flex: 0 0 auto;
   stroke: currentColor;
   stroke-width: 1.9;
@@ -96,49 +97,20 @@
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  color: #93c5fd;
+  color: var(--rst-state-info-text);
   font-size: 11px;
   font-style: normal;
-  font-weight: 950;
+  font-weight: var(--rst-fw-display);
   line-height: 1;
 }
 
-.rs-entity-illustration {
+.rs-entity-actions {
   position: relative;
-  z-index: 0;
-  flex: 0 1 310px;
-  min-width: 210px;
-  align-self: stretch;
-  display: grid;
-  place-items: center end;
-  pointer-events: none;
+  z-index: var(--rst-z-menu);
+  flex-wrap: wrap;
 }
 
-.rs-entity-illustration svg {
-  width: 100%;
-  max-height: 58px;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.rs-entity-header--team .rs-entity-illustration,
-.rs-entity-header--restaurant .rs-entity-illustration {
-  color: rgba(111,117,255,.52);
-}
-
-.rs-entity-header--team .rs-entity-illustration {
-  opacity: .86;
-}
-
-.rs-entity-header--restaurant .rs-entity-illustration {
-  opacity: .92;
-}
-
-.rs-entity-header + .ops-tabs {
-  min-height: 46px;
-  margin: 0;
-  padding: 0 18px;
-  border-bottom: 1px solid rgba(255,255,255,.055);
+.rs-entity-actions .rs-control-button {
+  width: 36px;
+  height: 36px;
 }

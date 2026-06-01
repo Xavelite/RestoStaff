@@ -1,13 +1,13 @@
 /* Absence contract used by Team master data, planning and payroll preparation. */
 const DEFAULT_ABSENCE_TYPES = Object.freeze([
-  {id:'holiday', name:'Holiday', code:'HOLIDAY', category:'leave', paidPolicy:'paid', requiresApproval:true, affectsPlanning:true, affectsPayroll:true, payrollCode:'', color:'#38bdf8', active:true, sortOrder:10},
-  {id:'sick_leave', name:'Sick leave', code:'SICK', category:'sickness', paidPolicy:'paid', requiresApproval:true, affectsPlanning:true, affectsPayroll:true, payrollCode:'', color:'#fb7185', active:true, sortOrder:20},
-  {id:'unpaid_leave', name:'Unpaid leave', code:'UNPAID', category:'leave', paidPolicy:'unpaid', requiresApproval:true, affectsPlanning:true, affectsPayroll:true, payrollCode:'', color:'#f59e0b', active:true, sortOrder:30},
-  {id:'recovery_day', name:'Recovery day', code:'RECOVERY', category:'recovery', paidPolicy:'neutral', requiresApproval:true, affectsPlanning:true, affectsPayroll:true, payrollCode:'', color:'#a78bfa', active:true, sortOrder:40},
-  {id:'family_reason', name:'Family reason', code:'FAMILY', category:'leave', paidPolicy:'neutral', requiresApproval:true, affectsPlanning:true, affectsPayroll:true, payrollCode:'', color:'#34d399', active:true, sortOrder:50},
+  {id:'holiday', name:'Holiday', code:'HOLIDAY', category:'holiday', paidPolicy:'paid', requiresApproval:true, affectsPlanning:true, affectsPayroll:true, payrollCode:'', color:'#38bdf8', active:true, sortOrder:10},
+  {id:'sick_leave', name:'Sick leave', code:'SICK', category:'sick', paidPolicy:'paid', requiresApproval:true, affectsPlanning:true, affectsPayroll:true, payrollCode:'', color:'#fb7185', active:true, sortOrder:20},
+  {id:'unpaid_leave', name:'Unpaid leave', code:'UNPAID', category:'unpaid', paidPolicy:'unpaid', requiresApproval:true, affectsPlanning:true, affectsPayroll:true, payrollCode:'', color:'#f59e0b', active:true, sortOrder:30},
+  {id:'recovery_day', name:'Recovery day', code:'RECOVERY', category:'other', paidPolicy:'neutral', requiresApproval:true, affectsPlanning:true, affectsPayroll:true, payrollCode:'', color:'#a78bfa', active:true, sortOrder:40},
+  {id:'family_reason', name:'Family reason', code:'FAMILY', category:'other', paidPolicy:'neutral', requiresApproval:true, affectsPlanning:true, affectsPayroll:true, payrollCode:'', color:'#34d399', active:true, sortOrder:50},
   {id:'training', name:'Training', code:'TRAINING', category:'training', paidPolicy:'paid', requiresApproval:false, affectsPlanning:true, affectsPayroll:true, payrollCode:'', color:'#60a5fa', active:true, sortOrder:60},
-  {id:'public_holiday', name:'Public holiday', code:'PUBLIC_HOLIDAY', category:'public_holiday', paidPolicy:'paid', requiresApproval:false, affectsPlanning:true, affectsPayroll:true, payrollCode:'', color:'#facc15', active:true, sortOrder:70},
-  {id:'no_show', name:'No show', code:'NO_SHOW', category:'incident', paidPolicy:'unpaid', requiresApproval:false, affectsPlanning:true, affectsPayroll:true, payrollCode:'', color:'#ef4444', active:true, sortOrder:80},
+  {id:'public_holiday', name:'Public holiday', code:'PUBLIC_HOLIDAY', category:'holiday', paidPolicy:'paid', requiresApproval:false, affectsPlanning:true, affectsPayroll:true, payrollCode:'', color:'#facc15', active:true, sortOrder:70},
+  {id:'no_show', name:'No show', code:'NO_SHOW', category:'other', paidPolicy:'unpaid', requiresApproval:false, affectsPlanning:true, affectsPayroll:true, payrollCode:'', color:'#ef4444', active:true, sortOrder:80},
   {id:'other', name:'Other', code:'OTHER', category:'other', paidPolicy:'neutral', requiresApproval:true, affectsPlanning:true, affectsPayroll:false, payrollCode:'', color:'#94a3b8', active:true, sortOrder:90}
 ]);
 
@@ -54,7 +54,7 @@ function normalizeAbsenceList(value){
     const start = normalizeDateString(source.start || source.startDate || source.start_date || source.date);
     const end = normalizeDateString(source.end || source.endDate || source.end_date || source.date || start);
     if(!start)return null;
-    const shift = ['Full day',...shifts].includes(source.shift || source.shiftName || source.shift_name) ? (source.shift || source.shiftName || source.shift_name) : 'Full day';
+    const shift = ['Full day',...shifts].includes(source.shift || source.shiftName) ? (source.shift || source.shiftName) : 'Full day';
     const status = ['Pending','Approved','Rejected','Cancelled'].includes(source.status) ? source.status : 'Approved';
     return {
       id:String(source.id || `absence-${start}-${index}`).trim(),

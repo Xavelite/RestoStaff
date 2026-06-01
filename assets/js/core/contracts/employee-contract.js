@@ -45,11 +45,16 @@ function normalizeEmployeeRecord(employee, index, positionList){
   normalized.positionId = position ? String(position.id).trim() : '';
   normalized.hourlyCost = hourlyCost;
   normalized.active = source.active === undefined ? false : !!source.active;
-  normalized.managerAccess = !!(source.managerAccess || source.isManager || source.manager);
-  normalized.pin = sanitizePin(source.pin);
+  normalized.role = String(source.role || (source.managerAccess || source.isManager || source.manager ? 'manager' : 'employee')).trim() || 'employee';
+  normalized.managerAccess = ['owner','manager'].includes(normalized.role);
+  normalized.loginName = String(source.loginName || source.login_name || '').trim();
+  normalized.quickLoginEnabled = source.quickLoginEnabled === undefined ? source.quick_login_enabled !== false : !!source.quickLoginEnabled;
+  normalized.pinStatus = String(source.pinStatus || source.pin_status || '').trim();
+  normalized.accessStatus = String(source.accessStatus || source.access_status || '').trim();
+  normalized.mustChangePin = source.mustChangePin === undefined ? source.must_change_pin === true : !!source.mustChangePin;
 
   [
-    'firstName','lastName','payrollId','employeeNumber','email','phone','address','postalCode','city','nationality',
+    'firstName','lastName','payrollId','email','phone','address','postalCode','city','nationality',
     'contractType','contractStart','contractEnd','workRegime','socialSecurityNo','iban','bic','annualLeaveEntitlementDays','payrollProvider',
     'payrollNotes','emergencyName','emergencyRelation','emergencyPhone','notes'
   ].forEach(field=>{

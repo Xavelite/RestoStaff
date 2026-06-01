@@ -1,0 +1,72 @@
+/* Home: page composition only. Cards, rows and actions use shared primitives. */
+body.home-mode .home-page.active { overflow: hidden; }
+.home-board { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.home-summary-metric { width: 100%; min-width: 0; cursor: pointer; }
+.home-summary-metric .rs-metric-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.home-cockpit-grid {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0,1.2fr) minmax(0,1fr) minmax(300px,.85fr);
+  gap: 16px;
+  align-items: stretch;
+}
+.home-card { min-width: 0; min-height: 0; display: grid; overflow: hidden; }
+.home-live-card { grid-template-rows: auto auto auto minmax(0,1fr) auto; }
+.home-actions-card { grid-template-rows: auto minmax(0,1fr) auto; }
+.home-week-card,
+.home-quick-card { grid-template-rows: auto minmax(0,1fr); }
+.home-side-stack { min-width: 0; min-height: 0; display: grid; grid-template-rows: minmax(0,1fr) auto; gap: 16px; }
+
+.home-live-summary,
+.home-day-progress {
+  min-height: 44px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--rst-ui-divider-soft);
+  background: var(--rst-ui-workspace-body);
+}
+.home-live-summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); align-items: center; gap: 12px; }
+.home-live-stat { min-width: 0; display: grid; grid-template-columns: 30px minmax(0,1fr); column-gap: 9px; align-items: center; color: var(--rst-ui-muted); }
+.home-live-stat:not(:last-child) { border-right: 1px solid var(--rst-ui-divider-soft); }
+.home-live-stat .rs-icon-badge { grid-row: span 2; --rs-icon-badge-size: 28px; }
+.home-live-stat b { color: var(--rst-ui-text); font-size: 18px; line-height: 1; font-weight: var(--rst-fw-display); }
+.home-live-stat small { overflow: hidden; color: var(--rst-ui-muted); font-size: 12px; font-weight: var(--rst-fw-medium); text-overflow: ellipsis; white-space: nowrap; }
+
+.home-live-list { min-height: 0; padding: 12px 16px; display: grid; align-content: start; gap: 8px; overflow: hidden auto; }
+.home-live-row { min-height: 50px; grid-template-columns: 34px minmax(0,1fr) minmax(86px,auto) minmax(104px,auto); }
+.home-avatar { width: 30px; height: 30px; font-size: 12px; font-weight: var(--rst-fw-display); }
+.home-live-person,
+.home-live-time,
+.home-live-status { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-live-person strong { display: block; color: var(--rst-ui-text); font-size: 12px; font-weight: var(--rst-fw-bold); }
+.home-live-person small,
+.home-live-time,
+.home-live-status { color: var(--rst-ui-muted); font-size: 11px; font-weight: var(--rst-fw-medium); }
+.home-live-time,
+.home-live-status { justify-self: end; }
+.home-live-status { display: inline-flex; align-items: center; gap: 7px; }
+
+.home-live-empty { min-height: 176px; display: grid; place-items: center; align-content: center; gap: 12px; text-align: center; }
+.home-live-empty__icon { width: 128px; height: 82px; display: grid; place-items: center; color: var(--rst-state-success-text); }
+.home-live-empty__icon svg { width: 124px; height: 84px; stroke-width: 1.4; }
+.home-live-empty h3 { margin: 0; color: var(--rst-ui-text); font-size: 18px; line-height: 1; font-weight: var(--rst-fw-display); }
+.home-live-empty p { margin: 0; color: var(--rst-ui-muted); font-size: 12px; line-height: 1.35; font-weight: var(--rst-fw-medium); }
+
+.home-action-row { min-height: 58px; grid-template-columns: 40px minmax(0,1fr) auto 18px; }
+.home-pulse-row { min-height: 52px; grid-template-columns: 36px minmax(0,1fr) minmax(120px,auto); }
+.home-action-row > svg,
+.home-pulse-row > svg { width: 16px; height: 16px; color: var(--rst-ui-muted); }
+.home-action-row .rs-list-icon,
+.home-pulse-row .rs-list-icon { width: 36px; height: 36px; }
+.home-action-row b { font-size: 20px; }
+.home-pulse-row em { max-width: 170px; justify-self: end; text-align: right; }
+.home-action-row.is-danger b { color: var(--rst-state-danger-text); }
+.home-action-row.is-success { opacity: .75; }
+
+.home-quick-card { min-height: 246px; }
+.home-quick-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; align-content: start; }
+.home-quick-grid .rs-action-tile { min-height: 52px; }
+.home-quick-grid .rs-action-tile:last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+.home-day-progress { align-items: center; padding-bottom: 10px; }

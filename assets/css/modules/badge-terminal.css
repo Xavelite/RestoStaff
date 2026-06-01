@@ -1,6 +1,30 @@
 /* Badge Terminal page: standalone badge terminal.
    Structure lives here only because the terminal is a separate employee-facing surface.
    Shared primitives reused: rs-card, buttons, avatar colors, feedback/toasts, tokens. */
+
+/* Launch button in Actuals toolbar — terminal-specific affordance, not a generic toolbar primitive. */
+.rs-terminal-launch {
+  min-width: 140px;
+  padding: 0 14px;
+  gap: 8px;
+  border: 1px solid rgba(96,165,250,.30);
+  background: linear-gradient(135deg,rgba(59,130,246,.22),rgba(99,102,241,.16));
+  color: var(--rst-ui-text-heading);
+  font-size: 13px;
+  font-weight: var(--rst-fw-display);
+  text-decoration: none;
+  box-shadow: inset 0 1px 0 var(--rst-topbar-line),0 4px 12px rgba(37,99,235,.12);
+}
+
+.rs-terminal-launch:hover,
+.rs-terminal-launch:focus-visible {
+  border-color: rgba(147,197,253,.44);
+  background: linear-gradient(135deg,rgba(59,130,246,.30),rgba(99,102,241,.22));
+  box-shadow: inset 0 1px 0 var(--rst-ui-line),0 8px 20px rgba(37,99,235,.18);
+  outline: 0;
+}
+
+.rs-terminal-launch svg { opacity: .92; }
 html.badge-terminal-mode,
 body.badge-terminal-mode {
   height: 100svh;
@@ -14,11 +38,11 @@ body.badge-terminal-mode {
   background:
     radial-gradient(circle at 50% -10%,rgba(51,71,255,.15),transparent 34%),
     radial-gradient(circle at 85% 18%,rgba(37,99,235,.10),transparent 30%),
-    linear-gradient(135deg,var(--rst-ui-bg) 0,var(--rst-ui-bg-2) 56%,#0f1930 100%);
+    var(--rst-ui-bg);
 }
 
 body.badge-terminal-mode .app-frame,
-body.badge-terminal-mode .shell {
+body.badge-terminal-mode .app-shell {
   width: 100%;
   height: 100svh;
   min-height: 0;
@@ -104,7 +128,7 @@ body.badge-terminal-mode .badge-terminal-page {
 .badge-terminal-kiosk-title {
   color: rgba(226,232,240,.78);
   font-size: clamp(17px,1.35vw,24px);
-  font-weight: 820;
+  font-weight: var(--rst-fw-bold);
   letter-spacing: 0;
   white-space: nowrap;
 }
@@ -116,10 +140,10 @@ body.badge-terminal-mode .badge-terminal-page {
 
 .badge-terminal-live span {
   display: block;
-  color: #fff;
+  color: var(--rst-ui-text);
   font-size: clamp(42px,5.5vw,70px);
   line-height: .88;
-  font-weight: 950;
+  font-weight: var(--rst-fw-display);
   letter-spacing: 0;
 }
 
@@ -128,13 +152,15 @@ body.badge-terminal-mode .badge-terminal-page {
   margin-top: 12px;
   color: rgba(203,213,225,.72);
   font-size: clamp(13px,1.25vw,18px);
-  font-weight: 760;
+  font-weight: var(--rst-fw-bold);
 }
 
 .badge-terminal-layout {
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(280px,360px) minmax(0,1fr);
+  /* Employee list is the primary interaction surface on a kiosk.
+     Give it real presence; the terminal stage fills the rest. */
+  grid-template-columns: clamp(320px,34vw,460px) minmax(0,1fr);
   gap: clamp(16px,2vw,22px);
   align-items: stretch;
   overflow: hidden;
@@ -144,11 +170,11 @@ body.badge-terminal-mode .badge-terminal-page {
 .badge-terminal-terminal-card {
   min-height: 0;
   height: 100%;
-  border-color: rgba(148,163,184,.18);
+  border-color: var(--rst-state-neutral-border);
   background:
     radial-gradient(circle at 0% 0%,rgba(96,165,250,.10),transparent 34%),
     linear-gradient(135deg,rgba(15,25,44,.80),rgba(7,16,32,.76));
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.06),0 28px 80px rgba(0,0,0,.28);
+  box-shadow: 0 28px 80px rgba(0,0,0,.28);
 }
 
 .badge-terminal-people {
@@ -160,7 +186,7 @@ body.badge-terminal-mode .badge-terminal-page {
   height: 100%;
   min-height: 0;
   display: grid;
-  grid-auto-rows: minmax(clamp(62px,8.2vh,86px),auto);
+  grid-auto-rows: minmax(clamp(68px,9vh,92px),auto);
   align-content: start;
   gap: clamp(7px,1vh,10px);
   overflow: auto;
@@ -171,19 +197,19 @@ body.badge-terminal-mode .badge-terminal-page {
 
 .badge-terminal-person {
   width: 100%;
-  min-height: clamp(62px,8.2vh,86px);
+  min-height: clamp(68px,9vh,92px);
   display: grid;
-  grid-template-columns: clamp(48px,4vw,58px) minmax(0,1fr);
+  grid-template-columns: clamp(52px,4.4vw,62px) minmax(0,1fr);
   align-items: center;
   gap: 14px;
-  padding: 10px clamp(14px,1.4vw,20px);
-  border: 1px solid rgba(255,255,255,.075);
-  border-radius: 22px;
+  padding: 12px clamp(16px,1.6vw,22px);
+  border: 1px solid var(--rst-ui-divider);
+  border-radius: var(--rst-ui-radius-xl);
   background: linear-gradient(135deg,rgba(255,255,255,.060),rgba(255,255,255,.026));
-  color: #fff;
+  color: var(--rst-ui-text);
   text-align: left;
   cursor: pointer;
-  transition: transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease;
+  transition: transform var(--rst-motion-ui) var(--rst-motion-smooth),border-color var(--rst-motion-ui) var(--rst-motion-smooth),background var(--rst-motion-ui) var(--rst-motion-smooth),box-shadow var(--rst-motion-ui) var(--rst-motion-smooth);
 }
 
 .badge-terminal-person:hover,
@@ -201,21 +227,21 @@ body.badge-terminal-mode .badge-terminal-page {
 }
 
 .badge-terminal-avatar {
-  width: clamp(40px,3.4vw,46px);
-  height: clamp(40px,3.4vw,46px);
-  font-size: clamp(14px,1.2vw,17px);
+  width: clamp(44px,3.8vw,52px);
+  height: clamp(44px,3.8vw,52px);
+  font-size: clamp(15px,1.3vw,18px);
   flex: 0 0 auto;
 }
 
 .badge-terminal-person-name {
   min-width: 0;
   overflow: hidden;
-  color: #fff;
+  color: var(--rst-ui-text);
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: clamp(17px,1.35vw,22px);
+  font-size: clamp(18px,1.5vw,24px);
   line-height: 1.1;
-  font-weight: 920;
+  font-weight: var(--rst-fw-display);
   letter-spacing: 0;
 }
 
@@ -233,9 +259,9 @@ body.badge-terminal-mode .badge-terminal-page {
   inset: auto;
   width: min(72vw,900px);
   aspect-ratio: 1;
-  border-radius: 50%;
+  border-radius: var(--rst-ui-radius-round);
   border: 1px solid rgba(96,165,250,.08);
-  box-shadow: inset 0 0 0 88px rgba(96,165,250,.025),inset 0 0 0 1px rgba(255,255,255,.025);
+  box-shadow: inset 0 0 0 88px rgba(96,165,250,.025);
   transform: translate(4%,-1%);
   pointer-events: none;
   z-index: -1;
@@ -254,12 +280,12 @@ body.badge-terminal-mode .badge-terminal-page {
   display: grid;
   place-items: center;
   margin-bottom: 2px;
-  border-radius: 50%;
+  border-radius: var(--rst-ui-radius-round);
   border: 1px solid rgba(99,102,241,.58);
   background:
     radial-gradient(circle at 50% 20%,rgba(255,255,255,.20),transparent 34%),
     linear-gradient(135deg,rgba(29,78,216,.34),rgba(67,56,202,.24));
-  color: #a5b4fc;
+  color: var(--rst-state-info-text);
   box-shadow: 0 0 42px rgba(59,130,246,.18),inset 0 1px 0 rgba(255,255,255,.13);
 }
 
@@ -274,19 +300,19 @@ body.badge-terminal-mode .badge-terminal-page {
 }
 
 .badge-terminal-kicker {
-  color: #8cecff;
+  color: var(--rst-state-info-text);
   font-size: 12px;
-  font-weight: 950;
+  font-weight: var(--rst-fw-display);
   letter-spacing: .14em;
   text-transform: uppercase;
 }
 
 .badge-terminal-center-copy h2 {
   margin: 0;
-  color: #fff;
+  color: var(--rst-ui-text);
   font-size: clamp(36px,5.4vw,76px);
   line-height: .92;
-  font-weight: 950;
+  font-weight: var(--rst-fw-display);
   letter-spacing: 0;
 }
 
@@ -295,14 +321,14 @@ body.badge-terminal-mode .badge-terminal-page {
   color: rgba(203,213,225,.74);
   font-size: clamp(18px,2.25vw,32px);
   line-height: 1.1;
-  font-weight: 800;
+  font-weight: var(--rst-fw-display);
   letter-spacing: 0;
 }
 
 .badge-terminal-center-copy small {
   color: rgba(226,232,240,.72);
   font-size: 14px;
-  font-weight: 780;
+  font-weight: var(--rst-fw-bold);
 }
 
 .badge-terminal-pin-flow {
@@ -312,8 +338,9 @@ body.badge-terminal-mode .badge-terminal-page {
   gap: clamp(10px,1.7vh,16px);
 }
 
-.badge-terminal-pin-flow.is-error {
-  animation: badgeTerminalShake .36s ease;
+.badge-terminal-pin-flow.is-error .badge-terminal-pin-dots span {
+  border-color: rgba(248,113,113,.52);
+  background: var(--rst-state-danger-bg);
 }
 
 .badge-terminal-selected-person {
@@ -324,7 +351,7 @@ body.badge-terminal-mode .badge-terminal-page {
   min-width: min(420px,100%);
   padding: 9px 14px;
   border: 1px solid rgba(96,165,250,.20);
-  border-radius: 22px;
+  border-radius: var(--rst-ui-radius-xl);
   background: rgba(15,23,42,.52);
 }
 
@@ -338,16 +365,16 @@ body.badge-terminal-mode .badge-terminal-page {
 }
 
 .badge-terminal-selected-person strong {
-  color: #fff;
+  color: var(--rst-ui-text);
   font-size: 18px;
-  font-weight: 920;
+  font-weight: var(--rst-fw-display);
 }
 
 .badge-terminal-selected-person small {
   margin-top: 2px;
   color: rgba(203,213,225,.70);
   font-size: 12px;
-  font-weight: 760;
+  font-weight: var(--rst-fw-bold);
 }
 
 .badge-terminal-pin-entry {
@@ -365,17 +392,17 @@ body.badge-terminal-mode .badge-terminal-page {
 .badge-terminal-pin-dots span {
   width: 14px;
   height: 14px;
-  border-radius: 50%;
+  border-radius: var(--rst-ui-radius-round);
   border: 1px solid rgba(255,255,255,.22);
-  background: rgba(255,255,255,.08);
-  transition: background .14s ease,border-color .14s ease,box-shadow .14s ease,transform .14s ease;
+  background: var(--rst-topbar-line);
+  transition: background var(--rst-motion-ui) var(--rst-motion-smooth),border-color var(--rst-motion-ui) var(--rst-motion-smooth),box-shadow var(--rst-motion-ui) var(--rst-motion-smooth),transform var(--rst-motion-ui) var(--rst-motion-smooth);
 }
 
 .badge-terminal-pin-dots span.is-filled {
   transform: scale(1.04);
-  background: #8cecff;
-  border-color: rgba(140,236,255,.70);
-  box-shadow: 0 0 18px rgba(140,236,255,.24);
+  background: var(--rst-state-info-text);
+  border-color: rgba(var(--rst-state-info-rgb),.70);
+  box-shadow: none;
 }
 
 .badge-terminal-keypad {
@@ -386,22 +413,22 @@ body.badge-terminal-mode .badge-terminal-page {
 
 .badge-terminal-keypad button {
   min-height: clamp(46px,6vh,56px);
-  border: 1px solid rgba(255,255,255,.10);
-  border-radius: 16px;
-  background: linear-gradient(135deg,rgba(255,255,255,.075),rgba(255,255,255,.035));
-  color: #fff;
+  border: 1px solid var(--rst-ui-line);
+  border-radius: var(--rst-ui-radius-lg);
+  background: linear-gradient(135deg,var(--rst-ui-divider),rgba(255,255,255,.035));
+  color: var(--rst-ui-text);
   font: inherit;
   font-size: clamp(18px,1.7vw,22px);
-  font-weight: 950;
+  font-weight: var(--rst-fw-display);
   cursor: pointer;
-  transition: transform .14s ease,background .14s ease,border-color .14s ease;
+  transition: transform var(--rst-motion-ui) var(--rst-motion-smooth),background var(--rst-motion-ui) var(--rst-motion-smooth),border-color var(--rst-motion-ui) var(--rst-motion-smooth);
 }
 
 .badge-terminal-keypad button:hover,
 .badge-terminal-keypad button:focus-visible {
   transform: translateY(-1px);
   border-color: rgba(96,165,250,.34);
-  background: linear-gradient(135deg,rgba(59,130,246,.16),rgba(255,255,255,.055));
+  background: linear-gradient(135deg,rgba(59,130,246,.16),var(--rst-ui-divider-soft));
   outline: 0;
 }
 
@@ -449,20 +476,10 @@ body.badge-terminal-mode .badge-terminal-page {
   min-height: 0;
 }
 
-@keyframes badgeTerminalShake {
-  0%,100% { transform: translateX(0); }
-  20% { transform: translateX(-8px); }
-  40% { transform: translateX(7px); }
-  60% { transform: translateX(-5px); }
-  80% { transform: translateX(4px); }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .badge-terminal-person,
-  .badge-terminal-keypad button,
-  .badge-terminal-pin-flow.is-error {
+  .badge-terminal-keypad button {
     transition: none;
-    animation: none;
   }
 }
 
@@ -473,4 +490,60 @@ body.badge-terminal-mode .badge-terminal-page {
 
 .badge-terminal-empty .rs-empty-state__icon {
   margin-inline: auto;
+}
+
+/* Shift override toggle: shown during clock-in so employee can correct the heuristic */
+.badge-terminal-shift-toggle {
+  display: flex;
+  gap: clamp(8px,1vw,12px);
+}
+
+.badge-terminal-shift-btn {
+  min-width: clamp(90px,10vw,120px);
+  min-height: clamp(38px,4.4vh,46px);
+  padding: 0 18px;
+  border: 1px solid rgba(96,165,250,.26);
+  border-radius: var(--rst-ui-radius-lg);
+  background: rgba(255,255,255,.046);
+  color: rgba(226,232,240,.72);
+  font: inherit;
+  font-size: clamp(13px,1.15vw,16px);
+  font-weight: var(--rst-fw-bold);
+  cursor: pointer;
+  transition: border-color var(--rst-motion-ui) var(--rst-motion-smooth),background var(--rst-motion-ui) var(--rst-motion-smooth),color var(--rst-motion-ui) var(--rst-motion-smooth);
+}
+
+.badge-terminal-shift-btn:hover,
+.badge-terminal-shift-btn:focus-visible {
+  border-color: rgba(96,165,250,.50);
+  background: rgba(59,130,246,.14);
+  color: var(--rst-ui-text);
+  outline: 0;
+}
+
+.badge-terminal-shift-btn.is-active {
+  border-color: rgba(99,102,241,.80);
+  background: linear-gradient(135deg,rgba(59,130,246,.28),rgba(49,46,129,.20));
+  color: var(--rst-ui-text);
+  box-shadow: 0 0 0 1px rgba(99,102,241,.18);
+}
+
+/* PIN lockout — replaces the keypad once MAX_PIN_ATTEMPTS is reached. */
+.badge-terminal-pin-entry--locked {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(20px,3vh,32px) 24px;
+  border: 1px solid var(--rst-state-danger-border);
+  border-radius: var(--rst-ui-radius-lg);
+  background: var(--rst-state-danger-bg);
+}
+
+.badge-terminal-lockout-msg {
+  margin: 0;
+  color: var(--rst-state-danger-text);
+  font-size: clamp(13px,1.1vw,15px);
+  font-weight: var(--rst-fw-bold);
+  text-align: center;
+  line-height: 1.4;
 }

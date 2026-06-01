@@ -25,7 +25,7 @@
     const dayPeople = totals.dayPeople || {};
     const people = dayPeople[day] instanceof Set ? dayPeople[day].size : Number(dayPeople[day] || 0);
     const attrString = attrs(attributes);
-    return `<th class="${joinClasses([headClass, 'rs-weekly-day-head', dayTone(index), extraClass])}"${attrString?` ${attrString}`:''}><div class="${joinClasses([copyClass, 'rs-weekly-day-head-copy'])}"><strong>${esc(day.slice(0,3))}</strong><span>${esc(dateForDay(day))}</span><small>${esc(fmtHours(dayTotals[day] || 0))} · ${esc(fmtPeople(people))}</small></div></th>`;
+    return `<th class="${joinClasses([headClass, 'rs-weekly-day-head', dayTone(index), extraClass])}"${attrString?` ${attrString}`:''}><div class="${joinClasses([copyClass, 'rs-weekly-day-head-copy'])}"><strong>${esc(day.slice(0,3))}</strong><span>${esc(shortDisplayDate(dateForDay(day)))}</span><small>${esc(fmtHours(dayTotals[day] || 0))} · ${esc(fmtPeople(people))}</small></div></th>`;
   }
 
   function tableHead({moduleName,totals={},dayHeaderRenderer,totalHeadHtml='',personLabel='Employee',personHeadClass='',totalHeadClass=''}){
@@ -41,7 +41,7 @@
   }
 
   function dayCell({moduleName,day,index,content='',cellClass='',slotsClass='',extraClass=''}){
-    return `<td class="${joinClasses([cellClass, 'rs-weekly-day-cell', dayTone(index), extraClass])}"><div class="${joinClasses([slotsClass, 'rs-weekly-day-slots'])}">${content}</div></td>`;
+    return `<td class="${joinClasses([cellClass, 'rs-calendar-cell', 'rs-weekly-day-cell', dayTone(index), extraClass])}"><div class="${joinClasses([slotsClass, 'rs-calendar-slot-grid', 'rs-weekly-day-slots'])}">${content}</div></td>`;
   }
 
   function totalCell({moduleName,content='',cellClass='',valueClass=''}){
@@ -58,5 +58,13 @@
     return `<tr class="${esc(className)}"><td colspan="${Number(colspan)||9}">${content}</td></tr>`;
   }
 
-  R.services.weeklyGrid = {colgroup,dayHeader,tableHead,personCell,dayCell,totalCell,row,emptyRow,dayTone};
+  function legend({items=[],ariaLabel='Calendar legend',className='' }={}){
+    const rows = (items || [])
+      .filter(item=>item && item.label)
+      .map(item=>`<span class="rs-weekly-legend__item"><i class="${esc(item.className || '')}" aria-hidden="true"></i>${esc(item.label)}</span>`)
+      .join('');
+    return `<footer class="rs-weekly-legend ${esc(className)}" aria-label="${esc(ariaLabel)}">${rows}</footer>`;
+  }
+
+  R.services.weeklyGrid = {colgroup,dayHeader,tableHead,personCell,dayCell,totalCell,row,emptyRow,legend,dayTone};
 })();

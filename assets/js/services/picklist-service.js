@@ -4,14 +4,11 @@
   let active = null;
   let scheduled = false;
   let observerStarted = false;
-
-  function escapeHtml(value){
-    return String(value ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
-  }
+  const esc = window.RestogogoPrimitives.esc;
 
   function variantFor(select){
     if(select.dataset.picklistVariant)return select.dataset.picklistVariant;
-    if(select.closest('.rs-grid-toolbar__controls'))return 'toolbar';
+    if(select.closest('.rs-grid-toolbar__actions, .rs-grid-toolbar__center, .rs-grid-toolbar'))return 'toolbar';
     return 'field';
   }
 
@@ -67,7 +64,7 @@
   function optionHtml(option, select){
     const selected = option.selected || String(option.value) === String(select.value);
     const disabled = option.disabled;
-    return `<button type="button" role="option" class="rs-picklist-option${selected?' is-selected':''}${disabled?' is-disabled':''}" data-rs-picklist-value="${escapeHtml(option.value)}" aria-selected="${selected?'true':'false'}" ${disabled?'disabled':''}><span class="rs-picklist-option-label">${escapeHtml(option.textContent)}</span>${selected?(Restogogo.icons?.checkmark?.() || '<span class="rs-picklist-check">✓</span>'):''}</button>`;
+    return `<button type="button" role="option" class="rs-picklist-option${selected?' is-selected':''}${disabled?' is-disabled':''}" data-rs-picklist-value="${esc(option.value)}" aria-selected="${selected?'true':'false'}" ${disabled?'disabled':''}><span class="rs-picklist-option-label">${esc(option.textContent)}</span>${selected?(Restogogo.icons?.checkmark?.() || '<span class="rs-picklist-check">✓</span>'):''}</button>`;
   }
 
   function buildMenu(select){

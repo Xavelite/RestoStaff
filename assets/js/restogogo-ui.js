@@ -4,7 +4,7 @@
  */
 
 (function(){
-  const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const esc = window.RestogogoPrimitives.esc;
   let toastTimer=null;
   let activeResolve=null;
 
@@ -22,7 +22,7 @@
 
   function iconMarkup(value,tone){
     const name=iconName(value,tone);
-    return window.Restogogo?.icons?.svg?.(name) || escapeHtml(value || (tone==='danger'?'!':tone==='success'?'✓':''));
+    return window.Restogogo?.icons?.svg?.(name) || esc(value || (tone==='danger'?'!':tone==='success'?'✓':''));
   }
 
   function ensureModal(){
@@ -31,7 +31,7 @@
     modal=document.createElement('dialog');
     modal.id='rsModal';
     modal.className='rs-modal';
-    modal.innerHTML='<form method="dialog" class="rs-modal-card"><div class="rs-modal-icon" aria-hidden="true"></div><div class="rs-modal-copy"><h2></h2><p></p><label class="rs-modal-field"><span></span><input /></label></div><div class="rs-modal-actions"><button type="button" class="rs-modal-btn secondary" data-rs-modal-cancel>Cancel</button><button type="submit" class="rs-modal-btn primary" data-rs-modal-confirm>Confirm</button></div></form>';
+    modal.innerHTML='<form method="dialog" class="rs-modal-card"><div class="rs-modal-icon" aria-hidden="true"></div><div class="rs-modal-copy"><h2></h2><p></p><label class="rs-modal-field rs-field"><span></span><input /></label></div><div class="rs-modal-actions"><button type="button" class="rs-modal-btn is-secondary" data-rs-modal-cancel>Cancel</button><button type="submit" class="rs-modal-btn is-primary" data-rs-modal-confirm>Confirm</button></div></form>';
     document.body.appendChild(modal);
     modal.addEventListener('click',event=>{
       if(event.target===modal)closeModal(null);
@@ -108,7 +108,7 @@
     toastEl.className=`rs-toast ${centered?'is-centered':'is-corner'} is-${tone}`;
     toastEl.setAttribute('role','status');
     toastEl.setAttribute('aria-live','polite');
-    toastEl.innerHTML=`<span class="rs-toast__icon" aria-hidden="true">${iconMarkup(options.icon,tone)}</span><span>${escapeHtml(message)}</span>`;
+    toastEl.innerHTML=`<span class="rs-toast__icon" aria-hidden="true">${iconMarkup(options.icon,tone)}</span><span>${esc(message)}</span>`;
     document.body.appendChild(toastEl);
     requestAnimationFrame(()=>toastEl.classList.add('is-visible'));
     toastTimer=setTimeout(()=>{
@@ -117,11 +117,37 @@
     },timeout);
   }
 
+  /* Animate numeric metric values counting up from zero on page/section render.
+     Targets every .rs-metric-card .rs-metric-copy strong inside `root` that
+     starts with a digit. Suffix (e.g. "h40", "%", " issues") stays fixed.
+     Optional delay (ms) defers the animation to sync with CSS card entrance. */
+  function animateCounters(root, delay){
+    if(!root)return;
+    if(delay){ setTimeout(function(){ animateCounters(root, 0); }, delay); return; }
+    root.querySelectorAll('.rs-metric-card .rs-metric-copy strong').forEach(function(el){
+      var raw = el.textContent.trim();
+      var match = raw.match(/^(\d+)(.*)/);
+      if(!match)return;
+      var target = parseInt(match[1], 10);
+      var suffix = match[2] || '';
+      if(target === 0)return;
+      var start = performance.now();
+      var duration = Math.min(700, 200 + target * 60);
+      (function tick(now){
+        var progress = Math.min(1, (now - start) / duration);
+        var eased = 1 - Math.pow(1 - progress, 3);
+        el.textContent = Math.round(target * eased) + suffix;
+        if(progress < 1)requestAnimationFrame(tick);
+      })(start);
+    });
+  }
+
   window.Restogogo = window.Restogogo || {};
   window.Restogogo.ui={
     toast,
     alert: options => openModal(Object.assign({mode:'alert',confirmText:'OK'}, typeof options==='string'?{message:options}:options)),
     confirm: options => openModal(Object.assign({mode:'confirm'}, typeof options==='string'?{message:options}:options)).then(Boolean),
-    prompt: options => openModal(Object.assign({mode:'prompt'}, typeof options==='string'?{message:options}:options))
+    prompt: options => openModal(Object.assign({mode:'prompt'}, typeof options==='string'?{message:options}:options)),
+    animateCounters
   };
 })();

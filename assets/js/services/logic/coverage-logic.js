@@ -11,7 +11,7 @@
     const rows = [];
     const employees = Array.isArray(source?.employees) ? source.employees : activeEmployees(source);
     employees.forEach(employee=>{
-      if(!source?.planning?.[employee.id]?.[day]?.[serviceKey])return;
+      if(!source?.planningSlots?.[employee.id]?.[day]?.[serviceKey]?.planned)return;
       const zoneId = assignmentZoneId(employee.id, day, serviceKey, source) || suggestZoneId(employee, serviceKey, source);
       const positionId = assignmentPositionId(employee.id, day, serviceKey, source) || employee.positionId || '';
       rows.push({employee, employeeId:employee.id, day, serviceKey, zoneId, positionId});

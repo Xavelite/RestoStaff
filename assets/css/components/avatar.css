@@ -1,0 +1,15 @@
+/* Shared avatar visual rendering.
+   .rs-weekly-avatar and .team-avatar extend this via selector list — no JS changes needed.
+   Size and flex are set by the consuming class (.rs-weekly-avatar = 38px, .team-avatar = 34px). */
+.rs-avatar,
+.rs-weekly-avatar,
+.team-avatar {
+  --avatar-bg: var(--pos-bg,var(--rst-ui-divider-soft));
+  display: grid;
+  place-items: center;
+  border-radius: var(--rst-ui-radius-pill);
+  border: 1px solid var(--rst-state-neutral-border);
+  background: var(--avatar-bg);
+  color: var(--rst-ui-text);
+  font-weight: var(--rst-fw-display);
+}

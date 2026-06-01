@@ -1,0 +1,136 @@
+/* Page skeleton and module header component.
+   Owns the shared page-shell layout, page title/subtitle typography, and the
+   rs-module-header UI component used by all authenticated app pages.
+   Extracted from foundation.css. */
+
+
+.rs-page-root {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.rs-page-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rst-page-shell-gap);
+  padding-top: var(--rst-page-shell-top);
+  overflow: hidden;
+}
+
+
+.rs-page-title {
+  margin-top: 2px;
+  color: var(--rst-ui-text);
+  font-size: 34px;
+  line-height: 1;
+  letter-spacing: 0;
+  font-weight: var(--rst-fw-display);
+}
+
+.rs-page-subtitle {
+  display: block;
+  margin-top: 5px;
+  color: var(--module-accent,var(--rst-ui-text-heading));
+  font-size: 13px;
+  font-weight: var(--rst-fw-bold);
+}
+
+.rs-module-header {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: stretch;
+  min-height: var(--rst-page-header-h);
+  padding: 20px 24px 12px;
+  border-bottom: 0;
+  background: none;
+}
+
+/* Module modifier hooks: .rs-module-header--planning, --actuals, --team, --restaurant,
+   --employee-schedule, --employee-time.
+   Applied by JS for identity and future targeting; no style rules exist here yet.
+   Module CSS files own any genuine per-module header overrides via these selectors. */
+
+/* The visual hero is a page-level app-frame layer. The header only owns
+   aligned content, which prevents shell gutters from creating a false block. */
+.rs-page-shell:has(> .rs-module-header) {
+  padding-top: 0;
+  gap: var(--rst-page-shell-gap);
+}
+
+.rs-module-header__content {
+  position: relative;
+  z-index: 2;
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.rs-module-header__identity {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+}
+
+.rs-module-header__copy {
+  position: relative;
+  min-width: 0;
+}
+
+.rs-module-header__copy::after {
+  content: "";
+  display: block;
+  width: 74px;
+  height: 2px;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: var(--module-accent);
+  box-shadow: none;
+}
+
+.rs-module-header :is(p,h1,small) {
+  margin: 0;
+}
+
+.rs-module-header .rs-page-subtitle {
+  margin-top: 4px;
+}
+
+.rs-module-header .rs-page-subtitle.is-secondary {
+  margin-top: 3px;
+  color: var(--rst-ui-muted);
+  font-size: 12px;
+  font-weight: var(--rst-fw-bold);
+}
+
+.rs-module-header__aside {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+.rs-module-header + .rs-metrics-row {
+  margin-top: -24px;
+}
+
+.rs-module-header + .rs-metrics-row .rs-metric-card {
+  min-height: 56px;
+}
+
+.rs-page-board {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
