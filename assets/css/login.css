@@ -506,3 +506,279 @@ body.logged-out #appFrame {
     transition: none;
   }
 }
+
+/* Login product film — native integration of the animated product montage. */
+.brand-product-film {
+  display: block;
+  isolation: isolate;
+  min-height: clamp(500px, 68vh, 760px);
+  padding: clamp(24px, 4vw, 46px);
+  background:
+    radial-gradient(circle at 74% 16%, rgba(var(--module-accent-rgb), .24), transparent 38%),
+    radial-gradient(circle at 8% 84%, rgba(var(--module-accent-2-rgb), .20), transparent 40%),
+    linear-gradient(145deg, color-mix(in srgb, var(--rst-ui-surface-panel) 86%, #050914 14%), var(--rst-ui-surface-board));
+}
+
+.brand-product-film::after {
+  z-index: 0;
+}
+
+.brand-film-glow {
+  position: absolute;
+  border-radius: var(--rst-ui-radius-round);
+  filter: blur(34px);
+  pointer-events: none;
+  z-index: 0;
+  opacity: .78;
+}
+
+.brand-film-glow.is-primary {
+  top: -80px;
+  right: 8%;
+  width: min(480px, 62%);
+  aspect-ratio: 1;
+  background: radial-gradient(circle, rgba(var(--module-accent-rgb), .34), transparent 70%);
+  animation: brand-film-float-a 15s ease-in-out infinite;
+}
+
+.brand-film-glow.is-secondary {
+  left: -70px;
+  bottom: -90px;
+  width: min(420px, 58%);
+  aspect-ratio: 1;
+  background: radial-gradient(circle, rgba(var(--module-accent-2-rgb), .24), transparent 72%);
+  animation: brand-film-float-b 18s ease-in-out infinite;
+}
+
+.brand-film-content {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: grid;
+  align-content: center;
+  gap: 18px;
+}
+
+.brand-film-kicker,
+.brand-film-caption-kicker {
+  color: rgb(var(--module-accent-rgb));
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: var(--rst-fw-bold);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.brand-film-title {
+  max-width: 540px;
+  margin: 0;
+  color: var(--rst-ui-text);
+  font-size: clamp(30px, 4vw, 44px);
+  line-height: 1.04;
+  letter-spacing: -.045em;
+  font-weight: var(--rst-fw-black, 800);
+}
+
+.brand-film-title span {
+  color: color-mix(in srgb, rgb(var(--module-accent-rgb)) 78%, white 22%);
+}
+
+.brand-film-window {
+  width: min(100%, 760px);
+  aspect-ratio: 1.9 / 1;
+  display: grid;
+  grid-template-rows: 38px minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .10);
+  border-radius: 18px;
+  background: rgba(4, 9, 18, .74);
+  box-shadow: 0 48px 110px -42px rgba(0, 0, 0, .88), 0 0 0 1px rgba(255, 255, 255, .02) inset;
+}
+
+.brand-film-browser-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, .065);
+  background: color-mix(in srgb, var(--rst-ui-surface-panel) 84%, black 16%);
+}
+
+.brand-film-dot {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: var(--rst-ui-radius-round);
+  opacity: .9;
+}
+
+.brand-film-dot.is-red { background: #ff6b61; }
+.brand-film-dot.is-yellow { background: #f4c14d; }
+.brand-film-dot.is-green { background: #48c774; }
+
+.brand-film-url {
+  min-width: 0;
+  margin-left: 10px;
+  padding: 5px 12px;
+  border-radius: var(--rst-ui-radius-sm);
+  background: rgba(255, 255, 255, .055);
+  color: var(--rst-ui-muted);
+  font-size: 12px;
+  font-weight: var(--rst-fw-medium);
+  white-space: nowrap;
+}
+
+.brand-film-screen {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  background: #070b15;
+}
+
+.brand-film-screen img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  opacity: 0;
+  transform: scale(1);
+  transition: opacity .9s var(--rst-motion-smooth), transform 5s ease;
+  will-change: opacity, transform;
+}
+
+.brand-film-screen img.is-active {
+  opacity: 1;
+  transform: scale(1.055);
+}
+
+.brand-film-caption {
+  display: grid;
+  gap: 7px;
+  min-height: 76px;
+}
+
+.brand-film-caption strong {
+  color: var(--rst-ui-text);
+  font-size: clamp(18px, 2.1vw, 23px);
+  line-height: 1.25;
+  letter-spacing: -.025em;
+  font-weight: var(--rst-fw-bold);
+}
+
+.brand-film-caption.is-changing {
+  animation: brand-film-caption-in .55s var(--rst-motion-smooth) both;
+}
+
+.brand-film-dots {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.brand-film-dots span {
+  width: 8px;
+  height: 4px;
+  border-radius: var(--rst-ui-radius-pill);
+  background: rgba(255, 255, 255, .20);
+  transition: width .35s var(--rst-motion-smooth), background-color .35s var(--rst-motion-smooth);
+}
+
+.brand-film-dots span.is-active {
+  width: 28px;
+  background: rgb(var(--module-accent-rgb));
+}
+
+.brand-film-phone {
+  position: absolute;
+  right: 20px;
+  bottom: 42px;
+  z-index: 2;
+  width: clamp(118px, 13vw, 166px);
+  aspect-ratio: .48;
+  overflow: hidden;
+  border: 7px solid color-mix(in srgb, var(--rst-ui-surface-panel) 90%, black 10%);
+  border-radius: 28px;
+  background: #05080f;
+  box-shadow: 0 40px 82px -26px rgba(0, 0, 0, .88);
+  animation: brand-film-phone-float 7s ease-in-out infinite;
+}
+
+.brand-film-phone img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+}
+
+.brand-film-phone span {
+  position: absolute;
+  top: 9px;
+  left: 50%;
+  width: 44px;
+  height: 5px;
+  border-radius: var(--rst-ui-radius-pill);
+  background: rgba(255, 255, 255, .22);
+  transform: translateX(-50%);
+}
+
+@keyframes brand-film-float-a {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(32px, -24px); }
+}
+
+@keyframes brand-film-float-b {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-26px, 32px); }
+}
+
+@keyframes brand-film-caption-in {
+  from { opacity: .55; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes brand-film-phone-float {
+  0%, 100% { transform: rotate(-4deg) translateY(0); }
+  50% { transform: rotate(-4deg) translateY(-12px); }
+}
+
+@media (max-width: 1100px) {
+  .brand-product-film {
+    min-height: 460px;
+  }
+
+  .brand-film-phone {
+    right: 14px;
+    bottom: 28px;
+    width: 118px;
+  }
+}
+
+@media (max-width: 920px) {
+  .brand-product-film {
+    min-height: 380px;
+  }
+
+  .brand-film-content {
+    align-content: start;
+  }
+
+  .brand-film-title {
+    font-size: 28px;
+  }
+
+  .brand-film-phone {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-film-glow,
+  .brand-film-phone,
+  .brand-film-screen img,
+  .brand-film-caption.is-changing {
+    animation: none;
+    transition: none;
+  }
+}
