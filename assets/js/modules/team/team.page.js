@@ -15,11 +15,12 @@
   const TeamAccessActions = Restogogo.modules.TeamAccessActions;
   const EMPLOYEE_FIELDS = TeamProfileDomain.EMPLOYEE_FIELDS;
 
-  function isSensitiveTeamTab(tab){return ['contract','payroll'].includes(String(tab || ''));}
+  function isSensitiveTeamTab(tab){return ['legal','contract','payroll'].includes(String(tab || ''));}
   function canSeeSensitiveTeamData(){return Restogogo.registry?.isOwner?.(session.role) === true;}
   function normalizeTeamTab(value){
-    const requested = String(value || 'general');
-    return !canSeeSensitiveTeamData() && isSensitiveTeamTab(requested) ? 'general' : requested;
+    const requested = String(value || 'core');
+    const normalized = requested === 'general' ? 'core' : requested;
+    return !canSeeSensitiveTeamData() && isSensitiveTeamTab(normalized) ? 'core' : normalized;
   }
 
   function teamLocalSnapshot(){
@@ -93,7 +94,8 @@
       employee:draftForRender(employee),
       dirty:isDirty(employee),
       isNew:employee?.id === creatingEmployeeId,
-      positionChoices:positionChoices(),
+      jobFunctionChoices:jobFunctionChoices(),
+      contractTypeChoices:contractTypeChoices(),
       absenceTypes:absenceTypeChoices(),
       absenceEntryOpen
     });
@@ -111,16 +113,16 @@
     actions.querySelector('.is-save')?.classList.add('is-active');
   }
 
-  function positionChoices(){
-    const setupPositions = Array.isArray(data?.restaurantSetup?.positions) ? data.restaurantSetup.positions : [];
-    return setupPositions
-      .filter(position=>position && position.active !== false && cleanPositionName(position.name))
-      .map(position=>({
-        id:String(position.id || normalizeSlug(position.name,'position')).trim(),
-        name:cleanPositionName(position.name),
-        hourlyCost:Number.isFinite(Number(position.hourlyCost)) ? Math.max(0,Number(position.hourlyCost)) : 0
+  function jobFunctionChoices(){
+    const setupJobFunctions = Array.isArray(data?.restaurantSetup?.jobFunctions) ? data.restaurantSetup.jobFunctions : [];
+    return setupJobFunctions
+      .filter(jobFunction=>jobFunction && jobFunction.active !== false && cleanJobFunctionName(jobFunction.name))
+      .map(jobFunction=>({
+        id:String(jobFunction.id || normalizeSlug(jobFunction.name,'jobFunction')).trim(),
+        name:cleanJobFunctionName(jobFunction.name),
+        estimatedHourlyCost:Number.isFinite(Number(jobFunction.estimatedHourlyCost)) ? Math.max(0,Number(jobFunction.estimatedHourlyCost)) : 0
       }))
-      .filter(position=>position.id && position.name);
+      .filter(jobFunction=>jobFunction.id && jobFunction.name);
   }
 
   function absenceTypeChoices(){
@@ -129,24 +131,40 @@
     return types.filter(type=>type.active !== false);
   }
 
+  function contractTypeChoices(){
+    const setupContractTypes = Array.isArray(data?.restaurantSetup?.contractTypes) ? data.restaurantSetup.contractTypes : [];
+    return setupContractTypes
+      .filter(contractType=>contractType && contractType.active !== false && String(contractType.name || '').trim())
+      .map(contractType=>({
+        id:String(contractType.id || '').trim(),
+        name:String(contractType.name || '').trim()
+      }))
+      .filter(contractType=>contractType.id && contractType.name);
+  }
+
   function selectedAbsenceType(absenceTypeId){
     const idValue = String(absenceTypeId || '').trim();
     return absenceTypeChoices().find(type=>type.id === idValue) || null;
   }
 
-  function selectedPosition(positionId){
-    const idValue = String(positionId || '').trim();
-    return positionChoices().find(position=>position.id === idValue) || null;
+  function selectedJobFunction(jobFunctionId){
+    const idValue = String(jobFunctionId || '').trim();
+    return jobFunctionChoices().find(jobFunction=>jobFunction.id === idValue) || null;
+  }
+
+  function selectedContractType(contractTypeId){
+    const idValue = String(contractTypeId || '').trim();
+    return contractTypeChoices().find(contractType=>contractType.id === idValue) || null;
   }
 
   function addEmployee(){
-    const defaultPosition = positionChoices()[0] || null;
-    if(!defaultPosition){
-      Restogogo.ui?.toast?.('Create at least one active position in Restaurant before adding employees.',{tone:'warning',icon:'alert',centered:true});
+    const defaultJobFunction = jobFunctionChoices()[0] || null;
+    if(!defaultJobFunction){
+      Restogogo.ui?.toast?.('Create at least one active job function in Restaurant before adding employees.',{tone:'warning',icon:'alert',centered:true});
       Restogogo.shell?.showPage?.('restaurant');
       return;
     }
-    const target=TeamProfileDomain.createEmployee(defaultPosition);
+    const target=TeamProfileDomain.createEmployee(defaultJobFunction);
     // Direct push is intentional: this is an in-memory draft that has no
     // Supabase record yet. saveProfile() → commitStateMutation handles persistence.
     data.employees.push(target);
@@ -155,7 +173,7 @@
     profileDrafts[target.id]=TeamProfileDomain.toDraft(target);
     teamSearch='';
     teamFilter='all';
-    teamTab='general';
+    teamTab='core';
     render();
     requestAnimationFrame(()=>document.querySelector('[data-team-field="firstName"]')?.focus?.());
   }
@@ -165,9 +183,13 @@
     if(!employee || !field?.name || !EMPLOYEE_FIELDS.includes(field.name))return;
     const draft=employeeDraft(employee);
     draft[field.name]=TeamProfileDomain.normalizedDraftValue(field.name, field.value);
-    if(field.name === 'positionId'){
-      const position = selectedPosition(draft.positionId);
-      if(position && !Number(draft.hourlyCost))draft.hourlyCost = Number(position.hourlyCost) || 0;
+    if(field.name === 'jobFunctionId'){
+      const jobFunction = selectedJobFunction(draft.jobFunctionId);
+      if(jobFunction && !Number(draft.estimatedHourlyCost))draft.estimatedHourlyCost = Number(jobFunction.estimatedHourlyCost) || 0;
+    }
+    if(field.name === 'contractTypeId'){
+      const contractType = selectedContractType(draft.contractTypeId);
+      draft.contractType = contractType?.name || '';
     }
     showDirtyState();
   }
@@ -176,7 +198,8 @@
     const result=TeamProfileDomain.applyDraftToEmployee({
       employee,
       draft,
-      selectedPosition,
+      selectedJobFunction,
+      selectedContractType,
       payrollMissingFields
     });
     if(!result.ok){
@@ -299,8 +322,8 @@
   }
 
 
-  async function resetEmployeePin(button){
-    return TeamAccessActions.resetEmployeePin({
+  async function inviteEmployee(button){
+    return TeamAccessActions.inviteEmployee({
       employee:selectedEmployee(),
       button,
       isDirty,
@@ -384,19 +407,19 @@
     const target=String(key || '').trim();
     if(target==='roster'){
       if(!(data?.employees || []).some(employee=>employee.active !== false))return addEmployee();
-      teamTab='general';
+      teamTab='core';
     }
-    if(target==='positions'){
-      if(!positionChoices().length){Restogogo.shell?.showPage?.('restaurant'); return;}
-      const positionIds = new Set(positionChoices().map(position=>String(position.id)));
-      const employee = firstEmployeeMatching(item=>!positionIds.has(String(item.positionId || '')));
+    if(target==='jobFunctions'){
+      if(!jobFunctionChoices().length){Restogogo.shell?.showPage?.('restaurant'); return;}
+      const jobFunctionIds = new Set(jobFunctionChoices().map(jobFunction=>String(jobFunction.id)));
+      const employee = firstEmployeeMatching(item=>!jobFunctionIds.has(String(item.jobFunctionId || '')));
       if(employee)selectedEmployeeId=employee.id;
-      teamTab='general';
+      teamTab='core';
     }
     if(target==='badges'){
-      const employee = firstEmployeeMatching(item=>!String(item.loginName || '').trim() || item.quickLoginEnabled === false);
+      const employee = firstEmployeeMatching(item=>item.badgeEnabled === false);
       if(employee)selectedEmployeeId=employee.id;
-      teamTab='general';
+      teamTab='contact';
     }
     if(target==='contracts'){
       const employee = firstEmployeeMatching(item=>TeamModel.contractMissingFields(item).length);
@@ -423,7 +446,7 @@
     if(!employee)return;
     if(action==='save-profile')return void saveProfile();
     if(action==='cancel-profile')return cancelProfile();
-    if(action==='reset-pin')return void resetEmployeePin(target);
+    if(action==='invite-app')return void inviteEmployee(target);
     if(action==='add-absence')return addAbsence(target);
     if(action==='approve-absence')return updateAbsenceStatus(target,'Approved');
     if(action==='reject-absence')return updateAbsenceStatus(target,'Rejected');
@@ -442,11 +465,11 @@
       const setupTarget=event.target.closest('[data-team-setup-target]');
       if(setupTarget){event.preventDefault(); openTeamSetupTarget(setupTarget.dataset.teamSetupTarget); return;}
       const select=event.target.closest('[data-team-select]');
-      if(select){selectedEmployeeId=select.dataset.teamSelect; if(teamTab==='setup')teamTab='general'; absenceEntryOpen=false; render(); return;}
+      if(select){selectedEmployeeId=select.dataset.teamSelect; if(teamTab==='setup')teamTab='core'; absenceEntryOpen=false; render(); return;}
       const filter=event.target.closest('[data-team-filter]');
       if(filter){teamFilter=filter.dataset.teamFilter || 'all'; render(); return;}
       const tab=event.target.closest('[data-team-tab]');
-      if(tab){teamTab=normalizeTeamTab(tab.dataset.teamTab || 'general'); if(teamTab!=='absences')absenceEntryOpen=false; render(); return;}
+      if(tab){teamTab=normalizeTeamTab(tab.dataset.teamTab || 'core'); if(teamTab!=='absences')absenceEntryOpen=false; render(); return;}
       const requestToggle=event.target.closest('[data-team-toggle-request]');
       if(requestToggle){
         absenceEntryOpen = !absenceEntryOpen;

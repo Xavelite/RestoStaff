@@ -53,8 +53,8 @@
     const suggestedZoneId=suggestZoneId(e,s);
     const displayZoneId=zoneId||suggestedZoneId;
     const displayZone=zoneDisplayName(displayZoneId)||'Unassigned';
-    const assignmentPosition=assignmentPositionId(e.id,d,s)||e.positionId||'';
-    const coverageStatus=Restogogo.logic?.coverage?.slotRequirementStatus?.(d,s,displayZoneId,assignmentPosition,data);
+    const assignmentJobFunction=assignmentJobFunctionId(e.id,d,s)||e.jobFunctionId||'';
+    const coverageStatus=Restogogo.logic?.coverage?.slotRequirementStatus?.(d,s,displayZoneId,assignmentJobFunction,data);
     const coverageClass=coverageStatus?.status==='over'?'has-coverage-over':coverageStatus?.status==='under'?'has-coverage-under':'';
     const overlayState=availabilityOverlayState(e.id,d,s);
     const absence=P.slotAbsence(e,d,s);
@@ -100,10 +100,10 @@
     }
     const absenceConflictLabel=absence?`${absenceDisplayLabel(absence,'Leave')} ${String(absence.status||'Pending').toLowerCase()}`:'';
     const conflictNote=absence?`<span class="planning-slot-conflict-note">! ${esc(absenceConflictLabel)}</span>`:'';
-    const zoneOptions=editable?activeRestaurantZones(s).map(z=>{const positionLabel=zoneDefaultPositionNames(z).join(', ')||'Any position';return `<button type="button" class="planning-zone-option rs-picklist-option ${displayZoneId===z.id?'is-selected':''}" data-employee-id="${esc(e.id)}" data-day="${esc(d)}" data-shift="${esc(s)}" data-zone-id="${esc(z.id)}" title="${esc(z.name)} · ${esc(positionLabel)}"><span class="rs-picklist-option-label">${esc(z.name)}</span>${displayZoneId===z.id?Restogogo.icons.checkmark():''}</button>`;}).join(''):'';
+    const zoneOptions=editable?activeRestaurantZones(s).map(z=>{const jobFunctionLabel=zoneDefaultJobFunctionNames(z).join(', ')||'Any job function';return `<button type="button" class="planning-zone-option rs-picklist-option ${displayZoneId===z.id?'is-selected':''}" data-employee-id="${esc(e.id)}" data-day="${esc(d)}" data-shift="${esc(s)}" data-zone-id="${esc(z.id)}" title="${esc(z.name)} · ${esc(jobFunctionLabel)}"><span class="rs-picklist-option-label">${esc(z.name)}</span>${displayZoneId===z.id?Restogogo.icons.checkmark():''}</button>`;}).join(''):'';
     const editMenu=editOpen&&editable?`<div class="planning-slot-edit-menu rs-picklist-menu rs-picklist-menu--choice rs-picklist-menu--inline" role="menu" aria-label="Edit shift"><button type="button" class="rs-picklist-option" data-planning-slot-edit-action="time" data-employee-id="${esc(e.id)}" data-day="${esc(d)}" data-shift="${esc(s)}" role="menuitem"><span class="rs-picklist-option-label">Modify time</span></button><button type="button" class="rs-picklist-option" data-planning-slot-edit-action="zone" data-employee-id="${esc(e.id)}" data-day="${esc(d)}" data-shift="${esc(s)}" role="menuitem"><span class="rs-picklist-option-label">Modify zone</span></button></div>`:'';
     const zoneMenu=zoneOpen&&editable?`<div class="planning-zone-menu rs-picklist-menu rs-picklist-menu--choice rs-picklist-menu--inline" role="menu">${zoneOptions}</div>`:'';
-    const zoneControl=`<div class="planning-slot-assignment ${zoneOpen&&editable?'is-open':''}"><span class="planning-slot-position">${esc(displayZone)}</span>${zoneMenu}</div>`;
+    const zoneControl=`<div class="planning-slot-assignment ${zoneOpen&&editable?'is-open':''}"><span class="planning-slot-jobFunction">${esc(displayZone)}</span>${zoneMenu}</div>`;
     const timeControl=`<span class="planning-slot-card-head"><span class="planning-slot-time" title="${esc(`${s} time for this employee/day`)}">${esc(displayTimeRange(timeRangeFor(e,d,s)))}</span></span>`;
     return `<div class="${slotClasses}" ${slotActionAttrs} data-planning-slot-key="${esc(zoneKey)}" aria-label="${esc(titleParts.join(' · '))}"><div class="${cardClasses}" data-planning-slot-edit="true" data-planning-slot-key="${esc(zoneKey)}" data-employee-id="${esc(e.id)}" data-day="${esc(d)}" data-shift="${esc(s)}" aria-label="${esc(`Right-click to edit ${e.name} ${d} ${s}`)}">${timeControl}${zoneControl}${conflictNote}${editMenu}</div></div>`;
   };
@@ -130,14 +130,14 @@
     if(P.state.view==='planned') list=list.filter(e=>employeePlannedWeekTotal(e)>0);
     if(P.state.view==='available') list=list.filter(e=>planningEmployeeHasAvailable(e));
     if(P.state.view==='conflicts') list=list.filter(e=>planningEmployeeHasConflict(e));
-    const role=cleanPositionName(P.state.positionFilter||'all');
-    if(role&&role!=='all') list=list.filter(e=>cleanPositionName(employeePositionName(e))===role);
+    const role=cleanJobFunctionName(P.state.jobFunctionFilter||'all');
+    if(role&&role!=='all') list=list.filter(e=>cleanJobFunctionName(employeeJobFunctionName(e))===role);
     const q=String(P.state.search||'').trim().toLowerCase();
-    if(q) list=list.filter(e=>`${e.name||''} ${employeePositionName(e)}`.toLowerCase().includes(q));
+    if(q) list=list.filter(e=>`${e.name||''} ${employeeJobFunctionName(e)}`.toLowerCase().includes(q));
     return {all,list,planned,total:all.length,conflicts,conflictCount:conflicts.length};
   };
 
-  P.positionsForFilter = function positionsForFilter(all){
-    return all.map(e=>cleanPositionName(employeePositionName(e))).filter((p,i,a)=>p&&a.indexOf(p)===i).sort((a,b)=>positionIndex(a)-positionIndex(b)||a.localeCompare(b));
+  P.jobFunctionsForFilter = function jobFunctionsForFilter(all){
+    return all.map(e=>cleanJobFunctionName(employeeJobFunctionName(e))).filter((p,i,a)=>p&&a.indexOf(p)===i).sort((a,b)=>jobFunctionIndex(a)-jobFunctionIndex(b)||a.localeCompare(b));
   };
 })();

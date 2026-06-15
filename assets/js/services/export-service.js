@@ -33,6 +33,12 @@
     return Restogogo.logic.actuals;
   }
 
+  function payrollReadiness(employee){
+    return typeof employeePayrollReadiness === 'function'
+      ? employeePayrollReadiness(employee, data)
+      : {ready:!employeePayrollMissingFields(employee).length,status:employeePayrollMissingFields(employee).length ? 'missing-payroll-setup' : 'ready',missing:employeePayrollMissingFields(employee),jobFunctionName:employeeJobFunctionName(employee),departmentName:'',teamName:'',contractTypeName:employee.contractType || '',payrollEmployeeId:employee.payrollId || ''};
+  }
+
   function actualTimeLabel(row){
     return row.actual ? displayTimeRange(row.actual) : (row.entry.clockIn ? `${row.entry.clockIn}–…` : '');
   }
@@ -45,7 +51,7 @@
       row.shift,
       A.employeeCode(row.employee),
       row.employee.name,
-      employeePositionName(row.employee),
+      employeeJobFunctionName(row.employee),
       row.zone,
       row.planned ? displayTimeRange(row.planned) : '',
       actualTimeLabel(row),
@@ -60,7 +66,7 @@
   }
 
   function exportActualsDetails(){
-    const headers=['Date','Day','Shift','Employee code','Employee','Position','Zone','Planned time','Actual time','Planned hours','Actual hours','Variance hours','Variance label','Status','Clock-in proof','Clock-out proof'];
+    const headers=['Date','Day','Shift','Employee code','Employee','Job function','Zone','Planned time','Actual time','Planned hours','Actual hours','Variance hours','Variance label','Status','Clock-in proof','Clock-out proof'];
     downloadCsv(fileName('actuals-detail','csv',data.weekStart),headers,actualsLogic().exportRows().map(actualSlotCsvRow));
     toast('Detailed actuals CSV exported.');
   }
@@ -75,7 +81,7 @@
         addDays(data.weekStart,6),
         A.employeeCode(employee),
         employee.name,
-        employeePositionName(employee),
+        employeeJobFunctionName(employee),
         decimalHours(totals.planned),
         decimalHours(totals.actual),
         decimalHours(totals.variance),
@@ -91,7 +97,7 @@
         stats.proofWarnings
       ];
     });
-    const headers=['Week start','Week end','Employee code','Employee','Position','Planned hours decimal','Actual hours decimal','Variance hours decimal','Planned hours','Actual hours','Variance','Badged shifts','Missing badges','Missing clock-outs','Unplanned badges','Variance issues','Photo proofs','Photo warnings'];
+    const headers=['Week start','Week end','Employee code','Employee','Job function','Planned hours decimal','Actual hours decimal','Variance hours decimal','Planned hours','Actual hours','Variance','Badged shifts','Missing badges','Missing clock-outs','Unplanned badges','Variance issues','Photo proofs','Photo warnings'];
     downloadCsv(fileName('actuals-summary','csv',data.weekStart),headers,rows);
     toast('Weekly summary CSV exported.');
   }
@@ -101,32 +107,36 @@
     const rows=A.relevantEmployees().map(employee=>{
       const totals=A.totalsForEmployee(employee);
       const stats=A.employeeStats(employee);
+      const readiness=payrollReadiness(employee);
       return [
         restaurantName(),
         data.weekStart,
         addDays(data.weekStart,6),
         A.employeeCode(employee),
-        employee.payrollId || employee.employeeNumber || '',
+        readiness.payrollEmployeeId || employee.employeeNumber || '',
         employee.name,
-        employeePositionName(employee),
-        employee.contractType || '',
+        readiness.jobFunctionName || employeeJobFunctionName(employee),
+        readiness.departmentName || '',
+        readiness.teamName || '',
+        readiness.contractTypeName || employee.contractType || '',
         decimalHours(totals.actual),
         decimalHours(totals.planned),
         decimalHours(totals.variance),
         stats.openClockouts,
         stats.missingBadges,
         stats.unplannedBadges,
-        employeePayrollMissingFields(employee).length ? 'missing-team-info' : 'ready-for-payroll'
+        readiness.ready ? 'Ready' : 'Missing setup',
+        readiness.missing.join('; ')
       ];
     });
-    const headers=['Restaurant','Week start','Week end','Employee code','Payroll ID','Employee','Position','Contract type','Actual hours decimal','Planned hours decimal','Variance hours decimal','Missing clock-outs','Missing badges','Unplanned badges','Export status'];
+    const headers=['Restaurant','Week start','Week end','Employee code','Payroll employee ID','Employee','Job function','Department','Team','Contract type','Actual hours decimal','Planned hours decimal','Variance hours decimal','Missing clock-outs','Missing badges','Unplanned badges','Payroll readiness','Missing setup'];
     downloadCsv(fileName('payroll-prep','csv',data.weekStart),headers,rows);
     toast('Payroll prep CSV exported.');
   }
 
   function exportActualsAnomalies(){
     const rows=actualsLogic().anomalies().map(row=>[row.issue,...actualSlotCsvRow(row)]);
-    const headers=['Issue','Date','Day','Shift','Employee code','Employee','Position','Zone','Planned time','Actual time','Planned hours','Actual hours','Variance hours','Variance label','Status','Clock-in proof','Clock-out proof'];
+    const headers=['Issue','Date','Day','Shift','Employee code','Employee','Job function','Zone','Planned time','Actual time','Planned hours','Actual hours','Variance hours','Variance label','Status','Clock-in proof','Clock-out proof'];
     downloadCsv(fileName('actuals-anomalies','csv',data.weekStart),headers,rows);
     toast(rows.length ? 'Anomalies CSV exported.' : 'No anomalies found. Empty CSV exported.');
   }

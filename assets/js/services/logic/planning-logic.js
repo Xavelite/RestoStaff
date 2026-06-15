@@ -37,9 +37,9 @@
           range,
           h: hours,
           hours,
-          cost: hours * Number(employee.hourlyCost || 0),
-          position: assignmentPositionName(employee.id, day, shift, source) || employeePositionName(employee, source),
-          positionId: assignmentPositionId(employee.id, day, shift, source),
+          cost: hours * Number(employee.estimatedHourlyCost || 0),
+          JobFunction: assignmentJobFunctionName(employee.id, day, shift, source) || employeeJobFunctionName(employee, source),
+          jobFunctionId: assignmentJobFunctionId(employee.id, day, shift, source),
           zone: planningZoneFor(employee, day, shift, source)
         });
       }

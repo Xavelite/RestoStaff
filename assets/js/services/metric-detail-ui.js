@@ -9,7 +9,7 @@
   function icon(name){return Icons.svg(name);}
   function badge(name,tone=''){return `<span class="rs-detail-icon${tone?` is-${esc(tone)}`:''}" aria-hidden="true">${icon(name)}</span>`;}
   function employeeName(employee){return employee?.name || `${employee?.firstName || ''} ${employee?.lastName || ''}`.trim() || 'Employee';}
-  function roleName(employee){return employeePositionName(employee) || 'Team';}
+  function roleName(employee){return employeeJobFunctionName(employee) || 'Team';}
   function dateLabel(value){return value ? shortDisplayDate(value) : '—';}
   function tone(status){
     const clean = String(status || '').toLowerCase();

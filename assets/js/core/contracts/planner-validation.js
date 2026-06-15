@@ -4,12 +4,12 @@ function validateOperationalIntegrity(state){
   const warnings = [];
   const source = isPlainObject(state) ? state : {};
   const setup = isPlainObject(source.restaurantSetup) ? source.restaurantSetup : {};
-  const positionList = Array.isArray(setup.positions) ? setup.positions : [];
+  const jobFunctionList = Array.isArray(setup.jobFunctions) ? setup.jobFunctions : [];
   const zoneList = Array.isArray(setup.zones) ? setup.zones : [];
-  const positionsById = new Map();
-  positionList.forEach(position=>{
-    const idValue = String(position?.id || '').trim();
-    if(idValue)positionsById.set(idValue, position);
+  const jobFunctionsById = new Map();
+  jobFunctionList.forEach(jobFunction=>{
+    const idValue = String(jobFunction?.id || '').trim();
+    if(idValue)jobFunctionsById.set(idValue, jobFunction);
   });
 
 
@@ -21,7 +21,7 @@ function validateOperationalIntegrity(state){
   coverage.forEach(requirement=>{
     coverageByZone.set(requirement.zoneId, (coverageByZone.get(requirement.zoneId) || 0) + requirement.requiredCount);
     if(!zoneIds.has(requirement.zoneId))warnings.push(`Coverage requirement references unknown zone id: ${requirement.zoneId}.`);
-    if(!positionsById.has(requirement.positionId))warnings.push(`Coverage requirement references unknown position id: ${requirement.positionId}.`);
+    if(!jobFunctionsById.has(requirement.jobFunctionId))warnings.push(`Coverage requirement references unknown jobFunction id: ${requirement.jobFunctionId}.`);
     if(!shifts.includes(requirement.serviceKey))warnings.push(`Coverage requirement references unknown service: ${requirement.serviceKey}.`);
   });
   zoneList.forEach(zone=>{
@@ -38,17 +38,17 @@ function validateOperationalIntegrity(state){
     const idValue = String(employee?.id || '').trim();
     if(idValue)employeeIds.add(idValue);
     if(employee?.active === false)return;
-    const positionId = String(employee?.positionId || '').trim();
-    if(!positionId){
-      errors.push(`Active employee ${employee?.name || idValue || '?'} has no Restaurant position.`);
+    const jobFunctionId = String(employee?.jobFunctionId || '').trim();
+    if(!jobFunctionId){
+      errors.push(`Active employee ${employee?.name || idValue || '?'} has no Restaurant jobFunction.`);
       return;
     }
-    const position = positionsById.get(positionId);
-    if(!position){
-      errors.push(`Active employee ${employee?.name || idValue || '?'} uses an unknown Restaurant position.`);
+    const jobFunction = jobFunctionsById.get(jobFunctionId);
+    if(!jobFunction){
+      errors.push(`Active employee ${employee?.name || idValue || '?'} uses an unknown Restaurant jobFunction.`);
       return;
     }
-    if(!Number(employee?.hourlyCost || position.hourlyCost || 0)){
+    if(!Number(employee?.estimatedHourlyCost || jobFunction.estimatedHourlyCost || 0)){
       warnings.push(`Employee ${employee?.name || idValue || '?'} has no hourly cost.`);
     }
   });
@@ -65,9 +65,9 @@ function validateOperationalIntegrity(state){
         if(zoneId && (!zone || zone.active === false)){
           warnings.push(`Planning assignment uses inactive or unknown zone for ${employeeId} ${day} ${shift}.`);
         }
-        const plannedPositionId = canonicalPositionId(slot.positionId || employees.find(employee=>employee.id===employeeId)?.positionId, setup.positions || []);
-        if(plannedPositionId && !positionsById.has(plannedPositionId)){
-          warnings.push(`Planning assignment for ${employeeId} ${day} ${shift} references an unknown position.`);
+        const plannedJobFunctionId = canonicalJobFunctionId(slot.jobFunctionId || employees.find(employee=>employee.id===employeeId)?.jobFunctionId, setup.jobFunctions || []);
+        if(plannedJobFunctionId && !jobFunctionsById.has(plannedJobFunctionId)){
+          warnings.push(`Planning assignment for ${employeeId} ${day} ${shift} references an unknown jobFunction.`);
         }
       });
     });

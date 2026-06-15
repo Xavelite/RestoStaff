@@ -16,8 +16,8 @@
   }
 
   function planningFilterMenu(info){
-    const positions=P.positionsForFilter(info.all);
-    const currentRole=cleanPositionName(P.state.positionFilter||'all');
+    const jobFunctions=P.jobFunctionsForFilter(info.all);
+    const currentRole=cleanJobFunctionName(P.state.jobFunctionFilter||'all');
     const employeeViews=[
       ['All employees','all'],
       ['Relevant employees','relevant'],
@@ -35,7 +35,7 @@
         {
           label:'Role',
           options:[{label:'All roles',value:'all',current:currentRole,kind:'role',kindAttr:'data-filter-kind',valueAttr:'data-filter-value'}]
-            .concat(positions.map(position=>({label:position,value:position,current:currentRole,kind:'role',kindAttr:'data-filter-kind',valueAttr:'data-filter-value'})))
+            .concat(jobFunctions.map(jobFunction=>({label:jobFunction,value:jobFunction,current:currentRole,kind:'role',kindAttr:'data-filter-kind',valueAttr:'data-filter-value'})))
         }
       ]
     });
@@ -167,7 +167,7 @@
       moduleName:'planning',
       employee:e,
       tag:'th',
-      avatarStyle:positionStyle(employeePositionName(e)),
+      avatarStyle:jobFunctionStyle(employeeJobFunctionName(e)),
       attributes:{
         'data-planning-action':'select-row',
         'data-rowkey':rowKey,

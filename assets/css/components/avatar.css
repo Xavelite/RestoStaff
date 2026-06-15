@@ -4,7 +4,7 @@
 .rs-avatar,
 .rs-weekly-avatar,
 .team-avatar {
-  --avatar-bg: var(--pos-bg,var(--rst-ui-divider-soft));
+  --avatar-bg: var(--job-function-bg,var(--rst-ui-divider-soft));
   display: grid;
   place-items: center;
   border-radius: var(--rst-ui-radius-pill);

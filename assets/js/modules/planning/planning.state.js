@@ -11,7 +11,7 @@
     openZoneKey:    '',
     openEditKey:    '',
     search:         '',
-    positionFilter: 'all',
+    jobFunctionFilter: 'all',
     view:           'all'
   };
 

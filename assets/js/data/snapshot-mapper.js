@@ -59,17 +59,21 @@
     assertDbV2Snapshot(snapshot);
     const restaurant = snapshot?.restaurant || {};
     const settings = snapshot?.restaurant_settings || snapshot?.settings || {};
-    const setupStatus = snapshot?.restaurant_setup_status || snapshot?.setup_status || {};
+    const onboardingState = snapshot?.restaurant_onboarding_state || snapshot?.onboarding_state || {};
     const rows = {
       profiles: normalizeArray(snapshot?.profiles),
       memberships: normalizeArray(snapshot?.restaurant_memberships),
       employees: normalizeArray(snapshot?.employees),
       employeeAccess: normalizeArray(snapshot?.employee_access),
       contacts: normalizeArray(snapshot?.employee_contact_details),
+      legalProfiles: normalizeArray(snapshot?.employee_legal_profiles),
       contracts: normalizeArray(snapshot?.employee_contracts),
       payroll: normalizeArray(snapshot?.employee_payroll_profiles),
       pinCredentials: normalizeArray(snapshot?.employee_pin_credentials),
-      positions: normalizeArray(snapshot?.positions),
+      departments: normalizeArray(snapshot?.departments),
+      teams: normalizeArray(snapshot?.teams),
+      jobFunctions: normalizeArray(snapshot?.job_functions),
+      contractTypes: normalizeArray(snapshot?.contract_types),
       zones: normalizeArray(snapshot?.zones),
       services: normalizeArray(snapshot?.services),
       openingHours: normalizeArray(snapshot?.opening_hours),
@@ -87,8 +91,10 @@
 
     const accessByEmployee = firstBy(rows.employeeAccess, 'employee_id');
     const contactByEmployee = firstBy(rows.contacts, 'employee_id');
+    const legalByEmployee = firstBy(rows.legalProfiles, 'employee_id');
     const contractByEmployee = firstBy(rows.contracts.filter(row=>row.active !== false), 'employee_id');
     const payrollByEmployee = firstBy(rows.payroll, 'employee_id');
+    const contractTypesById = byKey(rows.contractTypes, 'id');
     const pinByEmployee = firstBy(rows.pinCredentials, 'employee_id');
     const membershipsByProfile = firstBy(rows.memberships, 'profile_id');
     const profilesById = byKey(rows.profiles, 'id');
@@ -97,8 +103,10 @@
     const employees = rows.employees.map((employee, index)=>{
       const access = accessByEmployee.get(String(employee.id)) || {};
       const contact = contactByEmployee.get(String(employee.id)) || {};
+      const legal = legalByEmployee.get(String(employee.id)) || {};
       const contract = contractByEmployee.get(String(employee.id)) || {};
       const payroll = payrollByEmployee.get(String(employee.id)) || {};
+      const contractType = contractTypesById.get(String(contract.contract_type_id || '')) || {};
       const pinCredential = pinByEmployee.get(String(employee.id)) || {};
       const profile = profilesById.get(String(access.profile_id || '')) || {};
       const membership = membershipsByProfile.get(String(access.profile_id || '')) || {};
@@ -109,26 +117,25 @@
         name:text(employee.display_name || `${employee.first_name || ''} ${employee.last_name || ''}`.trim()),
         firstName:text(employee.first_name),
         lastName:text(employee.last_name),
-        positionId:text(employee.position_id),
+        jobFunctionId:text(employee.job_function_id),
         active:employee.active !== false,
         role:membershipRole,
         managerAccess:['owner','manager'].includes(membershipRole),
         profileId:text(access.profile_id),
-        loginName:text(access.login_name),
-        quickLoginEnabled:access.quick_login_enabled !== false,
+        badgeEnabled:access.badge_enabled !== false,
         pinStatus:text(pinCredential.pin_status || ''),
         accessStatus:text(access.access_status || ''),
-        mustChangePin:access.must_change_pin === true,
         email:text(contact.email || profile.email),
         phone:text(contact.phone || profile.phone),
         address:text(contact.address_line1),
         postalCode:text(contact.postal_code),
         city:text(contact.city),
-        nationality:text(contact.nationality),
+        nationality:text(legal.nationality),
         emergencyName:text(contact.emergency_name),
         emergencyRelation:text(contact.emergency_relation),
         emergencyPhone:text(contact.emergency_phone),
-        contractType:text(contract.contract_type),
+        contractTypeId:text(contract.contract_type_id),
+        contractType:text(contractType.name || contract.contract_type_label),
         contractStart:date(contract.contract_start),
         contractEnd:date(contract.contract_end),
         contractHours:num(contract.weekly_contract_hours),
@@ -136,11 +143,10 @@
         workRegime:text(contract.work_regime),
         payrollProvider:text(payroll.payroll_provider || settings.payroll_provider),
         payrollId:text(payroll.payroll_employee_id),
-        socialSecurityNo:text(payroll.national_registry_no),
+        socialSecurityNo:text(legal.national_registry_number),
         iban:text(payroll.iban),
         bic:text(payroll.bic),
-        hourlyCost:num(payroll.hourly_cost),
-        payrollReady:payroll.payroll_ready === true,
+        estimatedHourlyCost:num(payroll.estimated_hourly_cost),
         payrollNotes:text(payroll.payroll_notes),
         notes:text(contact.notes),
         absences:normalizeArray(absencesByEmployee.get(String(employee.id))).map(absence=>({
@@ -190,8 +196,11 @@
       return {id:text(zone.id), name:text(zone.name), active:zone.active !== false, sortOrder:num(zone.sort_order || index), notes:text(zone.notes), defaultTimes:defaults, metadata:{}};
     }).sort((a,b)=>a.sortOrder-b.sortOrder);
 
-    const positions = rows.positions.map((position,index)=>({id:text(position.id), name:text(position.name), active:position.active !== false, hourlyCost:num(position.hourly_cost), sortOrder:num(position.sort_order || index), metadata:{}})).sort((a,b)=>a.sortOrder-b.sortOrder);
-    const coverageRequirements = rows.coverage.map(row=>({zoneId:text(row.zone_id), serviceKey:serviceLabel(row.service_key), positionId:text(row.position_id), requiredCount:num(row.required_count), sortOrder:num(row.sort_order), metadata:{coverageScope:text(row.coverage_scope || (row.weekday ? 'weekday' : 'default')) || 'default', weekday:row.weekday === null || row.weekday === undefined ? null : num(row.weekday)}})).filter(row=>row.zoneId && row.positionId && row.serviceKey);
+    const departments = rows.departments.map((department,index)=>({id:text(department.id), code:text(department.code), name:text(department.name), active:department.active !== false, sortOrder:num(department.sort_order || index), metadata:isPlainObject(department.metadata) ? department.metadata : {}})).sort((a,b)=>a.sortOrder-b.sortOrder);
+    const teams = rows.teams.map((team,index)=>({id:text(team.id), departmentId:text(team.department_id), code:text(team.code), name:text(team.name), active:team.active !== false, sortOrder:num(team.sort_order || index), metadata:isPlainObject(team.metadata) ? team.metadata : {}})).sort((a,b)=>a.sortOrder-b.sortOrder);
+    const jobFunctions = rows.jobFunctions.map((jobFunction,index)=>({id:text(jobFunction.id), departmentId:text(jobFunction.department_id), teamId:text(jobFunction.team_id), code:text(jobFunction.code), name:text(jobFunction.name), active:jobFunction.active !== false, estimatedHourlyCost:num(jobFunction.estimated_hourly_cost), sortOrder:num(jobFunction.sort_order || index), metadata:isPlainObject(jobFunction.metadata) ? jobFunction.metadata : {}})).sort((a,b)=>a.sortOrder-b.sortOrder);
+    const contractTypes = rows.contractTypes.map((contractType,index)=>({id:text(contractType.id), code:text(contractType.code), name:text(contractType.name), category:text(contractType.category || 'other'), payrollCode:text(contractType.payroll_code), active:contractType.active !== false, sortOrder:num(contractType.sort_order || index), metadata:isPlainObject(contractType.metadata) ? contractType.metadata : {}})).sort((a,b)=>a.sortOrder-b.sortOrder);
+    const coverageRequirements = rows.coverage.map(row=>({zoneId:text(row.zone_id), serviceKey:serviceLabel(row.service_key), jobFunctionId:text(row.job_function_id), requiredCount:num(row.required_count), sortOrder:num(row.sort_order), metadata:{coverageScope:text(row.coverage_scope || (row.weekday ? 'weekday' : 'default')) || 'default', weekday:row.weekday === null || row.weekday === undefined ? null : num(row.weekday)}})).filter(row=>row.zoneId && row.jobFunctionId && row.serviceKey);
     const absenceTypes = rows.absenceTypes.map((type,index)=>({id:text(type.id), name:text(type.name), code:text(type.code), category:text(type.category), paidPolicy:text(type.paid_policy), requiresApproval:type.requires_approval !== false, affectsPlanning:type.affects_planning !== false, affectsPayroll:type.affects_payroll !== false, payrollCode:text(type.payroll_code), color:text(type.color), active:type.active !== false, sortOrder:num(type.sort_order || index), metadata:{}}));
 
     const history = {};
@@ -220,10 +229,10 @@
       if(!day || !service)return;
       const slot = {planned:true};
       const zoneId = text(row.zone_id);
-      const positionId = text(row.position_id);
+      const jobFunctionId = text(row.job_function_id);
       const timeRange = range(row.starts_at, row.ends_at);
       if(zoneId) slot.zoneId = zoneId;
-      if(positionId) slot.positionId = positionId;
+      if(jobFunctionId) slot.jobFunctionId = jobFunctionId;
       if(timeRange) slot.timeRange = timeRange;
       setSlot(week.planningSlots, row.employee_id, day, service, slot);
     });
@@ -278,8 +287,11 @@
       employees,
       restaurantSetup:{
         general:{legalName:text(restaurant.legal_name || restaurant.name), companyNumber:text(restaurant.company_number), address:text(restaurant.address_line1), city:text(restaurant.city), phone:text(restaurant.phone), email:text(restaurant.email)},
+        departments,
+        teams,
         zones,
-        positions,
+        jobFunctions,
+        contractTypes,
         coverageRequirements,
         openingHours:opening,
         services:services.map(service=>({key:text(service.service_key), name:text(service.name), active:service.active !== false, sortOrder:num(service.sort_order)})),
@@ -294,7 +306,7 @@
       updatedAt:activePayload.updatedAt || null,
       history,
       notifications:Array.isArray(settings.settings?.notifications) ? settings.settings.notifications : [],
-      workspaceInitialized:setupStatus.current_step === 'ready'
+      workspaceInitialized:['workspace_created','entered_workspace'].includes(String(onboardingState.state || ''))
     };
   }
 

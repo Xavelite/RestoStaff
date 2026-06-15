@@ -53,8 +53,8 @@
 /* Shared card header, body and title primitives.
    Same flat header contract as rs-grid-toolbar, rs-entity-header and tab bars. */
 .rs-card-head {
-  min-height: 46px;
-  padding: 10px 15px;
+  min-height: var(--rst-head-min-h);
+  padding: var(--rst-head-pad);
   display: flex;
   align-items: center;
   justify-content: space-between;

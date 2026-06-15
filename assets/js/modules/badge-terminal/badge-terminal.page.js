@@ -91,7 +91,7 @@
     return employees.map(employee=>{
       const active=employee.id===selectedEmployeeId;
       return `<button class="badge-terminal-person${active?' is-active':''}" type="button" data-badge-terminal-action="select-employee" data-employee-id="${esc(employee.id)}">
-        <span class="rs-weekly-avatar badge-terminal-avatar" style="${esc(positionStyle(employeePositionName(employee)))}">${esc(employeeInitials(employee.name).slice(0,1))}</span>
+        <span class="rs-weekly-avatar badge-terminal-avatar" style="${esc(jobFunctionStyle(employeeJobFunctionName(employee)))}">${esc(employeeInitials(employee.name).slice(0,1))}</span>
         <span class="badge-terminal-person-name">${esc(employee.name)}</span>
       </button>`;
     }).join('');
@@ -129,8 +129,8 @@
     </div>` : '';
     return `<div class="badge-terminal-pin-flow${pinError?' is-error':''}${pinLockout?' is-locked':''}">
       <div class="badge-terminal-selected-person">
-        <span class="rs-weekly-avatar badge-terminal-avatar" style="${esc(positionStyle(employeePositionName(employee)))}">${esc(employeeInitials(employee.name).slice(0,1))}</span>
-        <span><strong>${esc(employee.name)}</strong><small>${esc(employeePositionName(employee))}</small></span>
+        <span class="rs-weekly-avatar badge-terminal-avatar" style="${esc(jobFunctionStyle(employeeJobFunctionName(employee)))}">${esc(employeeInitials(employee.name).slice(0,1))}</span>
+        <span><strong>${esc(employee.name)}</strong><small>${esc(employeeJobFunctionName(employee))}</small></span>
       </div>
       <div class="badge-terminal-center-copy">
         <span class="badge-terminal-state-icon" aria-hidden="true">

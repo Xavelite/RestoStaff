@@ -58,7 +58,7 @@
   };
 
   const aliases = {
-    plus:'add', terminal:'badge', position:'id', contract:'document', date:'calendar', emergency:'heart', identity:'user', notes:'note', warning:'alert', missing:'alert', pending:'timer', ready:'check', active:'check', inactive:'minus', open:'check', closed:'minus', approved:'check', rejected:'close', cancelled:'minus', draft:'edit', published:'check'
+    plus:'add', terminal:'badge', jobFunction:'id', contract:'document', date:'calendar', emergency:'heart', identity:'user', notes:'note', warning:'alert', missing:'alert', pending:'timer', ready:'check', active:'check', inactive:'minus', open:'check', closed:'minus', approved:'check', rejected:'close', cancelled:'minus', draft:'edit', published:'check'
   };
 
   const statusMap = {

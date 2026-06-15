@@ -28,6 +28,9 @@ async function load(){
   Restogogo.state.validation = validatePlannerState(data);
   const storedSession=window.DataAdapter.readSession(session)||session;
   session={role:Restogogo.registry.normalizeRole(storedSession.role), employeeId:storedSession.employeeId||null};
+  if(Restogogo.registry.isEmployee(session.role)){
+    data = window.DataAdapter.stripEmployeePrivateFields?.(data) || data;
+  }
   if(Restogogo.registry.isEmployee(session.role) && (!session.employeeId || !activeEmployees().some(employee=>String(employee.id) === String(session.employeeId)))){
     Restogogo.warn?.('[restogogo:employee-session-missing]', {employeeId: session.employeeId || null});
     session.employeeId = null;
@@ -37,7 +40,7 @@ async function load(){
     readStatus,
     employees: Array.isArray(data?.employees) ? data.employees.length : 0,
     zones: Array.isArray(data?.restaurantSetup?.zones) ? data.restaurantSetup.zones.length : 0,
-    positions: Array.isArray(data?.restaurantSetup?.positions) ? data.restaurantSetup.positions.length : 0,
+    jobFunctions: Array.isArray(data?.restaurantSetup?.jobFunctions) ? data.restaurantSetup.jobFunctions.length : 0,
     readOnly: storageReadOnly
   });
 }
@@ -85,11 +88,11 @@ async function persistCurrentState(options='save'){
     notifySaveIssue(message, 'warning');
     return false;
   }
-  const baseline = Restogogo.state.loadedDataCounts || {employees:0,zones:0,positions:0};
+  const baseline = Restogogo.state.loadedDataCounts || {employees:0,zones:0,jobFunctions:0};
   const currentCounts = coreSetupCounts(data);
   const destructiveMasterLoss = (baseline.employees > 0 && currentCounts.employees === 0)
     || (baseline.zones > 0 && currentCounts.zones === 0)
-    || (baseline.positions > 0 && currentCounts.positions === 0);
+    || (baseline.jobFunctions > 0 && currentCounts.jobFunctions === 0);
   if(destructiveMasterLoss){
     const message='Save blocked: loaded master data would be erased. Refresh before continuing.';
     updateSaveController({status:'error', lastError:message, lastReason:reason});

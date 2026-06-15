@@ -1,5 +1,4 @@
-/* restogogo login screen — complete design system for the brand/auth entry point.
-   Renamed from brand.css ("brand" implied global identity; this is login-specific). */
+/* Login entry: shared app surface language for unauthenticated access. */
 .brand-page {
   position: fixed;
   inset: 0;
@@ -9,7 +8,11 @@
   overflow: hidden;
   color: var(--rst-ui-text);
   isolation: isolate;
-  background: radial-gradient(circle at 50% 0%,rgba(51,71,255,.14),transparent 34%),linear-gradient(135deg,#071426 0,#0a1830 52%,#13243f 100%);
+  background:
+    radial-gradient(ellipse 100% 52% at 50% 0%, rgba(51,71,255,.09), transparent 58%),
+    linear-gradient(180deg,rgba(51,71,255,.06),rgba(51,71,255,0) 38%),
+    linear-gradient(135deg,rgba(7,20,38,.44),rgba(9,20,37,.18) 46%,rgba(14,31,56,.32)),
+    var(--rst-ui-bg);
 }
 
 body.logged-out .brand-page {
@@ -23,111 +26,61 @@ body.logged-out #appFrame {
 .brand-backdrop {
   position: absolute;
   inset: 0;
-  z-index: -2;
-  background:
-    linear-gradient(90deg,rgba(7,20,38,.28) 0%,rgba(7,20,38,.05) 42%,rgba(7,20,38,.20) 100%),
-    radial-gradient(circle at 18% 18%,rgba(51,71,255,.12),transparent 29%),
-    radial-gradient(circle at 80% 18%,rgba(35,198,167,.07),transparent 28%),
-    radial-gradient(circle at 62% 68%,rgba(124,58,237,.08),transparent 34%),
-    url("../img/brand/login_restaurant_backdrop.webp") right center / auto 100% no-repeat;
-  filter: saturate(1.04) brightness(1.18);
-}
-
-.brand-page::before,
-.brand-page::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.brand-page::before {
   z-index: -1;
+  pointer-events: none;
   background:
-    linear-gradient(90deg,rgba(4,10,22,.12),transparent 18%,transparent 82%,rgba(4,10,22,.16)),
-    radial-gradient(circle at 50% 0%,rgba(51,71,255,.12),transparent 34%),
-    linear-gradient(180deg,rgba(4,10,22,.03),rgba(4,10,22,.22));
-  backdrop-filter: blur(.8px);
-}
-
-.brand-page::after {
-  background-image:
-    linear-gradient(rgba(255,255,255,.026) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(255,255,255,.020) 1px,transparent 1px);
-  background-size: 96px 96px;
-  opacity: .12;
+    radial-gradient(ellipse 40% 108% at 5% 14%, rgba(var(--module-accent-rgb),.16), transparent 70%),
+    radial-gradient(ellipse 52% 76% at 24% 10%, rgba(var(--module-accent-rgb),.052), transparent 74%),
+    radial-gradient(ellipse 66% 90% at 46% 2%, rgba(var(--module-accent-2-rgb),.052), transparent 76%),
+    linear-gradient(90deg,rgba(var(--module-accent-rgb),.014) 0%,transparent 34%,rgba(var(--module-accent-2-rgb),.012) 100%),
+    linear-gradient(rgba(255,255,255,.020) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.016) 1px,transparent 1px);
+  background-size: auto,auto,auto,auto,128px 128px,128px 128px;
+  opacity: .84;
 }
 
 .brand-entry-shell {
-  width: min(1340px,calc(100vw - 104px));
-  height: min(716px,calc(100dvh - 36px));
-  margin: auto;
+  width: min(var(--rst-content-max),calc(100% - var(--rst-gutter)));
+  min-height: calc(100dvh - 64px);
+  margin: 0 auto;
+  padding: 32px 0 56px;
   display: grid;
-  grid-template-columns: 448px minmax(0,1fr);
-  gap: 52px;
-  align-items: center;
+  grid-template-columns: minmax(360px,448px) minmax(0,1fr);
+  gap: 18px;
+  align-items: stretch;
 }
 
 .brand-login-panel {
-  position: relative;
   min-width: 0;
   max-width: 448px;
   display: grid;
   gap: 15px;
-  padding: 26px 28px 22px;
-  border: 1px solid rgba(var(--rst-state-neutral-rgb),.22);
-  border-radius: var(--rst-ui-radius-pill);
-  background:
-    radial-gradient(circle at 0% 0%,rgba(51,71,255,.10),transparent 32%),
-    radial-gradient(circle at 100% 0%,rgba(35,198,167,.06),transparent 28%),
-    linear-gradient(180deg,rgba(17,30,53,.62),rgba(10,23,43,.70));
-  box-shadow: 0 24px 72px rgba(0,0,0,.24);
-  backdrop-filter: blur(12px);
+  align-content: start;
+  padding: 22px;
+  animation: brand-entry-panel-in .30s var(--rst-motion-smooth) both;
+}
+
+.brand-login-head {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 4px;
 }
 
 .brand-login-logo {
   width: 188px;
   max-width: 75%;
   height: auto;
-  margin-bottom: 7px;
   object-fit: contain;
 }
 
-
-/* Role tabs — Manager / Employee */
-.brand-login-tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  padding: 4px;
-  border-radius: var(--rst-ui-radius-md);
-  background: var(--rst-ui-divider-soft);
-  border: 1px solid var(--rst-topbar-line);
-}
-
-.brand-login-tab {
-  min-height: 36px;
-  border: 0;
-  border-radius: calc(var(--rst-ui-radius-md) - 2px);
-  color: rgba(219,229,244,.64);
-  background: transparent;
+.brand-login-head p {
+  margin: 0;
+  color: var(--rst-ui-muted);
   font-size: 13px;
-  font-weight: var(--rst-fw-bold);
-  cursor: pointer;
-  transition: background var(--rst-motion-ui) var(--rst-motion-smooth), color var(--rst-motion-ui) var(--rst-motion-smooth);
+  line-height: 1.45;
+  font-weight: var(--rst-fw-medium);
 }
 
-.brand-login-tab.is-active {
-  color: var(--rst-ui-text);
-  background: var(--rst-ui-line);
-  box-shadow: 0 1px 3px rgba(0,0,0,.18);
-}
-
-.brand-login-tab:not(.is-active):hover {
-  color: rgba(219,229,244,.88);
-}
-
-/* Hidden form state */
 .brand-login-form.is-hidden {
   display: none;
 }
@@ -137,12 +90,9 @@ body.logged-out #appFrame {
   gap: 12px;
 }
 
-/* Login uses the shared brand-field / brand-field-control contract from components/form-fields.css. */
-
 .brand-field-svg,
 .brand-secondary-button svg,
-.brand-login-support svg,
-.brand-trust-line svg {
+.brand-login-support svg {
   width: 20px;
   height: 20px;
   fill: none;
@@ -165,8 +115,16 @@ body.logged-out #appFrame {
   border-radius: var(--rst-ui-radius-sm);
   color: var(--rst-ui-text);
   background: var(--rst-ui-action);
-  font-size: 13px;
-  font-weight: var(--rst-fw-display);
+}
+
+.brand-field-icon svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .brand-password-toggle {
@@ -176,7 +134,7 @@ body.logged-out #appFrame {
   place-items: center;
   border: 0;
   border-radius: var(--rst-ui-radius-md);
-  color: rgba(207,219,236,.84);
+  color: var(--rst-ui-muted);
   background: transparent;
   cursor: pointer;
   transition: background var(--rst-motion-ui) var(--rst-motion-smooth),color var(--rst-motion-ui) var(--rst-motion-smooth),transform var(--rst-motion-ui) var(--rst-motion-smooth);
@@ -184,7 +142,7 @@ body.logged-out #appFrame {
 
 .brand-password-toggle:hover {
   color: var(--rst-ui-text);
-  background: rgba(255,255,255,.06);
+  background: var(--rst-ui-section-row-hover);
 }
 
 .brand-password-toggle:active {
@@ -204,7 +162,7 @@ body.logged-out #appFrame {
 .brand-login-message {
   min-height: 14px;
   margin: -4px 0 -2px;
-  color: #a8f0db;
+  color: var(--rst-state-success-text);
   font-size: 12px;
   font-weight: var(--rst-fw-bold);
 }
@@ -221,11 +179,10 @@ body.logged-out #appFrame {
   margin-top: -2px;
 }
 
-
 .brand-soft-link,
 .brand-login-support button {
   border: 0;
-  color: #51a8ff;
+  color: var(--rst-state-info-text);
   background: transparent;
   font-size: 14px;
   font-weight: var(--rst-fw-bold);
@@ -235,7 +192,7 @@ body.logged-out #appFrame {
 
 .brand-soft-link:hover,
 .brand-login-support button:hover {
-  color: #7cc5ff;
+  color: var(--rst-ui-text);
 }
 
 .brand-primary-button {
@@ -247,7 +204,6 @@ body.logged-out #appFrame {
   padding: 0 12px 0 24px;
   border-radius: var(--rst-ui-radius-md);
   font-size: 15px;
-  letter-spacing: -.01em;
   font-weight: var(--rst-fw-bold);
 }
 
@@ -260,6 +216,12 @@ body.logged-out #appFrame {
   background: rgba(255,255,255,.22);
   font-size: 25px;
   line-height: 1;
+  transition: transform var(--rst-motion-ui) var(--rst-motion-smooth),background var(--rst-motion-ui) var(--rst-motion-smooth);
+}
+
+.brand-primary-button:is(:hover,:focus-visible) .brand-login-arrow {
+  transform: translateX(2px);
+  background: rgba(255,255,255,.28);
 }
 
 .brand-login-divider {
@@ -267,7 +229,7 @@ body.logged-out #appFrame {
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 12px;
-  color: rgba(219,229,244,.70);
+  color: var(--rst-ui-muted);
   font-size: 14px;
 }
 
@@ -275,7 +237,7 @@ body.logged-out #appFrame {
 .brand-login-divider::after {
   content: "";
   height: 1px;
-  background: rgba(255,255,255,.09);
+  background: var(--rst-ui-surface-divider);
 }
 
 .brand-secondary-button {
@@ -284,18 +246,18 @@ body.logged-out #appFrame {
   align-items: center;
   justify-content: center;
   gap: 11px;
-  border: 1px solid rgba(var(--rst-state-neutral-rgb),.22);
+  border: 1px solid var(--rst-ui-surface-panel-border);
   border-radius: var(--rst-ui-radius-md);
-  color: rgba(242,247,255,.90);
-  background: rgba(8,18,35,.42);
+  color: var(--rst-ui-text);
+  background: var(--rst-ui-surface-field-strong);
   font-weight: var(--rst-fw-bold);
   cursor: pointer;
   transition: border-color var(--rst-motion-ui) var(--rst-motion-smooth),background var(--rst-motion-ui) var(--rst-motion-smooth),transform var(--rst-motion-ui) var(--rst-motion-smooth);
 }
 
 .brand-secondary-button:hover {
-  border-color: rgba(96,165,250,.38);
-  background: rgba(13,27,52,.68);
+  border-color: var(--rst-state-info-border);
+  background: var(--rst-ui-section-row-hover);
   transform: translateY(-1px);
 }
 
@@ -303,153 +265,150 @@ body.logged-out #appFrame {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  color: rgba(213,224,241,.76);
+  color: var(--rst-ui-muted);
   font-size: 14px;
   font-weight: var(--rst-fw-medium);
   margin-top: 4px;
 }
 
-.brand-login-support svg {
-  color: rgba(213,224,241,.78);
-}
-
-.brand-preview-panel {
+.brand-media-panel {
   min-width: 0;
   display: grid;
-  gap: 22px;
-  align-content: center;
+  grid-template-rows: auto minmax(0,1fr);
+  gap: 14px;
+  padding: 22px;
+  animation: brand-entry-panel-in .34s var(--rst-motion-smooth) both;
+  animation-delay: 50ms;
 }
 
-.brand-hero h1 {
-  margin: 0;
+.brand-media-head {
+  display: grid;
+  gap: 6px;
+}
+
+.brand-media-head strong {
   color: var(--rst-ui-text);
-  font-size: clamp(38px,3.6vw,48px);
-  line-height: 1.08;
-  letter-spacing: -.038em;
+  font-size: 22px;
+  line-height: 1.12;
   font-weight: var(--rst-fw-bold);
-  text-shadow: 0 20px 44px rgba(0,0,0,.36);
 }
 
-.brand-hero h1 span {
-  display: inline-block;
-  color: transparent;
-  background: linear-gradient(90deg,#d45cff 0%,#8f74ff 45%,#3385ff 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
+.brand-media-head span {
+  max-width: 460px;
+  color: var(--rst-ui-muted);
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: var(--rst-fw-medium);
 }
 
-.brand-module-grid {
-  display: grid;
-  grid-template-columns: repeat(3,minmax(0,1fr));
-  gap: 12px;
-}
-
-.brand-module-card {
+.brand-video-frame {
   position: relative;
-  min-height: 112px;
-  display: grid;
-  grid-template-columns: 56px minmax(0,1fr);
-  align-items: center;
-  gap: 15px;
-  padding: 16px 20px;
-  border: 1px solid rgba(var(--rst-state-neutral-rgb),.16);
-  border-radius: var(--rst-ui-radius-md);
-  color: var(--rst-ui-text);
+  min-height: 0;
   overflow: hidden;
-  background: linear-gradient(180deg,rgba(17,30,53,.58),rgba(10,23,43,.58));
-  backdrop-filter: blur(12px);
-  transition: transform var(--rst-motion-ui) var(--rst-motion-smooth),border-color var(--rst-motion-ui) var(--rst-motion-smooth),background var(--rst-motion-ui) var(--rst-motion-smooth),box-shadow var(--rst-motion-ui) var(--rst-motion-smooth);
+  border: 1px solid var(--rst-ui-surface-panel-border);
+  border-radius: var(--rst-ui-radius-lg);
+  background:
+    linear-gradient(180deg,rgba(5,12,24,.08),rgba(5,12,24,.58)),
+    radial-gradient(circle at 20% 20%,rgba(var(--module-accent-rgb),.20),transparent 30%),
+    radial-gradient(circle at 82% 18%,rgba(var(--module-accent-2-rgb),.16),transparent 32%),
+    linear-gradient(135deg,var(--rst-ui-surface-panel),var(--rst-ui-surface-board));
+  box-shadow: var(--rst-ui-shadow-frame);
 }
 
-.brand-module-card::after {
+.brand-video-frame::after {
   content: "";
   position: absolute;
-  inset: auto -26px -34px auto;
-  width: 92px;
-  height: 92px;
-  border-radius: var(--rst-ui-radius-pill);
-  background: var(--tile-glow,rgba(255,255,255,.12));
-  transform: rotate(45deg);
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(255,255,255,.026) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.020) 1px,transparent 1px);
+  background-size: 64px 64px;
+  opacity: .16;
 }
 
-.brand-module-card:hover {
-  transform: translateY(-2px);
-  border-color: color-mix(in srgb,var(--tile-color) 36%,rgba(255,255,255,.18));
-  background: linear-gradient(180deg,rgba(20,35,63,.76),rgba(10,22,43,.70));
-  box-shadow: 0 16px 36px rgba(0,0,0,.20);
-}
-
-.brand-module-art {
-  position: relative;
-  z-index: 1;
+.brand-media-scene {
+  position: absolute;
+  inset: 0;
   display: grid;
   place-items: center;
 }
 
-.brand-module-icon {
-  width: 48px;
-  height: 48px;
-  fill: none;
-  stroke: var(--tile-color,#8f74ff);
-  stroke-width: 2.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  filter: drop-shadow(0 16px 28px var(--tile-glow,rgba(51,71,255,.22)));
+.brand-media-bar {
+  position: absolute;
+  width: 54%;
+  height: 10px;
+  border-radius: var(--rst-ui-radius-pill);
+  background: linear-gradient(90deg,transparent,rgba(255,255,255,.42),transparent);
+  animation: brand-media-drift 7s linear infinite;
+  opacity: .48;
 }
 
-.brand-module-icon .fill {
-  fill: var(--tile-color,#8f74ff);
-  stroke: none;
+.brand-media-bar.is-wide {
+  width: 72%;
+  transform: translateY(-84px);
+  animation-duration: 9s;
 }
 
-.brand-module-copy {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  gap: 7px;
+.brand-media-bar.is-short {
+  width: 34%;
+  transform: translateY(92px);
+  animation-duration: 6s;
 }
 
-.brand-module-copy b {
-  color: var(--rst-ui-text);
-  font-size: 15px;
-  line-height: 1;
-  font-weight: var(--rst-fw-bold);
-  letter-spacing: -.01em;
+.brand-media-pulse {
+  width: min(320px,52%);
+  aspect-ratio: 1;
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: var(--rst-ui-radius-round);
+  background: radial-gradient(circle,rgba(var(--module-accent-rgb),.18),transparent 66%);
+  animation: brand-media-pulse 5s ease-in-out infinite;
 }
 
-.brand-module-copy small {
-  max-width: 145px;
-  color: rgba(218,228,244,.72);
-  font-size: 14px;
-  line-height: 1.45;
-  font-weight: var(--rst-fw-regular);
+.brand-sponsor-strip {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 40px;
+  overflow: hidden;
+  border-top: 1px solid var(--rst-ui-surface-divider);
+  background: color-mix(in srgb,var(--rst-ui-bg) 82%,transparent);
+  backdrop-filter: blur(10px);
 }
 
-.brand-trust-line {
-  display: inline-flex;
+.brand-sponsor-track {
+  width: max-content;
+  min-width: 100%;
+  height: 100%;
+  display: flex;
   align-items: center;
-  gap: 14px;
-  color: rgba(255,255,255,.88);
-  font-size: 15px;
-  font-weight: var(--rst-fw-medium);
-  padding-top: 4px;
+  gap: 34px;
+  padding-inline: 34px;
+  color: var(--rst-ui-muted);
+  font-size: 12px;
+  font-weight: var(--rst-fw-bold);
+  text-transform: uppercase;
+  letter-spacing: .055em;
+  animation: brand-sponsor-scroll 28s linear infinite;
 }
 
-.brand-trust-line svg {
-  width: 26px;
-  height: 26px;
-  color: rgba(213,224,241,.86);
+.brand-sponsor-track:hover {
+  animation-play-state: paused;
+}
+
+.brand-sponsor-track span {
+  white-space: nowrap;
 }
 
 .brand-login-panel.is-error {
-  border-color: rgba(248,113,113,.48);
-  box-shadow: 0 0 0 4px rgba(251,113,133,.10), 0 30px 90px rgba(0,0,0,.48);
+  border-color: var(--rst-state-danger-border);
+  box-shadow: 0 0 0 4px rgba(var(--rst-state-danger-rgb),.10);
 }
 
-
 .brand-login-panel.is-error .brand-field-control:has(input) {
-  border-color: rgba(248,113,113,.40);
-  box-shadow: 0 0 0 3px rgba(251,113,133,.10);
+  border-color: var(--rst-state-danger-border);
+  box-shadow: 0 0 0 3px rgba(var(--rst-state-danger-rgb),.10);
   background: rgba(var(--rst-state-danger-rgb),.055);
 }
 
@@ -466,37 +425,6 @@ body.logged-out #appFrame {
   opacity: .65;
 }
 
-@media (max-width: 1180px) {
-  .brand-entry-shell {
-    width: min(560px,calc(100vw - 36px));
-    height: auto;
-    min-height: min(760px,calc(100dvh - 56px));
-    grid-template-columns: 1fr;
-    gap: 26px;
-    padding: 28px 0;
-    overflow-y: auto;
-  }
-
-  .brand-page {
-    overflow: auto;
-  }
-
-  .brand-preview-panel {
-    display: none;
-  }
-}
-
-.brand-field-icon svg {
-  width: 15px;
-  height: 15px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-/* First-use quick PIN change uses the same brand form primitive as login. */
 .brand-pin-change-head {
   display: grid;
   gap: 4px;
@@ -504,13 +432,77 @@ body.logged-out #appFrame {
 }
 
 .brand-pin-change-head strong {
-  color: rgba(248, 251, 255, .96);
+  color: var(--rst-ui-text);
   font-size: .95rem;
-  letter-spacing: -.01em;
+  letter-spacing: 0;
 }
 
 .brand-pin-change-head small {
-  color: rgba(214, 224, 242, .68);
+  color: var(--rst-ui-muted);
   font-size: .78rem;
   line-height: 1.45;
+}
+
+@keyframes brand-media-drift {
+  0% { opacity: .18; translate: -26% 0; }
+  50% { opacity: .56; }
+  100% { opacity: .18; translate: 26% 0; }
+}
+
+@keyframes brand-media-pulse {
+  0%,100% { transform: scale(.92); opacity: .46; }
+  50% { transform: scale(1.08); opacity: .78; }
+}
+
+@keyframes brand-sponsor-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes brand-entry-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 1180px) {
+  .brand-page {
+    overflow: auto;
+  }
+
+  .brand-entry-shell {
+    width: min(560px,calc(100vw - 36px));
+    min-height: calc(100dvh - 40px);
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding: 24px 0 64px;
+  }
+
+  .brand-login-panel {
+    max-width: none;
+  }
+
+  .brand-media-panel {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-media-bar,
+  .brand-media-pulse,
+  .brand-sponsor-track,
+  .brand-login-panel,
+  .brand-media-panel {
+    animation: none;
+  }
+
+  .brand-primary-button,
+  .brand-login-arrow {
+    transition: none;
+  }
 }

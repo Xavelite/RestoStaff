@@ -41,7 +41,7 @@
           employee,
           employeeId:employee.id,
           name:employee.name || 'Employee',
-          role:employeePositionName(employee, source),
+          role:employeeJobFunctionName(employee, source),
           day,
           shift,
           range:bounds.range,
@@ -74,7 +74,7 @@
         employee,
         employeeId:employee.id,
         name:employee.name || 'Employee',
-        role:employeePositionName(employee, source),
+        role:employeeJobFunctionName(employee, source),
         day,
         shift,
         range:plannedSlot?.range || `${entry.clockIn}–…`,
@@ -123,7 +123,7 @@
     return activeEmployees(source)
       .map(employee => ({employee, status:R.services.employeeWorkflow?.availabilitySubmission?.(employee,source) || {state:source?.submitted?.[employee.id]?'submitted':'missing',label:source?.submitted?.[employee.id]?'Submitted':'Not submitted'}}))
       .filter(row => row.status.state !== 'submitted')
-      .map(row => ({employee:row.employee, role:employeePositionName(row.employee, source), status:row.status}));
+      .map(row => ({employee:row.employee, role:employeeJobFunctionName(row.employee, source), status:row.status}));
   }
 
   function planningConflicts(source = data){

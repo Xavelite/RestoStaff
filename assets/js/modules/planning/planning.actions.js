@@ -71,14 +71,14 @@
   P.setFilter = function setFilter(kind,value){
     const safeValue=String(value||'all');
     if(kind==='employees') P.state.view=safeValue;
-    if(kind==='role') P.state.positionFilter=safeValue;
+    if(kind==='role') P.state.jobFunctionFilter=safeValue;
     P.refreshCalendar();
   };
 
   P.clearFilters = function clearFilters(){
     P.state.search='';
     P.state.view='all';
-    P.state.positionFilter='all';
+    P.state.jobFunctionFilter='all';
     P.state.selectedDay='';
     P.state.selectedRow='';
     P.refreshCalendar();
@@ -202,7 +202,7 @@
       setPlanningSlot(employeeId,d,s,next);
       if(next){
         if(!assignmentZoneId(employeeId,d,s))setAssignmentSlot(employeeId,d,s,suggestZoneId(e,s));
-        setAssignmentPositionSlot(employeeId,d,s,e.positionId);
+        setAssignmentjobFunctionslot(employeeId,d,s,e.jobFunctionId);
         addNotification('shift-'+employeeId+d+s,'warning','Shift added',`${e.name} was planned on ${d} ${s}.`,{kind:'employee',id:employeeId});
         /* Notify the employee whose leave was cancelled so they can see it in their schedule notification bell */
         if(cancelledAbsenceLabel){
@@ -216,7 +216,7 @@
         }
       }else{
         setAssignmentSlot(employeeId,d,s,'');
-        setAssignmentPositionSlot(employeeId,d,s,'');
+        setAssignmentjobFunctionslot(employeeId,d,s,'');
         setAssignmentTimeSlot(employeeId,d,s,'');
         addNotification('shift-remove-'+employeeId+d+s,'warning','Shift removed',`${e.name} was removed from ${d} ${s}.`,{kind:'employee',id:employeeId});
       }
@@ -248,7 +248,7 @@
   };
 
 
-  function filterCopiedPlanningSlots(planningSlots, activeIds, zoneIds, positionIds){
+  function filterCopiedPlanningSlots(planningSlots, activeIds, zoneIds, jobFunctionIds){
     const result={};
     if(!planningSlots || typeof planningSlots !== 'object')return result;
     Object.entries(planningSlots).forEach(([employeeId, employeeMap])=>{
@@ -259,7 +259,7 @@
           if(!slot?.planned)return;
           const slotCopy={planned:true};
           if(slot.zoneId && zoneIds.has(String(slot.zoneId)))slotCopy.zoneId=slot.zoneId;
-          if(slot.positionId && positionIds.has(String(slot.positionId)))slotCopy.positionId=slot.positionId;
+          if(slot.jobFunctionId && jobFunctionIds.has(String(slot.jobFunctionId)))slotCopy.jobFunctionId=slot.jobFunctionId;
           if(slot.timeRange)slotCopy.timeRange=slot.timeRange;
           result[employeeId]=result[employeeId] || {};
           result[employeeId][day]=result[employeeId][day] || {};
@@ -288,9 +288,9 @@
   function sanitizedPreviousWeekPayload(previous){
     const activeIds=new Set(activeEmployees().map(employee=>String(employee.id)));
     const zoneIds=new Set((data.restaurantSetup?.zones || []).filter(zone=>zone.active !== false).map(zone=>String(zone.id)));
-    const positionIds=new Set((data.restaurantSetup?.positions || []).filter(position=>position.active !== false).map(position=>String(position.id)));
+    const jobFunctionIds=new Set((data.restaurantSetup?.jobFunctions || []).filter(jobFunction=>jobFunction.active !== false).map(jobFunction=>String(jobFunction.id)));
     return {
-      planningSlots:filterCopiedPlanningSlots(previous?.planningSlots || {}, activeIds, zoneIds, positionIds),
+      planningSlots:filterCopiedPlanningSlots(previous?.planningSlots || {}, activeIds, zoneIds, jobFunctionIds),
       notes:filterCopiedNotes(previous?.notes || {})
     };
   }
@@ -326,9 +326,9 @@
   P.exportCsv = function exportCsv(){
     const rows=[];
     activeEmployees().forEach(e=>days.forEach(d=>shifts.forEach(s=>{
-      if(data.planningSlots?.[e.id]?.[d]?.[s]?.planned)rows.push([dateForDay(d),d,s,e.name,employeePositionName(e),assignmentZoneName(e.id,d,s)||suggestZone(e,s),displayTimeRange(timeRangeFor(e,d,s)),fmtHours(plannedSlotHours(e,d,s)),money(plannedSlotHours(e,d,s)*Number(e.hourlyCost||0))]);
+      if(data.planningSlots?.[e.id]?.[d]?.[s]?.planned)rows.push([dateForDay(d),d,s,e.name,employeeJobFunctionName(e),assignmentZoneName(e.id,d,s)||suggestZone(e,s),displayTimeRange(timeRangeFor(e,d,s)),fmtHours(plannedSlotHours(e,d,s)),money(plannedSlotHours(e,d,s)*Number(e.estimatedHourlyCost||0))]);
     })));
-    Export.downloadCsv(Export.fileName('planning','csv',data.weekStart),['Date','Day','Shift','Employee','Position','Zone','Time','Hours','Cost'],rows);
+    Export.downloadCsv(Export.fileName('planning','csv',data.weekStart),['Date','Day','Shift','Employee','jobFunction','Zone','Time','Hours','Cost'],rows);
   };
 
   P.handleDocumentClick = function handleDocumentClick(e){

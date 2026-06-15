@@ -3,7 +3,7 @@ const APP_PRIMITIVES = window.RestogogoPrimitives;
 function id(){return APP_PRIMITIVES.id();}
 function esc(value=''){return APP_PRIMITIVES.esc(value);}
 function clone(value){return APP_PRIMITIVES.clone(value);}
-function cleanPositionName(p=''){return APP_PRIMITIVES.cleanPositionName(p);}
+function cleanJobFunctionName(p=''){return APP_PRIMITIVES.cleanJobFunctionName(p);}
 function employeeInitials(name=''){return APP_PRIMITIVES.employeeInitials(name);}
 function sanitizePin(value=''){return APP_PRIMITIVES.sanitizePin(value);}
 function money(n){return APP_PRIMITIVES.money(n);}

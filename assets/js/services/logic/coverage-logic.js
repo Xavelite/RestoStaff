@@ -13,8 +13,8 @@
     employees.forEach(employee=>{
       if(!source?.planningSlots?.[employee.id]?.[day]?.[serviceKey]?.planned)return;
       const zoneId = assignmentZoneId(employee.id, day, serviceKey, source) || suggestZoneId(employee, serviceKey, source);
-      const positionId = assignmentPositionId(employee.id, day, serviceKey, source) || employee.positionId || '';
-      rows.push({employee, employeeId:employee.id, day, serviceKey, zoneId, positionId});
+      const jobFunctionId = assignmentJobFunctionId(employee.id, day, serviceKey, source) || employee.jobFunctionId || '';
+      rows.push({employee, employeeId:employee.id, day, serviceKey, zoneId, jobFunctionId});
     });
     return rows;
   }
@@ -24,13 +24,13 @@
     const assigned = assignedRows(day, serviceKey, source);
     const assignedCounts = new Map();
     assigned.forEach(row=>{
-      if(!row.zoneId || !row.positionId)return;
-      const key = `${row.zoneId}|${serviceKey}|${row.positionId}`;
+      if(!row.zoneId || !row.jobFunctionId)return;
+      const key = `${row.zoneId}|${serviceKey}|${row.jobFunctionId}`;
       assignedCounts.set(key, (assignedCounts.get(key) || 0) + 1);
     });
     const seen = new Set();
     const rows = required.map(req=>{
-      const key = `${req.zoneId}|${serviceKey}|${req.positionId}`;
+      const key = `${req.zoneId}|${serviceKey}|${req.jobFunctionId}`;
       seen.add(key);
       const assignedCount = assignedCounts.get(key) || 0;
       const delta = assignedCount - req.requiredCount;
@@ -38,8 +38,8 @@
         zoneId:req.zoneId,
         zoneName:zoneDisplayName(req.zoneId, source),
         serviceKey,
-        positionId:req.positionId,
-        positionName:(source?.restaurantSetup?.positions || data?.restaurantSetup?.positions || []).find(position=>String(position.id)===String(req.positionId))?.name || '',
+        jobFunctionId:req.jobFunctionId,
+        jobFunctionName:(source?.restaurantSetup?.jobFunctions || data?.restaurantSetup?.jobFunctions || []).find(jobFunction=>String(jobFunction.id)===String(req.jobFunctionId))?.name || '',
         requiredCount:req.requiredCount,
         assignedCount,
         delta,
@@ -48,13 +48,13 @@
     });
     assignedCounts.forEach((assignedCount,key)=>{
       if(seen.has(key))return;
-      const [zoneId,,positionId] = key.split('|');
+      const [zoneId,,jobFunctionId] = key.split('|');
       rows.push({
         zoneId,
         zoneName:zoneDisplayName(zoneId, source),
         serviceKey,
-        positionId,
-        positionName:(source?.restaurantSetup?.positions || data?.restaurantSetup?.positions || []).find(position=>String(position.id)===String(positionId))?.name || '',
+        jobFunctionId,
+        jobFunctionName:(source?.restaurantSetup?.jobFunctions || data?.restaurantSetup?.jobFunctions || []).find(jobFunction=>String(jobFunction.id)===String(jobFunctionId))?.name || '',
         requiredCount:0,
         assignedCount,
         delta:assignedCount,
@@ -64,10 +64,10 @@
     return rows;
   }
 
-  function positionSummary(day, serviceKey, source = data){
+  function jobFunctionsummary(day, serviceKey, source = data){
     return slotCoverage(day, serviceKey, source).reduce((acc,row)=>{
-      const key = row.positionId || 'unknown';
-      acc[key] = acc[key] || {positionId:row.positionId, positionName:row.positionName, serviceKey, requiredCount:0, assignedCount:0, delta:0, status:'ok'};
+      const key = row.jobFunctionId || 'unknown';
+      acc[key] = acc[key] || {jobFunctionId:row.jobFunctionId, jobFunctionName:row.jobFunctionName, serviceKey, requiredCount:0, assignedCount:0, delta:0, status:'ok'};
       acc[key].requiredCount += row.requiredCount;
       acc[key].assignedCount += row.assignedCount;
       acc[key].delta = acc[key].assignedCount - acc[key].requiredCount;
@@ -96,7 +96,7 @@
       if(shiftSort)return shiftSort;
       const statusSort=(a.status==='under'?0:1)-(b.status==='under'?0:1);
       if(statusSort)return statusSort;
-      return String(a.zoneName||'').localeCompare(String(b.zoneName||'')) || String(a.positionName||'').localeCompare(String(b.positionName||''));
+      return String(a.zoneName||'').localeCompare(String(b.zoneName||'')) || String(a.jobFunctionName||'').localeCompare(String(b.jobFunctionName||''));
     });
   }
 
@@ -126,12 +126,12 @@
     return summary;
   }
 
-  function slotRequirementStatus(day, serviceKey, zoneId, positionId, source = data){
+  function slotRequirementStatus(day, serviceKey, zoneId, jobFunctionId, source = data){
     const z=String(zoneId || '').trim();
-    const p=String(positionId || '').trim();
+    const p=String(jobFunctionId || '').trim();
     if(!z || !p)return null;
-    return slotCoverage(day, serviceKey, source).find(row=>row.zoneId===z && row.positionId===p) || null;
+    return slotCoverage(day, serviceKey, source).find(row=>row.zoneId===z && row.jobFunctionId===p) || null;
   }
 
-  R.logic.coverage = {requirements, assignedRows, slotCoverage, positionSummary, issues, weekIssues, weekSummary, slotRequirementStatus};
+  R.logic.coverage = {requirements, assignedRows, slotCoverage, jobFunctionsummary, issues, weekIssues, weekSummary, slotRequirementStatus};
 })();

@@ -35,6 +35,10 @@
   --rst-ui-surface-panel-border: var(--rst-ui-line);
   --rst-ui-surface-section-border: var(--rst-ui-divider-soft);
   --rst-ui-surface-divider: var(--rst-ui-divider-soft);
+  /* Canonical content-header box — every panel/card/section/entity head reads from these,
+     so all headers share one inset, height and surface (see docs/CSS_STRUCTURE.md). */
+  --rst-head-min-h: 46px;
+  --rst-head-pad: 10px 14px;
   --rst-ui-metric-card: var(--rst-ui-workspace-body);
   --rst-ui-card: var(--rst-ui-workspace-body);
   --rst-ui-card-strong: var(--rst-ui-workspace-body);

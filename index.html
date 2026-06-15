@@ -67,24 +67,13 @@
   <div class="brand-backdrop" aria-hidden="true"></div>
   <main class="brand-entry-shell" aria-label="Sign in">
     <section aria-label="Restaurant sign in" class="brand-login-panel rs-card" id="brandLoginPanel">
-      <img alt="restogogo" class="brand-login-logo" src="assets/img/brand/restogogo_logo_transparent.png"/>
+      <header class="brand-login-head">
+        <img alt="restogogo" class="brand-login-logo" src="assets/img/brand/restogogo_logo_transparent.png"/>
+        <p>Restaurant operations, in one calm workspace.</p>
+      </header>
 
-      <!-- Access mode selector -->
-      <div class="brand-login-tabs" role="tablist" aria-label="Sign in method">
-        <button class="brand-login-tab is-active" data-login-role="real" role="tab" aria-selected="true" type="button">Email</button>
-        <button class="brand-login-tab" data-login-role="quick" role="tab" aria-selected="false" type="button">Quick access</button>
-      </div>
-
-      <!-- Real sign-in form -->
+      <!-- Email + password sign-in -->
       <div class="brand-login-form" id="loginFormEmail">
-        <label class="brand-field brand-login-field">
-          <span class="brand-field-label">Restaurant</span>
-          <span class="brand-field-control">
-            <span class="brand-field-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 2v20"/><path d="M4 2v6a3 3 0 0 0 6 0V2"/><path d="M15 2v20"/><path d="M15 2c3 2 5 5 5 9h-5"/></svg></span>
-            <input autocomplete="organization" id="emailLoginRestaurant" placeholder="demo-restaurant" spellcheck="false" type="text"/>
-          </span>
-        </label>
-
         <label class="brand-field brand-login-field">
           <span class="brand-field-label">Email address</span>
           <span class="brand-field-control">
@@ -116,69 +105,43 @@
         </button>
       </div>
 
-      <!-- Quick sign-in form (hidden by default) -->
-      <div class="brand-login-form brand-login-form--quick is-hidden" id="loginFormQuick">
-        <label class="brand-field brand-login-field">
-          <span class="brand-field-label">Restaurant</span>
-          <span class="brand-field-control">
-            <span class="brand-field-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 2v20"/><path d="M4 2v6a3 3 0 0 0 6 0V2"/><path d="M15 2v20"/><path d="M15 2c3 2 5 5 5 9h-5"/></svg></span>
-            <input autocomplete="organization" id="quickLoginRestaurant" placeholder="demo-restaurant" spellcheck="false" type="text"/>
-          </span>
-        </label>
-
-        <label class="brand-field brand-login-field">
-          <span class="brand-field-label">Quick login name</span>
-          <span class="brand-field-control">
-            <svg aria-hidden="true" class="brand-field-svg" viewBox="0 0 24 24"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
-            <input autocomplete="username" id="quickLoginName" placeholder="FirstName.LastName"/>
-          </span>
-        </label>
-
-        <label class="brand-field brand-login-field">
-          <span class="brand-field-label">4-digit PIN</span>
-          <span class="brand-field-control">
-            <svg aria-hidden="true" class="brand-field-svg" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
-            <input autocomplete="one-time-code" id="quickLoginPin" inputmode="numeric" maxlength="4" pattern="[0-9]*" placeholder="4-digit PIN" type="password"/>
-          </span>
-        </label>
-
-        <p class="brand-login-message" id="quickLoginHelp" aria-live="polite"></p>
-
-        <button class="brand-primary-button rs-primary-button" id="quickLoginBtn" type="button">
-          <span>Sign in</span>
-          <span class="brand-login-arrow" aria-hidden="true">→</span>
-        </button>
-      </div>
-
-      <div class="brand-login-form brand-login-form--pin-change is-hidden" id="pinChangePanel" aria-live="polite">
+      <!-- First-login from an email invite: set password + badge PIN -->
+      <div class="brand-login-form brand-login-form--accept is-hidden" id="acceptInvitePanel" aria-live="polite">
         <header class="brand-pin-change-head">
-          <strong>Choose your personal PIN</strong>
-          <small>Your first quick login uses a temporary PIN. Set your own 4-digit PIN to continue.</small>
+          <strong>Welcome — set up your access</strong>
+          <small>Choose your password and a 4-digit badge PIN to finish joining your team.</small>
         </header>
         <label class="brand-field brand-login-field">
-          <span class="brand-field-label">Temporary PIN</span>
+          <span class="brand-field-label">Password</span>
           <span class="brand-field-control">
             <svg aria-hidden="true" class="brand-field-svg" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
-            <input autocomplete="one-time-code" id="pinChangeCurrent" inputmode="numeric" maxlength="4" pattern="[0-9]*" placeholder="Current PIN" type="password"/>
+            <input autocomplete="new-password" id="acceptPassword" maxlength="64" placeholder="Create a password" type="password"/>
           </span>
         </label>
         <label class="brand-field brand-login-field">
-          <span class="brand-field-label">New PIN</span>
-          <span class="brand-field-control">
-            <svg aria-hidden="true" class="brand-field-svg" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-5"/></svg>
-            <input autocomplete="new-password" id="pinChangeNew" inputmode="numeric" maxlength="4" pattern="[0-9]*" placeholder="New 4-digit PIN" type="password"/>
-          </span>
-        </label>
-        <label class="brand-field brand-login-field">
-          <span class="brand-field-label">Confirm new PIN</span>
+          <span class="brand-field-label">Confirm password</span>
           <span class="brand-field-control">
             <svg aria-hidden="true" class="brand-field-svg" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
-            <input autocomplete="new-password" id="pinChangeConfirm" inputmode="numeric" maxlength="4" pattern="[0-9]*" placeholder="Repeat PIN" type="password"/>
+            <input autocomplete="new-password" id="acceptPasswordConfirm" maxlength="64" placeholder="Repeat password" type="password"/>
           </span>
         </label>
-        <p class="brand-login-message" id="pinChangeHelp" aria-live="polite"></p>
-        <button class="brand-primary-button rs-primary-button" id="confirmPinChangeBtn" type="button">
-          <span>Save PIN and continue</span>
+        <label class="brand-field brand-login-field">
+          <span class="brand-field-label">Badge PIN</span>
+          <span class="brand-field-control">
+            <svg aria-hidden="true" class="brand-field-svg" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-5"/></svg>
+            <input autocomplete="one-time-code" id="acceptPin" inputmode="numeric" maxlength="4" pattern="[0-9]*" placeholder="4-digit PIN" type="password"/>
+          </span>
+        </label>
+        <label class="brand-field brand-login-field">
+          <span class="brand-field-label">Confirm PIN</span>
+          <span class="brand-field-control">
+            <svg aria-hidden="true" class="brand-field-svg" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
+            <input autocomplete="one-time-code" id="acceptPinConfirm" inputmode="numeric" maxlength="4" pattern="[0-9]*" placeholder="Repeat PIN" type="password"/>
+          </span>
+        </label>
+        <p class="brand-login-message" id="acceptInviteHelp" aria-live="polite"></p>
+        <button class="brand-primary-button rs-primary-button" id="acceptInviteBtn" type="button">
+          <span>Join my team</span>
           <span class="brand-login-arrow" aria-hidden="true">→</span>
         </button>
       </div>
@@ -196,19 +159,38 @@
       </footer>
     </section>
 
-    <section aria-label="restogogo product preview" class="brand-preview-panel">
-      <header class="brand-hero">
-        <h1>Run your restaurant.<br/><span>In sync.</span></h1>
+    <section aria-label="restogogo product film" class="brand-media-panel rs-card">
+      <header class="brand-media-head">
+        <strong>Built for the rhythm of service.</strong>
+        <span>Planning, actuals, team and badge flows stay connected.</span>
       </header>
-
-      <div aria-label="restogogo main modules" class="brand-module-grid" id="entryModuleGrid"></div>
-
-      <footer class="brand-trust-line">
-        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-5"/></svg>
-        <span>Secure. Private. Built for restaurants.</span>
-      </footer>
+      <div class="brand-video-frame" aria-label="Ambient product video placeholder" role="img">
+        <div class="brand-media-scene" aria-hidden="true">
+          <span class="brand-media-bar is-wide"></span>
+          <span class="brand-media-bar"></span>
+          <span class="brand-media-bar is-short"></span>
+          <span class="brand-media-pulse"></span>
+        </div>
+      </div>
     </section>
   </main>
+
+  <footer class="brand-sponsor-strip" aria-label="Restogogo partners">
+    <div class="brand-sponsor-track">
+      <span>Restaurant partners</span>
+      <span>Payroll-ready operations</span>
+      <span>Local hospitality teams</span>
+      <span>Service planning</span>
+      <span>Badge terminal</span>
+      <span>Team workflows</span>
+      <span>Restaurant partners</span>
+      <span>Payroll-ready operations</span>
+      <span>Local hospitality teams</span>
+      <span>Service planning</span>
+      <span>Badge terminal</span>
+      <span>Team workflows</span>
+    </div>
+  </footer>
 </section>
 
 <!-- restogogo onboarding wizard — markup rendered by assets/js/onboarding/onboarding-template.js -->
@@ -228,7 +210,10 @@
 <button aria-label="Notifications" class="notif-btn" id="notifBtn" title="Notifications"><svg aria-hidden="true" class="btn-svg" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg><span class="notif-badge danger-count" id="notifBadgeDanger"></span><span class="notif-badge warning-count" id="notifBadgeWarning"></span></button>
 <div class="notif-panel" id="notifPanel"></div>
 </div>
-<button type="button" class="user-pill" id="userPill" title="Log out / switch user">Not connected</button>
+<div class="account-wrap">
+<button type="button" class="user-pill" id="userPill" title="Account menu" aria-haspopup="menu" aria-expanded="false" aria-controls="accountMenu">Not connected</button>
+<div class="account-menu" id="accountMenu" role="menu" aria-label="Account menu"></div>
+</div>
 </div>
 </header>
 
@@ -282,7 +267,7 @@
 <script src="assets/js/data/auth/role-access-service.js"></script>
 <script src="assets/js/data/auth/owner-onboarding-state.js"></script>
 <script src="assets/js/data/auth/owner-onboarding-service.js"></script>
-<script src="assets/js/data/auth/quick-access-service.js"></script>
+<script src="assets/js/data/auth/invitation-service.js"></script>
 <script src="assets/js/data/supabase-auth-service.js"></script>
 <script src="assets/js/data/workspace-service.js"></script>
 <script src="assets/js/data/snapshot-mapper.js"></script>
@@ -335,6 +320,7 @@
 <script src="assets/js/services/employee-workflow-service.js"></script>
 <script src="assets/js/services/metric-detail-ui.js"></script>
 <script src="assets/js/services/metric-detail-service.js"></script>
+<script src="assets/js/services/account-menu-service.js"></script>
 <script src="assets/js/services/toolbar-renderer.js"></script>
 <script src="assets/js/services/module-ui-service.js"></script>
 <script src="assets/js/services/weekly-grid-renderer.js"></script>

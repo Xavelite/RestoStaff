@@ -101,6 +101,84 @@
   outline-offset: 3px;
 }
 
+.account-wrap {
+  position: relative;
+  display: block;
+}
+
+.account-menu {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  z-index: var(--rst-z-panel);
+  width: min(240px,calc(100vw - 32px));
+  display: none;
+  padding: 8px;
+  border: 1px solid var(--rst-ui-divider);
+  border-radius: var(--rst-ui-radius-xl);
+  background: var(--rst-ui-workspace-header);
+  box-shadow: var(--rst-ui-shadow-floating);
+  color: var(--rst-ui-text);
+}
+
+.account-menu.open {
+  display: grid;
+  gap: 2px;
+}
+
+.account-menu__item {
+  appearance: none;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px;
+  border: 0;
+  border-radius: var(--rst-ui-radius-md);
+  background: transparent;
+  color: var(--rst-ui-text);
+  font-size: 13px;
+  font-weight: var(--rst-fw-bold);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--rst-motion-ui) var(--rst-motion-smooth), color var(--rst-motion-ui) var(--rst-motion-smooth);
+}
+
+.account-menu__item:hover,
+.account-menu__item:focus-visible {
+  background: var(--rst-ui-section-row);
+  outline: none;
+}
+
+.account-menu__item.is-danger {
+  color: var(--rst-state-danger-text);
+}
+
+.account-menu__icon {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.account-menu__icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.account-menu__divider {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--rst-ui-divider);
+}
+
+/* My account dialog: stacked credential forms reuse shared rs-field/rs-modal-btn. */
+.account-dialog .account-form .rs-modal-btn {
+  justify-self: start;
+  margin-top: 2px;
+}
+
 /* SVG stroke rules for .notif-btn are handled by .btn-svg in base.css. */
 
 .app-topbar__nav {

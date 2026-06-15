@@ -17,7 +17,7 @@
       const missing=[];
       if(!String(employee.firstName || '').trim())missing.push('First name');
       if(!String(employee.lastName || '').trim())missing.push('Last name');
-      if(!String(employee.positionId || '').trim())missing.push('Position');
+      if(!String(employee.jobFunctionId || '').trim())missing.push('Job function');
       if(!String(employee.phone || '').trim())missing.push('Phone');
       return missing;
     },
@@ -92,7 +92,7 @@
       const q=String(query||'').trim().toLowerCase();
       if(filter === 'active')list=list.filter(employee=>employee.active !== false);
       if(filter === 'action')list=list.filter(employee=>TeamModel.issueCount(employee) > 0);
-      if(q)list=list.filter(employee=>`${employee.name} ${employee.firstName} ${employee.lastName} ${employeePositionName(employee)} ${employee.email} ${employee.phone} ${employee.loginName}`.toLowerCase().includes(q));
+      if(q)list=list.filter(employee=>`${employee.name} ${employee.firstName} ${employee.lastName} ${employeeJobFunctionName(employee)} ${employee.email} ${employee.phone}`.toLowerCase().includes(q));
       return sortEmployees(list);
     },
     countAbsencesThisMonth(employees){

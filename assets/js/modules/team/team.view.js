@@ -11,17 +11,6 @@
   }
 
   const OPTION_GROUPS = {
-    contractType:[
-      ['', 'Select contract type'],
-      ['permanent', 'CDI / Permanent'],
-      ['fixed_term', 'CDD / Fixed-term'],
-      ['student', 'Student'],
-      ['flexi_job', 'Flexi-job'],
-      ['extra', 'Extra'],
-      ['interim', 'Interim'],
-      ['self_employed', 'Self-employed'],
-      ['other', 'Other']
-    ],
     workRegime:[
       ['', 'Select work regime'],
       ['full_time', 'Full-time'],
@@ -49,9 +38,9 @@
     return found ? found[1] : '—';
   }
 
-  function currentPositionName(employee, ctx){
-    const position = (ctx.positionChoices || []).find(item=>String(item.id)===String(employee.positionId || ''));
-    return position?.name || 'No position';
+  function currentjobFunctionName(employee, ctx){
+    const jobFunction = (ctx.jobFunctionChoices || []).find(item=>String(item.id)===String(employee.jobFunctionId || ''));
+    return jobFunction?.name || 'No job function';
   }
 
   function icon(name,className=''){
@@ -84,7 +73,7 @@
 
   function initialsAvatar(employee){
     const name = employee.name || `${employee.firstName || ''} ${employee.lastName || ''}`.trim() || 'New';
-    return `<span class="rs-avatar rs-person-avatar team-avatar" style="${esc(positionStyle(employeePositionName(employee)))}">${esc(employeeInitials(name).slice(0,1))}</span>`;
+    return `<span class="rs-avatar rs-person-avatar team-avatar" style="${esc(jobFunctionStyle(employeeJobFunctionName(employee)))}">${esc(employeeInitials(name).slice(0,1))}</span>`;
   }
 
   function payrollPercent(employees){
@@ -127,7 +116,7 @@
         ${initialsAvatar(employee)}
         <span class="rs-person-copy team-person-copy">
           <span class="rs-person-line team-person-line"><strong>${esc(name)}</strong><span class="rs-person-badges team-person-badges">${directoryIssueBadges(employee)}</span>${employeeStatusIcon(employee)}</span>
-          <small>${esc(currentPositionName(employee, ctx))}</small>
+          <small>${esc(currentjobFunctionName(employee, ctx))}</small>
         </span>
       </button>`;
     }).join('') || `<div class="rs-empty-state"><strong>No employees found</strong><span>Search another name or add a new employee.</span></div>`;
@@ -163,7 +152,7 @@
         <div class="team-profile-title rs-entity-copy">
           <div class="rs-entity-title-line"><h2>${esc(name)}</h2>${employeeStatusPill(employee)}</div>
           <p class="team-profile-meta-chips rs-entity-chips" aria-label="Employee summary">
-            ${profileChip('position', currentPositionName(employee, ctx))}
+            ${profileChip('jobFunction', currentjobFunctionName(employee, ctx))}
             ${profileChip('clock', weeklyHours)}
           </p>
         </div>
@@ -188,14 +177,24 @@
   }
 
 
-  function positionSelect(employee, ctx){
-    const choices = ctx.positionChoices || [];
+  function jobFunctionselect(employee, ctx){
+    const choices = ctx.jobFunctionChoices || [];
     if(!choices.length){
-      return `<div class="rs-empty-state rs-empty-state--compact team-position-empty"><strong>No positions configured</strong><span>Create positions in Restaurant first, then assign them here.</span></div>`;
+      return `<div class="rs-empty-state rs-empty-state--compact team-job-function-empty"><strong>No job functions configured</strong><span>Create job functions in Restaurant first, then assign them here.</span></div>`;
     }
-    const current = String(employee.positionId || '');
-    const opts = [['','Select position'], ...choices.map(item=>[item.id,item.name])].map(option=>`<option value="${esc(option[0])}" ${String(option[0])===current?'selected':''}>${esc(option[1])}</option>`).join('');
-    return `<label class="rs-field team-inline-field${requiredFieldClass(!String(employee.positionId || '').trim())}"><span>Position</span><select name="positionId" data-team-field="positionId" required>${opts}</select></label>`;
+    const current = String(employee.jobFunctionId || '');
+    const opts = [['','Select job function'], ...choices.map(item=>[item.id,item.name])].map(option=>`<option value="${esc(option[0])}" ${String(option[0])===current?'selected':''}>${esc(option[1])}</option>`).join('');
+    return `<label class="rs-field team-inline-field${requiredFieldClass(!String(employee.jobFunctionId || '').trim())}"><span>Job function</span><select name="jobFunctionId" data-team-field="jobFunctionId" required>${opts}</select></label>`;
+  }
+
+  function contractTypeSelect(employee, ctx, fieldClass=''){
+    const choices = Array.isArray(ctx.contractTypeChoices) ? ctx.contractTypeChoices : [];
+    if(!choices.length){
+      return `<div class="rs-empty-state rs-empty-state--compact team-job-function-empty"><strong>No contract types configured</strong><span>Create contract types in Restaurant first, then assign them here.</span></div>`;
+    }
+    const current = String(employee.contractTypeId || '');
+    const opts = [['','Select contract type'], ...choices.map(item=>[item.id,item.name])].map(option=>`<option value="${esc(option[0])}" ${String(option[0])===current?'selected':''}>${esc(option[1])}</option>`).join('');
+    return `<label class="rs-field team-inline-field${fieldClass}"><span>Contract type</span><select name="contractTypeId" data-team-field="contractTypeId">${opts}</select></label>`;
   }
 
   function absenceTypeOptions(ctx){
@@ -332,11 +331,12 @@
       </nav>`;
     }
     const sensitiveTabs = canSeeSensitiveTeamData()
-      ? `${tabButton('Contract','contract',teamTab,'document')}${tabButton('Payroll','payroll',teamTab,'payroll')}`
+      ? `${tabButton('Legal/private','legal',teamTab,'lock')}${tabButton('Contract','contract',teamTab,'document')}${tabButton('Payroll','payroll',teamTab,'payroll')}`
       : '';
     return `<nav class="rs-tabs team-tabs" aria-label="Employee detail sections">
       ${tabButton('Setup guide','setup',teamTab,'list')}
-      ${tabButton('General','general',teamTab,'user')}
+      ${tabButton('Core','core',teamTab,'user')}
+      ${tabButton('Contact','contact',teamTab,'phone')}
       ${sensitiveTabs}
       ${tabButton('Absences','absences',teamTab,'calendar')}
     </nav>`;
@@ -360,35 +360,39 @@
 
   function accessLabel(employee){
     if(employee.active === false)return 'Disabled';
-    if(employee.quickLoginEnabled === false)return 'Quick login disabled';
-    if(employee.mustChangePin)return 'Temporary PIN — change required';
+    if(employee.badgeEnabled === false)return 'Badge access off';
     const status = String(employee.pinStatus || '').trim();
     if(status === 'active')return 'Active';
-    if(status === 'reset_required')return 'PIN reset required';
-    if(status === 'disabled')return 'PIN disabled';
-    return 'Not configured';
+    if(status === 'disabled')return 'Badge disabled';
+    const access = String(employee.accessStatus || '').trim();
+    if(access === 'invited' || access === 'temporary')return 'Invited — awaiting accept';
+    return 'Not invited';
   }
 
-  function generalTabContent(employee,ctx){
+  function coreTabContent(employee,ctx){
     const missing = TeamModel.generalMissingFields(employee);
     const missingSet = new Set(missing);
     return `${profileCard('Identity','identity',`
         ${inputField('First name','firstName',employee.firstName,'text','',requiredFieldClass(missingSet.has('First name')))}${inputField('Last name','lastName',employee.lastName,'text','',requiredFieldClass(missingSet.has('Last name')))}
-        ${inputField('Display name','name',employee.name,'text','placeholder="Name shown in planning"')}${inputField('Nationality','nationality',employee.nationality)}
+        ${inputField('Display name','name',employee.name,'text','placeholder="Name shown in planning"')}
       `)}
-      ${profileCard('Work profile','position',`
-        ${positionSelect(employee, ctx)}${selectField('Status','active',employee.active === false ? 'false' : 'true',[['true','Active'],['false','Inactive']])}
-      `)}
-      ${profileCard('Contact information','phone',`
+      ${profileCard('Work profile','jobFunction',`
+        ${jobFunctionselect(employee, ctx)}${selectField('Status','active',employee.active === false ? 'false' : 'true',[['true','Active'],['false','Inactive']])}
+      `)}`;
+  }
+
+  function contactTabContent(employee){
+    const missing = TeamModel.generalMissingFields(employee);
+    const missingSet = new Set(missing);
+    return `${profileCard('Contact information','phone',`
         ${inputField('Email','email',employee.email,'email')}${inputField('Phone','phone',employee.phone,'text','',requiredFieldClass(missingSet.has('Phone')))}
         ${inputField('Address','address',employee.address)}${inputField('Postal code','postalCode',employee.postalCode)}${inputField('City','city',employee.city)}
       `)}
-      ${profileCard('Access & quick login','key',`
-        ${inputField('Quick login','loginName',employee.loginName || `${employee.firstName || ''}.${employee.lastName || ''}`.replace(/\s+/g,''),'text','placeholder="First.Last"')}
-        ${selectField('Quick login enabled','quickLoginEnabled',employee.quickLoginEnabled === false ? 'false' : 'true',[['true','Yes'],['false','No']])}
-        <label class="rs-field team-inline-field"><span>PIN status</span><input value="${esc(accessLabel(employee))}" disabled></label>
-        <label class="rs-field team-inline-field"><span>New PIN (feeds Reset button)</span><input data-team-pin-input="true" inputmode="numeric" maxlength="4" pattern="[0-9]*" placeholder="Leave blank to auto-generate" type="password"></label>
-        <button class="rs-action-button is-secondary team-inline-action" data-team-action="reset-pin" type="button">Reset PIN</button>
+      ${profileCard('Access','key',`
+        <label class="rs-field team-inline-field"><span>Access status</span><input value="${esc(accessLabel(employee))}" disabled></label>
+        ${selectField('Badge access','badgeEnabled',employee.badgeEnabled === false ? 'false' : 'true',[['true','Enabled'],['false','Disabled']])}
+        <label class="rs-field team-inline-field"><span>App role</span><select data-team-invite-role><option value="employee" selected>Employee</option><option value="manager">Manager</option></select></label>
+        <button class="rs-action-button is-secondary team-inline-action" data-team-action="invite-app" type="button">Invite to app</button>
       `)}
       ${profileCard('Emergency contact','heart',`
         ${inputField('Contact name','emergencyName',employee.emergencyName)}${inputField('Relationship','emergencyRelation',employee.emergencyRelation)}${inputField('Emergency phone','emergencyPhone',employee.emergencyPhone)}
@@ -396,6 +400,14 @@
       ${profileCard('Notes','note',`
         <label class="rs-field team-inline-field is-wide"><span>Notes</span><textarea name="notes" data-team-field="notes">${esc(employee.notes || '')}</textarea></label>
       `,'','', 'rs-section-stack')}`;
+  }
+
+  function legalTabContent(employee){
+    const missing = TeamModel.payrollMissingFields(employee);
+    return `${profileCard('Legal identity','lock',`
+        ${inputField('Nationality','nationality',employee.nationality)}
+        ${inputField('NISS / social security no.','socialSecurityNo',employee.socialSecurityNo,'text','',requiredFieldClass(missing.includes('NISS / social security no.')))}
+      `,'','Owner-only legal identity fields.','rs-section-stack')}`;
   }
 
   function teamSetupGuide(){
@@ -410,14 +422,17 @@
 
   function profileTabContent(employee,teamTab,ctx){
     if(teamTab==='setup' || !employee)return teamSetupGuide();
-    if(!canSeeSensitiveTeamData() && ['contract','payroll'].includes(teamTab)){
-      return profileCard('Owner-only details','lock',`<p class="team-muted-copy">Contract and payroll information is owner-only. Managers can continue with General, Absences and quick-access operations.</p>`,'is-wide','', 'rs-section-stack');
+    if(!canSeeSensitiveTeamData() && ['legal','contract','payroll'].includes(teamTab)){
+      return profileCard('Owner-only details','lock',`<p class="team-muted-copy">Legal, contract and payroll information is owner-only. Managers can continue with Core, Contact, Absences and quick-access operations.</p>`,'is-wide','', 'rs-section-stack');
     }
     const missing = TeamModel.payrollMissingFields(employee);
+    if(teamTab==='core')return coreTabContent(employee,ctx);
+    if(teamTab==='contact')return contactTabContent(employee);
+    if(teamTab==='legal')return legalTabContent(employee);
     if(teamTab==='contract'){
       const contractMissing = TeamModel.contractMissingFields(employee);
       return `${profileCard('Employment','document',`
-          ${selectField('Contract type','contractType',employee.contractType,OPTION_GROUPS.contractType,requiredFieldClass(contractMissing.includes('Contract type')))}
+          ${contractTypeSelect(employee, ctx, requiredFieldClass(contractMissing.includes('Contract type')))}
           ${selectField('Work regime','workRegime',employee.workRegime,OPTION_GROUPS.workRegime,requiredFieldClass(contractMissing.includes('Work regime')))}
           ${inputField('Weekly hours','contractHours',employee.contractHours,'number','min="0" step="0.5"',requiredFieldClass(contractMissing.includes('Weekly hours')))}
         `,'team-contract-employment','Core contract details used by planning and payroll prep.','rs-section-grid rs-section-grid--three')}
@@ -426,9 +441,9 @@
           ${inputField('Contract end','contractEnd',employee.contractEnd,'date')}
         `,'team-contract-dates','Leave contract end empty for open-ended contracts.','rs-section-stack')}
         ${profileCard('Cost setup','euro',`
-          ${inputField('Hourly cost','hourlyCost',employee.hourlyCost,'number','min="0" step="0.01"')}
+          ${inputField('Estimated hourly cost','estimatedHourlyCost',employee.estimatedHourlyCost,'number','min="0" step="0.01"')}
           ${inputField('Annual leave entitlement','annualLeaveEntitlementDays',employee.annualLeaveEntitlementDays || 0,'number','min="0" step="0.5"',requiredFieldClass(contractMissing.includes('Annual leave entitlement')))}
-        `,'team-contract-cost','Employee cost is used by Planning and Actuals. Defaults can come from the selected Restaurant position.','rs-section-stack')}`;
+        `,'team-contract-cost','Employee cost is used by Planning and Actuals. Defaults can come from the selected Restaurant job function.','rs-section-stack')}`;
     }
     if(teamTab==='payroll'){
       return `${profileCard('Payroll setup','payroll',`
@@ -436,7 +451,6 @@
           ${inputField('Payroll employee ID','payrollId',employee.payrollId,'text','',requiredFieldClass(missing.includes('Payroll employee ID')))}
         `,'','Provider and employee identifier used for handoff/export.')}
         ${profileCard('Identity & banking','bank',`
-          ${inputField('NISS / social security no.','socialSecurityNo',employee.socialSecurityNo,'text','',requiredFieldClass(missing.includes('NISS / social security no.')))}
           ${inputField('IBAN','iban',employee.iban,'text','',requiredFieldClass(missing.includes('IBAN')))}
           ${inputField('BIC','bic',employee.bic)}
         `,'','Only the essentials needed for payroll handoff.')}
@@ -476,7 +490,7 @@
           </details>
         </section>`;
     }
-    return generalTabContent(employee,ctx);
+    return coreTabContent(employee,ctx);
   }
 
   function profileActions(ctx){
@@ -522,22 +536,23 @@
 
   function profile(employee,teamTab,ctx){
     const isSetupTab = teamTab === 'setup' || !employee;
-    const addEmployeePanel = employee ? '' : profileCard('Add first employee','users',`<p class="team-muted-copy">Create an employee to unlock General, Contract, Payroll and Absences details.</p><button type="button" class="rs-primary-button" data-team-action="add-employee">Add employee</button>`,'team-add-employee-panel','', 'rs-section-stack');
+    const addEmployeePanel = employee ? '' : profileCard('Add first employee','users',`<p class="team-muted-copy">Create an employee to unlock Core, Contact, Contract, Payroll and Absences details.</p><button type="button" class="rs-primary-button" data-team-action="add-employee">Add employee</button>`,'team-add-employee-panel','', 'rs-section-stack');
     return `<div class="rs-workbench-detail rs-workbench-detail-stack team-profile-stack">${profileTabContent(employee, isSetupTab ? 'setup' : teamTab, ctx)}${addEmployeePanel}</div>`;
   }
 
   function render(ctx){
     const employees = ctx.employees || [];
-    const positionChoices = Array.isArray(ctx.positionChoices) ? ctx.positionChoices : [];
+    const jobFunctionChoices = Array.isArray(ctx.jobFunctionChoices) ? ctx.jobFunctionChoices : [];
+    const contractTypeChoices = Array.isArray(ctx.contractTypeChoices) ? ctx.contractTypeChoices : [];
     const employee = ctx.employee || null;
     const teamTab = employee ? (ctx.teamTab || 'setup') : 'setup';
     const isSetupTab = teamTab === 'setup';
-    const workbenchHead = teamWorkbenchHead(isSetupTab ? null : employee,{...ctx, employees, positionChoices});
+    const workbenchHead = teamWorkbenchHead(isSetupTab ? null : employee,{...ctx, employees, jobFunctionChoices, contractTypeChoices});
     const tabs = profileTabs(employee,teamTab);
     const workbenchLayoutClass = `rs-workbench-layout team-workbench-layout ${isSetupTab ? 'rs-workbench-layout--single team-workbench-layout--setup' : ''}`.trim();
     const workbenchHtml = isSetupTab
-      ? profile(employee, 'setup', {...ctx, employees, positionChoices})
-      : `${directory({...ctx, employees, positionChoices})}${profile(employee, teamTab, {...ctx, employees, positionChoices})}`;
+      ? profile(employee, 'setup', {...ctx, employees, jobFunctionChoices, contractTypeChoices})
+      : `${directory({...ctx, employees, jobFunctionChoices, contractTypeChoices})}${profile(employee, teamTab, {...ctx, employees, jobFunctionChoices, contractTypeChoices})}`;
     return Restogogo.services.pageShell.standard({
       moduleName:'team',
       title:'Team',

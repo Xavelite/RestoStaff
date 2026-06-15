@@ -45,16 +45,15 @@
       restaurantName:String(details.restaurantName || '').trim(),
       city:String(details.city || '').trim(),
       defaultZoneName:String(details.defaultZoneName || '').trim() || 'Restaurant',
-      defaultPositionName:String(details.defaultPositionName || '').trim() || 'Staff',
-      employees:Array.isArray(details.employees) ? details.employees.map(employee=>({name:String(employee?.name || employee?.displayName || '').trim()})).filter(employee=>employee.name) : []
+      defaultJobFunctionName:String(details.defaultJobFunctionName || '').trim() || 'Staff',
+      employees:Array.isArray(details.employees) ? details.employees.map(employee=>({
+        name:String(employee?.name || employee?.displayName || '').trim(),
+        phone:String(employee?.phone || '').trim(),
+        contractType:String(employee?.payroll?.contractType || '').trim(),
+        weeklyHours:Number(employee?.payroll?.weeklyHours) || 0,
+        hourlyWageRate:Number(employee?.payroll?.hourlyWageRate) || 0
+      })).filter(employee=>employee.name) : []
     };
-  }
-
-  function quickSessionExpired(payload){
-    const raw = payload?.quick_session_expires_at || payload?.expires_at || '';
-    if(!raw)return !!payload;
-    const expiry = new Date(raw).getTime();
-    return !Number.isFinite(expiry) || expiry <= (Date.now() + 60000);
   }
 
   function emailConfirmedSessionMissing(payload){
@@ -74,7 +73,6 @@
     isKnownRole,
     authErrorMessage,
     normalizeOwnerSetupDetails,
-    quickSessionExpired,
     emailConfirmedSessionMissing,
     isOwnerRole,
     isOwnerOrManagerRole

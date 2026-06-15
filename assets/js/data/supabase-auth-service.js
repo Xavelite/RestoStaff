@@ -1,7 +1,8 @@
 /* restogogo Supabase Auth service facade — DB v2 only.
- * Owns session and RPC primitives, then delegates role access, quick access
- * and owner-onboarding ownership to focused auth modules.
- * It does not know UI pages or module state.
+ * Owns session and RPC primitives, then delegates role access, invitations and
+ * owner-onboarding ownership to focused auth modules.
+ * App access is Supabase email + password only; the badge terminal uses anon
+ * badge RPCs. It does not know UI pages or module state.
  */
 (function(){
   const config = window.APP_CONFIG || {};
@@ -10,21 +11,20 @@
   const apiKey = String(config.supabaseKey || '');
   const authBase = `${baseUrl}/auth/v1`;
   const restBase = `${baseUrl}/rest/v1`;
+  const functionsBase = `${baseUrl}/functions/v1`;
   const store = window.RestogogoSessionStore;
   const domain = window.RestogogoAuthDomain;
   const roleAccess = window.RestogogoRoleAccessService;
   const ownerOnboardingStateFactory = window.RestogogoOwnerOnboardingState;
   const ownerOnboardingFactory = window.RestogogoOwnerOnboardingService;
-  const quickAccessFactory = window.RestogogoQuickAccessService;
-  if(!domain || !roleAccess || !ownerOnboardingStateFactory || !ownerOnboardingFactory || !quickAccessFactory){
+  const invitationFactory = window.RestogogoInvitationService;
+  if(!domain || !roleAccess || !ownerOnboardingStateFactory || !ownerOnboardingFactory || !invitationFactory){
     throw new Error('Auth ownership modules must load before RestogogoAuthService.');
   }
   const {
     normalizeEmail,
-    normalizeRole,
     authErrorMessage,
     normalizeOwnerSetupDetails,
-    quickSessionExpired,
     emailConfirmedSessionMissing,
     isOwnerRole,
     isOwnerOrManagerRole
@@ -32,13 +32,11 @@
   const KEYS = Object.freeze({
     authSession:'restogogo.auth.session.v2',
     memberships:'restogogo.auth.memberships.v2',
-    quickSession:'restogogo.quick.session.v2',
     pendingOwnerSetup:'restogogo.onboarding.pending-owner-setup.v1'
   });
 
   let cachedSession = store?.getJSON?.(KEYS.authSession, null) || null;
   let cachedMemberships = store?.getJSON?.(KEYS.memberships, []) || [];
-  let cachedQuickSession = store?.getJSON?.(KEYS.quickSession, null) || null;
   const pendingOwner = ownerOnboardingStateFactory.create({
     store,
     key:KEYS.pendingOwnerSetup,
@@ -50,14 +48,6 @@
   function isRequired(){return !!authConfig.required;}
   function saveAuthSession(session){cachedSession = session || null; cachedSession ? store?.setJSON?.(KEYS.authSession, cachedSession) : store?.remove?.(KEYS.authSession);}
   function saveMemberships(rows){cachedMemberships = Array.isArray(rows) ? rows : []; store?.setJSON?.(KEYS.memberships, cachedMemberships);}
-  function saveQuickSession(payload){
-    cachedQuickSession = payload && !quickSessionExpired(payload) ? payload : null;
-    if(cachedQuickSession){
-      store?.setJSON?.(KEYS.quickSession, cachedQuickSession);
-    }else{
-      store?.remove?.(KEYS.quickSession);
-    }
-  }
   function accessToken(){return cachedSession?.access_token || '';}
   function refreshToken(){return cachedSession?.refresh_token || '';}
   function currentUser(){return cachedSession?.user || null;}
@@ -98,6 +88,7 @@
     });
   }
 
+  // Anonymous (no session) RPC — only the badge terminal credential/roster calls.
   async function anonRpc(functionName, payload={}){
     if(!baseUrl || !apiKey)throw new Error('Supabase is not configured.');
     const response = await fetch(`${restBase}/rpc/${encodeURIComponent(functionName)}`, {
@@ -171,15 +162,6 @@
     return {session:payload, memberships:rows, onboardingCompleted};
   }
 
-  function getQuickSession(){
-    if(quickSessionExpired(cachedQuickSession))saveQuickSession(null);
-    return cachedQuickSession;
-  }
-  function isQuickAuthenticated(){
-    const quick = getQuickSession();
-    return !!quick?.restaurant?.id && !!quick?.membership?.role;
-  }
-
   async function signUp(email, password, metadata={}){
     const cleanEmail = normalizeEmail(email);
     if(!cleanEmail || !cleanEmail.includes('@'))throw new Error('Enter a valid email address.');
@@ -198,36 +180,22 @@
       p_owner_email:normalized.email,
       p_restaurant_name:normalized.restaurantName,
       p_city:normalized.city,
-      p_employees:normalized.employees.map(employee=>({name: employee.name})),
+      p_employees:normalized.employees.map(employee=>({
+        name: employee.name,
+        phone: employee.phone || '',
+        contract_type: employee.contractType || '',
+        weekly_hours: employee.weeklyHours || 0,
+        hourly_wage_rate: employee.hourlyWageRate || 0
+      })),
       p_default_zone_name:normalized.defaultZoneName,
-      p_default_position_name:normalized.defaultPositionName
+      p_default_job_function_name:normalized.defaultJobFunctionName
     });
     await fetchMemberships();
     return data;
   }
 
-  function withQuickSession(payload={}){
-    const quick = getQuickSession() || {};
-    const body = Object.assign({}, payload || {});
-    if(!body.p_quick_session_id && quick.quick_session_id)body.p_quick_session_id = quick.quick_session_id;
-    if(!body.p_quick_session_token && quick.quick_session_token)body.p_quick_session_token = quick.quick_session_token;
-    return body;
-  }
-
   function roleForRestaurant(restaurantId){return roleAccess.roleForRestaurant(restaurantId, memberships());}
-  function quickRoleForRestaurant(restaurantId){return roleAccess.quickRoleForRestaurant(restaurantId, getQuickSession());}
   function requireAuthenticatedRole(restaurantId, predicate, message){return roleAccess.requireAuthenticatedRole(restaurantId, predicate, message, memberships());}
-  function requireQuickRole(restaurantId, predicate, message){return roleAccess.requireQuickRole(restaurantId, predicate, message, getQuickSession());}
-
-  const quickAccess = quickAccessFactory.create({
-    anonRpc,
-    saveQuickSession,
-    saveAuthSession,
-    saveMemberships,
-    getQuickSession,
-    withQuickSession,
-    defaultWorkspace:config.defaultWorkspaceSlug || config.defaultWorkspaceId
-  });
 
   const ownerOnboarding = ownerOnboardingFactory.create({
     normalizeOwnerSetupDetails,
@@ -241,67 +209,49 @@
     pendingState:pendingOwner
   });
 
-  async function saveEmployeeSelfService(payload={}){
-    const body = withQuickSession(payload);
-    if(isAuthenticated())return rpc('save_employee_self_service', body);
-    if(body.p_quick_session_id && body.p_quick_session_token)return anonRpc('save_employee_self_service', body);
-    throw new Error('A valid app session is required to save employee time.');
-  }
+  const invitations = invitationFactory.create({
+    functionsBase,
+    authBase,
+    headers,
+    accessToken,
+    getSession:()=>cachedSession,
+    saveAuthSession,
+    ensureFreshSession,
+    rpc,
+    fetchMemberships,
+    authErrorMessage
+  });
 
-  function updateQuickSessionSnapshot(snapshot){
-    const current = getQuickSession();
-    if(current && snapshot)saveQuickSession(Object.assign({}, current, {runtime_snapshot: snapshot}));
+  // --- Save paths: one authenticated session, role-gated per domain ----------
+  async function saveEmployeeSelfService(payload={}){
+    if(!isAuthenticated())throw new Error('A valid app session is required to save employee time.');
+    return rpc('save_employee_self_service', payload);
   }
 
   async function saveManagerPlanning(payload={}){
-    const body = withQuickSession(payload);
-    if(isAuthenticated()){
-      requireAuthenticatedRole(body.p_restaurant_id, isOwnerOrManagerRole, 'Owner or manager access is required to save planning.');
-      return rpc('save_manager_planning', body);
-    }
-    if(body.p_quick_session_id && body.p_quick_session_token){
-      requireQuickRole(body.p_restaurant_id, isOwnerOrManagerRole, 'Owner or manager access is required to save planning.');
-      return anonRpc('save_manager_planning', body);
-    }
-    throw new Error('A valid owner or manager session is required to save planning.');
+    if(!isAuthenticated())throw new Error('A valid owner or manager session is required to save planning.');
+    requireAuthenticatedRole(payload.p_restaurant_id, isOwnerOrManagerRole, 'Owner or manager access is required to save planning.');
+    return rpc('save_manager_planning', payload);
   }
-
 
   async function saveAbsenceLifecycle(payload={}){
-    const body = withQuickSession(payload);
-    const action = String(body.p_action || '').trim().toLowerCase();
+    if(!isAuthenticated())throw new Error('A valid app session is required to change absences.');
+    const action = String(payload.p_action || '').trim().toLowerCase();
     const managerActions = new Set(['create_by_manager','approve','reject','cancel_by_manager','cancel_for_planning','update_manager_comment']);
     const employeeActions = new Set(['create_by_employee','cancel_by_employee']);
-    if(isAuthenticated()){
-      if(managerActions.has(action))requireAuthenticatedRole(body.p_restaurant_id, isOwnerOrManagerRole, 'Owner or manager access is required to change absences.');
-      else if(employeeActions.has(action))requireAuthenticatedRole(body.p_restaurant_id, role=>String(role||'').toLowerCase()==='employee', 'Employee access is required to change your own absence requests.');
-      else throw new Error('Unsupported absence lifecycle action.');
-      return rpc('save_absence_lifecycle', body);
-    }
-    if(body.p_quick_session_id && body.p_quick_session_token){
-      if(managerActions.has(action))requireQuickRole(body.p_restaurant_id, isOwnerOrManagerRole, 'Owner or manager access is required to change absences.');
-      else if(employeeActions.has(action))requireQuickRole(body.p_restaurant_id, role=>String(role||'').toLowerCase()==='employee', 'Employee access is required to change your own absence requests.');
-      else throw new Error('Unsupported absence lifecycle action.');
-      return anonRpc('save_absence_lifecycle', body);
-    }
-    throw new Error('A valid app session is required to change absences.');
+    if(managerActions.has(action))requireAuthenticatedRole(payload.p_restaurant_id, isOwnerOrManagerRole, 'Owner or manager access is required to change absences.');
+    else if(employeeActions.has(action))requireAuthenticatedRole(payload.p_restaurant_id, role=>String(role||'').toLowerCase()==='employee', 'Employee access is required to change your own absence requests.');
+    else throw new Error('Unsupported absence lifecycle action.');
+    return rpc('save_absence_lifecycle', payload);
   }
 
-
   async function saveActualsLifecycle(payload={}){
-    const body = withQuickSession(payload);
-    const action = String(body.p_action || '').trim().toLowerCase();
+    if(!isAuthenticated())throw new Error('A valid owner or manager session is required to manage actuals.');
+    const action = String(payload.p_action || '').trim().toLowerCase();
     const actions = new Set(['manual_entry','adjust_entry','cancel_entry','approve_week','reopen_week']);
     if(!actions.has(action))throw new Error('Unsupported actuals lifecycle action.');
-    if(isAuthenticated()){
-      requireAuthenticatedRole(body.p_restaurant_id, isOwnerOrManagerRole, 'Owner or manager access is required to manage actuals.');
-      return rpc('save_actuals_lifecycle', body);
-    }
-    if(body.p_quick_session_id && body.p_quick_session_token){
-      requireQuickRole(body.p_restaurant_id, isOwnerOrManagerRole, 'Owner or manager access is required to manage actuals.');
-      return anonRpc('save_actuals_lifecycle', body);
-    }
-    throw new Error('A valid owner or manager session is required to manage actuals.');
+    requireAuthenticatedRole(payload.p_restaurant_id, isOwnerOrManagerRole, 'Owner or manager access is required to manage actuals.');
+    return rpc('save_actuals_lifecycle', payload);
   }
 
   async function getWorkspaceContext(restaurantId){
@@ -318,29 +268,20 @@
   }
 
   async function saveRestaurantSetup(payload={}){
-    const body = withQuickSession(payload);
-    if(isAuthenticated()){
-      requireAuthenticatedRole(body.p_restaurant_id, isOwnerRole, 'Owner access is required to save restaurant settings.');
-      return rpc('save_restaurant_setup', body);
-    }
-    if(body.p_quick_session_id && body.p_quick_session_token){
-      requireQuickRole(body.p_restaurant_id, isOwnerRole, 'Owner access is required to save restaurant settings.');
-      return anonRpc('save_restaurant_setup', body);
-    }
-    throw new Error('A valid owner session is required to save restaurant setup.');
+    if(!isAuthenticated())throw new Error('A valid owner session is required to save restaurant setup.');
+    requireAuthenticatedRole(payload.p_restaurant_id, isOwnerRole, 'Owner access is required to save restaurant settings.');
+    return rpc('save_restaurant_setup', payload);
   }
 
   async function saveTeamSetup(payload={}){
-    const body = withQuickSession(payload);
-    if(isAuthenticated()){
-      requireAuthenticatedRole(body.p_restaurant_id, isOwnerOrManagerRole, 'Owner or manager access is required to save Team.');
-      return rpc('save_team_setup', body);
-    }
-    if(body.p_quick_session_id && body.p_quick_session_token){
-      requireQuickRole(body.p_restaurant_id, isOwnerOrManagerRole, 'Owner or manager access is required to save Team.');
-      return anonRpc('save_team_setup', body);
-    }
-    throw new Error('A valid owner or manager session is required to save team setup.');
+    if(!isAuthenticated())throw new Error('A valid owner or manager session is required to save team setup.');
+    requireAuthenticatedRole(payload.p_restaurant_id, isOwnerOrManagerRole, 'Owner or manager access is required to save Team.');
+    return rpc('save_team_setup', payload);
+  }
+
+  // Badge terminal: anonymous roster + PIN credential RPCs (no app session).
+  async function listBadgeRoster(workspace){
+    return anonRpc('list_badge_roster', {p_workspace:String(workspace || '').trim()});
   }
 
   async function verifyBadgePin(payload={}){
@@ -352,19 +293,6 @@
   }
 
 
-  async function resetEmployeePin(payload={}){
-    const body = withQuickSession(payload);
-    if(isAuthenticated()){
-      requireAuthenticatedRole(body.p_restaurant_id, isOwnerOrManagerRole, 'Owner or manager access is required to reset a PIN.');
-      return rpc('reset_employee_pin', body);
-    }
-    if(body.p_quick_session_id && body.p_quick_session_token){
-      requireQuickRole(body.p_restaurant_id, isOwnerOrManagerRole, 'Owner or manager access is required to reset a PIN.');
-      return anonRpc('reset_employee_pin', body);
-    }
-    throw new Error('A valid owner or manager session is required to reset a PIN.');
-  }
-
   async function signOut(options={remote:true}){
     const token = accessToken();
     if(options.remote !== false && token){
@@ -372,7 +300,6 @@
     }
     saveAuthSession(null);
     saveMemberships([]);
-    saveQuickSession(null);
   }
 
   window.RestogogoAuthService = Object.freeze({
@@ -385,11 +312,16 @@
     ensureFreshSession,
     signIn,
     signUp,
+    inviteEmployee:invitations.inviteEmployee,
+    readInviteTokensFromHash:invitations.readInviteTokensFromHash,
+    startInviteSession:invitations.startInviteSession,
+    updatePassword:invitations.updatePassword,
+    acceptInvite:invitations.acceptInvite,
+    setOwnPin:invitations.setOwnPin,
     signUpOwnerAndSetup:ownerOnboarding.signUpOwnerAndSetup,
     setupOwnerWorkspace,
     getPendingOwnerSetup:pendingOwner.read,
     clearPendingOwnerSetup:pendingOwner.clear,
-    quickLogin:quickAccess.quickLogin,
     saveEmployeeSelfService,
     saveManagerPlanning,
     saveAbsenceLifecycle,
@@ -398,13 +330,9 @@
     getWorkspaceRuntimeSnapshot,
     saveRestaurantSetup,
     saveTeamSetup,
-    resetEmployeePin,
-    changeOwnPin:quickAccess.changeOwnPin,
+    listBadgeRoster,
     verifyBadgePin,
     recordBadgeEntry,
-    getQuickSession,
-    updateQuickSessionSnapshot,
-    isQuickAuthenticated,
     signOut,
     fetchMemberships,
     memberships,

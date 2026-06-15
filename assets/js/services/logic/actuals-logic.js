@@ -120,8 +120,8 @@
     const employees = options.employees || activeEmployees(source);
     return employees.filter(employee => {
       if(scope === 'relevant' && !isRelevantEmployee(employee, source)) return false;
-      if(role !== 'all' && employeePositionName(employee, source) !== role) return false;
-      if(q && !`${employee.name || ''} ${employeePositionName(employee, source)}`.toLowerCase().includes(q)) return false;
+      if(role !== 'all' && employeeJobFunctionName(employee, source) !== role) return false;
+      if(q && !`${employee.name || ''} ${employeeJobFunctionName(employee, source)}`.toLowerCase().includes(q)) return false;
       return employeeMatchesActualStatus(employee, status, source);
     });
   }
@@ -170,7 +170,8 @@
   }
 
   function actualEmployeeCode(employee){
-    return employee?.payrollId || employee?.employeeNumber || employee?.id || '';
+    const readiness = typeof employeePayrollReadiness === 'function' ? employeePayrollReadiness(employee, data) : null;
+    return readiness?.payrollEmployeeId || employee?.employeeNumber || employee?.id || '';
   }
 
   function actualProofStatus(entry, field){

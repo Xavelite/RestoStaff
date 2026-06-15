@@ -41,7 +41,7 @@ window.APP_CONFIG = {
     restaurantSettings: "restaurant_settings",
     profiles: "profiles",
     restaurantMemberships: "restaurant_memberships",
-    restaurantSetupStatus: "restaurant_setup_status",
+    restaurantOnboardingState: "restaurant_onboarding_state",
     employees: "employees",
     employeeAccess: "employee_access",
     employeePinCredentials: "employee_pin_credentials",
@@ -50,7 +50,7 @@ window.APP_CONFIG = {
     employeePayrollProfiles: "employee_payroll_profiles",
     absenceTypes: "absence_types",
     employeeAbsences: "absences",
-    positions: "positions",
+    jobFunctions: "job_functions",
     zones: "zones",
     services: "services",
     zoneServiceDefaults: "zone_service_defaults",
@@ -68,11 +68,11 @@ window.APP_CONFIG = {
   defaultWorkspaceSlug: "demo-restaurant",
   debug: RESTOGOGO_ENV.debug === true,
 
-  // DB v2 uses real Supabase Auth + membership-based RLS.
+  // DB v2 uses real Supabase Auth + membership-based RLS. App login is email +
+  // password only; the 4-digit PIN is a badge-terminal credential, not an app login.
   auth: {
     enabled: true,
     required: true,
-    loginIdentifierMode: "real-or-quick",
-    quickLoginEnabled: true
+    loginIdentifierMode: "email"
   }
 };

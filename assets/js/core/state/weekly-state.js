@@ -86,11 +86,11 @@ function compactPlanningSlots(source){
         if(!isValidDayShift(day, shift)) return;
         if(!isPlainObject(slot) || !slot.planned) return;
         const zoneId = normalizeSparseString(slot.zoneId);
-        const positionId = normalizeSparseString(slot.positionId);
+        const jobFunctionId = normalizeSparseString(slot.jobFunctionId);
         const timeRange = normalizeTimeRangeInput(slot.timeRange) || undefined;
         const compacted = {planned:true};
         if(zoneId) compacted.zoneId = zoneId;
-        if(positionId) compacted.positionId = positionId;
+        if(jobFunctionId) compacted.jobFunctionId = jobFunctionId;
         if(timeRange) compacted.timeRange = timeRange;
         setSparseSlot(compact, employeeId, day, shift, compacted);
       });
@@ -208,11 +208,11 @@ function setAssignmentTimeSlot(employeeId, day, shift, value, source=data){
   });
 }
 
-function setAssignmentPositionSlot(employeeId, day, shift, value, source=data){
-  const positionId = canonicalPositionId(value, source?.restaurantSetup?.positions || data?.restaurantSetup?.positions || []);
+function setAssignmentjobFunctionslot(employeeId, day, shift, value, source=data){
+  const jobFunctionId = canonicalJobFunctionId(value, source?.restaurantSetup?.jobFunctions || data?.restaurantSetup?.jobFunctions || []);
   mutatePlanningSlot(source, employeeId, day, shift, slot => {
     const s = Object.assign({}, slot);
-    if(positionId) s.positionId = positionId; else delete s.positionId;
+    if(jobFunctionId) s.jobFunctionId = jobFunctionId; else delete s.jobFunctionId;
     return s;
   });
 }

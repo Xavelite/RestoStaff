@@ -20,7 +20,7 @@
               weekday:weekdayFromName(day),
               service_key:serviceKey(label),
               zone_id:text(slot.zoneId) || null,
-              position_id:text(slot.positionId) || null,
+              job_function_id:text(slot.jobFunctionId) || null,
               starts_at:time.starts_at,
               ends_at:time.ends_at,
               source:'manual'

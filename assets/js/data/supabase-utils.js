@@ -7,7 +7,7 @@
   function text(value){return P.text(value);}
   function numberValue(value){return P.numberValue(value);}
   function boolValue(value){return P.boolValue(value);}
-  function cleanPositionName(value){return P.cleanPositionName(value);}
+  function cleanJobFunctionName(value){return P.cleanJobFunctionName(value);}
   function sanitizePin(value=''){return P.sanitizePin(value);}
   function sanitizeWorkspaceId(value){return P.sanitizeWorkspaceId(value);}
   function sanitizeId(value, prefix='item'){return P.sanitizeId(value,prefix);}
@@ -20,5 +20,5 @@
   function validRange(value){return P.validRange(value);}
   function normalizeDay(value){return P.normalizeDay(value);}
   function normalizeShift(value){return P.normalizeShift(value);}
-  window.RestogogoSupabaseUtils={DAYS,SHIFTS,isPlainObject,cloneData,text,numberValue,boolValue,cleanPositionName,sanitizePin,sanitizeWorkspaceId,sanitizeId,localISO,parseISO,monday,validDate,validIso,validClock,validRange,normalizeDay,normalizeShift};
+  window.RestogogoSupabaseUtils={DAYS,SHIFTS,isPlainObject,cloneData,text,numberValue,boolValue,cleanJobFunctionName,sanitizePin,sanitizeWorkspaceId,sanitizeId,localISO,parseISO,monday,validDate,validIso,validClock,validRange,normalizeDay,normalizeShift};
 })();

@@ -15,7 +15,7 @@
   function boolValue(value){return value === true;}
   function esc(value=''){return String(value).replace(/[&<>\"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[ch]));}
 
-  function cleanPositionName(value=''){return String(value || '').replace(/^\s*[A-Z]\.\s*/, '').trim();}
+  function cleanJobFunctionName(value=''){return String(value || '').replace(/^\s*[A-Z]\.\s*/, '').trim();}
   function employeeInitials(name=''){
     return String(name||'').trim().split(/\s+/).filter(Boolean).slice(0,2).map(part=>part.charAt(0).toUpperCase()).join('') || '?';
   }
@@ -127,7 +127,7 @@
     numberValue,
     boolValue,
     esc,
-    cleanPositionName,
+    cleanJobFunctionName,
     employeeInitials,
     sanitizePin,
     sanitizeWorkspaceId,

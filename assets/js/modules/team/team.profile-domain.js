@@ -1,13 +1,13 @@
 (function(){
   const EMPLOYEE_FIELDS = [
-    'name','firstName','lastName','positionId','active','role','loginName','quickLoginEnabled','email','phone','address','postalCode','city','nationality',
-    'contractType','contractStart','contractEnd','contractHours','annualLeaveEntitlementDays','workRegime','hourlyCost',
+    'name','firstName','lastName','jobFunctionId','active','role','badgeEnabled','email','phone','address','postalCode','city','nationality',
+    'contractTypeId','contractType','contractStart','contractEnd','contractHours','annualLeaveEntitlementDays','workRegime','estimatedHourlyCost',
     'payrollProvider','payrollId','socialSecurityNo','iban','bic','payrollNotes',
     'emergencyName','emergencyRelation','emergencyPhone','notes','absences'
   ];
 
-  const NUMERIC_FIELDS = new Set(['contractHours','annualLeaveEntitlementDays','hourlyCost']);
-  const BOOLEAN_FIELDS = new Set(['active','quickLoginEnabled']);
+  const NUMERIC_FIELDS = new Set(['contractHours','annualLeaveEntitlementDays','estimatedHourlyCost']);
+  const BOOLEAN_FIELDS = new Set(['active','badgeEnabled']);
   const DATE_FIELDS = new Set(['contractStart','contractEnd']);
 
   function toDraft(employee){
@@ -27,17 +27,16 @@
     return String(value ?? '').trim();
   }
 
-  function createEmployee(defaultPosition){
+  function createEmployee(defaultJobFunction){
     return {
       id:(crypto.randomUUID ? crypto.randomUUID() : `emp-${id()}`),
       name:'',
-      positionId:defaultPosition.id,
-      hourlyCost:defaultPosition.hourlyCost || 0,
+      jobFunctionId:defaultJobFunction.id,
+      estimatedHourlyCost:defaultJobFunction.estimatedHourlyCost || 0,
       active:true,
       role:'employee',
-      quickLoginEnabled:true,
-      accessStatus:'reset_required',
-      mustChangePin:true,
+      badgeEnabled:true,
+      accessStatus:'not_invited',
       absences:[]
     };
   }
@@ -45,44 +44,45 @@
   function applyDraftToEmployee(options={}){
     const employee=options.employee;
     const draft=options.draft || {};
-    const selectedPosition=options.selectedPosition;
+    const selectedJobFunction=options.selectedJobFunction;
+    const selectedContractType=options.selectedContractType;
     const payrollMissingFields=options.payrollMissingFields || (()=>[]);
     if(!employee)return {ok:false,message:'Employee profile is missing.'};
     const firstName = String(draft.firstName||'').trim();
     const lastName = String(draft.lastName||'').trim();
     const fallbackName = `${firstName} ${lastName}`.trim();
     const name=String(draft.name || fallbackName).trim();
-    const pickedPosition = selectedPosition?.(draft.positionId) || null;
-    const positionId=String(pickedPosition?.id || '').trim();
-    if(!name || !positionId){
-      return {ok:false,message:'Name and position are required. Create positions in Restaurant, then select one here.'};
+    const pickedJobFunction = selectedJobFunction?.(draft.jobFunctionId) || null;
+    const jobFunctionId=String(pickedJobFunction?.id || '').trim();
+    if(!name || !jobFunctionId){
+      return {ok:false,message:'Name and job function are required. Create job functions in Restaurant, then select one here.'};
     }
     const role = Restogogo.registry.normalizeRole(draft.role || employee.role);
     if(!role)return {ok:false,message:'Employee role is invalid. Choose a valid role before saving.'};
-    const hourlyCost = Number(draft.hourlyCost) || Number(pickedPosition?.hourlyCost) || 0;
+    const estimatedHourlyCost = Number(draft.estimatedHourlyCost) || Number(pickedJobFunction?.estimatedHourlyCost) || 0;
+    const pickedContractType = selectedContractType?.(draft.contractTypeId) || null;
     Object.assign(employee,{
       name,
       firstName,
       lastName,
-      positionId,
+      jobFunctionId,
       active:draft.active !== false,
       role,
-      loginName:String(draft.loginName || `${firstName}.${lastName}`.replace(/\s+/g,'')).trim(),
-      quickLoginEnabled:draft.quickLoginEnabled !== false,
+      badgeEnabled:draft.badgeEnabled !== false,
       accessStatus:employee.accessStatus || '',
-      mustChangePin:employee.mustChangePin === true,
       email:String(draft.email||'').trim(),
       phone:String(draft.phone||'').trim(),
       address:String(draft.address||'').trim(),
       postalCode:String(draft.postalCode||'').trim(),
       city:String(draft.city||'').trim(),
       nationality:String(draft.nationality||'').trim(),
-      contractType:String(draft.contractType||'').trim(),
+      contractTypeId:String(pickedContractType?.id || draft.contractTypeId || '').trim(),
+      contractType:String(pickedContractType?.name || draft.contractType||'').trim(),
       contractStart:normalizeDateString(draft.contractStart),
       contractEnd:normalizeDateString(draft.contractEnd),
       contractHours:Number(draft.contractHours)||0,
       workRegime:String(draft.workRegime||'').trim(),
-      hourlyCost,
+      estimatedHourlyCost,
       annualLeaveEntitlementDays:Number(draft.annualLeaveEntitlementDays)||0,
       payrollProvider:String(draft.payrollProvider||'').trim(),
       payrollId:String(draft.payrollId||'').trim(),
@@ -96,7 +96,6 @@
       notes:String(draft.notes||'').trim(),
       absences:Array.isArray(draft.absences) ? draft.absences : employee.absences || []
     });
-    employee.payrollReady = payrollMissingFields(employee).length === 0;
     return {ok:true};
   }
 

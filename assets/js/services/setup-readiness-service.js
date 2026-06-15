@@ -11,17 +11,12 @@
   function restaurantFrom(source){return source?.restaurant || {};}
   function employeesFrom(source){return activeEmployees(source || data || {});}
   function employeeContractMissingFields(employee){
-    const missing=[];
-    if(!employee?.contractType)missing.push('Contract type');
-    if(!employee?.workRegime)missing.push('Work regime');
-    if(!Number(employee?.contractHours))missing.push('Weekly hours');
-    if(!employee?.contractStart)missing.push('Start date');
-    if(!Number(employee?.annualLeaveEntitlementDays))missing.push('Annual leave entitlement');
-    return missing;
+    if(typeof window.employeeContractMissingFields === 'function')return window.employeeContractMissingFields(employee);
+    return [];
   }
   function activeZones(setup){return list(setup.zones).filter(zone=>zone.active !== false);}
-  function activePositions(setup){return list(setup.positions).filter(position=>position.active !== false);}
-  function activePositionIds(setup){return new Set(activePositions(setup).map(position=>String(position.id || '')));}
+  function activeJobFunctions(setup){return list(setup.jobFunctions).filter(jobFunction=>jobFunction.active !== false);}
+  function activeJobFunctionIds(setup){return new Set(activeJobFunctions(setup).map(jobFunction=>String(jobFunction.id || '')));}
   function coverageRequirements(setup){return normalizeCoverageRequirements(setup.coverageRequirements || [], setup).filter(req=>Number(req.requiredCount || 0) > 0);}
   function openDays(setup){return days.filter(day=>setup.openingHours?.[day]?.open !== false);}
   function dayHasServiceRange(setup,day){
@@ -69,70 +64,69 @@
     return step('zones','Zones','Operational areas used for planning.',`${zones.length} active`,zones.length ? [] : ['No active zones'],{section:'operations',operationMode:'zones'});
   }
 
-  function positionsStep(source){
-    const positions = activePositions(setupFrom(source));
-    return step('positions','Positions','Roles used by employees and coverage.',`${positions.length} active`,positions.length ? [] : ['No active positions'],{section:'operations',operationMode:'positions'});
+  function jobFunctionsStep(source){
+    const jobFunctions = activeJobFunctions(setupFrom(source));
+    return step('jobFunctions','Job functions','Roles used by employees and coverage.',`${jobFunctions.length} active`,jobFunctions.length ? [] : ['No active job functions'],{section:'operations',operationMode:'jobFunctions'});
   }
 
   function coverageStep(source){
     const setup = setupFrom(source);
     const zones = activeZones(setup);
-    const positions = activePositions(setup);
+    const jobFunctions = activeJobFunctions(setup);
     const requirements = coverageRequirements(setup);
     const coveredZoneIds = new Set(requirements.map(req=>String(req.zoneId || '')));
     const issues = [];
     if(!zones.length)issues.push('Add zones before coverage');
-    if(!positions.length)issues.push('Add positions before coverage');
-    if(zones.length && positions.length && !requirements.length)issues.push('No coverage rules configured');
+    if(!jobFunctions.length)issues.push('Add job functions before coverage');
+    if(zones.length && jobFunctions.length && !requirements.length)issues.push('No coverage rules configured');
     const uncoveredZones = zones.filter(zone=>!coveredZoneIds.has(String(zone.id || '')));
     if(requirements.length && uncoveredZones.length)issues.push(`${uncoveredZones.length} active zone${uncoveredZones.length === 1 ? '' : 's'} without coverage rules`);
-    return step('coverage','Coverage rules','Expected staffing per zone, service and position.',requirements.length ? `${requirements.length} rules` : 'Missing',issues,{section:'operations',operationMode:'zones'});
+    return step('coverage','Coverage rules','Expected staffing per zone, service and job function.',requirements.length ? `${requirements.length} rules` : 'Missing',issues,{section:'operations',operationMode:'zones'});
   }
 
   function teamStep(source){
     const setup = setupFrom(source);
     const employees = employeesFrom(source);
-    const positionIds = activePositionIds(setup);
+    const jobFunctionIds = activeJobFunctionIds(setup);
     const issues = [];
     if(!employees.length)issues.push('No active employees');
-    const unassigned = employees.filter(employee=>!positionIds.has(String(employee.positionId || '')));
-    if(unassigned.length)issues.push(`${unassigned.length} employee${unassigned.length === 1 ? '' : 's'} without active position`);
-    return step('team','Team','Active employees linked to positions.',`${employees.length} active`,issues,{page:'team'});
+    const unassigned = employees.filter(employee=>!jobFunctionIds.has(String(employee.jobFunctionId || '')));
+    if(unassigned.length)issues.push(`${unassigned.length} employee${unassigned.length === 1 ? '' : 's'} without active job function`);
+    return step('team','Team','Active employees linked to job functions.',`${employees.length} active`,issues,{page:'team'});
   }
 
-  function quickAccessState(employee){
-    const loginName = text(employee?.loginName);
+  function badgeAccessState(employee){
     const accessStatus = text(employee?.accessStatus).toLowerCase();
     const pinStatus = text(employee?.pinStatus).toLowerCase();
-    if(employee?.active === false || employee?.quickLoginEnabled === false || accessStatus === 'disabled')return 'disabled';
-    if(!loginName || accessStatus === 'not_invited' || pinStatus !== 'active')return 'missing';
-    if(employee?.mustChangePin === true || ['temporary','reset_required'].includes(accessStatus))return 'temporary';
-    return accessStatus === 'active' ? 'ready' : 'missing';
+    if(employee?.active === false || employee?.badgeEnabled === false || accessStatus === 'disabled')return 'disabled';
+    if(['invited','temporary'].includes(accessStatus))return 'invited';
+    if(accessStatus === 'active' && pinStatus === 'active')return 'ready';
+    return 'missing';
   }
 
-  function quickAccessCounts(employees){
+  function badgeAccessCounts(employees){
     return employees.reduce((counts, employee)=>{
-      const state = quickAccessState(employee);
+      const state = badgeAccessState(employee);
       counts[state] = (counts[state] || 0) + 1;
       return counts;
-    }, {ready:0, temporary:0, missing:0, disabled:0});
+    }, {ready:0, invited:0, missing:0, disabled:0});
   }
 
-  function quickAccessIssues(counts){
+  function badgeAccessIssues(counts){
     const issues = [];
-    if(counts.missing)issues.push(`${counts.missing} employee${counts.missing === 1 ? '' : 's'} missing quick access credentials`);
-    if(counts.temporary)issues.push(`${counts.temporary} employee${counts.temporary === 1 ? '' : 's'} still need first PIN change`);
-    if(counts.disabled)issues.push(`${counts.disabled} employee${counts.disabled === 1 ? '' : 's'} with quick access disabled`);
+    if(counts.missing)issues.push(`${counts.missing} employee${counts.missing === 1 ? '' : 's'} not invited to the app yet`);
+    if(counts.invited)issues.push(`${counts.invited} invitation${counts.invited === 1 ? '' : 's'} still awaiting acceptance`);
+    if(counts.disabled)issues.push(`${counts.disabled} employee${counts.disabled === 1 ? '' : 's'} with badge access disabled`);
     return issues;
   }
 
   function badgesStep(source){
     const employees = employeesFrom(source);
-    const counts = quickAccessCounts(employees);
+    const counts = badgeAccessCounts(employees);
     const issues = [];
-    if(!employees.length)issues.push('Add employees before quick access setup');
-    issues.push(...quickAccessIssues(counts));
-    return step('badges','Quick access','Personal PINs ready for app and badge terminal. Temporary PINs require first-use change.',employees.length ? `${counts.ready}/${employees.length} ready` : 'Missing',issues,{page:'team'});
+    if(!employees.length)issues.push('Add employees before inviting them to the app');
+    issues.push(...badgeAccessIssues(counts));
+    return step('badges','App & badge access','Invite staff by email; they set their own password and badge PIN on accept.',employees.length ? `${counts.ready}/${employees.length} active` : 'Missing',issues,{page:'team'});
   }
 
   function payrollStep(source){
@@ -149,27 +143,27 @@
 
   function teamRosterStep(source){
     const employees = employeesFrom(source);
-    return step('roster','Team roster','Active employees available for planning.',employees.length ? `${employees.length} active` : 'Missing',employees.length ? [] : ['No active employees'],{page:'team',tab:'general'});
+    return step('roster','Team roster','Active employees available for planning.',employees.length ? `${employees.length} active` : 'Missing',employees.length ? [] : ['No active employees'],{page:'team',tab:'core'});
   }
 
-  function teamPositionAssignmentStep(source){
+  function teamJobFunctionAssignmentStep(source){
     const setup = setupFrom(source);
     const employees = employeesFrom(source);
-    const positionIds = activePositionIds(setup);
+    const jobFunctionIds = activeJobFunctionIds(setup);
     const issues = [];
-    if(!activePositions(setup).length)issues.push('Create active positions in Restaurant first');
-    const missing = employees.filter(employee=>!positionIds.has(String(employee.positionId || '')));
-    if(missing.length)issues.push(`${missing.length} employee${missing.length === 1 ? '' : 's'} without active position`);
-    return step('positions','Position assignment','Every active employee linked to an active position.',employees.length ? `${Math.max(0,employees.length - missing.length)}/${employees.length} assigned` : 'Missing',issues,{page:'team',tab:'general'});
+    if(!activeJobFunctions(setup).length)issues.push('Create active job functions in Restaurant first');
+    const missing = employees.filter(employee=>!jobFunctionIds.has(String(employee.jobFunctionId || '')));
+    if(missing.length)issues.push(`${missing.length} employee${missing.length === 1 ? '' : 's'} without active job function`);
+    return step('jobFunctions','Job function assignment','Every active employee linked to an active job function.',employees.length ? `${Math.max(0,employees.length - missing.length)}/${employees.length} assigned` : 'Missing',issues,{page:'team',tab:'core'});
   }
 
   function teamBadgeAccessStep(source){
     const employees = employeesFrom(source);
-    const counts = quickAccessCounts(employees);
+    const counts = badgeAccessCounts(employees);
     const issues = [];
-    if(!employees.length)issues.push('Add employees before quick access setup');
-    issues.push(...quickAccessIssues(counts));
-    return step('badges','Quick access','Personal PINs ready for app and badge terminal. Temporary PINs require first-use change.',employees.length ? `${counts.ready}/${employees.length} ready` : 'Missing',issues,{page:'team',tab:'general'});
+    if(!employees.length)issues.push('Add employees before inviting them to the app');
+    issues.push(...badgeAccessIssues(counts));
+    return step('badges','App & badge access','Invite staff by email; they set their own password and badge PIN on accept.',employees.length ? `${counts.ready}/${employees.length} active` : 'Missing',issues,{page:'team',tab:'contact'});
   }
 
   function teamContractStep(source){
@@ -205,7 +199,7 @@
     const safe = source || data || {};
     const steps = [
       teamRosterStep(safe),
-      teamPositionAssignmentStep(safe),
+      teamJobFunctionAssignmentStep(safe),
       teamBadgeAccessStep(safe),
       teamContractStep(safe),
       teamPayrollStep(safe),
@@ -229,7 +223,7 @@
       basicsStep(safe),
       openingStep(safe),
       zonesStep(safe),
-      positionsStep(safe),
+      jobFunctionsStep(safe),
       coverageStep(safe),
       teamStep(safe),
       badgesStep(safe),

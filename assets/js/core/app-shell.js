@@ -159,7 +159,7 @@ function render(){
   const userPillEl=$('userPill');
   if(userPillEl){
     userPillEl.textContent=who;
-    userPillEl.setAttribute('aria-label',`Log out ${who} and return to login`);
+    userPillEl.setAttribute('aria-label',`Open account menu for ${who}`);
   }
   syncShellChrome();
   Restogogo.registry.renderActiveModule();
@@ -180,9 +180,8 @@ function bind(){
   on('emailLoginBtn','click',()=>void Restogogo.auth.enterSelectedWorkspace());
   on('emailLoginPassword','keydown',e=>{if(e.key==='Enter')void Restogogo.auth.enterSelectedWorkspace();});
   on('emailLoginName','keydown',e=>{if(e.key==='Enter')void Restogogo.auth.enterSelectedWorkspace();});
-  on('emailLoginRestaurant','change',e=>void Restogogo.auth.changeLoginWorkspace(e.target.value));
   on('accessHelpLoginBtn','click',showAccessHelp);
-  on('userPill','click',()=>{void Restogogo.auth.signOut();});
+  Restogogo.services.accountMenu?.bind?.();
   on('notifBtn','click',e=>{e.stopPropagation(); notifOpen=!notifOpen; renderNotifications();});
   document.addEventListener('click',event=>{
     const accessHelp=event.target.closest('[data-login-access-help]');
@@ -230,6 +229,7 @@ async function initRestogogoApp(){
   Restogogo.diagnostics?.reportBootOk?.();
   const requested=Restogogo.auth.requestedWorkspaceId();
   if(requested&&window.DataAdapter.setWorkspaceId)window.DataAdapter.setWorkspaceId(requested);
+  if(await Restogogo.auth.tryInviteAcceptance()){updateStickyVars();return;}
   const hasSession = await Restogogo.auth.bootstrapAuthenticatedSession();
   if(hasSession){
     await load();

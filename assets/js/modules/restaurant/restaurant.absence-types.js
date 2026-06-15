@@ -27,7 +27,7 @@
     return options.map(([option,label])=>`<option value="${esc(option)}" ${value===option?'selected':''}>${esc(label)}</option>`).join('');
   }
 
-  function absenceTypeRows(){
+  function absenceTypeRows(absenceTypes){
     const types=normalizeAbsenceTypeList(absenceTypes || []);
     return types.map(type=>`<tr class="${type.active===false?'is-muted':''}">
       <td><input class="rs-compact-input" data-absence-type-id="${esc(type.id)}" data-absence-type-field="name" value="${esc(type.name)}" placeholder="Absence name"></td>
@@ -47,7 +47,7 @@
       <div class="restaurant-hours-table-wrap">
         <table class="restaurant-hours-table restaurant-absence-types-table rs-table">
           <thead><tr><th>Name</th><th>Code</th><th>Category</th><th>Pay</th><th>Payroll</th><th>Color</th><th>Rule</th><th>Status</th></tr></thead>
-          <tbody>${absenceTypeRows()}</tbody>
+          <tbody>${absenceTypeRows(absenceTypes)}</tbody>
         </table>
       </div>
     </section>`;

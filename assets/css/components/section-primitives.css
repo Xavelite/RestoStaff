@@ -5,8 +5,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 46px;
-  padding: 10px 14px;
+  min-height: var(--rst-head-min-h);
+  padding: var(--rst-head-pad);
   border-bottom: 1px solid var(--rst-ui-surface-divider);
   background: var(--rst-ui-surface-panel-head);
 }
@@ -82,7 +82,8 @@
 
 
 /* Shared inner section surface primitive for readable grouping inside a top-level workspace card.
-   It is intentionally quieter than rs-card: inner grouping should guide content, not create another heavy box. */
+   The surface stays quiet (transparent, faint border) so nested groupings don't become heavy boxes,
+   but its header uses the one shared content-header bar (--rst-head-*) so every header aligns. */
 .rs-section-surface {
   min-width: 0;
   border: 1px solid var(--rst-ui-surface-section-border);
@@ -97,13 +98,15 @@
 .rs-section-surface > .rs-section-head,
 .rs-section-surface > .rs-panel-head,
 .rs-section-surface > form > .rs-section-head {
-  min-height: 0;
+  min-height: var(--rst-head-min-h);
   align-items: center;
-  padding: 0 0 10px;
-  margin: 0 0 10px;
+  /* Break out of the surface's 12px padding so the head is a flush title bar,
+     matching every other content header (one shared head contract). */
+  margin: -12px -12px 12px;
+  padding: var(--rst-head-pad);
   border: 0;
   border-bottom: 1px solid var(--rst-ui-surface-divider);
-  background: var(--rst-ui-surface-section-head);
+  background: var(--rst-ui-surface-panel-head);
 }
 
 .rs-section-surface__head {
@@ -120,7 +123,7 @@
 .rs-section-surface__head strong {
   overflow: hidden;
   color: var(--rst-ui-panel-title);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.15;
   font-weight: var(--rst-fw-bold);
   text-overflow: ellipsis;

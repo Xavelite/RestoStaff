@@ -1,7 +1,7 @@
 /* restogogo runtime state factory.
  * Strict Supabase build: this file only creates a non-operational shell when
  * Supabase cannot return a restaurant row. It never seeds employees, zones,
- * positions, shifts or opening hours.
+ * jobFunctions, shifts or opening hours.
  */
 function emptySupabaseRuntimeState(idValue){
   return {
@@ -13,8 +13,11 @@ function emptySupabaseRuntimeState(idValue){
     employees:[],
     restaurantSetup:{
       general:{},
+      departments:[],
+      teams:[],
       zones:[],
-      positions:[],
+      jobFunctions:[],
+      contractTypes:[],
       openingHours:{},
       coverageRequirements:[],
       payrollRules:{},

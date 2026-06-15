@@ -1,7 +1,7 @@
 /* Shared entity header used by Team and Restaurant profile modules. */
 .rs-entity-header {
-  min-height: 56px;
-  padding: 10px 16px;
+  min-height: var(--rst-head-min-h);
+  padding: var(--rst-head-pad);
   display: flex;
   align-items: center;
   justify-content: space-between;

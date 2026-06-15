@@ -63,7 +63,7 @@
 
   function renderToolbar(){
     const s=Restogogo.actuals.state;
-    const roleOptions=[filterOption('role','All roles','all',s.roleFilter)].concat(activePositionNames().map(role=>filterOption('role',role,role,s.roleFilter))).join('');
+    const roleOptions=[filterOption('role','All roles','all',s.roleFilter)].concat(activeJobFunctionNames().map(role=>filterOption('role',role,role,s.roleFilter))).join('');
 
     return Toolbar.gridToolbar({
       tag:'section',
@@ -94,7 +94,6 @@
           items:[
             {action:'approve-week',label:'Approve week actuals'},
             {action:'reopen-week',label:'Reopen week actuals'},
-            {action:'export-payroll',label:'Export payroll prep'},
             {action:'export-summary',label:'Export weekly summary'},
             {action:'export-details',label:'Export details'},
             {action:'export-anomalies',label:'Export anomalies'},
@@ -178,7 +177,7 @@
         moduleName:'actuals',
         employee,
         tag:'th',
-        avatarStyle:positionStyle(employeePositionName(employee)),
+        avatarStyle:jobFunctionStyle(employeeJobFunctionName(employee)),
         attributes:{
           'data-actuals-action':'select-row',
           'data-rowkey':rowKey,

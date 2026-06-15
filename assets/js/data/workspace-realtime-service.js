@@ -44,9 +44,8 @@
     return typeof window.supabase?.createClient === 'function';
   }
 
-  /* The presence key for this session.
-   * Uses quick_session_id when available so the same employee logging in twice
-   * shows only one chip. Falls back to a random string per page load. */
+  /* The presence key for this page session.
+   * A random key per page load keeps presence local to this browser tab. */
   function getSelfKey(){ return _selfKey; }
 
   /* Connect to the workspace channel and begin tracking presence.
@@ -107,7 +106,7 @@
    * cleared here. Module bind() functions (planningBind, actualsActionsBind) are
    * guarded by `if(bound) return` so each handler is registered exactly once per
    * page load and must survive login → logout → login cycles. Clearing them would
-   * prevent banners and live-refresh from working after a quick-session switch. */
+   * prevent banners and live-refresh from working after a login/session switch. */
   function disconnect(){
     try{ _channel?.unsubscribe(); }catch{}
     try{ _client?.removeAllChannels(); }catch{}
@@ -199,7 +198,7 @@
 
   function _makeSessionKey(){
     return String(
-      window.RestogogoAuthService?.getQuickSession?.()?.quick_session_id ||
+      window.RestogogoAuthService?.getUser?.()?.id ||
       Math.random().toString(36).slice(2)
     );
   }

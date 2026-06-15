@@ -8,7 +8,7 @@
   function icon(name){return R.icons?.svg?.(name) || '';}
   function iconName(key){
     return ({
-      basics:'building', opening:'clock', zones:'zone', positions:'id', coverage:'grid',
+      basics:'building', opening:'clock', zones:'zone', jobFunctions:'id', coverage:'grid',
       team:'users', roster:'users', badges:'badge', payroll:'payroll', contracts:'document', absences:'palm'
     }[key] || 'check');
   }

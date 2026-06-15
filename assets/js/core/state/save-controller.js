@@ -17,7 +17,7 @@ function coreSetupCounts(source=data){
   return {
     employees:Array.isArray(source?.employees) ? source.employees.length : 0,
     zones:Array.isArray(setup.zones) ? setup.zones.length : 0,
-    positions:Array.isArray(setup.positions) ? setup.positions.length : 0
+    jobFunctions:Array.isArray(setup.jobFunctions) ? setup.jobFunctions.length : 0
   };
 }
 function setupRequirements(source=data){
@@ -25,11 +25,11 @@ function setupRequirements(source=data){
   const setup = isPlainObject(target.restaurantSetup) ? target.restaurantSetup : {};
   const employees = Array.isArray(target.employees) ? target.employees : [];
   const zones = Array.isArray(setup.zones) ? setup.zones : [];
-  const setupPositions = Array.isArray(setup.positions) ? setup.positions : [];
+  const setupJobFunctions = Array.isArray(setup.jobFunctions) ? setup.jobFunctions : [];
   const missing = [];
   if(!employees.some(employee=>employee?.active !== false)) missing.push({key:'employee',label:'Add at least one active employee',page:'team'});
   if(!zones.some(zone=>zone?.active !== false && String(zone?.name || '').trim())) missing.push({key:'zone',label:'Add at least one active zone',page:'restaurant'});
-  if(!setupPositions.some(position=>position?.active !== false && String(position?.name || '').trim())) missing.push({key:'position',label:'Add at least one active position',page:'restaurant'});
+  if(!setupJobFunctions.some(jobFunction=>jobFunction?.active !== false && String(jobFunction?.name || '').trim())) missing.push({key:'Job function',label:'Add at least one active job function',page:'restaurant'});
   return {ready:missing.length === 0, missing};
 }
 function isSetupReady(source=data){return setupRequirements(source).ready;}

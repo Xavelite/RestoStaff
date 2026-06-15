@@ -8,9 +8,9 @@
       const restaurantSetup=RestaurantModel.setup();
       return (restaurantSetup.zones||[]).filter(zone=>includeInactive || zone.active !== false);
     },
-    positions(includeInactive=true){
+    jobFunctions(includeInactive=true){
       const restaurantSetup=RestaurantModel.setup();
-      return (restaurantSetup.positions||[]).filter(position=>includeInactive || position.active !== false);
+      return (restaurantSetup.jobFunctions||[]).filter(jobFunction=>includeInactive || jobFunction.active !== false);
     },
     readiness(){
       return Restogogo.services.setupReadiness?.build?.(data) || {percent:0,issues:['Setup readiness unavailable'],steps:[],ready:false,tone:'warning',label:'Setup needed',detail:'Setup guide unavailable'};

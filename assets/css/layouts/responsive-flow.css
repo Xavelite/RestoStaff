@@ -182,3 +182,128 @@
 .actuals-mode .rs-weekly-board {
   contain: inline-size;
 }
+
+/* Onboarding responsive flow. */
+@media (max-width: 1180px) {
+  .onboarding-shell {
+    width: min(720px, calc(100% - var(--rst-gutter)));
+  }
+
+  .onboarding-stage {
+    grid-template-columns: 1fr;
+  }
+
+  .onboarding-media-panel {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .onboarding-shell {
+    width: calc(100% - 24px);
+    padding: 14px 0 28px;
+  }
+
+  .onboarding-topbar {
+    grid-template-columns: 1fr auto;
+  }
+
+  .onboarding-support {
+    display: none;
+  }
+
+  .onboarding-logo {
+    justify-self: end;
+    width: 144px;
+  }
+
+  .onboarding-workspace {
+    min-height: calc(100dvh - 92px);
+  }
+
+  .onboarding-steps {
+    grid-template-columns: repeat(8, minmax(38px, 1fr));
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .onboarding-step {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 5px;
+    padding: 8px 4px;
+  }
+
+  .onboarding-step-text {
+    justify-items: center;
+  }
+
+  .onboarding-step small {
+    display: none;
+  }
+
+  .onboarding-step-label {
+    max-width: 100%;
+    font-size: 11px;
+  }
+
+  .onboarding-step-label {
+    display: none;
+  }
+
+  .onboarding-step-panel {
+    padding: 18px;
+  }
+
+  .onboarding-form-row,
+  .onboarding-summary-row,
+  .onboarding-choice-grid,
+  .onboarding-inline-add,
+  .onboarding-assignment-row {
+    grid-template-columns: 1fr;
+  }
+
+  .onboarding-link-flow {
+    grid-template-columns: 1fr;
+  }
+
+  .onboarding-actions {
+    flex-direction: column-reverse;
+  }
+
+  .onboarding-actions .brand-primary-button,
+  .onboarding-actions .brand-secondary-button {
+    width: 100%;
+  }
+}
+
+@media (max-height: 760px) {
+  .onboarding-shell {
+    padding-top: 14px;
+    padding-bottom: 24px;
+    gap: 10px;
+  }
+
+  .onboarding-workspace {
+    min-height: calc(100dvh - 90px);
+  }
+
+  .onboarding-step-panel {
+    gap: 12px;
+    padding: 20px;
+  }
+
+  .onboarding-step-head {
+    padding-bottom: 8px;
+  }
+
+  .onboarding-media-frame {
+    min-height: 300px;
+  }
+}
+
+@media (max-width: 520px) {
+  .onboarding-step-head h1 {
+    font-size: 24px;
+  }
+}

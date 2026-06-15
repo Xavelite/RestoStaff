@@ -25,8 +25,33 @@
     if(lastError)window.Restogogo?.warn?.(lastError);
   }
   function activeContext(){return window.Restogogo?.workspace?.current?.() || null;}
-  function quickSnapshot(){return auth()?.getQuickSession?.()?.runtime_snapshot || null;}
-  function mapSnapshot(snapshot){return mapper?.stateFromSnapshot?.(snapshot);}
+  function currentRuntimeRole(){
+    const contextRole = activeContext()?.role || activeContext()?.membership?.role;
+    return String(contextRole || session?.role || '').trim().toLowerCase();
+  }
+  function stripEmployeePrivateFields(state){
+    if(!state || currentRuntimeRole() !== 'employee')return state;
+    const privateFields = [
+      'nationality','socialSecurityNo','iban','bic','estimatedHourlyCost',
+      'payrollProvider','payrollId','payrollNotes'
+    ];
+    const next = clone(state);
+    next.employees = (Array.isArray(next.employees) ? next.employees : []).map(employee=>{
+      privateFields.forEach(field=>{delete employee[field];});
+      return employee;
+    });
+    if(Array.isArray(next.restaurantSetup?.jobFunctions)){
+      next.restaurantSetup.jobFunctions = next.restaurantSetup.jobFunctions.map(jobFunction=>{
+        delete jobFunction.estimatedHourlyCost;
+        return jobFunction;
+      });
+    }
+    if(next.restaurantSetup?.payrollRules)next.restaurantSetup.payrollRules = {};
+    return next;
+  }
+  function mapSnapshot(snapshot){
+    return stripEmployeePrivateFields(mapper?.stateFromSnapshot?.(snapshot));
+  }
 
   /* Compute a ±8-week date window around today's ISO Monday.
    * Returned as { from: 'YYYY-MM-DD', to: 'YYYY-MM-DD' } for the snapshot RPC. */
@@ -44,10 +69,10 @@
   function applyRuntimeSnapshot(snapshot){
     if(!snapshot)return null;
     const nextState = mapSnapshot(snapshot);
+    data = nextState;
     if(window.Restogogo?.state)window.Restogogo.state.data = nextState;
-    // Central snapshot application point for all repository save results.
-    // Keeps quick-session reloads aligned without repositories mutating state directly.
-    auth()?.updateQuickSessionSnapshot?.(snapshot);
+    // Central snapshot application point for all repository save results,
+    // without repositories mutating runtime state directly.
     setError('');
     lastReadStatus = 'ok';
     return nextState;
@@ -57,9 +82,7 @@
     lastReadStatus = 'loading';
     try{
       let snapshot = null;
-      const context = activeContext();
-      if(context?.authMode === 'quick_login')snapshot = quickSnapshot();
-      if(!snapshot && auth()?.isAuthenticated?.()){
+      if(auth()?.isAuthenticated?.()){
         snapshot = await auth()?.getWorkspaceRuntimeSnapshot?.(currentRecordId, snapshotDateRange());
       }
       if(!snapshot){lastReadStatus = 'empty'; return null;}
@@ -94,6 +117,7 @@
     readPlanner:readRemotePlanner,
     savePlanner:saveRemotePlanner,
     applyRuntimeSnapshot,
+    stripEmployeePrivateFields,
     getLastError(){return lastError;},
     getLastReadStatus(){return lastReadStatus;},
     wasLastReadError(){return lastReadStatus === 'error';},
@@ -102,7 +126,7 @@
     setWorkspaceId(value){currentRecordId = String(value || defaultWorkspaceId).trim() || defaultWorkspaceId; store?.setString?.(KEYS.workspaceId,currentRecordId); lastReadStatus='idle'; return currentRecordId;},
     readSession(defaultValue){return store?.getJSON?.(KEYS.session, defaultValue) || defaultValue;},
     saveSession(value){return store?.setJSON?.(KEYS.session, value);},
-    isLoggedIn(){return auth()?.isAuthenticated?.() || auth()?.isQuickAuthenticated?.();},
+    isLoggedIn(){return auth()?.isAuthenticated?.() || false;},
     readNotificationsRead(){return store?.getJSON?.(KEYS.notificationsRead, {}) || {};},
     saveNotificationsRead(value){return store?.setJSON?.(KEYS.notificationsRead, value || {});},
     readPreference(key, defaultValue=null){return store?.getJSON?.(key, defaultValue);},

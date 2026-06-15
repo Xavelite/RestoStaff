@@ -203,7 +203,7 @@
     if(ok)closeCorrectionDialog();
   }
   async function closeWeek(action){
-    const reason=await Restogogo.ui?.prompt?.({title:action==='approve_week'?'Approve actuals week':'Reopen actuals week',message:'Add a short manager reason for the weekly actuals record.',label:'Reason',placeholder:action==='approve_week'?'Reviewed and approved for payroll prep.':'Reopened for correction.',defaultValue:action==='approve_week'?'Reviewed and approved for payroll prep.':'Reopened for correction.',confirmText:action==='approve_week'?'Approve week':'Reopen week'});
+    const reason=await Restogogo.ui?.prompt?.({title:action==='approve_week'?'Approve actuals week':'Reopen actuals week',message:'Add a short manager reason for the weekly actuals record.',label:'Reason',placeholder:action==='approve_week'?'Reviewed and approved for weekly close.':'Reopened for correction.',defaultValue:action==='approve_week'?'Reviewed and approved for weekly close.':'Reopened for correction.',confirmText:action==='approve_week'?'Approve week':'Reopen week'});
     if(reason===null || reason===undefined)return;
     const clean=String(reason||'').trim();
     if(clean.length<3){Restogogo.ui?.toast?.('A reason is required.',{tone:'warning',icon:'alert',centered:true});return;}
@@ -255,7 +255,6 @@
       if(action){closeMenus();}
       if(action==='approve-week'){closeWeek('approve_week');return;}
       if(action==='reopen-week'){closeWeek('reopen_week');return;}
-      if(action==='export-payroll'){Restogogo.export.actuals.payroll();return;}
       if(action==='export-summary'){Restogogo.export.actuals.summary();return;}
       if(action==='export-details'){Restogogo.export.actuals.details();return;}
       if(action==='export-anomalies'){Restogogo.export.actuals.anomalies();return;}

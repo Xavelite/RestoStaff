@@ -11,13 +11,13 @@ function normalizeRuntimeState(target=data){
 
   o.restaurantSetup = normalizeRestaurantSetup(o.restaurantSetup, {restaurant:o.restaurant});
 
-  // Keep positions single-sourced in restaurantSetup.positions; modules must use selectors.
-  delete o.positions;
+  // Keep jobFunctions single-sourced in restaurantSetup.jobFunctions; modules must use selectors.
+  delete o.jobFunctions;
 
   if(!Array.isArray(o.employees)) o.employees = [];
   const seenEmployeeIds = new Set();
   o.employees = o.employees.map((employee,index)=>{
-    const normalized = normalizeEmployeeRecord(employee,index,o.restaurantSetup.positions);
+    const normalized = normalizeEmployeeRecord(employee,index,o.restaurantSetup.jobFunctions);
     let uniqueId = normalized.id;
     let counter = 2;
     while(seenEmployeeIds.has(uniqueId)){

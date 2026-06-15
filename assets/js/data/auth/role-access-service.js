@@ -31,13 +31,6 @@
     return member ? requireKnownRole(member.role, 'Membership role is missing or invalid.') : '';
   }
 
-  function quickRoleForRestaurant(restaurantId, quickSession){
-    const quick = quickSession || {};
-    const quickRestaurant = quick.restaurant?.id || quick.membership?.restaurant_id || '';
-    if(String(quickRestaurant || '') !== String(restaurantId || ''))return '';
-    return requireKnownRole(quick.membership?.role, 'Quick-login role is missing or invalid.');
-  }
-
   function requireRole(role, predicate, message){
     const cleanRole = normalizeRole(role);
     if(!cleanRole || !predicate(cleanRole))throw new Error(message);
@@ -48,16 +41,10 @@
     return requireRole(roleForRestaurant(restaurantId, memberships), predicate, message);
   }
 
-  function requireQuickRole(restaurantId, predicate, message, quickSession){
-    return requireRole(quickRoleForRestaurant(restaurantId, quickSession), predicate, message);
-  }
-
   window.RestogogoRoleAccessService = Object.freeze({
     normalizeMembership,
     runtimeSessionFromMembership,
     roleForRestaurant,
-    quickRoleForRestaurant,
-    requireAuthenticatedRole,
-    requireQuickRole
+    requireAuthenticatedRole
   });
 })();

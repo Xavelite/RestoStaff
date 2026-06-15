@@ -1,7 +1,6 @@
-/* restogogo workspace auth — DB v2 front-door.
- * Real login uses Supabase Auth email/password.
- * Quick login uses restaurant-scoped FirstName.LastName + 4-digit PIN.
- * Badge Terminal uses the same quick PIN credential.
+﻿/* restogogo workspace auth - DB v2 front-door.
+ * App login uses Supabase Auth email/password.
+ * Badge Terminal uses its own badge PIN credential.
  */
 (function(){
   const Restogogo = window.Restogogo = window.Restogogo || {};
@@ -49,9 +48,9 @@
     return {role, employeeId:context?.employeeId || null};
   }
 
-  function loginContext(mode){
-    return Restogogo.brandEntry?.getLoginContext?.(mode) || {
-      mode: mode || 'real',
+  function loginContext(){
+    return Restogogo.brandEntry?.getLoginContext?.() || {
+      mode: 'email',
       identity: String($('emailLoginName')?.value || '').trim(),
       secret: String($('emailLoginPassword')?.value || '').trim(),
       workspaceId: defaultWorkspaceSlug()
@@ -60,27 +59,8 @@
   function showError(message){Restogogo.brandEntry?.signalLoginError?.(message || 'Login failed.'); return null;}
   function clearLoginMessages(){Restogogo.brandEntry?.clearLoginMessages?.();}
   function clearLoginFields(){
-    ['emailLoginName','emailLoginPassword','quickLoginName','quickLoginPin'].forEach(id=>{const el=$(id); if(el)el.value='';});
+    ['emailLoginName','emailLoginPassword'].forEach(id=>{const el=$(id); if(el)el.value='';});
     clearLoginMessages();
-  }
-  /* Workspace slug inputs — no unauthenticated RPC; fill from current context or URL param. */
-  function populateRestaurantLoginSelect(){
-    const slug = Restogogo.workspace?.current?.()?.workspaceSlug
-      || Restogogo.workspace?.current?.()?.restaurantId
-      || window.DataAdapter?.getWorkspaceId?.()
-      || requestedWorkspaceId();
-    ['emailLoginRestaurant','quickLoginRestaurant'].forEach(id=>{
-      const el=$(id);
-      if(el)el.value=slug;
-    });
-  }
-  async function changeLoginWorkspace(idValue){
-    if(!idValue)return;
-    window.DataAdapter?.setWorkspaceId?.(idValue);
-    if(window.RestogogoAuthService?.isAuthenticated?.()){
-      const context = await Restogogo.workspace?.loadCurrentContext?.(idValue);
-      if(context)session = runtimeSessionFromContext(context);
-    }
   }
 
   async function loadAuthenticatedWorkspace(preferredRestaurantId=''){
@@ -105,43 +85,18 @@
     return enterAppAfterContext(await loadAuthenticatedWorkspace(preferredRestaurantId), 'auth');
   }
 
-  async function enterQuickWorkspace(ctx){
-    const identity = String(ctx.identity || '').trim();
-    const pin = String(ctx.secret || '').trim();
-    const workspaceId = ctx.workspaceId || requestedWorkspaceId();
-    if(!identity)return showError('Enter your quick login name.');
-    if(!/^\d{4}$/.test(pin))return showError('Enter your 4-digit PIN.');
-    const payload = await window.RestogogoAuthService.quickLogin(workspaceId, identity, pin);
-    const context = Restogogo.workspace?.loadQuickContext?.(payload);
-    if(!context)return showError('Quick login did not return a workspace.');
-    session = runtimeSessionFromContext(context);
-    window.DataAdapter?.saveSession?.(session);
-    window.DataAdapter?.setWorkspaceId?.(context.restaurantId);
-    if(payload?.employee?.must_change_pin === true){
-      Restogogo.brandEntry?.showPinChangePanel?.(async(currentPin, newPin)=>{
-        await window.RestogogoAuthService.changeOwnPin(currentPin, newPin);
-        const nextContext = Restogogo.workspace?.bootstrapQuickContext?.() || context;
-        await enterAppAfterContext(nextContext, 'quick-pin-change');
-      });
-      return context;
-    }
-    return enterAppAfterContext(context, 'quick-login');
-  }
-
-  async function enterSelectedWorkspace(options={}){
-    const mode = options.mode || options.role || undefined;
-    const ctx = loginContext(mode);
+  async function enterSelectedWorkspace(){
+    const ctx = loginContext();
     clearLoginMessages();
     try{
-      if(ctx.mode === 'quick')return await enterQuickWorkspace(ctx);
       const email = String(ctx.identity || '').trim();
       const password = String(ctx.secret || '');
       if(!email)return showError('Enter your email address.');
       if(!password)return showError('Enter your password.');
       await window.RestogogoAuthService.signIn(email, password);
-      return await enterAuthenticatedWorkspace(ctx.workspaceId || requestedWorkspaceId());
+      return await enterAuthenticatedWorkspace(ctx.workspaceId || '');
     }catch(error){
-      return showError(error?.message || (ctx.mode === 'quick' ? 'Quick login failed.' : 'Secure login failed.'));
+      return showError(error?.message || 'Secure login failed.');
     }
   }
 
@@ -160,13 +115,6 @@
         return false;
       }
     }
-    const quickContext = Restogogo.workspace?.bootstrapQuickContext?.();
-    if(quickContext){
-      session = runtimeSessionFromContext(quickContext);
-      window.DataAdapter?.saveSession?.(session);
-      window.DataAdapter?.setWorkspaceId?.(quickContext.restaurantId);
-      return true;
-    }
     return false;
   }
 
@@ -180,11 +128,33 @@
     if(loginEl)loginEl.style.display = 'grid';
     const onboardingEl = $('onboarding');
     if(onboardingEl)onboardingEl.style.display = 'none';
-    Restogogo.brandEntry?.renderEntryModules?.();
-    await populateRestaurantLoginSelect();
     clearLoginFields();
     Restogogo.brandEntry?.resetLoginState?.();
     setTimeout(()=>loginContext().identityEl?.focus?.(), 0);
+  }
+
+  /* First-login from an email invite. When the invite link returns the user
+   * here (tokens in the URL hash), start their session, scrub the hash, and
+   * show the accept panel to set password + badge PIN. Returns true when the
+   * invite flow took over boot. */
+  async function tryInviteAcceptance(){
+    const auth = window.RestogogoAuthService;
+    const tokens = auth?.readInviteTokensFromHash?.();
+    if(!tokens)return false;
+    try{history.replaceState(null, '', location.pathname + location.search);}catch{}
+    await showRestaurantLogin();
+    try{
+      await auth.startInviteSession(tokens);
+    }catch(error){
+      showError(error?.message || 'This invitation link is invalid or has expired.');
+      return true;
+    }
+    Restogogo.brandEntry?.showAcceptInvitePanel?.(async({password, pin})=>{
+      await auth.acceptInvite({password, pin});
+      Restogogo.brandEntry?.hideAcceptInvitePanel?.();
+      await enterAuthenticatedWorkspace(requestedWorkspaceId());
+    });
+    return true;
   }
 
   async function signOut(){
@@ -201,11 +171,10 @@
     isBadgeTerminalLaunchRoute,
     badgeTerminalUrl,
     openBadgeTerminal,
-    populateRestaurantLoginSelect,
-    changeLoginWorkspace,
     enterSelectedWorkspace,
     enterAuthenticatedWorkspace,
     bootstrapAuthenticatedSession,
+    tryInviteAcceptance,
     showRestaurantLogin,
     signOut
   });

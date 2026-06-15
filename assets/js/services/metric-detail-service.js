@@ -57,7 +57,7 @@
       icon:issue.status === 'under' ? 'alert' : 'info',
       tone:issue.status === 'under' ? 'danger' : 'warning',
       title:`${issue.day} · ${issue.serviceKey}`,
-      meta:`${issue.zoneName || 'Zone'} · ${issue.positionName || 'Role'}`,
+      meta:`${issue.zoneName || 'Zone'} · ${issue.jobFunctionName || 'Role'}`,
       value:issue.delta < 0 ? `${Math.abs(issue.delta)} missing` : `${issue.delta} extra`
     })).join('') + (summary.issues.length > limit ? `<p class="rs-detail-more">+${summary.issues.length - limit} more coverage issues</p>` : '');
   }
@@ -227,10 +227,10 @@
     return modal('Active zones','Restaurant setup','zone','neutral',section('Operational zones',`${zones.length} active`,rows || empty('No active zones configured.')),[{label:'Go to Restaurant',page:'restaurant',primary:true},{label:'Close',action:'close'}]);
   }
 
-  function restaurantPositions(){
-    const positions = (data?.restaurantSetup?.positions || []).filter(position=>position.active !== false);
-    const rows = positions.map(position=>row({icon:'id',tone:'neutral',title:position.name,meta:'Linked to team & planning',value:money(position.hourlyCost || 0)})).join('');
-    return modal('Positions','Restaurant setup','id','neutral',section('Active positions',`${positions.length} positions`,rows || empty('No active positions configured.')),[{label:'Go to Restaurant',page:'restaurant',primary:true},{label:'Close',action:'close'}]);
+  function restaurantJobFunctions(){
+    const jobFunctions = (data?.restaurantSetup?.jobFunctions || []).filter(jobFunction=>jobFunction.active !== false);
+    const rows = jobFunctions.map(jobFunction=>row({icon:'id',tone:'neutral',title:jobFunction.name,meta:'Linked to team & planning',value:money(jobFunction.estimatedHourlyCost || 0)})).join('');
+    return modal('Job functions','Restaurant setup','id','neutral',section('Active job functions',`${jobFunctions.length} job functions`,rows || empty('No active job functions configured.')),[{label:'Go to Restaurant',page:'restaurant',primary:true},{label:'Close',action:'close'}]);
   }
 
   function restaurantOpening(){
@@ -327,7 +327,7 @@
     'team.absences':teamAbsences,
     'team.payroll':teamPayroll,
     'restaurant.zones':restaurantZones,
-    'restaurant.positions':restaurantPositions,
+    'restaurant.jobFunctions':restaurantJobFunctions,
     'restaurant.opening':restaurantOpening,
     'restaurant.setup':restaurantSetupReadiness,
     'restaurant.readiness':restaurantReadiness
