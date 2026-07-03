@@ -1,0 +1,1685 @@
+<script lang="ts">
+  import {
+    inviteEmployee,
+    revokeEmployeeInvitation,
+    saveAbsence,
+    saveTeam,
+    setEmployeeAccessState
+  } from '$lib/api/mutations';
+  import { leaveBalanceForEmployee } from '$lib/absence/leave-balance';
+  import ActionButton from '$lib/components/ActionButton.svelte';
+  import Drawer from '$lib/components/Drawer.svelte';
+  import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
+  import LeaveBalanceSummary from '$lib/components/LeaveBalanceSummary.svelte';
+  import Panel from '$lib/components/Panel.svelte';
+  import type { SetupStep } from '$lib/components/SetupGuide.svelte';
+  import SaveActions from '$lib/components/SaveActions.svelte';
+  import { addDays, todayInTimezone, WEEKDAYS } from '$lib/calendar/date';
+  import { defaultWorkRegime } from '$lib/domain/operations';
+  import {
+    employeeDrafts,
+    newEmployeeDraft,
+    teamSetupSteps,
+    teamSavePayload,
+    type EmployeeDraft
+  } from '$lib/team/team-model';
+  import TeamAccessPanel from '$lib/team/TeamAccessPanel.svelte';
+  import { workspace } from '$lib/workspace/workspace.svelte';
+  import { workspaceRealtime } from '$lib/realtime/workspace-realtime.svelte';
+
+  const tabs = ['General', 'Access', 'Contract', 'Payroll', 'Absences'] as const;
+  type Tab = (typeof tabs)[number];
+
+  const snapshot = $derived(workspace.team);
+  const role = $derived(workspace.active?.role ?? 'employee');
+  const owner = $derived(role === 'owner');
+  const today = $derived(
+    todayInTimezone(snapshot?.restaurant_settings.timezone || 'Europe/Brussels')
+  );
+  let drafts = $state<EmployeeDraft[]>([]);
+  let selectedId = $state('');
+  let detailOpen = $state(false);
+  let tab = $state<Tab>('General');
+  let loadedSnapshot = $state('');
+  let baseline = $state('');
+  let saving = $state(false);
+  let feedback = $state('');
+  let feedbackTone = $state<'info' | 'success' | 'warning' | 'danger'>('info');
+  let absenceTypeId = $state('');
+  let absenceStart = $state('');
+  let absenceEnd = $state('');
+  let absenceService = $state('');
+  let absenceComment = $state('');
+  let inviting = $state(false);
+  let inviteRole = $state<'employee' | 'manager'>('employee');
+  let inviteRoleEmployeeId = $state('');
+  let expandedContractId = $state('');
+  let expandedAbsenceId = $state('');
+  let revealPayroll = $state(false);
+
+  $effect(() => {
+    if (workspace.activeId && role !== 'employee') {
+      void workspace.loadTeam(true).catch(() => undefined);
+    }
+  });
+
+  const selected = $derived(drafts.find((employee) => employee.id === selectedId) ?? null);
+  const selectedAccessRole = $derived(
+    selected?.accessRole || selected?.invitationRole || 'employee'
+  );
+  const canManageSelectedAccess = $derived(
+    Boolean(
+      selected &&
+      selectedAccessRole !== 'owner' &&
+      (owner || selectedAccessRole === 'employee')
+    )
+  );
+  function employeeIssues(employee: EmployeeDraft): Array<{ label: string; tab: Tab; tone: 'warning' | 'danger' | 'info' }> {
+    const issues: Array<{ label: string; tab: Tab; tone: 'warning' | 'danger' | 'info' }> = [];
+    if (!employee.jobFunctionIds.length) {
+      issues.push({ label: 'No position', tab: 'General', tone: 'warning' });
+    }
+    if (
+      employee.active &&
+      (
+        !employee.email ||
+        ['not_invited', 'expired', 'revoked'].includes(employee.accessState)
+      )
+    ) {
+      issues.push({ label: 'Access not ready', tab: 'Access', tone: 'warning' });
+    }
+    if (owner && employee.active && (!employee.contractTypeId || !employee.contractStart)) {
+      issues.push({ label: 'Contract missing', tab: 'Contract', tone: 'warning' });
+    }
+    if (
+      owner &&
+      employee.active &&
+      (!employee.payrollEmployeeId || !employee.nationalRegistryNumber)
+    ) {
+      issues.push({ label: 'Payroll missing', tab: 'Payroll', tone: 'danger' });
+    }
+    return issues;
+  }
+
+  function employeeIssueCount(employee: EmployeeDraft): number {
+    return employeeIssues(employee).length;
+  }
+
+  function initialsOf(name: string) {
+    return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
+  }
+
+  function positionLabel(employee: EmployeeDraft) {
+    return (
+      employee.jobFunctionIds
+        .map((id) => snapshot?.job_functions.find((item) => item.id === id)?.name)
+        .filter(Boolean)
+        .join(', ') || 'No position'
+    );
+  }
+
+  function maskValue(value: string) {
+    if (!value) return '';
+    const tail = value.slice(-4);
+    return value.length <= 4 ? '•'.repeat(value.length) : `${'•'.repeat(Math.min(value.length - 4, 10))} ${tail}`;
+  }
+
+  const employeeAbsences = $derived(
+    snapshot?.absences
+      .filter((absence) => absence.employee_id === selectedId)
+      .sort((a, b) => b.start_date.localeCompare(a.start_date)) ?? []
+  );
+  const dirty = $derived(JSON.stringify(drafts) !== baseline);
+  const activeEmployees = $derived(drafts.filter((employee) => employee.active));
+  const issueEmployees = $derived(
+    drafts.filter((employee) => employeeIssueCount(employee) > 0)
+  );
+  const contractHistory = $derived(
+    snapshot?.employee_contracts
+      .filter((contract) => contract.employee_id === selectedId)
+      .sort((left, right) =>
+        (right.contract_start ?? right.created_at).localeCompare(
+          left.contract_start ?? left.created_at
+        )
+      ) ?? []
+  );
+  const leaveBalance = $derived.by(() => {
+    return selected && snapshot
+      ? leaveBalanceForEmployee(snapshot, selected.id, today)
+      : { entitlement: 0, approved: 0, pending: 0, remaining: 0 };
+  });
+  const estimatedWeeklyCost = $derived(
+    selected ? (selected.hourlyWageRate || 0) * (selected.weeklyContractHours || 0) : 0
+  );
+  const payrollReady = $derived(
+    activeEmployees.filter((employee) => {
+      const payroll = snapshot?.employee_payroll_profiles.find(
+        (profile) => profile.employee_id === employee.id
+      );
+      const legal = snapshot?.employee_legal_profiles.find(
+        (profile) => profile.employee_id === employee.id
+      );
+      return Boolean(payroll?.payroll_employee_id && legal?.national_registry_number);
+    }).length
+  );
+  const readinessPercent = $derived(
+    activeEmployees.length
+      ? Math.round(((activeEmployees.length - issueEmployees.length) / activeEmployees.length) * 100)
+      : 100
+  );
+  const accessReady = $derived(
+    activeEmployees.filter(
+      (employee) =>
+        employee.email &&
+        !['not_invited', 'expired', 'revoked'].includes(employee.accessState)
+    ).length
+  );
+  const contractReady = $derived(
+    activeEmployees.filter((employee) => employee.contractTypeId && employee.contractStart).length
+  );
+  const openIssueCount = $derived(
+    issueEmployees.reduce((total, employee) => total + employeeIssueCount(employee), 0)
+  );
+  const readinessCards = $derived([
+    {
+      label: 'Access',
+      value: `${accessReady}/${activeEmployees.length}`,
+      complete: activeEmployees.length > 0 && accessReady === activeEmployees.length,
+      tab: 'Access' as Tab
+    },
+    {
+      label: 'Contracts',
+      value: owner ? `${contractReady}/${activeEmployees.length}` : 'Owner',
+      complete: !owner || (activeEmployees.length > 0 && contractReady === activeEmployees.length),
+      tab: 'Contract' as Tab
+    },
+    {
+      label: 'Payroll',
+      value: owner ? `${payrollReady}/${activeEmployees.length}` : 'Owner',
+      complete: !owner || (activeEmployees.length > 0 && payrollReady === activeEmployees.length),
+      tab: 'Payroll' as Tab
+    }
+  ]);
+  const tabItems = $derived<Array<{ id: Tab; label: Tab }>>(
+    tabs
+      .filter((item) => owner || !['Contract', 'Payroll'].includes(item))
+      .map((item) => ({ id: item, label: item }))
+  );
+  const setupSteps = $derived<SetupStep[]>(
+    teamSetupSteps({
+      owner,
+      activeEmployees,
+      payrollReady,
+      onSelect: focusStaffGrid
+    })
+  );
+  const setupIncomplete = $derived(setupSteps.some((step) => !step.complete));
+
+  $effect(() => {
+    if (!snapshot) return;
+    const key = [
+      snapshot.restaurant.updated_at,
+      snapshot.employees.length,
+      snapshot.employee_contracts.length,
+      snapshot.employee_access
+        .map((item) => `${item.employee_id}:${item.updated_at}`)
+        .join('|'),
+      snapshot.employee_invitation_states
+        .map((item) => `${item.id}:${item.status}:${item.sent_at}`)
+        .join('|')
+    ].join('::');
+    if (key === loadedSnapshot) return;
+    drafts = employeeDrafts(snapshot);
+    baseline = JSON.stringify(drafts);
+    loadedSnapshot = key;
+  });
+
+  $effect(() => {
+    if (!selected || selected.id === inviteRoleEmployeeId) return;
+    inviteRoleEmployeeId = selected.id;
+    inviteRole =
+      selected.accessRole === 'manager' || selected.invitationRole === 'manager'
+        ? 'manager'
+        : 'employee';
+    expandedContractId = '';
+    expandedAbsenceId = '';
+    revealPayroll = false;
+  });
+
+  function toggleContractExpand(contractId: string) {
+    expandedContractId = expandedContractId === contractId ? '' : contractId;
+  }
+
+  function toggleAbsenceExpand(absenceId: string) {
+    expandedAbsenceId = expandedAbsenceId === absenceId ? '' : absenceId;
+  }
+
+  function openEmployee(id: string) {
+    selectedId = id;
+    tab = 'General';
+    detailOpen = true;
+  }
+
+  function focusStaffGrid() {
+    const targetId = issueEmployees.length > 0 ? 'attention-panel' : 'staff-grid';
+    document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function mutate(changes: Partial<EmployeeDraft>) {
+    drafts = drafts.map((employee) =>
+      employee.id === selectedId ? { ...employee, ...changes } : employee
+    );
+  }
+
+  function toggleJobFunction(jobFunctionId: string, checked: boolean) {
+    if (!selected) return;
+    mutate({
+      jobFunctionIds: checked
+        ? [...new Set([...selected.jobFunctionIds, jobFunctionId])]
+        : selected.jobFunctionIds.filter((id) => id !== jobFunctionId)
+    });
+  }
+
+  function toggleRecurring(
+    weekday: number,
+    serviceKey: 'lunch' | 'evening',
+    checked: boolean
+  ) {
+    if (!selected) return;
+    const remaining = selected.recurringSlots.filter(
+      (slot) => !(slot.weekday === weekday && slot.serviceKey === serviceKey)
+    );
+    mutate({
+      recurringSlots: checked
+        ? [...remaining, { weekday, serviceKey }]
+        : remaining
+    });
+  }
+
+  function addEmployee() {
+    const employee = newEmployeeDraft(crypto.randomUUID());
+    drafts = [...drafts, employee];
+    openEmployee(employee.id);
+  }
+
+  function startContractRenewal() {
+    if (!selected || !owner) return;
+    mutate({
+      contractId: '',
+      contractStart: selected.contractEnd ? addDays(selected.contractEnd, 1) : today,
+      contractEnd: ''
+    });
+    feedback = 'A new contract version is ready. Review it, then save Team.';
+    feedbackTone = 'info';
+  }
+
+  function cancelChanges() {
+    if (!snapshot) return;
+    drafts = employeeDrafts(snapshot);
+    baseline = JSON.stringify(drafts);
+    feedback = '';
+  }
+
+  async function persistTeam() {
+    if (!snapshot || !workspace.activeId || saving) return;
+    if (drafts.some((employee) => !employee.displayName.trim())) {
+      feedback = 'Every employee needs a display name.';
+      feedbackTone = 'danger';
+      return;
+    }
+    saving = true;
+    feedback = '';
+    try {
+      await saveTeam(
+        workspace.activeId,
+        teamSavePayload(workspace.activeId, drafts, role)
+      );
+      await workspace.loadTeam(true);
+      await workspaceRealtime.publish('team-updated', {
+        restaurantId: workspace.activeId,
+        source: 'team'
+      });
+      if (workspace.team) baseline = JSON.stringify(employeeDrafts(workspace.team));
+      feedback = 'Team saved.';
+      feedbackTone = 'success';
+    } catch (error) {
+      feedback = error instanceof Error ? error.message : String(error);
+      feedbackTone = 'danger';
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function createAbsence() {
+    if (
+      !workspace.activeId ||
+      !selected ||
+      !absenceTypeId ||
+      !absenceStart ||
+      !absenceEnd ||
+      saving
+    )
+      return;
+    saving = true;
+    try {
+      await saveAbsence({
+        restaurantId: workspace.activeId,
+        employeeId: selected.id,
+        action: 'create_by_manager',
+        payload: {
+          absence_type_id: absenceTypeId,
+          start_date: absenceStart,
+          end_date: absenceEnd,
+          service_key: absenceService || null,
+          manager_comment: absenceComment.trim() || null
+        }
+      });
+      await workspace.loadTeam(true);
+      absenceComment = '';
+      feedback = 'Absence created.';
+      feedbackTone = 'success';
+    } catch (error) {
+      feedback = error instanceof Error ? error.message : String(error);
+      feedbackTone = 'danger';
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function absenceAction(
+    absenceId: string,
+    action: 'approve' | 'reject' | 'cancel_by_manager'
+  ) {
+    if (!workspace.activeId || !selected || saving) return;
+    saving = true;
+    try {
+      await saveAbsence({
+        restaurantId: workspace.activeId,
+        employeeId: selected.id,
+        absenceId,
+        action,
+        payload:
+          action === 'cancel_by_manager'
+            ? { cancellation_reason: 'Cancelled from Team' }
+            : { manager_comment: absenceComment.trim() || null }
+      });
+      await workspace.loadTeam(true);
+      feedback = action === 'approve' ? 'Absence approved.' : action === 'reject' ? 'Absence rejected.' : 'Absence cancelled.';
+      feedbackTone = 'success';
+    } catch (error) {
+      feedback = error instanceof Error ? error.message : String(error);
+      feedbackTone = 'danger';
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function sendInvite() {
+    if (!workspace.activeId || !selected || inviting) return;
+    if (!selected.email.includes('@')) {
+      feedback = 'Save a valid employee email before sending an invitation.';
+      feedbackTone = 'danger';
+      return;
+    }
+    if (dirty) {
+      feedback = 'Save Team changes before sending the invitation.';
+      feedbackTone = 'warning';
+      return;
+    }
+    if (selected.profileId) {
+      feedback =
+        selected.accessState === 'disabled'
+          ? 'This employee already has an account. Restore access instead.'
+          : 'This employee already has active workspace access.';
+      feedbackTone = 'warning';
+      return;
+    }
+    inviting = true;
+    try {
+      await inviteEmployee({
+        restaurantId: workspace.activeId,
+        employeeId: selected.id,
+        email: selected.email,
+        role: inviteRole
+      });
+      await workspace.loadTeam(true);
+      feedback = `Invitation sent to ${selected.email}.`;
+      feedbackTone = 'success';
+    } catch (error) {
+      feedback = error instanceof Error ? error.message : String(error);
+      feedbackTone = 'danger';
+    } finally {
+      inviting = false;
+    }
+  }
+
+  async function revokeInvite() {
+    if (!workspace.activeId || !selected || inviting) return;
+    inviting = true;
+    try {
+      await revokeEmployeeInvitation(
+        workspace.activeId,
+        selected.id,
+        'Revoked from Team'
+      );
+      await workspace.loadTeam(true);
+      feedback = 'Invitation revoked.';
+      feedbackTone = 'success';
+    } catch (error) {
+      feedback = error instanceof Error ? error.message : String(error);
+      feedbackTone = 'danger';
+    } finally {
+      inviting = false;
+    }
+  }
+
+  async function changeAccess(action: 'disable' | 'restore') {
+    if (!workspace.activeId || !selected || inviting) return;
+    inviting = true;
+    try {
+      await setEmployeeAccessState(
+        workspace.activeId,
+        selected.id,
+        action
+      );
+      await workspace.loadTeam(true);
+      feedback =
+        action === 'restore'
+          ? 'Workspace access restored.'
+          : 'Workspace and badge access disabled.';
+      feedbackTone = 'success';
+    } catch (error) {
+      feedback = error instanceof Error ? error.message : String(error);
+      feedbackTone = 'danger';
+    } finally {
+      inviting = false;
+    }
+  }
+</script>
+
+<svelte:head><title>Team · restogogo</title></svelte:head>
+
+{#if snapshot}
+  <section class="page-shell team">
+    <header class="page-hero team-hero" aria-labelledby="team-title">
+      <div class="page-hero__copy">
+        <span class="page-kicker">Team · {activeEmployees.length} active</span>
+        <h1 id="team-title">{issueEmployees.length ? `${issueEmployees.length} ${issueEmployees.length === 1 ? 'person needs' : 'people need'} a quick fix.` : 'Everyone is ready.'}</h1>
+        <p>Keep access, contracts, payroll details and absences trustworthy in one place.</p>
+      </div>
+      <div class="page-hero__command" aria-label="Team readiness signal">
+        <div class:has-issues={issueEmployees.length > 0} class="readiness-dial" style={`--ready:${readinessPercent}%`}>
+          <strong>{readinessPercent}%</strong>
+          <span>ready</span>
+        </div>
+        <dl class="hero-stats">
+          {#each readinessCards as card}
+            <div class:is-complete={card.complete}>
+              <dt>{card.label}</dt>
+              <dd>{card.value}</dd>
+            </div>
+          {/each}
+        </dl>
+      </div>
+    </header>
+
+    <div class="page-body team-body">
+      <FeedbackBanner message={feedback} tone={feedbackTone} />
+
+      <section class="people-command" aria-label="Team command summary">
+        <article class="people-command__lead">
+          <span class="page-kicker">{setupIncomplete ? 'Crew foundation' : 'Crew foundation ready'}</span>
+          <strong>{setupIncomplete ? 'Make the roster trustworthy before service.' : 'People data can support planning and payroll.'}</strong>
+          <p>
+            {openIssueCount
+              ? `${openIssueCount} open team issue${openIssueCount === 1 ? '' : 's'} across ${issueEmployees.length} employee${issueEmployees.length === 1 ? '' : 's'}.`
+              : 'No blocking people issues right now.'}
+          </p>
+        </article>
+        <div class="people-command__checks">
+          {#each setupSteps as step}
+            <button type="button" class:is-complete={step.complete} onclick={() => step.onselect?.()}>
+              <span>{step.complete ? '✓' : '!'}</span>
+              <strong>{step.label}</strong>
+              <small>{step.detail}</small>
+            </button>
+          {/each}
+        </div>
+      </section>
+
+      {#if dirty}
+        <div class="team-toolbar">
+          <SaveActions {dirty} busy={saving} saveLabel="Save team" busyLabel="Saving…" oncancel={cancelChanges} onsave={persistTeam} embedded />
+        </div>
+      {/if}
+
+      <div class="section-head">
+        <strong>Your team</strong>
+        <span>{drafts.length} {drafts.length === 1 ? 'member' : 'members'}</span>
+      </div>
+
+      <div class="team-columns">
+        <div id="staff-grid" class="staff-grid">
+          {#each drafts as employee, index (employee.id)}
+            {@const issues = employeeIssues(employee)}
+            {@const severity = issues.some((issue) => issue.tone === 'danger') ? 'danger' : issues.length ? 'warning' : 'ready'}
+            <button
+              type="button"
+              class={`staff-card is-${severity} rst-stagger-in`}
+              style={`--rst-i:${index}`}
+              class:is-inactive={!employee.active}
+              onclick={() => openEmployee(employee.id)}
+            >
+              <span class="staff-card__avatar">{initialsOf(employee.displayName)}</span>
+              <strong>{employee.displayName}</strong>
+              <small>{positionLabel(employee)}</small>
+              <div class="staff-card__status">
+                <i></i>
+                <span>{employee.active ? employee.accessState.replaceAll('_', ' ') : 'inactive'}</span>
+              </div>
+              <div class="staff-card__issues">
+                {#if issues.length}
+                  {#each issues.slice(0, 2) as issue}
+                    <span class="is-{issue.tone}">{issue.label}</span>
+                  {/each}
+                  {#if issues.length > 2}<span>+{issues.length - 2}</span>{/if}
+                {:else}
+                  <span class="is-ready">Ready</span>
+                {/if}
+              </div>
+              <div class="staff-card__hover" aria-hidden="true">
+                <span>{employee.email || 'No email on file'}</span>
+                <span>{employee.weeklyContractHours || 0}h / week</span>
+                {#if issues.length}
+                  <b class="is-{severity}">{issues.length} issue{issues.length === 1 ? '' : 's'}</b>
+                {:else}
+                  <b class="is-ready">Ready for planning &amp; payroll</b>
+                {/if}
+              </div>
+            </button>
+          {/each}
+          <button type="button" class="staff-card staff-card--ghost" onclick={addEmployee}>
+            <span class="ghost-icon">+</span>
+            <strong>{drafts.length ? 'Add employee' : 'Add your first employee'}</strong>
+          </button>
+        </div>
+
+        {#if issueEmployees.length}
+          <aside id="attention-panel" class="attention-panel" aria-label="Needs attention">
+            <header>
+              <span class="page-kicker">Needs attention</span>
+              <strong>{issueEmployees.length} open</strong>
+            </header>
+            <div>
+              {#each issueEmployees as employee, index (employee.id)}
+                {@const issues = employeeIssues(employee)}
+                <button type="button" class="attention-row rst-stagger-in" style={`--rst-i:${index}`} onclick={() => openEmployee(employee.id)}>
+                  <span>{initialsOf(employee.displayName)}</span>
+                  <strong>{employee.displayName}</strong>
+                  <small>{issues.map((issue) => issue.label).join(' · ')}</small>
+                  <i class="attention-row__go" aria-hidden="true">→</i>
+                </button>
+              {/each}
+            </div>
+          </aside>
+        {:else}
+          <aside class="attention-panel is-clear" aria-label="Team clear">
+            <header>
+              <span class="page-kicker">People radar</span>
+              <strong>Clear</strong>
+            </header>
+            <div class="clear-state">
+              <span>✓</span>
+              <strong>No team blockers.</strong>
+              <p>Access, contracts and payroll data are ready for the current active team.</p>
+            </div>
+          </aside>
+        {/if}
+      </div>
+    </div>
+  </section>
+
+  {#snippet drawerTabs()}
+    {#if selected}
+      {@const selectedIssues = employeeIssues(selected)}
+      <div class="facet-strip" role="tablist" aria-label="Employee sections">
+        {#each tabItems as item}
+          {@const hasIssue = selectedIssues.some((issue) => issue.tab === item.id)}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === item.id}
+            class:is-current={tab === item.id}
+            class:has-issue={hasIssue}
+            onclick={() => (tab = item.id)}
+          >
+            <span>{hasIssue ? '!' : '✓'}</span>
+            <strong>{item.label}</strong>
+          </button>
+        {/each}
+      </div>
+    {/if}
+  {/snippet}
+
+  {#snippet drawerActions()}
+    <SaveActions {dirty} busy={saving} saveLabel="Save team" busyLabel="Saving…" oncancel={cancelChanges} onsave={persistTeam} embedded />
+  {/snippet}
+
+  <Drawer
+    open={detailOpen}
+    title={selected?.displayName ?? 'Employee'}
+    description={selected ? positionLabel(selected) : ''}
+    onclose={() => (detailOpen = false)}
+    tabs={drawerTabs}
+    actions={drawerActions}
+  >
+    {#if selected}
+      {@const selectedIssues = employeeIssues(selected)}
+      <div class="employee-hero">
+        <div>
+          <span>{selected.active ? 'Active employee' : 'Inactive employee'}</span>
+          <small>{positionLabel(selected)}</small>
+        </div>
+        {#if selectedIssues.length}
+          <div class="employee-hero__ready is-issues">{selectedIssues.length} issue{selectedIssues.length === 1 ? '' : 's'} to resolve</div>
+        {:else}
+          <div class="employee-hero__ready">Ready for planning and payroll</div>
+        {/if}
+      </div>
+
+      {#if tab === 'General'}
+        <Panel title="Identity and contact" eyebrow={selected.displayName}>
+          <div class="fields">
+            <label>Display name<input value={selected.displayName} oninput={(event) => mutate({ displayName: event.currentTarget.value })} /></label>
+            <fieldset class="positions wide">
+              <legend>Positions / job functions</legend>
+              <div class="chip-toggles">
+                {#each snapshot.job_functions.filter((item) => item.active) as item}
+                  <button
+                    type="button"
+                    class="chip-toggle"
+                    class:is-active={selected.jobFunctionIds.includes(item.id)}
+                    onclick={() => toggleJobFunction(item.id, !selected.jobFunctionIds.includes(item.id))}
+                  >
+                    {item.name}
+                  </button>
+                {/each}
+              </div>
+            </fieldset>
+            <label>First name<input value={selected.firstName} oninput={(event) => mutate({ firstName: event.currentTarget.value })} /></label>
+            <label>Last name<input value={selected.lastName} oninput={(event) => mutate({ lastName: event.currentTarget.value })} /></label>
+            <label>Email<input type="email" value={selected.email} oninput={(event) => mutate({ email: event.currentTarget.value })} /></label>
+            <label>Phone<input value={selected.phone} oninput={(event) => mutate({ phone: event.currentTarget.value })} /></label>
+            <label class="wide">Address<input value={selected.address} oninput={(event) => mutate({ address: event.currentTarget.value })} /></label>
+            <label>Postal code<input value={selected.postalCode} oninput={(event) => mutate({ postalCode: event.currentTarget.value })} /></label>
+            <label>City<input value={selected.city} oninput={(event) => mutate({ city: event.currentTarget.value })} /></label>
+            <label>Emergency contact<input value={selected.emergencyName} oninput={(event) => mutate({ emergencyName: event.currentTarget.value })} /></label>
+            <label>Emergency phone<input value={selected.emergencyPhone} oninput={(event) => mutate({ emergencyPhone: event.currentTarget.value })} /></label>
+            <label class="wide">Notes<textarea value={selected.notes} oninput={(event) => mutate({ notes: event.currentTarget.value })}></textarea></label>
+            <label class="check"><input type="checkbox" checked={selected.active} onchange={(event) => mutate({ active: event.currentTarget.checked })} /> Active employee</label>
+          </div>
+        </Panel>
+      {:else if tab === 'Access'}
+        <TeamAccessPanel
+          employee={selected}
+          bind:inviteRole
+          {owner}
+          busy={inviting}
+          {dirty}
+          canManage={canManageSelectedAccess}
+          onBadgeChange={(badgeEnabled) => mutate({ badgeEnabled })}
+          onSendInvite={sendInvite}
+          onRevokeInvite={revokeInvite}
+          onChangeAccess={changeAccess}
+        />
+      {:else if tab === 'Contract' && owner}
+        <div class="contract-summary">
+          <span class="contract-summary__kicker">Current contract</span>
+          <strong>{snapshot.contract_types.find((item) => item.id === selected.contractTypeId)?.name ?? 'Not set'} · {selected.workRegime.replaceAll('_', ' ')}</strong>
+          <p>{selected.contractStart || 'No start'} → {selected.contractEnd || 'Open ended'}</p>
+          <div class="contract-summary__stats">
+            <div><span>Weekly hours</span><strong>{selected.weeklyContractHours || 0}h</strong></div>
+            <div><span>Contract days</span><strong>{selected.contractDays || 0}d</strong></div>
+            <div><span>Annual leave</span><strong>{selected.annualLeaveEntitlementDays || 0}d</strong></div>
+          </div>
+        </div>
+
+        <Panel title="Edit contract" eyebrow="Owner only">
+          <div class="fields">
+            <label>Contract type<select value={selected.contractTypeId} onchange={(event) => { const contractTypeId = event.currentTarget.value; const code = snapshot.contract_types.find((item) => item.id === contractTypeId)?.code ?? ''; mutate({ contractTypeId, workRegime: defaultWorkRegime(code) }); }}><option value="">Not set</option>{#each snapshot.contract_types.filter((item) => item.active) as item}<option value={item.id}>{item.name}</option>{/each}</select></label>
+            <label>Availability mode<select value={selected.workRegime} onchange={(event) => mutate({ workRegime: event.currentTarget.value as EmployeeDraft['workRegime'] })}><option value="fixed_schedule">Fixed schedule</option><option value="weekly_availability">Weekly availability</option><option value="manager_only">Manager only</option></select></label>
+            <label>Start date<input type="date" value={selected.contractStart} oninput={(event) => mutate({ contractStart: event.currentTarget.value })} /></label>
+            <label>End date<input type="date" value={selected.contractEnd} oninput={(event) => mutate({ contractEnd: event.currentTarget.value })} /></label>
+            <label>Weekly hours<input type="number" min="0" step="0.25" value={selected.weeklyContractHours} oninput={(event) => mutate({ weeklyContractHours: event.currentTarget.valueAsNumber || 0 })} /></label>
+            <label>Contract days<input type="number" min="0" step="0.5" value={selected.contractDays} oninput={(event) => mutate({ contractDays: event.currentTarget.valueAsNumber || 0 })} /></label>
+            <label>Annual leave days<input type="number" min="0" step="0.5" value={selected.annualLeaveEntitlementDays} oninput={(event) => mutate({ annualLeaveEntitlementDays: event.currentTarget.valueAsNumber || 0 })} /></label>
+            <div class="contract-action"><ActionButton label="Start contract renewal" onclick={startContractRenewal} /></div>
+          </div>
+          {#if selected.workRegime === 'fixed_schedule'}
+            <fieldset class="recurring">
+              <legend>Recurring work pattern</legend>
+              <div class="recurring__head"><span>Day</span><span>Lunch</span><span>Evening</span></div>
+              {#each WEEKDAYS as day, index}
+                <div class="recurring__row">
+                  <strong>{day}</strong>
+                  {#each ['lunch', 'evening'] as service}
+                    <input
+                      aria-label={`${day} ${service}`}
+                      type="checkbox"
+                      checked={selected.recurringSlots.some((slot) => slot.weekday === index + 1 && slot.serviceKey === service)}
+                      onchange={(event) => toggleRecurring(index + 1, service as 'lunch' | 'evening', event.currentTarget.checked)}
+                    />
+                  {/each}
+                </div>
+              {/each}
+            </fieldset>
+          {/if}
+        </Panel>
+
+        {#if contractHistory.length}
+          <div class="contract-timeline">
+            <strong>Contract history</strong>
+            <div class="trail-line">
+              {#each contractHistory as contract (contract.id)}
+                <article class:is-current={contract.is_current && contract.active}>
+                  <i></i>
+                  <button type="button" onclick={() => toggleContractExpand(contract.id)}>
+                    <strong>{snapshot.contract_types.find((type) => type.id === contract.contract_type_id)?.name ?? 'Contract'} · {(contract.work_regime ?? 'weekly_availability').replaceAll('_', ' ')}</strong>
+                    <time>{contract.contract_start || 'No start'} → {contract.contract_end || 'Open ended'}</time>
+                    {#if expandedContractId === contract.id}
+                      <p class="trail-detail">
+                        {contract.weekly_contract_hours}h/week · {contract.contract_days}d/week · {contract.annual_leave_entitlement_days}d annual leave
+                        <br />Created {new Date(contract.created_at).toLocaleDateString()}
+                      </p>
+                    {/if}
+                  </button>
+                  <em class:is-current={contract.is_current && contract.active}>{contract.is_current && contract.active ? 'Current' : 'Historical'}</em>
+                </article>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      {:else if tab === 'Payroll' && owner}
+        <div class="payroll-summary">
+          <span class="payroll-summary__kicker">Compensation</span>
+          <strong>€{(selected.hourlyWageRate || 0).toFixed(2)}/h</strong>
+          <p>Estimated cost at {selected.weeklyContractHours || 0}h/week</p>
+          <div class="payroll-summary__stats">
+            <div><span>Hourly wage</span><strong>€{(selected.hourlyWageRate || 0).toFixed(2)}</strong></div>
+            <div><span>Est. weekly cost</span><strong>€{estimatedWeeklyCost.toFixed(2)}</strong></div>
+            <div><span>Est. hourly cost</span><strong>€{(selected.estimatedHourlyCost || 0).toFixed(2)}</strong></div>
+          </div>
+        </div>
+
+        <Panel title="Payroll profile" eyebrow="Owner only">
+          <div class="fields">
+            <label>Payroll employee ID<input value={selected.payrollEmployeeId} oninput={(event) => mutate({ payrollEmployeeId: event.currentTarget.value })} /></label>
+            <label>
+              National registry number
+              <input type={revealPayroll ? 'text' : 'password'} value={selected.nationalRegistryNumber} oninput={(event) => mutate({ nationalRegistryNumber: event.currentTarget.value })} />
+            </label>
+            <label>Birth date<input type="date" value={selected.birthDate} oninput={(event) => mutate({ birthDate: event.currentTarget.value })} /></label>
+            <label>
+              IBAN
+              <input type={revealPayroll ? 'text' : 'password'} value={selected.iban} oninput={(event) => mutate({ iban: event.currentTarget.value })} />
+            </label>
+            <label>BIC<input value={selected.bic} oninput={(event) => mutate({ bic: event.currentTarget.value })} /></label>
+            <label class="check reveal-toggle">
+              <input type="checkbox" checked={revealPayroll} onchange={(event) => (revealPayroll = event.currentTarget.checked)} />
+              Show sensitive fields
+            </label>
+            <label>Hourly wage<input type="number" min="0" step="0.01" value={selected.hourlyWageRate} oninput={(event) => mutate({ hourlyWageRate: event.currentTarget.valueAsNumber || 0 })} /></label>
+            <label>Estimated hourly cost<input type="number" min="0" step="0.01" value={selected.estimatedHourlyCost} oninput={(event) => mutate({ estimatedHourlyCost: event.currentTarget.valueAsNumber || 0 })} /></label>
+            <label class="wide">Payroll notes<textarea value={selected.payrollNotes} oninput={(event) => mutate({ payrollNotes: event.currentTarget.value })}></textarea></label>
+          </div>
+        </Panel>
+      {:else if tab === 'Absences'}
+        <LeaveBalanceSummary {...leaveBalance} />
+        <div class="absence-grid">
+          <Panel title="Create absence" eyebrow="Audited lifecycle">
+            <form class="fields" onsubmit={(event) => { event.preventDefault(); createAbsence(); }}>
+              <label>Type<select required bind:value={absenceTypeId}><option value="">Select type</option>{#each snapshot.absence_types.filter((item) => item.active) as item}<option value={item.id}>{item.name}</option>{/each}</select></label>
+              <label>Service<select bind:value={absenceService}><option value="">Full day</option><option value="lunch">Lunch</option><option value="evening">Evening</option></select></label>
+              <label>Start<input required type="date" bind:value={absenceStart} /></label>
+              <label>End<input required type="date" min={absenceStart} bind:value={absenceEnd} /></label>
+              <label class="wide">Manager comment<textarea bind:value={absenceComment}></textarea></label>
+              <div><ActionButton type="submit" tone="primary" label="Create absence" disabled={saving} /></div>
+            </form>
+          </Panel>
+          <Panel title="Absence history" eyebrow={`${employeeAbsences.length} records`}>
+            <div class="absence-list">
+              {#each employeeAbsences as absence (absence.id)}
+                {@const hasDetail = Boolean(absence.manager_comment || absence.employee_comment || absence.approved_at || absence.cancellation_reason)}
+                <article class:is-expanded={expandedAbsenceId === absence.id}>
+                  <button
+                    type="button"
+                    class="absence-row"
+                    disabled={!hasDetail}
+                    onclick={() => hasDetail && toggleAbsenceExpand(absence.id)}
+                  >
+                    <div>
+                      <strong>{snapshot.absence_types.find((item) => item.id === absence.absence_type_id)?.name || 'Absence'}</strong>
+                      <span>{absence.start_date} → {absence.end_date}{absence.service_key ? ` · ${absence.service_key}` : ''}</span>
+                    </div>
+                    <em class="is-{absence.status}">{absence.status}</em>
+                    {#if hasDetail}<i class="absence-row__chevron" aria-hidden="true">{expandedAbsenceId === absence.id ? '−' : '+'}</i>{/if}
+                  </button>
+                  {#if expandedAbsenceId === absence.id}
+                    <div class="absence-detail">
+                      {#if absence.manager_comment}<p><b>Manager comment</b>{absence.manager_comment}</p>{/if}
+                      {#if absence.employee_comment}<p><b>Employee comment</b>{absence.employee_comment}</p>{/if}
+                      {#if absence.approved_at}<p><b>Approved</b>{new Date(absence.approved_at).toLocaleString()}</p>{/if}
+                      {#if absence.cancellation_reason}<p><b>Cancellation reason</b>{absence.cancellation_reason}</p>{/if}
+                      <p><b>Requested</b>{new Date(absence.created_at).toLocaleString()}</p>
+                    </div>
+                  {/if}
+                  {#if absence.status === 'pending'}
+                    <div class="absence-actions">
+                      <ActionButton label="Approve" onclick={() => absenceAction(absence.id, 'approve')} />
+                      <ActionButton label="Reject" tone="danger" onclick={() => absenceAction(absence.id, 'reject')} />
+                    </div>
+                  {:else if !['cancelled', 'rejected'].includes(absence.status)}
+                    <div class="absence-actions">
+                      <ActionButton label="Cancel" tone="danger" onclick={() => absenceAction(absence.id, 'cancel_by_manager')} />
+                    </div>
+                  {/if}
+                </article>
+              {:else}
+                <p class="empty">No absence records for this employee.</p>
+              {/each}
+            </div>
+          </Panel>
+        </div>
+      {/if}
+    {/if}
+  </Drawer>
+{/if}
+
+<style>
+  .team-hero {
+    --hero-tint: rgba(240, 100, 35, 0.26);
+  }
+
+  .people-command {
+    display: grid;
+    grid-template-columns: minmax(260px, 0.85fr) minmax(0, 1.6fr);
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .people-command__lead,
+  .people-command__checks {
+    border: 1px solid var(--rst-ui-surface-panel-border);
+    border-radius: var(--rst-ui-radius-2xl);
+    box-shadow: var(--rst-ui-shadow-card);
+  }
+
+  .people-command__lead {
+    display: grid;
+    align-content: center;
+    gap: 8px;
+    min-height: 150px;
+    padding: 22px;
+    color: #fffaf2;
+    background:
+      radial-gradient(circle at 92% 12%, rgba(247, 183, 51, 0.34), transparent 34%),
+      linear-gradient(145deg, #111b28, #1c314a);
+  }
+
+  .people-command__lead strong {
+    max-width: 520px;
+    font-size: clamp(25px, 3vw, 36px);
+    line-height: 0.98;
+    letter-spacing: -0.045em;
+  }
+
+  .people-command__lead p {
+    max-width: 560px;
+    margin: 0;
+    color: rgba(255, 250, 242, 0.7);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .people-command__checks {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(112px, 1fr));
+    overflow: hidden;
+    background: var(--rst-ui-surface-panel);
+  }
+
+  .people-command__checks button {
+    min-width: 0;
+    display: grid;
+    align-content: center;
+    justify-items: start;
+    gap: 4px;
+    padding: 16px;
+    border: 0;
+    border-left: 1px solid var(--rst-ui-divider-soft);
+    color: var(--rst-ui-text);
+    background:
+      linear-gradient(145deg, rgba(var(--rst-state-warning-rgb), 0.08), transparent 64%),
+      var(--rst-ui-surface-panel);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .people-command__checks button:first-child {
+    border-left: 0;
+  }
+
+  .people-command__checks button:hover {
+    background:
+      linear-gradient(145deg, rgba(var(--rst-ui-action-rgb), 0.12), transparent 62%),
+      var(--rst-ui-surface-panel);
+  }
+
+  .people-command__checks button.is-complete {
+    background:
+      linear-gradient(145deg, rgba(var(--rst-state-success-rgb), 0.11), transparent 64%),
+      var(--rst-ui-surface-panel);
+  }
+
+  .people-command__checks span {
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    border-radius: var(--rst-ui-radius-round);
+    color: var(--rst-state-warning-text);
+    background: var(--rst-state-warning-bg);
+    font-size: 11px;
+    font-weight: var(--rst-fw-display);
+  }
+
+  .people-command__checks button.is-complete span {
+    color: var(--rst-state-success-text);
+    background: var(--rst-state-success-bg);
+  }
+
+  .people-command__checks strong {
+    overflow: hidden;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .people-command__checks small {
+    overflow: hidden;
+    color: var(--rst-ui-muted);
+    font-size: 10px;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .team-toolbar {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+
+  .section-head strong {
+    font-size: 18px;
+  }
+
+  .section-head span {
+    color: var(--rst-ui-muted);
+    font-size: 12px;
+    font-weight: var(--rst-fw-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .team-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+    gap: 16px;
+    align-items: start;
+  }
+
+  .staff-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    scroll-margin-top: 90px;
+  }
+
+  .staff-card {
+    position: relative;
+    min-width: 0;
+    display: grid;
+    gap: 5px;
+    padding: 16px;
+    border: 1px solid var(--rst-ui-surface-panel-border);
+    border-radius: var(--rst-ui-radius-xl);
+    background: var(--rst-ui-surface-panel);
+    box-shadow: var(--rst-ui-shadow-card);
+    color: var(--rst-ui-text);
+    text-align: left;
+    cursor: pointer;
+    overflow: hidden;
+    transition: transform 0.18s var(--rst-ease-out), box-shadow 0.18s var(--rst-ease-out);
+  }
+
+  .staff-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 20px 44px rgba(0, 0, 0, 0.16);
+  }
+
+  .staff-card.is-inactive {
+    opacity: 0.6;
+  }
+
+  .staff-card__avatar {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    color: #fff;
+    background: var(--rst-state-success);
+    font-size: 13px;
+    font-weight: var(--rst-fw-display);
+    box-shadow: 0 0 0 3px var(--rst-state-success-bg);
+  }
+
+  .staff-card.is-warning .staff-card__avatar {
+    background: var(--rst-state-warning);
+    box-shadow: 0 0 0 3px var(--rst-state-warning-bg);
+  }
+
+  .staff-card.is-danger .staff-card__avatar {
+    background: var(--rst-state-danger);
+    box-shadow: 0 0 0 3px var(--rst-state-danger-bg);
+  }
+
+  .staff-card strong {
+    overflow: hidden;
+    font-size: 15px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .staff-card small {
+    overflow: hidden;
+    color: var(--rst-ui-muted);
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .staff-card__status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+  }
+
+  .staff-card__status i {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: var(--rst-ui-quiet);
+  }
+
+  .staff-card:not(.is-inactive) .staff-card__status i {
+    background: var(--rst-state-success);
+    box-shadow: 0 0 0 3px var(--rst-state-success-bg);
+  }
+
+  .staff-card__status span {
+    color: var(--rst-ui-muted);
+    font-size: 10px;
+    font-weight: var(--rst-fw-bold);
+    text-transform: capitalize;
+  }
+
+  .staff-card__issues {
+    min-height: 22px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 6px;
+  }
+
+  .staff-card__issues span {
+    max-width: 100%;
+    overflow: hidden;
+    padding: 4px 7px;
+    border-radius: var(--rst-ui-radius-pill);
+    color: var(--rst-ui-muted);
+    background: var(--rst-state-neutral-bg);
+    font-size: 9px;
+    font-weight: var(--rst-fw-bold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .staff-card__issues span.is-ready {
+    color: var(--rst-state-success-text);
+    background: var(--rst-state-success-bg);
+  }
+
+  .staff-card__issues span.is-warning {
+    color: var(--rst-state-warning-text);
+    background: var(--rst-state-warning-bg);
+  }
+
+  .staff-card__issues span.is-danger {
+    color: var(--rst-state-danger-text);
+    background: var(--rst-state-danger-bg);
+  }
+
+  .staff-card__hover {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: grid;
+    align-content: center;
+    gap: 6px;
+    padding: 16px;
+    color: #fffaf2;
+    background: #0f1620;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.16s ease;
+  }
+
+  .staff-card:hover .staff-card__hover,
+  .staff-card:focus-visible .staff-card__hover {
+    opacity: 1;
+  }
+
+  .staff-card__hover span {
+    color: rgba(255, 250, 242, 0.78);
+    font-size: 11px;
+  }
+
+  .staff-card__hover b {
+    margin-top: 4px;
+    font-size: 12px;
+    font-weight: var(--rst-fw-display);
+  }
+
+  .staff-card__hover b.is-ready {
+    color: #7ee6a4;
+  }
+
+  .staff-card__hover b.is-warning {
+    color: #f7b733;
+  }
+
+  .staff-card__hover b.is-danger {
+    color: #ff8a70;
+  }
+
+  .staff-card--ghost {
+    align-items: center;
+    justify-items: center;
+    gap: 10px;
+    border: 1.5px dashed rgba(var(--rst-ui-action-rgb), 0.45);
+    color: var(--rst-ui-action);
+    background: rgba(var(--rst-ui-action-rgb), 0.06);
+    box-shadow: none;
+  }
+
+  .staff-card--ghost:hover {
+    border-color: var(--rst-ui-action);
+    background: rgba(var(--rst-ui-action-rgb), 0.12);
+    transform: translateY(-3px);
+    box-shadow: 0 16px 32px rgba(var(--rst-ui-action-rgb), 0.2);
+  }
+
+  .staff-card--ghost strong {
+    color: var(--rst-ui-action);
+    font-size: 13px;
+    font-weight: var(--rst-fw-bold);
+    text-align: center;
+    white-space: normal;
+  }
+
+  .ghost-icon {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    color: #fff;
+    background: var(--rst-ui-action);
+    font-size: 20px;
+    font-weight: var(--rst-fw-display);
+    box-shadow: 0 8px 18px rgba(var(--rst-ui-action-rgb), 0.38);
+  }
+
+  .attention-panel {
+    min-width: 0;
+    overflow: hidden;
+    border-radius: var(--rst-ui-radius-2xl);
+    color: #fffaf2;
+    background:
+      radial-gradient(circle at 85% 10%, rgba(240, 100, 35, 0.45), transparent 36%),
+      linear-gradient(145deg, #211913, #4b2b1e);
+    box-shadow: var(--rst-ui-shadow-card);
+  }
+
+  .attention-panel header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .attention-panel header strong {
+    padding: 6px 9px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: var(--rst-ui-radius-pill);
+    background: rgba(255, 255, 255, 0.08);
+    font-size: 11px;
+  }
+
+  .attention-row {
+    position: relative;
+    min-width: 0;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    gap: 2px 10px;
+    align-items: center;
+    padding: 11px 14px;
+    border: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fffaf2;
+    background: transparent;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.16s ease, transform 0.16s var(--rst-ease-out);
+  }
+
+  .attention-row:hover {
+    background: rgba(255, 255, 255, 0.06);
+    transform: translateX(3px);
+  }
+
+  .attention-row > span {
+    grid-row: span 2;
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    border-radius: var(--rst-ui-radius-lg);
+    color: #fff;
+    background: var(--rst-ui-action);
+    font-size: 9px;
+    font-weight: var(--rst-fw-display);
+  }
+
+  .attention-row strong {
+    font-size: 12px;
+    line-height: 1.15;
+  }
+
+  .attention-row small {
+    overflow: hidden;
+    color: rgba(255, 250, 242, 0.6);
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .attention-row__go {
+    grid-row: span 2;
+    color: var(--rst-ui-action);
+    font-style: normal;
+    opacity: 0;
+    transform: translateX(-6px);
+    transition: opacity 0.18s ease, transform 0.18s var(--rst-ease-out);
+  }
+
+  .attention-row:hover .attention-row__go {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .attention-panel.is-clear {
+    background:
+      radial-gradient(circle at 82% 10%, rgba(64, 200, 120, 0.34), transparent 34%),
+      linear-gradient(145deg, #111b28, #163821);
+  }
+
+  .clear-state {
+    display: grid;
+    justify-items: start;
+    gap: 8px;
+    padding: 22px 18px;
+  }
+
+  .clear-state > span {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border-radius: var(--rst-ui-radius-xl);
+    color: #13321f;
+    background: #7ee6a4;
+    font-weight: var(--rst-fw-display);
+  }
+
+  .clear-state p {
+    margin: 0;
+    color: rgba(255, 250, 242, 0.65);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .empty {
+    grid-column: 1 / -1;
+    padding: 24px;
+    color: var(--rst-ui-muted);
+    text-align: center;
+  }
+
+  .facet-strip {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .facet-strip button {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 8px 10px;
+    border: 0;
+    border-left: 1px solid var(--rst-ui-divider-soft);
+    color: var(--rst-ui-muted);
+    background: transparent;
+    font: inherit;
+    font-size: 12px;
+    font-weight: var(--rst-fw-bold);
+    cursor: pointer;
+    transition: color .15s ease, background-color .15s ease;
+  }
+
+  .facet-strip button:first-child {
+    border-left: 0;
+  }
+
+  .facet-strip button:hover {
+    color: var(--rst-ui-text);
+    background: rgba(var(--rst-ui-action-rgb), .06);
+  }
+
+  .facet-strip button.is-current {
+    color: var(--rst-ui-text);
+  }
+
+  .facet-strip button::after {
+    content: '';
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: 0;
+    height: 2px;
+    border-radius: var(--rst-ui-radius-pill);
+    background: var(--rst-ui-action);
+    opacity: 0;
+    transform: scaleX(.5);
+    transition: opacity .18s ease, transform .18s var(--rst-ease-out);
+  }
+
+  .facet-strip button.is-current::after {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+
+  .facet-strip button span {
+    width: 16px;
+    height: 16px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    color: var(--rst-state-success-text);
+    background: var(--rst-state-success-bg);
+    font-size: 9px;
+    font-weight: var(--rst-fw-display);
+  }
+
+  .facet-strip button.has-issue span {
+    color: var(--rst-state-warning-text);
+    background: var(--rst-state-warning-bg);
+  }
+
+  .employee-hero {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding: 14px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: var(--rst-ui-radius-xl);
+    background: linear-gradient(135deg, rgba(var(--rst-state-info-rgb), 0.09), transparent 52%), var(--rst-ui-surface-panel);
+  }
+
+  .employee-hero > div:first-child { display: grid; gap: 4px; }
+  .employee-hero > div:first-child span { color: var(--rst-ui-panel-title); font-size: 10px; font-weight: var(--rst-fw-bold); letter-spacing: .07em; text-transform: uppercase; }
+  .employee-hero small { color: var(--rst-ui-muted); }
+  .employee-hero__ready { width: fit-content; padding: 8px 9px; border: 1px solid rgba(var(--rst-state-success-rgb), 0.22); border-radius: var(--rst-ui-radius-md); color: var(--rst-state-success-text); background: rgba(var(--rst-state-success-rgb), 0.1); font-size: 11px; font-weight: var(--rst-fw-bold); }
+  .employee-hero__ready.is-issues { border-color: rgba(var(--rst-state-warning-rgb), 0.22); color: var(--rst-state-warning-text); background: rgba(var(--rst-state-warning-rgb), 0.1); }
+
+  .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  label input, label select, label textarea { width: 100%; min-height: 36px; padding: 6px 2px; border: 0; border-bottom: 1.5px solid var(--rst-ui-line); border-radius: 0; color: var(--rst-ui-text); background: transparent; font: inherit; transition: border-color .15s ease, box-shadow .15s ease; }
+  label input:focus-visible, label select:focus-visible, label textarea:focus-visible { border-bottom-color: var(--rst-ui-action); outline: none; box-shadow: 0 1.5px 0 0 var(--rst-ui-action); }
+  label textarea { min-height: 78px; resize: vertical; }
+  .contract-action { display: flex; align-items: end; }
+
+  .contract-summary {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 14px;
+    padding: 18px;
+    border-radius: var(--rst-ui-radius-xl);
+    color: #fffaf2;
+    background:
+      radial-gradient(circle at 92% 10%, rgba(247, 183, 51, 0.28), transparent 36%),
+      linear-gradient(145deg, #111b28, #1c314a);
+    animation: rst-fade-up .35s var(--rst-ease-out) backwards;
+  }
+  .contract-summary__kicker { color: var(--rst-gold); font-size: 10px; font-weight: var(--rst-fw-display); letter-spacing: .08em; text-transform: uppercase; }
+  .contract-summary strong { font-size: 20px; text-transform: capitalize; }
+  .contract-summary p { margin: 0; color: rgba(255, 250, 242, .7); font-size: 12px; }
+  .contract-summary__stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 6px; }
+  .contract-summary__stats div { display: grid; gap: 3px; padding: 10px; border-radius: var(--rst-ui-radius-md); background: rgba(255, 255, 255, .08); }
+  .contract-summary__stats span { color: rgba(255, 250, 242, .6); font-size: 10px; font-weight: var(--rst-fw-bold); text-transform: uppercase; }
+  .contract-summary__stats strong { font-size: 17px; }
+
+  .payroll-summary {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 14px;
+    padding: 18px;
+    border-radius: var(--rst-ui-radius-xl);
+    color: #fffaf2;
+    background:
+      radial-gradient(circle at 92% 10%, rgba(66, 216, 132, 0.28), transparent 36%),
+      linear-gradient(145deg, #111b28, #123324);
+    animation: rst-fade-up .35s var(--rst-ease-out) backwards;
+  }
+  .payroll-summary__kicker { color: var(--rst-green); font-size: 10px; font-weight: var(--rst-fw-display); letter-spacing: .08em; text-transform: uppercase; }
+  .payroll-summary strong { font-size: 20px; }
+  .payroll-summary p { margin: 0; color: rgba(255, 250, 242, .7); font-size: 12px; }
+  .payroll-summary__stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 6px; }
+  .payroll-summary__stats div { display: grid; gap: 3px; padding: 10px; border-radius: var(--rst-ui-radius-md); background: rgba(255, 255, 255, .08); }
+  .payroll-summary__stats span { color: rgba(255, 250, 242, .6); font-size: 10px; font-weight: var(--rst-fw-bold); text-transform: uppercase; }
+  .payroll-summary__stats strong { font-size: 17px; }
+  .reveal-toggle { grid-column: 1 / -1; }
+
+  .contract-timeline { padding: 4px 0 0; }
+  .contract-timeline > strong { display: block; padding: 10px 0; font-size: 12px; }
+
+  .trail-line {
+    position: relative;
+    display: grid;
+    gap: 10px;
+    padding-left: 8px;
+  }
+  .trail-line::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    bottom: 8px;
+    left: 17px;
+    width: 2px;
+    border-radius: var(--rst-ui-radius-pill);
+    background: linear-gradient(180deg, var(--rst-ui-action), rgba(240, 100, 35, 0.08));
+  }
+  .trail-line article {
+    position: relative;
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: start;
+  }
+  .trail-line article i {
+    position: relative;
+    z-index: 1;
+    width: 20px;
+    height: 20px;
+    margin-top: 2px;
+    border: 3px solid var(--rst-ui-surface-panel);
+    border-radius: var(--rst-ui-radius-round);
+    background: var(--rst-ui-quiet);
+  }
+  .trail-line article.is-current i {
+    background: var(--rst-ui-action);
+    box-shadow: 0 0 0 1px rgba(240, 100, 35, 0.32);
+  }
+  .trail-line article button {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: var(--rst-ui-radius-lg);
+    background: var(--rst-ui-surface-field);
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color .15s ease, background-color .15s ease;
+  }
+  .trail-line article button:hover { border-color: var(--rst-ui-action); background: var(--rst-ui-surface-field-strong); }
+  .trail-line article strong { display: block; color: var(--rst-ui-text); font-size: 12px; }
+  .trail-line article time { display: block; margin-top: 3px; color: var(--rst-ui-muted); font-size: 11px; }
+  .trail-line article .trail-detail { margin: 6px 0 0; padding-top: 6px; border-top: 1px solid var(--rst-ui-divider-soft); color: var(--rst-ui-muted); font-size: 11px; line-height: 1.5; }
+  .trail-line em { align-self: center; padding: 4px 8px; border-radius: var(--rst-ui-radius-pill); color: var(--rst-ui-muted); background: var(--rst-state-neutral-bg); font-size: 10px; font-style: normal; white-space: nowrap; }
+  .trail-line em.is-current { color: var(--rst-state-success-text); background: var(--rst-state-success-bg); }
+  label { display: grid; align-content: start; gap: 6px; color: var(--rst-ui-muted); font-size: 12px; font-weight: var(--rst-fw-bold); }
+  label.wide, .hint.wide { grid-column: 1 / -1; }
+  .positions { grid-column: 1 / -1; margin: 0; padding: 12px; border: 1px solid var(--rst-ui-line); border-radius: var(--rst-ui-radius-md); }
+  .positions legend { padding: 0 6px; color: var(--rst-ui-muted); font-size: 11px; font-weight: var(--rst-fw-bold); }
+  .chip-toggles { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip-toggle {
+    padding: 8px 14px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: var(--rst-ui-radius-pill);
+    color: var(--rst-ui-muted);
+    background: var(--rst-ui-surface-field);
+    font: inherit;
+    font-size: 12px;
+    font-weight: var(--rst-fw-bold);
+    cursor: pointer;
+    transition: transform .15s var(--rst-ease-out), background-color .15s ease, border-color .15s ease, color .15s ease;
+  }
+  .chip-toggle:hover { border-color: var(--rst-ui-action); color: var(--rst-ui-text); }
+  .chip-toggle.is-active {
+    color: #fff;
+    border-color: var(--rst-ui-action);
+    background: var(--rst-ui-action);
+    transform: translateY(-1px);
+  }
+  .recurring { margin: 14px 0 0; padding: 0; overflow: hidden; border: 1px solid var(--rst-ui-line); border-radius: var(--rst-ui-radius-md); }
+  .recurring legend { margin-left: 10px; padding: 0 6px; color: var(--rst-ui-muted); font-size: 11px; font-weight: var(--rst-fw-bold); }
+  .recurring__head, .recurring__row { display: grid; grid-template-columns: minmax(120px, 1fr) 90px 90px; align-items: center; padding: 8px 12px; }
+  .recurring__head { color: var(--rst-ui-muted); background: var(--rst-ui-surface-panel-head); font-size: 10px; font-weight: var(--rst-fw-bold); text-transform: uppercase; }
+  .recurring__row { border-top: 1px solid var(--rst-ui-divider-soft); }
+  .recurring__row input { justify-self: center; }
+  label.check { display: flex; align-items: center; gap: 8px; color: var(--rst-ui-text); }
+  label.check input { width: auto; min-height: auto; }
+  .absence-grid { display: grid; grid-template-columns: minmax(260px, .8fr) minmax(0, 1.2fr); gap: 16px; margin-top: 12px; }
+  .absence-list { display: grid; }
+  .absence-list article { border-bottom: 1px solid var(--rst-ui-divider-soft); }
+  .absence-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 11px 14px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color .15s ease;
+  }
+  .absence-row:disabled { cursor: default; }
+  .absence-row:not(:disabled):hover { background: var(--rst-ui-surface-field); }
+  .absence-row > div { min-width: 0; display: grid; gap: 3px; margin-right: auto; }
+  .absence-row span { color: var(--rst-ui-muted); font-size: 11px; }
+  .absence-row em { padding: 4px 7px; border-radius: var(--rst-ui-radius-pill); color: var(--rst-ui-muted); background: var(--rst-state-neutral-bg); font-size: 10px; font-style: normal; }
+  .absence-row em.is-approved { color: var(--rst-state-success-text); background: var(--rst-state-success-bg); }
+  .absence-row em.is-pending { color: var(--rst-state-warning-text); background: var(--rst-state-warning-bg); }
+  .absence-row__chevron { width: 16px; flex: 0 0 auto; color: var(--rst-ui-action); font-style: normal; font-weight: var(--rst-fw-display); text-align: center; }
+  .absence-detail { display: grid; gap: 5px; padding: 0 14px 12px; animation: rst-fade-up .2s var(--rst-ease-out) backwards; }
+  .absence-detail p { display: flex; gap: 6px; margin: 0; color: var(--rst-ui-muted); font-size: 11px; line-height: 1.4; }
+  .absence-detail b { flex: 0 0 auto; color: var(--rst-ui-text); font-weight: var(--rst-fw-bold); }
+  .absence-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 0 14px 12px; }
+
+  @media (max-width: 1180px) {
+    .people-command {
+      grid-template-columns: 1fr;
+    }
+    .people-command__checks {
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    }
+    .team-columns {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .fields, .absence-grid {
+      grid-template-columns: 1fr;
+    }
+    .contract-summary__stats,
+    .payroll-summary__stats {
+      grid-template-columns: 1fr;
+    }
+    .trail-line article {
+      grid-template-columns: 20px minmax(0, 1fr);
+    }
+    .trail-line em {
+      grid-column: 2;
+      justify-self: start;
+    }
+    label.wide, .hint.wide {
+      grid-column: auto;
+    }
+  }
+</style>

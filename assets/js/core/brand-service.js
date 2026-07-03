@@ -1,4 +1,0 @@
-/* restogogo brand helpers. Module accents live in CSS; employee identity stays neutral by default. */
-function jobFunctionStyle(){return '--job-function-color:var(--rst-ui-text);--job-function-bg:var(--rst-ui-divider-soft);--job-function-border:var(--rst-state-neutral-border);';}
-function styleAttr(css){return css?` style="${css}"`:'';}
-function jobFunctionClass(jobFunction=''){const value=String(jobFunction).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); if(value.includes('maitre')||value.includes('manager'))return 'job-function-maitre'; if(value.includes('chef'))return 'job-function-chef'; if(value.includes('barman')||value.includes('barmaid'))return 'job-function-bar'; if(value.includes('extra')||value.includes('student')||value.includes('flexi'))return 'job-function-extra'; return 'job-function-other';}

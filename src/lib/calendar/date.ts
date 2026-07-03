@@ -1,0 +1,217 @@
+export const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+export const SERVICES = ['lunch', 'evening'] as const;
+export type ServiceKey = (typeof SERVICES)[number];
+
+export const SERVICE_DISPLAY: Record<ServiceKey, { label: string; icon: string }> = {
+  lunch: { label: 'Lunch', icon: '☀' },
+  evening: { label: 'Evening', icon: '☾' }
+};
+
+export function serviceDisplay(serviceKey: ServiceKey): { label: string; icon: string } {
+  return SERVICE_DISPLAY[serviceKey];
+}
+
+// Display label for a service key from any source (typed or raw string). The one
+// place service keys become human labels — use this instead of inline
+// `serviceKey === 'lunch' ? 'Lunch' : 'Evening'` ternaries.
+export function serviceLabel(serviceKey: string): string {
+  return SERVICE_DISPLAY[serviceKey as ServiceKey]?.label ?? serviceKey;
+}
+
+const DAY_MS = 86_400_000;
+
+export function isoDate(value: Date | string): string {
+  const date = value instanceof Date ? value : new Date(`${value}T00:00:00Z`);
+  return date.toISOString().slice(0, 10);
+}
+
+export function addDays(value: string, amount: number): string {
+  const date = new Date(`${value}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + amount);
+  return isoDate(date);
+}
+
+export function mondayFor(value: string): string {
+  const date = new Date(`${value}T00:00:00Z`);
+  return addDays(value, -((date.getUTCDay() + 6) % 7));
+}
+
+export function weekday(value: string): number {
+  const day = new Date(`${value}T00:00:00Z`).getUTCDay();
+  return day === 0 ? 7 : day;
+}
+
+export function dateForWeekday(weekStart: string, weekdayNumber: number): string {
+  return addDays(weekStart, weekdayNumber - 1);
+}
+
+export function monthStart(value: string): string {
+  return `${value.slice(0, 7)}-01`;
+}
+
+export function addMonths(value: string, amount: number): string {
+  const date = new Date(`${monthStart(value)}T00:00:00Z`);
+  date.setUTCMonth(date.getUTCMonth() + amount);
+  return isoDate(date);
+}
+
+export function monthDates(value: string): string[] {
+  const first = monthStart(value);
+  const start = mondayFor(first);
+  const month = new Date(`${first}T00:00:00Z`).getUTCMonth();
+  const dates: string[] = [];
+  for (let index = 0; index < 42; index += 1) dates.push(addDays(start, index));
+  const lastWeek = dates.slice(-7);
+  return lastWeek.every(
+    (date) => new Date(`${date}T00:00:00Z`).getUTCMonth() !== month
+  )
+    ? dates.slice(0, 35)
+    : dates;
+}
+
+export function isSameMonth(date: string, monthReference: string): boolean {
+  return date.slice(0, 7) === monthReference.slice(0, 7);
+}
+
+export function monthLabel(value: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC'
+  }).format(new Date(`${monthStart(value)}T00:00:00Z`));
+}
+
+export function weekLabel(weekStart: string): string {
+  const start = new Date(`${weekStart}T00:00:00Z`);
+  if (Number.isNaN(start.getTime())) return '';
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    timeZone: 'UTC'
+  });
+  return `${formatter.format(start)} – ${formatter.format(new Date(start.getTime() + 6 * DAY_MS))}`;
+}
+
+export function todayInTimezone(timezone: string, now = new Date()): string {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    })
+      .formatToParts(now)
+      .filter((part) => part.type !== 'literal')
+      .map((part) => [part.type, part.value])
+  );
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+export function clockMinutes(value: string | null | undefined): number | null {
+  const match = String(value ?? '').match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59
+    ? hours * 60 + minutes
+    : null;
+}
+
+export function clockLabel(value: string | null | undefined): string {
+  const minutes = clockMinutes(value);
+  return minutes === null
+    ? ''
+    : `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+}
+
+export function hoursBetweenClocks(
+  start: string | null | undefined,
+  end: string | null | undefined
+): number {
+  const from = clockMinutes(start);
+  const to = clockMinutes(end);
+  if (from === null || to === null) return 0;
+  return (to >= from ? to - from : to + 1440 - from) / 60;
+}
+
+export function hoursBetweenInstants(
+  start: string | null | undefined,
+  end: string | null | undefined
+): number {
+  if (!start || !end) return 0;
+  const duration = new Date(end).getTime() - new Date(start).getTime();
+  return Number.isFinite(duration) && duration > 0 ? duration / 3_600_000 : 0;
+}
+
+export function formatHours(value: number): string {
+  const minutes = Math.max(0, Math.round(value * 60));
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return remainder
+    ? `${hours}h${String(remainder).padStart(2, '0')}`
+    : `${hours}h`;
+}
+
+export function instantToLocalInput(
+  value: string | null | undefined,
+  timezone: string
+): string {
+  if (!value) return '';
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '';
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23'
+    })
+      .formatToParts(date)
+      .filter((part) => part.type !== 'literal')
+      .map((part) => [part.type, part.value])
+  );
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+}
+
+export function localInputToInstant(value: string, timezone: string): string {
+  const match = value.match(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/
+  );
+  if (!match) return '';
+  const desiredUtc = Date.UTC(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3]),
+    Number(match[4]),
+    Number(match[5])
+  );
+  let candidate = desiredUtc;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const parts = Object.fromEntries(
+      new Intl.DateTimeFormat('en-CA', {
+        timeZone: timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23'
+      })
+        .formatToParts(new Date(candidate))
+        .filter((part) => part.type !== 'literal')
+        .map((part) => [part.type, part.value])
+    );
+    const representedUtc = Date.UTC(
+      Number(parts.year),
+      Number(parts.month) - 1,
+      Number(parts.day),
+      Number(parts.hour),
+      Number(parts.minute)
+    );
+    candidate += desiredUtc - representedUtc;
+  }
+  return new Date(candidate).toISOString();
+}

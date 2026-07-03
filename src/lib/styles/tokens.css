@@ -1,0 +1,274 @@
+/* restogogo design tokens (ported from the original app) */
+:root {
+  --rst-blue: #9a5b1f;
+  --rst-blue-rgb: 154,91,31;
+  --rst-ui-action-rgb: 240,100,35;
+  --rst-indigo: #5d4630;
+  --rst-mint: #4f8f5b;
+  --rst-coral: #e9822f;
+  --rst-red: #b3261e;
+  /* Brand spectrum accents (the home rule + cockpit highlights). */
+  --rst-gold: #f7b733;
+  --rst-green: #40c878;
+  --rst-ui-font: Manrope, "Segoe UI", Arial, sans-serif;
+  --rst-ui-bg: #f4ede0;
+  --rst-ui-bg-2: #fffaf2;
+  --rst-ui-bg-deep: #eadfcd; /* deepest warm base — use instead of raw page-shadow colors */
+  --rst-ui-panel: #fffaf2;
+  /* Surface system — intentionally flat.
+     Atmosphere belongs to the app/module header layers; cards and panels stay boring and readable. */
+  --rst-ui-workspace-header: #ede2d0;
+  --rst-ui-workspace-body: #fbf5ea;
+  --rst-ui-workspace-body-flat: var(--rst-ui-workspace-body);
+  --rst-ui-section-header: var(--rst-ui-workspace-header);
+  --rst-ui-section-body: var(--rst-ui-workspace-body);
+  --rst-ui-section-row: transparent;
+  --rst-ui-section-row-hover: rgba(76,48,26,.045);
+  /* Surface contract — one visual language for page boards, panels and inner sections.
+     Use these tokens instead of reusing raw workspace variables inside components. */
+  --rst-ui-surface-board: var(--rst-ui-workspace-body);
+  --rst-ui-surface-panel: #fffaf2;
+  --rst-ui-surface-panel-head: #ede2d0;
+  --rst-ui-surface-panel-body: #fffaf2;
+  --rst-ui-surface-section: transparent;
+  --rst-ui-surface-section-head: #ede2d0;
+  --rst-ui-surface-subpanel: transparent;
+  --rst-ui-surface-subtle: rgba(76,48,26,.045);
+  --rst-ui-surface-body: var(--rst-ui-workspace-body);
+  --rst-ui-surface-field: #fffaf2;
+  --rst-ui-surface-field-strong: rgba(76,48,26,.055);
+  --rst-ui-surface-panel-border: rgba(76,48,26,.14);
+  --rst-ui-surface-section-border: rgba(76,48,26,.10);
+  --rst-ui-surface-divider: rgba(76,48,26,.10);
+  /* Canonical content-header box — every panel/card/section/entity head reads from these,
+     so all headers share one inset, height and surface. */
+  --rst-head-min-h: 46px;
+  --rst-head-pad: 10px 14px;
+  --rst-ui-metric-card: #fffaf2;
+  --rst-ui-card: #fffaf2;
+  --rst-ui-card-strong: #f7eddd;
+  --rst-ui-ink: #1f160f;
+  --rst-ui-text: #1f160f;
+  --rst-ui-muted: #6f5b47;
+  --rst-ui-subtle: #493827;
+  --rst-ui-quiet: #9c8b78;
+  --rst-ui-line: rgba(76,48,26,.14);
+  --rst-ui-line-strong: rgba(76,48,26,.24);
+  --rst-ui-accent: #d97706;
+  --rst-ui-accent-dark: #9a5b1f;
+  --rst-ui-action: #f06423;
+  --rst-ui-action-2: #c2410c;
+  --rst-ui-hover-bg: rgba(76,48,26,.06);
+  --rst-ui-brand: #1f160f;
+  --rst-ui-brand-accent: #f06423;
+  --rst-ui-metric-text: #1f160f;
+  --rst-ui-metric-muted: #6f5b47;
+  --rst-ui-metric-border: rgba(76,48,26,.14);
+  --rst-ui-metric-value: var(--tone-text);
+  /* Business state palette — single source of truth for green/yellow/red/blue/purple meanings. */
+  --rst-state-success: #16a34a;
+  --rst-state-info: #2563eb;
+  --rst-state-absence: #7c3aed;
+  --rst-state-warning: #d97706;
+  --rst-state-danger: #dc2626;
+
+  --rst-ui-success: var(--rst-state-success);
+  --rst-ui-info: var(--rst-state-info);
+  --rst-ui-purple: var(--rst-state-absence);
+  --rst-ui-warn: var(--rst-state-warning);
+  --rst-ui-risk: var(--rst-state-danger);
+  --rst-ui-radius-xxs: 3px;
+  --rst-ui-radius-xs: 4px;
+  --rst-ui-radius-sm: 6px;
+  --rst-ui-radius-md: 8px;
+  --rst-ui-radius-lg: 10px;
+  --rst-ui-radius-xl: 12px;
+  --rst-ui-radius-2xl: 24px;
+  --rst-ui-radius-pill: 999px;
+  --rst-ui-radius-round: 50%;
+  --rst-ui-shadow-soft: none;
+  --rst-ui-shadow-frame: none;
+  --rst-ui-shadow-floating: none;
+  /* Elevated cockpit/feature card. Warm, low-alpha — barely visible on dark themes. */
+  --rst-ui-shadow-card: 0 16px 48px rgba(48, 35, 18, 0.08);
+  --rst-ui-focus: 0 0 0 3px rgba(225,143,37,.24);
+  --rst-content-max: 1640px;
+  --rst-gutter: 48px;
+  --rst-topbar-h: 64px;
+  --rst-topbar-bg: #1b1f23;
+  --rst-topbar-line: rgba(255,250,242,.10);
+  --rst-topbar-text: #fffaf2;
+  --rst-topbar-muted: rgba(255,250,242,.74);
+  --rst-topbar-control-bg: rgba(255,255,255,.055);
+  --rst-topbar-control-hover: rgba(255,255,255,.095);
+  --rst-topbar-control-line: rgba(255,250,242,.14);
+  --rst-topbar-active-bg: rgba(240,100,35,.22);
+  --rst-topbar-active-border: rgba(240,100,35,.45);
+  --rst-overlay-bg: rgba(31,22,15,.38);
+  --rst-atmosphere-image: none;
+  --rst-atmosphere-fade:
+    linear-gradient(180deg, rgba(244,237,224,.97) 0%, rgba(244,237,224,.93) 260px, rgba(244,237,224,.98) 560px, var(--rst-ui-bg) 760px);
+  --rst-atmosphere-tint:
+    radial-gradient(circle at 82% 12%, rgba(225,143,37,.08), transparent 38%);
+
+  --rst-ui-text-strong: var(--rst-ui-text);
+  --rst-ui-text-heading: #1f160f;
+  --rst-ui-panel-title: #f06423;
+  --rst-ui-divider-soft: rgba(76,48,26,.075);
+  --rst-ui-divider: rgba(76,48,26,.10);
+  --rst-ui-divider-strong: rgba(76,48,26,.22);
+  --rst-ui-week-head: #ede2d0;
+  --rst-ui-empty-bg: transparent;
+
+  /* Font-weight axis — four steps map directly to Manrope variable-font stops.
+     All CSS must use these four tokens; do not introduce raw numeric weights. */
+  --rst-fw-regular: 500;   /* body text, descriptions, placeholder copy */
+  --rst-fw-medium:  600;   /* slightly emphasized body, form values */
+  --rst-fw-bold:    700;   /* UI labels, captions, nav, section headings */
+  --rst-fw-display: 800;   /* metric values, module headings, hero numbers */
+
+  /* Z-index scale — all positioned elements must use these tokens.
+     Small integers (1–5) are local stacking and stay as literals.
+     Semantic tokens cover all global-chrome layers. */
+  --rst-z-toolbar: 6;          /* floating toolbars and grid action bars */
+  --rst-z-menu: 30;            /* inline action menus and dropdowns */
+  --rst-z-page: 50;            /* full-page layers (login screen) */
+  --rst-z-cell-open: 90;       /* active cells lifted above siblings */
+  --rst-z-topbar: 100;         /* app topbar — highest persistent chrome */
+  --rst-z-popover: 120;        /* floating pickers and autocomplete */
+  --rst-z-panel: 200;          /* notification and slide-in panels */
+  --rst-z-overlay: 1000;       /* full-screen overlays */
+  --rst-z-toast: 9999;         /* toast notifications — always topmost */
+
+  /* Semantic tone system.
+     Keep all success / warning / danger / info / absence tints here so components do not invent their own colours. */
+  --rst-state-success-rgb: 22,163,74;
+  --rst-state-warning-rgb: 217,119,6;
+  --rst-state-danger-rgb: 220,38,38;
+  --rst-state-info-rgb: 37,99,235;
+  --rst-state-neutral-rgb: 100,116,139;
+  --rst-state-absence-rgb: 124,58,237;
+  --rst-state-indigo-rgb: 154,91,31;
+
+  --rst-state-success-text: #15803d;
+  --rst-state-warning-text: #b45309;
+  --rst-state-danger-text: #b91c1c;
+  --rst-state-info-text: #1d4ed8;
+  --rst-state-neutral-text: #475569;
+  --rst-state-absence-text: #6d28d9;
+
+  --rst-state-success-bg: rgba(var(--rst-state-success-rgb),.12);
+  --rst-state-warning-bg: rgba(var(--rst-state-warning-rgb),.12);
+  --rst-state-danger-bg: rgba(var(--rst-state-danger-rgb),.12);
+  --rst-state-info-bg: rgba(var(--rst-state-info-rgb),.12);
+  --rst-state-neutral-bg: rgba(var(--rst-state-neutral-rgb),.08);
+  --rst-state-absence-bg: rgba(var(--rst-state-absence-rgb),.12);
+
+  --rst-state-success-border: rgba(var(--rst-state-success-rgb),.28);
+  --rst-state-warning-border: rgba(var(--rst-state-warning-rgb),.28);
+  --rst-state-danger-border: rgba(var(--rst-state-danger-rgb),.28);
+  --rst-state-info-border: rgba(var(--rst-state-info-rgb),.28);
+  --rst-state-neutral-border: rgba(var(--rst-state-neutral-rgb),.18);
+  --rst-state-absence-border: rgba(var(--rst-state-absence-rgb),.28);
+
+  --rst-state-selected-bg: rgba(225,143,37,.13);
+  --rst-state-selected-border: rgba(225,143,37,.36);
+
+  /* Operational state aliases — source of truth for schedule/actuals/availability/absence meaning.
+     Components should read these operational names instead of deciding that "available" means green, etc. */
+  --rst-op-available-accent: var(--rst-state-success-text);
+  --rst-op-available-bg: rgba(var(--rst-state-success-rgb),.32);
+  --rst-op-available-border: rgba(var(--rst-state-success-rgb),.52);
+
+  --rst-op-planned-accent: var(--rst-state-info-text);
+  --rst-op-planned-bg: var(--rst-state-info-bg);
+  --rst-op-planned-border: var(--rst-state-info-border);
+  --rst-op-planned-card-bg: rgba(37,99,235,.12);
+
+  --rst-op-actual-accent: var(--rst-state-info-text);
+  --rst-op-actual-bg: var(--rst-state-info-bg);
+  --rst-op-actual-border: var(--rst-state-info-border);
+  --rst-op-actual-card-bg: rgba(37,99,235,.12);
+
+  --rst-op-live-accent: var(--rst-state-success-text);
+  --rst-op-live-bg: var(--rst-state-success-bg);
+  --rst-op-live-border: var(--rst-state-success-border);
+  --rst-op-live-card-bg: rgba(22,163,74,.14);
+
+  --rst-op-partial-accent: var(--rst-state-warning-text);
+  --rst-op-partial-bg: var(--rst-state-warning-bg);
+  --rst-op-partial-border: var(--rst-state-warning-border);
+  --rst-op-partial-card-bg: rgba(217,119,6,.14);
+
+  --rst-op-unavailable-accent: var(--rst-state-neutral-text);
+  --rst-op-unavailable-bg: transparent;
+  --rst-op-unavailable-border: var(--rst-state-neutral-border);
+
+  --rst-op-conflict-accent: var(--rst-state-danger-text);
+  --rst-op-conflict-bg: var(--rst-state-danger-bg);
+  --rst-op-conflict-border: var(--rst-state-danger-border);
+  --rst-op-conflict-card-bg: rgba(220,38,38,.12);
+
+  --rst-op-absence-accent: var(--rst-state-absence-text);
+  --rst-op-absence-bg: var(--rst-state-absence-bg);
+  --rst-op-absence-border: var(--rst-state-absence-border);
+  --rst-op-absence-card-bg: rgba(124,58,237,.12);
+
+  --rst-op-pending-accent: var(--rst-state-neutral-text);
+  --rst-op-pending-bg: transparent;
+  --rst-op-pending-border: var(--rst-state-neutral-border);
+  --rst-op-pending-card-bg: rgba(76,48,26,.05);
+
+  --rst-op-correction-accent: var(--rst-state-warning-text);
+  --rst-op-correction-bg: var(--rst-state-warning-bg);
+  --rst-op-correction-border: var(--rst-state-warning-border);
+
+  --rst-op-payroll-accent: var(--rst-state-absence-text);
+  --rst-op-payroll-bg: var(--rst-state-absence-bg);
+  --rst-op-payroll-border: var(--rst-state-absence-border);
+
+  --rst-op-empty-accent: var(--rst-ui-muted);
+  --rst-op-empty-bg: var(--rst-state-neutral-bg);
+  --rst-op-empty-border: var(--rst-state-neutral-border);
+
+  --rst-op-selected-bg: var(--rst-state-selected-bg);
+  --rst-op-selected-border: var(--rst-state-selected-border);
+
+  /* Calendar visual contract — grid cells stay calmer than cards; headers remain warm and readable. */
+  --rst-calendar-board-bg: var(--rst-ui-surface-board);
+  --rst-calendar-header-bg: #ede2d0;
+  --rst-calendar-cell-bg: #f7eddd;
+  --rst-calendar-cell-alt-bg: #eadfcd;
+  --rst-calendar-person-bg: #ede2d0;
+  --rst-calendar-total-bg: #ede2d0;
+  --rst-calendar-slot-conflict-bg: rgba(var(--rst-state-danger-rgb),.14);
+  --rst-calendar-slot-hover-border: var(--module-accent,var(--rst-op-planned-accent));
+
+  /* Calendar density contract — weekly grids compact slightly, then lock at readable size. */
+  --rst-calendar-employee-col: 168px;
+  --rst-calendar-week-total-col: 70px;
+  --rst-calendar-day-col-comfortable: 168px;
+  --rst-calendar-day-col-compact: 154px;
+  --rst-calendar-day-col-min: 154px;
+  --rst-calendar-service-col-min: 77px;
+  --rst-calendar-week-board-min: 1316px;
+  --rst-calendar-row-height-comfortable: 86px;
+  --rst-calendar-row-height-compact: 84px;
+  --rst-calendar-row-height-min: 82px;
+  --rst-calendar-card-min-width: 68px;
+  --rst-calendar-simple-day-min: 132px;
+  --rst-calendar-simple-day-h: 116px;
+
+  /* Service time source of truth — lunch/day and evening/night markers. */
+  --rst-service-lunch-rgb: 13,148,136;
+  --rst-service-evening-rgb: 99,102,241;
+  --rst-service-lunch-accent: #0f766e;
+  --rst-service-lunch-bg: rgba(var(--rst-service-lunch-rgb),.12);
+  --rst-service-lunch-border: rgba(var(--rst-service-lunch-rgb),.28);
+  --rst-service-evening-accent: #4f46e5;
+  --rst-service-evening-bg: rgba(var(--rst-service-evening-rgb),.12);
+  --rst-service-evening-border: rgba(var(--rst-service-evening-rgb),.28);
+
+  /* Semantic helper — white text for use on accent-colored surfaces (primary buttons, etc.) */
+  --rst-on-accent-text: #ffffff;
+}
