@@ -1,70 +1,47 @@
-# restogogo
+# Restogogo
 
-The typed SvelteKit rebuild of the restogogo restaurant-operations application.
-The legacy application remains the behavioral reference until each workflow has
-been migrated and accepted here.
+Restogogo is a typed SvelteKit restaurant-operations application for schedules,
+worked time, employee self-service, team setup, payroll evidence, and PIN-based
+time clock workflows.
 
-## Product surface
+## Start
 
-- Home: operational pulse and action cockpit.
-- Planning: employee-row weekly grid with week-owned draft/publish lifecycle.
-- Actuals: employee-row weekly grid, corrections and weekly approval.
-- Team: employee, access, contract, payroll and absence management.
-- Restaurant: areas, positions, opening hours, coverage and policy setup.
-- Shifts: employee weekly shifts and availability submission.
-- Calendar: employee monthly shifts, worked time, availability and leave.
-- Onboarding and invitation acceptance.
-- Authenticated, one-use-token badge terminal.
-
-## Local setup
+Use Node 22.12 or newer.
 
 ```powershell
 Copy-Item .env.example .env
-npm install
+npm ci
 npm run dev
 ```
 
-Configure these public browser values in `.env`:
+Set `PUBLIC_SUPABASE_URL` and `PUBLIC_SUPABASE_ANON_KEY` in `.env`. The browser
+key is public by design; grants, RLS, and authenticated RPCs enforce access.
 
-```text
-PUBLIC_SUPABASE_URL
-PUBLIC_SUPABASE_ANON_KEY
-```
-
-The publishable Supabase key is safe to expose to the browser; database security
-must remain enforced by authenticated RPCs, grants and RLS.
-
-## Validation
+## Validate
 
 ```powershell
 npm run validate
+npm run verify:database:linked
 ```
 
-This runs the business-model regression tests, Svelte/TypeScript diagnostics
-and a production build.
+The first command is local and does not contact Supabase. The second executes
+the linked database contracts, lint, migration parity, and generated-type
+comparison. Database bootstrap and hosted acceptance are documented in
+[`docs/DATABASE.md`](docs/DATABASE.md).
 
-## Architecture
+## Current documentation
 
-```text
-src/lib/supabase     generated database types and the single Supabase client
-src/lib/api          typed RPC boundaries and snapshot validation
-src/lib/workspace    authenticated workspace state
-src/lib/home         pure Home cockpit business model
-src/lib/components   shared presentation primitives
-src/routes/(app)     authenticated, role-guarded product routes
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): code and runtime ownership.
+- [`docs/PRODUCT-CONTRACTS.md`](docs/PRODUCT-CONTRACTS.md): roles and workflows.
+- [`docs/DATABASE.md`](docs/DATABASE.md): baseline, migrations, and verification.
+- [`docs/QUALITY.md`](docs/QUALITY.md): tests, browser matrix, and guardrails.
+- [`docs/PRODUCTION-READINESS.md`](docs/PRODUCTION-READINESS.md): remaining gates.
+
+## Source archive
+
+Create archives from a committed tree so dependencies, builds, local config,
+Git metadata, caches, and Supabase CLI state are excluded:
+
+```powershell
+git archive --format=zip --output ..\restogogo-clean-source.zip HEAD
 ```
-
-Business rules are rebuilt cleanly rather than copied blindly. The legacy app
-defines accepted behavior; this codebase owns the new implementation.
-
-The restaurant-native domain uses one `work_areas` concept for where work
-happens, `job_functions` plus `employee_job_functions` for what people do,
-fixed legal contract types, and a separate explicit work regime.
-
-## Deployment
-
-The application builds as a static SPA with an `index.html` fallback. Configure
-the host to serve that fallback for unknown routes. Before production rollout,
-apply the reviewed ordered migrations, deploy the invitation function and
-regenerate `database.types.ts`; see
-[`docs/production-readiness.md`](docs/production-readiness.md).

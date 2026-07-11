@@ -1,0 +1,15 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "src/hooks.client.ts",
+    "src/routes/**/+*.{ts,svelte}",
+    "scripts/*.mjs",
+    "supabase/functions/*/index.ts",
+    "supabase/seed/*.ts",
+    "tests/*.test.mjs"
+  ],
+  "ignore": ["src/lib/supabase/database.types.ts"],
+  "ignoreBinaries": ["powershell"],
+  "ignoreUnresolved": ["^\\$app/", "^\\$env/"],
+  "exclude": ["types"]
+}
