@@ -48,6 +48,10 @@ const LATE_GRACE_MINUTES = 10;
 const RECENT_ACCEPTED_DAYS = 30;
 const RECENT_DECIDED_DAYS = 30;
 const SHIFT_SOON_HOURS = 24;
+// No-shows are only actionable while the week is still being reconciled.
+// Bounding them to recent days stops a retroactive publish of an old week from
+// spamming weeks-old historical no-shows.
+const NO_SHOW_LOOKBACK_DAYS = 10;
 
 function employeeName(snapshot: EmployeeLookup, employeeId: string): string {
   return snapshot.employees.find((employee) => employee.id === employeeId)?.display_name ?? 'Employee';
@@ -76,14 +80,14 @@ function planningEventCreatedAt(event: WorkWeekEvent): string {
   return event.created_at;
 }
 
-function routeWithWeek(module: 'planning' | 'actuals' | 'shifts', weekStart: string): string {
-  return `/${module}?week=${weekStart}`;
+function routeWithWeek(route: '/schedule' | '/timesheet' | '/my-service', weekStart: string): string {
+  return `${route}?week=${weekStart}`;
 }
 
 function calendarRoute(date: string, serviceKey?: string | null): string {
   const query = new URLSearchParams({ date });
   if (serviceKey) query.set('service', serviceKey);
-  return `/calendar?${query.toString()}`;
+  return `/my-time?${query.toString()}`;
 }
 
 function isPastDate(date: string, today: string): boolean {
@@ -213,7 +217,7 @@ function managerNotifications(input: ManagerNotificationInput): NotificationItem
       body: `Week of ${submission.week_start}`,
       createdAt,
       actionMode: 'route',
-      targetUrl: routeWithWeek('planning', submission.week_start),
+      targetUrl: routeWithWeek('/schedule', submission.week_start),
       source: { table: 'employee_availability_submissions', id: `${submission.employee_id}:${submission.week_start}` },
       employeeId: submission.employee_id
     });
@@ -234,7 +238,7 @@ function managerNotifications(input: ManagerNotificationInput): NotificationItem
       body: shiftLabel(shift),
       createdAt: shift.updated_at,
       actionMode: 'route',
-      targetUrl: routeWithWeek('planning', shift.week_start),
+      targetUrl: routeWithWeek('/schedule', shift.week_start),
       source: { table: 'planned_shifts', id: shift.id }
     });
   }
@@ -251,7 +255,7 @@ function managerNotifications(input: ManagerNotificationInput): NotificationItem
         body: `${entry.business_date} ${entry.service_key}`,
         createdAt: entry.updated_at,
         actionMode: 'popup',
-        targetUrl: routeWithWeek('actuals', mondayFor(entry.business_date)),
+        targetUrl: routeWithWeek('/timesheet', mondayFor(entry.business_date)),
         source: { table: 'time_entries', id: entry.id }
       });
     }
@@ -267,7 +271,7 @@ function managerNotifications(input: ManagerNotificationInput): NotificationItem
         body: `${entry.business_date} ${entry.service_key}`,
         createdAt: entry.updated_at,
         actionMode: 'route',
-        targetUrl: routeWithWeek('actuals', mondayFor(entry.business_date)),
+        targetUrl: routeWithWeek('/timesheet', mondayFor(entry.business_date)),
         source: { table: 'time_entries', id: entry.id }
       });
     }
@@ -283,7 +287,7 @@ function managerNotifications(input: ManagerNotificationInput): NotificationItem
         body: `${entry.business_date} ${entry.service_key}`,
         createdAt: entry.clock_in_at ?? entry.updated_at,
         actionMode: 'route',
-        targetUrl: routeWithWeek('actuals', mondayFor(entry.business_date)),
+        targetUrl: routeWithWeek('/timesheet', mondayFor(entry.business_date)),
         source: { table: 'time_entries', id: entry.id }
       });
     }
@@ -294,6 +298,8 @@ function managerNotifications(input: ManagerNotificationInput): NotificationItem
     if (week?.planning_status !== 'published') continue;
     const date = dateTimeForShift(shift);
     if (!isPastDate(date, today) || hasEntryForShift(operations.time_entries, shift)) continue;
+    // Skip historical no-shows so publishing an old week doesn't flood the bell.
+    if (!isWithinPastDays(`${date}T23:59:59.000Z`, now, NO_SHOW_LOOKBACK_DAYS)) continue;
     const name = employeeName(operations, shift.employee_id);
     items.push({
       key: `no-show:${shift.id}`,
@@ -304,7 +310,7 @@ function managerNotifications(input: ManagerNotificationInput): NotificationItem
       body: shiftLabel(shift),
       createdAt: `${date}T23:59:00.000Z`,
       actionMode: 'route',
-      targetUrl: routeWithWeek('actuals', shift.week_start),
+      targetUrl: routeWithWeek('/timesheet', shift.week_start),
       source: { table: 'planned_shifts', id: shift.id }
     });
   }
@@ -337,18 +343,30 @@ function employeeNotifications(input: EmployeeNotificationInput): NotificationIt
   for (const event of operations.work_week_events) {
     if (event.event_type !== 'planning_published') continue;
     const week = operations.work_weeks.find((row) => row.week_start === event.week_start);
-    const hasOwnShift = operations.planned_shifts.some((shift) => shift.employee_id === employeeId && shift.week_start === event.week_start);
-    if (week?.planning_status !== 'published' || !hasOwnShift) continue;
+    const hasOwnShift = operations.planned_shifts.some(
+      (shift) => shift.employee_id === employeeId && shift.week_start === event.week_start
+    );
+    // Also notify employees who submitted availability for the week — they want
+    // to know the outcome even if they were not scheduled.
+    const submittedAvailability = operations.employee_availability_submissions.some(
+      (submission) =>
+        submission.employee_id === employeeId &&
+        submission.week_start === event.week_start &&
+        submission.status === 'submitted'
+    );
+    if (week?.planning_status !== 'published' || !(hasOwnShift || submittedAvailability)) continue;
     items.push({
       key: `planning-published:${event.id}`,
       type: 'planning_published',
       audience: 'employee',
       severity: 'info',
-      title: 'New planning published',
-      body: `Week of ${event.week_start}`,
+      title: hasOwnShift ? 'Your shifts are published' : 'Schedule published',
+      body: hasOwnShift
+        ? `Week of ${event.week_start} — see your shifts`
+        : `Week of ${event.week_start} — you're not scheduled`,
       createdAt: planningEventCreatedAt(event),
       actionMode: 'route',
-      targetUrl: routeWithWeek('shifts', event.week_start),
+      targetUrl: routeWithWeek('/my-service', event.week_start),
       source: { table: 'work_week_events', id: event.id }
     });
   }
@@ -383,7 +401,7 @@ function employeeNotifications(input: EmployeeNotificationInput): NotificationIt
       body: `${entry.business_date} ${entry.service_key}`,
       createdAt: entry.updated_at,
       actionMode: 'popup',
-      targetUrl: routeWithWeek('shifts', mondayFor(entry.business_date)),
+      targetUrl: routeWithWeek('/my-service', mondayFor(entry.business_date)),
       source: { table: 'time_entries', id: entry.id }
     });
   }
@@ -404,7 +422,7 @@ function employeeNotifications(input: EmployeeNotificationInput): NotificationIt
       body: shiftLabel(shift),
       createdAt: startsAt.toISOString(),
       actionMode: 'popup',
-      targetUrl: routeWithWeek('shifts', shift.week_start),
+      targetUrl: routeWithWeek('/my-service', shift.week_start),
       source: { table: 'planned_shifts', id: shift.id }
     });
   }

@@ -6,8 +6,6 @@ import {
   workRegime,
   type WorkRegime
 } from '../domain/operations.ts';
-import { addDays } from '../calendar/date.ts';
-import type { FourMetrics, MetricDetailRow } from '../ui/metric.ts';
 
 export type EmployeeDraft = {
   id: string;
@@ -167,7 +165,6 @@ export function employeeDrafts(snapshot: TeamReadModel): EmployeeDraft[] {
     };
   });
 }
-
 export function newEmployeeDraft(id: string): EmployeeDraft {
   return {
     id,
@@ -370,135 +367,6 @@ export function teamSavePayload(
   };
 }
 
-// The four headline Team metrics: active employees, contracts expiring (owner),
-// pending absences and payroll readiness (owner). Owner-only cards collapse to a
-// restricted summary for managers. Shaped here so the route only renders them.
-export function teamMetrics(input: {
-  snapshot: TeamReadModel | null;
-  drafts: EmployeeDraft[];
-  activeEmployees: EmployeeDraft[];
-  payrollReady: number;
-  owner: boolean;
-  today: string;
-}): FourMetrics {
-  const { snapshot, drafts, activeEmployees, payrollReady, owner, today } = input;
-  const employeeName = (id: string) =>
-    snapshot?.employees.find((employee) => employee.id === id)?.display_name ?? 'Employee';
-  const expiringContracts = (snapshot?.employee_contracts ?? []).filter(
-    (contract) =>
-      contract.active &&
-      contract.is_current &&
-      Boolean(contract.contract_end) &&
-      contract.contract_end! >= today &&
-      contract.contract_end! <= addDays(today, 45)
-  );
-  const pendingAbsences = (snapshot?.absences ?? []).filter(
-    (absence) => absence.status === 'pending'
-  );
-  return [
-    {
-      id: 'team-active-employees',
-      label: 'Active employees',
-      value: String(activeEmployees.length),
-      meta: `${drafts.length} total team records`,
-      tone: activeEmployees.length ? 'info' : 'warning',
-      symbol: '●',
-      href: '/team',
-      detail: {
-        title: 'Active employees',
-        subtitle: 'People currently on the team',
-        empty: 'No active employees yet.',
-        rows: (snapshot?.employees ?? [])
-          .filter((employee) => employee.active)
-          .map((employee) => ({ id: employee.id, title: employee.display_name })),
-        actions: [{ id: 'open-team', label: 'Open Team', href: '/team', tone: 'primary' }]
-      }
-    },
-    {
-      id: 'team-expiring-contracts',
-      label: 'Contracts expiring',
-      value: owner ? String(expiringContracts.length) : 'Restricted',
-      meta: owner ? 'Within the next 45 days' : 'Owner-only detail',
-      tone: owner && expiringContracts.length ? 'warning' : 'neutral',
-      symbol: owner && expiringContracts.length ? '!' : '○',
-      href: '/team',
-      detail: owner
-        ? {
-            title: 'Contracts expiring',
-            subtitle: 'Current contracts ending within 45 days',
-            empty: 'No contracts expiring soon.',
-            rows: expiringContracts.map((contract): MetricDetailRow => ({
-              id: contract.id,
-              title: employeeName(contract.employee_id),
-              meta: `Ends ${contract.contract_end}`,
-              tone: 'warning'
-            })),
-            actions: [{ id: 'open-team', label: 'Open Team', href: '/team', tone: 'primary' }]
-          }
-        : undefined
-    },
-    {
-      id: 'team-pending-absences',
-      label: 'Pending absences',
-      value: String(pendingAbsences.length),
-      meta: pendingAbsences.length ? 'Awaiting a decision' : 'No requests waiting',
-      tone: pendingAbsences.length ? 'warning' : 'success',
-      symbol: pendingAbsences.length ? '!' : '✓',
-      href: '/team',
-      detail: {
-        title: 'Pending absences',
-        subtitle: 'Leave requests awaiting a decision',
-        empty: 'No requests waiting.',
-        rows: pendingAbsences.map((absence): MetricDetailRow => ({
-          id: absence.id,
-          title: employeeName(absence.employee_id),
-          meta: `${absence.start_date} → ${absence.end_date}`,
-          value: absence.service_key ?? 'Full day',
-          tone: 'warning'
-        })),
-        actions: [{ id: 'open-team', label: 'Open Team', href: '/team', tone: 'primary' }]
-      }
-    },
-    {
-      id: 'team-payroll-ready',
-      label: 'Payroll ready',
-      value: owner ? `${payrollReady}/${activeEmployees.length}` : 'Restricted',
-      meta: owner ? 'Matricule and national number set' : 'Owner-only detail',
-      tone:
-        owner && activeEmployees.length && payrollReady === activeEmployees.length
-          ? 'success'
-          : owner
-            ? 'warning'
-            : 'neutral',
-      symbol: owner && payrollReady === activeEmployees.length ? '✓' : '○',
-      href: '/team',
-      detail: owner
-        ? {
-            title: 'Payroll readiness',
-            subtitle: 'Matricule and national number per active employee',
-            empty: 'No active employees yet.',
-            rows: activeEmployees.map((employee): MetricDetailRow => {
-              const payroll = snapshot?.employee_payroll_profiles.find(
-                (profile) => profile.employee_id === employee.id
-              );
-              const legal = snapshot?.employee_legal_profiles.find(
-                (profile) => profile.employee_id === employee.id
-              );
-              const ready = Boolean(payroll?.payroll_employee_id && legal?.national_registry_number);
-              return {
-                id: employee.id,
-                title: employeeName(employee.id),
-                value: ready ? 'Ready' : 'Incomplete',
-                tone: ready ? 'success' : 'warning'
-              };
-            }),
-            actions: [{ id: 'open-team', label: 'Open Team', href: '/team', tone: 'primary' }]
-          }
-        : undefined
-    }
-  ];
-}
-
 // Team readiness checklist for the Readiness tab. Pure shaping; tab navigation
 // is delegated back to the route through a single onSelectTab callback so the
 // model stays free of view state.
@@ -530,7 +398,7 @@ export function teamSetupSteps(input: {
     },
     {
       label: 'Workspace access',
-      detail: 'Invitation-owned authentication state',
+      detail: 'Accounts ready',
       complete:
         activeEmployees.length > 0 &&
         activeEmployees.every(
@@ -543,7 +411,7 @@ export function teamSetupSteps(input: {
     },
     {
       label: 'Employment contracts',
-      detail: owner ? 'Owner employment records' : 'Owner-managed',
+      detail: owner ? 'Contracts ready' : 'Owner only',
       complete:
         !owner ||
         activeEmployees.every(
@@ -554,7 +422,7 @@ export function teamSetupSteps(input: {
     },
     {
       label: 'Payroll readiness',
-      detail: owner ? `${payrollReady}/${activeEmployees.length} ready` : 'Owner-managed',
+      detail: owner ? `${payrollReady}/${activeEmployees.length} ready` : 'Owner only',
       complete:
         !owner ||
         (activeEmployees.length > 0 && payrollReady === activeEmployees.length),

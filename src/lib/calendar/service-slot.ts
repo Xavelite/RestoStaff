@@ -42,6 +42,7 @@ export type ServiceSlotPlan = {
   startsAt: string;
   endsAt: string;
   area?: string;
+  contractBaseline?: boolean;
 };
 
 export type ServiceSlotTruth = {
@@ -97,6 +98,7 @@ function planFromSnapshot(
     id: shift.id,
     startsAt: clockLabel(shift.starts_at),
     endsAt: clockLabel(shift.ends_at),
+    contractBaseline: shift.source === 'template',
     area:
       (input.snapshot.work_areas ?? []).find((area) => area.id === shift.area_id)?.name ??
       'Any area'
@@ -117,14 +119,7 @@ function availabilityFromSnapshot(
   if (explicit === 'available' || explicit === 'partial' || explicit === 'unavailable') {
     return explicit;
   }
-  const recurring = (input.snapshot.recurring_schedule_slots ?? []).some(
-    (row) =>
-      row.employee_id === input.employeeId &&
-      row.weekday === weekday(input.date) &&
-      row.service_key === input.serviceKey &&
-      row.active
-  );
-  return recurring ? 'available' : '';
+  return '';
 }
 
 export function instantClockLabel(value: string | null, timezone: string): string {
@@ -253,7 +248,9 @@ function availabilityBackground(truth: ServiceSlotTruth): SlotBackground {
 function actualsBackground(truth: ServiceSlotTruth): SlotBackground {
   if (truth.entry) {
     if (truth.state === 'conflict') return 'conflict';
-    return truth.availability === 'available' ? 'available' : 'warning';
+    return truth.availability === 'available' || truth.plan?.contractBaseline
+      ? 'available'
+      : 'warning';
   }
   if (truth.state === 'missing_badge') return 'warning';
   return availabilityBackground(truth);
@@ -268,7 +265,9 @@ function actualsBackground(truth: ServiceSlotTruth): SlotBackground {
 function planningBackground(truth: ServiceSlotTruth): SlotBackground {
   if (truth.plan) {
     if (truth.state === 'conflict') return 'conflict';
-    return truth.availability === 'available' ? 'available' : 'warning';
+    return truth.availability === 'available' || truth.plan.contractBaseline
+      ? 'available'
+      : 'warning';
   }
   return availabilityBackground(truth);
 }
@@ -388,9 +387,13 @@ export function projectServiceSlot(
     };
   }
 
+  // The employee's own time off stays visible on their calendar even when they
+  // are also scheduled, so a published leave request is not hidden behind the
+  // plan card. A real worked entry still takes precedence.
+  const ownLeaveFirst = !truth.entry && truth.absence ? leaveCard(truth) : null;
   return {
     background,
-    card: actualCard(truth) ?? planCard(truth) ?? leaveCard(truth),
+    card: actualCard(truth) ?? ownLeaveFirst ?? planCard(truth) ?? leaveCard(truth),
     attention: truth.conflictReasons.join(', ') || undefined
   };
 }

@@ -23,7 +23,7 @@ const FIELD_LABELS = new Map(PAYROLL_EXPORT_FIELDS.map((field) => [field.key, fi
 
 // The standard social-secretariat default used when a restaurant has not saved
 // its own configuration. Mirrors the RPC's built-in default.
-export const DEFAULT_PAYROLL_EXPORT_COLUMNS: PayrollExportField[] = [
+const DEFAULT_PAYROLL_EXPORT_COLUMNS: PayrollExportField[] = [
   'payroll_id',
   'employee_name',
   'national_registry_number',
@@ -36,7 +36,7 @@ export const DEFAULT_PAYROLL_EXPORT_COLUMNS: PayrollExportField[] = [
   'contract_type'
 ];
 
-export function isPayrollExportField(value: string): value is PayrollExportField {
+function isPayrollExportField(value: string): value is PayrollExportField {
   return FIELD_KEYS.has(value as PayrollExportField);
 }
 

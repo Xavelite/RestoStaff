@@ -1,18 +1,9 @@
 import type { WorkspaceRole } from '$lib/api/workspace';
 import type { ManagerOperationsReadModel } from '$lib/api/workspace-snapshot';
 import { serviceLabel } from '../calendar/date.ts';
-import type { FourMetrics } from '$lib/ui/metric';
 
 export type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
-export type HomeMetric = {
-  label: string;
-  value: string;
-  meta: string;
-  tone: Tone;
-  symbol: string;
-  href: string;
-};
 
 export type HomeLiveRow = {
   employeeId: string;
@@ -22,7 +13,19 @@ export type HomeLiveRow = {
   status: string;
   tone: Tone;
   startMinutes: number;
+  // Full-mode extras: a rich one-line stat (X min late, worked time, starts in)
+  // and, when working now, the clock-in instant so the view can tick live.
+  detail: string;
+  liveSince?: string | null;
 };
+
+function liveMinutesLabel(minutes: number): string {
+  const total = Math.max(0, Math.round(minutes));
+  if (total < 60) return `${total} min`;
+  const hours = Math.floor(total / 60);
+  const rest = total % 60;
+  return rest ? `${hours}h ${rest}m` : `${hours}h`;
+}
 
 export type HomeActionRow = {
   key: 'leave' | 'payroll' | 'planning' | 'availability';
@@ -45,12 +48,12 @@ export type HomePulseRow = {
 
 export type HomeModel = {
   weekLabel: string;
-  metrics: FourMetrics;
   live: {
     working: number;
     late: number;
     upcoming: number;
     rows: HomeLiveRow[];
+    todayRoster: HomeLiveRow[];
   };
   actions: {
     total: number;
@@ -64,6 +67,42 @@ export type HomeModel = {
 
 const LATE_THRESHOLD_MINUTES = 45;
 const DAY_MS = 86_400_000;
+
+function liveTonePriority(tone: Tone) {
+  if (tone === 'danger') return 0;
+  if (tone === 'warning') return 1;
+  if (tone === 'success') return 2;
+  return 3;
+}
+
+function combineLiveRowsByEmployee(rows: HomeLiveRow[]): HomeLiveRow[] {
+  const groups = new Map<string, HomeLiveRow[]>();
+  for (const row of rows) {
+    const existing = groups.get(row.employeeId) ?? [];
+    existing.push(row);
+    groups.set(row.employeeId, existing);
+  }
+
+  return [...groups.values()]
+    .map((employeeRows) => {
+      const sorted = [...employeeRows].sort(
+        (a, b) => a.startMinutes - b.startMinutes || liveTonePriority(a.tone) - liveTonePriority(b.tone)
+      );
+      const lead = [...sorted].sort(
+        (a, b) => liveTonePriority(a.tone) - liveTonePriority(b.tone) || a.startMinutes - b.startMinutes
+      )[0];
+      const statuses = [...new Set(sorted.map((row) => row.status))];
+      return {
+        ...lead,
+        range: sorted.map((row) => row.range).join(' / '),
+        status: sorted.length > 1 ? `${sorted.length} shifts / ${statuses.join(', ')}` : lead.status,
+        startMinutes: sorted[0].startMinutes
+      };
+    })
+    .sort(
+      (a, b) => liveTonePriority(a.tone) - liveTonePriority(b.tone) || a.startMinutes - b.startMinutes
+    );
+}
 
 function text(value: unknown): string {
   return String(value ?? '').trim();
@@ -127,7 +166,7 @@ function clockLabel(value: string | null): string {
 function clockRange(start: string | null, end: string | null): string {
   const from = clockLabel(start);
   const to = clockLabel(end);
-  return from && to ? `${from}–${to}` : from;
+  return from && to ? `${from}-${to}` : from;
 }
 
 function hoursBetweenClocks(start: string | null, end: string | null): number {
@@ -159,7 +198,7 @@ function formatWeekRange(weekStart: string): string {
     month: 'short',
     timeZone: 'UTC'
   });
-  return `${formatter.format(start)} – ${formatter.format(end)}`;
+  return `${formatter.format(start)} - ${formatter.format(end)}`;
 }
 
 function formatInstant(value: string | null, timezone: string): string {
@@ -257,10 +296,12 @@ export function buildHomeModel(
         employeeId: entry.employee_id,
         name: employee?.display_name || 'Employee',
         role: roleForEmployee(entry.employee_id, plan?.job_function_id),
-        range: plan?.range || `${clockIn}–live`,
+        range: plan?.range || `${clockIn}-live`,
         status: plan ? 'Working now' : 'Unplanned live',
         tone: plan ? 'success' : 'warning',
-        startMinutes: plan?.startMinutes ?? clockMinutes(clockIn) ?? 0
+        startMinutes: plan?.startMinutes ?? clockMinutes(clockIn) ?? 0,
+        detail: plan ? `On the floor | in since ${clockIn}` : `Unplanned | in since ${clockIn}`,
+        liveSince: entry.clock_in_at
       };
     });
 
@@ -286,7 +327,11 @@ export function buildHomeModel(
         status:
           localNow.minutes - shift.startMinutes > LATE_THRESHOLD_MINUTES ? 'No-show' : 'Late',
         tone: 'danger',
-        startMinutes: shift.startMinutes
+        startMinutes: shift.startMinutes,
+        detail:
+          localNow.minutes - shift.startMinutes > LATE_THRESHOLD_MINUTES
+            ? `No badge | ${liveMinutesLabel(localNow.minutes - shift.startMinutes)} overdue`
+            : `${liveMinutesLabel(localNow.minutes - shift.startMinutes)} late`
       };
     });
 
@@ -301,10 +346,57 @@ export function buildHomeModel(
         range: shift.range,
         status: 'Upcoming',
         tone: 'neutral' as Tone,
-        startMinutes: shift.startMinutes
+        startMinutes: shift.startMinutes,
+        detail: `Starts in ${liveMinutesLabel(shift.startMinutes - localNow.minutes)}`
       };
     })
     .sort((a, b) => a.startMinutes - b.startMinutes || a.name.localeCompare(b.name));
+
+  // Full floor for today: every planned shift with its live state, so the
+  // Live Monitor's fullscreen view can show the whole day, not only exceptions.
+  const todayRosterRows: HomeLiveRow[] = todayPlanned.map((shift) => {
+    const employee = employeesById.get(shift.employee_id);
+    const actual = actualsBySlot.get(
+      `${shift.employee_id}|${shift.date}|${shift.service_key}`
+    );
+    const onLeave = hasApprovedAbsence(shift.employee_id, shift.date, shift.service_key);
+    let status = 'Upcoming';
+    let tone: Tone = 'neutral';
+    let detail = `Starts in ${liveMinutesLabel(shift.startMinutes - localNow.minutes)}`;
+    let liveSince: string | null = null;
+    if (actual?.clock_in_at && !actual.clock_out_at) {
+      status = 'Working now';
+      tone = 'success';
+      detail = `On the floor | in since ${formatInstant(actual.clock_in_at, timezone)}`;
+      liveSince = actual.clock_in_at;
+    } else if (actual?.clock_out_at) {
+      status = 'Done';
+      tone = 'info';
+      detail = `Worked ${formatInstant(actual.clock_in_at, timezone)}-${formatInstant(actual.clock_out_at, timezone)}`;
+    } else if (onLeave) {
+      status = 'On leave';
+      tone = 'neutral';
+      detail = 'On approved leave';
+    } else if (shift.startMinutes <= localNow.minutes) {
+      const over = localNow.minutes - shift.startMinutes;
+      status = over > LATE_THRESHOLD_MINUTES ? 'No-show' : 'Late';
+      tone = 'danger';
+      detail = over > LATE_THRESHOLD_MINUTES
+        ? `No badge | ${liveMinutesLabel(over)} overdue`
+        : `${liveMinutesLabel(over)} late`;
+    }
+    return {
+      employeeId: shift.employee_id,
+      name: employee?.display_name || 'Employee',
+      role: roleForEmployee(shift.employee_id, shift.job_function_id),
+      range: shift.range,
+      status,
+      tone,
+      startMinutes: shift.startMinutes,
+      detail,
+      liveSince
+    };
+  });
 
   const missingBadges = planned.filter((shift) => {
     if (shift.date > localNow.date) return false;
@@ -352,13 +444,15 @@ export function buildHomeModel(
         const contract = currentContracts.get(employee.id);
         const payroll = payrollByEmployee.get(employee.id);
         const legal = legalByEmployee.get(employee.id);
+        // Leave entitlement is a leave-balance detail, not a payment blocker (0
+        // is valid for some regimes), so it is intentionally excluded here to
+        // keep this signal consistent with the Team readiness definition.
         return (
           !primaryJobFunctionByEmployee.get(employee.id) ||
           !contract?.contract_type_id ||
           !text(contract.work_regime) ||
           !Number(contract.weekly_contract_hours) ||
           !contract.contract_start ||
-          !Number(contract.annual_leave_entitlement_days) ||
           !text(payroll?.payroll_employee_id) ||
           !text(legal?.national_registry_number) ||
           !text(payroll?.iban)
@@ -471,7 +565,7 @@ export function buildHomeModel(
         meta:
           absence.start_date === absence.end_date
             ? absence.start_date
-            : `${absence.start_date} → ${absence.end_date}`
+            : `${absence.start_date} to ${absence.end_date}`
       }))
     },
     ...(role === 'owner'
@@ -483,7 +577,7 @@ export function buildHomeModel(
             count: missingPayroll.length,
             tone: (missingPayroll.length ? 'warning' : 'success') as Tone,
             href: '/team',
-            symbol: '€',
+            symbol: 'EUR',
             items: missingPayroll.slice(0, 5).map((employee) => ({
               id: employee.id,
               label: employee.display_name,
@@ -494,11 +588,11 @@ export function buildHomeModel(
       : []),
     {
       key: 'planning',
-      label: 'Planning conflicts',
+      label: 'Schedule conflicts',
       meta: 'Services affected',
       count: affectedServices,
       tone: affectedServices ? 'danger' : 'success',
-      href: '/planning',
+      href: '/schedule',
       symbol: '!',
       items: affectedServiceKeys.slice(0, 5).map((key) => {
         const [weekdayNumber, serviceKey] = key.split('|');
@@ -507,7 +601,7 @@ export function buildHomeModel(
           .reduce((total, issue) => total + issue.missing, 0);
         return {
           id: key,
-          label: `${weekdayShort[Number(weekdayNumber) - 1] ?? 'Day'} · ${serviceLabel(serviceKey)}`,
+          label: `${weekdayShort[Number(weekdayNumber) - 1] ?? 'Day'} | ${serviceLabel(serviceKey)}`,
           meta: `${missing} position${missing === 1 ? '' : 's'} short`
         };
       })
@@ -518,7 +612,7 @@ export function buildHomeModel(
       meta: 'Employees',
       count: unsubmittedAvailability.length,
       tone: unsubmittedAvailability.length ? 'warning' : 'success',
-      href: '/planning',
+      href: '/schedule',
       symbol: 'A',
       items: unsubmittedAvailability.slice(0, 5).map((employee) => ({
         id: employee.id,
@@ -528,15 +622,9 @@ export function buildHomeModel(
     }
   ];
   const actionTotal = actionRows.reduce((total, row) => total + row.count, 0);
-  const unplannedLive = liveRows.filter((row) => row.tone === 'warning').length;
-  const firstUpcoming = upcomingRows[0];
 
-  const combinedLiveRows = [...lateRows, ...liveRows, ...upcomingRows]
-    .sort((a, b) => {
-      const priority = (tone: Tone) => (tone === 'danger' ? 0 : tone === 'warning' ? 1 : 2);
-      return priority(a.tone) - priority(b.tone) || a.startMinutes - b.startMinutes;
-    })
-    .slice(0, 9);
+  const combinedLiveRows = combineLiveRowsByEmployee([...lateRows, ...liveRows, ...upcomingRows]).slice(0, 9);
+  const todayRoster = combineLiveRowsByEmployee([...todayRosterRows, ...liveRows]);
 
   const pulseRows: HomePulseRow[] = [
     {
@@ -544,157 +632,46 @@ export function buildHomeModel(
       value: formatHours(plannedHours),
       meta: planningStatus,
       tone: 'neutral',
-      href: '/planning'
+      href: '/schedule'
     },
     {
       label: 'Actual hours',
       value: formatHours(actualHours),
       meta: 'Badged so far',
       tone: 'info',
-      href: '/actuals'
+      href: '/timesheet'
     },
     {
       label: 'Coverage status',
       value: coverage.label,
       meta: coverage.detail,
       tone: coverage.tone,
-      href: '/planning'
+      href: '/schedule'
     },
     {
       label: 'Missing badges',
       value: String(missingBadges.length),
       meta: missingBadges.length ? 'Started planned shifts' : 'No missing badges',
       tone: missingBadges.length ? 'warning' : 'success',
-      href: '/actuals'
+      href: '/timesheet'
     },
     {
-      label: 'Planning status',
+      label: 'Schedule status',
       value: planningStatus,
       meta: planningStatus === 'Published' ? 'Published' : 'Not published',
       tone: planningStatus === 'Published' ? 'success' : 'neutral',
-      href: '/planning'
-    }
-  ];
-
-  // Each metric carries a `detail` so clicking the card opens the shared popup
-  // with the exact rows behind the number. Content is intentionally light here —
-  // it is trivially extended (more rows, inline approve/reject actions) later.
-  const metrics: FourMetrics = [
-    {
-      id: 'home-today-live',
-      label: 'Today live',
-      value: lateRows.length
-        ? countLabel(lateRows.length, 'late staff', 'late / no-show')
-        : unplannedLive
-          ? countLabel(unplannedLive, 'unplanned shift')
-          : 'On track',
-      meta: lateRows.length
-        ? 'Needs attention now'
-        : unplannedLive
-          ? 'Working without a published shift'
-          : 'No live exceptions',
-      tone: lateRows.length ? 'danger' : unplannedLive ? 'warning' : 'success',
-      symbol: lateRows.length || unplannedLive ? '!' : '✓',
-      href: '/actuals',
-      detail: {
-        title: 'Today live',
-        subtitle: 'Working now, late / no-show and upcoming today',
-        empty: 'No live activity yet today.',
-        rows: combinedLiveRows.map((row) => ({
-          id: `${row.employeeId}-${row.status}-${row.startMinutes}`,
-          title: row.name,
-          meta: `${row.role} · ${row.range}`,
-          value: row.status,
-          tone: row.tone
-        })),
-        actions: [{ id: 'open-actuals', label: 'Open Actuals', href: '/actuals', tone: 'primary' }]
-      }
-    },
-    {
-      id: 'home-upcoming-today',
-      label: 'Upcoming today',
-      value: upcomingRows.length ? countLabel(upcomingRows.length, 'shift') : 'Clear',
-      meta: firstUpcoming
-        ? `${firstUpcoming.range || 'Next shift'} · ${firstUpcoming.name}`
-        : 'No upcoming shifts',
-      tone: upcomingRows.length ? 'info' : 'neutral',
-      symbol: '↗',
-      href: '/planning',
-      detail: {
-        title: 'Upcoming today',
-        subtitle: 'Shifts that have not started yet',
-        empty: 'No upcoming shifts today.',
-        rows: upcomingRows.map((row) => ({
-          id: `${row.employeeId}-${row.startMinutes}`,
-          title: row.name,
-          meta: `${row.role} · ${row.range}`,
-          tone: row.tone
-        })),
-        actions: [{ id: 'open-planning', label: 'Open Planning', href: '/planning', tone: 'primary' }]
-      }
-    },
-    {
-      id: 'home-action-required',
-      label: 'Action required',
-      value: actionTotal ? String(actionTotal) : 'Clear',
-      meta: actionTotal ? 'Items to review' : 'Nothing pending',
-      tone: actionTotal ? 'warning' : 'success',
-      symbol: actionTotal ? '!' : '✓',
-      href: actionRows.find((row) => row.count > 0)?.href || '/planning',
-      detail: {
-        title: 'Action required',
-        subtitle: 'Operational items waiting on you',
-        empty: 'Nothing pending right now.',
-        rows: actionRows.map((row) => ({
-          id: row.key,
-          title: row.label,
-          meta: row.meta,
-          value: String(row.count),
-          tone: row.tone,
-          symbol: row.symbol
-        })),
-        actions: [
-          { id: 'open-team', label: 'Go to Team', href: '/team', tone: 'primary' },
-          { id: 'open-planning', label: 'Go to Planning', href: '/planning' }
-        ]
-      }
-    },
-    {
-      id: 'home-week-pulse',
-      label: 'Week pulse',
-      value: coverage.label,
-      meta: missingBadges.length
-        ? `${coverage.detail} · ${countLabel(missingBadges.length, 'missing badge')}`
-        : coverage.detail,
-      tone: coverage.tone,
-      symbol: coverage.tone === 'success' ? '✓' : 'W',
-      href: '/planning',
-      detail: {
-        title: 'Week pulse',
-        subtitle: formatWeekRange(weekStart),
-        rows: pulseRows.map((row, index) => ({
-          id: `${index}-${row.label}`,
-          title: row.label,
-          value: row.value,
-          meta: row.meta,
-          tone: row.tone
-        })),
-        actions: [
-          { id: 'open-planning', label: 'Open Planning', href: '/planning', tone: 'primary' },
-          { id: 'open-actuals', label: 'Open Actuals', href: '/actuals' }
-        ]
-      }
+      href: '/schedule'
     }
   ];
 
   return {
     weekLabel: formatWeekRange(weekStart),
-    metrics,
     live: {
       working: liveRows.length,
       late: lateRows.length,
       upcoming: upcomingRows.length,
-      rows: combinedLiveRows
+      rows: combinedLiveRows,
+      todayRoster
     },
     actions: { total: actionTotal, rows: actionRows },
     pulse: { tone: coverage.tone, rows: pulseRows }

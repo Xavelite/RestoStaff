@@ -1,6 +1,6 @@
 import type { Tables } from '$lib/supabase/database.types';
 
-export const NOTIFICATION_TYPE_CODES = [
+const NOTIFICATION_TYPE_CODES = [
   'absence_request_submitted',
   'employee_unavailable_on_planned_shift',
   'employee_forgot_badge_out',
@@ -20,7 +20,7 @@ export const NOTIFICATION_TYPE_CODES = [
 
 export type NotificationTypeCode = (typeof NOTIFICATION_TYPE_CODES)[number];
 
-export const IMPLEMENTED_NOTIFICATION_TYPE_CODES = [
+const IMPLEMENTED_NOTIFICATION_TYPE_CODES = [
   'absence_request_submitted',
   'employee_unavailable_on_planned_shift',
   'employee_forgot_badge_out',
@@ -35,9 +35,9 @@ export const IMPLEMENTED_NOTIFICATION_TYPE_CODES = [
   'shift_soon'
 ] as const satisfies readonly NotificationTypeCode[];
 
-export type NotificationAudience = 'manager' | 'employee' | 'both';
-export type NotificationActionMode = 'popup' | 'route';
-export type NotificationSeverity = 'critical' | 'attention' | 'info' | 'success';
+type NotificationAudience = 'manager' | 'employee' | 'both';
+type NotificationActionMode = 'popup' | 'route';
+type NotificationSeverity = 'critical' | 'attention' | 'info' | 'success';
 
 export type NotificationType = Omit<
   Tables<'notification_types'>,
@@ -48,10 +48,7 @@ export type NotificationType = Omit<
   default_action: NotificationActionMode;
 };
 
-export type NotificationPreference = Tables<'notification_preferences'>;
-export type NotificationReceipt = Tables<'notification_receipts'>;
-
-export type NotificationSource = {
+type NotificationSource = {
   table: string;
   id: string;
 };

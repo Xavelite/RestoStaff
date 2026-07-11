@@ -9,6 +9,7 @@
     name,
     detail,
     area = '',
+    color = '',
     selected = false,
     compact = false,
     liveSince = null,
@@ -20,6 +21,7 @@
     name: string;
     detail: string;
     area?: string;
+    color?: string;
     selected?: boolean;
     compact?: boolean;
     liveSince?: string | null;
@@ -56,6 +58,7 @@
   class={`staff-chip is-${tone}`}
   class:is-compact={compact}
   class:is-selected={selected}
+  style={color ? `--chip-color:${color};` : undefined}
   {onclick}
   onmouseenter={show}
   onmouseleave={hide}
@@ -93,8 +96,8 @@
     border: 0;
     border-radius: 999px;
     color: #fff;
-    background: #1f4a7a;
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+    background: var(--chip-color, #1f4a7a);
+    box-shadow: 0 0 0 2px var(--chip-ring, rgba(255, 255, 255, 0.55));
     font-size: 10px;
     font-weight: var(--rst-fw-display);
     cursor: pointer;
@@ -109,7 +112,7 @@
   .staff-chip:focus-visible {
     transform: translateY(-2px) scale(1.08);
     filter: saturate(1.08);
-    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.72), 0 12px 24px rgba(4, 11, 20, 0.22);
+    box-shadow: 0 0 0 3px var(--chip-ring, rgba(255, 255, 255, 0.72)), 0 12px 24px rgba(4, 11, 20, 0.22);
     z-index: 5;
   }
 
@@ -119,28 +122,33 @@
     box-shadow: none;
   }
 
-  .staff-chip.is-live {
-    background: #58df92;
-    color: #12301f;
+  /* Work-state lives in the ring so the fill can stay the position colour. */
+  .staff-chip.is-live,
+  .staff-chip.is-planned,
+  .staff-chip.is-recorded,
+  .staff-chip.is-worked {
+    --chip-ring: #42d884;
   }
 
-  .staff-chip.is-available {
-    background: rgba(66, 216, 132, 0.55);
-    color: #12301f;
+  .staff-chip.is-available,
+  .staff-chip.is-bench {
+    --chip-ring: rgba(66, 216, 132, 0.7);
   }
 
   .staff-chip.is-missing,
   .staff-chip.is-conflict,
   .staff-chip.is-blocked,
-  .staff-chip.is-unavailable {
-    background: #8d2b1c;
+  .staff-chip.is-unavailable,
+  .staff-chip.is-danger {
+    --chip-ring: #ff6b4a;
   }
 
   .staff-chip.is-adjusted,
   .staff-chip.is-pending,
-  .staff-chip.is-partial {
-    background: #f7d36d;
-    color: #3d2904;
+  .staff-chip.is-partial,
+  .staff-chip.is-attention,
+  .staff-chip.is-warning {
+    --chip-ring: #f7b733;
   }
 
   .staff-chip.is-selected {

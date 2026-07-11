@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import {
   defaultEmployeeTimeOffType,
@@ -9,27 +8,20 @@ import {
   setAvailabilityOverride,
   toggleEmployeeSlotSelection
 } from '../src/lib/employee/employee-self-service.ts';
+import {
+  SELECTABLE_AVAILABILITY,
+  availabilityUpdateHint
+} from '../src/lib/employee/employee-model.ts';
 
-const migration =
-  'supabase/migrations/202606200010_employee_self_service_policy.sql';
-const cleanupMigration =
-  'supabase/migrations/202606200011_remove_obsolete_employee_self_service.sql';
-
-test('unconfigured employees default to weekly self-service at the database boundary', async () => {
-  const sql = await readFile(migration, 'utf8');
-  assert.match(sql, /contract_type_id is null[\s\S]*weekly_availability/i);
-  assert.match(
-    sql,
-    /alter column work_regime set default 'weekly_availability'/i
+test('employee availability is binary while historical partial values require an update', () => {
+  assert.deepEqual(
+    SELECTABLE_AVAILABILITY.map((option) => option.value),
+    ['available', 'unavailable']
   );
-  assert.match(sql, /create or replace function public\.save_employee_availability/i);
-  assert.match(sql, /Availability is locked once the week is published/i);
-  assert.match(sql, /guard_actuals_approval/i);
-});
-
-test('the superseded mixed employee mutation is removed', async () => {
-  const sql = await readFile(cleanupMigration, 'utf8');
-  assert.match(sql, /drop function public\.save_employee_self_service/i);
+  assert.equal(
+    availabilityUpdateHint('partial'),
+    'Your saved availability needs updating. Choose available or unavailable.'
+  );
 });
 
 test('slot selection toggles without duplicate state', () => {
@@ -93,9 +85,10 @@ test('one slot, one action: the tab + regime decide the request kind, never the 
   assert.equal(employeeSlotAction('time_off', 'weekly_availability'), 'request_time_off');
   assert.equal(employeeSlotAction('time_off', 'fixed_schedule'), 'request_time_off');
   assert.equal(employeeSlotAction('time_off', 'manager_only'), 'request_time_off');
-  // Availability tab sets weekly availability, or a fixed-schedule change.
+  // Availability tab only belongs to weekly-availability employees.
   assert.equal(employeeSlotAction('availability', 'weekly_availability'), 'set_availability');
-  assert.equal(employeeSlotAction('availability', 'fixed_schedule'), 'request_change');
+  assert.equal(employeeSlotAction('availability', 'fixed_schedule'), 'none');
+  assert.equal(employeeSlotAction('availability', 'manager_only'), 'none');
 });
 
 test('availability override forces one effective state per slot', () => {

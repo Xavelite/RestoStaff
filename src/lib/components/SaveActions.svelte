@@ -7,6 +7,7 @@
     saveLabel = 'Save changes',
     busyLabel = 'Saving…',
     embedded = false,
+    showCleanActions = true,
     oncancel,
     onsave
   }: {
@@ -15,6 +16,7 @@
     saveLabel?: string;
     busyLabel?: string;
     embedded?: boolean;
+    showCleanActions?: boolean;
     oncancel: () => void;
     onsave: () => void;
   } = $props();
@@ -22,15 +24,17 @@
 
 <div class="save-actions" class:is-embedded={embedded} aria-label="Workspace changes">
   <span aria-live="polite">{dirty ? 'Unsaved changes' : 'All changes saved'}</span>
-  <div class="save-actions__buttons">
-    <ActionButton label="Cancel changes" disabled={!dirty || busy} onclick={oncancel} />
-    <ActionButton
-      label={busy ? busyLabel : saveLabel}
-      tone="primary"
-      disabled={!dirty || busy}
-      onclick={onsave}
-    />
-  </div>
+  {#if dirty || busy || showCleanActions}
+    <div class="save-actions__buttons">
+      <ActionButton label="Cancel changes" disabled={!dirty || busy} onclick={oncancel} />
+      <ActionButton
+        label={busy ? busyLabel : saveLabel}
+        tone="primary"
+        disabled={!dirty || busy}
+        onclick={onsave}
+      />
+    </div>
+  {/if}
 </div>
 
 <style>

@@ -156,7 +156,7 @@ class WorkspaceStore {
     ) return;
     // Keep the current snapshot visible while the new range loads — the request
     // guard below discards stale results, and each page filters to its own
-    // range, so navigating Shifts (week) <-> Calendar (month) never blanks.
+    // range, so navigating My service (week) <-> My time (month) never blanks.
     const requestId = ++this.#employeeRequestId;
     await this.loadModule(async () => {
       const model = await getEmployeeOperationsReadModel(this.activeId!, from, to);
@@ -209,18 +209,18 @@ class WorkspaceStore {
       await Promise.all([this.reloadBootstrap(), this.loadTeam(true)]);
       return;
     }
-    if (pathname === '/restaurant' || pathname === '/coverage') {
+    if (pathname === '/restaurant') {
       await Promise.all([this.reloadBootstrap(), this.loadRestaurant(true)]);
       return;
     }
-    if (pathname === '/shifts' || pathname === '/calendar') {
+    if (pathname === '/my-service' || pathname === '/my-time') {
       await this.reloadEmployeeOperations();
       return;
     }
     if (
       pathname === '/home' ||
-      pathname === '/planning' ||
-      pathname === '/actuals' ||
+      pathname === '/schedule' ||
+      pathname === '/timesheet' ||
       pathname === '/badge-terminal'
     ) {
       await this.reloadOperations();

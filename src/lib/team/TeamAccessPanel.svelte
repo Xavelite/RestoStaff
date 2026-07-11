@@ -77,7 +77,7 @@
         {/if}
       </div>
     {:else}
-      <p class="hint">Workspace access and badge permission are durable account controls. Invitations are no longer involved after acceptance.</p>
+      <p class="hint">This account is linked to the workspace. Manage app access and time-clock permission here.</p>
       {#if employee.accessRole !== 'owner'}
         <div class="actions">
           <ActionButton
@@ -99,16 +99,16 @@
   </div>
 </Panel>
 
-<Panel title="Technical details" eyebrow="Badge and PIN">
+<Panel title="Time clock access" eyebrow="Badge PIN">
   <div class="fields">
-    <label>PIN status<input value={employee.pinStatus} disabled /></label>
+    <label>Badge PIN status<input value={employee.pinStatus} disabled /></label>
     <label class="check">
       <input
         type="checkbox"
         checked={employee.badgeEnabled}
         onchange={(event) => onBadgeChange(event.currentTarget.checked)}
       />
-      Badge terminal enabled
+      Can use the time clock
     </label>
     {#if employee.invitationSentAt && !employee.profileId}
       <label>Last invitation<input value={new Date(employee.invitationSentAt).toLocaleString()} disabled /></label>

@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildActualsWeek } from '../src/lib/actuals/actuals-model.ts';
+import { buildActualsWeek } from '../src/lib/timesheet/timesheet-model.ts';
 import {
   projectServiceSlot,
   resolveWorkspaceServiceSlot
 } from '../src/lib/calendar/service-slot.ts';
 import { buildEmployeeWeek, employeeMonth } from '../src/lib/employee/employee-model.ts';
-import { buildPlanningWeek } from '../src/lib/planning/planning-model.ts';
+import { buildPlanningWeek, planningDraftForWeek } from '../src/lib/schedule/schedule-model.ts';
 
 function snapshot(overrides = {}) {
   return {
@@ -84,6 +84,79 @@ test('availability is a slot background and never an operational card', () => {
   const presentation = projectServiceSlot(truth, 'employee');
   assert.equal(presentation.background, 'available');
   assert.equal(presentation.card, null);
+});
+
+test('recurring fixed schedule is planning baseline, not availability', () => {
+  const modelSnapshot = snapshot({
+    recurring_schedule_slots: [
+      {
+        employee_id: 'e1',
+        weekday: 1,
+        service_key: 'lunch',
+        active: true
+      }
+    ]
+  });
+
+  const truth = resolveWorkspaceServiceSlot({
+    snapshot: modelSnapshot,
+    employeeId: 'e1',
+    date: '2026-06-15',
+    serviceKey: 'lunch',
+    today: '2026-06-15',
+    plan: null
+  });
+  assert.equal(truth.availability, '');
+  assert.equal(truth.state, 'empty');
+
+  const draft = planningDraftForWeek(modelSnapshot, '2026-06-15');
+  assert.equal(draft.length, 1);
+  assert.equal(draft[0].source, 'template');
+  assert.equal(draft[0].areaId, 'a1');
+  assert.equal(draft[0].jobFunctionId, 'j1');
+  assert.equal(draft[0].startsAt, '12:00');
+
+  const planning = buildPlanningWeek({
+    snapshot: modelSnapshot,
+    weekStart: '2026-06-15',
+    today: '2026-06-15',
+    draft
+  });
+  const slot = planning.slotsByKey.get('e1|2026-06-15|lunch');
+  assert.equal(slot?.shift?.source, 'template');
+  assert.equal(slot?.truth.plan?.contractBaseline, true);
+  assert.equal(slot?.truth.availability, '');
+  assert.equal(slot?.truth.state, 'planned');
+  assert.equal(slot?.truth.conflictReasons.length, 0);
+  assert.equal(slot?.truth.plan?.startsAt, '12:00');
+  assert.equal(planning.rows[0].cells[0].slots[0].presentation.background, 'available');
+});
+
+test('approved leave suppresses an unsaved recurring planning baseline', () => {
+  const draft = planningDraftForWeek(
+    snapshot({
+      recurring_schedule_slots: [
+        {
+          employee_id: 'e1',
+          weekday: 1,
+          service_key: 'lunch',
+          active: true
+        }
+      ],
+      absences: [
+        {
+          id: 'leave-1',
+          employee_id: 'e1',
+          status: 'approved',
+          start_date: '2026-06-15',
+          end_date: '2026-06-15',
+          service_key: 'lunch'
+        }
+      ]
+    }),
+    '2026-06-15'
+  );
+  assert.deepEqual(draft, []);
 });
 
 test('time off overrides an available background without hiding its card', () => {

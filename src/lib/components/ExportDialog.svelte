@@ -165,20 +165,21 @@
         <div class="export__columns">
           <header>
             <strong>Columns</strong>
-            <small>Top to bottom becomes left to right in the file.</small>
+            <small>Order left to right is the column order in the file.</small>
           </header>
-          <ol>
+          <div class="col-chips">
             {#each columns as column, index (column)}
-              <li>
-                <span>{fieldLabel(column)}</span>
-                <div class="export__actions">
-                  <button type="button" aria-label="Move up" disabled={index === 0 || exporting} onclick={() => move(index, -1)}>↑</button>
-                  <button type="button" aria-label="Move down" disabled={index === columns.length - 1 || exporting} onclick={() => move(index, 1)}>↓</button>
-                  <button type="button" aria-label="Remove column" disabled={columns.length <= 1 || exporting} onclick={() => remove(column)}>×</button>
+              <div class="col-chip">
+                <span class="col-chip__n">{index + 1}</span>
+                <span class="col-chip__label">{fieldLabel(column)}</span>
+                <div class="col-chip__actions">
+                  <button type="button" aria-label="Move left" disabled={index === 0 || exporting} onclick={() => move(index, -1)}>‹</button>
+                  <button type="button" aria-label="Move right" disabled={index === columns.length - 1 || exporting} onclick={() => move(index, 1)}>›</button>
+                  <button type="button" class="col-chip__remove" aria-label="Remove column" disabled={columns.length <= 1 || exporting} onclick={() => remove(column)}>×</button>
                 </div>
-              </li>
+              </div>
             {/each}
-          </ol>
+          </div>
           <div class="export__add">
             {#if available.length}
               <select
@@ -262,41 +263,84 @@
   .export__columns header { display: grid; gap: 2px; }
   .export__columns header strong { font-size: 12px; }
   .export__columns header small { color: var(--rst-ui-muted); font-size: 11px; }
-  .export__columns ol {
-    max-height: 310px;
-    overflow: auto;
+
+  .col-chips {
     display: grid;
-    gap: 4px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
+    gap: 8px;
+    max-height: 320px;
+    overflow: auto;
     scrollbar-gutter: stable;
   }
 
-  .export__columns li {
-    display: flex;
+  .col-chip {
+    min-width: 0;
+    width: 100%;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 8px 10px;
+    gap: 8px;
+    padding: 6px 6px 6px 8px;
     border: 1px solid var(--rst-ui-line);
-    border-radius: var(--rst-ui-radius-md);
+    border-radius: var(--rst-ui-radius-pill);
     background: var(--rst-ui-surface-field);
-    font-size: 12px;
+    box-shadow: 0 1px 3px rgba(31, 22, 15, 0.06);
+    animation: rst-pop-in 0.28s var(--rst-ease-spring) backwards;
   }
 
-  .export__actions { display: inline-flex; gap: 4px; }
-  .export__actions button {
-    width: 28px;
-    min-height: 28px;
-    border: 1px solid var(--rst-ui-line);
-    border-radius: var(--rst-ui-radius-sm);
+  .col-chip__n {
+    width: 18px;
+    height: 18px;
+    display: grid;
+    place-items: center;
+    border-radius: var(--rst-ui-radius-round);
+    color: #fff;
+    background: var(--rst-ui-action);
+    font-size: 10px;
+    font-weight: var(--rst-fw-display);
+  }
+
+  .col-chip__label {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 12px;
+    font-weight: var(--rst-fw-bold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .col-chip__actions {
+    display: inline-flex;
+    gap: 2px;
+    justify-self: end;
+  }
+
+  .col-chip__actions button {
+    width: 24px;
+    height: 24px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: var(--rst-ui-radius-round);
+    color: var(--rst-ui-muted);
+    background: transparent;
+    font: inherit;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.14s ease, color 0.14s ease;
+  }
+
+  .col-chip__actions button:hover:not(:disabled) {
     color: var(--rst-ui-text);
     background: var(--rst-ui-surface-field-strong);
-    font: inherit;
-    cursor: pointer;
   }
-  .export__actions button:disabled { cursor: default; opacity: 0.4; }
+
+  .col-chip__remove:hover:not(:disabled) {
+    color: var(--rst-state-danger-text) !important;
+    background: var(--rst-state-danger-bg) !important;
+  }
+
+  .col-chip__actions button:disabled { cursor: default; opacity: 0.3; }
   .export__add { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .export__add select {
     min-height: 38px;
@@ -373,7 +417,9 @@
     background: var(--rst-ui-surface-panel-head);
     text-align: right;
   }
-  tbody td { color: var(--rst-ui-text); }
+  tbody td { color: var(--rst-ui-text); background: var(--rst-ui-surface-panel); }
+  tbody tr:nth-child(even) td { background: var(--rst-ui-surface-field); }
+  tbody tr:hover td { background: rgba(var(--rst-ui-action-rgb), 0.07); }
   .export__preview-error {
     margin: 0;
     padding: 10px 12px;

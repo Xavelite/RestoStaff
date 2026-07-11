@@ -4,6 +4,22 @@ begin;
 
 do $$
 begin
+  if has_schema_privilege('public', 'public', 'USAGE')
+     or has_schema_privilege('public', 'public', 'CREATE') then
+    raise exception 'PUBLIC must not inherit public schema privileges';
+  end if;
+  if not has_schema_privilege('anon', 'public', 'USAGE')
+     or has_schema_privilege('anon', 'public', 'CREATE') then
+    raise exception 'anon must have public schema USAGE without CREATE';
+  end if;
+  if not has_schema_privilege('authenticated', 'public', 'USAGE')
+     or has_schema_privilege('authenticated', 'public', 'CREATE') then
+    raise exception 'authenticated must have public schema USAGE without CREATE';
+  end if;
+  if not has_schema_privilege('service_role', 'public', 'USAGE')
+     or has_schema_privilege('service_role', 'public', 'CREATE') then
+    raise exception 'service_role must have public schema USAGE without CREATE';
+  end if;
   if to_regprocedure('public.verify_badge_pin(uuid,uuid,text)') is null then
     raise exception 'Missing hardened verify_badge_pin contract';
   end if;

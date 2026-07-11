@@ -108,6 +108,24 @@
   animation: rst-fade-up 0.5s var(--rst-ease-out) 0.08s backwards;
 }
 
+/* Per-page hero accents — one hero, tuned per module via a modifier class. */
+.page-hero.is-wide-command {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 460px);
+}
+
+.page-hero.hero-time {
+  --hero-tint: rgba(84, 121, 190, 0.3);
+  min-height: 240px;
+}
+
+.page-hero.hero-time::after {
+  background: linear-gradient(90deg, var(--rst-state-info), var(--rst-ui-action), var(--rst-gold));
+}
+
+.page-hero.hero-service {
+  min-height: 240px;
+}
+
 .page-kicker {
   color: var(--rst-ui-action);
   font-size: 11px;
@@ -197,13 +215,18 @@
     radial-gradient(circle at center, rgba(10, 16, 24, 0.92) 0 43%, transparent 44%),
     conic-gradient(var(--rst-green) 0 var(--ready), rgba(255, 255, 255, 0.14) var(--ready) 100%);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.32);
-  animation: rst-scale-in 0.6s var(--rst-ease-spring) 0.1s backwards;
+  animation:
+    rst-scale-in 0.6s var(--rst-ease-spring) 0.1s backwards,
+    rst-dial-breathe 4.5s ease-in-out 1s infinite;
 }
 
 .readiness-dial.has-issues {
   background:
     radial-gradient(circle at center, rgba(10, 16, 24, 0.92) 0 43%, transparent 44%),
     conic-gradient(var(--rst-ui-action) 0 var(--ready), rgba(255, 255, 255, 0.14) var(--ready) 100%);
+  animation:
+    rst-scale-in 0.6s var(--rst-ease-spring) 0.1s backwards,
+    rst-dial-breathe-warn 4.5s ease-in-out 1s infinite;
 }
 
 .readiness-dial strong {
@@ -272,7 +295,8 @@
   box-shadow: var(--rst-ui-shadow-card);
 }
 
-.command-lead {
+.command-lead,
+.people-command__lead {
   position: relative;
   overflow: hidden;
   display: grid;
@@ -290,10 +314,34 @@
     filter 0.18s ease;
 }
 
-.command-lead::after {
+/* Keep the card's own content above both the ambient drift and hover sheen. */
+.command-lead > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Continuous ambient drift — the "alive" glow shared by the operational lead
+   cards (Restaurant blueprint-ready, Coverage, Team crew-foundation). */
+.command-lead::before,
+.people-command__lead::before {
+  content: '';
+  position: absolute;
+  inset: -30%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 28% 22%, rgba(247, 183, 51, 0.24), transparent 42%),
+    radial-gradient(circle at 82% 84%, rgba(66, 216, 132, 0.16), transparent 44%);
+  mix-blend-mode: screen;
+  animation: rst-ambient-shift 16s ease-in-out infinite alternate;
+}
+
+.command-lead::after,
+.people-command__lead::after {
   content: '';
   position: absolute;
   inset: 0;
+  z-index: 2;
   pointer-events: none;
   background: linear-gradient(110deg, transparent 0 42%, rgba(255, 255, 255, 0.14) 50%, transparent 58% 100%);
   opacity: 0;
@@ -301,13 +349,15 @@
   transition: opacity 0.2s ease, transform 0.55s var(--rst-ease-out);
 }
 
-.command-lead:hover {
+.command-lead:hover,
+.people-command__lead:hover {
   transform: translateY(-2px);
   filter: saturate(1.08);
   box-shadow: 0 24px 52px rgba(31, 22, 15, 0.16);
 }
 
-.command-lead:hover::after {
+.command-lead:hover::after,
+.people-command__lead:hover::after {
   opacity: 1;
   transform: translateX(70%);
 }
@@ -879,7 +929,8 @@ button.glow-card:hover {
 /* -------------------------------------------------- responsive ----------- */
 
 @media (max-width: 1180px) {
-  .page-hero {
+  .page-hero,
+  .page-hero.is-wide-command {
     grid-template-columns: 1fr;
   }
 
@@ -900,7 +951,16 @@ button.glow-card:hover {
 @media (max-width: 760px) {
   .page-hero {
     min-height: auto;
-    padding: 22px;
+    padding: 20px;
+    gap: 14px;
+  }
+
+  .page-hero h1 {
+    font-size: clamp(24px, 7vw, 34px);
+  }
+
+  .page-hero__command {
+    width: 100%;
   }
 
   .page-body {

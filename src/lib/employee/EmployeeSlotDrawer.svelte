@@ -4,8 +4,17 @@
   import ActionButton from '$lib/components/ActionButton.svelte';
   import { serviceLabel } from '$lib/calendar/date';
   import { instantClockLabel, type ServiceSlotTruth } from '$lib/calendar/service-slot';
-  import { employeeSlotActionReason } from '$lib/employee/employee-self-service';
-  import type { AvailabilityMode } from '$lib/employee/employee-model';
+  import {
+    defaultEmployeeTimeOffType,
+    employeeSlotActionReason,
+    employeeTimeOffTypes
+  } from '$lib/employee/employee-self-service';
+  import type { EmployeeOperationsReadModel } from '$lib/api/workspace-snapshot';
+  import {
+    SELECTABLE_AVAILABILITY,
+    availabilityUpdateHint,
+    type AvailabilityMode
+  } from '$lib/employee/employee-model';
 
   // One surface for viewing a service's truth and acting on it — replaces the
   // old split between a read-only details dialog and a page-level mode toggle
@@ -21,11 +30,13 @@
     availabilityState,
     isTimeOffSelected,
     isChangeSelected,
+    absenceTypes = [],
+    absenceTypeId = $bindable(),
+    comment = $bindable(),
     saving = false,
     onclose,
-    onToggleAvailability,
+    onSetAvailability,
     onRequestTimeOff,
-    onRequestChange,
     onCancelAbsence,
     onCancelChange
   }: {
@@ -38,14 +49,21 @@
     availabilityState: '' | 'available' | 'partial' | 'unavailable';
     isTimeOffSelected: boolean;
     isChangeSelected: boolean;
+    absenceTypes?: EmployeeOperationsReadModel['absence_types'];
+    absenceTypeId: string;
+    comment: string;
     saving?: boolean;
     onclose: () => void;
-    onToggleAvailability: () => void;
+    onSetAvailability: (state: '' | 'available' | 'partial' | 'unavailable') => void;
     onRequestTimeOff: () => void;
-    onRequestChange: () => void;
     onCancelAbsence: (absenceId: string) => void;
     onCancelChange: (workPatternExceptionId: string) => void;
   } = $props();
+
+  // A service is either available or unavailable. The persisted `partial`
+  // value remains readable for historical compatibility, but it is not a
+  // usable employee choice without a time range or operational constraint.
+  const availabilityHint = $derived(availabilityUpdateHint(availabilityState));
 
   const availabilityBlocked = $derived(
     truth ? employeeSlotActionReason({ truth, policy, mode: 'availability', today, planningPublished }) : ''
@@ -57,6 +75,8 @@
   const pendingChange = $derived(
     truth?.workPatternException?.status === 'pending' ? truth.workPatternException : null
   );
+  const defaultType = $derived(defaultEmployeeTimeOffType(absenceTypes));
+  const timeOffTypes = $derived(employeeTimeOffTypes(absenceTypes));
   const stateTone = $derived.by(() => {
     if (!truth) return 'neutral' as const;
     if (truth.state === 'worked' || truth.state === 'live' || truth.state === 'available') return 'success' as const;
@@ -129,22 +149,47 @@
         {/if}
 
         {#if policy === 'weekly_availability' && !availabilityBlocked}
-          <ActionButton
-            label={availabilityState === 'available' ? 'Remove availability' : 'Mark available'}
-            tone="primary"
-            onclick={onToggleAvailability}
-          />
-        {:else if policy === 'fixed_schedule' && !availabilityBlocked}
-          <ActionButton
-            label={isChangeSelected ? 'Remove from change request' : 'Request a schedule change'}
-            tone="primary"
-            onclick={onRequestChange}
-          />
+          <div class="availability-picker" role="group" aria-label="Your availability for this service">
+            {#each SELECTABLE_AVAILABILITY as option (option.value)}
+              <button
+                type="button"
+                class={`availability-option is-${option.value}`}
+                class:is-active={availabilityState === option.value}
+                aria-pressed={availabilityState === option.value}
+                disabled={saving}
+                onclick={() => onSetAvailability(availabilityState === option.value ? '' : option.value)}
+              >
+                <b aria-hidden="true">{option.icon}</b>
+                <span>{option.label}</span>
+              </button>
+            {/each}
+          </div>
+          <p class="availability-hint">{availabilityHint}</p>
         {/if}
 
-        {#if !timeOffBlocked}
+        {#if !timeOffBlocked && !pendingAbsence}
+          <!-- Set the leave type and an optional note, then request. The button
+               stages the request and closes the drawer; the page's action bar
+               submits it. -->
+          <div class="request-details">
+            <label>
+              Leave type
+              <select bind:value={absenceTypeId}>
+                <option value={defaultType?.id ?? ''}>{defaultType?.name ?? 'Default holiday'}</option>
+                {#each timeOffTypes.filter((item) => item.id !== defaultType?.id) as type (type.id)}
+                  <option value={type.id}>{type.name}</option>
+                {/each}
+              </select>
+            </label>
+            <label>
+              Comment
+              <input bind:value={comment} placeholder="Optional context for your manager" />
+            </label>
+          </div>
           <ActionButton
-            label={isTimeOffSelected ? 'Remove from time-off request' : 'Request time off'}
+            label={isTimeOffSelected ? 'Remove time-off request' : 'Request time off'}
+            tone={isTimeOffSelected ? 'secondary' : 'primary'}
+            disabled={saving}
             onclick={onRequestTimeOff}
           />
         {/if}
@@ -201,5 +246,76 @@
   }
   .slot-actions > strong {
     font-size: 13px;
+  }
+  .availability-picker {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .availability-option {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    padding: 12px 8px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: var(--rst-ui-radius-lg);
+    background: var(--rst-ui-surface-field);
+    color: var(--rst-ui-muted);
+    font: inherit;
+    font-size: 12px;
+    font-weight: var(--rst-fw-bold);
+    cursor: pointer;
+    transition: border-color .16s ease, background .16s ease, color .16s ease, transform .16s ease;
+  }
+  .availability-option b {
+    font-size: 17px;
+    line-height: 1;
+  }
+  .availability-option:hover:not(:disabled) {
+    transform: translateY(-1px);
+    color: var(--rst-ui-text);
+  }
+  .availability-option:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+  .availability-option.is-active {
+    color: var(--rst-ui-text);
+  }
+  .availability-option.is-available.is-active {
+    border-color: rgba(42, 154, 98, 0.6);
+    background: linear-gradient(135deg, rgba(51, 170, 107, 0.24), rgba(51, 170, 107, 0.08));
+  }
+  .availability-option.is-unavailable.is-active {
+    border-color: rgba(239, 68, 68, 0.6);
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.06));
+  }
+  .availability-hint {
+    margin: 0;
+    color: var(--rst-ui-muted);
+    font-size: 12px;
+  }
+  .request-details {
+    display: grid;
+    gap: 12px;
+    padding-top: 16px;
+    border-top: 1px solid var(--rst-ui-divider-soft);
+  }
+  .request-details label {
+    display: grid;
+    gap: 6px;
+    color: var(--rst-ui-muted);
+    font-size: 11px;
+    font-weight: var(--rst-fw-bold);
+  }
+  .request-details input,
+  .request-details select {
+    min-height: 40px;
+    padding: 8px 10px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: var(--rst-ui-radius-md);
+    color: var(--rst-ui-text);
+    background: var(--rst-ui-surface-field-strong);
+    font: inherit;
   }
 </style>

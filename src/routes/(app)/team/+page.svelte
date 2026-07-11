@@ -8,6 +8,8 @@
   } from '$lib/api/mutations';
   import { leaveBalanceForEmployee } from '$lib/absence/leave-balance';
   import ActionButton from '$lib/components/ActionButton.svelte';
+  import HeroReadiness from '$lib/components/HeroReadiness.svelte';
+  import PageHero from '$lib/components/PageHero.svelte';
   import Drawer from '$lib/components/Drawer.svelte';
   import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
   import LeaveBalanceSummary from '$lib/components/LeaveBalanceSummary.svelte';
@@ -15,7 +17,7 @@
   import type { SetupStep } from '$lib/components/SetupGuide.svelte';
   import SaveActions from '$lib/components/SaveActions.svelte';
   import { addDays, todayInTimezone, WEEKDAYS } from '$lib/calendar/date';
-  import { defaultWorkRegime } from '$lib/domain/operations';
+  import { contractRequiresFixedSchedule, defaultWorkRegime } from '$lib/domain/operations';
   import {
     employeeDrafts,
     newEmployeeDraft,
@@ -64,6 +66,12 @@
   });
 
   const selected = $derived(drafts.find((employee) => employee.id === selectedId) ?? null);
+  const selectedContractCode = $derived(
+    snapshot?.contract_types.find((item) => item.id === selected?.contractTypeId)?.code ?? ''
+  );
+  const selectedRequiresFixedSchedule = $derived(
+    contractRequiresFixedSchedule(selectedContractCode)
+  );
   const selectedAccessRole = $derived(
     selected?.accessRole || selected?.invitationRole || 'employee'
   );
@@ -265,9 +273,22 @@
     document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  function contractCodeFor(contractTypeId: string) {
+    return snapshot?.contract_types.find((item) => item.id === contractTypeId)?.code ?? '';
+  }
+
+  function normalizeContractScheduling(employee: EmployeeDraft): EmployeeDraft {
+    if (!contractRequiresFixedSchedule(contractCodeFor(employee.contractTypeId))) {
+      return employee;
+    }
+    return { ...employee, workRegime: 'fixed_schedule' };
+  }
+
   function mutate(changes: Partial<EmployeeDraft>) {
     drafts = drafts.map((employee) =>
-      employee.id === selectedId ? { ...employee, ...changes } : employee
+      employee.id === selectedId
+        ? normalizeContractScheduling({ ...employee, ...changes })
+        : employee
     );
   }
 
@@ -501,27 +522,21 @@
 
 {#if snapshot}
   <section class="page-shell team">
-    <header class="page-hero team-hero" aria-labelledby="team-title">
-      <div class="page-hero__copy">
-        <span class="page-kicker">Team · {activeEmployees.length} active</span>
-        <h1 id="team-title">{issueEmployees.length ? `${issueEmployees.length} ${issueEmployees.length === 1 ? 'person needs' : 'people need'} a quick fix.` : 'Everyone is ready.'}</h1>
-        <p>Keep access, contracts, payroll details and absences trustworthy in one place.</p>
-      </div>
-      <div class="page-hero__command" aria-label="Team readiness signal">
-        <div class:has-issues={issueEmployees.length > 0} class="readiness-dial" style={`--ready:${readinessPercent}%`}>
-          <strong>{readinessPercent}%</strong>
-          <span>ready</span>
-        </div>
-        <dl class="hero-stats">
-          {#each readinessCards as card}
-            <div class:is-complete={card.complete}>
-              <dt>{card.label}</dt>
-              <dd>{card.value}</dd>
-            </div>
-          {/each}
-        </dl>
-      </div>
-    </header>
+    <PageHero
+      eyebrow={`Team · ${activeEmployees.length} active`}
+      titleId="team-title"
+      title={issueEmployees.length ? `${issueEmployees.length} ${issueEmployees.length === 1 ? 'person needs' : 'people need'} a quick fix.` : 'Everyone is ready.'}
+      subtitle="Keep access, contracts, payroll details and absences trustworthy in one place."
+    >
+      {#snippet command()}
+        <HeroReadiness
+          percent={readinessPercent}
+          hasIssues={issueEmployees.length > 0}
+          cards={readinessCards}
+          label="Team readiness signal"
+        />
+      {/snippet}
+    </PageHero>
 
     <div class="page-body team-body">
       <FeedbackBanner message={feedback} tone={feedbackTone} />
@@ -529,7 +544,7 @@
       <section class="people-command" aria-label="Team command summary">
         <article class="people-command__lead">
           <span class="page-kicker">{setupIncomplete ? 'Crew foundation' : 'Crew foundation ready'}</span>
-          <strong>{setupIncomplete ? 'Make the roster trustworthy before service.' : 'People data can support planning and payroll.'}</strong>
+          <strong>{setupIncomplete ? 'Make the roster trustworthy before service.' : 'People data can support scheduling and payroll.'}</strong>
           <p>
             {openIssueCount
               ? `${openIssueCount} open team issue${openIssueCount === 1 ? '' : 's'} across ${issueEmployees.length} employee${issueEmployees.length === 1 ? '' : 's'}.`
@@ -593,7 +608,7 @@
                 {#if issues.length}
                   <b class="is-{severity}">{issues.length} issue{issues.length === 1 ? '' : 's'}</b>
                 {:else}
-                  <b class="is-ready">Ready for planning &amp; payroll</b>
+                  <b class="is-ready">Ready for scheduling &amp; payroll</b>
                 {/if}
               </div>
             </button>
@@ -662,7 +677,7 @@
   {/snippet}
 
   {#snippet drawerActions()}
-    <SaveActions {dirty} busy={saving} saveLabel="Save team" busyLabel="Saving…" oncancel={cancelChanges} onsave={persistTeam} embedded />
+    <SaveActions {dirty} busy={saving} saveLabel="Save team" busyLabel="Saving…" oncancel={cancelChanges} onsave={persistTeam} embedded showCleanActions={false} />
   {/snippet}
 
   <Drawer
@@ -683,7 +698,7 @@
         {#if selectedIssues.length}
           <div class="employee-hero__ready is-issues">{selectedIssues.length} issue{selectedIssues.length === 1 ? '' : 's'} to resolve</div>
         {:else}
-          <div class="employee-hero__ready">Ready for planning and payroll</div>
+          <div class="employee-hero__ready">Ready for scheduling and payroll</div>
         {/if}
       </div>
 
@@ -747,7 +762,7 @@
         <Panel title="Edit contract" eyebrow="Owner only">
           <div class="fields">
             <label>Contract type<select value={selected.contractTypeId} onchange={(event) => { const contractTypeId = event.currentTarget.value; const code = snapshot.contract_types.find((item) => item.id === contractTypeId)?.code ?? ''; mutate({ contractTypeId, workRegime: defaultWorkRegime(code) }); }}><option value="">Not set</option>{#each snapshot.contract_types.filter((item) => item.active) as item}<option value={item.id}>{item.name}</option>{/each}</select></label>
-            <label>Availability mode<select value={selected.workRegime} onchange={(event) => mutate({ workRegime: event.currentTarget.value as EmployeeDraft['workRegime'] })}><option value="fixed_schedule">Fixed schedule</option><option value="weekly_availability">Weekly availability</option><option value="manager_only">Manager only</option></select></label>
+            <label>Availability mode<select value={selectedRequiresFixedSchedule ? 'fixed_schedule' : selected.workRegime} disabled={selectedRequiresFixedSchedule} onchange={(event) => mutate({ workRegime: event.currentTarget.value as EmployeeDraft['workRegime'] })}><option value="fixed_schedule">Fixed schedule</option><option value="weekly_availability">Weekly availability</option><option value="manager_only">Manager only</option></select>{#if selectedRequiresFixedSchedule}<small>CDI and CDD use the recurring schedule as the Schedule baseline.</small>{/if}</label>
             <label>Start date<input type="date" value={selected.contractStart} oninput={(event) => mutate({ contractStart: event.currentTarget.value })} /></label>
             <label>End date<input type="date" value={selected.contractEnd} oninput={(event) => mutate({ contractEnd: event.currentTarget.value })} /></label>
             <label>Weekly hours<input type="number" min="0" step="0.25" value={selected.weeklyContractHours} oninput={(event) => mutate({ weeklyContractHours: event.currentTarget.valueAsNumber || 0 })} /></label>
@@ -896,10 +911,6 @@
 {/if}
 
 <style>
-  .team-hero {
-    --hero-tint: rgba(240, 100, 35, 0.26);
-  }
-
   .people-command {
     display: grid;
     grid-template-columns: minmax(260px, 0.85fr) minmax(0, 1.6fr);
@@ -915,6 +926,8 @@
   }
 
   .people-command__lead {
+    position: relative;
+    overflow: hidden;
     display: grid;
     align-content: center;
     gap: 8px;
@@ -924,6 +937,12 @@
     background:
       radial-gradient(circle at 92% 12%, rgba(247, 183, 51, 0.34), transparent 34%),
       linear-gradient(145deg, #111b28, #1c314a);
+  }
+
+  /* Keep copy above the shared ambient drift (.people-command__lead::before). */
+  .people-command__lead > * {
+    position: relative;
+    z-index: 1;
   }
 
   .people-command__lead strong {
@@ -954,7 +973,7 @@
     align-content: center;
     justify-items: start;
     gap: 4px;
-    padding: 16px;
+    padding: 16px 14px;
     border: 0;
     border-left: 1px solid var(--rst-ui-divider-soft);
     color: var(--rst-ui-text);
@@ -964,16 +983,23 @@
     font: inherit;
     text-align: left;
     cursor: pointer;
+    transition:
+      transform 0.18s var(--rst-ease-out),
+      background-color 0.15s ease,
+      box-shadow 0.18s var(--rst-ease-out);
   }
 
   .people-command__checks button:first-child {
     border-left: 0;
   }
 
+  /* Match the shared Restaurant .foundation-strip hover: lift + inset glow. */
   .people-command__checks button:hover {
     background:
       linear-gradient(145deg, rgba(var(--rst-ui-action-rgb), 0.12), transparent 62%),
       var(--rst-ui-surface-panel);
+    transform: translateY(-2px);
+    box-shadow: inset 0 -3px 0 rgba(var(--rst-ui-action-rgb), 0.24);
   }
 
   .people-command__checks button.is-complete {
@@ -992,6 +1018,12 @@
     background: var(--rst-state-warning-bg);
     font-size: 11px;
     font-weight: var(--rst-fw-display);
+    transition: transform 0.18s var(--rst-ease-spring), box-shadow 0.18s var(--rst-ease-out);
+  }
+
+  .people-command__checks button:hover span {
+    transform: scale(1.08) rotate(-3deg);
+    box-shadow: 0 8px 20px rgba(31, 22, 15, 0.12);
   }
 
   .people-command__checks button.is-complete span {
@@ -1000,19 +1032,20 @@
   }
 
   .people-command__checks strong {
-    overflow: hidden;
+    min-width: 0;
+    overflow: visible;
     font-size: 12px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.15;
+    text-wrap: balance;
   }
 
   .people-command__checks small {
-    overflow: hidden;
+    min-width: 0;
+    overflow: visible;
     color: var(--rst-ui-muted);
     font-size: 10px;
     line-height: 1.25;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
   }
 
   .team-toolbar {

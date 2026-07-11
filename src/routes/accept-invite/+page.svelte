@@ -85,7 +85,7 @@
       await workspace.load();
       feedback = 'Invitation accepted. Your workspace is ready.';
       feedbackTone = 'success';
-      await goto('/shifts');
+      await goto('/my-service');
     } catch (error) {
       feedback = error instanceof Error ? error.message : String(error);
       feedbackTone = 'danger';

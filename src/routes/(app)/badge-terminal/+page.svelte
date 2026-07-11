@@ -8,6 +8,7 @@
     type BadgeResult,
     type BadgeVerification
   } from '$lib/badge/badge-api';
+  import { friendlyError } from '$lib/api/error-messages';
   import ActionButton from '$lib/components/ActionButton.svelte';
   import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
   import { workspaceRealtime } from '$lib/realtime/workspace-realtime.svelte';
@@ -46,7 +47,7 @@
         feedbackTone = 'warning';
       }
     } catch (error) {
-      feedback = error instanceof Error ? error.message : String(error);
+      feedback = friendlyError(error, 'badge');
       feedbackTone = 'danger';
     } finally {
       loading = false;
@@ -80,7 +81,7 @@
       feedbackTone = 'info';
     } catch (error) {
       resetChallenge();
-      feedback = error instanceof Error ? error.message : String(error);
+      feedback = friendlyError(error, 'badge');
       feedbackTone = 'danger';
     } finally {
       loading = false;
@@ -119,7 +120,7 @@
       });
     } catch (error) {
       resetChallenge();
-      feedback = error instanceof Error ? error.message : String(error);
+      feedback = friendlyError(error, 'badge');
       feedbackTone = 'danger';
     } finally {
       loading = false;
@@ -131,8 +132,8 @@
 
 <main class="terminal">
   <header>
-    <div><p>{workspace.active?.restaurant_name}</p><h1>Badge terminal</h1></div>
-    <a href="/actuals">Close terminal</a>
+    <div><p>{workspace.active?.restaurant_name}</p><h1>Time clock</h1></div>
+    <a href="/timesheet">Close terminal</a>
   </header>
   <FeedbackBanner message={feedback} tone={feedbackTone} />
 
@@ -217,10 +218,10 @@
         </div>
         <div class="keypad">
           {#each ['1', '2', '3', '4', '5', '6', '7', '8', '9'] as value}
-            <button type="button" onclick={() => digit(value)}>{value}</button>
+            <button type="button" aria-label={`PIN digit ${value}`} onclick={() => digit(value)}>{value}</button>
           {/each}
           <button type="button" aria-label="Clear PIN" onclick={() => (pin = '')}>C</button>
-          <button type="button" onclick={() => digit('0')}>0</button>
+          <button type="button" aria-label="PIN digit 0" onclick={() => digit('0')}>0</button>
           <button
             type="button"
             aria-label="Delete last digit"

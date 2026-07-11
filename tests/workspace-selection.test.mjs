@@ -46,5 +46,5 @@ test('an explicit available workspace preference wins over role priority', () =>
 test('role homes separate employee and management workspaces', () => {
   assert.equal(roleHome('owner'), '/home');
   assert.equal(roleHome('manager'), '/home');
-  assert.equal(roleHome('employee'), '/shifts');
+  assert.equal(roleHome('employee'), '/my-service');
 });

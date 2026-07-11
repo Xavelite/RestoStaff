@@ -1,0 +1,284 @@
+import type { ManagerOperationsReadModel } from '../api/workspace-snapshot';
+import {
+  SERVICES,
+  WEEKDAYS,
+  dateForWeekday,
+  formatHours,
+  hoursBetweenClocks,
+  hoursBetweenInstants,
+  mondayFor,
+  serviceLabel,
+  weekday,
+  type ServiceKey
+} from '../calendar/date.ts';
+import type { WeekCell, WeekColumn, WeekRow, WeekSlot } from '../calendar/week-grid';
+import {
+  instantClockLabel,
+  projectServiceSlot,
+  resolveWorkspaceServiceSlot,
+  type ServiceSlotTruth
+} from '../calendar/service-slot.ts';
+
+export type ActualSlot = {
+  key: string;
+  employeeId: string;
+  employeeName: string;
+  date: string;
+  serviceKey: ServiceKey;
+  planned: boolean;
+  plannedRange: string;
+  entryId: string | null;
+  clockInAt: string | null;
+  clockOutAt: string | null;
+  entryRevision: number | null;
+  actualRange: string;
+  grossHours: number;
+  breakMinutes: number;
+  actualHours: number;
+  status:
+    | 'empty'
+    | 'missing'
+    | 'live'
+    | 'recorded'
+    | 'adjusted'
+    | 'absence'
+    | 'unavailable'
+    | 'pending'
+    | 'conflict';
+  truth: ServiceSlotTruth;
+  proof: string;
+  proofEdge: 'clock_in' | 'clock_out' | null;
+};
+
+function isService(value: string): value is ServiceKey {
+  return value === 'lunch' || value === 'evening';
+}
+
+function proofLabel(status: string | null): string {
+  const labels: Record<string, string> = {
+    captured: 'Photo captured',
+    denied: 'Camera permission denied',
+    unavailable: 'Camera unavailable',
+    failed: 'Photo capture failed',
+    waived: 'Photo waived',
+    not_required: 'Photo not required',
+    missing: 'No photo'
+  };
+  return labels[status ?? ''] ?? '';
+}
+
+function grossHours(entry: ManagerOperationsReadModel['time_entries'][number] | undefined): number {
+  return hoursBetweenInstants(entry?.clock_in_at, entry?.clock_out_at);
+}
+
+function netHours(entry: ManagerOperationsReadModel['time_entries'][number] | undefined): number {
+  const gross = grossHours(entry);
+  const breakMinutes = Number(entry?.break_minutes ?? 0);
+  return Math.max(0, gross - Math.max(0, breakMinutes) / 60);
+}
+
+export function actualsStatusForWeek(
+  snapshot: ManagerOperationsReadModel,
+  weekStart: string
+): 'open' | 'approved' | 'locked' {
+  const status = snapshot.work_weeks.find(
+    (week) => week.week_start === weekStart
+  )?.actuals_status;
+  return status === 'approved' || status === 'locked' ? status : 'open';
+}
+
+export function actualSlotsForDate(
+  snapshot: ManagerOperationsReadModel,
+  date: string,
+  today: string
+): ActualSlot[] {
+  const timezone = snapshot.restaurant_settings.timezone || 'Europe/Brussels';
+  const weekStart = mondayFor(date);
+  const day = weekday(date);
+  const employees = snapshot.employees.filter((employee) => employee.active);
+  // Count planned shifts whether the week is a published baseline or a draft:
+  // approving Actuals auto-finalizes a draft-with-shifts week server-side, so
+  // the missing-badge / planned-hours truth must include draft shifts to match
+  // what approval will enforce (otherwise the gate says "ready" but approval
+  // fails with "Resolve missing badges").
+  const planned = snapshot.planned_shifts.filter(
+    (shift) => shift.week_start === weekStart && shift.weekday === day
+  );
+  const entries = snapshot.time_entries.filter(
+    (entry) => entry.business_date === date && entry.status !== 'cancelled'
+  );
+
+  return employees.flatMap((employee) =>
+    SERVICES.map((serviceKey) => {
+      const plan = planned.find(
+        (shift) =>
+          shift.employee_id === employee.id && shift.service_key === serviceKey
+      );
+      const entry = entries.find(
+        (item) =>
+          item.employee_id === employee.id && item.service_key === serviceKey
+      );
+      const truth = resolveWorkspaceServiceSlot({
+        snapshot,
+        employeeId: employee.id,
+        date,
+        serviceKey,
+        today,
+        plan: plan
+          ? {
+              id: plan.id,
+              startsAt: String(plan.starts_at).slice(0, 5),
+              endsAt: String(plan.ends_at).slice(0, 5),
+              contractBaseline: plan.source === 'template',
+              area:
+                (snapshot.work_areas ?? []).find((area) => area.id === plan.area_id)?.name ??
+                'Any area'
+            }
+          : null
+      });
+      const clockIn = instantClockLabel(entry?.clock_in_at ?? null, timezone);
+      const clockOut = instantClockLabel(entry?.clock_out_at ?? null, timezone);
+      const entryGrossHours = grossHours(entry);
+      const breakMinutes = Number(entry?.break_minutes ?? 0);
+      const actualHours = netHours(entry);
+      const status: ActualSlot['status'] =
+        truth.state === 'conflict'
+          ? 'conflict'
+          : truth.state === 'leave_approved'
+            ? 'absence'
+            : truth.state === 'work_pattern_approved' || truth.state === 'unavailable'
+              ? 'unavailable'
+              : truth.state === 'leave_pending' || truth.state === 'work_pattern_pending'
+                ? 'pending'
+                : truth.state === 'live'
+                  ? 'live'
+                  : truth.state === 'corrected'
+                    ? 'adjusted'
+                    : truth.state === 'worked'
+                      ? 'recorded'
+                      : truth.state === 'missing_badge'
+                        ? 'missing'
+                        : 'empty';
+      return {
+        key: `${employee.id}|${date}|${serviceKey}`,
+        employeeId: employee.id,
+        employeeName: employee.display_name,
+        date,
+        serviceKey,
+        planned: Boolean(plan),
+        plannedRange:
+          plan?.starts_at && plan?.ends_at
+            ? `${String(plan.starts_at).slice(0, 5)}-${String(plan.ends_at).slice(0, 5)}`
+            : '',
+        entryId: entry?.id ?? null,
+        clockInAt: entry?.clock_in_at ?? null,
+        clockOutAt: entry?.clock_out_at ?? null,
+        entryRevision: entry ? Number(entry.revision) : null,
+        grossHours: entryGrossHours,
+        breakMinutes,
+        actualRange: clockIn ? `${clockIn}-${clockOut || 'live'}` : '',
+        actualHours,
+        status,
+        truth,
+        proof:
+          proofLabel(entry?.clock_out_photo_status ?? null) ||
+          proofLabel(entry?.clock_in_photo_status ?? null),
+        proofEdge: entry?.clock_out_photo_status
+          ? 'clock_out'
+          : entry?.clock_in_photo_status
+            ? 'clock_in'
+            : null
+      };
+    })
+  );
+}
+
+export function actualsWeekTotals(
+  snapshot: ManagerOperationsReadModel,
+  weekStart: string,
+  today: string
+) {
+  const dates = Array.from({ length: 7 }, (_, index) =>
+    dateForWeekday(weekStart, index + 1)
+  );
+  const slots = dates.flatMap((date) => actualSlotsForDate(snapshot, date, today));
+  const actualHours = slots.reduce((sum, slot) => sum + slot.actualHours, 0);
+  // Planned hours follow the same rule as the slot grid: count the week's planned
+  // shifts whether published or a draft-with-shifts (approval auto-finalizes it).
+  const plannedHours = snapshot.planned_shifts
+    .filter((shift) => shift.week_start === weekStart)
+    .reduce((sum, shift) => sum + hoursBetweenClocks(shift.starts_at, shift.ends_at), 0);
+  return {
+    actualHours,
+    plannedHours,
+    missing: slots.filter((slot) => slot.status === 'missing').length,
+    live: slots.filter((slot) => slot.status === 'live').length,
+    adjusted: slots.filter((slot) => slot.status === 'adjusted').length,
+    conflicts: slots.filter((slot) => slot.status === 'conflict').length
+  };
+}
+
+// Weekly board for Actuals: employees as rows, Mon-Sun columns, lunch/evening
+// service slots. Reuses actualSlotsForDate; returns the grid plus a key-to-slot map
+// so the page can open the selected slot's editor.
+export function buildActualsWeek(input: {
+  snapshot: ManagerOperationsReadModel;
+  weekStart: string;
+  today: string;
+}): { days: WeekColumn[]; rows: WeekRow[]; slotsByKey: Map<string, ActualSlot> } {
+  const dates = Array.from({ length: 7 }, (_, index) =>
+    dateForWeekday(input.weekStart, index + 1)
+  );
+  const days: WeekColumn[] = dates.map((date, index) => ({
+    weekday: index + 1,
+    label: WEEKDAYS[index],
+    date,
+    today: date === input.today,
+    past: date < input.today
+  }));
+
+  const slotsByKey = new Map(
+    dates
+      .flatMap((date) => actualSlotsForDate(input.snapshot, date, input.today))
+      .map((slot) => [slot.key, slot] as const)
+  );
+
+  const jobFunctionName = new Map(
+    input.snapshot.job_functions.map((job) => [job.id, job.name])
+  );
+
+  const rows: WeekRow[] = input.snapshot.employees
+    .filter((employee) => employee.active)
+    .map((employee) => {
+      let weekHours = 0;
+      const cells: WeekCell[] = dates.map((date) => {
+        const slots: WeekSlot[] = SERVICES.map((serviceKey) => {
+          const key = `${employee.id}|${date}|${serviceKey}`;
+          const slot = slotsByKey.get(key);
+          if (slot) weekHours += slot.actualHours;
+          return {
+            key,
+            serviceKey,
+            presentation: slot
+              ? projectServiceSlot(slot.truth, 'actuals')
+              : { background: 'neutral', card: null }
+          };
+        });
+        return { date, slots };
+      });
+      return {
+        id: employee.id,
+        name: employee.display_name,
+        meta:
+          jobFunctionName.get(
+            (input.snapshot.employee_job_functions ?? []).find(
+              (row) => row.employee_id === employee.id && row.is_primary && row.active
+            )?.job_function_id ?? ''
+          ) || '',
+        total: formatHours(weekHours),
+        cells
+      };
+    });
+
+  return { days, rows, slotsByKey };
+}

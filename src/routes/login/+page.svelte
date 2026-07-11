@@ -3,6 +3,8 @@
   import { page } from '$app/state';
   import { supabase } from '$lib/supabase/client';
   import { auth } from '$lib/auth/session.svelte';
+  import { workspace } from '$lib/workspace/workspace.svelte';
+  import { roleHome, type RoleHome } from '$lib/workspace/workspace-selection';
 
   let email = $state('');
   let password = $state('');
@@ -10,10 +12,9 @@
   let loading = $state(false);
   let resetSent = $state(false);
   let mode = $state<'signin' | 'signup'>('signin');
+  let redirecting = $state(false);
   const next = $derived(
-    page.url.searchParams.get('next')?.startsWith('/')
-      ? page.url.searchParams.get('next')!
-      : '/home'
+    normalizeNext(page.url.searchParams.get('next'))
   );
   const pageTitle = $derived(mode === 'signin' ? 'Sign in' : 'Create owner account');
   const pageDescription = $derived(
@@ -22,9 +23,47 @@
       : 'Create the owner account first. Restaurant setup continues after sign-up.'
   );
 
-  // Already signed in? Skip the login screen.
+  function normalizeNext(value: string | null): string {
+    if (!value || !value.startsWith('/') || value.startsWith('//')) return '/home';
+    try {
+      const url = new URL(value, location.origin);
+      if (url.origin !== location.origin) return '/home';
+      if (url.pathname === '/login') return '/home';
+      return `${url.pathname}${url.search}${url.hash}`;
+    } catch {
+      return '/home';
+    }
+  }
+
+  function roleSafeNext(target: string, fallback: RoleHome): string {
+    const pathname = new URL(target, location.origin).pathname;
+    const employeeRoute = pathname === '/my-service' || pathname === '/my-time';
+    if (fallback === '/my-service') {
+      return employeeRoute ? target : fallback;
+    }
+    if (employeeRoute) return fallback;
+    return target;
+  }
+
+  async function signedInDestination(forceOnboarding = false): Promise<string> {
+    if (forceOnboarding) return '/onboarding';
+    if (!workspace.loaded && !workspace.loading) {
+      await workspace.load().catch(() => undefined);
+    }
+    const fallback = workspace.active ? roleHome(workspace.active.role) : '/home';
+    return roleSafeNext(next, fallback);
+  }
+
+  // Already signed in? Skip the login screen without bouncing through a route the
+  // active role cannot use.
   $effect(() => {
-    if (auth.session) goto(mode === 'signup' ? '/onboarding' : next, { replaceState: true });
+    if (!auth.session || redirecting) return;
+    redirecting = true;
+    void signedInDestination(mode === 'signup')
+      .then((target) => goto(target, { replaceState: true }))
+      .finally(() => {
+        redirecting = false;
+      });
   });
 
   async function signIn(event: SubmitEvent) {
@@ -48,7 +87,7 @@
       errorMessage = 'Check your email to confirm the account, then continue onboarding.';
       return;
     }
-    await goto(mode === 'signup' ? '/onboarding' : next);
+    await goto(await signedInDestination(mode === 'signup'));
   }
 
   async function requestReset() {

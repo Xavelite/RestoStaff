@@ -1,7 +1,7 @@
 import type { ServiceSlotPresentation } from './calendar-model';
 import type { ServiceKey } from './date';
 
-// Shape shared by every weekly board (Planning, Actuals, Shifts). The grid is
+// Shape shared by every weekly board (Planning, Actuals, My service). The grid is
 // always employees (rows) × weekdays (columns) × service slots. Modules fill the
 // CalendarItem per slot; the layout and interaction are identical everywhere.
 

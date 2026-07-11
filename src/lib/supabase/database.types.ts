@@ -1310,14 +1310,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "notification_feed_states_membership_fk"
+            foreignKeyName: "notification_receipts_membership_fk"
             columns: ["restaurant_id", "profile_id"]
             isOneToOne: false
             referencedRelation: "restaurant_memberships"
             referencedColumns: ["restaurant_id", "profile_id"]
           },
           {
-            foreignKeyName: "notification_feed_states_notification_type_fkey"
+            foreignKeyName: "notification_receipts_notification_type_fkey"
             columns: ["notification_type"]
             isOneToOne: false
             referencedRelation: "notification_types"
@@ -2861,6 +2861,7 @@ export type Database = {
       }
       save_manager_planning: {
         Args: {
+          p_allow_coverage_gaps?: boolean
           p_expected_revision?: number
           p_planned_shifts?: Json
           p_planning_status?: string

@@ -7,6 +7,7 @@
   // the boundary, so the two boards can never visually drift apart again.
   export type BoardTone =
     | 'planned'
+    | 'expected'
     | 'available'
     | 'partial'
     | 'unavailable'
@@ -47,6 +48,7 @@
     name: string;
     detail: string;
     area?: string;
+    color?: string;
     selected?: boolean;
     liveSince?: string | null;
     onclick: () => void;
@@ -60,10 +62,13 @@
     main: string;
     detail: string;
     area?: string;
+    color?: string;
     selected?: boolean;
     disabled?: boolean;
     liveSince?: string | null;
     onclick: () => void;
+    onmore?: () => void;
+    moreLabel?: string;
     ariaLabel: string;
   };
 
@@ -71,10 +76,24 @@
     id: string;
     name: string;
     meta?: string;
+    color?: string;
     avatarTone?: 'neutral' | 'live' | 'danger' | 'warning';
     reviewCount?: number;
     totalLabel: string;
     totalMeta?: string;
+  };
+
+  // One coverage requirement (area × role) for a service, with who is filling
+  // it and how it stands against the required count.
+  export type BoardServiceCoverageRow = {
+    key: string;
+    areaLabel: string;
+    roleLabel: string;
+    planned: number;
+    required: number;
+    tone: 'ok' | 'short';
+    chips: BoardChip[];
+    onLocate?: () => void;
   };
 
   export type BoardServiceCard = {
@@ -86,6 +105,7 @@
     summaryValue: string;
     onHeaderClick?: () => void;
     chips: BoardChip[];
+    coverage?: BoardServiceCoverageRow[];
     emptyLabel?: string;
     fillLabel?: string;
     onFillClick?: () => void;
@@ -162,6 +182,25 @@
   } = $props();
 
   const isMonth = $derived(periodMode === 'month');
+
+  // Toggle at-start/at-end classes so the pinned staff/NET columns only cast an
+  // inward shadow while there are more days to scroll toward.
+  function scrollShadows(node: HTMLElement) {
+    const update = () => {
+      node.classList.toggle('at-start', node.scrollLeft <= 1);
+      node.classList.toggle('at-end', node.scrollLeft + node.clientWidth >= node.scrollWidth - 1);
+    };
+    update();
+    node.addEventListener('scroll', update, { passive: true });
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    return {
+      destroy() {
+        node.removeEventListener('scroll', update);
+        observer.disconnect();
+      }
+    };
+  }
 </script>
 
 <section
@@ -171,7 +210,7 @@
   aria-label={label}
 >
   {#if view === 'roster'}
-    <div class="roster-ledger" class:is-month={isMonth}>
+    <div class="roster-ledger" class:is-month={isMonth} use:scrollShadows>
       <div class="roster-grid" style={`--day-count:${columns.length}`}>
         <div class="roster-head roster-head--staff">Staff</div>
         {#each columns as column (column.date)}
@@ -186,7 +225,10 @@
         <div class="roster-head roster-head--total">Net</div>
 
         {#each rows as row (row.id)}
-          <article class={`roster-person is-${row.avatarTone ?? 'neutral'}`}>
+          <article
+            class={`roster-person is-${row.avatarTone ?? 'neutral'}`}
+            style={row.color ? `--person-color:${row.color};` : undefined}
+          >
             <span>{row.name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase()}</span>
             <div>
               <strong>{row.name}</strong>
@@ -200,25 +242,39 @@
           {#each columns as column (column.date)}
             <div class="roster-day" class:is-today={column.today} class:is-future={column.future}>
               {#each slotsFor?.(row.id, column.date) ?? [] as slot (slot.key)}
-                <button
-                  type="button"
+                <div
                   class={`roster-slot is-${slot.tone}`}
                   class:is-selected={slot.selected}
-                  disabled={slot.disabled}
-                  onclick={slot.onclick}
-                  aria-label={slot.ariaLabel}
+                  class:is-disabled={slot.disabled}
+                  style={slot.color ? `--slot-accent:${slot.color};` : undefined}
                 >
-                  <span>{slot.icon}</span>
-                  <strong>{slot.main}</strong>
-                  {#if slot.liveSince}
-                    <small><LiveDuration since={slot.liveSince} /></small>
-                  {:else if slot.detail}
-                    <small>{slot.detail}</small>
+                  <button
+                    type="button"
+                    class="roster-slot__tap"
+                    disabled={slot.disabled}
+                    onclick={slot.onclick}
+                    aria-label={slot.ariaLabel}
+                  >
+                    <span>{slot.icon}</span>
+                    <strong>{slot.main}</strong>
+                    {#if slot.liveSince}
+                      <small><LiveDuration since={slot.liveSince} /></small>
+                    {:else if slot.detail}
+                      <small>{slot.detail}</small>
+                    {/if}
+                    {#if expanded && slot.area}
+                      <em>{slot.area}</em>
+                    {/if}
+                  </button>
+                  {#if slot.onmore && !slot.disabled}
+                    <button
+                      type="button"
+                      class="roster-slot__more"
+                      onclick={slot.onmore}
+                      aria-label={slot.moreLabel ?? 'More actions'}
+                    >⋯</button>
                   {/if}
-                  {#if expanded && slot.area}
-                    <em>{slot.area}</em>
-                  {/if}
-                </button>
+                </div>
               {/each}
             </div>
           {/each}
@@ -300,18 +356,47 @@
                 <strong>{card.summaryValue}</strong>
               </header>
 
-              <div class="service-card__chips">
-                {#each card.chips as chip (chip.key)}
-                  <StaffChip {...chip} />
-                {:else}
-                  <span class="service-card__empty">{card.emptyLabel ?? 'No one here yet'}</span>
-                {/each}
-                {#if card.fillLabel}
-                  <button type="button" class="service-card__fill" onclick={card.onFillClick}>
-                    {card.fillLabel}
-                  </button>
-                {/if}
-              </div>
+              {#if card.coverage}
+                <!-- Coverage breakdown: one row per area × role so gaps read as
+                     "Hall · Server 1/2", not an abstract total. -->
+                <div class="service-card__coverage">
+                  {#each card.coverage as row (row.key)}
+                    <button
+                      type="button"
+                      class={`coverage-row is-${row.tone}`}
+                      onclick={row.onLocate}
+                      disabled={!row.onLocate}
+                      aria-label={`${row.areaLabel} ${row.roleLabel}: ${row.planned} of ${row.required} — open in roster`}
+                    >
+                      <div class="coverage-row__where">
+                        <strong>{row.areaLabel}</strong>
+                        <span>{row.roleLabel}</span>
+                      </div>
+                      <div class="coverage-row__crew">
+                        {#each row.chips as chip (chip.key)}
+                          <span class="coverage-row__avatar" style={chip.color ? `--avatar-color:${chip.color};` : undefined} title={chip.name}>{chip.initials}</span>
+                        {/each}
+                      </div>
+                      <em class="coverage-row__count">{row.planned}/{row.required}</em>
+                    </button>
+                  {:else}
+                    <span class="service-card__empty">No coverage rules for this service.</span>
+                  {/each}
+                </div>
+              {:else}
+                <div class="service-card__chips">
+                  {#each card.chips as chip (chip.key)}
+                    <StaffChip {...chip} />
+                  {:else}
+                    <span class="service-card__empty">{card.emptyLabel ?? 'No one here yet'}</span>
+                  {/each}
+                  {#if card.fillLabel}
+                    <button type="button" class="service-card__fill" onclick={card.onFillClick}>
+                      {card.fillLabel}
+                    </button>
+                  {/if}
+                </div>
+              {/if}
 
               {#if card.secondaryChips?.length}
                 <footer>
@@ -348,17 +433,20 @@
   /* ---- Roster grid ------------------------------------------------- */
 
   .roster-ledger {
-    --roster-staff-column: 210px;
-    --roster-day-column: 216px;
-    --roster-total-column: 86px;
+    --roster-staff-column: 200px;
+    --roster-day-column: 236px;
+    --roster-total-column: 84px;
     min-width: 0;
     overflow: auto;
     padding: 0 0 2px;
   }
 
+  /* Focus uses fixed-width day columns too, so the whole week shows on a wide
+     desktop but the cards keep their size and scroll on a smaller window
+     (rather than shrinking 7 days to fit). */
   .operations-board.is-expanded .roster-ledger {
-    --roster-day-column: 190px;
-    --roster-total-column: 92px;
+    --roster-day-column: 202px;
+    --roster-total-column: 90px;
   }
 
   .roster-ledger.is-month {
@@ -421,8 +509,24 @@
     background: #132235;
   }
 
+  .roster-total {
+    pointer-events: none;
+  }
+
   .roster-head--total {
     z-index: 4;
+  }
+
+  /* Scroll affordance: the pinned columns cast an inward shadow only while more
+     days remain to scroll toward, so the hidden part of the week is discoverable. */
+  .roster-ledger:not(.at-start) .roster-head--staff,
+  .roster-ledger:not(.at-start) .roster-person {
+    box-shadow: 13px 0 18px -12px rgba(2, 8, 16, 0.7);
+  }
+
+  .roster-ledger:not(.at-end) .roster-head--total,
+  .roster-ledger:not(.at-end) .roster-total {
+    box-shadow: -13px 0 18px -12px rgba(2, 8, 16, 0.7);
   }
 
   .roster-head--day {
@@ -456,8 +560,10 @@
     display: grid;
     place-items: center;
     border-radius: var(--rst-ui-radius-round);
-    color: #cfe0ff;
-    background: #1f4a7a;
+    color: #eaf1ff;
+    /* Fill = the person's position colour; ring = attention state. */
+    background: var(--person-color, #1f4a7a);
+    box-shadow: 0 0 0 2px var(--person-ring, rgba(255, 255, 255, 0));
     font-size: 11px;
     font-weight: var(--rst-fw-display);
     transition:
@@ -471,21 +577,22 @@
 
   .roster-person:hover > span {
     transform: scale(1.06);
-    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.06), 0 12px 26px rgba(0, 0, 0, 0.2);
+    box-shadow:
+      0 0 0 2px var(--person-ring, rgba(255, 255, 255, 0)),
+      0 0 0 4px rgba(255, 255, 255, 0.08),
+      0 12px 26px rgba(0, 0, 0, 0.2);
   }
 
   .roster-person.is-live > span {
-    color: #12301f;
-    background: #9cf3bd;
+    --person-ring: #42d884;
   }
 
   .roster-person.is-danger > span {
-    background: #8d2b1c;
+    --person-ring: #ff6b4a;
   }
 
   .roster-person.is-warning > span {
-    color: #3d2904;
-    background: #f7d36d;
+    --person-ring: #f7b733;
   }
 
   .roster-person strong,
@@ -546,22 +653,18 @@
     opacity: 0.72;
   }
 
+  /* The tile is a container so a hover-reveal ⋯ (edit) can sit inside the tap
+     target without nesting buttons. Tone/colour live on the container; the grid
+     content lives on the tap button. */
   .roster-slot {
     position: relative;
     min-width: 0;
-    min-height: 60px;
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 2px 6px;
-    align-content: center;
-    padding: 8px;
+    min-height: 62px;
     border: 1px solid rgba(255, 255, 255, 0.1);
+    border-left: 3px solid var(--slot-accent, rgba(255, 255, 255, 0.12));
     border-radius: 12px;
     color: #19304b;
-    background: rgba(255, 255, 255, 0.76);
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
+    background: rgba(255, 255, 255, 0.74);
     transition:
       transform 0.16s var(--rst-ease-out),
       box-shadow 0.16s var(--rst-ease-out),
@@ -569,13 +672,87 @@
       filter 0.16s ease;
   }
 
-  .roster-slot:disabled {
+  .roster-slot__tap {
+    width: 100%;
+    min-height: 60px;
+    display: grid;
+    grid-template-columns: 14px minmax(0, 1fr);
+    gap: 1px 5px;
+    align-content: center;
+    padding: 8px 9px;
+    border: 0;
+    border-radius: inherit;
+    color: inherit;
+    background: transparent;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .roster-slot__more {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    z-index: 2;
+    width: 22px;
+    height: 20px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 7px;
+    color: #19304b;
+    background: rgba(255, 255, 255, 0.6);
+    box-shadow: 0 2px 6px rgba(4, 11, 20, 0.18);
+    font-size: 14px;
+    line-height: 0.6;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.14s ease, background-color 0.14s ease;
+  }
+
+  .roster-slot:hover .roster-slot__more,
+  .roster-slot:focus-within .roster-slot__more {
+    opacity: 1;
+  }
+
+  .roster-slot__more:hover {
+    background: rgba(255, 255, 255, 0.9);
+  }
+
+  /* Focus reuses the same fixed-width cards as the cockpit (full time fits and
+     cards keep their size); it just shows more days and scrolls when needed. */
+  .operations-board.is-expanded:not(.is-month) .roster-day {
+    align-content: start;
+  }
+
+  /* Focus columns are narrower (to fit the week on a wide desktop). The two
+     cards are always lunch (left) / evening (right), so the icon is redundant
+     there — drop it and give the full time the whole card width. */
+  .operations-board.is-expanded:not(.is-month) .roster-slot__tap {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1px 0;
+  }
+
+  .operations-board.is-expanded:not(.is-month) .roster-slot__tap > span {
+    display: none;
+  }
+
+  .operations-board.is-expanded:not(.is-month) .roster-slot strong,
+  .operations-board.is-expanded:not(.is-month) .roster-slot small,
+  .operations-board.is-expanded:not(.is-month) .roster-slot em {
+    grid-column: 1;
+  }
+
+  .roster-slot__tap:disabled {
     cursor: default;
+  }
+
+  .roster-slot.is-disabled {
     opacity: 0.85;
   }
 
-  .roster-slot:hover:not(:disabled),
-  .roster-slot:focus-visible:not(:disabled) {
+  .roster-slot:hover:not(.is-disabled),
+  .roster-slot:focus-within:not(.is-disabled) {
     z-index: 2;
     transform: translateY(-2px);
     border-color: rgba(255, 255, 255, 0.28);
@@ -583,29 +760,58 @@
     box-shadow: 0 16px 34px rgba(4, 11, 20, 0.22);
   }
 
-  .roster-slot > span {
+  .roster-slot__tap > span {
     grid-row: span 2;
+    align-self: center;
+    justify-self: center;
     font-size: 12px;
     line-height: 1;
   }
 
   .roster-slot strong {
-    font-size: 12px;
+    font-size: 11px;
+    font-weight: var(--rst-fw-display);
     line-height: 1.05;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
   }
 
   .roster-slot small,
   .roster-slot em {
     grid-column: 2;
-    color: rgba(25, 48, 75, 0.7);
+    overflow: hidden;
+    color: rgba(25, 48, 75, 0.66);
     font-size: 10px;
     font-style: normal;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
+  /* Left border = the person's position colour (falls back to committed-green). */
   .roster-slot.is-planned,
   .roster-slot.is-recorded {
-    border-color: rgba(66, 216, 132, 0.32);
-    box-shadow: inset 0 -3px 0 rgba(66, 216, 132, 0.42);
+    border-color: rgba(80, 168, 132, 0.35);
+    border-left-color: var(--slot-accent, rgba(66, 216, 132, 0.72));
+    background:
+      linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(226, 236, 234, 0.96)),
+      #edf3f1;
+    box-shadow: 0 6px 16px rgba(4, 11, 20, 0.12);
+  }
+
+  /* A planned shift that has not been worked yet (Timesheet): stays quiet like
+     the board, but a solid (not dashed) border + position accent clearly marks
+     it as an expected slot rather than an empty one. */
+  .roster-slot.is-expected {
+    color: rgba(255, 250, 242, 0.82);
+    border-color: rgba(255, 255, 255, 0.2);
+    border-left-color: var(--slot-accent, rgba(140, 168, 205, 0.9));
+    background: rgba(255, 255, 255, 0.055);
+    box-shadow: none;
+  }
+
+  .roster-slot.is-expected small,
+  .roster-slot.is-expected em {
+    color: rgba(255, 250, 242, 0.5);
   }
 
   .roster-slot.is-available {
@@ -657,9 +863,18 @@
 
   .roster-slot.is-empty,
   .roster-slot.is-neutral {
-    color: rgba(255, 250, 242, 0.72);
+    color: rgba(255, 250, 242, 0.56);
     border-style: dashed;
-    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(255, 255, 255, 0.075);
+    background: rgba(255, 255, 255, 0.045);
+    box-shadow: none;
+  }
+
+  .operations-board.is-expanded:not(.is-month) .roster-slot.is-empty,
+  .operations-board.is-expanded:not(.is-month) .roster-slot.is-neutral {
+    background:
+      linear-gradient(145deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)),
+      rgba(255, 255, 255, 0.035);
   }
 
   .roster-slot.is-selected {
@@ -795,18 +1010,18 @@
     overflow: hidden;
     min-width: 0;
     display: grid;
-    grid-template-rows: auto minmax(46px, 1fr) auto;
+    grid-template-rows: auto minmax(32px, auto) auto;
     gap: 8px;
-    min-height: 112px;
-    padding: 12px;
-    border-radius: 17px;
-    color: #17304f;
-    background:
-      linear-gradient(90deg, rgba(66, 216, 132, 0.1), transparent 30%),
-      #f5eedf;
+    min-height: 92px;
+    padding: 12px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    color: #eaf2ff;
+    background: rgba(255, 255, 255, 0.045);
     transition:
       transform 0.18s var(--rst-ease-out),
       box-shadow 0.18s var(--rst-ease-out),
+      border-color 0.18s ease,
       filter 0.18s ease;
   }
 
@@ -833,26 +1048,35 @@
   }
 
   .service-card.is-evening {
-    background:
-      linear-gradient(90deg, rgba(66, 216, 132, 0.07), transparent 30%),
-      #e6eef8;
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .service-card.is-empty {
+    color: rgba(234, 242, 255, 0.66);
+    background: rgba(255, 255, 255, 0.022);
   }
 
   .service-card.is-live,
   .service-card.is-ready {
-    background: linear-gradient(135deg, #c8f8d8, #e8fff0);
-    animation: rst-breathe-glow 2.9s ease-in-out infinite;
+    border-color: rgba(66, 200, 120, 0.42);
+    background: rgba(66, 200, 120, 0.1);
   }
 
-  .service-card.is-danger,
+  .service-card.is-danger {
+    border-color: rgba(240, 100, 35, 0.5);
+    background: rgba(215, 86, 58, 0.16);
+  }
+
   .service-card.is-short {
-    color: #fff4ef;
-    background: linear-gradient(135deg, #7b2519, #d8563a);
+    border-color: rgba(247, 183, 51, 0.4);
+    background: rgba(247, 183, 51, 0.08);
+    box-shadow: inset 3px 0 0 rgba(247, 183, 51, 0.85);
   }
 
   .service-card.is-warning,
   .service-card.is-attention {
-    background: linear-gradient(135deg, #ffe4a3, #fff7d6);
+    border-color: rgba(247, 183, 51, 0.35);
+    background: rgba(247, 183, 51, 0.07);
   }
 
   .service-card.is-bench {
@@ -895,14 +1119,109 @@
     max-width: 100%;
     padding: 3px 9px;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.52);
+    background: rgba(255, 255, 255, 0.1);
     color: inherit;
     font-size: 12px;
   }
 
-  .service-card.is-danger > header > strong,
+  .service-card.is-danger > header > strong {
+    background: rgba(255, 255, 255, 0.16);
+  }
+
+  /* Coverage breakdown: one calm row per area × role. */
+  .service-card__coverage {
+    display: grid;
+    gap: 4px;
+  }
+
+  .coverage-row {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border: 0;
+    border-radius: 10px;
+    color: inherit;
+    background: rgba(255, 255, 255, 0.04);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.14s var(--rst-ease-out), background-color 0.14s ease;
+  }
+
+  .coverage-row:disabled {
+    cursor: default;
+  }
+
+  .coverage-row:not(:disabled):hover {
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.09);
+  }
+
+  .coverage-row.is-short {
+    background: rgba(247, 183, 51, 0.12);
+    box-shadow: inset 2px 0 0 rgba(247, 183, 51, 0.8);
+  }
+
+  .coverage-row.is-short:not(:disabled):hover {
+    background: rgba(247, 183, 51, 0.18);
+  }
+
+  .coverage-row__where {
+    min-width: 0;
+    display: grid;
+    line-height: 1.15;
+  }
+
+  .coverage-row__where strong {
+    overflow: hidden;
+    font-size: 12px;
+    font-weight: var(--rst-fw-display);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .coverage-row__where span {
+    color: rgba(234, 242, 255, 0.6);
+    font-size: 10px;
+  }
+
+  .coverage-row__crew {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .coverage-row__avatar {
+    width: 20px;
+    height: 20px;
+    display: grid;
+    place-items: center;
+    border-radius: var(--rst-ui-radius-round);
+    color: #fff;
+    background: var(--avatar-color, #35507a);
+    box-shadow: 0 1px 4px rgba(4, 11, 20, 0.3);
+    font-size: 8px;
+    font-weight: var(--rst-fw-display);
+    letter-spacing: 0.02em;
+  }
+
+  .coverage-row__count {
+    font-size: 11px;
+    font-style: normal;
+    font-weight: var(--rst-fw-display);
+    color: rgba(234, 242, 255, 0.66);
+  }
+
+  .coverage-row.is-short .coverage-row__count {
+    color: var(--rst-gold);
+  }
+
   .service-card.is-short > header > strong {
-    background: rgba(255, 255, 255, 0.22);
+    color: #6f2e12;
+    background: rgba(240, 100, 35, 0.14);
   }
 
   .service-card__chips {
@@ -940,6 +1259,17 @@
     transform: translateY(-1px);
     border-color: #f06423;
     background: rgba(240, 100, 35, 0.16);
+  }
+
+  .service-card.is-empty .service-card__fill {
+    border-color: rgba(38, 56, 79, 0.28);
+    color: #26384f;
+    background: rgba(38, 56, 79, 0.06);
+  }
+
+  .service-card.is-empty .service-card__fill:hover {
+    border-color: rgba(38, 56, 79, 0.48);
+    background: rgba(38, 56, 79, 0.1);
   }
 
   .service-card.is-danger .service-card__empty {
@@ -1190,6 +1520,28 @@
   @media (max-width: 980px) {
     .board-service {
       padding: 14px 16px 24px;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .roster-ledger {
+      --roster-staff-column: 132px;
+      --roster-day-column: 158px;
+      --roster-total-column: 62px;
+    }
+
+    .roster-ledger.is-month {
+      --roster-staff-column: 112px;
+      --roster-day-column: 84px;
+    }
+
+    .board-month {
+      padding: 14px 16px 22px;
+    }
+
+    .board-month__weekdays,
+    .board-month__week {
+      grid-template-columns: repeat(7, minmax(84px, 1fr));
     }
   }
 </style>

@@ -210,6 +210,18 @@ button:not(:disabled):active, [role='button']:not([aria-disabled='true']):active
   50% { box-shadow: 0 0 0 1px rgba(66, 216, 132, 0.42), 0 18px 42px rgba(66, 216, 132, 0.28); }
 }
 
+/* Healthy readiness dials keep a slow living pulse on top of their drop shadow.
+   Continuous but gentle — the "alive" cue the operational surfaces share. */
+@keyframes rst-dial-breathe {
+  0%, 100% { box-shadow: 0 18px 50px rgba(0, 0, 0, 0.32), 0 0 0 0 rgba(66, 216, 132, 0); }
+  50% { box-shadow: 0 18px 50px rgba(0, 0, 0, 0.32), 0 0 26px 3px rgba(66, 216, 132, 0.22); }
+}
+
+@keyframes rst-dial-breathe-warn {
+  0%, 100% { box-shadow: 0 18px 50px rgba(0, 0, 0, 0.32), 0 0 0 0 rgba(240, 100, 35, 0); }
+  50% { box-shadow: 0 18px 50px rgba(0, 0, 0, 0.32), 0 0 26px 3px rgba(240, 100, 35, 0.24); }
+}
+
 @media print {
   .topbar, .toolbar { display: none !important; }
   body, .app, .app__content { color: #111 !important; background: #fff !important; }

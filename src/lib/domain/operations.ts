@@ -67,14 +67,20 @@ export const ABSENCE_TYPE_CODES = [
 
 export function defaultWorkRegime(contractCode: string): WorkRegime {
   const code = contractCode.trim().toUpperCase();
-  return code === 'CDI' || code === 'CDD'
+  return contractRequiresFixedSchedule(code)
     ? 'fixed_schedule'
     : code === 'FREELANCE'
       ? 'manager_only'
       : 'weekly_availability';
 }
 
+export function contractRequiresFixedSchedule(contractCode: string): boolean {
+  const code = contractCode.trim().toUpperCase();
+  return code === 'CDI' || code === 'CDD';
+}
+
 export function workRegime(value: unknown, contractCode = ''): WorkRegime {
+  if (contractRequiresFixedSchedule(contractCode)) return 'fixed_schedule';
   return value === 'fixed_schedule' ||
     value === 'weekly_availability' ||
     value === 'manager_only'

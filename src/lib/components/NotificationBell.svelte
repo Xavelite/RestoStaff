@@ -341,7 +341,7 @@
       <span class="detail-pill is-{detailItem.severity}">{detailItem.type.replaceAll('_', ' ')}</span>
       <p>This notification points to the live operational source. The source data remains the business truth.</p>
       {#if detailItem.type === 'absence_request_submitted'}
-        <p>Approve or refuse the request here, or open Calendar for the full context.</p>
+        <p>Approve or refuse the request here, or open My time for the full context.</p>
       {/if}
     </div>
   {/if}

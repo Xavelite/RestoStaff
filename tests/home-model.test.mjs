@@ -48,10 +48,9 @@ test('unplanned live work is never reported as on track', () => {
     thursdayAfternoon
   );
 
-  assert.equal(model.metrics[0].value, '1 unplanned shift');
-  assert.equal(model.metrics[0].tone, 'warning');
-  assert.equal(model.metrics[0].meta, 'Working without a published shift');
   assert.equal(model.live.rows[0]?.status, 'Unplanned live');
+  assert.equal(model.live.rows[0]?.tone, 'warning');
+  assert.match(model.live.rows[0]?.detail ?? '', /Unplanned/i);
 });
 
 test('late, missing-badge and coverage truths remain visible together', () => {
@@ -91,29 +90,9 @@ test('late, missing-badge and coverage truths remain visible together', () => {
   );
 
   assert.equal(model.live.late, 1);
-  assert.equal(model.metrics.find((metric) => metric.label === 'Week pulse')?.value, 'At risk');
-  assert.match(
-    model.metrics.find((metric) => metric.label === 'Week pulse')?.meta ?? '',
-    /1 missing badge/
-  );
+  assert.equal(model.pulse.tone, 'danger');
   assert.equal(
     model.pulse.rows.find((row) => row.label === 'Missing badges')?.value,
     '1'
   );
-});
-
-test('home metrics and drilldown entities have stable unique ids', () => {
-  const model = buildHomeModel(snapshot(), 'owner', thursdayAfternoon);
-  assert.equal(model.metrics.length, 4);
-  assert.equal(new Set(model.metrics.map((metric) => metric.id)).size, 4);
-  for (const metric of model.metrics) {
-    assert.equal(
-      new Set((metric.detail?.rows ?? []).map((row) => row.id)).size,
-      metric.detail?.rows.length ?? 0
-    );
-    assert.equal(
-      new Set((metric.detail?.actions ?? []).map((action) => action.id)).size,
-      metric.detail?.actions?.length ?? 0
-    );
-  }
 });

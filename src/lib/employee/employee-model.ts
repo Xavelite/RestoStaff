@@ -6,6 +6,7 @@ import {
   instantClockLabel,
   resolveWorkspaceServiceSlot,
   projectServiceSlot,
+  type ServiceSlotPlan,
   type ServiceSlotState
 } from '../calendar/service-slot.ts';
 import {
@@ -22,6 +23,7 @@ import {
   weekLabel,
   type ServiceKey
 } from '../calendar/date.ts';
+import { workPatternExceptionOverlaps } from '../work-pattern-exceptions/work-pattern-exception.ts';
 import type { EmployeeServiceDraft } from './employee-self-service.ts';
 
 type OperationalEnums = Database['public']['Enums'];
@@ -35,6 +37,26 @@ export type AvailabilityDraft = {
   serviceKey: ServiceKey;
   state: AvailabilityState;
 };
+
+export type SelectableAvailability = 'available' | 'unavailable';
+
+export const SELECTABLE_AVAILABILITY: ReadonlyArray<{
+  value: SelectableAvailability;
+  label: string;
+  icon: string;
+}> = [
+  { value: 'available', label: 'Available', icon: '✓' },
+  { value: 'unavailable', label: 'Unavailable', icon: '✕' }
+];
+
+export function availabilityUpdateHint(state: AvailabilityState): string {
+  if (state === 'available') return 'Your manager can schedule you for this service.';
+  if (state === 'partial') {
+    return 'Your saved availability needs updating. Choose available or unavailable.';
+  }
+  if (state === 'unavailable') return "You've told your manager you can't work this service.";
+  return 'Tap a state to tell your manager how this service works for you.';
+}
 
 export type EmployeeShift = {
   id: string;
@@ -56,6 +78,7 @@ export type EmployeeWeekSlot = {
   entry: EmployeeOperationsReadModel['time_entries'][number] | null;
   availability: AvailabilityState;
   absence: 'pending' | 'approved' | '';
+  absenceType: string;
   workPatternException: 'pending' | 'approved' | '';
   workPatternExceptionId: string | null;
   workPatternExceptionReason: string;
@@ -102,6 +125,86 @@ export function publishedShiftsForWeek(
     .sort((a, b) => a.date.localeCompare(b.date) || a.serviceKey.localeCompare(b.serviceKey));
 }
 
+// CDI/CDD employees plan leave against their recurring contract schedule, which
+// exists before the manager publishes a week. Project the active recurring slots
+// onto the week's dates so a fixed-schedule employee always has shifts to act on.
+// Approved work-pattern changes that drop a slot are honoured, and open slot
+// times fall back to the standard service window. See the
+// employee-cdi-time-off-basis decision.
+function contractShiftsForWeek(
+  snapshot: EmployeeOperationsReadModel,
+  employeeId: string,
+  weekStart: string
+): EmployeeShift[] {
+  return (snapshot.recurring_schedule_slots ?? [])
+    .filter(
+      (slot) =>
+        slot.active &&
+        slot.employee_id === employeeId &&
+        (slot.service_key === 'lunch' || slot.service_key === 'evening') &&
+        Number.isInteger(slot.weekday) &&
+        slot.weekday >= 1 &&
+        slot.weekday <= 7
+    )
+    .flatMap((slot) => {
+      const serviceKey: ServiceKey = slot.service_key === 'evening' ? 'evening' : 'lunch';
+      const date = dateForWeekday(weekStart, slot.weekday);
+      const dropped = (snapshot.work_pattern_exceptions ?? []).some(
+        (row) =>
+          row.status === 'approved' &&
+          workPatternExceptionOverlaps(row, employeeId, date, serviceKey)
+      );
+      if (dropped) return [];
+      const startsAt = clockLabel(slot.starts_at) || (serviceKey === 'lunch' ? '12:00' : '18:00');
+      const endsAt = clockLabel(slot.ends_at) || (serviceKey === 'lunch' ? '15:00' : '23:00');
+      return [
+        {
+          id: `contract-${slot.id}`,
+          date,
+          weekday: slot.weekday,
+          serviceKey,
+          startsAt,
+          endsAt,
+          area: 'Fixed schedule',
+          jobFunction: 'Recurring shift',
+          hours: hoursBetweenClocks(startsAt, endsAt)
+        }
+      ];
+    })
+    .sort((a, b) => a.date.localeCompare(b.date) || a.serviceKey.localeCompare(b.serviceKey));
+}
+
+export function contractPlanForDate(
+  snapshot: EmployeeOperationsReadModel,
+  employeeId: string,
+  availabilityMode: AvailabilityMode | undefined,
+  date: string,
+  serviceKey: ServiceKey,
+  contractByWeek = new Map<string, EmployeeShift[]>()
+): ServiceSlotPlan | null | undefined {
+  if (availabilityMode !== 'fixed_schedule') return undefined;
+  const weekStart = mondayFor(date);
+  const published =
+    snapshot.work_weeks.find((week) => week.week_start === weekStart)?.planning_status ===
+    'published';
+  if (published) return undefined;
+  if (!contractByWeek.has(weekStart)) {
+    contractByWeek.set(weekStart, contractShiftsForWeek(snapshot, employeeId, weekStart));
+  }
+  const shift = contractByWeek
+    .get(weekStart)!
+    .find((item) => item.date === date && item.serviceKey === serviceKey);
+  return shift
+    ? {
+        id: shift.id,
+        startsAt: shift.startsAt,
+        endsAt: shift.endsAt,
+        area: shift.area,
+        contractBaseline: true
+      }
+    : null;
+}
+
 export function availabilityForWeek(
   snapshot: EmployeeOperationsReadModel,
   employeeId: string,
@@ -116,14 +219,7 @@ export function availabilityForWeek(
           slot.weekday === weekday &&
           slot.service_key === serviceKey
       );
-      const recurring = (snapshot.recurring_schedule_slots ?? []).find(
-        (pattern) =>
-          pattern.employee_id === employeeId &&
-          pattern.weekday === weekday &&
-          pattern.service_key === serviceKey &&
-          pattern.active
-      );
-      const state = row?.availability_state ?? (recurring ? 'available' : '');
+      const state = row?.availability_state ?? '';
       return {
         date: dateForWeekday(weekStart, weekday),
         serviceKey,
@@ -186,10 +282,15 @@ export function buildEmployeeWeek(input: {
   slotsByKey: Map<string, EmployeeWeekSlot>;
 } {
   const employee = employeeForId(input.snapshot, input.employeeId);
-  const shifts = publishedShiftsForWeek(input.snapshot, input.employeeId, input.weekStart);
   const published =
     input.snapshot.work_weeks.find((week) => week.week_start === input.weekStart)
       ?.planning_status === 'published';
+  // Fixed-schedule employees act on their recurring contract shifts before the
+  // week is published; everyone else only sees the published plan.
+  const shifts =
+    input.availabilityMode === 'fixed_schedule' && !published
+      ? contractShiftsForWeek(input.snapshot, input.employeeId, input.weekStart)
+      : publishedShiftsForWeek(input.snapshot, input.employeeId, input.weekStart);
   const days: WeekColumn[] = WEEKDAYS.map((label, index) => {
     const date = dateForWeekday(input.weekStart, index + 1);
     return { weekday: index + 1, label, date, today: date === input.today, past: date < input.today };
@@ -202,9 +303,11 @@ export function buildEmployeeWeek(input: {
         shifts.find((item) => item.date === day.date && item.serviceKey === serviceKey) ??
         null;
       const availability =
-        input.availability.find(
-          (item) => item.date === day.date && item.serviceKey === serviceKey
-        )?.state ?? '';
+        input.availabilityMode === 'weekly_availability'
+          ? input.availability.find(
+              (item) => item.date === day.date && item.serviceKey === serviceKey
+            )?.state ?? ''
+          : '';
       const truth = resolveWorkspaceServiceSlot({
         snapshot: input.snapshot,
         employeeId: input.employeeId,
@@ -227,6 +330,10 @@ export function buildEmployeeWeek(input: {
           : truth.absence?.status === 'pending'
             ? 'pending'
             : '';
+      const absenceType = truth.absence
+        ? input.snapshot.absence_types.find((type) => type.id === truth.absence?.absence_type_id)
+            ?.name ?? 'Time off'
+        : '';
       const baseSlot: Omit<EmployeeWeekSlot, 'state' | 'truth' | 'editable' | 'editReason'> = {
         key,
         date: day.date,
@@ -235,6 +342,7 @@ export function buildEmployeeWeek(input: {
         entry: truth.entry,
         availability,
         absence: absenceState,
+        absenceType,
         workPatternException:
           truth.workPatternException?.status === 'approved'
             ? 'approved'
@@ -244,7 +352,16 @@ export function buildEmployeeWeek(input: {
         workPatternExceptionId: truth.workPatternException?.id ?? null,
         workPatternExceptionReason: truth.workPatternException?.reason ?? ''
       };
-      const state = truth.state;
+      // The employee's own time off must stay visible on their schedule even
+      // when they are also scheduled: a pending or approved leave request is
+      // surfaced here instead of being hidden behind the published plan (which
+      // the shared resolver ranks first, correctly, for the manager view). Only
+      // a real worked entry outranks it.
+      let state = truth.state;
+      if (!truth.entry) {
+        if (truth.absence?.status === 'approved') state = 'leave_approved';
+        else if (truth.absence?.status === 'pending') state = 'leave_pending';
+      }
       const editable =
         input.availabilityMode === 'weekly_availability' &&
         day.date >= input.today &&
@@ -255,7 +372,9 @@ export function buildEmployeeWeek(input: {
       const editReason =
         input.availabilityMode !== 'weekly_availability'
           ? input.availabilityMode === 'fixed_schedule'
-            ? 'Your recurring schedule stays unchanged; request a one-off availability change here.'
+            ? shift
+              ? 'Tap the shift to request time off.'
+              : 'No planned shift.'
             : 'Availability is maintained by your manager.'
           : day.date < input.today
             ? 'Past availability is read-only.'
@@ -266,7 +385,7 @@ export function buildEmployeeWeek(input: {
                 : baseSlot.absence === 'approved'
                   ? 'Approved leave already covers this service.'
                   : baseSlot.workPatternException === 'approved'
-                    ? 'An approved availability change covers this service.'
+                    ? 'An approved schedule change covers this service.'
                   : '';
       const slot: EmployeeWeekSlot = { ...baseSlot, state, truth, editable, editReason };
       slotsByKey.set(key, slot);
@@ -330,8 +449,13 @@ export function employeeMonth(
   selectedDate: string,
   today: string,
   availabilityOverrides: AvailabilityDraft[] = [],
-  serviceDrafts: EmployeeServiceDraft[] = []
+  serviceDrafts: EmployeeServiceDraft[] = [],
+  availabilityMode?: AvailabilityMode
 ): CalendarDay[] {
+  // Mirror the week view: a fixed-schedule employee sees their recurring
+  // contract shifts on unpublished weeks too, so the monthly calendar and the
+  // My service page agrees on what is scheduled. Computed once per week.
+  const contractByWeek = new Map<string, EmployeeShift[]>();
   return buildMonthDays({
     month,
     selectedDate,
@@ -346,10 +470,20 @@ export function employeeMonth(
               date,
               serviceKey,
               today,
+              plan: contractPlanForDate(
+                snapshot,
+                employeeId,
+                availabilityMode,
+                date,
+                serviceKey,
+                contractByWeek
+              ),
               availability:
-                availabilityOverrides.find(
-                  (item) => item.date === date && item.serviceKey === serviceKey
-                )?.state
+                availabilityMode === 'weekly_availability'
+                  ? availabilityOverrides.find(
+                      (item) => item.date === date && item.serviceKey === serviceKey
+                    )?.state
+                  : ''
             }),
             'employee'
           ),
@@ -437,4 +571,3 @@ export function employeeDayDetails(
     )
   };
 }
-

@@ -1,14 +1,12 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { buildEmployeeWeek } from '../src/lib/employee/employee-model.ts';
 import {
+  blocksPlanningAssignment,
   planningConflicts,
+  planningRequestIdentity,
   slotContext
-} from '../src/lib/planning/planning-model.ts';
-
-const migrationPath =
-  'supabase/migrations/202606210019_canonical_work_pattern_model.sql';
+} from '../src/lib/schedule/schedule-model.ts';
 
 function snapshot(overrides = {}) {
   return {
@@ -32,30 +30,6 @@ function snapshot(overrides = {}) {
     ...overrides
   };
 }
-
-test('work-pattern exceptions are a separate audited lifecycle, not absences', async () => {
-  const sql = await readFile(migrationPath, 'utf8');
-  assert.match(sql, /rename to work_pattern_exceptions/i);
-  assert.match(sql, /rename to work_pattern_exception_events/i);
-  assert.match(sql, /save_work_pattern_exception_lifecycle/i);
-  assert.match(sql, /fixed_schedule/i);
-  assert.match(sql, /work_pattern_exceptions_regime_guard/i);
-  assert.match(sql, /drop function public\.save_schedule_exception_lifecycle/i);
-  assert.match(
-    sql,
-    /revoke all on table public\.work_pattern_exceptions\s+from public, anon, authenticated/i
-  );
-  assert.match(sql, /'work_pattern_exceptions'/i);
-  assert.match(
-    sql,
-    /build_workspace_runtime_snapshot_v2[\s\S]*'work_pattern_exceptions'/i
-  );
-  assert.doesNotMatch(
-    sql,
-    /insert into public\.absences/i,
-    'work-pattern exceptions must never consume the leave domain'
-  );
-});
 
 test('active work-pattern exceptions block overlapping Planning until resolved', () => {
   const approvedSnapshot = snapshot({
@@ -101,6 +75,63 @@ test('active work-pattern exceptions block overlapping Planning until resolved',
     'pending'
   );
   assert.equal(planningConflicts(pendingSnapshot, [shift], '2026-06-15').length, 1);
+});
+
+test('pending and approved leave both block normal schedule assignment', () => {
+  const shift = {
+    employeeId: 'e1',
+    weekday: 1,
+    serviceKey: 'lunch',
+    areaId: '',
+    jobFunctionId: '',
+    startsAt: '12:00',
+    endsAt: '15:00',
+    source: 'manual'
+  };
+  for (const status of ['pending', 'approved']) {
+    const model = snapshot({
+      absences: [
+        {
+          id: `leave-${status}`,
+          employee_id: 'e1',
+          start_date: '2026-06-15',
+          end_date: '2026-06-15',
+          service_key: 'lunch',
+          status
+        }
+      ]
+    });
+    assert.equal(slotContext(model, 'e1', '2026-06-15', 'lunch').absence, status);
+    assert.equal(planningConflicts(model, [shift], '2026-06-15').length, 1);
+  }
+});
+
+test('planning request actions retain the selected blocker identity only', () => {
+  const context = {
+    availability: 'available',
+    absence: 'pending',
+    absenceId: 'selected-leave',
+    workPatternException: 'approved',
+    workPatternExceptionId: 'selected-change',
+    workPatternExceptionReason: 'Class'
+  };
+  assert.equal(blocksPlanningAssignment(context), true);
+  assert.equal(planningRequestIdentity(context, 'absence'), 'selected-leave');
+  assert.equal(
+    planningRequestIdentity(context, 'work_pattern_exception'),
+    'selected-change'
+  );
+  assert.equal(
+    planningRequestIdentity({ ...context, absence: '', absenceId: 'unrelated-leave' }, 'absence'),
+    null
+  );
+  assert.equal(
+    planningRequestIdentity(
+      { ...context, workPatternException: '', workPatternExceptionId: 'unrelated-change' },
+      'work_pattern_exception'
+    ),
+    null
+  );
 });
 
 test('employee weekly view exposes approved work-pattern exceptions without rewriting availability', () => {

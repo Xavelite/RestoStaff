@@ -84,6 +84,8 @@ test('contract types produce restaurant-native availability defaults', () => {
 });
 
 test('missing or invalid stored scheduling policy never becomes manager-managed', () => {
+  assert.equal(workRegime('weekly_availability', 'CDI'), 'fixed_schedule');
+  assert.equal(workRegime('manager_only', 'CDD'), 'fixed_schedule');
   assert.equal(workRegime(undefined, 'FREELANCE'), 'weekly_availability');
   assert.equal(workRegime('invalid', 'FREELANCE'), 'weekly_availability');
   assert.equal(workRegime('manager_only', 'FREELANCE'), 'manager_only');

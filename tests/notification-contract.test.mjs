@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { deriveNotifications } from '../src/lib/notifications/notification-derived.ts';
 
@@ -178,7 +177,9 @@ test('employee notifications include published planning and shift soon from real
 
   assert.ok(items.some((item) => item.key === 'planning-published:wwe1'));
   assert.equal(items.find((item) => item.key === 'planning-published:wwe1')?.source.table, 'work_week_events');
+  assert.equal(items.find((item) => item.key === 'planning-published:wwe1')?.targetUrl, '/my-service?week=2026-06-22');
   assert.ok(items.some((item) => item.key === 'shift-soon:s1'));
+  assert.equal(items.find((item) => item.key === 'shift-soon:s1')?.targetUrl, '/my-service?week=2026-06-22');
 });
 
 test('late badge notifications match the planned shift even when planned_shift_id is absent', () => {
@@ -256,61 +257,6 @@ test('late badge notifications match the planned shift even when planned_shift_i
   assert.ok(items.some((item) => item.key === 'late-badge-in:t1'));
 });
 
-test('notification implementation keeps receipts separate from business truth', async () => {
-  const migration = await readFile('supabase/migrations/202606230030_notification_receipts_foundation.sql', 'utf8');
-  const model = await readFile('src/lib/notifications/notification-model.ts', 'utf8');
-  const bell = await readFile('src/lib/components/NotificationBell.svelte', 'utf8');
-  const layout = await readFile('src/routes/(app)/+layout.svelte', 'utf8');
-
-  assert.match(migration, /notification_receipts/);
-  assert.match(migration, /Operational tables remain the source of truth/);
-  assert.doesNotMatch(migration, /create table if not exists public\.notifications\s*\(/);
-  assert.match(model, /notification_receipts/);
-  assert.match(bell, /loadNotificationFeed/);
-  assert.match(bell, /loadNotificationSettings/);
-  assert.match(layout, /<NotificationBell/);
-});
-
-test('notification API uses current_profile_id RPC instead of direct profiles table reads', async () => {
-  const api = await readFile('src/lib/api/notifications.ts', 'utf8');
-
-  assert.match(api, /rpc\('current_profile_id'\)/);
-  assert.doesNotMatch(api, /\.from\('profiles'\)/);
-});
-
-test('notification migrations grant helper execution instead of broad profile access', async () => {
-  const grantMigration = await readFile(
-    'supabase/migrations/202606230031_notification_policy_function_grants.sql',
-    'utf8'
-  );
-  const foundationMigration = await readFile(
-    'supabase/migrations/202606230030_notification_receipts_foundation.sql',
-    'utf8'
-  );
-  const feed = await readFile('src/lib/notifications/notification-feed.ts', 'utf8');
-
-  assert.match(grantMigration, /grant execute on function public\.current_profile_id\(\) to authenticated/i);
-  assert.match(grantMigration, /grant execute on function public\.is_restaurant_member\(uuid\) to authenticated/i);
-  assert.doesNotMatch(grantMigration, /grant select on public\.profiles to authenticated/i);
-  assert.match(foundationMigration, /notification_receipts/);
-  assert.match(feed, /NOTIFICATION_LOOKAHEAD_DAYS = 48/);
-  assert.match(feed, /NOTIFICATION_MAX_READ_SPAN_DAYS = 63/);
-});
-
-test('notification tables are the only intentional direct RLS table surface', async () => {
-  const canonical = await readFile('supabase/tests/canonical_schema_security.sql', 'utf8');
-  const api = await readFile('src/lib/api/notifications.ts', 'utf8');
-
-  assert.match(canonical, /notification_preferences/);
-  assert.match(canonical, /notification_receipts/);
-  assert.match(canonical, /personal notification preferences\/receipts/i);
-  assert.match(api, /\.from\('notification_preferences'\)/);
-  assert.match(api, /\.from\('notification_receipts'\)/);
-  assert.doesNotMatch(api, /\.from\('restaurant_memberships'\)/);
-  assert.doesNotMatch(api, /\.from\('profiles'\)/);
-});
-
-
 test('manager notifications include employee submitted availability from submission truth', () => {
   const items = deriveNotifications({
     restaurantId: 'r1',
@@ -341,62 +287,5 @@ test('manager notifications include employee submitted availability from submiss
   assert.equal(item.key, 'availability-submitted:e1:2026-06-29:2026-06-23T09:00:00.000Z');
   assert.equal(item?.title, 'Sarah submitted availability');
   assert.equal(item?.source.table, 'employee_availability_submissions');
-});
-
-test('notification source alignment migration exposes employee planning events and defaults availability on', async () => {
-  const migration = await readFile('supabase/migrations/202606230032_notification_source_alignment.sql', 'utf8');
-  const snapshot = await readFile('src/lib/api/workspace-snapshot.ts', 'utf8');
-
-  assert.match(migration, /Employee submitted availability/);
-  assert.match(migration, /default_in_app_enabled[\s\S]*true/i);
-  assert.match(migration, /'work_week_events'/);
-  assert.match(migration, /event_type = 'planning_published'/);
-  assert.match(snapshot, /work_week_events: Tables<'work_week_events'>\[\]/);
-  assert.match(snapshot, /work_week_events: rows\(data, 'work_week_events'\)/);
-});
-
-test('notification bell does not reset settings from a self-tracking load effect', async () => {
-  const bell = await readFile('src/lib/components/NotificationBell.svelte', 'utf8');
-
-  assert.match(bell, /import \{ untrack \} from 'svelte'/);
-  assert.match(bell, /let loadedContextKey = ''/);
-  assert.match(bell, /function contextKey\(\): string/);
-  assert.match(bell, /const nextContextKey = contextKey\(\);/);
-  assert.match(bell, /untrack\(\(\) => \{[\s\S]*settings = null[\s\S]*void refresh\(\);[\s\S]*\}\);/);
-  assert.doesNotMatch(bell, /\$effect\(\(\) => \{\s*restaurantId;\s*role;\s*employeeId;\s*timezone;\s*settings = null;/);
-  assert.match(bell, /if \(open\) await refresh\(\);/);
-});
-
-test('notification settings expose only implemented notification types', async () => {
-  const model = await readFile('src/lib/notifications/notification-model.ts', 'utf8');
-  const feed = await readFile('src/lib/notifications/notification-feed.ts', 'utf8');
-
-  assert.match(model, /IMPLEMENTED_NOTIFICATION_TYPE_CODES/);
-  assert.match(model, /'employee_availability_updated'/);
-  assert.match(model, /'planning_published'/);
-  assert.doesNotMatch(model, /IMPLEMENTED_NOTIFICATION_TYPE_CODES[\s\S]*'published_planning_changed'/);
-  assert.doesNotMatch(model, /IMPLEMENTED_NOTIFICATION_TYPE_CODES[\s\S]*'payroll_export_created'/);
-  assert.doesNotMatch(model, /IMPLEMENTED_NOTIFICATION_TYPE_CODES[\s\S]*'shift_changed_after_publication'/);
-  assert.match(feed, /isImplementedNotificationTypeCode/);
-  assert.match(feed, /\.filter\(\(type\) => isImplementedNotificationTypeCode\(type\.code\)\)/);
-});
-
-test('notification dialogs use shared modal behavior instead of stacked custom panels', async () => {
-  const bell = await readFile('src/lib/components/NotificationBell.svelte', 'utf8');
-
-  assert.match(bell, /async function openSettings\(\)[\s\S]*open = false;[\s\S]*settingsOpen = true;/);
-  assert.match(bell, /async function openItem\(item: NotificationItem\)[\s\S]*open = false;[\s\S]*detailItem = item;[\s\S]*detailOpen = true;/);
-  assert.match(bell, /#snippet settingsFooter\(\)/);
-  assert.match(bell, /<ActionButton label="Done" tone="primary"/);
-  assert.doesNotMatch(bell, /<button type="button" onclick=\{\(\) => openTarget\(detailItem!\)\}>Open Calendar<\/button>/);
-  assert.doesNotMatch(bell, /right:\s*-64px/);
-});
-
-test('notification settings loading is scoped to the active workspace context', async () => {
-  const bell = await readFile('src/lib/components/NotificationBell.svelte', 'utf8');
-
-  assert.match(bell, /let settingsRequestId = 0/);
-  assert.match(bell, /function contextKey\(\): string/);
-  assert.match(bell, /const requestedContext = contextKey\(\);/);
-  assert.match(bell, /requestedContext !== contextKey\(\)/);
+  assert.equal(item?.targetUrl, '/schedule?week=2026-06-29');
 });

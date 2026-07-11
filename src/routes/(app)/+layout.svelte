@@ -58,17 +58,16 @@
 
   const ownerNav = [
     { href: '/home', label: 'Home' },
-    { href: '/planning', label: 'Schedule' },
-    { href: '/actuals', label: 'Timesheet' },
+    { href: '/schedule', label: 'Schedule' },
+    { href: '/timesheet', label: 'Timesheet' },
     { href: '/badge-terminal', label: 'Time clock' },
     { href: '/team', label: 'Team' },
-    { href: '/restaurant', label: 'Restaurant' },
-    { href: '/coverage', label: 'Coverage' }
+    { href: '/restaurant', label: 'Restaurant' }
   ];
-  const managerNav = ownerNav.filter((item) => item.href !== '/restaurant' && item.href !== '/coverage');
+  const managerNav = ownerNav.filter((item) => item.href !== '/restaurant');
   const employeeNav = [
-    { href: '/shifts', label: 'My service' },
-    { href: '/calendar', label: 'My time' }
+    { href: '/my-service', label: 'My service' },
+    { href: '/my-time', label: 'My time' }
   ];
   const navItems = $derived(
     workspace.active?.role === 'owner'
@@ -84,14 +83,13 @@
   const pageAtmosphere = $derived.by(() => {
     const pathname = page.url.pathname;
     if (pathname === '/home') return 'home';
-    if (pathname === '/planning') return 'planning';
-    if (pathname === '/actuals') return 'actuals';
+    if (pathname === '/schedule') return 'schedule';
+    if (pathname === '/timesheet') return 'timesheet';
     if (pathname === '/badge-terminal') return 'badge';
     if (pathname === '/team') return 'team';
     if (pathname === '/restaurant') return 'restaurant';
-    if (pathname === '/coverage') return 'restaurant';
-    if (pathname === '/shifts') return 'shifts';
-    if (pathname === '/calendar') return 'calendar';
+    if (pathname === '/my-service') return 'my-service';
+    if (pathname === '/my-time') return 'my-time';
     return 'none';
   });
   const setupNotifications = $derived.by(() => {
@@ -124,12 +122,12 @@
   $effect(() => {
     if (!workspace.loaded || !workspace.active) return;
     const role = workspace.active.role;
-    const employeeRoute = ['/shifts', '/calendar'].includes(page.url.pathname);
+    const employeeRoute = ['/my-service', '/my-time'].includes(page.url.pathname);
     if (role === 'employee' && !employeeRoute) {
-      goto('/shifts', { replaceState: true });
+      goto('/my-service', { replaceState: true });
     } else if (
       role === 'manager' &&
-      (page.url.pathname === '/restaurant' || page.url.pathname === '/coverage' || employeeRoute)
+      (page.url.pathname === '/restaurant' || employeeRoute)
     ) {
       goto('/home', { replaceState: true });
     } else if (role === 'owner' && employeeRoute) {
@@ -156,9 +154,9 @@
     workspaceRealtime.connect(workspace.activeId, (event) => {
       const label =
         event === 'planning-saved'
-          ? 'Planning changed in another session.'
+          ? 'Schedule changed in another session.'
           : event === 'actuals-updated'
-            ? 'Actuals received a live update.'
+            ? 'Timesheet received a live update.'
             : 'Workspace data changed.';
       toasts.show(`${label} Refreshing…`, 'info', 3000);
       void workspace.reloadForRoute(page.url.pathname).catch(() => undefined);
@@ -362,6 +360,38 @@
       </div>
     </header>
 
+    {#if navItems.length}
+      {#snippet tabIcon(href: string)}
+        {#if href === '/home'}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11 12 4l8 7"/><path d="M6 10v9h4v-5h4v5h4v-9"/></svg>
+        {:else if href === '/schedule' || href === '/my-service'}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="1.6"/><path d="M4 9.5h16M9 3v4M15 3v4"/></svg>
+        {:else if href === '/timesheet' || href === '/my-time'}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4.3l3 1.8"/></svg>
+        {:else if href === '/team'}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.6 19a5.4 5.4 0 0 1 10.8 0"/><path d="M16.2 5.6a3.2 3.2 0 0 1 0 4.8M17.4 13.4A5.4 5.4 0 0 1 20.4 18.4"/></svg>
+        {:else if href === '/restaurant'}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h16l-1.2-4H5.2z"/><path d="M5 9v10h14V9"/><path d="M10 19v-5h4v5"/></svg>
+        {:else}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="13" rx="1.6"/><path d="M9 20h6M12 17v3"/></svg>
+        {/if}
+      {/snippet}
+
+      <nav class="bottomnav" aria-label="Main">
+        {#each navItems as item (item.href)}
+          <a
+            class="bottomnav__link"
+            class:is-active={page.url.pathname === item.href}
+            aria-current={page.url.pathname === item.href ? 'page' : undefined}
+            href={item.href}
+          >
+            {@render tabIcon(item.href)}
+            <span>{item.label}</span>
+          </a>
+        {/each}
+      </nav>
+    {/if}
+
     <main class="app__content" data-atmosphere={pageAtmosphere} bind:this={contentEl}>
       {#if !online}
         <aside class="offline" role="status">
@@ -512,6 +542,47 @@
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+  .bottomnav {
+    display: none;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: var(--rst-z-topbar);
+    align-items: stretch;
+    gap: 2px;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+    background: var(--rst-topbar-bg);
+    border-top: 1px solid var(--rst-topbar-line);
+    backdrop-filter: blur(8px);
+  }
+  .bottomnav__link {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 4px 2px;
+    border-radius: var(--rst-ui-radius-md);
+    color: var(--rst-topbar-muted);
+    text-decoration: none;
+    font-size: 10px;
+    font-weight: var(--rst-fw-bold);
+  }
+  .bottomnav__link svg {
+    width: 22px;
+    height: 22px;
+  }
+  .bottomnav__link span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bottomnav__link.is-active {
+    color: var(--rst-topbar-text);
   }
   .workspace-switcher {
     display: grid;
@@ -668,21 +739,21 @@
     to { opacity: 1; transform: translateY(0); }
   }
   .app__content[data-atmosphere='home'] { --rst-atmosphere-image: url('/module-backgrounds/home.webp'); }
-  .app__content[data-atmosphere='planning'] { --rst-atmosphere-image: url('/module-backgrounds/planning.webp'); }
-  .app__content[data-atmosphere='actuals'] { --rst-atmosphere-image: url('/module-backgrounds/actuals.webp'); }
+  .app__content[data-atmosphere='schedule'] { --rst-atmosphere-image: url('/module-backgrounds/schedule.webp'); }
+  .app__content[data-atmosphere='timesheet'] { --rst-atmosphere-image: url('/module-backgrounds/timesheet.webp'); }
   .app__content[data-atmosphere='badge'] { --rst-atmosphere-image: url('/module-backgrounds/badge.webp'); }
   .app__content[data-atmosphere='team'] { --rst-atmosphere-image: url('/module-backgrounds/team.webp'); }
   .app__content[data-atmosphere='restaurant'] { --rst-atmosphere-image: url('/module-backgrounds/restaurant.webp'); }
-  .app__content[data-atmosphere='shifts'] { --rst-atmosphere-image: url('/module-backgrounds/shifts.webp'); }
-  .app__content[data-atmosphere='calendar'] { --rst-atmosphere-image: url('/module-backgrounds/calendar.webp'); }
+  .app__content[data-atmosphere='my-service'] { --rst-atmosphere-image: url('/module-backgrounds/my-service.webp'); }
+  .app__content[data-atmosphere='my-time'] { --rst-atmosphere-image: url('/module-backgrounds/my-time.webp'); }
 
   .app__content[data-atmosphere='home'],
-  .app__content[data-atmosphere='planning'],
-  .app__content[data-atmosphere='actuals'],
+  .app__content[data-atmosphere='schedule'],
+  .app__content[data-atmosphere='timesheet'],
   .app__content[data-atmosphere='team'],
   .app__content[data-atmosphere='restaurant'],
-  .app__content[data-atmosphere='shifts'],
-  .app__content[data-atmosphere='calendar'] {
+  .app__content[data-atmosphere='my-service'],
+  .app__content[data-atmosphere='my-time'] {
     padding: 0;
   }
   .offline {
@@ -782,13 +853,20 @@
     }
 
     .topbar__nav {
-      order: 3;
-      width: 100%;
-      overflow-x: auto;
+      display: none;
     }
 
     .topbar__user {
       margin-left: auto;
+    }
+
+    .bottomnav {
+      display: flex;
+    }
+
+    .app__content,
+    .app__content[data-atmosphere] {
+      padding-bottom: 80px;
     }
   }
 </style>

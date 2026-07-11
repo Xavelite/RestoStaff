@@ -1,5 +1,7 @@
 import type { Membership, WorkspaceRole } from '$lib/api/workspace';
 
+export type RoleHome = '/home' | '/my-service';
+
 const ROLE_PRIORITY: Record<WorkspaceRole, number> = {
   owner: 0,
   manager: 1,
@@ -27,6 +29,6 @@ export function preferredMembership(
   );
 }
 
-export function roleHome(role: WorkspaceRole): '/home' | '/shifts' {
-  return role === 'employee' ? '/shifts' : '/home';
+export function roleHome(role: WorkspaceRole): RoleHome {
+  return role === 'employee' ? '/my-service' : '/home';
 }

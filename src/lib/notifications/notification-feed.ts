@@ -42,10 +42,6 @@ export type NotificationSettings = {
   preferences: NotificationPreferenceRow[];
 };
 
-export type LoadedNotifications = NotificationSettings & {
-  feed: NotificationFeed;
-};
-
 function typeRow(row: NotificationTypeRow): NotificationType | null {
   if (!isNotificationTypeCode(row.code)) return null;
   const action = row.default_action === 'popup' ? 'popup' : 'route';
@@ -170,14 +166,6 @@ export async function loadNotificationFeed(
     receipts,
     role: input.role
   });
-}
-
-export async function loadNotifications(
-  input: NotificationLoadInput
-): Promise<LoadedNotifications> {
-  const settings = await loadNotificationSettings({ restaurantId: input.restaurantId });
-  const feed = await loadNotificationFeed(input, settings);
-  return { ...settings, feed };
 }
 
 export async function markNotificationRead(input: {

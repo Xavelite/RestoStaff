@@ -1,13 +1,16 @@
 <script lang="ts">
   import { saveAbsence } from '$lib/api/mutations';
   import { auth } from '$lib/auth/session.svelte';
-  import { addDays, mondayFor, todayInTimezone } from '$lib/calendar/date';
-  import ActionButton from '$lib/components/ActionButton.svelte';
-  import Dialog from '$lib/components/Dialog.svelte';
+  import { addDays, mondayFor, serviceLabel, todayInTimezone } from '$lib/calendar/date';
+  import LiveDuration from '$lib/components/LiveDuration.svelte';
   import PageScaffold from '$lib/components/PageScaffold.svelte';
+  import PageHero from '$lib/components/PageHero.svelte';
   import SetupGuide, { type SetupStep } from '$lib/components/SetupGuide.svelte';
+  import type { ManagerOperationsReadModel } from '$lib/api/workspace-snapshot';
   import { buildHomeModel, type HomeActionRow, type HomeLiveRow, type Tone } from '$lib/home/home-model';
   import { countUp } from '$lib/motion/countUp';
+  import { portal } from '$lib/actions/portal';
+  import { buildEmployeeColorMap } from '$lib/ui/position-color';
   import { workspaceRealtime } from '$lib/realtime/workspace-realtime.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
@@ -16,6 +19,11 @@
 
   const membership = $derived(workspace.active);
   const snapshot = $derived(workspace.operations);
+  const employeeColor = $derived(
+    snapshot
+      ? buildEmployeeColorMap(snapshot.job_functions, snapshot.employee_job_functions)
+      : new Map<string, string>()
+  );
   const timezone = $derived(
     snapshot?.restaurant_settings.timezone ||
       workspace.bootstrap?.restaurant_settings.timezone ||
@@ -57,7 +65,7 @@
           },
           {
             label: 'Active team',
-            detail: 'Employees available for planning',
+            detail: 'Employees available for scheduling',
             complete: snapshot.employees.some((item) => item.active),
             href: '/team'
           },
@@ -65,7 +73,7 @@
             label: 'Coverage rules',
             detail: 'Minimum staffing requirements',
             complete: snapshot.coverage_requirements.some((item) => item.active),
-            href: '/coverage'
+            href: '/restaurant'
           },
           {
             label: 'Absence policy',
@@ -85,11 +93,14 @@
   const decisionRows = $derived(model?.actions.rows.filter((row) => row.key !== 'payroll') ?? []);
   const decisionTotal = $derived(decisionRows.reduce((total, row) => total + row.count, 0));
   let liveFilter = $state<Tone | null>(null);
+  let liveExpanded = $state(false);
   let expandedLiveKey = $state('');
   const allLiveRows = $derived(model?.live.rows.slice(0, 7) ?? []);
   const liveRows = $derived(
     liveFilter ? allLiveRows.filter((row) => row.tone === liveFilter) : allLiveRows
   );
+  // The fullscreen monitor shows the whole floor for today, not just exceptions.
+  const todayRosterRows = $derived(model?.live.todayRoster ?? []);
   const serviceDateLabel = $derived(
     new Intl.DateTimeFormat('en-GB', {
       weekday: 'short',
@@ -99,15 +110,25 @@
     }).format(new Date(`${today}T12:00:00`))
   );
   const nowMinutes = $derived(localMinutesForTimezone(timezone));
-  const timelineWindow = $derived(buildTimelineWindow(liveRows, nowMinutes));
-  const timelineTicks = $derived(buildTimelineTicks(timelineWindow));
-  const nowMarkerLeft = $derived(`${timelinePercent(nowMinutes, timelineWindow)}%`);
   const todayWeekday = $derived(
     Math.round(
       (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${mondayFor(today)}T00:00:00Z`)) /
         86_400_000
     ) + 1
   );
+  const openingTimelineWindow = $derived(
+    snapshot ? openingWindowForToday(snapshot.opening_hours, todayWeekday) : null
+  );
+  // Window spans the whole floor for today so inline + fullscreen bars align.
+  const timelineWindow = $derived(
+    buildTimelineWindow(
+      todayRosterRows.length ? todayRosterRows : liveRows,
+      nowMinutes,
+      openingTimelineWindow
+    )
+  );
+  const timelineTicks = $derived(buildTimelineTicks(timelineWindow));
+  const nowMarkerLeft = $derived(`${timelinePercent(nowMinutes, timelineWindow)}%`);
   const coverageRooms = $derived(
     snapshot
       ? snapshot.work_areas
@@ -115,54 +136,89 @@
           .sort((left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name))
           .slice(0, 4)
           .map((area) => {
-            const requiredCount = snapshot.coverage_requirements
-              .filter(
-                (requirement) =>
-                  requirement.active &&
-                  requirement.area_id === area.id &&
-                  Number(requirement.required_count) > 0 &&
-                  (requirement.weekday === todayWeekday ||
-                    requirement.weekday === null ||
-                    requirement.coverage_scope === 'default')
-              )
-              .reduce((total, requirement) => total + Number(requirement.required_count ?? 0), 0);
-            const plannedCount = snapshot.planned_shifts.filter(
-              (shift) =>
-                shift.week_start === activeWeek &&
-                shift.weekday === todayWeekday &&
-                shift.area_id === area.id
-            ).length;
-            const ratio = requiredCount ? plannedCount / requiredCount : plannedCount ? 1 : 0;
-            const names = snapshot.planned_shifts
-              .filter(
+            // Coverage is read per service so a shortfall is attributed to
+            // lunch (☀) or evening (☾), not blended into one ambiguous ratio.
+            const services = (['lunch', 'evening'] as const).map((serviceKey) => {
+              const requiredCount = snapshot.coverage_requirements
+                .filter(
+                  (requirement) =>
+                    requirement.active &&
+                    requirement.area_id === area.id &&
+                    requirement.service_key === serviceKey &&
+                    Number(requirement.required_count) > 0 &&
+                    (requirement.weekday === todayWeekday ||
+                      requirement.weekday === null ||
+                      requirement.coverage_scope === 'default')
+                )
+                .reduce((total, requirement) => total + Number(requirement.required_count ?? 0), 0);
+              const plannedCount = snapshot.planned_shifts.filter(
                 (shift) =>
                   shift.week_start === activeWeek &&
                   shift.weekday === todayWeekday &&
-                  shift.area_id === area.id
+                  shift.area_id === area.id &&
+                  shift.service_key === serviceKey
+              ).length;
+              const ratio = requiredCount ? plannedCount / requiredCount : plannedCount ? 1 : 0;
+              return {
+                serviceKey,
+                icon: serviceKey === 'evening' ? '☾' : '☀',
+                count: requiredCount ? `${plannedCount} / ${requiredCount}` : `${plannedCount}`,
+                tone: (requiredCount && plannedCount < requiredCount
+                  ? 'danger'
+                  : plannedCount
+                    ? 'success'
+                    : 'warning') as 'danger' | 'success' | 'warning',
+                dots: requiredCount ? Math.max(1, Math.min(5, Math.round(ratio * 5))) : plannedCount ? 5 : 1,
+                short: requiredCount ? Math.max(0, requiredCount - plannedCount) : 0
+              };
+            });
+            // One row per person, tagged with the services they cover, so
+            // someone on both lunch and evening reads as a single entry (☀☾)
+            // instead of appearing twice.
+            const assignmentMap = new Map<
+              string,
+              { id: string; name: string; lunch: boolean; evening: boolean }
+            >();
+            for (const shift of snapshot.planned_shifts) {
+              if (
+                shift.week_start !== activeWeek ||
+                shift.weekday !== todayWeekday ||
+                shift.area_id !== area.id
               )
-              .map((shift) => snapshot.employees.find((employee) => employee.id === shift.employee_id)?.display_name)
-              .filter((name): name is string => Boolean(name));
+                continue;
+              const name = snapshot.employees.find((employee) => employee.id === shift.employee_id)?.display_name;
+              if (!name) continue;
+              const existing =
+                assignmentMap.get(shift.employee_id) ??
+                { id: shift.employee_id, name, lunch: false, evening: false };
+              if (shift.service_key === 'evening') existing.evening = true;
+              else existing.lunch = true;
+              assignmentMap.set(shift.employee_id, existing);
+            }
+            const assignments = [...assignmentMap.values()];
             return {
               id: area.id,
               label: area.name,
-              count: requiredCount ? `${plannedCount} / ${requiredCount}` : `${plannedCount} planned`,
-              tone: requiredCount && plannedCount < requiredCount ? 'danger' : plannedCount ? 'success' : 'warning',
-              dots: requiredCount ? Math.max(1, Math.min(6, Math.round(ratio * 6))) : plannedCount ? 6 : 2,
-              names
+              services,
+              // Room tone is the worst of its two services.
+              tone: services.some((service) => service.tone === 'danger')
+                ? 'danger'
+                : services.some((service) => service.tone === 'success')
+                  ? 'success'
+                  : 'warning',
+              assignments
             };
           })
       : []
   );
-  let actionDialog = $state<HomeActionRow['key'] | null>(null);
   let expandedDecisionKey = $state('');
   let resolvingAbsenceId = $state('');
 
   const decisionDestinations: Record<string, string> = {
-    '/planning': 'Open Schedule',
-    '/actuals': 'Open Timesheet',
+    '/schedule': 'Open Schedule',
+    '/timesheet': 'Open Timesheet',
     '/team': 'Open Team',
-    '/restaurant': 'Open Restaurant',
-    '/coverage': 'Open Coverage'
+    '/restaurant': 'Open Restaurant'
   };
 
   function decisionLinkLabel(href: string) {
@@ -194,18 +250,84 @@
     const times = Array.from(row.range.matchAll(/(\d{1,2}):(\d{2})/g)).map((match) =>
       Number(match[1]) * 60 + Number(match[2])
     );
-    let start = times[0] ?? row.startMinutes;
-    let end = times[1] ?? start + 180;
+    const start = times[0] ?? row.startMinutes;
+    // An ongoing shift ("HH:MM–live") only parses one clock time. Its bar must
+    // run to *now*, not to start+24h — otherwise a single live row balloons the
+    // whole timeline window and paints a full-day bar.
+    if (times.length < 2 && /live/i.test(row.range)) {
+      const end = nowMinutes >= start ? nowMinutes : nowMinutes + 1440;
+      return { start, end: Math.max(end, start + 30) };
+    }
+    let end = times.at(-1) ?? start + 180;
     if (end <= start) end += 1440;
     return { start, end };
   }
 
-  function buildTimelineWindow(rows: HomeLiveRow[], currentMinutes: number) {
+  function liveRowSegments(row: HomeLiveRow) {
+    const ranges = Array.from(row.range.matchAll(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/g)).map(
+      (match) => {
+        const start = Number(match[1]) * 60 + Number(match[2]);
+        let end = Number(match[3]) * 60 + Number(match[4]);
+        if (end <= start) end += 1440;
+        return {
+          start,
+          end,
+          label: `${formatClock(start)}-${formatClock(end)}`
+        };
+      }
+    );
+
+    if (ranges.length) return ranges;
+    const { start, end } = liveRowTimes(row);
+    return [{ start, end, label: row.range }];
+  }
+
+  function openingWindowForToday(
+    openingHours: ManagerOperationsReadModel['opening_hours'],
+    weekday: number
+  ) {
+    const ranges = openingHours
+      .filter((row) => row.weekday === weekday && row.is_open)
+      .map((row) => ({
+        start: clockMinutes(row.opens_at),
+        end: clockMinutes(row.closes_at)
+      }))
+      .filter((range): range is { start: number; end: number } => range.start !== null && range.end !== null)
+      .map((range) => ({
+        start: range.start,
+        end: range.end <= range.start ? range.end + 1440 : range.end
+      }));
+    if (!ranges.length) return null;
+    return {
+      start: Math.max(0, Math.floor((Math.min(...ranges.map((range) => range.start)) - 60) / 60) * 60),
+      end: Math.ceil((Math.max(...ranges.map((range) => range.end)) + 60) / 60) * 60
+    };
+  }
+
+  function clockMinutes(value: string | null): number | null {
+    const match = String(value ?? '').match(/^(\d{1,2}):(\d{2})/);
+    if (!match) return null;
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    return Number.isFinite(hours) && Number.isFinite(minutes) ? hours * 60 + minutes : null;
+  }
+
+  function buildTimelineWindow(
+    rows: HomeLiveRow[],
+    currentMinutes: number,
+    openingWindow: { start: number; end: number } | null
+  ) {
     const ranges = rows.map(liveRowTimes);
     const starts = ranges.map((range) => range.start);
     const ends = ranges.map((range) => range.end);
-    const start = Math.max(0, Math.floor((Math.min(currentMinutes, ...starts, 12 * 60) - 60) / 60) * 60);
-    let end = Math.ceil((Math.max(currentMinutes, ...ends, 20 * 60) + 60) / 60) * 60;
+    // Window = the union of the opening hours AND every shift on the board,
+    // padded one hour and snapped to the hour. Anchoring only to opening hours
+    // let an early clock-in (or a late shift) fall off the axis; taking the
+    // union guarantees every bar lands under a real tick.
+    const earliest = Math.min(currentMinutes, openingWindow?.start ?? 12 * 60, ...starts);
+    const latest = Math.max(currentMinutes, openingWindow?.end ?? 20 * 60, ...ends);
+    const start = Math.max(0, Math.floor((earliest - 60) / 60) * 60);
+    let end = Math.ceil((latest + 60) / 60) * 60;
     if (end - start < MIN_TIMELINE_SPAN) end = start + MIN_TIMELINE_SPAN;
     return { start, end };
   }
@@ -237,6 +359,18 @@
     return `--slot-left:${left}%; --slot-width:${width}%; --slot-progress:${progress}%;`;
   }
 
+  function liveRowSegmentStyle(row: HomeLiveRow, segment: { start: number; end: number }) {
+    const left = timelinePercent(segment.start, timelineWindow);
+    const right = timelinePercent(segment.end, timelineWindow);
+    const width = clamp(right - left, 6, 100 - left);
+    const current = nowMinutes < segment.start && segment.end > 1440 ? nowMinutes + 1440 : nowMinutes;
+    const progress =
+      row.tone === 'success' || row.tone === 'danger'
+        ? clamp(((current - segment.start) / Math.max(1, segment.end - segment.start)) * 100, 8, 100)
+        : 0;
+    return `--slot-left:${left}%; --slot-width:${width}%; --slot-progress:${progress}%;`;
+  }
+
   function liveStateLabel(row: HomeLiveRow) {
     const status = row.status.toLowerCase();
     if (row.tone === 'danger') return status.includes('no-show') ? 'No-show' : 'Late';
@@ -246,12 +380,8 @@
   }
 
   function openAction(row: HomeActionRow) {
-    if (row.key === 'leave') {
-      actionDialog = 'leave';
-      return;
-    }
-    // Never leave the page on a decision click — expand the details in place,
-    // and offer an explicit link inside for when the manager wants to jump.
+    // Every decision expands in place — leave included, which surfaces inline
+    // approve/reject so the whole wall behaves the same way.
     expandedDecisionKey = expandedDecisionKey === row.key ? '' : row.key;
   }
 
@@ -315,7 +445,7 @@
       });
       toasts.show(action === 'approve' ? 'Leave approved.' : 'Leave rejected.', 'success');
       if (!workspace.operations?.absences.some((absence) => absence.status === 'pending')) {
-        actionDialog = null;
+        expandedDecisionKey = '';
       }
     } catch (error) {
       toasts.show(error instanceof Error ? error.message : String(error), 'danger');
@@ -343,36 +473,35 @@
     </div>
   {:else if model && membership}
     {#snippet pageHeader()}
-      <header class="home-hero" aria-labelledby="home-title">
-        <div class="home-hero__copy">
-          <span class="home-hero__eyebrow">{serviceDateLabel} · Service command</span>
-          <h1 id="home-title">Good morning, {firstName}.</h1>
-          <p>
-            Start with the one thing that can block service, keep the floor moving,
-            then close payroll with proof.
-          </p>
-        </div>
-        <div class="home-hero__command" aria-label="Today command signal">
-          <div class:has-pressure={decisionTotal > 0 || model.live.late > 0} class="signal-orb">
-            <strong use:countUp={decisionTotal}>{decisionTotal}</strong>
-            <span>{decisionTotal === 1 ? 'decision' : 'decisions'}</span>
+      <PageHero
+        eyebrow={`${serviceDateLabel} · Service command`}
+        titleId="home-title"
+        title={`Good morning, ${firstName}.`}
+        subtitle="Start with the one thing that can block service, keep the floor moving, then close payroll with proof."
+      >
+        {#snippet command()}
+          <div class="home-hero__command" aria-label="Today command signal">
+            <div class:has-pressure={decisionTotal > 0 || model.live.late > 0} class="signal-orb">
+              <strong use:countUp={decisionTotal}>{decisionTotal}</strong>
+              <span>{decisionTotal === 1 ? 'decision' : 'decisions'}</span>
+            </div>
+            <dl>
+              <button type="button" class="stat-filter" class:is-active={liveFilter === 'success'} onclick={() => toggleLiveFilter('success')}>
+                <dt>Working</dt>
+                <dd use:countUp={model.live.working}>{model.live.working}</dd>
+              </button>
+              <button type="button" class="stat-filter" class:is-active={liveFilter === 'danger'} onclick={() => toggleLiveFilter('danger')}>
+                <dt>Late</dt>
+                <dd use:countUp={model.live.late}>{model.live.late}</dd>
+              </button>
+              <button type="button" class="stat-filter" class:is-active={liveFilter === 'neutral'} onclick={() => toggleLiveFilter('neutral')}>
+                <dt>Upcoming</dt>
+                <dd use:countUp={model.live.upcoming}>{model.live.upcoming}</dd>
+              </button>
+            </dl>
           </div>
-          <dl>
-            <button type="button" class="stat-filter" class:is-active={liveFilter === 'success'} onclick={() => toggleLiveFilter('success')}>
-              <dt>Working</dt>
-              <dd use:countUp={model.live.working}>{model.live.working}</dd>
-            </button>
-            <button type="button" class="stat-filter" class:is-active={liveFilter === 'danger'} onclick={() => toggleLiveFilter('danger')}>
-              <dt>Late</dt>
-              <dd use:countUp={model.live.late}>{model.live.late}</dd>
-            </button>
-            <button type="button" class="stat-filter" class:is-active={liveFilter === 'neutral'} onclick={() => toggleLiveFilter('neutral')}>
-              <dt>Upcoming</dt>
-              <dd use:countUp={model.live.upcoming}>{model.live.upcoming}</dd>
-            </button>
-          </dl>
-        </div>
-      </header>
+        {/snippet}
+      </PageHero>
       {#if workspace.error}
         <p class="inline-error" role="alert">{workspace.error}</p>
       {/if}
@@ -390,29 +519,42 @@
               <div>
                 {#each decisionRows as action, index}
                   {@const isOpen = expandedDecisionKey === action.key}
-                  <button
+                  <div
                     class={`decision-row is-${action.tone} rst-stagger-in`}
                     class:is-open={isOpen}
+                    class:is-zero={action.count === 0}
                     style={`--rst-i:${index}`}
-                    type="button"
-                    aria-expanded={action.key === 'leave' ? undefined : isOpen}
-                    onclick={() => openAction(action)}
                   >
-                    <span aria-hidden="true">{action.symbol}</span>
-                    <strong>{action.label}</strong>
-                    <small>{action.meta}</small>
-                    <b>{action.count}</b>
-                    <i class="decision-row__go" aria-hidden="true">{action.key === 'leave' ? '→' : isOpen ? '−' : '+'}</i>
-                    {#if action.items.length && !isOpen}
-                      <div class="decision-flyout" role="tooltip">
-                        {#each action.items as item (item.id)}
-                          <span><b>{item.label}</b><small>{item.meta}</small></span>
-                        {/each}
-                      </div>
-                    {/if}
-                    {#if isOpen && action.key !== 'leave'}
+                    <button
+                      type="button"
+                      class="decision-row__toggle"
+                      aria-expanded={isOpen}
+                      onclick={() => openAction(action)}
+                    >
+                      <span aria-hidden="true">{action.symbol}</span>
+                      <strong>{action.label}</strong>
+                      <small>{action.meta}</small>
+                      <b>{action.count}</b>
+                      <i class="decision-row__go" aria-hidden="true">{action.count === 0 ? '' : isOpen ? '−' : '+'}</i>
+                    </button>
+                    {#if isOpen}
                       <div class="decision-detail">
-                        {#if action.items.length}
+                        {#if action.key === 'leave' && pendingAbsences.length}
+                          <ul>
+                            {#each pendingAbsences.slice(0, 6) as absence (absence.id)}
+                              <li class="decision-approve">
+                                <div>
+                                  <b>{snapshot?.employees.find((employee) => employee.id === absence.employee_id)?.display_name ?? 'Employee'}</b>
+                                  <span>{absence.start_date === absence.end_date ? absence.start_date : `${absence.start_date} → ${absence.end_date}`}</span>
+                                </div>
+                                <span class="decision-approve__actions">
+                                  <button type="button" disabled={Boolean(resolvingAbsenceId)} onclick={() => resolveAbsence(absence.id, absence.employee_id, 'approve')}>Approve</button>
+                                  <button type="button" class="is-reject" disabled={Boolean(resolvingAbsenceId)} onclick={() => resolveAbsence(absence.id, absence.employee_id, 'reject')}>Reject</button>
+                                </span>
+                              </li>
+                            {/each}
+                          </ul>
+                        {:else if action.items.length}
                           <ul>
                             {#each action.items as item (item.id)}
                               <li><b>{item.label}</b><span>{item.meta}</span></li>
@@ -421,10 +563,10 @@
                         {:else}
                           <p>No specific items to review right now.</p>
                         {/if}
-                        <a href={action.href} onclick={(event) => event.stopPropagation()}>{decisionLinkLabel(action.href)} →</a>
+                        <a href={action.href}>{decisionLinkLabel(action.href)} →</a>
                       </div>
                     {/if}
-                  </button>
+                  </div>
                 {/each}
               </div>
             </section>
@@ -444,6 +586,64 @@
           </aside>
 
           <section class="operations-stack" aria-label="Live monitor and coverage">
+            {#snippet liveTimeline(rows: HomeLiveRow[], detailed = false)}
+              <div class="time-axis" style={`--now-left:${nowMarkerLeft}`} aria-hidden="true">
+                <span class="axis-cell"></span>
+                <span class="axis-track">
+                  <span class="now-pill">Now</span>
+                  {#each timelineTicks as tick}
+                    <span class="axis-tick" style={`--tick-left:${timelinePercent(tick, timelineWindow)}%`}>{formatTimelineTick(tick)}</span>
+                  {/each}
+                </span>
+                <span class="axis-cell"></span>
+              </div>
+              <div class="live-rows" style={`--now-left:${nowMarkerLeft}`}>
+                {#each rows as row, index}
+                  {@const key = liveRowKey(row)}
+                  <button
+                    type="button"
+                    class={`live-row is-${row.tone} rst-stagger-in`}
+                    class:is-open={expandedLiveKey === key}
+                    style={`${liveRowTimelineStyle(row)} --rst-i:${index}`}
+                    onclick={() => toggleLiveExpand(key)}
+                  >
+                    <span class="live-row__person">
+                      <span class="avatar" style={employeeColor.get(row.employeeId) ? `--avatar-color:${employeeColor.get(row.employeeId)};` : undefined}>{row.name.slice(0, 2).toUpperCase()}</span>
+                      <span>
+                        <strong>{row.name}</strong>
+                        <small>{row.role}</small>
+                      </span>
+                    </span>
+                    <span class="live-row__bar" aria-label={row.range}>
+                      {#each liveRowSegments(row) as segment, segmentIndex (`${key}-${segmentIndex}`)}
+                        <span class="live-row__segment" style={liveRowSegmentStyle(row, segment)}>
+                          <b>{segment.label}</b>
+                        </span>
+                      {/each}
+                    </span>
+                    <em>{liveStateLabel(row)}</em>
+                    {#if detailed}
+                      <span class="live-row__stat">
+                        <span>{row.detail}</span>
+                        {#if row.liveSince}<LiveDuration since={row.liveSince} />{/if}
+                      </span>
+                    {/if}
+                    {#if expandedLiveKey === key}
+                      <span class="live-row__detail">
+                        <span>{liveRowDetail(row)}</span>
+                        <a href="/timesheet">Open in Timesheet →</a>
+                      </span>
+                    {/if}
+                  </button>
+                {:else}
+                  <div class="live-empty">
+                    <strong>{liveFilter ? 'Nothing in this filter right now.' : 'No live service pressure.'}</strong>
+                    <span>{liveFilter ? 'Clear the filter above to see everyone.' : 'Today is quiet, or no shift is close enough to monitor.'}</span>
+                  </div>
+                {/each}
+              </div>
+            {/snippet}
+
             <div class="live-command">
               <div class="live-command__timeline">
                 <header>
@@ -451,54 +651,14 @@
                     <span class="section-kicker">Live monitor</span>
                     <h2>{model.live.late ? 'Service pressure' : 'Floor movement'}</h2>
                   </div>
-                  <strong class="live-summary">
-                    {model.live.working} working &middot; {model.live.late} late &middot; {model.live.upcoming} upcoming
-                  </strong>
+                  <div class="live-command__tools">
+                    <strong class="live-summary">
+                      {model.live.working} working &middot; {model.live.late} late &middot; {model.live.upcoming} upcoming
+                    </strong>
+                    <button type="button" class="live-expand" onclick={() => (liveExpanded = true)} aria-label="Expand live monitor" title="Expand to full screen">⤢</button>
+                  </div>
                 </header>
-                <div class="time-axis" style={`--now-left:${nowMarkerLeft}`} aria-hidden="true">
-                  <span class="now-pill">Now</span>
-                  {#each timelineTicks as tick}
-                    <span style={`--tick-left:${timelinePercent(tick, timelineWindow)}%`}>{formatTimelineTick(tick)}</span>
-                  {/each}
-                </div>
-            <div class="live-rows" style={`--now-left:${nowMarkerLeft}`}>
-              {#each liveRows as row, index}
-                {@const key = liveRowKey(row)}
-                <button
-                  type="button"
-                  class={`live-row is-${row.tone} rst-stagger-in`}
-                  class:is-open={expandedLiveKey === key}
-                  style={`${liveRowTimelineStyle(row)} --rst-i:${index}`}
-                  onclick={() => toggleLiveExpand(key)}
-                >
-                  <span class="live-row__person">
-                    <span class="avatar">{row.name.slice(0, 2).toUpperCase()}</span>
-                    <span>
-                      <strong>{row.name}</strong>
-                      <small>{row.role}</small>
-                    </span>
-                  </span>
-                  <span class="live-row__bar">
-                    <span>
-                      <b>{row.range}</b>
-                      <small>{row.status}</small>
-                    </span>
-                  </span>
-                  <em>{liveStateLabel(row)}</em>
-                  {#if expandedLiveKey === key}
-                    <span class="live-row__detail">
-                      <span>{liveRowDetail(row)}</span>
-                      <a href="/actuals">Open in Timesheet →</a>
-                    </span>
-                  {/if}
-                </button>
-              {:else}
-                <div class="live-empty">
-                  <strong>{liveFilter ? 'Nothing in this filter right now.' : 'No live service pressure.'}</strong>
-                  <span>{liveFilter ? 'Clear the filter above to see everyone.' : 'Today is quiet, or no shift is close enough to monitor.'}</span>
-                </div>
-              {/each}
-            </div>
+                {@render liveTimeline(liveRows)}
               </div>
             </div>
 
@@ -508,26 +668,33 @@
                   <span class="section-kicker">Coverage floor</span>
                   <h3>Rooms to watch today</h3>
                 </div>
-                <a href="/planning">Open Planning</a>
+                <a href="/schedule">Open Schedule</a>
               </header>
               <div class="coverage-rooms">
                 {#each coverageRooms as room, roomIndex}
                   <button type="button" class={`coverage-room is-${room.tone} rst-stagger-in`} style={`--rst-i:${roomIndex}`}>
                     <strong>{room.label}</strong>
-                    <span>{room.count}</span>
-                    <div aria-hidden="true">
-                      {#each Array(6) as _, index}
-                        <i class:is-on={index < room.dots} style={`animation-delay:${roomIndex * 55 + index * 40}ms`}></i>
-                      {/each}
-                    </div>
-                    <div class="room-flyout" role="tooltip">
-                      {#if room.names.length}
-                        <span>On the floor today</span>
-                        {#each room.names as name}
-                          <b>{name}</b>
+                    {#each room.services as service}
+                      <div class={`room-service is-${service.tone}`}>
+                        <span class="room-service__lead"><b class="room-service__icon">{service.icon}</b>{service.count}</span>
+                        <span class="room-service__dots" aria-hidden="true">
+                          {#each Array(5) as _, index}
+                            <i class:is-on={index < service.dots} style={`animation-delay:${roomIndex * 55 + index * 40}ms`}></i>
+                          {/each}
+                        </span>
+                      </div>
+                    {/each}
+                    <div class="room-crew" aria-label="On the floor today">
+                      {#if room.assignments.length}
+                        {#each room.assignments as assignment (assignment.id)}
+                          <span
+                            class="room-crew__avatar"
+                            style={employeeColor.get(assignment.id) ? `--avatar-color:${employeeColor.get(assignment.id)};` : undefined}
+                            title={`${assignment.name} · ${assignment.lunch && assignment.evening ? 'Lunch + evening' : assignment.evening ? 'Evening' : 'Lunch'}`}
+                          >{assignment.name.slice(0, 2).toUpperCase()}</span>
                         {/each}
                       {:else}
-                        <span>Nobody scheduled here today yet.</span>
+                        <em class="room-crew__empty">Nobody scheduled yet</em>
                       {/if}
                     </div>
                   </button>
@@ -544,6 +711,26 @@
                 {/each}
               </div>
             </div>
+            {#if liveExpanded}
+              <div class="live-fullscreen" use:portal role="dialog" aria-modal="true" aria-label="Live floor monitor">
+                <button type="button" class="live-fullscreen__scrim" aria-label="Close live monitor" onclick={() => (liveExpanded = false)}></button>
+                <div class="live-fullscreen__panel">
+                  <header>
+                    <div>
+                      <span class="section-kicker">Live monitor · {serviceDateLabel}</span>
+                      <h2>{model.live.late ? 'Service pressure' : 'Floor movement'}</h2>
+                    </div>
+                    <div class="live-command__tools">
+                      <strong class="live-summary">
+                        {model.live.working} working &middot; {model.live.late} late &middot; {model.live.upcoming} upcoming
+                      </strong>
+                      <button type="button" class="live-expand" onclick={() => (liveExpanded = false)} aria-label="Close" title="Close">✕</button>
+                    </div>
+                  </header>
+                  {@render liveTimeline(todayRosterRows, true)}
+                </div>
+              </div>
+            {/if}
           </section>
 
         </div>
@@ -561,34 +748,6 @@
   {/if}
 </section>
 
-{#snippet leaveFooter()}
-  <ActionButton label="Close" onclick={() => (actionDialog = null)} />
-  <a class="dialog-link" href="/team">Open Team</a>
-{/snippet}
-
-<Dialog
-  open={actionDialog === 'leave'}
-  title="Pending leave requests"
-  description="Approve or reject requests here. Every decision uses the audited absence lifecycle."
-  onclose={() => !resolvingAbsenceId && (actionDialog = null)}
-  footer={leaveFooter}
->
-  <div class="leave-requests">
-    {#each pendingAbsences as absence (absence.id)}
-      <article>
-        <div>
-          <strong>{snapshot?.employees.find((employee) => employee.id === absence.employee_id)?.display_name ?? 'Employee'}</strong>
-          <span>{snapshot?.absence_types.find((type) => type.id === absence.absence_type_id)?.name ?? 'Leave'} · {absence.start_date} → {absence.end_date}{absence.service_key ? ` · ${absence.service_key}` : ''}</span>
-        </div>
-        <ActionButton label="Approve" disabled={Boolean(resolvingAbsenceId)} onclick={() => resolveAbsence(absence.id, absence.employee_id, 'approve')} />
-        <ActionButton label="Reject" tone="danger" disabled={Boolean(resolvingAbsenceId)} onclick={() => resolveAbsence(absence.id, absence.employee_id, 'reject')} />
-      </article>
-    {:else}
-      <p>No leave requests are waiting.</p>
-    {/each}
-  </div>
-</Dialog>
-
 <style>
   .home {
     width: 100%;
@@ -599,77 +758,18 @@
     gap: 0;
   }
 
-  .home-hero {
-    position: relative;
-    overflow: hidden;
-    min-height: 220px;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(260px, 390px);
-    gap: 22px;
-    align-items: stretch;
-    padding: clamp(22px, 4vw, 38px);
-    border: 0;
-    border-bottom: 1px solid rgba(var(--rst-ui-action-rgb), 0.26);
-    border-radius: 0;
-    color: #fffaf2;
-    background:
-      linear-gradient(95deg, rgba(11, 18, 26, 0.98) 0%, rgba(11, 18, 26, 0.88) 47%, rgba(240, 100, 35, 0.26) 100%),
-      url('/module-backgrounds/home.webp') center / cover;
-    box-shadow: none;
-  }
-
-  .home-hero__copy {
-    animation: rst-fade-up .5s var(--rst-ease-out) backwards;
-  }
-
   .home-hero__command {
     animation: rst-fade-up .5s var(--rst-ease-out) .08s backwards;
-  }
-
-  .home-hero::after {
-    content: '';
-    position: absolute;
-    inset: auto 0 0;
-    height: 5px;
-    background: linear-gradient(90deg, var(--rst-ui-action), var(--rst-gold), var(--rst-green), var(--rst-state-info));
-    opacity: 0.92;
-  }
-
-  .home-hero__copy,
-  .home-hero__command {
     position: relative;
     z-index: 1;
   }
 
-  .home-hero__copy {
-    max-width: 760px;
-    align-self: center;
-    display: grid;
-    gap: 12px;
-  }
-
-  .home-hero__eyebrow,
   .section-kicker {
     color: var(--rst-ui-action);
     font-size: 11px;
     font-weight: var(--rst-fw-display);
     letter-spacing: 0.1em;
     text-transform: uppercase;
-  }
-
-  .home-hero h1 {
-    margin: 0;
-    font-size: clamp(42px, 6vw, 76px);
-    line-height: 0.9;
-    letter-spacing: -0.07em;
-  }
-
-  .home-hero p {
-    max-width: 650px;
-    margin: 0;
-    color: rgba(255, 250, 242, 0.82);
-    font-size: clamp(15px, 1.45vw, 19px);
-    line-height: 1.45;
   }
 
   .home-hero__command {
@@ -922,7 +1022,7 @@
   }
 
   .decision-wall header strong,
-  .live-command header > strong,
+  .live-summary,
   .coverage-map header a {
     padding: 6px 9px;
     border: 1px solid var(--rst-ui-line);
@@ -932,7 +1032,7 @@
     font-size: 11px;
   }
 
-  .live-command header > .live-summary {
+  .live-command__tools .live-summary {
     color: #fffaf2;
     border-color: rgba(255, 255, 255, 0.14);
     background: rgba(255, 255, 255, 0.08);
@@ -945,25 +1045,35 @@
   .decision-row {
     position: relative;
     min-width: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fffaf2;
+    transition: background-color .16s ease, transform .16s var(--rst-ease-out);
+  }
+
+  .decision-row__toggle {
+    width: 100%;
+    min-width: 0;
     display: grid;
     grid-template-columns: 34px minmax(0, 1fr) auto 16px;
     gap: 0 10px;
     align-items: center;
     padding: 12px 14px;
     border: 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    color: #fffaf2;
+    color: inherit;
     background: transparent;
     font: inherit;
     text-align: left;
-    text-decoration: none;
     cursor: pointer;
-    transition: background-color .16s ease, transform .16s var(--rst-ease-out);
   }
 
   .decision-row:hover {
     background: rgba(255, 255, 255, 0.06);
     transform: translateX(3px);
+  }
+
+  .decision-row.is-zero:hover {
+    background: rgba(255, 255, 255, 0.025);
+    transform: none;
   }
 
   .decision-row__go {
@@ -980,56 +1090,7 @@
     transform: translateX(0);
   }
 
-  .decision-flyout {
-    position: absolute;
-    z-index: 20;
-    top: calc(100% + 6px);
-    left: 14px;
-    right: 14px;
-    display: grid;
-    gap: 6px;
-    padding: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: var(--rst-ui-radius-lg);
-    background: #1a120c;
-    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
-    opacity: 0;
-    pointer-events: none;
-    transform: translateY(-4px);
-    transition: opacity .16s ease, transform .16s var(--rst-ease-out);
-  }
-
-  .decision-row:hover .decision-flyout,
-  .decision-row:focus-visible .decision-flyout {
-    opacity: 1;
-    transform: translateY(0);
-    pointer-events: auto;
-  }
-
-  .decision-flyout > span {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 7px 9px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: var(--rst-ui-radius-md);
-    background: rgba(255, 255, 255, 0.06);
-  }
-
-  .decision-row .decision-flyout b {
-    color: #fffaf2;
-    font-size: 12px;
-    font-weight: var(--rst-fw-bold);
-  }
-
-  .decision-row .decision-flyout small {
-    color: rgba(255, 250, 242, 0.58);
-    font-size: 10px;
-    text-align: right;
-  }
-
-  .decision-row > span {
+  .decision-row__toggle > span {
     grid-row: span 2;
     width: 30px;
     height: 30px;
@@ -1041,28 +1102,25 @@
     font-weight: var(--rst-fw-display);
   }
 
-  .decision-row strong,
-  .decision-row small {
+  .decision-row__toggle strong,
+  .decision-row__toggle small {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  .decision-row strong {
+  .decision-row__toggle strong {
     white-space: normal;
     line-height: 1.15;
   }
 
-  .decision-row small {
+  .decision-row__toggle small {
     white-space: nowrap;
-  }
-
-  .decision-row small {
     color: rgba(255, 250, 242, 0.6);
     font-size: 11px;
   }
 
-  .decision-row b {
+  .decision-row__toggle b {
     grid-row: span 2;
     color: var(--rst-ui-action);
     font-size: 20px;
@@ -1074,15 +1132,63 @@
   }
 
   .decision-detail {
-    grid-column: 1 / -1;
     display: grid;
     gap: 10px;
-    margin-top: 6px;
+    margin: 0 12px 12px;
     padding: 10px 12px;
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: var(--rst-ui-radius-md);
     background: rgba(0, 0, 0, 0.28);
     animation: rst-fade-up .28s var(--rst-ease-out) backwards;
+  }
+
+  .decision-detail li.decision-approve {
+    align-items: center;
+  }
+
+  .decision-detail li.decision-approve > div {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+
+  .decision-approve__actions {
+    flex: 0 0 auto;
+    display: inline-flex;
+    gap: 6px;
+  }
+
+  .decision-approve__actions button {
+    padding: 5px 10px;
+    border: 1px solid rgba(66, 216, 132, 0.5);
+    border-radius: var(--rst-ui-radius-pill);
+    color: #d6ffe6;
+    background: rgba(66, 216, 132, 0.16);
+    font: inherit;
+    font-size: 11px;
+    font-weight: var(--rst-fw-display);
+    cursor: pointer;
+    transition: background-color .15s ease, transform .15s var(--rst-ease-out);
+  }
+
+  .decision-approve__actions button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    background: rgba(66, 216, 132, 0.28);
+  }
+
+  .decision-approve__actions button.is-reject {
+    border-color: rgba(240, 100, 35, 0.5);
+    color: #ffd9c8;
+    background: rgba(240, 100, 35, 0.16);
+  }
+
+  .decision-approve__actions button.is-reject:hover:not(:disabled) {
+    background: rgba(240, 100, 35, 0.28);
+  }
+
+  .decision-approve__actions button:disabled {
+    opacity: 0.6;
+    cursor: default;
   }
 
   .decision-detail ul {
@@ -1144,21 +1250,117 @@
 
   .live-command__timeline {
     min-width: 0;
+    --live-label: 200px;
+    --live-state: 96px;
   }
 
-  .time-axis {
+  .live-command__tools {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .live-expand {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: var(--rst-ui-radius-md);
+    color: #fffaf2;
+    background: rgba(255, 255, 255, 0.06);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    transition: transform .16s var(--rst-ease-out), background-color .16s ease, border-color .16s ease;
+  }
+
+  .live-expand:hover {
+    transform: translateY(-1px);
+    border-color: rgba(255, 255, 255, 0.32);
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .live-fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: var(--rst-z-overlay);
+    display: grid;
+    place-items: center;
+    padding: clamp(16px, 3vw, 40px);
+  }
+
+  .live-fullscreen__scrim {
+    position: absolute;
+    inset: 0;
+    border: 0;
+    background: rgba(4, 8, 14, 0.72);
+    backdrop-filter: blur(4px);
+    cursor: pointer;
+    animation: rst-fade-up .2s var(--rst-ease-out) backwards;
+  }
+
+  .live-fullscreen__panel {
     position: relative;
+    z-index: 1;
+    width: min(1280px, 100%);
+    max-height: 100%;
+    overflow: auto;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--rst-ui-radius-2xl);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 22%),
+      linear-gradient(145deg, #0f1722, #111b27);
+    box-shadow: 0 40px 120px rgba(0, 0, 0, 0.55);
+    color: #fffaf2;
+    animation: rst-scale-in .32s var(--rst-ease-spring) backwards;
+  }
+
+  .live-fullscreen__panel > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--rst-ui-divider-soft);
+  }
+
+  /* Roomier rows + label column in the fullscreen view so bars read clearly. */
+  .live-fullscreen__panel {
+    --live-label: 240px;
+    --live-state: 110px;
+  }
+
+  .live-fullscreen__panel .live-row {
+    min-height: 88px;
+  }
+
+  .live-fullscreen__panel .live-row__bar {
+    min-height: 52px;
+  }
+
+  /* The axis and every row share ONE grid so ticks land exactly over bars:
+     fixed label + state columns, identical middle column. */
+  .time-axis {
+    display: grid;
+    grid-template-columns: var(--live-label, 200px) minmax(0, 1fr) var(--live-state, 96px);
+    gap: 14px;
+    padding-inline: 16px;
     height: 38px;
-    margin-left: min(30%, 220px);
-    border-left: 1px solid rgba(255, 255, 255, 0.08);
     color: rgba(255, 250, 242, 0.46);
     font-size: 11px;
     font-weight: var(--rst-fw-display);
     letter-spacing: 0.06em;
+  }
+
+  .axis-track {
+    position: relative;
+    height: 100%;
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
     border-bottom: 1px solid rgba(255, 255, 255, 0.09);
   }
 
-  .time-axis > span:not(.now-pill) {
+  .axis-tick {
     position: absolute;
     left: var(--tick-left);
     bottom: 8px;
@@ -1195,7 +1397,7 @@
     width: 100%;
     min-width: 0;
     display: grid;
-    grid-template-columns: minmax(170px, 0.34fr) minmax(220px, 1fr) 92px;
+    grid-template-columns: var(--live-label, 200px) minmax(0, 1fr) var(--live-state, 96px);
     gap: 14px;
     align-items: center;
     min-height: 74px;
@@ -1251,6 +1453,26 @@
     text-decoration: underline;
   }
 
+  .live-row__stat {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 2px;
+    color: rgba(255, 250, 242, 0.7);
+    font-size: 11.5px;
+    font-weight: var(--rst-fw-regular);
+    letter-spacing: 0.01em;
+  }
+
+  .live-row__stat :global(.live-duration) {
+    flex: 0 0 auto;
+    color: rgba(163, 255, 63, 0.92);
+    font-size: 11.5px;
+    font-weight: var(--rst-fw-bold);
+  }
+
   .avatar {
     width: 34px;
     height: 34px;
@@ -1258,7 +1480,9 @@
     place-items: center;
     border-radius: var(--rst-ui-radius-pill);
     color: #fff;
-    background: #203659;
+    /* Fill = the person's position colour; ring = live state. */
+    background: var(--avatar-color, #203659);
+    box-shadow: 0 0 0 2px var(--avatar-ring, transparent);
     font-size: 11px;
     font-weight: var(--rst-fw-display);
   }
@@ -1307,7 +1531,7 @@
     box-shadow: 0 0 20px rgba(163, 255, 63, 0.55);
   }
 
-  .live-row__bar > span {
+  .live-row__segment {
     position: absolute;
     top: 5px;
     left: var(--slot-left);
@@ -1336,7 +1560,7 @@
     to { transform: scaleX(1); }
   }
 
-  .live-row__bar > span::before {
+  .live-row__segment::before {
     content: '';
     position: absolute;
     inset: 0 auto 0 0;
@@ -1360,10 +1584,14 @@
   }
 
   .live-row.is-danger .avatar {
-    background: rgba(240, 100, 35, 0.28);
+    --avatar-ring: #ff6b4a;
   }
 
-  .live-row.is-danger .live-row__bar > span {
+  .live-row.is-success .avatar {
+    --avatar-ring: #42d884;
+  }
+
+  .live-row.is-danger .live-row__segment {
     color: #fecaca;
     border-color: rgba(248, 113, 113, 0.9);
     border-style: dashed;
@@ -1371,7 +1599,7 @@
     box-shadow: inset 6px 0 0 #f87171;
   }
 
-  .live-row.is-danger .live-row__bar > span::before {
+  .live-row.is-danger .live-row__segment::before {
     background: linear-gradient(90deg, rgba(248, 113, 113, 0.95), rgba(248, 113, 113, 0.26));
     box-shadow: 0 0 22px rgba(248, 113, 113, 0.42);
   }
@@ -1380,13 +1608,13 @@
     color: #fecaca;
   }
 
-  .live-row.is-warning .live-row__bar > span {
+  .live-row.is-warning .live-row__segment {
     color: #fde68a;
     border-color: rgba(247, 183, 51, 0.7);
     background: rgba(120, 53, 15, 0.28);
   }
 
-  .live-row.is-neutral .live-row__bar > span {
+  .live-row.is-neutral .live-row__segment {
     color: #93c5fd;
     border-style: dashed;
   }
@@ -1464,42 +1692,34 @@
     cursor: default;
   }
 
-  .coverage-room .room-flyout {
-    position: absolute;
-    inset: 0;
-    z-index: 2;
-    display: grid;
-    align-content: center;
+  /* Who is on the floor, shown as compact position-coloured avatars — always
+     visible, so no destructive hover is needed to read the room's crew. */
+  .room-crew {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
     gap: 4px;
-    padding: 16px;
-    overflow: auto;
+    margin-top: 2px;
+  }
+
+  .room-crew__avatar {
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    border-radius: var(--rst-ui-radius-round);
     color: #fffaf2;
-    background: rgba(8, 14, 22, 0.92);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity .18s ease;
-  }
-
-  .coverage-room:hover .room-flyout,
-  .coverage-room:focus-visible .room-flyout {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .coverage-room .room-flyout > span {
-    min-width: 0;
-    overflow: visible;
-    color: var(--rst-ui-action);
-    font-size: 10px;
+    background: var(--avatar-color, #35507a);
+    box-shadow: 0 2px 6px rgba(4, 11, 20, 0.28);
+    font-size: 9px;
     font-weight: var(--rst-fw-display);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    white-space: normal;
+    letter-spacing: 0.02em;
   }
 
-  .coverage-room .room-flyout > b {
-    font-size: 13px;
-    font-weight: var(--rst-fw-bold);
+  .room-crew__empty {
+    color: rgba(255, 250, 242, 0.4);
+    font-size: 11px;
+    font-style: normal;
   }
 
   .coverage-room strong,
@@ -1521,6 +1741,65 @@
     color: rgba(255, 250, 242, 0.72);
     font-size: 12px;
     font-weight: var(--rst-fw-display);
+  }
+
+  .room-service {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .room-service__lead {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    overflow: visible;
+    color: rgba(255, 250, 242, 0.86);
+    font-size: 12px;
+    font-weight: var(--rst-fw-display);
+    white-space: nowrap;
+  }
+
+  .room-service__icon {
+    font-size: 13px;
+    line-height: 1;
+    color: rgba(255, 250, 242, 0.55);
+  }
+
+  .room-service.is-danger .room-service__icon {
+    color: var(--rst-ui-action);
+  }
+
+  .room-service__dots {
+    display: inline-flex;
+    gap: 5px;
+  }
+
+  .room-service__dots i {
+    width: 9px;
+    height: 9px;
+    border-radius: var(--rst-ui-radius-pill);
+    background: rgba(255, 255, 255, 0.16);
+    animation: rst-pop-in 0.35s var(--rst-ease-spring) backwards;
+  }
+
+  .room-service.is-success .room-service__dots i.is-on {
+    background: var(--rst-green);
+    box-shadow: 0 0 12px rgba(64, 200, 120, 0.5);
+  }
+
+  .room-service.is-warning .room-service__dots i.is-on {
+    background: var(--rst-gold);
+    box-shadow: 0 0 12px rgba(247, 183, 51, 0.45);
+  }
+
+  .room-service.is-danger .room-service__dots i.is-on {
+    background: var(--rst-ui-action);
+    box-shadow: 0 0 12px rgba(240, 100, 35, 0.5);
+    animation:
+      rst-pop-in 0.35s var(--rst-ease-spring) backwards,
+      rst-pulse-soft 2s ease-in-out 1.2s infinite;
   }
 
   .coverage-room div {
@@ -1574,12 +1853,6 @@
   .inline-error {
     color: var(--rst-state-danger-text);
   }
-  .leave-requests { display: grid; }
-  .leave-requests article { display: flex; align-items: center; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--rst-ui-divider-soft); }
-  .leave-requests article > div { min-width: 0; display: grid; gap: 4px; margin-right: auto; }
-  .leave-requests span, .leave-requests p { color: var(--rst-ui-muted); font-size: 12px; }
-  .dialog-link { align-self: center; padding: 8px 10px; color: var(--rst-ui-panel-title); font-size: 12px; font-weight: var(--rst-fw-bold); text-decoration: none; }
-
   .inline-error {
     margin: -10px 0 12px;
     padding: 10px 12px;
@@ -1592,7 +1865,6 @@
 
 
   @media (max-width: 1180px) {
-    .home-hero,
     .command-grid {
       grid-template-columns: 1fr;
     }
@@ -1605,15 +1877,6 @@
   }
 
   @media (max-width: 760px) {
-    .home-hero {
-      padding: 22px;
-      border-radius: 22px;
-    }
-
-    .home-hero h1 {
-      font-size: clamp(38px, 13vw, 56px);
-    }
-
     .home-hero__command {
       align-items: start;
       flex-direction: column;
@@ -1637,12 +1900,8 @@
       grid-column: 2;
     }
 
-    .decision-row {
+    .decision-row__toggle {
       grid-template-columns: 34px minmax(0, 1fr) auto;
     }
-  }
-
-  @media (max-width: 520px) {
-    .leave-requests article { align-items: stretch; flex-direction: column; }
   }
 </style>

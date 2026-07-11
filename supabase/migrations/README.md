@@ -9,11 +9,11 @@ Every migration must:
 2. preserve historical contracts, time entries, adjustments and audit events;
 3. revoke obsolete RPC signatures before granting replacements;
 4. pass `supabase/tests/security_contract.sql` and
-   `supabase/tests/canonical_schema_security.sql`, plus the current phase
-   behavioral contract when one exists;
+   `supabase/tests/canonical_schema_security.sql`, plus the relevant workflow
+   contract;
 5. be deployed to development before generated TypeScript types are refreshed.
 
 The ordered chain currently ends at
-`202606270039_work_week_finalized_event_type.sql`. Apply every unapplied
+`202607110019_public_schema_privilege_hardening.sql`. Apply every unapplied
 file in order; never rerun an already recorded migration or skip directly to a
 later contract.

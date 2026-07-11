@@ -27,7 +27,7 @@ declare
     'public.save_absence_lifecycle(uuid,uuid,uuid,text,jsonb)'::regprocedure,
     'public.save_actuals_lifecycle(uuid,text,jsonb)'::regprocedure,
     'public.save_employee_availability(uuid,uuid,jsonb)'::regprocedure,
-    'public.save_manager_planning(uuid,date,text,jsonb,jsonb,bigint,text)'::regprocedure,
+    'public.save_manager_planning(uuid,date,text,jsonb,jsonb,bigint,text,boolean)'::regprocedure,
     'public.save_owner_onboarding_draft(smallint,jsonb)'::regprocedure,
     'public.save_restaurant_model(uuid,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb)'::regprocedure,
     'public.save_work_pattern_exception_lifecycle(uuid,uuid,uuid,text,jsonb)'::regprocedure,

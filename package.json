@@ -3,22 +3,33 @@
 	"private": true,
 	"version": "0.0.1",
 	"type": "module",
+	"engines": {
+		"node": ">=22.12.0"
+	},
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",
-		"prepare": "svelte-kit sync || echo ''",
+		"prepare": "svelte-kit sync",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"check:dead-code": "knip --no-progress",
+		"check:edge": "deno-bin check supabase/functions/send-employee-invitation/index.ts supabase/functions/upload-badge-proof/index.ts supabase/functions/get-badge-proof/index.ts supabase/seed/create-role-fixtures.ts",
+		"verify:database:linked": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-linked-database.ps1",
+		"verify:hosted": "node scripts/verify-hosted-acceptance.mjs",
+		"verify:hosted:disposable": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-hosted-acceptance.ps1",
+		"bootstrap:database": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap-disposable-database.ps1",
+		"capture:database-baseline": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/capture-linked-baseline.ps1",
 		"test": "node --experimental-strip-types --test tests/*.test.mjs",
-		"validate": "npm run test && npm run check && npm run build"
+		"validate": "npm run test && npm run check && npm run check:edge && npm run check:dead-code && npm run build"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-static": "^3.0.10",
-		"@sveltejs/adapter-vercel": "^6.3.4",
 		"@sveltejs/kit": "^2.66.0",
 		"@sveltejs/vite-plugin-svelte": "^7.1.2",
 		"@types/node": "^25.9.3",
+		"deno-bin": "^2.2.7",
+		"knip": "^5.88.1",
 		"svelte": "^5.56.1",
 		"svelte-check": "^4.6.0",
 		"typescript": "^6.0.3",

@@ -31,6 +31,8 @@ export function timeOffServiceDrafts(
 export type SimpleAvailabilityDraft = {
   date: string;
   serviceKey: ServiceKey;
+  // `partial` is retained only so legacy saved rows can round-trip until the
+  // employee replaces them with one of the two supported choices.
   state: 'available' | 'partial' | 'unavailable' | '';
 };
 
@@ -90,18 +92,17 @@ export function setAvailabilityOverride(
     : [...remaining, { ...slot, state: targetState }];
 }
 
-// One slot, one action: the current tab + the employee's regime decide whether
-// a click sets weekly availability, requests time off (absence), or requests a
-// fixed-schedule availability change (work-pattern exception). The three never
-// share a bucket, so a save is never ambiguous about what it submits.
-export type EmployeeSlotAction = 'set_availability' | 'request_time_off' | 'request_change';
+// One slot, one action: weekly-availability employees declare when they can
+// work, fixed-schedule employees request leave against planned shifts.
+export type EmployeeSlotAction = 'set_availability' | 'request_time_off' | 'none';
 
 export function employeeSlotAction(
   mode: EmployeeSelfServiceMode,
   policy: WorkRegime
 ): EmployeeSlotAction {
   if (mode === 'time_off') return 'request_time_off';
-  if (policy === 'fixed_schedule') return 'request_change';
+  if (policy === 'fixed_schedule') return 'none';
+  if (policy === 'manager_only') return 'none';
   return 'set_availability';
 }
 
@@ -155,14 +156,21 @@ export function employeeSlotActionReason(input: {
   if (truth.absence?.status === 'approved') return 'Approved leave already covers this service.';
   if (truth.absence?.status === 'pending') return 'A time-off request is already pending for this service.';
   if (truth.workPatternException?.status === 'approved') {
-    return 'An approved availability change already covers this service.';
+    return 'An approved schedule change already covers this service.';
   }
   if (truth.workPatternException?.status === 'pending') {
-    return 'An availability change is already pending for this service.';
+    return 'A schedule change is already pending for this service.';
   }
-  if (mode === 'time_off') return '';
+  if (mode === 'time_off') {
+    // A fixed-schedule employee only requests time off against a shift they are
+    // actually scheduled for; empty services carry no shift to be off from.
+    if (policy === 'fixed_schedule' && !truth.plan) {
+      return 'You can only request time off on a scheduled shift.';
+    }
+    return '';
+  }
   if (policy === 'manager_only') return 'Availability is maintained by your manager.';
-  if (policy === 'fixed_schedule') return '';
+  if (policy === 'fixed_schedule') return 'Fixed-schedule employees request time off from planned shifts.';
   if (planningPublished) return 'Availability is locked once the week is published.';
   return '';
 }

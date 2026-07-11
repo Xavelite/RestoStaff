@@ -229,6 +229,7 @@ export async function savePlanning(input: {
   notes?: WeeklyNoteInput[];
   expectedRevision?: number | null;
   reason?: string;
+  allowCoverageGaps?: boolean;
 }): Promise<MutationAck> {
   const data = await rpcJson('save_manager_planning', {
     p_restaurant_id: input.restaurantId,
@@ -237,7 +238,8 @@ export async function savePlanning(input: {
     p_planned_shifts: asJson(input.shifts),
     p_weekly_notes: asJson(input.notes ?? []),
     p_expected_revision: input.expectedRevision ?? undefined,
-    p_reason: input.reason?.trim() || undefined
+    p_reason: input.reason?.trim() || undefined,
+    p_allow_coverage_gaps: input.allowCoverageGaps || undefined
   });
   return mutationAck(data);
 }

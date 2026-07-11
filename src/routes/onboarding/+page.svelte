@@ -87,7 +87,7 @@
       eyebrow: 'Staffing rules',
       title: 'Pair positions with work areas.',
       description:
-        'Coverage starts with sensible minimums, then stays editable later.'
+        'Tap a cell to say a position works an area. Minimums stay editable later.'
     },
     {
       key: 'team',
@@ -137,6 +137,8 @@
     employees: []
   };
 
+  const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
   let draft = $state<Draft>(structuredClone(initial));
   let feedback = $state('');
   let feedbackTone = $state<'info' | 'success' | 'warning' | 'danger'>('info');
@@ -157,7 +159,6 @@
       .map((item) => ({ ...item, name: item.name.trim() }))
       .filter((item) => item.name)
   );
-  const areaNames = $derived(areaItems.map((item) => item.name));
   const functionNames = $derived(functionItems.map((item) => item.name));
   const validAssignments = $derived(
     draft.assignments.filter(
@@ -170,6 +171,7 @@
     draft.employees.filter((employee) => employee.firstName.trim() || employee.lastName.trim())
   );
   const openDayCount = $derived(draft.openDays.filter(Boolean).length);
+  const serviceCount = $derived(openDayCount * 2);
   const launchStats = $derived([
     { label: 'Areas', value: String(areaItems.length), ready: areaItems.length > 0 },
     { label: 'Positions', value: String(functionItems.length), ready: functionItems.length > 0 },
@@ -243,7 +245,7 @@
 
   $effect(() => {
     if (workspace.active) {
-      goto(workspace.active.role === 'employee' ? '/shifts' : '/home', {
+      goto(workspace.active.role === 'employee' ? '/my-service' : '/home', {
         replaceState: true
       });
     }
@@ -369,27 +371,27 @@
     );
   }
 
-  function addAssignment() {
-    const candidate = areaItems
-      .flatMap((area) =>
-        functionItems.map((position) => ({
-          areaId: area.id,
-          jobFunctionId: position.id
-        }))
-      )
-      .find(
-        (item) =>
-          !draft.assignments.some(
-            (assignment) =>
-              assignment.areaId === item.areaId &&
-              assignment.jobFunctionId === item.jobFunctionId
-          )
-      );
-    if (candidate) draft.assignments = [...draft.assignments, candidate];
+  // Coverage is a visual matrix now: one tap flips whether a position works an
+  // area, instead of building select→select→remove rows. Same draft.assignments
+  // shape underneath, so the launch payload is unchanged.
+  function hasAssignment(areaId: string, jobFunctionId: string) {
+    return draft.assignments.some(
+      (assignment) => assignment.areaId === areaId && assignment.jobFunctionId === jobFunctionId
+    );
   }
 
-  function removeAssignment(index: number) {
-    draft.assignments = draft.assignments.filter((_, itemIndex) => itemIndex !== index);
+  function toggleAssignment(areaId: string, jobFunctionId: string) {
+    if (hasAssignment(areaId, jobFunctionId)) {
+      draft.assignments = draft.assignments.filter(
+        (assignment) => !(assignment.areaId === areaId && assignment.jobFunctionId === jobFunctionId)
+      );
+    } else {
+      draft.assignments = [...draft.assignments, { areaId, jobFunctionId }];
+    }
+  }
+
+  function areaRuleCount(areaId: string) {
+    return validAssignments.filter((assignment) => assignment.areaId === areaId).length;
   }
 
   function addEmployee() {
@@ -403,10 +405,6 @@
         jobFunctionId: functionItems[0]?.id ?? ''
       }
     ];
-  }
-
-  function addEmployeeRows(count: number) {
-    for (let index = 0; index < count; index += 1) addEmployee();
   }
 
   function removeEmployee(index: number) {
@@ -517,14 +515,14 @@
     </section>
   </main>
 {:else}
-  <main class="launch-shell">
+  <main class="launch">
     <header class="launch-hero" aria-labelledby="launch-title">
       <div class="launch-hero__copy">
-        <span class="page-kicker">{currentStep.eyebrow}</span>
+        <span class="page-kicker">Launch sequence · {currentStep.eyebrow}</span>
         <h1 id="launch-title">{currentStep.title}</h1>
         <p>{currentStep.description}</p>
       </div>
-      <aside class="launch-dial" aria-label="Setup readiness">
+      <aside class="launch-hero__command" aria-label="Setup readiness">
         <div class:has-issues={readyPercent < 100} class="readiness-dial" style={`--ready:${readyPercent}%`}>
           <strong>{readyPercent}%</strong>
           <span>ready</span>
@@ -540,257 +538,247 @@
       </aside>
     </header>
 
-    <div class="launch-layout">
-      <aside class="launch-rail" aria-label="Setup steps">
-        <div class="rail-brand">
-          <strong>restogogo</strong>
-          <span>{restaurantNameLabel(draft.restaurantName)}</span>
-        </div>
-        <nav>
-          {#each steps as step, index}
-            <button
-              type="button"
-              class:is-active={draft.step === index}
-              class:is-complete={isStepReady(index) && index < draft.step}
-              onclick={() => goToStep(index)}
-            >
-              <span>{String(index + 1).padStart(2, '0')}</span>
+    <div class="launch-body">
+      <nav class="step-track" aria-label="Setup steps">
+        {#each steps as step, index}
+          {@const ready = isStepReady(index)}
+          {@const locked = !steps.slice(0, index).every((_, i) => isStepReady(i))}
+          <button
+            type="button"
+            class="step-chip"
+            class:is-active={draft.step === index}
+            class:is-complete={ready && index !== draft.step}
+            class:is-locked={locked}
+            disabled={locked}
+            onclick={() => goToStep(index)}
+          >
+            <span class="step-chip__dot">{ready && index !== draft.step ? '✓' : String(index + 1)}</span>
+            <span class="step-chip__label">
               <strong>{step.label}</strong>
               <small>{step.eyebrow}</small>
-            </button>
-          {/each}
-        </nav>
-        <div class="rail-progress" aria-label={`Step ${draft.step + 1} of ${steps.length}`}>
-          <span style={`width:${progress}%`}></span>
-        </div>
-      </aside>
+            </span>
+          </button>
+        {/each}
+        <div class="step-track__bar" aria-hidden="true"><span style={`width:${progress}%`}></span></div>
+      </nav>
 
-      <section class="launch-workspace" aria-labelledby="step-title">
-        <header class="step-head">
-          <div>
-            <span class="page-kicker">Step {draft.step + 1} of {steps.length}</span>
-            <h2 id="step-title">{currentStep.label}</h2>
-          </div>
-          <button type="button" class="text-action" onclick={resetDraft}>Reset starter</button>
-        </header>
+      <FeedbackBanner message={feedback} tone={feedbackTone} />
 
-        <FeedbackBanner message={feedback} tone={feedbackTone} />
+      <div class="launch-grid">
+        <section class="launch-stage" aria-labelledby="stage-title" data-step={draft.step}>
+          <header class="stage-head">
+            <div>
+              <span class="page-kicker">Step {draft.step + 1} of {steps.length}</span>
+              <h2 id="stage-title">{currentStep.label}</h2>
+            </div>
+            <button type="button" class="text-action" onclick={resetDraft}>Reset starter</button>
+          </header>
 
-        <div class="step-grid">
-          <section class="step-main">
+          {#key draft.step}
+          <div class="stage-content">
             {#if draft.step === 0}
-              <div class="field-grid">
-                <label>
-                  <span>First name</span>
-                  <input bind:value={draft.firstName} autocomplete="given-name" />
-                </label>
-                <label>
-                  <span>Last name</span>
-                  <input bind:value={draft.lastName} autocomplete="family-name" />
-                </label>
-                <label class="wide">
-                  <span>Account email</span>
-                  <input value={email} disabled />
-                </label>
+              <div class="fieldset">
+                <label>Owner first name<input bind:value={draft.firstName} autocomplete="given-name" placeholder="Xavier" /></label>
+                <label>Owner last name<input bind:value={draft.lastName} autocomplete="family-name" placeholder="Besnard" /></label>
+                <label class="wide">Account email<input value={email} disabled /></label>
               </div>
             {:else if draft.step === 1}
-              <div class="field-grid">
-                <label class="wide">
-                  <span>Restaurant name</span>
-                  <input bind:value={draft.restaurantName} placeholder="Le Comptoir Restogogo" />
-                </label>
-                <label>
-                  <span>City</span>
-                  <input bind:value={draft.city} placeholder="Brussels" />
-                </label>
+              <div class="fieldset">
+                <label class="wide">Restaurant name<input bind:value={draft.restaurantName} placeholder="Le Comptoir Restogogo" /></label>
+                <label class="wide">City<input bind:value={draft.city} placeholder="Brussels" /></label>
               </div>
             {:else if draft.step === 2}
-              <div class="rhythm-board">
-                <section class="service-editor is-lunch">
-                  <span>Lunch</span>
+              <div class="rhythm-cards">
+                <section class="rhythm-card is-lunch">
+                  <span class="rhythm-card__icon" aria-hidden="true">☀</span>
+                  <strong>Lunch</strong>
                   <div>
-                    <label>
-                      <small>Start</small>
-                      <input type="time" bind:value={draft.lunchStart} />
-                    </label>
-                    <label>
-                      <small>End</small>
-                      <input type="time" bind:value={draft.lunchEnd} />
-                    </label>
+                    <label>Start<input type="time" bind:value={draft.lunchStart} /></label>
+                    <label>End<input type="time" bind:value={draft.lunchEnd} /></label>
                   </div>
                 </section>
-                <section class="service-editor is-evening">
-                  <span>Evening</span>
+                <section class="rhythm-card is-evening">
+                  <span class="rhythm-card__icon" aria-hidden="true">☾</span>
+                  <strong>Evening</strong>
                   <div>
-                    <label>
-                      <small>Start</small>
-                      <input type="time" bind:value={draft.eveningStart} />
-                    </label>
-                    <label>
-                      <small>End</small>
-                      <input type="time" bind:value={draft.eveningEnd} />
-                    </label>
+                    <label>Start<input type="time" bind:value={draft.eveningStart} /></label>
+                    <label>End<input type="time" bind:value={draft.eveningEnd} /></label>
                   </div>
                 </section>
               </div>
-              <div class="day-strip" aria-label="Open days">
-                {#each ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as day, index}
-                  <label class:checked={draft.openDays[index]}>
+              <div class="day-chips" aria-label="Open days">
+                {#each WEEKDAYS as day, index}
+                  <label class:is-on={draft.openDays[index]}>
                     <input type="checkbox" bind:checked={draft.openDays[index]} />
                     <span>{day}</span>
                   </label>
                 {/each}
               </div>
+              <p class="stage-hint">{openDayCount}/7 days open · {serviceCount} weekly services seeded.</p>
             {:else if draft.step === 3}
-              <div class="split-builder">
-                <section>
-                  <div class="builder-head">
-                    <strong>Areas</strong>
-                    <ActionButton label="Add area" onclick={addArea} />
-                  </div>
-                  <div class="editable-list">
-                    {#each draft.areas as area (area.id)}
-                      <div>
-                        <input aria-label="Area name" placeholder="Salle, Cuisine, Bar" bind:value={area.name} />
-                        <button type="button" aria-label="Remove area" onclick={() => removeArea(area.id)}>Remove</button>
-                      </div>
-                    {/each}
-                  </div>
-                </section>
-                <section>
-                  <div class="builder-head">
-                    <strong>Positions</strong>
-                    <ActionButton label="Add position" onclick={addPosition} />
-                  </div>
-                  <div class="editable-list">
-                    {#each draft.functions as position (position.id)}
-                      <div>
-                        <input aria-label="Position name" placeholder="Server, Cook, Dishwasher" bind:value={position.name} />
-                        <button type="button" aria-label="Remove position" onclick={() => removePosition(position.id)}>Remove</button>
-                      </div>
-                    {/each}
-                  </div>
-                </section>
-              </div>
+            <div class="build-columns">
+              <section>
+                <div class="build-head"><strong>Areas</strong><span>{areaItems.length} named</span></div>
+                <p class="stage-hint">The rooms and stations work happens in.</p>
+                <div class="build-grid">
+                  {#each draft.areas as area, index (area.id)}
+                    <div class="build-card rst-stagger-in" style={`--rst-i:${index}`}>
+                      <input aria-label="Area name" placeholder="Salle, Cuisine, Bar" bind:value={area.name} />
+                      <button type="button" class="build-card__x" aria-label="Remove area" onclick={() => removeArea(area.id)}>×</button>
+                    </div>
+                  {/each}
+                  <button type="button" class="ghost-card" onclick={addArea}>
+                    <span class="ghost-icon">+</span>
+                    <strong>Add area</strong>
+                  </button>
+                </div>
+              </section>
+              <section>
+                <div class="build-head"><strong>Positions</strong><span>{functionItems.length} named</span></div>
+                <p class="stage-hint">The roles people can be assigned to.</p>
+                <div class="build-grid">
+                  {#each draft.functions as position, index (position.id)}
+                    <div class="build-card rst-stagger-in" style={`--rst-i:${index}`}>
+                      <input aria-label="Position name" placeholder="Server, Cook, Dishwasher" bind:value={position.name} />
+                      <button type="button" class="build-card__x" aria-label="Remove position" onclick={() => removePosition(position.id)}>×</button>
+                    </div>
+                  {/each}
+                  <button type="button" class="ghost-card" onclick={addPosition}>
+                    <span class="ghost-icon">+</span>
+                    <strong>Add position</strong>
+                  </button>
+                </div>
+              </section>
+            </div>
             {:else if draft.step === 4}
-              <div class="assignment-board">
-                {#each draft.assignments as assignment, index (`${assignment.areaId}-${assignment.jobFunctionId}-${index}`)}
-                  <div class="assignment-row">
-                    <select aria-label="Assignment area" bind:value={assignment.areaId}>
-                      {#each areaItems as area}
-                        <option value={area.id}>{area.name}</option>
-                      {/each}
-                    </select>
-                    <select aria-label="Assignment position" bind:value={assignment.jobFunctionId}>
+              {#if areaItems.length && functionItems.length}
+                <div class="matrix" style={`--cols:${functionItems.length}`}>
+                  <div class="matrix__corner">Area ╲ Position</div>
+                  {#each functionItems as position (position.id)}
+                    <div class="matrix__col-head" title={position.name}>{position.name}</div>
+                  {/each}
+                  {#each areaItems as area (area.id)}
+                    <div class="matrix__row-head">
+                      <strong>{area.name}</strong>
+                      <small>{areaRuleCount(area.id)} rule{areaRuleCount(area.id) === 1 ? '' : 's'}</small>
+                    </div>
+                    {#each functionItems as position (position.id)}
+                      {@const on = hasAssignment(area.id, position.id)}
+                      <button
+                        type="button"
+                        class="matrix__cell"
+                        class:is-on={on}
+                        aria-pressed={on}
+                        aria-label={`${position.name} works ${area.name}`}
+                        onclick={() => toggleAssignment(area.id, position.id)}
+                      >
+                        {on ? '✓' : ''}
+                      </button>
+                    {/each}
+                  {/each}
+                </div>
+                <p class="stage-hint">{validAssignments.length} staffing pairing{validAssignments.length === 1 ? '' : 's'} · tap a cell to toggle.</p>
+              {:else}
+                <p class="stage-empty">Add at least one area and one position first.</p>
+              {/if}
+            {:else if draft.step === 5}
+              <div class="team-grid">
+                {#each draft.employees as employee, index}
+                  <div class="team-card rst-stagger-in" style={`--rst-i:${index}`}>
+                    <div class="team-card__row">
+                      <input aria-label="First name" placeholder="First name" bind:value={employee.firstName} />
+                      <input aria-label="Last name" placeholder="Last name" bind:value={employee.lastName} />
+                    </div>
+                    <input aria-label="Email" type="email" placeholder="Email (optional)" bind:value={employee.email} />
+                    <select aria-label="Position" bind:value={employee.jobFunctionId}>
+                      <option value="">No position</option>
                       {#each functionItems as position}
                         <option value={position.id}>{position.name}</option>
                       {/each}
                     </select>
-                    <button type="button" aria-label="Remove assignment" onclick={() => removeAssignment(index)}>Remove</button>
+                    <button type="button" class="team-card__x" aria-label="Remove employee" onclick={() => removeEmployee(index)}>×</button>
                   </div>
                 {/each}
+                <button type="button" class="ghost-card ghost-card--tall" onclick={addEmployee}>
+                  <span class="ghost-icon">+</span>
+                  <strong>{draft.employees.length ? 'Add employee' : 'Add your first employee'}</strong>
+                </button>
               </div>
-              <ActionButton label="Add pairing" onclick={addAssignment} />
-            {:else if draft.step === 5}
-              <div class="team-toolbar">
-                <ActionButton label="Add employee" onclick={addEmployee} />
-                <ActionButton label="Add 3 rows" onclick={() => addEmployeeRows(3)} />
-              </div>
-              <div class="employee-table" aria-label="Starter employees">
-                {#each draft.employees as employee, index}
-                  <section class="employee-row">
-                    <input aria-label="Employee first name" placeholder="First name" bind:value={employee.firstName} />
-                    <input aria-label="Employee last name" placeholder="Last name" bind:value={employee.lastName} />
-                    <input aria-label="Employee email" type="email" placeholder="Email" bind:value={employee.email} />
-                    <select aria-label="Employee position" bind:value={employee.jobFunctionId}>
-                      <option value="">Position</option>
-                      {#each functionItems as position}
-                        <option value={position.id}>{position.name}</option>
-                      {/each}
-                    </select>
-                    <button type="button" aria-label="Remove employee" onclick={() => removeEmployee(index)}>Remove</button>
-                  </section>
-                {:else}
-                  <p class="empty-line">No starter employees yet.</p>
-                {/each}
-              </div>
+              <p class="stage-hint">Optional — you can also add the whole team later from the Team page.</p>
             {:else}
               <div class="review-grid">
-                <article>
-                  <span>Owner</span>
+                <article class="glow-card glow-card--sky">
+                  <span class="glow-card__kicker">Owner</span>
                   <strong>{draft.firstName} {draft.lastName}</strong>
-                  <small>{email}</small>
+                  <p>{email}</p>
                 </article>
-                <article>
-                  <span>Restaurant</span>
-                  <strong>{draft.restaurantName}</strong>
-                  <small>{draft.city || 'City not set'}</small>
+                <article class="glow-card glow-card--gold">
+                  <span class="glow-card__kicker">Restaurant</span>
+                  <strong>{draft.restaurantName || 'Unnamed'}</strong>
+                  <p>{draft.city || 'City not set'}</p>
                 </article>
-                <article>
-                  <span>Services</span>
-                  <strong>{draft.lunchStart}-{draft.lunchEnd}</strong>
-                  <small>{draft.eveningStart}-{draft.eveningEnd} evening</small>
+                <article class="glow-card glow-card--forest">
+                  <span class="glow-card__kicker">Rhythm</span>
+                  <strong>{serviceCount} services / week</strong>
+                  <p>☀ {draft.lunchStart}–{draft.lunchEnd} · ☾ {draft.eveningStart}–{draft.eveningEnd}</p>
                 </article>
-                <article>
-                  <span>Foundation</span>
-                  <strong>{areaItems.length} areas / {functionItems.length} positions</strong>
-                  <small>{validAssignments.length} coverage pairings</small>
-                </article>
-                <article>
-                  <span>Starter team</span>
-                  <strong>{starterEmployees.length} employees</strong>
-                  <small>Invitations stay in Team</small>
+                <article class="glow-card glow-card--green">
+                  <span class="glow-card__kicker">Foundation</span>
+                  <strong>{areaItems.length} areas · {functionItems.length} positions</strong>
+                  <p>{validAssignments.length} coverage pairings · {starterEmployees.length} starter staff</p>
                 </article>
               </div>
             {/if}
-          </section>
+          </div>
+          {/key}
 
-          <aside class="blueprint-preview" aria-label="Workspace preview">
+          <footer class="stage-actions">
+            <ActionButton label="Back" disabled={draft.step === 0 || saving} onclick={back} />
+            {#if draft.step < steps.length - 1}
+              <ActionButton label="Continue" tone="primary" onclick={next} />
+            {:else}
+              <ActionButton
+                label={saving ? 'Creating workspace…' : 'Create workspace'}
+                tone="primary"
+                disabled={saving}
+                onclick={launch}
+              />
+            {/if}
+          </footer>
+        </section>
+
+        <aside class="blueprint" aria-label="Live blueprint">
+          <div class="blueprint__head">
             <span class="page-kicker">Live blueprint</span>
             <strong>{draft.restaurantName.trim() || 'New restaurant'}</strong>
-            <p>{openDayCount}/7 open days · {draft.lunchStart}-{draft.lunchEnd} lunch · {draft.eveningStart}-{draft.eveningEnd} evening</p>
-            <div class="preview-lanes">
-              {#each areaItems.slice(0, 4) as area}
-                <section>
-                  <header>{area.name}</header>
-                  <div>
-                    {#each validAssignments.filter((assignment) => assignment.areaId === area.id).slice(0, 3) as assignment}
-                      <span>{functionItems.find((position) => position.id === assignment.jobFunctionId)?.name}</span>
-                    {:else}
-                      <em>No rule yet</em>
-                    {/each}
-                  </div>
-                </section>
-              {:else}
-                <p class="empty-line">Areas appear here as you build them.</p>
-              {/each}
-            </div>
-          </aside>
-        </div>
-
-        <footer class="step-actions">
-          <ActionButton label="Back" disabled={draft.step === 0 || saving} onclick={back} />
-          {#if draft.step < steps.length - 1}
-            <ActionButton label="Continue" tone="primary" onclick={next} />
-          {:else}
-            <ActionButton
-              label={saving ? 'Creating workspace...' : 'Create workspace'}
-              tone="primary"
-              disabled={saving}
-              onclick={launch}
-            />
-          {/if}
-        </footer>
-      </section>
+            <p>{draft.city.trim() || 'City pending'} · {openDayCount}/7 open days</p>
+          </div>
+          <div class="blueprint__rhythm">
+            {#each WEEKDAYS as day, index}
+              <span class:is-on={draft.openDays[index]}>{day.slice(0, 2)}</span>
+            {/each}
+          </div>
+          <div class="blueprint__lanes">
+            {#each areaItems.slice(0, 5) as area (area.id)}
+              <section>
+                <header>{area.name}</header>
+                <div>
+                  {#each validAssignments.filter((a) => a.areaId === area.id) as assignment}
+                    <span>{functionItems.find((p) => p.id === assignment.jobFunctionId)?.name}</span>
+                  {:else}
+                    <em>No rule yet</em>
+                  {/each}
+                </div>
+              </section>
+            {:else}
+              <p class="blueprint__empty">Areas and their positions appear here as you build them.</p>
+            {/each}
+          </div>
+        </aside>
+      </div>
     </div>
   </main>
 {/if}
-
-<script lang="ts" module>
-  function restaurantNameLabel(name: string) {
-    return name.trim() || 'Launch board';
-  }
-</script>
 
 <style>
   .setup-gate {
@@ -840,32 +828,50 @@
     text-decoration: none;
   }
 
-  .launch-shell {
+  .launch {
+    width: 100%;
     min-height: 100vh;
     background: var(--rst-ui-bg);
   }
 
+  /* ---- Hero (design-system language) ------------------------------- */
   .launch-hero {
     position: relative;
     overflow: hidden;
-    min-height: 300px;
+    min-height: 260px;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(280px, 440px);
-    align-items: end;
-    gap: 24px;
-    padding: clamp(26px, 5vw, 54px);
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 400px);
+    gap: 22px;
+    align-items: center;
+    padding: clamp(26px, 5vw, 52px);
     color: #fffaf2;
     background:
-      linear-gradient(92deg, rgba(9, 15, 23, 0.98), rgba(9, 15, 23, 0.86) 48%, rgba(240, 100, 35, 0.2)),
+      linear-gradient(95deg, rgba(11, 18, 26, 0.98) 0%, rgba(11, 18, 26, 0.88) 47%, rgba(240, 100, 35, 0.26) 100%),
       url('/module-backgrounds/restaurant.webp') center / cover;
+  }
+
+  .launch-hero::before {
+    content: '';
+    position: absolute;
+    inset: -18%;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 18% 18%, rgba(var(--rst-ui-action-rgb), 0.26), transparent 28%),
+      radial-gradient(circle at 86% 28%, rgba(247, 183, 51, 0.18), transparent 34%),
+      radial-gradient(circle at 74% 88%, rgba(66, 216, 132, 0.13), transparent 32%);
+    mix-blend-mode: screen;
+    animation: rst-ambient-shift 14s ease-in-out infinite alternate;
   }
 
   .launch-hero::after {
     content: '';
     position: absolute;
     inset: auto 0 0;
+    z-index: 2;
     height: 5px;
     background: linear-gradient(90deg, var(--rst-ui-action), var(--rst-gold), var(--rst-green), var(--rst-state-info));
+    opacity: 0.92;
   }
 
   .launch-hero__copy {
@@ -873,80 +879,61 @@
     z-index: 1;
     display: grid;
     gap: 12px;
-    max-width: 850px;
+    max-width: 780px;
+    animation: rst-fade-up 0.5s var(--rst-ease-out) backwards;
   }
 
   .launch-hero h1 {
-    max-width: 820px;
     margin: 0;
-    font-size: clamp(40px, 6.4vw, 78px);
-    line-height: 0.9;
-    letter-spacing: -0.058em;
+    font-size: clamp(34px, 5.2vw, 64px);
+    line-height: 0.94;
+    letter-spacing: -0.06em;
   }
 
   .launch-hero p {
-    max-width: 600px;
+    max-width: 620px;
     margin: 0;
-    color: rgba(255, 250, 242, 0.78);
-    font-size: 16px;
+    color: rgba(255, 250, 242, 0.82);
+    font-size: clamp(14px, 1.3vw, 17px);
     line-height: 1.45;
   }
 
-  .launch-dial {
+  .launch-hero__command {
     position: relative;
     z-index: 1;
+    justify-self: end;
     display: flex;
-    align-items: end;
+    align-items: center;
     justify-content: end;
     gap: 14px;
+    animation: rst-fade-up 0.5s var(--rst-ease-out) 0.08s backwards;
   }
 
-  .launch-layout {
+  .launch-body {
     display: grid;
-    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
-    align-items: start;
+    gap: 16px;
+    padding: clamp(20px, 4vw, 36px);
   }
 
-  .launch-rail {
-    position: sticky;
-    top: 0;
-    min-height: 100vh;
+  /* ---- Horizontal step track --------------------------------------- */
+  .step-track {
+    position: relative;
     display: grid;
-    align-content: start;
-    gap: 18px;
-    padding: 24px;
-    border-right: 1px solid var(--rst-ui-line);
-    background: var(--rst-ui-bg-2);
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 8px;
+    padding: 12px 12px 20px;
+    border: 1px solid var(--rst-ui-surface-panel-border);
+    border-radius: var(--rst-ui-radius-2xl);
+    background: var(--rst-ui-surface-panel);
+    box-shadow: var(--rst-ui-shadow-card);
   }
 
-  .rail-brand {
-    display: grid;
-    gap: 4px;
-  }
-
-  .rail-brand strong {
-    font-size: 22px;
-    letter-spacing: -0.04em;
-  }
-
-  .rail-brand span {
-    color: var(--rst-ui-muted);
-    font-size: 12px;
-    font-weight: var(--rst-fw-bold);
-  }
-
-  .launch-rail nav {
-    display: grid;
-    gap: 7px;
-  }
-
-  .launch-rail button {
+  .step-chip {
     min-width: 0;
-    display: grid;
-    grid-template-columns: 38px minmax(0, 1fr);
-    gap: 2px 10px;
+    display: flex;
     align-items: center;
-    padding: 12px;
+    gap: 9px;
+    padding: 10px;
     border: 1px solid transparent;
     border-radius: var(--rst-ui-radius-lg);
     color: var(--rst-ui-text);
@@ -954,93 +941,122 @@
     font: inherit;
     text-align: left;
     cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s var(--rst-ease-out);
   }
 
-  .launch-rail button:hover {
-    background: var(--rst-ui-hover-bg);
+  .step-chip:hover:not(:disabled) {
+    background: var(--rst-ui-surface-field);
+    transform: translateY(-1px);
   }
 
-  .launch-rail button.is-active {
-    border-color: rgba(var(--rst-ui-action-rgb), 0.26);
-    background: var(--rst-state-selected-bg);
-    box-shadow: inset 3px 0 0 var(--rst-ui-action);
+  .step-chip.is-active {
+    border-color: rgba(var(--rst-ui-action-rgb), 0.4);
+    background: rgba(var(--rst-ui-action-rgb), 0.1);
   }
 
-  .launch-rail button.is-complete span {
-    color: var(--rst-state-success-text);
-    background: var(--rst-state-success-bg);
+  .step-chip.is-locked {
+    opacity: 0.45;
+    cursor: default;
   }
 
-  .launch-rail button span {
-    grid-row: span 2;
-    width: 34px;
-    height: 34px;
+  .step-chip__dot {
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
     display: grid;
     place-items: center;
     border-radius: var(--rst-ui-radius-round);
     color: var(--rst-ui-muted);
     background: var(--rst-ui-surface-field-strong);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: var(--rst-fw-display);
   }
 
-  .launch-rail button strong,
-  .launch-rail button small {
+  .step-chip.is-active .step-chip__dot {
+    color: #fff;
+    background: var(--rst-ui-action);
+  }
+
+  .step-chip.is-complete .step-chip__dot {
+    color: var(--rst-state-success-text);
+    background: var(--rst-state-success-bg);
+  }
+
+  .step-chip__label {
     min-width: 0;
+    display: grid;
+    gap: 1px;
+  }
+
+  .step-chip__label strong {
     overflow: hidden;
+    font-size: 13px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .launch-rail button strong {
-    font-size: 13px;
-  }
-
-  .launch-rail button small {
+  .step-chip__label small {
+    overflow: hidden;
     color: var(--rst-ui-muted);
     font-size: 10px;
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .rail-progress {
-    height: 8px;
-    overflow: hidden;
+  .step-track__bar {
+    position: absolute;
+    inset: auto 12px 10px;
+    height: 4px;
     border-radius: var(--rst-ui-radius-pill);
     background: var(--rst-ui-surface-field-strong);
+    overflow: hidden;
   }
 
-  .rail-progress span {
+  .step-track__bar span {
     display: block;
     height: 100%;
     border-radius: inherit;
     background: linear-gradient(90deg, var(--rst-ui-action), var(--rst-gold));
-    transition: width 0.22s var(--rst-ease-out);
+    transition: width 0.3s var(--rst-ease-out);
   }
 
-  .launch-workspace {
+  /* ---- Stage + blueprint ------------------------------------------- */
+  .launch-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.85fr);
+    gap: 16px;
+    align-items: start;
+  }
+
+  .launch-stage {
     min-width: 0;
     display: grid;
     gap: 16px;
-    padding: clamp(22px, 4vw, 38px);
+    padding: clamp(18px, 3vw, 28px);
+    border: 1px solid var(--rst-ui-surface-panel-border);
+    border-radius: var(--rst-ui-radius-2xl);
+    background: var(--rst-ui-surface-panel);
+    box-shadow: var(--rst-ui-shadow-card);
   }
 
-  .step-head {
+  .stage-head {
     display: flex;
     align-items: end;
     justify-content: space-between;
     gap: 16px;
   }
 
-  .step-head h2 {
+  .stage-head h2 {
     margin: 4px 0 0;
-    font-size: clamp(30px, 4vw, 48px);
-    line-height: 0.95;
-    letter-spacing: -0.045em;
+    font-size: clamp(26px, 3.4vw, 40px);
+    line-height: 0.96;
+    letter-spacing: -0.05em;
   }
 
   .text-action {
-    min-height: 36px;
+    min-height: 34px;
     padding: 0;
     border: 0;
     color: var(--rst-ui-panel-title);
@@ -1051,291 +1067,489 @@
     cursor: pointer;
   }
 
-  .step-grid {
+  .stage-content {
     display: grid;
-    grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.8fr);
-    gap: 16px;
-    align-items: start;
+    gap: 14px;
+    min-height: 300px;
+    align-content: start;
+    animation: rst-fade-up 0.32s var(--rst-ease-out) backwards;
   }
 
-  .step-main,
-  .blueprint-preview {
-    border: 1px solid rgba(76, 48, 26, 0.08);
-    border-radius: var(--rst-ui-radius-2xl);
-    background: rgba(255, 255, 255, 0.52);
-    box-shadow: 0 18px 42px rgba(31, 22, 15, 0.08);
+  .stage-hint {
+    margin: 0;
+    color: var(--rst-ui-muted);
+    font-size: 12px;
   }
 
-  .step-main {
-    min-height: 410px;
-    padding: clamp(18px, 3vw, 28px);
+  .stage-empty {
+    margin: 0;
+    padding: 40px 20px;
+    color: var(--rst-ui-muted);
+    text-align: center;
   }
 
-  .field-grid {
+  /* ---- Fields ------------------------------------------------------- */
+  .fieldset {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
   }
 
-  .field-grid .wide {
+  .fieldset .wide {
     grid-column: 1 / -1;
   }
 
   label {
     display: grid;
-    gap: 7px;
+    gap: 6px;
     color: var(--rst-ui-muted);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: var(--rst-fw-bold);
-    text-transform: uppercase;
   }
 
   input,
   select {
     width: 100%;
     min-width: 0;
-    min-height: 44px;
-    padding: 10px 12px;
-    border: 1px solid var(--rst-ui-line);
-    border-radius: var(--rst-ui-radius-md);
+    min-height: 40px;
+    padding: 8px 2px;
+    border: 0;
+    border-bottom: 1.5px solid var(--rst-ui-line);
+    border-radius: 0;
     color: var(--rst-ui-text);
-    background: var(--rst-ui-surface-field-strong);
+    background: transparent;
     font: inherit;
-    text-transform: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
 
   input:focus-visible,
   select:focus-visible {
-    border-color: var(--rst-ui-action);
+    border-bottom-color: var(--rst-ui-action);
     outline: none;
-    box-shadow: var(--rst-ui-focus);
+    box-shadow: 0 1.5px 0 0 var(--rst-ui-action);
   }
 
-  .rhythm-board {
+  input:disabled {
+    color: var(--rst-ui-muted);
+  }
+
+  /* ---- Rhythm ------------------------------------------------------- */
+  .rhythm-cards {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
   }
 
-  .service-editor {
+  .rhythm-card {
     display: grid;
-    gap: 16px;
+    gap: 10px;
     padding: 18px;
     border-radius: var(--rst-ui-radius-xl);
-    color: #17304f;
-    background: #fff4dc;
+    color: #fffaf2;
+    background:
+      radial-gradient(circle at 90% 8%, rgba(247, 183, 51, 0.34), transparent 40%),
+      linear-gradient(145deg, #1a2233, #22150c);
   }
 
-  .service-editor.is-evening {
-    background: #e5eefb;
+  .rhythm-card.is-evening {
+    background:
+      radial-gradient(circle at 90% 8%, rgba(122, 167, 255, 0.32), transparent 40%),
+      linear-gradient(145deg, #101a2c, #16233a);
   }
 
-  .service-editor > span {
+  .rhythm-card__icon {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: var(--rst-ui-radius-round);
+    background: rgba(255, 255, 255, 0.14);
+    font-size: 16px;
+  }
+
+  .rhythm-card > strong {
     font-size: 18px;
-    font-weight: var(--rst-fw-display);
   }
 
-  .service-editor > div {
+  .rhythm-card > div {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
   }
 
-  .service-editor small {
-    color: rgba(23, 48, 77, 0.62);
+  .rhythm-card label {
+    color: rgba(255, 250, 242, 0.7);
   }
 
-  .day-strip {
+  .rhythm-card input {
+    color: #fffaf2;
+    border-bottom-color: rgba(255, 255, 255, 0.24);
+  }
+
+  .day-chips {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: 8px;
-    margin-top: 14px;
   }
 
-  .day-strip label {
-    min-height: 54px;
+  .day-chips label {
+    position: relative;
+    min-height: 52px;
     display: grid;
     place-items: center;
     border: 1px solid var(--rst-ui-line);
     border-radius: var(--rst-ui-radius-lg);
     color: var(--rst-ui-muted);
-    background: var(--rst-ui-surface-field-strong);
+    background: var(--rst-ui-surface-field);
     cursor: pointer;
+    transition: transform 0.14s var(--rst-ease-out), border-color 0.14s ease, background-color 0.14s ease;
   }
 
-  .day-strip label.checked {
-    color: #12301f;
-    border-color: rgba(var(--rst-state-success-rgb), 0.38);
+  .day-chips label:hover {
+    transform: translateY(-2px);
+  }
+
+  .day-chips label.is-on {
+    color: var(--rst-state-success-text);
+    border-color: rgba(var(--rst-state-success-rgb), 0.4);
     background: var(--rst-state-success-bg);
   }
 
-  .day-strip input {
+  .day-chips input {
     position: absolute;
+    width: 1px;
+    height: 1px;
     opacity: 0;
     pointer-events: none;
   }
 
-  .split-builder {
+  .day-chips span {
+    font-size: 13px;
+    font-weight: var(--rst-fw-display);
+  }
+
+  /* ---- Work map builders ------------------------------------------- */
+  .build-columns {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
+    gap: 18px;
   }
 
-  .split-builder > section,
-  .assignment-board,
-  .employee-table {
-    display: grid;
-    gap: 10px;
-  }
-
-  .builder-head,
-  .team-toolbar {
+  .build-head {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     justify-content: space-between;
     gap: 10px;
   }
 
-  .builder-head strong {
+  .build-head strong {
     font-size: 18px;
   }
 
-  .editable-list {
-    display: grid;
-    gap: 8px;
-  }
-
-  .editable-list > div,
-  .assignment-row,
-  .employee-row {
-    display: grid;
-    gap: 8px;
-    align-items: center;
-  }
-
-  .editable-list > div {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .assignment-row {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
-  }
-
-  .employee-row {
-    grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
-  }
-
-  .editable-list button,
-  .assignment-row button,
-  .employee-row button {
-    min-height: 38px;
-    padding: 0 10px;
-    border: 1px solid var(--rst-state-danger-border);
-    border-radius: var(--rst-ui-radius-md);
-    color: var(--rst-state-danger-text);
-    background: var(--rst-state-danger-bg);
-    font: inherit;
-    font-size: 12px;
+  .build-head span {
+    color: var(--rst-ui-muted);
+    font-size: 11px;
     font-weight: var(--rst-fw-bold);
-    cursor: pointer;
+    text-transform: uppercase;
   }
 
-  .team-toolbar {
-    justify-content: flex-start;
-    margin-bottom: 10px;
-  }
-
-  .review-grid {
+  .build-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+    margin-top: 8px;
   }
 
-  .review-grid article {
-    min-width: 0;
+  /* Item cards and the ghost add-card share one height so the grid stays even. */
+  .build-grid .build-card,
+  .build-grid .ghost-card {
+    min-height: 86px;
+  }
+
+  .build-card {
+    position: relative;
     display: grid;
-    gap: 5px;
-    padding: 16px;
+    align-content: center;
+    padding: 14px 34px 14px 18px;
+    overflow: hidden;
     border: 1px solid var(--rst-ui-line);
     border-radius: var(--rst-ui-radius-xl);
     background: #fff;
+    box-shadow: 0 2px 4px rgba(31, 22, 15, 0.05), 0 12px 26px rgba(31, 22, 15, 0.07);
+    transition: transform 0.15s var(--rst-ease-out), box-shadow 0.15s var(--rst-ease-out);
   }
 
-  .review-grid span {
+  .build-card::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: linear-gradient(180deg, var(--rst-state-success), rgba(22, 163, 74, 0.35));
+  }
+
+  .build-card:focus-within {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(31, 22, 15, 0.06), 0 18px 36px rgba(31, 22, 15, 0.12);
+  }
+
+  .build-card input {
+    min-height: 26px;
+    padding: 0;
+    border: 0;
+    font-size: 15px;
+    font-weight: var(--rst-fw-display);
+  }
+
+  .build-card input:focus-visible {
+    box-shadow: none;
+  }
+
+  .build-card__x,
+  .team-card__x {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: var(--rst-ui-radius-round);
+    color: var(--rst-ui-muted);
+    background: var(--rst-ui-surface-field);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .build-card__x:hover,
+  .team-card__x:hover {
+    color: var(--rst-state-danger-text);
+    background: var(--rst-state-danger-bg);
+  }
+
+  /* ---- Coverage matrix --------------------------------------------- */
+  .matrix {
+    display: grid;
+    grid-template-columns: minmax(120px, 0.8fr) repeat(var(--cols), minmax(60px, 1fr));
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .matrix__corner {
+    display: flex;
+    align-items: end;
+    color: var(--rst-ui-muted);
+    font-size: 10px;
+    font-weight: var(--rst-fw-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .matrix__col-head {
+    overflow: hidden;
+    padding: 8px 4px;
+    color: var(--rst-ui-text);
+    font-size: 12px;
+    font-weight: var(--rst-fw-display);
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .matrix__row-head {
+    display: grid;
+    gap: 1px;
+    align-content: center;
+    padding: 8px 10px;
+    border-radius: var(--rst-ui-radius-md);
+    background: var(--rst-ui-surface-field);
+  }
+
+  .matrix__row-head strong {
+    overflow: hidden;
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .matrix__row-head small {
     color: var(--rst-ui-muted);
     font-size: 10px;
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
   }
 
-  .review-grid strong,
-  .review-grid small {
-    min-width: 0;
+  .matrix__cell {
+    min-height: 46px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: var(--rst-ui-radius-md);
+    color: #fff;
+    background: var(--rst-ui-surface-field);
+    font-size: 15px;
+    font-weight: var(--rst-fw-display);
+    cursor: pointer;
+    transition: transform 0.14s var(--rst-ease-out), background-color 0.14s ease, border-color 0.14s ease;
+  }
+
+  .matrix__cell:hover {
+    transform: translateY(-2px);
+    border-color: rgba(var(--rst-ui-action-rgb), 0.5);
+  }
+
+  .matrix__cell.is-on {
+    border-color: transparent;
+    background: linear-gradient(135deg, var(--rst-state-success), #2ea866);
+    box-shadow: 0 8px 18px rgba(22, 163, 74, 0.28);
+  }
+
+  /* ---- Team --------------------------------------------------------- */
+  .team-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+  }
+
+  .team-card {
+    position: relative;
+    display: grid;
+    gap: 8px;
+    padding: 14px 14px 14px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: var(--rst-ui-radius-xl);
+    background: #fff;
+    box-shadow: 0 2px 4px rgba(31, 22, 15, 0.05), 0 12px 26px rgba(31, 22, 15, 0.07);
+  }
+
+  .team-card__row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .team-card input,
+  .team-card select {
+    min-height: 34px;
+  }
+
+  .ghost-card--tall {
+    min-height: 128px;
+  }
+
+  /* ---- Review ------------------------------------------------------- */
+  .review-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .review-grid .glow-card {
+    animation: rst-fade-up 0.4s var(--rst-ease-out) backwards;
+  }
+
+  .review-grid strong {
     overflow: hidden;
+    font-size: 19px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .review-grid strong {
-    font-size: 17px;
+  /* ---- Stage actions ------------------------------------------------ */
+  .stage-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding-top: 4px;
+    border-top: 1px solid var(--rst-ui-divider-soft);
+    margin-top: 2px;
   }
 
-  .review-grid small {
-    color: var(--rst-ui-muted);
-  }
-
-  .blueprint-preview {
+  /* ---- Blueprint instrument ---------------------------------------- */
+  .blueprint {
     position: sticky;
-    top: 18px;
+    top: 16px;
     display: grid;
-    gap: 12px;
+    gap: 14px;
     padding: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--rst-ui-radius-2xl);
     color: #fffaf2;
-    background:
-      linear-gradient(145deg, rgba(16, 29, 45, 0.96), rgba(19, 34, 53, 0.96)),
-      url('/module-backgrounds/planning.webp') center / cover;
+    overflow: hidden;
+    background: linear-gradient(155deg, #131c26, #1a2620);
+    box-shadow: var(--rst-ui-shadow-card);
   }
 
-  .blueprint-preview > strong {
-    font-size: 26px;
-    line-height: 1;
-    letter-spacing: -0.04em;
+  .blueprint__head {
+    display: grid;
+    gap: 4px;
   }
 
-  .blueprint-preview > p {
+  .blueprint__head strong {
+    font-size: 19px;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+  }
+
+  .blueprint__head p {
     margin: 0;
     color: rgba(255, 250, 242, 0.7);
     font-size: 12px;
-    line-height: 1.4;
   }
 
-  .preview-lanes {
+  .blueprint__rhythm {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .blueprint__rhythm span {
+    display: grid;
+    place-items: center;
+    height: 28px;
+    border-radius: var(--rst-ui-radius-md);
+    color: rgba(255, 250, 242, 0.5);
+    background: rgba(255, 255, 255, 0.08);
+    font-size: 9px;
+    font-weight: var(--rst-fw-display);
+    text-transform: uppercase;
+  }
+
+  .blueprint__rhythm span.is-on {
+    color: #12301f;
+    background: var(--rst-green);
+  }
+
+  .blueprint__lanes {
     display: grid;
     gap: 8px;
   }
 
-  .preview-lanes section {
+  .blueprint__lanes section {
     display: grid;
     gap: 7px;
     padding: 12px;
     border-radius: var(--rst-ui-radius-lg);
     background: rgba(255, 255, 255, 0.08);
+    animation: rst-fade-up 0.35s var(--rst-ease-out) backwards;
   }
 
-  .preview-lanes header {
+  .blueprint__lanes header {
     color: #fff;
     font-weight: var(--rst-fw-display);
   }
 
-  .preview-lanes div {
+  .blueprint__lanes section > div {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
   }
 
-  .preview-lanes span,
-  .preview-lanes em {
-    min-height: 27px;
+  .blueprint__lanes span,
+  .blueprint__lanes em {
+    min-height: 26px;
     display: inline-flex;
     align-items: center;
     padding: 0 9px;
@@ -1347,85 +1561,56 @@
     font-weight: var(--rst-fw-bold);
   }
 
-  .preview-lanes em {
-    color: rgba(255, 250, 242, 0.62);
+  .blueprint__lanes em {
+    color: rgba(255, 250, 242, 0.6);
     background: rgba(255, 255, 255, 0.08);
   }
 
-  .empty-line {
+  .blueprint__empty {
     margin: 0;
-    padding: 18px;
-    color: var(--rst-ui-muted);
-    text-align: center;
-  }
-
-  .blueprint-preview .empty-line {
-    color: rgba(255, 250, 242, 0.62);
-  }
-
-  .step-actions {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
+    color: rgba(255, 250, 242, 0.6);
+    font-size: 12px;
+    line-height: 1.5;
   }
 
   @media (max-width: 1180px) {
     .launch-hero,
-    .launch-layout,
-    .step-grid {
+    .launch-grid {
       grid-template-columns: 1fr;
     }
 
-    .launch-rail,
-    .blueprint-preview {
+    .launch-hero__command {
+      justify-self: start;
+      justify-content: start;
+    }
+
+    .step-track {
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    }
+
+    .blueprint {
       position: static;
-    }
-
-    .launch-rail {
-      min-height: 0;
-      border-right: 0;
-      border-bottom: 1px solid var(--rst-ui-line);
-    }
-
-    .launch-rail nav {
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     }
   }
 
   @media (max-width: 760px) {
     .launch-hero {
       min-height: auto;
-      padding: 24px 18px;
     }
 
-    .launch-dial {
-      display: grid;
-      justify-content: start;
-    }
-
-    .launch-workspace {
-      padding: 18px;
-    }
-
-    .step-head {
+    .stage-head {
       align-items: start;
       flex-direction: column;
     }
 
-    .field-grid,
-    .rhythm-board,
-    .split-builder,
-    .review-grid,
-    .assignment-row,
-    .employee-row {
+    .fieldset,
+    .rhythm-cards,
+    .build-columns,
+    .review-grid {
       grid-template-columns: 1fr;
     }
 
-    .field-grid .wide {
-      grid-column: auto;
-    }
-
-    .day-strip {
+    .day-chips {
       grid-template-columns: repeat(4, minmax(0, 1fr));
     }
   }

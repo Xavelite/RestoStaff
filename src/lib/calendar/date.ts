@@ -2,7 +2,7 @@ export const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as con
 export const SERVICES = ['lunch', 'evening'] as const;
 export type ServiceKey = (typeof SERVICES)[number];
 
-export const SERVICE_DISPLAY: Record<ServiceKey, { label: string; icon: string }> = {
+const SERVICE_DISPLAY: Record<ServiceKey, { label: string; icon: string }> = {
   lunch: { label: 'Lunch', icon: '☀' },
   evening: { label: 'Evening', icon: '☾' }
 };
@@ -20,7 +20,7 @@ export function serviceLabel(serviceKey: string): string {
 
 const DAY_MS = 86_400_000;
 
-export function isoDate(value: Date | string): string {
+function isoDate(value: Date | string): string {
   const date = value instanceof Date ? value : new Date(`${value}T00:00:00Z`);
   return date.toISOString().slice(0, 10);
 }
