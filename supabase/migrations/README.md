@@ -14,6 +14,6 @@ Every migration must:
 5. be deployed to development before generated TypeScript types are refreshed.
 
 The ordered chain currently ends at
-`202607110019_public_schema_privilege_hardening.sql`. Apply every unapplied
+`202607120020_preserve_elapsed_availability.sql`. Apply every unapplied
 file in order; never rerun an already recorded migration or skip directly to a
 later contract.

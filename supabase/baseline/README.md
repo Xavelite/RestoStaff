@@ -19,6 +19,6 @@ types. It accepts only an empty project named `restogogo-acceptance-*` and
 refuses the linked development project.
 
 `public.sql` is a reviewed schema-only capture of the linked development public
-schema after migration `202607110019_public_schema_privilege_hardening`. It does
+schema after migration `202607120020_preserve_elapsed_availability`. It does
 not contain application rows, auth identities, secrets, environment-specific
 URLs, or Storage objects.

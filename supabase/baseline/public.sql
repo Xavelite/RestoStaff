@@ -3705,7 +3705,8 @@ begin
     delete from public.employee_availability_slots av
     where av.restaurant_id = p_restaurant_id
       and av.employee_id = p_employee_id
-      and av.week_start = v_week_start;
+      and av.week_start = v_week_start
+      and av.week_start + (av.weekday::integer - 1) >= v_today;
   end loop;
 
   insert into public.employee_availability_slots (

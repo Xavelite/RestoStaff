@@ -117,6 +117,7 @@ try {
     'work_pattern_contract.sql',
     'access_lifecycle_contract.sql',
     'schedule_timesheet_lifecycle_contract.sql',
+    'availability_lifecycle_contract.sql',
     'focused_read_models_contract.sql',
     'payroll_export_contract.sql',
     'model_integrity_contract.sql',

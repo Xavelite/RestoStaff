@@ -62,6 +62,19 @@ begin
 
   if exists (
     select 1
+    from public.notification_types
+    where code in (
+      'published_planning_changed',
+      'payroll_export_created',
+      'shift_changed_after_publication'
+    )
+      and active
+  ) then
+    raise exception 'Reserved notification types without a product implementation must stay inactive.';
+  end if;
+
+  if exists (
+    select 1
     from pg_policies
     where schemaname = 'public'
       and tablename = 'notification_receipts'
