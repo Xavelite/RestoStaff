@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   addDays,
   addMonths,
+  greetingForMinutes,
   hoursBetweenClocks,
   mondayFor,
   monthDates,
@@ -23,4 +24,11 @@ test('overnight ranges and restaurant timezone dates are deterministic', () => {
     todayInTimezone('Europe/Brussels', new Date('2026-06-17T22:30:00Z')),
     '2026-06-18'
   );
+});
+
+test('greetings follow the restaurant-local time of day', () => {
+  assert.equal(greetingForMinutes(11 * 60 + 59), 'Good morning');
+  assert.equal(greetingForMinutes(12 * 60), 'Good afternoon');
+  assert.equal(greetingForMinutes(17 * 60 + 59), 'Good afternoon');
+  assert.equal(greetingForMinutes(18 * 60), 'Good evening');
 });

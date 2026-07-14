@@ -107,6 +107,7 @@ test('manager notifications are derived from operational truth, not stored messa
   assert.equal(items[0].key, 'absence-request:a1');
   assert.equal(items[0].source.table, 'absences');
   assert.equal(items[0].actionMode, 'popup');
+  assert.equal(items[0].targetUrl, '/schedule?week=2026-06-22');
 });
 
 test('employee notifications include published planning and shift soon from real shifts', () => {
@@ -139,22 +140,6 @@ test('employee notifications include published planning and shift soon from real
           updated_at: '2026-06-22T12:00:00.000Z'
         }
       ],
-      work_week_events: [
-        {
-          id: 'wwe1',
-          restaurant_id: 'r1',
-          week_start: '2026-06-22',
-          event_type: 'planning_published',
-          actor_profile_id: 'p1',
-          actor_employee_id: null,
-          actor_role: 'manager',
-          previous_values: {},
-          new_values: {},
-          metadata: {},
-          reason: 'Published from planning.',
-          created_at: '2026-06-22T12:00:00.000Z'
-        }
-      ],
       planned_shifts: [
         {
           id: 's1',
@@ -175,9 +160,9 @@ test('employee notifications include published planning and shift soon from real
     }
   });
 
-  assert.ok(items.some((item) => item.key === 'planning-published:wwe1'));
-  assert.equal(items.find((item) => item.key === 'planning-published:wwe1')?.source.table, 'work_week_events');
-  assert.equal(items.find((item) => item.key === 'planning-published:wwe1')?.targetUrl, '/my-service?week=2026-06-22');
+  assert.ok(items.some((item) => item.key === 'planning-published:2026-06-22:1'));
+  assert.equal(items.find((item) => item.type === 'planning_published')?.source.table, 'work_weeks');
+  assert.equal(items.find((item) => item.type === 'planning_published')?.targetUrl, '/my-service?week=2026-06-22');
   assert.ok(items.some((item) => item.key === 'shift-soon:s1'));
   assert.equal(items.find((item) => item.key === 'shift-soon:s1')?.targetUrl, '/my-service?week=2026-06-22');
 });
@@ -268,6 +253,14 @@ test('manager notifications include employee submitted availability from submiss
     team: null,
     operations: {
       ...baseManager,
+      employee_contracts: [
+        {
+          employee_id: 'e1',
+          active: true,
+          is_current: true,
+          work_regime: 'weekly_availability'
+        }
+      ],
       employee_availability_submissions: [
         {
           restaurant_id: 'r1',
@@ -288,4 +281,183 @@ test('manager notifications include employee submitted availability from submiss
   assert.equal(item?.title, 'Sarah submitted availability');
   assert.equal(item?.source.table, 'employee_availability_submissions');
   assert.equal(item?.targetUrl, '/schedule?week=2026-06-29');
+});
+
+test('manager notifications ignore stale availability submissions from fixed schedules', () => {
+  const items = deriveNotifications({
+    restaurantId: 'r1',
+    role: 'manager',
+    employeeId: null,
+    today: '2026-06-23',
+    now: new Date('2026-06-23T10:00:00.000Z'),
+    timezone: 'Europe/Brussels',
+    team: null,
+    operations: {
+      ...baseManager,
+      employee_contracts: [
+        {
+          employee_id: 'e1',
+          active: true,
+          is_current: true,
+          work_regime: 'fixed_schedule'
+        }
+      ],
+      employee_availability_submissions: [
+        {
+          restaurant_id: 'r1',
+          employee_id: 'e1',
+          week_start: '2026-06-29',
+          status: 'submitted',
+          submitted_at: '2026-06-23T09:00:00.000Z',
+          created_at: '2026-06-23T08:50:00.000Z',
+          updated_at: '2026-06-23T09:00:00.000Z'
+        }
+      ]
+    }
+  });
+
+  assert.equal(
+    items.some((candidate) => candidate.type === 'employee_availability_updated'),
+    false
+  );
+});
+
+test('manager notifications cover unavailable shifts, open entries, absence conflicts, no-shows and accepted invites', () => {
+  const items = deriveNotifications({
+    restaurantId: 'r1',
+    role: 'manager',
+    employeeId: null,
+    today: '2026-06-23',
+    now: new Date('2026-06-23T12:00:00.000Z'),
+    timezone: 'Europe/Brussels',
+    team: {
+      employee_invitation_states: [
+        {
+          id: 'invite-1',
+          employee_id: 'e1',
+          email: 'sarah@example.com',
+          status: 'accepted',
+          accepted_at: '2026-06-23T10:00:00.000Z',
+          sent_at: '2026-06-22T10:00:00.000Z'
+        }
+      ]
+    },
+    operations: {
+      ...baseManager,
+      work_weeks: [
+        {
+          week_start: '2026-06-22',
+          planning_status: 'published'
+        }
+      ],
+      planned_shifts: [
+        {
+          id: 'shift-unavailable',
+          employee_id: 'e1',
+          week_start: '2026-06-22',
+          weekday: 3,
+          service_key: 'lunch',
+          starts_at: '10:00:00',
+          ends_at: '14:00:00',
+          updated_at: '2026-06-23T09:00:00.000Z'
+        },
+        {
+          id: 'shift-no-show',
+          employee_id: 'e1',
+          week_start: '2026-06-22',
+          weekday: 1,
+          service_key: 'evening',
+          starts_at: '18:00:00',
+          ends_at: '22:00:00',
+          updated_at: '2026-06-22T09:00:00.000Z'
+        }
+      ],
+      employee_availability_slots: [
+        {
+          employee_id: 'e1',
+          week_start: '2026-06-22',
+          weekday: 3,
+          service_key: 'lunch',
+          availability_state: 'unavailable'
+        }
+      ],
+      absences: [
+        {
+          id: 'absence-approved',
+          employee_id: 'e1',
+          status: 'approved',
+          start_date: '2026-06-23',
+          end_date: '2026-06-23',
+          service_key: 'lunch'
+        }
+      ],
+      time_entries: [
+        {
+          id: 'entry-open',
+          employee_id: 'e1',
+          business_date: '2026-06-23',
+          service_key: 'lunch',
+          planned_shift_id: null,
+          status: 'open',
+          clock_in_at: '2026-06-23T08:00:00.000Z',
+          clock_out_at: null,
+          updated_at: '2026-06-23T08:00:00.000Z'
+        }
+      ]
+    }
+  });
+
+  const types = new Set(items.map((item) => item.type));
+  assert.ok(types.has('employee_unavailable_on_planned_shift'));
+  assert.ok(types.has('employee_forgot_badge_out'));
+  assert.ok(types.has('worked_during_approved_absence'));
+  assert.ok(types.has('employee_no_show'));
+  assert.ok(types.has('employee_invite_accepted'));
+  assert.equal(items.find((item) => item.type === 'employee_invite_accepted')?.targetUrl, '/team');
+});
+
+test('employee notifications cover absence decisions and an own open badge entry', () => {
+  const items = deriveNotifications({
+    restaurantId: 'r1',
+    role: 'employee',
+    employeeId: 'e1',
+    today: '2026-06-23',
+    now: new Date('2026-06-23T12:00:00.000Z'),
+    timezone: 'Europe/Brussels',
+    operations: {
+      ...baseEmployee,
+      absences: [
+        {
+          id: 'absence-decided',
+          employee_id: 'e1',
+          status: 'approved',
+          start_date: '2026-06-27',
+          end_date: '2026-06-27',
+          service_key: 'evening',
+          approved_at: '2026-06-23T10:00:00.000Z',
+          rejected_at: null,
+          updated_at: '2026-06-23T10:00:00.000Z'
+        }
+      ],
+      time_entries: [
+        {
+          id: 'own-open-entry',
+          employee_id: 'e1',
+          business_date: '2026-06-23',
+          service_key: 'lunch',
+          status: 'open',
+          clock_in_at: '2026-06-23T08:00:00.000Z',
+          clock_out_at: null,
+          updated_at: '2026-06-23T08:00:00.000Z'
+        }
+      ]
+    }
+  });
+
+  assert.ok(items.some((item) => item.key === 'absence-decided:absence-decided:approved'));
+  assert.equal(
+    items.find((item) => item.type === 'absence_request_decided')?.targetUrl,
+    '/my-time?date=2026-06-27&service=evening'
+  );
+  assert.ok(items.some((item) => item.key === 'own-forgot-badge-out:own-open-entry'));
 });

@@ -10,8 +10,19 @@ import {
 } from '../src/lib/employee/employee-self-service.ts';
 import {
   SELECTABLE_AVAILABILITY,
-  availabilityUpdateHint
+  availabilityUpdateHint,
+  nextEmployeeService
 } from '../src/lib/employee/employee-model.ts';
+
+function serviceSlot(date, startsAt) {
+  return {
+    key: `employee|${date}|lunch`,
+    date,
+    serviceKey: 'lunch',
+    shift: { startsAt },
+    entry: null
+  };
+}
 
 test('employee availability is binary while historical partial values require an update', () => {
   assert.deepEqual(
@@ -21,6 +32,27 @@ test('employee availability is binary while historical partial values require an
   assert.equal(
     availabilityUpdateHint('partial'),
     'Your saved availability needs updating. Choose available or unavailable.'
+  );
+});
+
+test('next service excludes shifts that have already started today', () => {
+  const pastToday = serviceSlot('2026-07-13', '12:00');
+  const futureToday = serviceSlot('2026-07-13', '19:00');
+  const tomorrow = serviceSlot('2026-07-14', '11:00');
+
+  assert.equal(
+    nextEmployeeService([tomorrow, pastToday, futureToday], {
+      date: '2026-07-13',
+      minutes: 18 * 60
+    })?.shift?.startsAt,
+    '19:00'
+  );
+  assert.equal(
+    nextEmployeeService([pastToday, tomorrow], {
+      date: '2026-07-13',
+      minutes: 18 * 60
+    })?.date,
+    '2026-07-14'
   );
 });
 

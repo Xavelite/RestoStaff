@@ -71,6 +71,32 @@ test('service-slot truth exposes worked time over approved leave as a conflict',
   assert.equal(truth.actualHours, 3);
 });
 
+test('current-day planned service becomes missing once its start time passes', () => {
+  const modelSnapshot = snapshot();
+  const input = {
+    snapshot: modelSnapshot,
+    employeeId: 'e1',
+    date: '2026-07-13',
+    serviceKey: 'lunch',
+    today: '2026-07-13',
+    plan: {
+      id: 'shift-1',
+      startsAt: '12:00',
+      endsAt: '15:00',
+      area: 'Dining room'
+    }
+  };
+
+  assert.equal(
+    resolveWorkspaceServiceSlot({ ...input, asOf: new Date('2026-07-13T09:30:00Z') }).state,
+    'planned'
+  );
+  assert.equal(
+    resolveWorkspaceServiceSlot({ ...input, asOf: new Date('2026-07-13T10:30:00Z') }).state,
+    'missing_badge'
+  );
+});
+
 test('availability is a slot background and never an operational card', () => {
   const truth = resolveWorkspaceServiceSlot({
     snapshot: snapshot(),
