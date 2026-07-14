@@ -554,7 +554,7 @@ export function buildHomeModel(
     {
       key: 'leave',
       label: 'Leave approvals',
-      meta: 'Pending requests',
+      meta: 'This week',
       count: pendingAbsences.length,
       tone: pendingAbsences.length ? 'warning' : 'success',
       href: '/team',

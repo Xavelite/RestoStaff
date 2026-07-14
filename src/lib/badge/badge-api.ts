@@ -21,12 +21,24 @@ async function rpc(name: string, payload: JsonRecord): Promise<JsonRecord> {
   return result;
 }
 
-export type BadgeRosterEmployee = { employeeId: string; displayName: string };
+export type BadgeRosterEmployee = {
+  employeeId: string;
+  displayName: string;
+  clockedIn: boolean;
+  serviceKey?: 'lunch' | 'evening';
+  lastAction?: 'in' | 'out';
+  lastLocalTime?: string;
+};
 export type BadgeVerification = { token: string; expiresAt: string };
 export type BadgeResult = {
   action: 'in' | 'out';
   localTime: string;
   timezone: string;
+  serviceKey: 'lunch' | 'evening';
+  serviceName: string;
+  resumed: boolean;
+  breakMinutesAdded: number;
+  totalBreakMinutes: number;
 };
 
 export async function listBadgeRoster(restaurantId: string): Promise<BadgeRosterEmployee[]> {
@@ -37,7 +49,18 @@ export async function listBadgeRoster(restaurantId: string): Promise<BadgeRoster
     const row = item as JsonRecord;
     const employeeId = String(row.employee_id ?? '');
     const displayName = String(row.display_name ?? '');
-    return employeeId && displayName ? [{ employeeId, displayName }] : [];
+    const serviceKey = row.service_key === 'evening' ? 'evening' : row.service_key === 'lunch' ? 'lunch' : undefined;
+    const lastAction = row.last_action === 'in' ? 'in' : row.last_action === 'out' ? 'out' : undefined;
+    return employeeId && displayName
+      ? [{
+          employeeId,
+          displayName,
+          clockedIn: row.clocked_in === true,
+          serviceKey,
+          lastAction,
+          lastLocalTime: row.last_local_time ? String(row.last_local_time) : undefined
+        }]
+      : [];
   });
 }
 
@@ -61,7 +84,6 @@ export async function recordBadge(input: {
   restaurantId: string;
   employeeId: string;
   token: string;
-  serviceKey: 'lunch' | 'evening';
   photoUrl?: string;
   photoStatus?: string;
 }): Promise<BadgeResult> {
@@ -69,7 +91,7 @@ export async function recordBadge(input: {
     p_restaurant_id: input.restaurantId,
     p_employee_id: input.employeeId,
     p_badge_token: input.token,
-    p_service_key: input.serviceKey,
+    p_service_key: null,
     p_photo_url: input.photoUrl ?? null,
     p_photo_status: input.photoStatus ?? 'not_required'
   });
@@ -77,7 +99,12 @@ export async function recordBadge(input: {
   return {
     action: result.action === 'out' ? 'out' : 'in',
     localTime: String(result.local_time ?? ''),
-    timezone: String(result.timezone ?? '')
+    timezone: String(result.timezone ?? ''),
+    serviceKey: result.service_key === 'evening' ? 'evening' : 'lunch',
+    serviceName: String(result.service_name ?? (result.service_key === 'evening' ? 'Evening' : 'Lunch')),
+    resumed: result.resumed === true,
+    breakMinutesAdded: Math.max(0, Number(result.break_minutes_added ?? 0)),
+    totalBreakMinutes: Math.max(0, Number(result.total_break_minutes ?? 0))
   };
 }
 

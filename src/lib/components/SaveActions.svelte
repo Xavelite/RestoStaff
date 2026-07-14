@@ -1,5 +1,6 @@
 <script lang="ts">
   import ActionButton from './ActionButton.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
 
   let {
     dirty,
@@ -22,13 +23,13 @@
   } = $props();
 </script>
 
-<div class="save-actions" class:is-embedded={embedded} aria-label="Workspace changes">
-  <span aria-live="polite">{dirty ? 'Unsaved changes' : 'All changes saved'}</span>
+<div class="save-actions" class:is-embedded={embedded} aria-label={t('Workspace changes')}>
+  <span aria-live="polite">{dirty ? t('Unsaved changes') : t('All changes saved')}</span>
   {#if dirty || busy || showCleanActions}
     <div class="save-actions__buttons">
-      <ActionButton label="Cancel changes" disabled={!dirty || busy} onclick={oncancel} />
+      <ActionButton label={t('Cancel changes')} disabled={!dirty || busy} onclick={oncancel} />
       <ActionButton
-        label={busy ? busyLabel : saveLabel}
+        label={t(busy ? busyLabel : saveLabel)}
         tone="primary"
         disabled={!dirty || busy}
         onclick={onsave}

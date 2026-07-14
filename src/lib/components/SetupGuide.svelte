@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/i18n.svelte';
+
   export type SetupStep = {
     label: string;
     detail: string;
@@ -10,9 +12,9 @@
   const complete = $derived(steps.filter((step) => step.complete).length);
 </script>
 
-<section class="guide" aria-label={title}>
+<section class="guide" aria-label={t(title)}>
   <header>
-    <div><span>Setup guide</span><h2>{title}</h2></div>
+    <div><span>{t('Setup guide')}</span><h2>{t(title)}</h2></div>
     <strong>{complete}/{steps.length}</strong>
   </header>
   <div class="progress"><i style:width={`${steps.length ? (complete / steps.length) * 100 : 0}%`}></i></div>
@@ -20,7 +22,7 @@
     {#each steps as step (step.label)}
       <a class:is-complete={step.complete} href={step.href} onclick={step.onselect}>
         <span aria-hidden="true">{step.complete ? '✓' : '→'}</span>
-        <span><strong>{step.label}</strong><small>{step.detail}</small></span>
+        <span><strong>{t(step.label)}</strong><small>{t(step.detail)}</small></span>
       </a>
     {/each}
   </div>

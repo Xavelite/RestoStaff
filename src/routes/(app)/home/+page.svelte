@@ -1,7 +1,13 @@
 <script lang="ts">
   import { saveAbsence } from '$lib/api/mutations';
   import { auth } from '$lib/auth/session.svelte';
-  import { addDays, mondayFor, serviceLabel, todayInTimezone } from '$lib/calendar/date';
+  import {
+    addDays,
+    greetingForMinutes,
+    localDateTimeParts,
+    mondayFor,
+    serviceLabel
+  } from '$lib/calendar/date';
   import LiveDuration from '$lib/components/LiveDuration.svelte';
   import PageScaffold from '$lib/components/PageScaffold.svelte';
   import PageHero from '$lib/components/PageHero.svelte';
@@ -14,11 +20,24 @@
   import { workspaceRealtime } from '$lib/realtime/workspace-realtime.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
+  import { i18n, t } from '$lib/i18n/i18n.svelte';
+  import { restaurantWeather } from '$lib/weather/restaurant-weather.svelte';
+  import { weatherCondition, weatherImpact as buildWeatherImpact, weatherSymbol } from '$lib/weather/weather';
 
   const MIN_TIMELINE_SPAN = 8 * 60;
 
   const membership = $derived(workspace.active);
   const snapshot = $derived(workspace.operations);
+  const weatherLocation = $derived(
+    snapshot
+      ? {
+          city: snapshot.restaurant.city ?? '',
+          postalCode: snapshot.restaurant.postal_code ?? '',
+          countryCode: snapshot.restaurant.country_code,
+          timezone: snapshot.restaurant_settings.timezone ?? undefined
+        }
+      : null
+  );
   const employeeColor = $derived(
     snapshot
       ? buildEmployeeColorMap(snapshot.job_functions, snapshot.employee_job_functions)
@@ -29,21 +48,37 @@
       workspace.bootstrap?.restaurant_settings.timezone ||
       'Europe/Brussels'
   );
-  const today = $derived(todayInTimezone(timezone));
+  let currentInstant = $state(new Date());
+  const localNow = $derived(localDateTimeParts(currentInstant, timezone));
+  const today = $derived(localNow.date);
   const activeWeek = $derived(mondayFor(today));
+  $effect(() => {
+    const timer = setInterval(() => (currentInstant = new Date()), 60_000);
+    return () => clearInterval(timer);
+  });
   $effect(() => {
     if (workspace.activeId && membership && membership.role !== 'employee') {
       void workspace.loadOperations(activeWeek, addDays(activeWeek, 6), true).catch(() => undefined);
     }
+  });
+  $effect(() => {
+    if (weatherLocation?.city) void restaurantWeather.load(weatherLocation);
   });
   const model = $derived(
     snapshot && membership
       ? buildHomeModel(snapshot, membership.role)
       : null
   );
+  const weather = $derived(restaurantWeather.snapshot);
+  const weatherImpact = $derived(weather ? buildWeatherImpact(weather) : null);
+  const todayWeather = $derived(weather?.daily.find((day) => day.date === today) ?? null);
+  const weatherUpdatedLabel = $derived(
+    weather ? weather.observedAt.slice(11, 16) || weather.observedAt : ''
+  );
   const firstName = $derived(
     String(
-      auth.user?.user_metadata?.first_name ||
+      workspace.bootstrap?.current_employee?.first_name ||
+        auth.user?.user_metadata?.first_name ||
         auth.user?.user_metadata?.name ||
         auth.user?.email ||
         'Manager'
@@ -102,14 +137,15 @@
   // The fullscreen monitor shows the whole floor for today, not just exceptions.
   const todayRosterRows = $derived(model?.live.todayRoster ?? []);
   const serviceDateLabel = $derived(
-    new Intl.DateTimeFormat('en-GB', {
+    new Intl.DateTimeFormat(i18n.intlLocale, {
       weekday: 'short',
       day: '2-digit',
       month: 'short',
       timeZone: timezone
     }).format(new Date(`${today}T12:00:00`))
   );
-  const nowMinutes = $derived(localMinutesForTimezone(timezone));
+  const nowMinutes = $derived(localNow.minutes);
+  const greeting = $derived(greetingForMinutes(nowMinutes));
   const todayWeekday = $derived(
     Math.round(
       (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${mondayFor(today)}T00:00:00Z`)) /
@@ -158,18 +194,22 @@
                   shift.area_id === area.id &&
                   shift.service_key === serviceKey
               ).length;
-              const ratio = requiredCount ? plannedCount / requiredCount : plannedCount ? 1 : 0;
+              const status = (requiredCount === 0
+                ? plannedCount > 0
+                  ? 'covered'
+                  : 'none'
+                : plannedCount < requiredCount
+                  ? 'under'
+                  : plannedCount > requiredCount
+                    ? 'over'
+                    : 'covered') as 'under' | 'covered' | 'over' | 'none';
               return {
                 serviceKey,
                 icon: serviceKey === 'evening' ? '☾' : '☀',
-                count: requiredCount ? `${plannedCount} / ${requiredCount}` : `${plannedCount}`,
-                tone: (requiredCount && plannedCount < requiredCount
-                  ? 'danger'
-                  : plannedCount
-                    ? 'success'
-                    : 'warning') as 'danger' | 'success' | 'warning',
-                dots: requiredCount ? Math.max(1, Math.min(5, Math.round(ratio * 5))) : plannedCount ? 5 : 1,
-                short: requiredCount ? Math.max(0, requiredCount - plannedCount) : 0
+                required: requiredCount,
+                planned: plannedCount,
+                status,
+                people: [] as { id: string; name: string }[]
               };
             });
             // One row per person, tagged with the services they cover, so
@@ -196,17 +236,23 @@
               assignmentMap.set(shift.employee_id, existing);
             }
             const assignments = [...assignmentMap.values()];
+            // Attach the actual people covering each service so the floor card
+            // shows who works lunch vs evening, not one blended crew.
+            for (const service of services) {
+              service.people = assignments
+                .filter((entry) => (service.serviceKey === 'evening' ? entry.evening : entry.lunch))
+                .map((entry) => ({ id: entry.id, name: entry.name }));
+            }
             return {
               id: area.id,
               label: area.name,
               services,
               // Room tone is the worst of its two services.
-              tone: services.some((service) => service.tone === 'danger')
+              tone: services.some((service) => service.status === 'under')
                 ? 'danger'
-                : services.some((service) => service.tone === 'success')
+                : services.some((service) => service.status === 'covered' || service.status === 'over')
                   ? 'success'
-                  : 'warning',
-              assignments
+                  : 'warning'
             };
           })
       : []
@@ -233,17 +279,6 @@
     let value = minutes;
     if (value < window.start && window.end > 1440) value += 1440;
     return clamp(((value - window.start) / Math.max(1, window.end - window.start)) * 100, 0, 100);
-  }
-
-  function localMinutesForTimezone(timeZone: string) {
-    const parts = new Intl.DateTimeFormat('en-GB', {
-      timeZone,
-      hour: '2-digit',
-      minute: '2-digit',
-      hourCycle: 'h23'
-    }).formatToParts(new Date());
-    const lookup = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-    return Number(lookup.hour ?? 0) * 60 + Number(lookup.minute ?? 0);
   }
 
   function liveRowTimes(row: HomeLiveRow) {
@@ -463,39 +498,39 @@
   {#if workspace.moduleLoading && !snapshot}
     <div class="state" aria-live="polite">
       <span class="spinner" aria-hidden="true"></span>
-      <p>Loading your restaurant cockpit…</p>
+      <p>{t('Loading your restaurant cockpit…')}</p>
     </div>
   {:else if workspace.error && !snapshot}
     <div class="state is-error" role="alert">
-      <strong>We could not load the workspace.</strong>
+      <strong>{t('We could not load the workspace.')}</strong>
       <p>{workspace.error}</p>
-      <button type="button" onclick={() => workspace.load()}>Try again</button>
+      <button type="button" onclick={() => workspace.load()}>{t('Try again')}</button>
     </div>
   {:else if model && membership}
     {#snippet pageHeader()}
       <PageHero
-        eyebrow={`${serviceDateLabel} · Service command`}
+        eyebrow={`${serviceDateLabel} · ${t('Service command')}`}
         titleId="home-title"
-        title={`Good morning, ${firstName}.`}
-        subtitle="Start with the one thing that can block service, keep the floor moving, then close payroll with proof."
+        title={`${t(greeting)}, ${firstName}.`}
+        subtitle={t('Start with the one thing that can block service, keep the floor moving, then close payroll with proof.')}
       >
         {#snippet command()}
-          <div class="home-hero__command" aria-label="Today command signal">
+          <div class="home-hero__command" aria-label={t('Today command signal')}>
             <div class:has-pressure={decisionTotal > 0 || model.live.late > 0} class="signal-orb">
               <strong use:countUp={decisionTotal}>{decisionTotal}</strong>
-              <span>{decisionTotal === 1 ? 'decision' : 'decisions'}</span>
+              <span>{t(decisionTotal === 1 ? 'decision' : 'decisions')}</span>
             </div>
             <dl>
               <button type="button" class="stat-filter" class:is-active={liveFilter === 'success'} onclick={() => toggleLiveFilter('success')}>
-                <dt>Working</dt>
+                <dt>{t('Working')}</dt>
                 <dd use:countUp={model.live.working}>{model.live.working}</dd>
               </button>
               <button type="button" class="stat-filter" class:is-active={liveFilter === 'danger'} onclick={() => toggleLiveFilter('danger')}>
-                <dt>Late</dt>
+                <dt>{t('Late')}</dt>
                 <dd use:countUp={model.live.late}>{model.live.late}</dd>
               </button>
               <button type="button" class="stat-filter" class:is-active={liveFilter === 'neutral'} onclick={() => toggleLiveFilter('neutral')}>
-                <dt>Upcoming</dt>
+                <dt>{t('Upcoming')}</dt>
                 <dd use:countUp={model.live.upcoming}>{model.live.upcoming}</dd>
               </button>
             </dl>
@@ -507,14 +542,14 @@
       {/if}
     {/snippet}
 
-    <PageScaffold header={pageHeader} label="Home command center">
+    <PageScaffold header={pageHeader} label={t('Home command center')}>
       <div class="command-center">
         <div class="command-grid">
-          <aside class="decision-stack" aria-label="Decision wall">
-            <section class="decision-wall" aria-label="Open decisions">
+          <aside class="decision-stack" aria-label={t('Decision wall')}>
+            <section class="decision-wall" aria-label={t('Open decisions')}>
               <header>
-                <span class="section-kicker">Decision wall</span>
-                <strong>{decisionTotal} open</strong>
+                <span class="section-kicker">{t('Decision wall')}</span>
+                <strong>{decisionTotal} {t('open')}</strong>
               </header>
               <div>
                 {#each decisionRows as action, index}
@@ -532,8 +567,8 @@
                       onclick={() => openAction(action)}
                     >
                       <span aria-hidden="true">{action.symbol}</span>
-                      <strong>{action.label}</strong>
-                      <small>{action.meta}</small>
+                      <strong>{t(action.label)}</strong>
+                      <small>{t(action.meta)}</small>
                       <b>{action.count}</b>
                       <i class="decision-row__go" aria-hidden="true">{action.count === 0 ? '' : isOpen ? '−' : '+'}</i>
                     </button>
@@ -548,8 +583,8 @@
                                   <span>{absence.start_date === absence.end_date ? absence.start_date : `${absence.start_date} → ${absence.end_date}`}</span>
                                 </div>
                                 <span class="decision-approve__actions">
-                                  <button type="button" disabled={Boolean(resolvingAbsenceId)} onclick={() => resolveAbsence(absence.id, absence.employee_id, 'approve')}>Approve</button>
-                                  <button type="button" class="is-reject" disabled={Boolean(resolvingAbsenceId)} onclick={() => resolveAbsence(absence.id, absence.employee_id, 'reject')}>Reject</button>
+                                  <button type="button" disabled={Boolean(resolvingAbsenceId)} onclick={() => resolveAbsence(absence.id, absence.employee_id, 'approve')}>{t('Approve')}</button>
+                                  <button type="button" class="is-reject" disabled={Boolean(resolvingAbsenceId)} onclick={() => resolveAbsence(absence.id, absence.employee_id, 'reject')}>{t('Reject')}</button>
                                 </span>
                               </li>
                             {/each}
@@ -561,7 +596,7 @@
                             {/each}
                           </ul>
                         {:else}
-                          <p>No specific items to review right now.</p>
+                          <p>{t('No specific items to review right now.')}</p>
                         {/if}
                         <a href={action.href}>{decisionLinkLabel(action.href)} →</a>
                       </div>
@@ -573,24 +608,64 @@
 
             {#if payrollAction}
               <article class="payroll-setup">
-                <span class="section-kicker">Payroll setup</span>
-                <h2>{payrollAction.count ? 'Missing payroll info' : 'Payroll setup complete'}</h2>
-                <p>{payrollAction.meta}</p>
+                <span class="section-kicker">{t('Payroll setup')}</span>
+                <h2>{payrollAction.count ? t('Missing payroll info') : t('Payroll setup complete')}</h2>
+                <p>{t(payrollAction.meta)}</p>
                 <div class="payroll-setup__count">
                   <strong use:countUp={payrollAction.count}>{payrollAction.count}</strong>
-                  <span>{payrollAction.count ? payrollAction.count === 1 ? 'employee needs setup' : 'employees need setup' : 'team records complete'}</span>
+                  <span>{payrollAction.count ? payrollAction.count === 1 ? 'employee needs setup' : 'employees need setup' : 'no records missing'}</span>
                 </div>
-                <a class="primary-link" href={payrollAction.href}>Open Team</a>
+                <a class="primary-link" href={payrollAction.href}>{t('Open Team')}</a>
               </article>
             {/if}
           </aside>
 
           <section class="operations-stack" aria-label="Live monitor and coverage">
+            {#if weatherLocation?.city}
+              <section class={`weather-brief is-${weatherImpact?.tone ?? 'loading'}`} aria-label={t('Restaurant weather')}>
+                {#if weather}
+                  <header class="weather-current">
+                    <span class="weather-symbol" aria-hidden="true">{weatherSymbol(weather.code, weather.isDay)}</span>
+                    <div>
+                      <span class="section-kicker">{t('Weather')} · {weather.location.name}</span>
+                      <h2>{Math.round(weather.temperatureC)}° <small>{t(weatherCondition(weather.code))}</small></h2>
+                    </div>
+                  </header>
+                  <div class="weather-impact">
+                    <span>{t('Service outlook')}</span>
+                    <strong>{t(weatherImpact?.label ?? '')}</strong>
+                    <p>{t(weatherImpact?.detail ?? '')}</p>
+                  </div>
+                  <dl class="weather-stats">
+                    <div><dt>{t('Rain · next 12h')}</dt><dd>{weather.nextRainChance}%</dd></div>
+                    <div><dt>{t('Wind')}</dt><dd>{Math.round(weather.windKph)} <small>km/h</small></dd></div>
+                    <div><dt>{t('Today')}</dt><dd>{todayWeather ? `${Math.round(todayWeather.lowC)}–${Math.round(todayWeather.highC)}°` : '—'}</dd></div>
+                  </dl>
+                  <footer>
+                    <span>{t('Updated {time}', { time: weatherUpdatedLabel })}</span>
+                    <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">{t('Weather data by Open-Meteo')}</a>
+                    <button type="button" aria-label={t('Refresh weather')} title={t('Refresh weather')} onclick={() => restaurantWeather.load(weatherLocation, true)}>↻</button>
+                  </footer>
+                {:else if restaurantWeather.loading}
+                  <div class="weather-state" aria-live="polite">
+                    <span class="weather-symbol" aria-hidden="true">◌</span>
+                    <div><strong>{t('Reading the local forecast')}</strong><small>{weatherLocation.city}</small></div>
+                  </div>
+                {:else}
+                  <div class="weather-state is-error">
+                    <span class="weather-symbol" aria-hidden="true">◌</span>
+                    <div><strong>{t('Weather is temporarily unavailable')}</strong><small>{t('Restaurant operations remain unchanged.')}</small></div>
+                    <button type="button" onclick={() => restaurantWeather.load(weatherLocation, true)}>{t('Retry')}</button>
+                  </div>
+                {/if}
+              </section>
+            {/if}
+
             {#snippet liveTimeline(rows: HomeLiveRow[], detailed = false)}
               <div class="time-axis" style={`--now-left:${nowMarkerLeft}`} aria-hidden="true">
                 <span class="axis-cell"></span>
                 <span class="axis-track">
-                  <span class="now-pill">Now</span>
+                    <span class="now-pill">{t('Now')}</span>
                   {#each timelineTicks as tick}
                     <span class="axis-tick" style={`--tick-left:${timelinePercent(tick, timelineWindow)}%`}>{formatTimelineTick(tick)}</span>
                   {/each}
@@ -631,14 +706,14 @@
                     {#if expandedLiveKey === key}
                       <span class="live-row__detail">
                         <span>{liveRowDetail(row)}</span>
-                        <a href="/timesheet">Open in Timesheet →</a>
+                        <a href="/timesheet">{t('Open in Timesheet →')}</a>
                       </span>
                     {/if}
                   </button>
                 {:else}
                   <div class="live-empty">
-                    <strong>{liveFilter ? 'Nothing in this filter right now.' : 'No live service pressure.'}</strong>
-                    <span>{liveFilter ? 'Clear the filter above to see everyone.' : 'Today is quiet, or no shift is close enough to monitor.'}</span>
+                    <strong>{liveFilter ? t('Nothing in this filter right now.') : t('No live service pressure.')}</strong>
+                    <span>{liveFilter ? t('Clear the filter above to see everyone.') : t('Today is quiet, or no shift is close enough to monitor.')}</span>
                   </div>
                 {/each}
               </div>
@@ -648,8 +723,8 @@
               <div class="live-command__timeline">
                 <header>
                   <div>
-                    <span class="section-kicker">Live monitor</span>
-                    <h2>{model.live.late ? 'Service pressure' : 'Floor movement'}</h2>
+                    <span class="section-kicker">{t('Live monitor')}</span>
+                    <h2>{model.live.late ? t('Service pressure') : t('Floor movement')}</h2>
                   </div>
                   <div class="live-command__tools">
                     <strong class="live-summary">
@@ -665,49 +740,54 @@
             <div class="coverage-map" aria-label="Coverage by work area">
               <header>
                 <div>
-                  <span class="section-kicker">Coverage floor</span>
-                  <h3>Rooms to watch today</h3>
+                  <span class="section-kicker">{t('Coverage floor')}</span>
+                  <h3>{t('Rooms to watch today')}</h3>
                 </div>
-                <a href="/schedule">Open Schedule</a>
+                <a href="/schedule">{t('Open Schedule')}</a>
               </header>
               <div class="coverage-rooms">
                 {#each coverageRooms as room, roomIndex}
-                  <button type="button" class={`coverage-room is-${room.tone} rst-stagger-in`} style={`--rst-i:${roomIndex}`}>
-                    <strong>{room.label}</strong>
+                  <a href="/schedule" class={`coverage-room is-${room.tone} rst-stagger-in`} style={`--rst-i:${roomIndex}`}>
+                    <span class="coverage-room__head">
+                      <strong>{room.label}</strong>
+                      {#if room.services.some((service) => service.status === 'under')}
+                        <span class="coverage-room__flag is-under">{t('Short')}</span>
+                      {:else}
+                        <span class="coverage-room__flag is-ok">{t('Covered')}</span>
+                      {/if}
+                    </span>
                     {#each room.services as service}
-                      <div class={`room-service is-${service.tone}`}>
-                        <span class="room-service__lead"><b class="room-service__icon">{service.icon}</b>{service.count}</span>
-                        <span class="room-service__dots" aria-hidden="true">
-                          {#each Array(5) as _, index}
-                            <i class:is-on={index < service.dots} style={`animation-delay:${roomIndex * 55 + index * 40}ms`}></i>
+                      <div class={`room-service is-${service.status}`}>
+                        <span class="room-service__lead">
+                          <b class="room-service__icon">{service.icon}</b>
+                          <span class="room-service__count">{service.planned}/{service.required || service.planned}</span>
+                        </span>
+                        <span class="room-service__slots">
+                          {#each service.people.slice(0, 5) as person (person.id)}
+                            <span
+                              class="room-slot is-filled"
+                              style={employeeColor.get(person.id) ? `--avatar-color:${employeeColor.get(person.id)};` : undefined}
+                              title={person.name}
+                            >{person.name.slice(0, 2).toUpperCase()}</span>
                           {/each}
+                          {#if service.people.length > 5}
+                            <span class="room-slot__more">+{service.people.length - 5}</span>
+                          {/if}
+                          {#each Array(Math.max(0, service.required - service.people.length)) as _, slotIndex (slotIndex)}
+                            <span class="room-slot is-empty" aria-hidden="true"></span>
+                          {/each}
+                          {#if service.required === 0 && service.people.length === 0}
+                            <em class="room-service__empty">{t('No cover set')}</em>
+                          {/if}
                         </span>
                       </div>
                     {/each}
-                    <div class="room-crew" aria-label="On the floor today">
-                      {#if room.assignments.length}
-                        {#each room.assignments as assignment (assignment.id)}
-                          <span
-                            class="room-crew__avatar"
-                            style={employeeColor.get(assignment.id) ? `--avatar-color:${employeeColor.get(assignment.id)};` : undefined}
-                            title={`${assignment.name} · ${assignment.lunch && assignment.evening ? 'Lunch + evening' : assignment.evening ? 'Evening' : 'Lunch'}`}
-                          >{assignment.name.slice(0, 2).toUpperCase()}</span>
-                        {/each}
-                      {:else}
-                        <em class="room-crew__empty">Nobody scheduled yet</em>
-                      {/if}
-                    </div>
-                  </button>
+                  </a>
                 {:else}
-                  <article class="coverage-room is-warning">
-                    <strong>Coverage setup</strong>
-                    <span>No active work areas yet</span>
-                    <div aria-hidden="true">
-                      {#each Array(6) as _, index}
-                        <i class:is-on={index < 2}></i>
-                      {/each}
-                    </div>
-                  </article>
+                  <div class="coverage-room is-warning">
+                    <span class="coverage-room__head"><strong>{t('Coverage floor')}</strong></span>
+                    <em class="room-service__empty">{t('No active work areas yet')}</em>
+                  </div>
                 {/each}
               </div>
             </div>
@@ -914,6 +994,7 @@
 
   .payroll-setup,
   .decision-wall,
+  .weather-brief,
   .live-command,
   .coverage-map {
     min-width: 0;
@@ -926,12 +1007,14 @@
   }
 
   .decision-wall { animation-delay: .05s; }
+  .weather-brief { animation-delay: .08s; }
   .live-command { animation-delay: .1s; }
   .coverage-map { animation-delay: .16s; }
   .payroll-setup { animation-delay: .2s; }
 
   .payroll-setup:hover,
   .decision-wall:hover,
+  .weather-brief:hover,
   .live-command:hover,
   .coverage-map:hover {
     transform: translateY(-3px);
@@ -991,13 +1074,104 @@
     cursor: pointer;
   }
 
+  .weather-brief {
+    min-height: 150px;
+    display: grid;
+    grid-template-columns: minmax(210px, .8fr) minmax(220px, 1fr) minmax(210px, .8fr);
+    align-items: center;
+    gap: 16px 24px;
+    padding: 18px 20px 12px;
+    overflow: hidden;
+    color: #eaf5ff;
+    border-color: rgba(116, 188, 220, .24);
+    background: #102635;
+  }
+
+  .weather-brief.is-watch { border-color: rgba(247, 183, 51, .42); background: #272719; }
+  .weather-brief.is-risk { border-color: rgba(240, 100, 35, .48); background: #302018; }
+
+  .weather-current {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .weather-symbol {
+    width: 64px;
+    height: 64px;
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    color: #ffd766;
+    font-size: 38px;
+    line-height: 1;
+  }
+
+  .weather-current > div { min-width: 0; display: grid; gap: 5px; }
+  .weather-current h2 { margin: 0; color: #fff; font-size: 34px; line-height: 1; letter-spacing: 0; }
+  .weather-current h2 small { color: #a9c2d2; font-size: 13px; font-weight: var(--rst-fw-bold); letter-spacing: 0; }
+
+  .weather-impact { min-width: 0; display: grid; gap: 4px; }
+  .weather-impact > span { color: #7fb5d0; font-size: 10px; font-weight: var(--rst-fw-display); text-transform: uppercase; }
+  .weather-impact strong { color: #fff; font-size: 17px; }
+  .weather-impact p { margin: 0; color: #a9c2d2; font-size: 12px; line-height: 1.45; }
+
+  .weather-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0; }
+  .weather-stats div { min-width: 0; display: grid; gap: 5px; }
+  .weather-stats dt { color: #7fb5d0; font-size: 9px; font-weight: var(--rst-fw-display); text-transform: uppercase; }
+  .weather-stats dd { margin: 0; color: #fff; font-size: 18px; font-weight: var(--rst-fw-display); white-space: nowrap; }
+  .weather-stats dd small { color: #a9c2d2; font-size: 9px; }
+
+  .weather-brief footer {
+    grid-column: 1 / -1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, .08);
+    color: #789bad;
+    font-size: 9px;
+  }
+
+  .weather-brief footer a { color: #9bc8df; text-decoration: none; }
+  .weather-brief footer button {
+    width: 28px;
+    height: 28px;
+    margin-left: auto;
+    border: 0;
+    border-radius: var(--rst-ui-radius-round);
+    color: #eaf5ff;
+    background: rgba(255, 255, 255, .07);
+    font: inherit;
+    font-size: 17px;
+    cursor: pointer;
+  }
+
+  .weather-state {
+    grid-column: 1 / -1;
+    min-height: 112px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+  }
+  .weather-state > div { display: grid; gap: 4px; }
+  .weather-state strong { color: #fff; }
+  .weather-state small { color: #a9c2d2; }
+  .weather-state button { margin-left: auto; padding: 8px 12px; border: 1px solid rgba(255,255,255,.14); border-radius: var(--rst-ui-radius-md); color: #fff; background: rgba(255,255,255,.07); font: inherit; cursor: pointer; }
+
   .decision-wall {
     position: relative;
     overflow: visible;
-    color: #fffaf2;
+    border-color: var(--rst-command-border);
+    border-radius: var(--rst-command-radius);
+    color: var(--rst-command-text);
     background:
       radial-gradient(circle at 85% 10%, rgba(240, 100, 35, 0.45), transparent 36%),
-      linear-gradient(145deg, #211913, #4b2b1e);
+      var(--rst-command-bg-warm);
+    box-shadow: var(--rst-command-shadow);
   }
 
   .decision-wall header {
@@ -1682,79 +1856,76 @@
     min-height: 112px;
     display: grid;
     align-content: center;
-    gap: 8px;
-    padding: 18px;
-    border: 0;
+    gap: 9px;
+    padding: 16px 18px;
     color: #fffaf2;
     background: rgba(255, 255, 255, 0.04);
-    font: inherit;
-    text-align: left;
-    cursor: default;
+    text-decoration: none;
+    transition: background-color 0.18s ease;
   }
 
-  /* Who is on the floor, shown as compact position-coloured avatars — always
-     visible, so no destructive hover is needed to read the room's crew. */
-  .room-crew {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px;
-    margin-top: 2px;
+  a.coverage-room:hover {
+    background: rgba(255, 255, 255, 0.07);
   }
 
-  .room-crew__avatar {
-    width: 22px;
-    height: 22px;
-    display: grid;
-    place-items: center;
-    border-radius: var(--rst-ui-radius-round);
-    color: #fffaf2;
-    background: var(--avatar-color, #35507a);
-    box-shadow: 0 2px 6px rgba(4, 11, 20, 0.28);
-    font-size: 9px;
-    font-weight: var(--rst-fw-display);
-    letter-spacing: 0.02em;
-  }
-
-  .room-crew__empty {
-    color: rgba(255, 250, 242, 0.4);
-    font-size: 11px;
-    font-style: normal;
-  }
-
-  .coverage-room strong,
-  .coverage-room span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .coverage-room strong {
-    font-size: 13px;
-    font-weight: var(--rst-fw-display);
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  .coverage-room span {
-    color: rgba(255, 250, 242, 0.72);
-    font-size: 12px;
-    font-weight: var(--rst-fw-display);
-  }
-
-  .room-service {
+  .coverage-room__head {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 10px;
   }
 
+  .coverage-room strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: var(--rst-fw-display);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .coverage-room__flag {
+    flex: 0 0 auto;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: var(--rst-fw-display);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .coverage-room__flag.is-under {
+    color: #ffd7c6;
+    background: rgba(240, 100, 35, 0.24);
+  }
+
+  .coverage-room__flag.is-ok {
+    color: #c9f6de;
+    background: rgba(64, 200, 120, 0.22);
+  }
+
+  /* Each service is a coverage strip: filled slots carry the person's badge,
+     empty dashed slots are the shortfall, and the left rule signals the state. */
+  .room-service {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 0 4px 10px;
+    border-left: 3px solid rgba(255, 255, 255, 0.14);
+  }
+
+  .room-service.is-under { border-left-color: var(--rst-ui-action); }
+  .room-service.is-covered { border-left-color: var(--rst-green); }
+  .room-service.is-over { border-left-color: var(--rst-state-info); }
+
   .room-service__lead {
+    flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
-    gap: 7px;
-    overflow: visible;
+    gap: 6px;
+    width: 50px;
     color: rgba(255, 250, 242, 0.86);
     font-size: 12px;
     font-weight: var(--rst-fw-display);
@@ -1762,74 +1933,49 @@
   }
 
   .room-service__icon {
-    font-size: 13px;
+    font-size: 14px;
     line-height: 1;
-    color: rgba(255, 250, 242, 0.55);
   }
 
-  .room-service.is-danger .room-service__icon {
-    color: var(--rst-ui-action);
-  }
-
-  .room-service__dots {
-    display: inline-flex;
+  .room-service__slots {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
     gap: 5px;
+    min-width: 0;
   }
 
-  .room-service__dots i {
-    width: 9px;
-    height: 9px;
-    border-radius: var(--rst-ui-radius-pill);
-    background: rgba(255, 255, 255, 0.16);
+  .room-slot {
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    border-radius: var(--rst-ui-radius-round);
+    font-size: 9px;
+    font-weight: var(--rst-fw-display);
+  }
+
+  .room-slot.is-filled {
+    color: #fffaf2;
+    background: var(--avatar-color, #35507a);
+    box-shadow: 0 2px 6px rgba(4, 11, 20, 0.28);
     animation: rst-pop-in 0.35s var(--rst-ease-spring) backwards;
   }
 
-  .room-service.is-success .room-service__dots i.is-on {
-    background: var(--rst-green);
-    box-shadow: 0 0 12px rgba(64, 200, 120, 0.5);
+  .room-slot.is-empty {
+    border: 1.5px dashed rgba(255, 255, 255, 0.3);
   }
 
-  .room-service.is-warning .room-service__dots i.is-on {
-    background: var(--rst-gold);
-    box-shadow: 0 0 12px rgba(247, 183, 51, 0.45);
+  .room-slot__more {
+    color: rgba(255, 250, 242, 0.7);
+    font-size: 11px;
+    font-weight: var(--rst-fw-display);
   }
 
-  .room-service.is-danger .room-service__dots i.is-on {
-    background: var(--rst-ui-action);
-    box-shadow: 0 0 12px rgba(240, 100, 35, 0.5);
-    animation:
-      rst-pop-in 0.35s var(--rst-ease-spring) backwards,
-      rst-pulse-soft 2s ease-in-out 1.2s infinite;
-  }
-
-  .coverage-room div {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 7px;
-  }
-
-  .coverage-room i {
-    width: 11px;
-    height: 11px;
-    border-radius: var(--rst-ui-radius-pill);
-    background: rgba(255, 255, 255, 0.16);
-    animation: rst-pop-in .35s var(--rst-ease-spring) backwards;
-  }
-
-  .coverage-room.is-success i.is-on {
-    background: var(--rst-green);
-    box-shadow: 0 0 16px rgba(64, 200, 120, 0.55);
-  }
-
-  .coverage-room.is-warning i.is-on {
-    background: var(--rst-gold);
-    box-shadow: 0 0 16px rgba(247, 183, 51, 0.5);
-  }
-
-  .coverage-room.is-danger i.is-on {
-    background: var(--rst-ui-action);
-    box-shadow: 0 0 16px rgba(240, 100, 35, 0.55);
-    animation: rst-pop-in .35s var(--rst-ease-spring) backwards, rst-pulse-soft 2s ease-in-out 1.2s infinite;
+  .room-service__empty {
+    color: rgba(255, 250, 242, 0.4);
+    font-size: 11px;
+    font-style: normal;
   }
 
   .setup { width: min(100%, 760px); margin: 0 0 0 auto; }
@@ -1885,6 +2031,16 @@
     .home-hero__command dl,
     .coverage-rooms {
       grid-template-columns: 1fr;
+    }
+
+    .weather-brief {
+      grid-template-columns: 1fr;
+      gap: 14px;
+      padding: 16px;
+    }
+
+    .weather-brief footer {
+      grid-column: 1;
     }
 
     .time-axis {

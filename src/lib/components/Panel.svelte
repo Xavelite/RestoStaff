@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
 
   let {
     title,
@@ -19,8 +20,8 @@
 <section class="panel">
   <header class="panel__head">
     <div>
-      {#if eyebrow}<span>{eyebrow}</span>{/if}
-      <h2>{title}</h2>
+      {#if eyebrow}<span>{t(eyebrow)}</span>{/if}
+      <h2>{t(title)}</h2>
     </div>
     {#if trailing}{@render trailing()}{/if}
   </header>
@@ -70,6 +71,10 @@
     margin: 0;
     font-size: 16px;
     font-weight: var(--rst-fw-display);
+  }
+
+  .panel__body {
+    padding: 14px;
   }
 
   .panel__foot {

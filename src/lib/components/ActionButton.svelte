@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/i18n.svelte';
   let {
     label,
     tone = 'secondary',
@@ -15,7 +16,7 @@
 </script>
 
 <button class:is-primary={tone === 'primary'} class:is-danger={tone === 'danger'} {type} {disabled} {onclick}>
-  {label}
+  {t(label)}
 </button>
 
 <style>

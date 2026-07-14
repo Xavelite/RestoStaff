@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/i18n.svelte';
   let {
     message,
     tone = 'info'
@@ -9,7 +10,7 @@
 </script>
 
 {#if message}
-  <p class="feedback is-{tone}" role={tone === 'danger' ? 'alert' : 'status'}>{message}</p>
+  <p class="feedback is-{tone}" role={tone === 'danger' ? 'alert' : 'status'}>{t(message)}</p>
 {/if}
 
 <style>

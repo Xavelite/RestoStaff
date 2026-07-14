@@ -8,9 +8,9 @@
   import {
     addDays,
     formatHours,
+    localDateTimeParts,
     mondayFor,
     serviceLabel,
-    todayInTimezone,
     weekLabel
   } from '$lib/calendar/date';
   import ActionButton from '$lib/components/ActionButton.svelte';
@@ -33,6 +33,7 @@
     availabilitySubmissionStatus,
     buildEmployeeWeek,
     employeeForId,
+    nextEmployeeService,
     publishedShiftsForWeek,
     type AvailabilityDraft,
     type AvailabilityMode,
@@ -40,7 +41,9 @@
   } from '$lib/employee/employee-model';
   import { workRegime } from '$lib/domain/operations';
   import { friendlyError } from '$lib/api/error-messages';
+  import { workspaceRealtime } from '$lib/realtime/workspace-realtime.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
+  import { i18n, t } from '$lib/i18n/i18n.svelte';
 
   const snapshot = $derived(workspace.employeeOperations);
   const employeeId = $derived(workspace.active?.employee_id ?? '');
@@ -49,7 +52,13 @@
       workspace.bootstrap?.restaurant_settings.timezone ||
       'Europe/Brussels'
   );
-  const today = $derived(todayInTimezone(timezone));
+  let currentInstant = $state(new Date());
+  const localNow = $derived(localDateTimeParts(currentInstant, timezone));
+  const today = $derived(localNow.date);
+  $effect(() => {
+    const timer = setInterval(() => (currentInstant = new Date()), 60_000);
+    return () => clearInterval(timer);
+  });
   let weekStart = $state('');
   let lastWeekParam = $state<string | null>(null);
   let selectedKey = $state('');
@@ -135,50 +144,45 @@
         timeOffSelectedKeySet.has(slot.key)
     )
   );
-  const nextService = $derived(
-    plannedSlots
-      .filter((slot) => slot.date >= today)
-      .sort(
-        (a, b) =>
-          `${a.date}-${a.shift?.startsAt ?? ''}`.localeCompare(`${b.date}-${b.shift?.startsAt ?? ''}`)
-      )[0] ?? null
-  );
+  const nextService = $derived(nextEmployeeService(plannedSlots, localNow));
   const weekGlanceSummary = $derived(
     availabilityMode === 'weekly_availability'
       ? { label: 'Availability', value: submission }
       : availabilityMode === 'fixed_schedule'
         ? {
-            label: 'Fixed schedule',
+            label: t('Fixed schedule'),
             value: pendingRequestSlots.length
-              ? `${pendingRequestSlots.length} request${pendingRequestSlots.length > 1 ? 's' : ''}`
-              : 'Manager planned'
+              ? t(pendingRequestSlots.length === 1 ? '{count} request' : '{count} requests', { count: pendingRequestSlots.length })
+              : t('Manager planned')
           }
         : {
-            label: 'Schedule',
+            label: t('Schedule'),
             value: pendingRequestSlots.length
-              ? `${pendingRequestSlots.length} request${pendingRequestSlots.length > 1 ? 's' : ''}`
-              : 'Manager planned'
+              ? t(pendingRequestSlots.length === 1 ? '{count} request' : '{count} requests', { count: pendingRequestSlots.length })
+              : t('Manager planned')
           }
   );
   const heroTitle = $derived(
     hasPendingEdits
-      ? 'Ready to send your update.'
+      ? t('Ready to send your update.')
       : nextService
-        ? `Next service: ${serviceLabel(nextService.serviceKey)} ${nextService.shift?.startsAt ?? ''}.`
+        ? t('Next service: {day} · {service} {time}.', { day: dayName(nextService.date), service: t(serviceLabel(nextService.serviceKey)), time: nextService.shift?.startsAt ?? '' })
         : plannedSlots.length
-          ? 'Your published week is ready.'
+          ? t('Your published week is ready.')
           : availabilityMode === 'fixed_schedule'
-            ? 'Your schedule is clear.'
-            : 'Tell the restaurant when you can work.'
+            ? t('Your schedule is clear.')
+            : t('Tell the restaurant when you can work.')
   );
   const heroSubtitle = $derived(
     availabilityMode === 'weekly_availability'
       ? planningPublished
-        ? 'This week is published, so availability is locked. Use the menu for time off or details.'
-        : 'Tap today or any future service to mark yourself available. Past services stay read-only.'
+        ? t('This week is published, so availability is locked. Use the menu for time off or details.')
+        : t('Tap today or any future service to mark yourself available. Past services stay read-only.')
       : availabilityMode === 'fixed_schedule'
-        ? 'Your manager publishes your shifts. Tap a scheduled shift to request time off.'
-        : 'Your manager sets your schedule. Tap a service to request time off.'
+        ? planningPublished
+          ? t('Your published shifts are ready. Tap a scheduled shift to request time off.')
+          : t('Your fixed schedule is the working baseline. Tap a planned service to request time off.')
+        : t('Your manager sets your schedule. Tap a service to request time off.')
   );
   // Follow the ?week= param on every navigation, not just first mount: a deep
   // link that arrives while the page is already open must still move the week.
@@ -343,6 +347,7 @@
     saving = true;
     const messages: string[] = [];
     let hasError = false;
+    let changed = false;
 
     // Each bucket submits by its own kind, independent of what triggered it,
     // so a pending time-off draft is never stranded or wiped by another edit.
@@ -351,12 +356,15 @@
         await saveEmployeeAvailability({
           restaurantId: workspace.activeId,
           employeeId,
-          availability: availability.map((slot) => ({
-            date: slot.date,
-            service_key: slot.serviceKey,
-            availability_state: slot.state
-          }))
+          availability: availability
+            .filter((slot) => slot.date >= today)
+            .map((slot) => ({
+              date: slot.date,
+              service_key: slot.serviceKey,
+              availability_state: slot.state
+            }))
         });
+        changed = true;
         messages.push('Availability saved');
       } catch (err) {
         hasError = true;
@@ -385,6 +393,7 @@
                 employee_comment: actionComment.trim() || null
               }
             });
+            changed = true;
             ok += 1;
           } catch (err) {
             hasError = true;
@@ -399,6 +408,18 @@
       saving = false;
       return;
     }
+    let refreshFailed = false;
+    if (changed) {
+      try {
+        await workspace.reloadEmployeeOperations();
+      } catch {
+        refreshFailed = true;
+      }
+      await workspaceRealtime.publish('notification-refresh', {
+        restaurantId: workspace.activeId,
+        source: 'system'
+      });
+    }
     if (hasError) {
       // Keep every draft so the employee can retry the part that failed.
       feedback = messages.join(' · ');
@@ -408,10 +429,11 @@
       clearTimeOffSelection();
       slotDetailsOpen = false;
       selectedKey = '';
-      try { await workspace.reloadEmployeeOperations(); } catch { /* non-critical */ }
       loadedKey = '';
-      feedback = messages.join(' · ');
-      feedbackTone = 'success';
+      feedback = refreshFailed
+        ? `${messages.join(' · ')} · Refresh to see the latest data.`
+        : messages.join(' · ');
+      feedbackTone = refreshFailed ? 'warning' : 'success';
     }
     saving = false;
   }
@@ -436,6 +458,10 @@
         payload: { employee_comment: 'Cancelled by employee', cancellation_reason: 'Cancelled by employee' }
       });
       await workspace.reloadEmployeeOperations();
+      await workspaceRealtime.publish('notification-refresh', {
+        restaurantId: workspace.activeId,
+        source: 'system'
+      });
       slotDetailsOpen = false;
       selectedKey = '';
       feedback = 'Time-off request cancelled.';
@@ -460,6 +486,10 @@
         payload: { reason: 'Cancelled by employee', cancellation_reason: 'Cancelled by employee' }
       });
       await workspace.reloadEmployeeOperations();
+      await workspaceRealtime.publish('planning-saved', {
+        restaurantId: workspace.activeId,
+        source: 'planning'
+      });
       slotDetailsOpen = false;
       selectedKey = '';
       feedback = 'Schedule change cancelled.';
@@ -473,11 +503,11 @@
   }
 
   function dayName(date: string) {
-    return new Intl.DateTimeFormat('en-GB', { weekday: 'short' }).format(new Date(`${date}T12:00:00Z`));
+    return new Intl.DateTimeFormat(i18n.intlLocale, { weekday: 'short' }).format(new Date(`${date}T12:00:00Z`));
   }
 
   function dayNumber(date: string) {
-    return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit' }).format(
+    return new Intl.DateTimeFormat(i18n.intlLocale, { day: '2-digit', month: '2-digit' }).format(
       new Date(`${date}T12:00:00Z`)
     );
   }
@@ -488,38 +518,42 @@
 
   function slotTime(slot: EmployeeWeekSlot) {
     if (slot.shift) return `${slot.shift.startsAt}–${slot.shift.endsAt}`;
-    return serviceLabel(slot.serviceKey);
+    return t(serviceLabel(slot.serviceKey));
   }
 
   function slotTitle(slot: EmployeeWeekSlot) {
-    if (timeOffSelectedKeySet.has(slot.key)) return 'Time off selected';
-    if (slot.state === 'available') return 'Available';
-    if (slot.state === 'partial') return 'Availability needs update';
-    if (slot.state === 'unavailable') return 'Unavailable';
-    if (slot.state === 'leave_pending') return 'Time off pending';
-    if (slot.state === 'leave_approved') return 'Time off approved';
-    if (slot.state === 'work_pattern_pending') return 'Change pending';
-    if (slot.state === 'work_pattern_approved') return 'Unavailable';
-    if (slot.state === 'worked') return 'Worked';
-    if (slot.state === 'live') return 'Working now';
-    if (slot.state === 'missing_badge') return 'Missing badge';
-    if (slot.state === 'corrected') return 'Corrected';
+    if (timeOffSelectedKeySet.has(slot.key)) return t('Time off selected');
+    if (slot.state === 'available') return t('Available');
+    if (slot.state === 'partial') return t('Availability needs update');
+    if (slot.state === 'unavailable') return t('Unavailable');
+    if (slot.state === 'leave_pending') return t('Time off pending');
+    if (slot.state === 'leave_approved') return t('Time off approved');
+    if (slot.state === 'work_pattern_pending') return t('Change pending');
+    if (slot.state === 'work_pattern_approved') return t('Unavailable');
+    if (slot.state === 'worked') return t('Worked');
+    if (slot.state === 'live') return t('Working now');
+    if (slot.state === 'missing_badge') return t('Missing badge');
+    if (slot.state === 'corrected') return t('Corrected');
     if (slot.shift) return `${slot.shift.area}`;
-    return slot.editable ? 'Tap to mark available' : 'No service';
+    return slot.editable ? t('Tap to mark available') : t('No service');
   }
 
   function slotMeta(slot: EmployeeWeekSlot) {
     // Time off keeps its holiday type visible even on a scheduled shift, so a
     // published leave request still reads as e.g. "Holiday" rather than the shift.
     if (slot.state === 'leave_pending' || slot.state === 'leave_approved') {
-      return slot.absenceType || 'Time off';
+      return slot.absenceType || t('Time off');
     }
     if (slot.shift) return `${slot.shift.jobFunction} · ${formatHours(slot.shift.hours)}`;
-    if (slot.state === 'partial') return 'Choose available or unavailable';
-    if (slot.state === 'unavailable') return "You can't work this service";
+    if (slot.state === 'partial') return t('Choose available or unavailable');
+    if (slot.state === 'unavailable') return t("You can't work this service");
     if (slot.editReason) return slot.editReason;
-    if (slot.availability === 'available') return 'You can work';
-    return slot.editable ? 'Tap to mark available' : (slot.editReason || 'Tap ⋯ for options');
+    if (slot.availability === 'available') return t('You can work');
+    return slot.editable ? t('Tap to mark available') : (slot.editReason || t('Tap ⋯ for options'));
+  }
+
+  function slotAriaLabel(slot: EmployeeWeekSlot) {
+    return `${dayName(slot.date)} ${slot.date}, ${serviceLabel(slot.serviceKey)}: ${slotTitle(slot)}, ${slotTime(slot)}, ${slotMeta(slot)}`;
   }
 
   function slotVisual(slot: EmployeeWeekSlot) {
@@ -554,28 +588,28 @@
   }
 
   function requestCopy() {
-    if (!hasPendingEdits) return 'Nothing waiting';
+    if (!hasPendingEdits) return t('Nothing waiting');
     const parts: string[] = [];
     if (selectedAvailabilitySlots.length) {
-      parts.push(`${selectedAvailabilitySlots.length} availability edit${selectedAvailabilitySlots.length > 1 ? 's' : ''}`);
+      parts.push(t(selectedAvailabilitySlots.length === 1 ? '{count} availability edit' : '{count} availability edits', { count: selectedAvailabilitySlots.length }));
     }
     if (selectedTimeOffSlots.length) {
-      parts.push(`${selectedTimeOffSlots.length} time-off service${selectedTimeOffSlots.length > 1 ? 's' : ''}`);
+      parts.push(t(selectedTimeOffSlots.length === 1 ? '{count} time-off service' : '{count} time-off services', { count: selectedTimeOffSlots.length }));
     }
     return parts.join(' · ');
   }
 </script>
 
-<svelte:head><title>My service · restogogo</title></svelte:head>
+<svelte:head><title>{t('My service')} · restogogo</title></svelte:head>
 
 {#if snapshot && employee}
   <section class="page-shell employee-page service-page">
     <PageHero heroClass="hero-service" eyebrow="My service" title={heroTitle} subtitle={heroSubtitle}>
       {#snippet nav()}
         <div class="page-nav">
-          <button type="button" onclick={() => changeWeek(-1)} aria-label="Previous week">&lsaquo;</button>
-          <strong>{weekLabel(activeWeek)}</strong>
-          <button type="button" onclick={() => changeWeek(1)} aria-label="Next week">&rsaquo;</button>
+          <button type="button" onclick={() => changeWeek(-1)} aria-label={t('Previous week')}>&lsaquo;</button>
+          <strong>{weekLabel(activeWeek, i18n.intlLocale)}</strong>
+          <button type="button" onclick={() => changeWeek(1)} aria-label={t('Next week')}>&rsaquo;</button>
           {#if activeWeek !== mondayFor(today)}
             <button
               type="button"
@@ -586,14 +620,14 @@
                 feedback = '';
               }}
             >
-              Today
+              {t('Today')}
             </button>
           {/if}
         </div>
       {/snippet}
       {#snippet command()}
-        <aside class="glass-card week-glance" aria-label="Week glance">
-          <span class="week-glance__kicker">Week glance</span>
+        <aside class="glass-card week-glance" aria-label={t('Week glance')}>
+          <span class="week-glance__kicker">{t('Week glance')}</span>
           <div class="week-glance__dots">
             {#each grid.days as day (day.date)}
               <span class:is-active={dayHasSignal(day.date)} class:is-today={day.today} title={dayName(day.date)}>
@@ -602,11 +636,11 @@
             {/each}
           </div>
           <div class="week-glance__stats">
-            <div><strong>{plannedSlots.length}</strong><span>shifts</span></div>
-            <div><strong>{pendingRequestSlots.length}</strong><span>requests</span></div>
+            <div><strong>{plannedSlots.length}</strong><span>{t('shifts')}</span></div>
+            <div><strong>{pendingRequestSlots.length}</strong><span>{t('requests')}</span></div>
           </div>
           {#if nextService}
-            <p class="week-glance__next"><b>Next</b> {dayName(nextService.date)} · {serviceLabel(nextService.serviceKey)} {nextService.shift?.startsAt ?? ''}</p>
+            <p class="week-glance__next"><b>{t('Next')}</b> {dayName(nextService.date)} · {t(serviceLabel(nextService.serviceKey))} {nextService.shift?.startsAt ?? ''}</p>
           {:else}
             <p class="week-glance__next"><b>{weekGlanceSummary.label}</b> {weekGlanceSummary.value}</p>
           {/if}
@@ -617,18 +651,18 @@
     <div class="page-body has-tray">
       <FeedbackBanner message={feedback} tone={feedbackTone} />
 
-      <section class="agenda" aria-label="Weekly agenda">
+      <section class="agenda" aria-label={t('Weekly agenda')}>
         {#each grid.days as day (day.date)}
           <article class="agenda-day" class:is-today={day.today} class:is-past={day.past}>
             <div class="agenda-day__date">
               <span>{dayName(day.date)}</span>
               <strong>{dayNumber(day.date)}</strong>
-              {#if day.today}<em>Today</em>{/if}
+              {#if day.today}<em>{t('Today')}</em>{/if}
             </div>
             <div class="agenda-day__services">
               {#each slotsForDay(day.date) as slot (slot.key)}
                 <div class={`agenda-slot is-${slotVisual(slot)}`} class:is-selected={isSlotDirty(slot.key)}>
-                  <button type="button" class="agenda-slot__tap" onclick={() => primaryTap(slot.key)}>
+                  <button type="button" class="agenda-slot__tap" aria-label={slotAriaLabel(slot)} onclick={() => primaryTap(slot.key)}>
                     <b>{serviceIcon(slot.serviceKey)}</b>
                     <span>
                       <strong>{slotTitle(slot)}</strong>
@@ -639,7 +673,7 @@
                     <button
                       type="button"
                       class="agenda-slot__more"
-                      aria-label={`More options for ${serviceLabel(slot.serviceKey)} on ${slot.date}`}
+                      aria-label={t('More options for {service} on {date}', { service: t(serviceLabel(slot.serviceKey)), date: slot.date })}
                       onclick={() => openSlotDetails(slot.key)}
                     >
                       ⋯
@@ -657,9 +691,9 @@
       <div class="request-tray" role="status">
         <span>{requestCopy()}</span>
         <div>
-          <ActionButton label="Undo" disabled={saving} onclick={discardChanges} />
+          <ActionButton label={t('Undo')} disabled={saving} onclick={discardChanges} />
           <ActionButton
-            label={saving ? 'Submitting…' : 'Submit'}
+            label={saving ? t('Submitting…') : t('Submit')}
             tone="primary"
             disabled={!canSave}
             onclick={saveChanges}

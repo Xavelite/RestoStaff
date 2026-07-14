@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/i18n.svelte';
+
   // Shared hero "readiness signal" aside: the circular %-ready dial plus the
   // stat list. Previously hand-rolled identically in Team and Restaurant.
   let {
@@ -14,15 +16,15 @@
   } = $props();
 </script>
 
-<div class="page-hero__command" aria-label={label}>
+<div class="page-hero__command" aria-label={t(label)}>
   <div class:has-issues={hasIssues} class="readiness-dial" style={`--ready:${percent}%`}>
     <strong>{percent}%</strong>
-    <span>ready</span>
+    <span>{t('ready')}</span>
   </div>
   <dl class="hero-stats">
     {#each cards as card}
       <div class:is-complete={card.complete}>
-        <dt>{card.label}</dt>
+        <dt>{t(card.label)}</dt>
         <dd>{card.value}</dd>
       </div>
     {/each}

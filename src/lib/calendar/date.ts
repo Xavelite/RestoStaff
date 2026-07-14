@@ -73,18 +73,18 @@ export function isSameMonth(date: string, monthReference: string): boolean {
   return date.slice(0, 7) === monthReference.slice(0, 7);
 }
 
-export function monthLabel(value: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
+export function monthLabel(value: string, locale = 'en-GB'): string {
+  return new Intl.DateTimeFormat(locale, {
     month: 'long',
     year: 'numeric',
     timeZone: 'UTC'
   }).format(new Date(`${monthStart(value)}T00:00:00Z`));
 }
 
-export function weekLabel(weekStart: string): string {
+export function weekLabel(weekStart: string, locale = 'en-GB'): string {
   const start = new Date(`${weekStart}T00:00:00Z`);
   if (Number.isNaN(start.getTime())) return '';
-  const formatter = new Intl.DateTimeFormat('en-GB', {
+  const formatter = new Intl.DateTimeFormat(locale, {
     day: '2-digit',
     month: 'short',
     timeZone: 'UTC'
@@ -93,18 +93,37 @@ export function weekLabel(weekStart: string): string {
 }
 
 export function todayInTimezone(timezone: string, now = new Date()): string {
+  return localDateTimeParts(now, timezone).date;
+}
+
+export function localDateTimeParts(
+  now: Date,
+  timezone: string
+): { date: string; minutes: number } {
   const parts = Object.fromEntries(
     new Intl.DateTimeFormat('en-CA', {
       timeZone: timezone,
       year: 'numeric',
       month: '2-digit',
-      day: '2-digit'
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23'
     })
       .formatToParts(now)
       .filter((part) => part.type !== 'literal')
       .map((part) => [part.type, part.value])
   );
-  return `${parts.year}-${parts.month}-${parts.day}`;
+  return {
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    minutes: Number(parts.hour) * 60 + Number(parts.minute)
+  };
+}
+
+export function greetingForMinutes(minutes: number): string {
+  if (minutes < 12 * 60) return 'Good morning';
+  if (minutes < 18 * 60) return 'Good afternoon';
+  return 'Good evening';
 }
 
 export function clockMinutes(value: string | null | undefined): number | null {

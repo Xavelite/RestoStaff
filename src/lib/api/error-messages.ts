@@ -14,7 +14,7 @@ export function friendlyError(error: unknown, context?: FriendlyErrorContext): s
   if (raw.startsWith('CONFLICT:')) return raw.slice('CONFLICT:'.length).trim();
 
   if (lower.includes('duplicate key') || lower.includes('already exists')) {
-    if (context === 'badge') return 'This person already has a badge entry for that service.';
+    if (context === 'badge') return 'This shift has already been completed today.';
     if (context === 'absence') return 'A request already exists for those dates.';
     return 'That record already exists.';
   }

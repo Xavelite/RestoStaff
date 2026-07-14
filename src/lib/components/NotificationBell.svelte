@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { untrack } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { saveAbsence } from '$lib/api/mutations';
   import ActionButton from '$lib/components/ActionButton.svelte';
   import Dialog from '$lib/components/Dialog.svelte';
@@ -15,6 +15,8 @@
   import type { NotificationFeed, NotificationItem, NotificationType } from '$lib/notifications/notification-model';
   import { toasts } from '$lib/ui/toast.svelte';
   import type { WorkspaceRole } from '$lib/api/workspace';
+  import { workspaceRealtime } from '$lib/realtime/workspace-realtime.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
 
   type SetupNotification = { label: string; href: string };
 
@@ -46,6 +48,7 @@
   let requestId = 0;
   let settingsRequestId = 0;
   let loadedContextKey = '';
+  let observedRealtimeSequence = 0;
 
   const visibleTypes = $derived.by(() => {
     if (!settings || !role) return [];
@@ -53,9 +56,13 @@
   });
   const totalCount = $derived(feed.unreadCount + setupNotifications.length);
   const feedSummary = $derived.by(() => {
-    if (totalCount > 0) return `${totalCount} open item${totalCount === 1 ? '' : 's'}`;
-    if (feed.items.length > 0) return `${feed.items.length} recent item${feed.items.length === 1 ? '' : 's'}`;
-    return 'Nothing open';
+    if (feed.unreadCount && setupNotifications.length) {
+      return t('{newCount} new · {setupCount} setup', { newCount: feed.unreadCount, setupCount: setupNotifications.length });
+    }
+    if (feed.unreadCount) return t('{count} new', { count: feed.unreadCount });
+    if (setupNotifications.length) return t('{count} setup', { count: setupNotifications.length });
+    if (feed.items.length > 0) return t(feed.items.length === 1 ? '{count} recent item' : '{count} recent items', { count: feed.items.length });
+    return t('No notifications');
   });
 
   function contextKey(): string {
@@ -138,6 +145,29 @@
     });
   });
 
+  $effect(() => {
+    const sequence = workspaceRealtime.eventSequence;
+    untrack(() => {
+      if (!sequence || sequence === observedRealtimeSequence) return;
+      observedRealtimeSequence = sequence;
+      if (restaurantId && role) void refresh();
+    });
+  });
+
+  onMount(() => {
+    const refreshVisible = () => {
+      if (document.visibilityState === 'visible') void refresh();
+    };
+    const timer = window.setInterval(refreshVisible, 300_000);
+    window.addEventListener('focus', refreshVisible);
+    document.addEventListener('visibilitychange', refreshVisible);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refreshVisible);
+      document.removeEventListener('visibilitychange', refreshVisible);
+    };
+  });
+
   async function toggleOpen() {
     open = !open;
     if (open) await refresh();
@@ -169,8 +199,12 @@
 
   async function read(item: NotificationItem) {
     if (!restaurantId || !settings || item.readAt) return;
-    markLocalRead(item);
-    await markNotificationRead({ restaurantId, profileId: settings.profileId, item }).catch(() => undefined);
+    try {
+      await markNotificationRead({ restaurantId, profileId: settings.profileId, item });
+      markLocalRead(item);
+    } catch (reason) {
+      toasts.show(reason instanceof Error ? reason.message : String(reason), 'danger');
+    }
   }
 
   async function openItem(item: NotificationItem) {
@@ -187,13 +221,15 @@
 
   async function dismiss(item: NotificationItem) {
     if (!restaurantId || !settings) return;
-    feed = {
-      items: feed.items.filter((candidate) => candidate.key !== item.key),
-      unreadCount: feed.items.filter((candidate) => candidate.key !== item.key && !candidate.readAt).length
-    };
-    await dismissNotification({ restaurantId, profileId: settings.profileId, item }).catch((reason) => {
+    try {
+      await dismissNotification({ restaurantId, profileId: settings.profileId, item });
+      feed = {
+        items: feed.items.filter((candidate) => candidate.key !== item.key),
+        unreadCount: feed.items.filter((candidate) => candidate.key !== item.key && !candidate.readAt).length
+      };
+    } catch (reason) {
       toasts.show(reason instanceof Error ? reason.message : String(reason), 'danger');
-    });
+    }
   }
 
   function closeSettings() {
@@ -235,8 +271,12 @@
         action,
         payload: {}
       });
-      toasts.show(action === 'approve' ? 'Absence approved.' : 'Absence refused.', 'success');
+      toasts.show(action === 'approve' ? t('Absence approved.') : t('Absence refused.'), 'success');
       await dismiss(detailItem);
+      await workspaceRealtime.publish('notification-refresh', {
+        restaurantId,
+        source: 'system'
+      });
       detailOpen = false;
       detailItem = null;
       await refresh();
@@ -259,7 +299,7 @@
     class="notification-button"
     class:has-alerts={totalCount > 0}
     type="button"
-    aria-label={totalCount > 0 ? `Notifications, ${totalCount} unread or open` : 'Notifications'}
+    aria-label={totalCount > 0 ? t('Notifications, {count} new or setup', { count: totalCount }) : t('Notifications')}
     aria-expanded={open}
     onclick={toggleOpen}
   >
@@ -268,30 +308,30 @@
   </button>
 
   {#if open}
-    <section class="notification-menu" aria-label="Notifications">
+    <section class="notification-menu" aria-label={t('Notifications')}>
       <header>
         <div>
-          <strong>Notifications</strong>
+          <strong>{t('Notifications')}</strong>
           <small>{feedSummary}</small>
         </div>
-        <button class="notification-settings-trigger" type="button" onclick={openSettings}>Settings</button>
+        <button class="notification-settings-trigger" type="button" onclick={openSettings}>{t('Settings')}</button>
       </header>
 
       {#if loading}
-        <p class="notification-empty">Loading notifications…</p>
+        <p class="notification-empty">{t('Loading notifications…')}</p>
       {:else if error}
         <div class="notification-error" role="alert">
           <p>{error}</p>
-          <button type="button" onclick={refresh}>Retry</button>
+          <button type="button" onclick={refresh}>{t('Retry')}</button>
         </div>
       {:else}
         {#if setupNotifications.length}
           <div class="notification-group">
-            <span>Setup</span>
+            <span>{t('Setup')}</span>
             {#each setupNotifications as item (item.label)}
               <a class="notification-row is-setup" href={item.href} onclick={() => (open = false)}>
-                <strong>{item.label}</strong>
-                <small>Open setup →</small>
+                <strong>{t(item.label)}</strong>
+                <small>{t('Open setup →')}</small>
               </a>
             {/each}
           </div>
@@ -299,19 +339,19 @@
 
         {#if feed.items.length}
           <div class="notification-group">
-            <span>{feed.unreadCount ? 'New' : 'Recent'}</span>
+            <span>{t('Recent')}</span>
             {#each feed.items as item (item.key)}
               <article class="notification-row" class:is-unread={!item.readAt} class:is-critical={item.severity === 'critical'}>
                 <button type="button" onclick={() => openItem(item)}>
-                  <strong>{item.title}</strong>
-                  <small>{item.body}</small>
+                  <strong>{t(item.title)}</strong>
+                  <small>{t(item.body)}</small>
                 </button>
-                <button class="dismiss" type="button" aria-label="Dismiss notification" onclick={() => dismiss(item)}>×</button>
+                <button class="dismiss" type="button" aria-label={t('Dismiss notification')} onclick={() => dismiss(item)}>×</button>
               </article>
             {/each}
           </div>
         {:else if !setupNotifications.length}
-          <p class="notification-empty">Nothing needs your attention.</p>
+          <p class="notification-empty">{t('Nothing needs your attention.')}</p>
         {/if}
       {/if}
     </section>
@@ -320,18 +360,19 @@
 
 {#snippet detailFooter()}
   {#if detailItem?.type === 'absence_request_submitted'}
-    <ActionButton label="Refuse" tone="danger" disabled={saving} onclick={() => decideAbsence('reject')} />
-    <ActionButton label="Approve" tone="primary" disabled={saving} onclick={() => decideAbsence('approve')} />
+    <ActionButton label={t('Open Schedule')} disabled={saving} onclick={() => openTarget(detailItem!)} />
+    <ActionButton label={t('Refuse')} tone="danger" disabled={saving} onclick={() => decideAbsence('reject')} />
+    <ActionButton label={t('Approve')} tone="primary" disabled={saving} onclick={() => decideAbsence('approve')} />
   {:else if detailItem}
-    <ActionButton label="Dismiss" disabled={saving} onclick={() => dismiss(detailItem!)} />
-    <ActionButton label="Open page" tone="primary" disabled={saving} onclick={() => openTarget(detailItem!)} />
+    <ActionButton label={t('Dismiss')} disabled={saving} onclick={() => dismiss(detailItem!)} />
+    <ActionButton label={t('Open page')} tone="primary" disabled={saving} onclick={() => openTarget(detailItem!)} />
   {/if}
 {/snippet}
 
 <Dialog
   open={detailOpen && Boolean(detailItem)}
-  title={detailItem?.title ?? 'Notification'}
-  description={detailItem?.body ?? ''}
+  title={t(detailItem?.title ?? 'Notification')}
+  description={t(detailItem?.body ?? '')}
   size="small"
   onclose={closeDetail}
   footer={detailFooter}
@@ -339,41 +380,41 @@
   {#if detailItem}
     <div class="notification-detail">
       <span class="detail-pill is-{detailItem.severity}">{detailItem.type.replaceAll('_', ' ')}</span>
-      <p>This notification points to the live operational source. The source data remains the business truth.</p>
+      <p>{t('This notification points to the live operational source. The source data remains the business truth.')}</p>
       {#if detailItem.type === 'absence_request_submitted'}
-        <p>Approve or refuse the request here, or open My time for the full context.</p>
+        <p>{t('Approve or refuse the request here, or open Schedule for the full context.')}</p>
       {/if}
     </div>
   {/if}
 </Dialog>
 
 {#snippet settingsFooter()}
-  <ActionButton label="Done" tone="primary" disabled={saving} onclick={closeSettings} />
+  <ActionButton label={t('Done')} tone="primary" disabled={saving} onclick={closeSettings} />
 {/snippet}
 
 <Dialog
   open={settingsOpen}
-  title="Notification settings"
-  description="Choose which in-app notifications you want to receive. Push is prepared for later, but not active yet."
+  title={t('Notification settings')}
+  description={t('Choose which in-app notifications you receive.')}
   size="medium"
   onclose={closeSettings}
   footer={settingsFooter}
 >
   <div class="notification-settings">
     {#if !settings && settingsLoading}
-      <p>Loading settings…</p>
+      <p>{t('Loading settings…')}</p>
     {:else if settingsError}
       <p>{settingsError}</p>
     {:else}
       {#if !visibleTypes.length}
-        <p>No notification settings are available for this role yet.</p>
+        <p>{t('No notification settings are available for this role yet.')}</p>
       {/if}
       {#each visibleTypes as type (type.code)}
         <label>
           <input type="checkbox" checked={enabled(type)} disabled={saving} onchange={() => toggleType(type)} />
           <span>
-            <strong>{type.label}</strong>
-            <small>{type.description}</small>
+            <strong>{t(type.label)}</strong>
+            <small>{t(type.description)}</small>
           </span>
         </label>
       {/each}

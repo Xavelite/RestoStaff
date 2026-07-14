@@ -15,6 +15,7 @@
     availabilityUpdateHint,
     type AvailabilityMode
   } from '$lib/employee/employee-model';
+  import { t } from '$lib/i18n/i18n.svelte';
 
   // One surface for viewing a service's truth and acting on it — replaces the
   // old split between a read-only details dialog and a page-level mode toggle
@@ -91,8 +92,8 @@
 
 <Drawer
   open={open && Boolean(truth)}
-  title={truth ? `${serviceLabel(truth.serviceKey)} · ${truth.date}` : 'Service details'}
-  description="Published schedule, worked time and your requests for this service."
+  title={truth ? `${t(serviceLabel(truth.serviceKey))} · ${truth.date}` : t('Service details')}
+  description={t('Your schedule, worked time and requests for this service.')}
   {onclose}
 >
   {#if truth}
@@ -105,11 +106,11 @@
             <span>{truth.plan.area}</span>
           </div>
         {:else}
-          <p class="muted">No published shift for this service.</p>
+          <p class="muted">{t('No published shift for this service.')}</p>
         {/if}
         {#if truth.entry}
           <div class="fact">
-            <strong>{truth.entry.status === 'open' ? 'Working now' : 'Worked time'}</strong>
+            <strong>{truth.entry.status === 'open' ? t('Working now') : t('Worked time')}</strong>
             <span>
               {instantClockLabel(truth.entry.clock_in_at, timezone)}–{instantClockLabel(truth.entry.clock_out_at, timezone) || 'open'}
               · {truth.entry.break_minutes || 0} min break
@@ -119,37 +120,37 @@
         {/if}
         {#if pendingAbsence}
           <div class="fact is-pending">
-            <strong>Time off pending</strong>
+            <strong>{t('Time off pending')}</strong>
             {#if pendingAbsence.employee_comment}<span>{pendingAbsence.employee_comment}</span>{/if}
           </div>
         {:else if truth.absence?.status === 'approved'}
-          <div class="fact is-approved"><strong>Approved leave</strong></div>
+          <div class="fact is-approved"><strong>{t('Approved leave')}</strong></div>
         {/if}
         {#if pendingChange}
           <div class="fact is-pending">
-            <strong>Change pending</strong>
+            <strong>{t('Change pending')}</strong>
             {#if pendingChange.reason}<span>{pendingChange.reason}</span>{/if}
           </div>
         {:else if truth.workPatternException?.status === 'approved'}
           <div class="fact is-approved">
-            <strong>Approved schedule change</strong>
+            <strong>{t('Approved schedule change')}</strong>
             {#if truth.workPatternException.reason}<span>{truth.workPatternException.reason}</span>{/if}
           </div>
         {/if}
       </div>
 
       <div class="slot-actions">
-        <strong>What would you like to do?</strong>
+        <strong>{t('What would you like to do?')}</strong>
 
         {#if pendingAbsence}
-          <ActionButton label="Cancel time-off request" tone="danger" disabled={saving} onclick={() => onCancelAbsence(pendingAbsence.id)} />
+          <ActionButton label={t('Cancel time-off request')} tone="danger" disabled={saving} onclick={() => onCancelAbsence(pendingAbsence.id)} />
         {/if}
         {#if pendingChange}
-          <ActionButton label="Cancel change request" tone="danger" disabled={saving} onclick={() => onCancelChange(pendingChange.id)} />
+          <ActionButton label={t('Cancel change request')} tone="danger" disabled={saving} onclick={() => onCancelChange(pendingChange.id)} />
         {/if}
 
         {#if policy === 'weekly_availability' && !availabilityBlocked}
-          <div class="availability-picker" role="group" aria-label="Your availability for this service">
+          <div class="availability-picker" role="group" aria-label={t('Your availability for this service')}>
             {#each SELECTABLE_AVAILABILITY as option (option.value)}
               <button
                 type="button"
@@ -160,11 +161,11 @@
                 onclick={() => onSetAvailability(availabilityState === option.value ? '' : option.value)}
               >
                 <b aria-hidden="true">{option.icon}</b>
-                <span>{option.label}</span>
+                <span>{t(option.label)}</span>
               </button>
             {/each}
           </div>
-          <p class="availability-hint">{availabilityHint}</p>
+          <p class="availability-hint">{t(availabilityHint)}</p>
         {/if}
 
         {#if !timeOffBlocked && !pendingAbsence}
@@ -173,21 +174,21 @@
                submits it. -->
           <div class="request-details">
             <label>
-              Leave type
+              {t('Leave type')}
               <select bind:value={absenceTypeId}>
-                <option value={defaultType?.id ?? ''}>{defaultType?.name ?? 'Default holiday'}</option>
+                <option value={defaultType?.id ?? ''}>{t(defaultType?.name ?? 'Default holiday')}</option>
                 {#each timeOffTypes.filter((item) => item.id !== defaultType?.id) as type (type.id)}
-                  <option value={type.id}>{type.name}</option>
+                  <option value={type.id}>{t(type.name)}</option>
                 {/each}
               </select>
             </label>
             <label>
-              Comment
-              <input bind:value={comment} placeholder="Optional context for your manager" />
+              {t('Comment')}
+              <input bind:value={comment} placeholder={t('Optional context for your manager')} />
             </label>
           </div>
           <ActionButton
-            label={isTimeOffSelected ? 'Remove time-off request' : 'Request time off'}
+            label={isTimeOffSelected ? t('Remove time-off request') : t('Request time off')}
             tone={isTimeOffSelected ? 'secondary' : 'primary'}
             disabled={saving}
             onclick={onRequestTimeOff}

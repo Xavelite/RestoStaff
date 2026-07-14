@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state';
+  import { onMount } from 'svelte';
   import {
     createPayrollExportRun,
     getBadgeProofUrl,
@@ -67,11 +68,23 @@
   import { buildEmployeeColorMap } from '$lib/ui/position-color';
   import { workspaceRealtime } from '$lib/realtime/workspace-realtime.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
+  import { i18n, t } from '$lib/i18n/i18n.svelte';
+  import { restaurantWeather } from '$lib/weather/restaurant-weather.svelte';
 
   type TimesheetPeriod = 'week' | 'month';
   type TimesheetView = 'roster' | 'service';
 
   const snapshot = $derived(workspace.operations);
+  const weatherLocation = $derived(
+    snapshot
+      ? {
+          city: snapshot.restaurant.city ?? '',
+          postalCode: snapshot.restaurant.postal_code ?? '',
+          countryCode: snapshot.restaurant.country_code,
+          timezone: snapshot.restaurant_settings.timezone ?? undefined
+        }
+      : null
+  );
   const employeeColor = $derived(
     snapshot
       ? buildEmployeeColorMap(snapshot.job_functions, snapshot.employee_job_functions)
@@ -82,7 +95,8 @@
       workspace.bootstrap?.restaurant_settings.timezone ||
       'Europe/Brussels'
   );
-  const today = $derived(todayInTimezone(timezone));
+  let now = $state(new Date());
+  const today = $derived(todayInTimezone(timezone, now));
   let weekStart = $state('');
   let lastWeekParam = $state<string | null>(null);
   let selectedKey = $state('');
@@ -108,6 +122,11 @@
   let boardExpanded = $state(false);
   let boardPeriod = $state<TimesheetPeriod>('week');
   let timesheetView = $state<TimesheetView>('roster');
+
+  onMount(() => {
+    const timer = window.setInterval(() => (now = new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  });
   const activeWeek = $derived(weekStart || mondayFor(today));
   const weekComplete = $derived(addDays(activeWeek, 6) < today);
   const activeMonthDates = $derived(monthDates(activeWeek));
@@ -139,11 +158,14 @@
       void workspace.loadOperations(operationsStart, operationsEnd).catch(() => undefined);
     }
   });
+  $effect(() => {
+    if (weatherLocation?.city) void restaurantWeather.load(weatherLocation);
+  });
 
   const weekStatus = $derived(snapshot ? actualsStatusForWeek(snapshot, activeWeek) : 'open');
   const grid = $derived(
     snapshot
-      ? buildActualsWeek({ snapshot, weekStart: activeWeek, today })
+      ? buildActualsWeek({ snapshot, weekStart: activeWeek, today, asOf: now })
       : { days: [], rows: [], slotsByKey: new Map() }
   );
   const periodDates = $derived(
@@ -152,7 +174,7 @@
       : grid.days.map((day) => day.date)
   );
   const periodLabel = $derived(
-    boardExpanded && boardPeriod === 'month' ? monthLabel(activeWeek) : weekLabel(activeWeek)
+    boardExpanded && boardPeriod === 'month' ? monthLabel(activeWeek, i18n.intlLocale) : weekLabel(activeWeek, i18n.intlLocale)
   );
   const timesheetModeLabel = $derived(
     timesheetView === 'roster'
@@ -175,7 +197,7 @@
     snapshot
       ? new Map(
           periodDates
-            .flatMap((date) => actualSlotsForDate(snapshot, date, today))
+            .flatMap((date) => actualSlotsForDate(snapshot, date, today, now))
             .map((slot) => [slot.key, slot] as const)
         )
       : new Map<string, ActualSlot>()
@@ -216,7 +238,7 @@
   );
   const totals = $derived(
     snapshot
-      ? actualsWeekTotals(snapshot, activeWeek, today)
+      ? actualsWeekTotals(snapshot, activeWeek, today, now)
       : { actualHours: 0, plannedHours: 0, missing: 0, live: 0, adjusted: 0, conflicts: 0 }
   );
   const unresolvedConflict = $derived(
@@ -259,25 +281,25 @@
   const liveSlots = $derived(reviewSlots.filter((slot) => slot.status === 'live'));
   const approvalTitle = $derived(
     weekStatus === 'approved' || weekStatus === 'locked'
-      ? 'Payroll proof locked.'
+      ? t('Payroll proof locked.')
       : blockedCount
-        ? `${blockedCount} payroll blocker${blockedCount === 1 ? '' : 's'}.`
+        ? t(blockedCount === 1 ? '{count} payroll blocker.' : '{count} payroll blockers.', { count: blockedCount })
         : weekComplete
-          ? 'Ready for payroll approval.'
-          : 'Week still in service.'
+          ? t('Ready for payroll approval.')
+          : t('Week still in service.')
   );
   const approvalLead = $derived(
     weekStatus === 'approved' || weekStatus === 'locked'
-      ? 'This week has an audited approval trail and can be exported as official payroll evidence.'
+      ? t('This week has an audited approval trail and can be exported as official payroll evidence.')
       : totals.conflicts
-        ? 'Resolve worked-time conflicts before approving payroll.'
-        : totals.missing
-          ? 'Missing badges must be corrected or cancelled before payroll can trust this week.'
-          : totals.live
-            ? 'Someone is still clocked in. Approval waits until the live badge is closed.'
-            : weekComplete
-              ? 'Every blocking badge issue is clear. Review corrections, then approve.'
-              : 'Keep watching the badges as service happens. Approval opens once the week is complete.'
+        ? t('Resolve worked-time conflicts before approving payroll.')
+      : totals.missing
+          ? t('Missing badges must be corrected or cancelled before payroll can trust this week.')
+        : totals.live
+            ? t('Someone is still clocked in. Approval waits until the live badge is closed.')
+          : weekComplete
+              ? t('Every blocking badge issue is clear. Review corrections, then approve.')
+              : t('Keep watching the badges as service happens. Approval opens once the week is complete.')
   );
   const approvalTone = $derived(
     weekStatus === 'approved' || weekStatus === 'locked'
@@ -964,7 +986,7 @@
   );
 </script>
 
-<svelte:head><title>Timesheet · restogogo</title></svelte:head>
+<svelte:head><title>{t('Timesheet')} · restogogo</title></svelte:head>
 
 {#if snapshot}
   {#snippet exportPeriod()}
@@ -984,22 +1006,22 @@
     {#if !boardExpanded}
       <PageHero
         heroClass="is-wide-command"
-        eyebrow={`Payroll evidence · ${weekLabel(activeWeek)} · ${weekStatus}`}
+        eyebrow={`${t('Payroll evidence')} · ${weekLabel(activeWeek, i18n.intlLocale)} · ${t(weekStatus)}`}
         titleId="timesheet-title"
         title={approvalTitle}
         subtitle={approvalLead}
       >
         {#snippet command()}
-          <div class="timesheet-hero__command" aria-label="Payroll proof summary">
+          <div class="timesheet-hero__command" aria-label={t('Payroll proof summary')}>
             <div class="proof-dial" style={`--proof:${proofProgress}%`}>
               <strong>{formatHours(totals.actualHours)}</strong>
-              <span>badged</span>
+              <span>{t('badged')}</span>
             </div>
             <dl>
-              <div><dt>Planned</dt><dd>{formatHours(totals.plannedHours)}</dd></div>
-              <div><dt>Missing</dt><dd>{totals.missing}</dd></div>
-              <div><dt>Live</dt><dd>{totals.live}</dd></div>
-              <div><dt>Corrected</dt><dd>{totals.adjusted}</dd></div>
+              <div><dt>{t('Planned')}</dt><dd>{formatHours(totals.plannedHours)}</dd></div>
+              <div><dt>{t('Missing')}</dt><dd>{totals.missing}</dd></div>
+              <div><dt>{t('Live')}</dt><dd>{totals.live}</dd></div>
+              <div><dt>{t('Corrected')}</dt><dd>{totals.adjusted}</dd></div>
             </dl>
           </div>
         {/snippet}
@@ -1009,80 +1031,77 @@
   {/snippet}
 
   {#snippet boardSection()}
-        <header class="timesheet-console" aria-label="Timesheet cockpit controls">
+        <header class="timesheet-console" aria-label={t('Timesheet cockpit controls')}>
           <div class="timesheet-console__context">
-            <span class="timesheet-kicker">Timesheet cockpit · {timesheetModeLabel}</span>
+            <span class="timesheet-kicker">{t('Timesheet cockpit')} · {t(timesheetModeLabel)}</span>
             <div class="timesheet-console__title">
               <strong>{periodLabel}</strong>
-              <small>
-                {visibleRows.length} people · {formatHours([...periodSlotsByKey.values()].reduce((sum, slot) => sum + slot.actualHours, 0))} badged ·
-                {reviewSlots.length} review item{reviewSlots.length === 1 ? '' : 's'}
-              </small>
+              <small>{visibleRows.length} {t('people')} · {formatHours([...periodSlotsByKey.values()].reduce((sum, slot) => sum + slot.actualHours, 0))} {t('badged')} · {reviewSlots.length} {t('review items')}</small>
             </div>
           </div>
 
           <div class="timesheet-console__controls">
-            <div class="timesheet-view-switch" aria-label="Timesheet view">
+            <div class="timesheet-view-switch" aria-label={t('Timesheet view')}>
               <button
                 type="button"
                 class:is-active={timesheetView === 'roster'}
                 aria-pressed={timesheetView === 'roster'}
                 onclick={() => (timesheetView = 'roster')}
-              ><span aria-hidden="true"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><line x1="2.5" y1="4.5" x2="13.5" y2="4.5"/><line x1="2.5" y1="8" x2="13.5" y2="8"/><line x1="2.5" y1="11.5" x2="13.5" y2="11.5"/></svg></span><b>Roster</b></button>
+              ><span aria-hidden="true"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><line x1="2.5" y1="4.5" x2="13.5" y2="4.5"/><line x1="2.5" y1="8" x2="13.5" y2="8"/><line x1="2.5" y1="11.5" x2="13.5" y2="11.5"/></svg></span><b>{t('Roster')}</b></button>
               <button
                 type="button"
                 class:is-active={timesheetView === 'service'}
                 aria-pressed={timesheetView === 'service'}
                 onclick={() => (timesheetView = 'service')}
-              ><span aria-hidden="true"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><rect x="2" y="3" width="4.5" height="10" rx="1.2"/><rect x="9.5" y="3" width="4.5" height="10" rx="1.2"/></svg></span><b>Service</b></button>
+              ><span aria-hidden="true"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><rect x="2" y="3" width="4.5" height="10" rx="1.2"/><rect x="9.5" y="3" width="4.5" height="10" rx="1.2"/></svg></span><b>{t('Service')}</b></button>
             </div>
 
             {#if boardExpanded}
-              <div class="period-switch" aria-label="Timesheet period">
+              <div class="period-switch" aria-label={t('Timesheet period')}>
                 <button
                   type="button"
                   class:is-active={boardPeriod === 'week'}
                   aria-pressed={boardPeriod === 'week'}
                   onclick={() => (boardPeriod = 'week')}
-                >Week</button>
+                >{t('Week')}</button>
                 <button
                   type="button"
                   class:is-active={boardPeriod === 'month'}
                   aria-pressed={boardPeriod === 'month'}
                   onclick={() => (boardPeriod = 'month')}
-                >Month</button>
+                >{t('Month')}</button>
               </div>
             {/if}
 
-            <div class="timesheet-period-nav" aria-label="Choose period">
-              <button type="button" aria-label="Previous period" onclick={() => changePeriod(-1)}>&lsaquo;</button>
-              <label class="week-picker" aria-label="Week starting">
+            <div class="timesheet-period-nav" aria-label={t('Choose period')}>
+              <button type="button" aria-label={t('Previous period')} onclick={() => changePeriod(-1)}>&lsaquo;</button>
+              <label class="week-picker" aria-label={t('Week starting')}>
                 <input type="date" value={activeWeek} onchange={(event) => chooseWeek(event.currentTarget.value)} />
               </label>
-              <button type="button" aria-label="Next period" onclick={() => changePeriod(1)}>&rsaquo;</button>
+              <button type="button" aria-label={t('Next period')} onclick={() => changePeriod(1)}>&rsaquo;</button>
             </div>
 
             {#if boardExpanded || activeFilterCount}
               <details class="timesheet-staff-tools">
-                <summary>Staff tools{activeFilterCount ? ` · ${activeFilterCount}` : ''}</summary>
+                <summary>{t('Staff tools')}{activeFilterCount ? ` · ${activeFilterCount}` : ''}</summary>
                 <div class="timesheet-staff-tools__panel">
                   <label>
-                    <span>Find staff</span>
-                    <input bind:value={search} placeholder="Name, role, station..." />
+                    <span>{t('Find staff')}</span>
+                    <input bind:value={search} placeholder={t('Name, role, station...')} />
                   </label>
                   <label>
-                    <span>Show</span>
+                    <span>{t('Show')}</span>
                     <select bind:value={scope}>
-                      <option value="all">All employees</option>
-                      <option value="exceptions">Needs review</option>
-                      <option value="live">Working now</option>
-                      <option value="adjusted">Corrected only</option>
+                      <option value="all">{t('All employees')}</option>
+                      <option value="exceptions">{t('Needs review')}</option>
+                      <option value="live">{t('Working now')}</option>
+                      <option value="adjusted">{t('Corrected only')}</option>
                     </select>
                   </label>
                   <label>
-                    <span>Position</span>
+                    <span>{t('Position')}</span>
                     <select bind:value={positionId}>
-                      <option value="">All positions</option>
+                      <option value="">{t('All positions')}</option>
                       {#each snapshot.job_functions.filter((item) => item.active) as item}
                         <option value={item.id}>{item.name}</option>
                       {/each}
@@ -1099,8 +1118,8 @@
                 boardExpanded = !boardExpanded;
                 if (!boardExpanded) boardPeriod = 'week';
               }}
-              aria-label={boardExpanded ? 'Exit full screen' : 'Expand to full screen'}
-              title={boardExpanded ? 'Exit full screen' : 'Expand to full screen'}
+              aria-label={t(boardExpanded ? 'Exit full screen' : 'Expand to full screen')}
+              title={t(boardExpanded ? 'Exit full screen' : 'Expand to full screen')}
             >{boardExpanded ? '✕' : '⤢'}</button>
           </div>
         </header>
@@ -1110,6 +1129,7 @@
           periodMode={boardExpanded ? boardPeriod : 'week'}
           expanded={boardExpanded}
           columns={periodColumns}
+          weatherFor={(date) => restaurantWeather.dailyFor(date)}
           rows={boardRows}
           slotsFor={rosterSlotsFor}
           dayRails={dayRailsBoard}
@@ -1126,7 +1146,7 @@
         {/if}
     {/snippet}
 
-  <PageScaffold header={pageHeader} label="Timesheet payroll cockpit">
+  <PageScaffold header={pageHeader} label={t('Timesheet payroll cockpit')}>
     {#if boardExpanded}
       <div class="board-fullscreen" use:portal role="dialog" aria-modal="true" aria-label="Timesheet focus">
         <button type="button" class="board-fullscreen__scrim" aria-label="Close focus" onclick={() => { boardExpanded = false; boardPeriod = 'week'; }}></button>
@@ -1142,17 +1162,17 @@
 
       <aside class="timesheet-rail" aria-label="Payroll actions">
         <section class={`approval-card is-${approvalTone}`}>
-          <p>Approval gate</p>
-          <h2>{approvalGateTitle}</h2>
+          <p>{t('Approval gate')}</p>
+          <h2>{t(approvalGateTitle)}</h2>
           <div class="approval-checks">
             <button type="button" class:is-open={gateExpanded === 'conflicts'} disabled={!conflictSlots.length} onclick={() => toggleGate('conflicts')} style="--rst-i:0">
-              <b>{totals.conflicts}</b> conflicts <i class:is-clear={!totals.conflicts}>{totals.conflicts ? '!' : '✓'}</i>
+              <b>{totals.conflicts}</b> {t('conflicts')} <i class:is-clear={!totals.conflicts}>{totals.conflicts ? '!' : '✓'}</i>
             </button>
             <button type="button" class:is-open={gateExpanded === 'missing'} disabled={!missingSlots.length} onclick={() => toggleGate('missing')} style="--rst-i:1">
-              <b>{totals.missing}</b> missing badges <i class:is-clear={!totals.missing}>{totals.missing ? '!' : '✓'}</i>
+              <b>{totals.missing}</b> {t('missing badges')} <i class:is-clear={!totals.missing}>{totals.missing ? '!' : '✓'}</i>
             </button>
             <button type="button" class:is-open={gateExpanded === 'live'} disabled={!liveSlots.length} onclick={() => toggleGate('live')} style="--rst-i:2">
-              <b>{totals.live}</b> live clock-ins <i class:is-clear={!totals.live}>{totals.live ? '!' : '✓'}</i>
+              <b>{totals.live}</b> {t('live clock-ins')} <i class:is-clear={!totals.live}>{totals.live ? '!' : '✓'}</i>
             </button>
           </div>
 
@@ -1229,14 +1249,15 @@
           {/if}
         </section>
 
-        <RailExportCard
-          eyebrow="Payroll export"
-          title={isOwner ? 'Preview before sending.' : 'Owner only'}
-          description="Column order, draft preview and official lineage stay in the export wizard."
-          primaryLabel="Payroll CSV"
-          showPrimary={isOwner}
-          onprimary={openExportCsv}
-        />
+        {#if isOwner}
+          <RailExportCard
+            eyebrow="Payroll export"
+            title="Preview before sending."
+            description="Column order, draft preview and official lineage stay in the export wizard."
+            primaryLabel="Payroll CSV"
+            onprimary={openExportCsv}
+          />
+        {/if}
 
         <section class="review-card">
           <p>Proof stack</p>
@@ -1324,7 +1345,7 @@
     }}
   />
 {:else}
-  <p>Loading Timesheet...</p>
+  <p>{t('Loading Timesheet...')}</p>
 {/if}
 
 <style>
@@ -1493,23 +1514,26 @@
     display: grid;
     gap: 14px;
     padding: 20px;
-    color: #fffaf2;
+    border: 1px solid var(--rst-command-border);
+    border-radius: var(--rst-command-radius);
+    color: var(--rst-command-text);
     background:
       radial-gradient(circle at 100% 0%, rgba(240, 100, 35, 0.18), transparent 36%),
-      linear-gradient(145deg, #211b18, #15191f);
+      var(--rst-command-bg);
+    box-shadow: var(--rst-command-shadow);
   }
 
   .approval-card.is-ready,
   .approval-card.is-approved {
     background:
       radial-gradient(circle at 100% 0%, rgba(66, 216, 132, 0.22), transparent 36%),
-      linear-gradient(145deg, #172018, #11191f);
+      var(--rst-command-bg-ready);
   }
 
   .approval-card.is-blocked {
     background:
       radial-gradient(circle at 100% 0%, rgba(240, 100, 35, 0.24), transparent 36%),
-      linear-gradient(145deg, #241915, #15191f);
+      var(--rst-command-bg-blocked);
   }
 
   .approval-checks {
@@ -1748,7 +1772,7 @@
   .review-card {
     background:
       radial-gradient(circle at 100% 0%, rgba(56, 189, 248, 0.16), transparent 36%),
-      linear-gradient(145deg, #111a27, #0c1622);
+      var(--rst-command-bg-info);
   }
 
   .review-list {

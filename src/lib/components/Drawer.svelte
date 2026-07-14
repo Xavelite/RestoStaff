@@ -2,6 +2,7 @@
   import { tick } from 'svelte';
   import type { Snippet } from 'svelte';
   import { portal } from '$lib/actions/portal';
+  import { t } from '$lib/i18n/i18n.svelte';
 
   // A slide-over variant of Dialog for entity detail/edit surfaces where a
   // centered modal feels too heavy (e.g. Team's employee editor) — same
@@ -75,10 +76,10 @@
     <div bind:this={panelElement} class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
       <header>
         <div>
-          <h2 id="drawer-title">{title}</h2>
-          {#if description}<p>{description}</p>{/if}
+          <h2 id="drawer-title">{t(title)}</h2>
+          {#if description}<p>{t(description)}</p>{/if}
         </div>
-        <button type="button" aria-label="Close panel" onclick={onclose}>×</button>
+        <button type="button" aria-label={t('Close panel')} onclick={onclose}>×</button>
       </header>
       {#if tabs}<div class="drawer-tabs">{@render tabs()}</div>{/if}
       <div class="drawer-body">{@render children()}</div>

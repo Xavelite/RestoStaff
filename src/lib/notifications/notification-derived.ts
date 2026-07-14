@@ -42,7 +42,6 @@ type PlannedShift = ManagerOperationsReadModel['planned_shifts'][number];
 type TimeEntry = ManagerOperationsReadModel['time_entries'][number];
 type Absence = ManagerOperationsReadModel['absences'][number];
 type AvailabilitySubmission = ManagerOperationsReadModel['employee_availability_submissions'][number];
-type WorkWeekEvent = ManagerOperationsReadModel['work_week_events'][number];
 
 const LATE_GRACE_MINUTES = 10;
 const RECENT_ACCEPTED_DAYS = 30;
@@ -74,10 +73,6 @@ function shiftLabel(shift: PlannedShift): string {
 
 function availabilitySubmissionCreatedAt(submission: AvailabilitySubmission): string {
   return submission.submitted_at ?? submission.updated_at ?? submission.created_at;
-}
-
-function planningEventCreatedAt(event: WorkWeekEvent): string {
-  return event.created_at;
 }
 
 function routeWithWeek(route: '/schedule' | '/timesheet' | '/my-service', weekStart: string): string {
@@ -185,6 +180,16 @@ function shiftForEntry(shifts: PlannedShift[], entry: TimeEntry): PlannedShift |
 function managerNotifications(input: ManagerNotificationInput): NotificationItem[] {
   const items: NotificationItem[] = [];
   const { operations, team, today, now, timezone } = input;
+  const availabilityEmployeeIds = new Set(
+    operations.employee_contracts
+      .filter(
+        (contract) =>
+          contract.active &&
+          contract.is_current &&
+          contract.work_regime === 'weekly_availability'
+      )
+      .map((contract) => contract.employee_id)
+  );
 
   for (const absence of operations.absences) {
     if (absence.status !== 'pending') continue;
@@ -198,14 +203,18 @@ function managerNotifications(input: ManagerNotificationInput): NotificationItem
       body: `${absence.start_date}${absence.end_date !== absence.start_date ? ` – ${absence.end_date}` : ''}`,
       createdAt: absence.created_at,
       actionMode: 'popup',
-      targetUrl: calendarRoute(absence.start_date, absence.service_key),
+      targetUrl: routeWithWeek('/schedule', mondayFor(absence.start_date)),
       source: { table: 'absences', id: absence.id },
       employeeId: absence.employee_id
     });
   }
 
   for (const submission of operations.employee_availability_submissions) {
-    if (submission.status !== 'submitted' || !submission.submitted_at) continue;
+    if (
+      submission.status !== 'submitted' ||
+      !submission.submitted_at ||
+      !availabilityEmployeeIds.has(submission.employee_id)
+    ) continue;
     const name = employeeName(operations, submission.employee_id);
     const createdAt = availabilitySubmissionCreatedAt(submission);
     items.push({
@@ -340,34 +349,33 @@ function employeeNotifications(input: EmployeeNotificationInput): NotificationIt
   const { operations, employeeId, today, now, timezone } = input;
   if (!employeeId) return items;
 
-  for (const event of operations.work_week_events) {
-    if (event.event_type !== 'planning_published') continue;
-    const week = operations.work_weeks.find((row) => row.week_start === event.week_start);
+  for (const week of operations.work_weeks) {
+    if (week.planning_status !== 'published' || !week.published_at) continue;
     const hasOwnShift = operations.planned_shifts.some(
-      (shift) => shift.employee_id === employeeId && shift.week_start === event.week_start
+      (shift) => shift.employee_id === employeeId && shift.week_start === week.week_start
     );
     // Also notify employees who submitted availability for the week — they want
     // to know the outcome even if they were not scheduled.
     const submittedAvailability = operations.employee_availability_submissions.some(
       (submission) =>
         submission.employee_id === employeeId &&
-        submission.week_start === event.week_start &&
+        submission.week_start === week.week_start &&
         submission.status === 'submitted'
     );
-    if (week?.planning_status !== 'published' || !(hasOwnShift || submittedAvailability)) continue;
+    if (!(hasOwnShift || submittedAvailability)) continue;
     items.push({
-      key: `planning-published:${event.id}`,
+      key: `planning-published:${week.week_start}:${week.planning_revision}`,
       type: 'planning_published',
       audience: 'employee',
       severity: 'info',
       title: hasOwnShift ? 'Your shifts are published' : 'Schedule published',
       body: hasOwnShift
-        ? `Week of ${event.week_start} — see your shifts`
-        : `Week of ${event.week_start} — you're not scheduled`,
-      createdAt: planningEventCreatedAt(event),
+        ? `Week of ${week.week_start} — see your shifts`
+        : `Week of ${week.week_start} — you're not scheduled`,
+      createdAt: week.published_at,
       actionMode: 'route',
-      targetUrl: routeWithWeek('/my-service', event.week_start),
-      source: { table: 'work_week_events', id: event.id }
+      targetUrl: routeWithWeek('/my-service', week.week_start),
+      source: { table: 'work_weeks', id: `${input.restaurantId}:${week.week_start}` }
     });
   }
 

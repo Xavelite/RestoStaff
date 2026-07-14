@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/i18n.svelte';
+
   let {
     eyebrow,
     title,
@@ -20,14 +22,14 @@
   } = $props();
 </script>
 
-<section class="rail-export-card" aria-label={ariaLabel}>
-  <p>{eyebrow}</p>
-  <h2>{title}</h2>
-  <span>{description}</span>
+<section class="rail-export-card" aria-label={t(ariaLabel)}>
+  <p>{t(eyebrow)}</p>
+  <h2>{t(title)}</h2>
+  <span>{t(description)}</span>
   <div class="rail-export-card__actions">
-    <button type="button" onclick={onsecondary}>Export PDF</button>
+    <button type="button" onclick={onsecondary}>{t('Export PDF')}</button>
     {#if showPrimary}
-      <button type="button" class="primary-action" onclick={onprimary}>{primaryLabel}</button>
+      <button type="button" class="primary-action" onclick={onprimary}>{t(primaryLabel)}</button>
     {/if}
   </div>
 </section>
@@ -38,13 +40,13 @@
     display: grid;
     gap: 14px;
     padding: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 26px;
-    color: #fffaf2;
+    border: 1px solid var(--rst-command-border);
+    border-radius: var(--rst-command-radius);
+    color: var(--rst-command-text);
     background:
       radial-gradient(circle at 100% 0%, rgba(247, 183, 51, 0.16), transparent 36%),
-      linear-gradient(145deg, #1b1c1d, #101820);
-    box-shadow: 0 22px 60px rgba(29, 20, 10, 0.14);
+      var(--rst-command-bg);
+    box-shadow: var(--rst-command-shadow);
     animation: rst-fade-up 0.5s var(--rst-ease-out) backwards;
   }
 
@@ -59,7 +61,7 @@
 
   h2 {
     margin: 0;
-    color: #fffaf2;
+    color: var(--rst-command-text);
     font-size: clamp(24px, 2.4vw, 36px);
     line-height: 0.98;
     letter-spacing: -0.055em;
@@ -83,7 +85,7 @@
     padding: 0 14px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px;
-    color: #fffaf2;
+    color: var(--rst-command-text);
     background: rgba(255, 255, 255, 0.07);
     font: inherit;
     font-weight: var(--rst-fw-display);

@@ -56,7 +56,7 @@ export function planningCsv(input: {
   };
 
   return {
-    filename: `planning-${input.activeWeek}.csv`,
+    filename: `schedule-${input.activeWeek}.csv`,
     headers: input.columns.map((column) => planningFieldLabel(column)),
     rows: input.draft.map((shift) => input.columns.map((column) => value(shift, column)))
   };

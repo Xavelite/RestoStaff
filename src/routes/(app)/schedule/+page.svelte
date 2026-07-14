@@ -68,6 +68,8 @@
   import { buildEmployeeColorMap } from '$lib/ui/position-color';
   import { workspaceRealtime } from '$lib/realtime/workspace-realtime.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
+  import { i18n, t } from '$lib/i18n/i18n.svelte';
+  import { restaurantWeather } from '$lib/weather/restaurant-weather.svelte';
 
   type ScheduleCockpitView = 'service' | 'roster';
   type SchedulePeriod = 'week' | 'month';
@@ -77,6 +79,16 @@
   };
 
   const snapshot = $derived(workspace.operations);
+  const weatherLocation = $derived(
+    snapshot
+      ? {
+          city: snapshot.restaurant.city ?? '',
+          postalCode: snapshot.restaurant.postal_code ?? '',
+          countryCode: snapshot.restaurant.country_code,
+          timezone: snapshot.restaurant_settings.timezone ?? undefined
+        }
+      : null
+  );
   const timezone = $derived(
     snapshot?.restaurant_settings.timezone ||
       workspace.bootstrap?.restaurant_settings.timezone ||
@@ -135,6 +147,9 @@
     if (workspace.activeId && operationsStart && operationsEnd) {
       void workspace.loadOperations(operationsStart, operationsEnd, true).catch(() => undefined);
     }
+  });
+  $effect(() => {
+    if (weatherLocation?.city) void restaurantWeather.load(weatherLocation);
   });
 
   const status = $derived(
@@ -200,7 +215,7 @@
     boardExpanded && boardPeriod === 'month' ? activeMonthDates : grid.days.map((day) => day.date)
   );
   const periodLabel = $derived(
-    boardExpanded && boardPeriod === 'month' ? monthLabel(activeWeek) : weekLabel(activeWeek)
+    boardExpanded && boardPeriod === 'month' ? monthLabel(activeWeek, i18n.intlLocale) : weekLabel(activeWeek, i18n.intlLocale)
   );
   const periodWeekGrids = $derived.by(() => {
     const map = new Map<string, ReturnType<typeof buildPlanningWeek>>();
@@ -218,7 +233,7 @@
   }
 
   function weekdayLabel(date: string) {
-    return new Intl.DateTimeFormat('en-GB', { weekday: 'short', timeZone: 'UTC' }).format(
+    return new Intl.DateTimeFormat(i18n.intlLocale, { weekday: 'short', timeZone: 'UTC' }).format(
       new Date(`${date}T00:00:00Z`)
     );
   }
@@ -252,23 +267,23 @@
   );
   const heroTitle = $derived(
     publishBlockerCount
-      ? `${publishBlockerCount} blocker${publishBlockerCount === 1 ? '' : 's'} before publish.`
+      ? t(publishBlockerCount === 1 ? '{count} blocker before publish.' : '{count} blockers before publish.', { count: publishBlockerCount })
       : issues.length
-        ? `${issues.length} coverage warning${issues.length === 1 ? '' : 's'}.`
+        ? t(issues.length === 1 ? '{count} coverage warning.' : '{count} coverage warnings.', { count: issues.length })
       : dirty
-        ? 'Unsaved schedule changes.'
+        ? t('Unsaved schedule changes.')
         : status.planning === 'published'
-          ? 'Schedule is published.'
-          : 'Build a clean week.'
+          ? t('Schedule is published.')
+          : t('Build a clean week.')
   );
   const heroLead = $derived(
     publishBlockerCount
-      ? 'Resolve unsafe conflicts and pending schedule requests before employees see the week.'
+      ? t('Resolve unsafe conflicts and pending schedule requests before employees see the week.')
       : issues.length
-        ? 'Coverage gaps stay visible, but you can publish after confirming the risk.'
+        ? t('Coverage gaps stay visible, but you can publish after confirming the risk.')
       : status.planning === 'published'
-        ? 'Employees can see the week. Reopen it only when service reality changes.'
-        : 'Use confirmed availability as your bench, then commit the right people to Lunch and Evening.'
+        ? t('Employees can see the week. Reopen it only when service reality changes.')
+        : t('Use confirmed availability as your bench, then commit the right people to Lunch and Evening.')
   );
   const activeFilterCount = $derived(
     (search.trim() ? 1 : 0) + (scope === 'all' ? 0 : 1) + (positionId ? 1 : 0)
@@ -472,7 +487,7 @@
         detail: slotCaptionOf(slot),
         color: employeeColor.get(slot.employeeId),
         onclick: activeDate ? () => openChip(date, slot.key) : () => jumpToWeek(date),
-        ariaLabel: `${slot.employeeName} ${slotCaptionOf(slot)}`
+        ariaLabel: `${date} ${slot.employeeName} ${serviceLabel(slot.serviceKey)} ${slotCaptionOf(slot)}`
       }));
       return [
         {
@@ -589,42 +604,8 @@
     if (slot?.shift) slotDetailsOpen = true;
   }
 
-  // Primary tap = plan / un-plan toggle. Tap an empty slot to plan it (default
-  // service time), tap a planned slot to remove it. Editing area/hours lives on
-  // the ⋯ action, so a tap never accidentally opens a Drawer or edits.
-  function toggleRosterSlot(date: string, key: string) {
-    const slot = grid.slotsByKey.get(key);
-    if (!slot) return;
-    selectedDate = date;
-    if (!editable) {
-      selectedKey = key;
-      slotDetailsOpen = true;
-      return;
-    }
-    if (slot.shift) {
-      draft = draft.filter((shift) => shift !== slot.shift);
-      selectedKey = '';
-      feedback = 'Shift removed from the roster.';
-      feedbackTone = 'success';
-      return;
-    }
-    // A requested or approved leave / pattern-change slot must never be turned
-    // into a shift by a stray tap. Open its details so the manager sees the
-    // request and can act on it deliberately (cancel leave, resolve exception).
-    if (
-      slot.context.absence === 'approved' ||
-      slot.context.absence === 'pending' ||
-      slot.context.workPatternException === 'approved' ||
-      slot.context.workPatternException === 'pending'
-    ) {
-      selectedKey = key;
-      slotDetailsOpen = true;
-      return;
-    }
-    selectPlanningSlot(key);
-  }
-
-  // ⋯ action: open the slot editor (area + full hours) without toggling.
+  // Open one deliberate action surface for planning, editing, request review,
+  // and removal. A roster tap must never delete a shift directly.
   function openRosterEditor(date: string, key: string) {
     selectedDate = date;
     selectedKey = key;
@@ -744,11 +725,8 @@
       detail: rosterSlotMetaOf(slot),
       color: slot.shift ? employeeColor.get(slot.employeeId) : undefined,
       selected: selectedKey === slot.key,
-      onclick: isActiveWeekDate ? () => toggleRosterSlot(date, slot.key) : () => jumpToWeek(date),
-      onmore:
-        isActiveWeekDate && slot.shift ? () => openRosterEditor(date, slot.key) : undefined,
-      moreLabel: 'Edit shift',
-      ariaLabel: `${slot.employeeName} ${serviceLabel(slot.serviceKey)} ${slotCaptionOf(slot)}`
+      onclick: isActiveWeekDate ? () => openRosterEditor(date, slot.key) : () => jumpToWeek(date),
+      ariaLabel: `${date} ${slot.employeeName} ${serviceLabel(slot.serviceKey)} ${slotCaptionOf(slot)}`
     }));
   }
 
@@ -788,7 +766,7 @@
         color: employeeColor.get(slot.employeeId),
         selected: selectedKey === slot.key,
         onclick: isActiveWeekDate ? () => openChip(date, slot.key) : () => jumpToWeek(date),
-        ariaLabel: `${slot.employeeName} ${service.label} ${slotCaptionOf(slot)}`
+        ariaLabel: `${date} ${slot.employeeName} ${service.label} ${slotCaptionOf(slot)}`
       }));
       // Service is a read-only coverage lens: no bench / fill here — placement
       // happens in the Roster (a coverage row click jumps there).
@@ -1065,6 +1043,13 @@
         }
       });
       await workspace.reloadOperations();
+      await workspaceRealtime.publish('planning-saved', {
+        restaurantId: workspace.activeId,
+        revision: workspace.operations
+          ? planningStatusForWeek(workspace.operations, activeWeek).revision
+          : null,
+        source: 'planning'
+      });
       feedback =
         action === 'approve'
           ? 'Fixed-schedule change approved.'
@@ -1133,6 +1118,13 @@
       });
       await workspace.reloadOperations();
       loadedKey = '';
+      await workspaceRealtime.publish('planning-saved', {
+        restaurantId: workspace.activeId,
+        revision: workspace.operations
+          ? planningStatusForWeek(workspace.operations, activeWeek).revision
+          : null,
+        source: 'planning'
+      });
       feedback =
         targetStatus === 'published'
           ? 'Schedule published. Employees can now see their shifts.'
@@ -1167,25 +1159,25 @@
   }
 </script>
 
-<svelte:head><title>Schedule · restogogo</title></svelte:head>
+<svelte:head><title>{t('Schedule')} · restogogo</title></svelte:head>
 
 {#if snapshot}
   {#snippet pageHeader()}
     {#if !boardExpanded}
       <PageHero
         heroClass="is-wide-command"
-        eyebrow={`${weekLabel(activeWeek)} · ${status.planning === 'published' ? 'Published schedule' : 'Draft schedule'}`}
+        eyebrow={`${weekLabel(activeWeek, i18n.intlLocale)} · ${status.planning === 'published' ? t('Published schedule') : t('Draft schedule')}`}
         titleId="planning-title"
         title={heroTitle}
         subtitle={heroLead}
       >
         {#snippet command()}
-          <div class="page-hero__command" aria-label="Schedule command signal">
+          <div class="page-hero__command" aria-label={t('Schedule command signal')}>
             <div class={`planning-hero__publish is-${publishTone}`} class:is-blocked={publishBlockerCount > 0} class:is-dirty={dirty}>
               <div class="publish-dial">
-                <span><i></i> Publish gate</span>
-                <strong>{publishState}</strong>
-                <small>{publishSummary}</small>
+                <span><i></i> {t('Publish gate')}</span>
+                <strong>{t(publishState)}</strong>
+                <small>{t(publishSummary)}</small>
               </div>
             </div>
           </div>
@@ -1195,56 +1187,56 @@
     {/if}
   {/snippet}
   {#snippet boardSection()}
-        <header class="cockpit-console" aria-label="Schedule cockpit controls">
+        <header class="cockpit-console" aria-label={t('Schedule cockpit controls')}>
           <div class="cockpit-console__context">
-            <span class="planning-kicker">Schedule cockpit · {cockpitViewLabel}</span>
+            <span class="planning-kicker">{t('Schedule cockpit')} · {t(cockpitViewLabel)}</span>
             <div class="cockpit-console__title">
-              <strong>{weekLabel(activeWeek)}</strong>
-              <small>{visibleRows.length} people · {plannedShiftCount} shifts · {availableSlotCount} open</small>
+              <strong>{weekLabel(activeWeek, i18n.intlLocale)}</strong>
+              <small>{visibleRows.length} {t('people')} · {plannedShiftCount} {t('shifts')} · {availableSlotCount} {t('open')}</small>
             </div>
           </div>
 
           <div class="cockpit-console__controls">
-            <div class="cockpit-view-switch" aria-label="Schedule cockpit view">
+            <div class="cockpit-view-switch" aria-label={t('Schedule cockpit view')}>
               <button
                 type="button"
                 class:is-active={cockpitView === 'service'}
                 aria-pressed={cockpitView === 'service'}
                 onclick={() => (cockpitView = 'service')}
-              ><span aria-hidden="true"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><rect x="2" y="3" width="4.5" height="10" rx="1.2"/><rect x="9.5" y="3" width="4.5" height="10" rx="1.2"/></svg></span><b>Service</b></button>
+              ><span aria-hidden="true"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><rect x="2" y="3" width="4.5" height="10" rx="1.2"/><rect x="9.5" y="3" width="4.5" height="10" rx="1.2"/></svg></span><b>{t('Service')}</b></button>
               <button
                 type="button"
                 class:is-active={cockpitView === 'roster'}
                 aria-pressed={cockpitView === 'roster'}
                 onclick={() => (cockpitView = 'roster')}
-              ><span aria-hidden="true"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><line x1="2.5" y1="4.5" x2="13.5" y2="4.5"/><line x1="2.5" y1="8" x2="13.5" y2="8"/><line x1="2.5" y1="11.5" x2="13.5" y2="11.5"/></svg></span><b>Roster</b></button>
+              ><span aria-hidden="true"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><line x1="2.5" y1="4.5" x2="13.5" y2="4.5"/><line x1="2.5" y1="8" x2="13.5" y2="8"/><line x1="2.5" y1="11.5" x2="13.5" y2="11.5"/></svg></span><b>{t('Roster')}</b></button>
             </div>
 
             {#if boardExpanded}
-              <div class="period-switch" aria-label="Schedule period">
+              <div class="period-switch" aria-label={t('Schedule period')}>
                 <button
                   type="button"
                   class:is-active={boardPeriod === 'week'}
                   aria-pressed={boardPeriod === 'week'}
                   onclick={() => (boardPeriod = 'week')}
-                >Week</button>
+                >{t('Week')}</button>
                 <button
                   type="button"
                   class:is-active={boardPeriod === 'month'}
                   aria-pressed={boardPeriod === 'month'}
                   onclick={() => (boardPeriod = 'month')}
-                >Month</button>
+                >{t('Month')}</button>
               </div>
             {/if}
 
-            <div class="cockpit-week" aria-label="Choose period">
-              <button type="button" aria-label="Previous period" onclick={() => changePeriod(-1)}>
+            <div class="cockpit-week" aria-label={t('Choose period')}>
+              <button type="button" aria-label={t('Previous period')} onclick={() => changePeriod(-1)}>
                 &lsaquo;
               </button>
-              <label class="week-picker" aria-label="Week starting">
+              <label class="week-picker" aria-label={t('Week starting')}>
                 <input type="date" value={activeWeek} onchange={(event) => chooseWeek(event.currentTarget.value)} />
               </label>
-              <button type="button" aria-label="Next period" onclick={() => changePeriod(1)}>
+              <button type="button" aria-label={t('Next period')} onclick={() => changePeriod(1)}>
                 &rsaquo;
               </button>
             </div>
@@ -1252,25 +1244,25 @@
             {#if boardExpanded || activeFilterCount}
               <details class="cockpit-staff-tools">
                 <summary>
-                  Staff tools{activeFilterCount ? ` · ${activeFilterCount}` : ''}
+                  {t('Staff tools')}{activeFilterCount ? ` · ${activeFilterCount}` : ''}
                 </summary>
                 <div class="cockpit-staff-tools__panel">
                   <label class="cockpit-search">
-                    <span>Find staff</span>
-                    <input bind:value={search} placeholder="Name, role, station..." />
+                    <span>{t('Find staff')}</span>
+                    <input bind:value={search} placeholder={t('Name, role, station...')} />
                   </label>
                   <label>
-                    <span>Show</span>
+                    <span>{t('Show')}</span>
                     <select bind:value={scope}>
-                      <option value="all">All employees</option>
-                      <option value="scheduled">Scheduled only</option>
-                      <option value="conflicts">Needs attention</option>
+                      <option value="all">{t('All employees')}</option>
+                      <option value="scheduled">{t('Scheduled only')}</option>
+                      <option value="conflicts">{t('Needs attention')}</option>
                     </select>
                   </label>
                   <label>
-                    <span>Position</span>
+                    <span>{t('Position')}</span>
                     <select bind:value={positionId}>
-                      <option value="">All positions</option>
+                      <option value="">{t('All positions')}</option>
                       {#each snapshot.job_functions.filter((item) => item.active) as item}
                         <option value={item.id}>{item.name}</option>
                       {/each}
@@ -1287,8 +1279,8 @@
                 boardExpanded = !boardExpanded;
                 if (!boardExpanded) boardPeriod = 'week';
               }}
-              aria-label={boardExpanded ? 'Exit full screen' : 'Expand to full screen'}
-              title={boardExpanded ? 'Exit full screen' : 'Expand to full screen'}
+              aria-label={t(boardExpanded ? 'Exit full screen' : 'Expand to full screen')}
+              title={t(boardExpanded ? 'Exit full screen' : 'Expand to full screen')}
             >{boardExpanded ? '✕' : '⤢'}</button>
           </div>
         </header>
@@ -1298,6 +1290,7 @@
           periodMode={boardExpanded ? boardPeriod : 'week'}
           expanded={boardExpanded}
           columns={periodColumns}
+          weatherFor={(date) => restaurantWeather.dailyFor(date)}
           rows={boardRows}
           slotsFor={rosterSlotsFor}
           dayRails={dayRailsBoard}
@@ -1316,26 +1309,26 @@
         {/if}
     {/snippet}
 
-  <PageScaffold header={pageHeader} label="Schedule workspace">
+  <PageScaffold header={pageHeader} label={t('Schedule workspace')}>
     {#if boardExpanded}
-      <div class="board-fullscreen" use:portal role="dialog" aria-modal="true" aria-label="Schedule focus">
-        <button type="button" class="board-fullscreen__scrim" aria-label="Close focus" onclick={() => { boardExpanded = false; boardPeriod = 'week'; }}></button>
+      <div class="board-fullscreen" use:portal role="dialog" aria-modal="true" aria-label={t('Schedule focus')}>
+        <button type="button" class="board-fullscreen__scrim" aria-label={t('Close focus')} onclick={() => { boardExpanded = false; boardPeriod = 'week'; }}></button>
         <div class="board-fullscreen__panel schedule-board">
           {@render boardSection()}
         </div>
       </div>
     {:else}
       <div class="planning-workspace">
-        <section class="schedule-board" aria-label="Weekly service board">
+        <section class="schedule-board" aria-label={t('Weekly service board')}>
           {@render boardSection()}
         </section>
 
-        <aside class="schedule-rail" aria-label="Schedule inspector">
-          <section class={`week-actions is-${publishTone}`} class:is-celebrating={justPublished} aria-label="Schedule publish gate">
-            <span class="planning-kicker">Publish gate</span>
+        <aside class="schedule-rail" aria-label={t('Schedule inspector')}>
+          <section class={`week-actions is-${publishTone}`} class:is-celebrating={justPublished} aria-label={t('Schedule publish gate')}>
+            <span class="planning-kicker">{t('Publish gate')}</span>
             <h2>{status.planning === 'published' ? 'Published week' : publishCheckCount ? `${publishCheckCount} checks` : dirty ? 'Save changes first' : 'Ready when you are'}</h2>
             <p>{publishSummary}</p>
-            <div class="rail-checks" aria-label="Publish checks">
+            <div class="rail-checks" aria-label={t('Publish checks')}>
               <button type="button" class:needs-attention={issues.length > 0} class:is-open={gateExpanded === 'gaps'} style="--rst-i:0" disabled={!issues.length} onclick={() => toggleGate('gaps')}>
                 <strong>{issues.length}</strong>
                 <span>coverage gaps{issues.length ? ' · click to inspect' : ''}</span>
@@ -1354,7 +1347,7 @@
             </div>
 
             {#if gateExpanded === 'gaps' && issues.length}
-              <ul class="gate-issues" aria-label="Coverage gaps">
+              <ul class="gate-issues" aria-label={t('Coverage gaps')}>
                 {#each issues as issue (`${issue.date}-${issue.serviceKey}-${issue.areaId}-${issue.jobFunctionId}`)}
                   <li>
                     <button type="button" onclick={() => scrollToService(issue.date, issue.serviceKey)}>
@@ -1367,7 +1360,7 @@
               </ul>
             {/if}
             {#if gateExpanded === 'conflicts' && conflicts.length}
-              <ul class="gate-issues" aria-label="Slot conflicts">
+              <ul class="gate-issues" aria-label={t('Slot conflicts')}>
                 {#each conflicts as shift (`${shift.employeeId}-${shift.weekday}-${shift.serviceKey}`)}
                   <li>
                     <button type="button" onclick={() => scrollToService(conflictShiftDate(shift), shift.serviceKey)}>
@@ -1529,7 +1522,7 @@
   />
   </PageScaffold>
 {:else}
-  <p class="empty">Loading Schedule…</p>
+  <p class="empty">{t('Loading Schedule…')}</p>
 {/if}
 
 <style>
@@ -2145,25 +2138,25 @@
   /* Gate cards share Timesheet's rail-card language: soft dark gradient,
      26px radius, tone-tinted gate (green ready / orange blocked). */
   .schedule-rail > .week-actions {
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 26px;
-    box-shadow: 0 22px 60px rgba(29, 20, 10, 0.14);
-    color: #fffaf2;
+    border: 1px solid var(--rst-command-border);
+    border-radius: var(--rst-command-radius);
+    box-shadow: var(--rst-command-shadow);
+    color: var(--rst-command-text);
     background:
       radial-gradient(circle at 100% 0%, rgba(240, 100, 35, 0.18), transparent 36%),
-      linear-gradient(145deg, #211b18, #15191f);
+      var(--rst-command-bg);
   }
 
   .schedule-rail > .week-actions.is-ready {
     background:
       radial-gradient(circle at 100% 0%, rgba(66, 216, 132, 0.22), transparent 36%),
-      linear-gradient(145deg, #172018, #11191f);
+      var(--rst-command-bg-ready);
   }
 
   .schedule-rail > .week-actions.is-blocked {
     background:
       radial-gradient(circle at 100% 0%, rgba(240, 100, 35, 0.24), transparent 36%),
-      linear-gradient(145deg, #241915, #15191f);
+      var(--rst-command-bg-blocked);
   }
 
   .week-actions .planning-kicker {

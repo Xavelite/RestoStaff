@@ -1,6 +1,7 @@
 <script lang="ts">
   import ActionButton from '$lib/components/ActionButton.svelte';
   import Panel from '$lib/components/Panel.svelte';
+  import { i18n, t } from '$lib/i18n/i18n.svelte';
   import type { EmployeeDraft } from './team-model';
 
   let {
@@ -35,17 +36,17 @@
   });
   const statusDetail = $derived(
     employee.accessRole
-      ? `Workspace role: ${employee.accessRole}`
+      ? t('Workspace role: {role}', { role: t(employee.accessRole) })
       : employee.invitationSentAt
-        ? `Invited as ${employee.invitationRole} · sent ${new Date(employee.invitationSentAt).toLocaleDateString()}`
-        : 'No workspace access yet — send an invitation to get started.'
+        ? t('Invited as {role} - sent {date}', { role: t(employee.invitationRole), date: new Date(employee.invitationSentAt).toLocaleDateString(i18n.intlLocale) })
+        : t('No workspace access yet - send an invitation to get started.')
   );
 </script>
 
 <div class={`access-status is-${statusTone}`}>
   <div class="access-status__badge"><i></i></div>
   <div>
-    <strong>{employee.accessState.replace('_', ' ')}</strong>
+    <strong>{t(employee.accessState.replace('_', ' '))}</strong>
     <span>{statusDetail}</span>
   </div>
 </div>
@@ -54,13 +55,13 @@
   <div class="action-row">
     {#if !employee.profileId}
       <label class="role-select">
-        Invitation role
+        {t('Invitation role')}
         <select bind:value={inviteRole}>
-          <option value="employee">Employee</option>
-          {#if owner}<option value="manager">Manager</option>{/if}
+          <option value="employee">{t('Employee')}</option>
+          {#if owner}<option value="manager">{t('Manager')}</option>{/if}
         </select>
       </label>
-      <p class="hint">The invitation stays tied to the saved employee email until that person accepts it.</p>
+      <p class="hint">{t('The invitation stays tied to the saved employee email until that person accepts it.')}</p>
       <div class="actions">
         <ActionButton
           label={busy
@@ -77,7 +78,7 @@
         {/if}
       </div>
     {:else}
-      <p class="hint">This account is linked to the workspace. Manage app access and time-clock permission here.</p>
+      <p class="hint">{t('This account is linked to the workspace. Manage app access and time-clock permission here.')}</p>
       {#if employee.accessRole !== 'owner'}
         <div class="actions">
           <ActionButton
@@ -101,20 +102,20 @@
 
 <Panel title="Time clock access" eyebrow="Badge PIN">
   <div class="fields">
-    <label>Badge PIN status<input value={employee.pinStatus} disabled /></label>
+    <label>{t('Badge PIN status')}<input value={t(employee.pinStatus)} disabled /></label>
     <label class="check">
       <input
         type="checkbox"
         checked={employee.badgeEnabled}
         onchange={(event) => onBadgeChange(event.currentTarget.checked)}
       />
-      Can use the time clock
+      {t('Can use the time clock')}
     </label>
     {#if employee.invitationSentAt && !employee.profileId}
-      <label>Last invitation<input value={new Date(employee.invitationSentAt).toLocaleString()} disabled /></label>
+      <label>{t('Last invitation')}<input value={new Date(employee.invitationSentAt).toLocaleString(i18n.intlLocale)} disabled /></label>
     {/if}
     {#if employee.accessState === 'invited' && employee.invitationExpiresAt}
-      <label>Invitation expires<input value={new Date(employee.invitationExpiresAt).toLocaleString()} disabled /></label>
+      <label>{t('Invitation expires')}<input value={new Date(employee.invitationExpiresAt).toLocaleString(i18n.intlLocale)} disabled /></label>
     {/if}
   </div>
 </Panel>

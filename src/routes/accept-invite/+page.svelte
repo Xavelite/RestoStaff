@@ -120,7 +120,7 @@
       <div class="context">
         <strong>{context.restaurantName}</strong>
         <span>{context.employeeName} · {context.role}</span>
-        <small>Invitation expires {new Date(context.expiresAt).toLocaleString()}</small>
+        <small>Invitation expires {new Date(context.expiresAt).toLocaleString('en-GB')}</small>
       </div>
       <form onsubmit={(event) => { event.preventDefault(); accept(); }}>
         <label>

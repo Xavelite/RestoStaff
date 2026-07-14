@@ -6,6 +6,7 @@
   import PageHero from '$lib/components/PageHero.svelte';
   import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
   import SaveActions from '$lib/components/SaveActions.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
   import {
     restaurantDraft,
     restaurantSavePayload,
@@ -91,31 +92,31 @@
       ? [
           {
             label: 'Identity',
-            detail: identityComplete ? draft.city : 'Legal name and city',
+            detail: identityComplete ? draft.city : t('Legal name and city'),
             complete: identityComplete,
             onSelect: openIdentity
           },
           {
             label: 'Hours',
-            detail: `${openServices} weekly periods`,
+            detail: t('{count} weekly periods', { count: openServices }),
             complete: openServices > 0,
             onSelect: openHours
           },
           {
             label: 'Areas',
-            detail: `${activeAreas} active`,
+            detail: t('{count} active', { count: activeAreas }),
             complete: activeAreas > 0,
             onSelect: () => scrollToSection('section-areas')
           },
           {
             label: 'Positions',
-            detail: `${activePositions} active`,
+            detail: t('{count} active', { count: activePositions }),
             complete: activePositions > 0,
             onSelect: () => scrollToSection('section-positions')
           },
           {
             label: 'Absences',
-            detail: `${snapshot?.absence_types.filter((item) => item.active).length ?? 0} types`,
+            detail: t('{count} types', { count: snapshot?.absence_types.filter((item) => item.active).length ?? 0 }),
             complete: true,
             onSelect: openAbsences
           }
@@ -245,7 +246,7 @@
   async function persist() {
     if (!snapshot || !draft || !workspace.activeId || saving) return;
     if (!draft.legalName.trim()) {
-      feedback = 'Restaurant legal name is required.';
+      feedback = t('Restaurant legal name is required.');
       feedbackTone = 'danger';
       return;
     }
@@ -260,7 +261,7 @@
         restaurantId: workspace.activeId,
         source: 'restaurant'
       });
-      feedback = 'Restaurant setup saved.';
+      feedback = t('Restaurant setup saved.');
       feedbackTone = 'success';
     } catch (error) {
       feedback = error instanceof Error ? error.message : String(error);
@@ -271,7 +272,7 @@
   }
 </script>
 
-<svelte:head><title>Restaurant · restogogo</title></svelte:head>
+<svelte:head><title>{t('Restaurant')} · restogogo</title></svelte:head>
 
 {#snippet drawerActions()}
   <SaveActions {dirty} busy={saving} saveLabel="Save restaurant" busyLabel="Saving…" oncancel={cancelChanges} onsave={persist} embedded showCleanActions={false} />
@@ -283,8 +284,8 @@
       eyebrow="Restaurant blueprint"
       titleId="restaurant-title"
       title={readiness.percent === 100
-        ? 'The operating model is ready.'
-        : `${readiness.total - readiness.complete} foundation${readiness.total - readiness.complete === 1 ? '' : 's'} need attention.`}
+        ? t('The operating model is ready.')
+        : t('{count} foundations need attention.', { count: readiness.total - readiness.complete })}
       subtitle="Identity, areas, positions and opening hours are the source of truth behind Schedule and Timesheet. Set each area's staffing rules right inside its card."
     >
       {#snippet command()}
@@ -303,21 +304,21 @@
     <div class="page-body">
       <FeedbackBanner message={feedback} tone={feedbackTone} />
 
-      <section class="command-grid" aria-label="Restaurant command summary">
+      <section class="command-grid" aria-label={t('Restaurant command summary')}>
         <article class="command-lead">
-          <span class="page-kicker">{readiness.percent === 100 ? 'Blueprint ready' : 'Blueprint foundation'}</span>
-          <strong>{readiness.percent === 100 ? 'Configuration can support Schedule and Timesheet.' : 'Finish the blueprint before relying on Coverage.'}</strong>
+          <span class="page-kicker">{t(readiness.percent === 100 ? 'Blueprint ready' : 'Blueprint foundation')}</span>
+          <strong>{t(readiness.percent === 100 ? 'Configuration can support Schedule and Timesheet.' : 'Finish the blueprint before relying on Coverage.')}</strong>
           <p>
             {readiness.total - readiness.complete
-              ? `${readiness.total - readiness.complete} section${readiness.total - readiness.complete === 1 ? '' : 's'} still need setup.`
-              : 'Every section is ready.'}
+              ? t('{count} sections still need setup.', { count: readiness.total - readiness.complete })
+              : t('Every section is ready.')}
           </p>
         </article>
-        <nav class="foundation-strip" aria-label="Jump to restaurant section">
+        <nav class="foundation-strip" aria-label={t('Jump to restaurant section')}>
           {#each setupSteps as step}
             <button type="button" class:is-complete={step.complete} onclick={() => step.onSelect()}>
               <span>{step.complete ? '✓' : '!'}</span>
-              <strong>{step.label}</strong>
+              <strong>{t(step.label)}</strong>
               <small>{step.detail}</small>
             </button>
           {/each}
@@ -332,37 +333,37 @@
 
       <section id="section-identity" class="blueprint-row">
         <button type="button" class="glow-card glow-card--sky" onclick={openIdentity}>
-          <span class="glow-card__kicker">Restaurant profile</span>
-          <strong>{draft.legalName || 'Legal name not set'}</strong>
+          <span class="glow-card__kicker">{t('Restaurant profile')}</span>
+          <strong>{draft.legalName || t('Legal name not set')}</strong>
           <p>
-            {[draft.address, draft.postalCode, draft.city].filter(Boolean).join(', ') || 'No address on file'}
+            {[draft.address, draft.postalCode, draft.city].filter(Boolean).join(', ') || t('No address on file')}
           </p>
           <div class="glow-card__stats">
-            <div><span>Company number</span><strong>{draft.companyNumber || '—'}</strong></div>
-            <div><span>Email</span><strong>{draft.email || '—'}</strong></div>
-            <div><span>Phone</span><strong>{draft.phone || '—'}</strong></div>
+            <div><span>{t('Company number')}</span><strong>{draft.companyNumber || '—'}</strong></div>
+            <div><span>{t('Email')}</span><strong>{draft.email || '—'}</strong></div>
+            <div><span>{t('Phone')}</span><strong>{draft.phone || '—'}</strong></div>
           </div>
         </button>
 
         <button type="button" class="glow-card glow-card--forest" onclick={openHours}>
-          <span class="glow-card__kicker">Weekly rhythm</span>
-          <strong>{openServices} service{openServices === 1 ? '' : 's'} / week</strong>
+          <span class="glow-card__kicker">{t('Weekly rhythm')}</span>
+          <strong>{t('{count} services / week', { count: openServices })}</strong>
           <div class="rhythm-dots">
             {#each draft.opening as day (day.weekday)}
-              <span class:is-open={day.open} title={WEEKDAYS[day.weekday - 1]}>{WEEKDAYS[day.weekday - 1].slice(0, 2).toUpperCase()}</span>
+              <span class:is-open={day.open} title={t(WEEKDAYS[day.weekday - 1])}>{t(WEEKDAYS[day.weekday - 1]).slice(0, 2).toUpperCase()}</span>
             {/each}
           </div>
-          <p>{openDays}/7 days open</p>
+          <p>{t('{count}/7 days open', { count: openDays })}</p>
         </button>
       </section>
 
       <div class="blueprint-columns">
       <section id="section-areas" class="section-shelf">
         <div class="section-head">
-          <strong>Areas</strong>
-          <span>{activeAreas} active</span>
+          <strong>{t('Areas')}</strong>
+          <span>{t('{count} active', { count: activeAreas })}</span>
         </div>
-        <p class="section-copy">Physical work areas and their lunch/evening staffing minimums for the schedule board.</p>
+        <p class="section-copy">{t('Physical work areas and their lunch/evening staffing minimums for the schedule board.')}</p>
         <div class="entity-grid entity-grid--column">
           {#each draft.areas as area, index (area.id)}
             {@const cov = areaCoverageSummary(area.id)}
@@ -373,37 +374,37 @@
               style={`--rst-i:${index}`}
               onclick={() => openArea(area.id)}
             >
-              <strong>{area.name || 'Unnamed area'}</strong>
-              <small>{area.notes || 'No notes'}</small>
-              <div class="area-coverage" aria-label="Staffing minimums">
-                <span class:is-set={cov.lunch > 0}><i aria-hidden="true">☀</i><b>Lunch</b><strong>{cov.lunch || '—'}</strong></span>
-                <span class:is-set={cov.evening > 0}><i aria-hidden="true">☾</i><b>Evening</b><strong>{cov.evening || '—'}</strong></span>
+              <strong>{area.name || t('Unnamed area')}</strong>
+              <small>{area.notes || t('No notes')}</small>
+              <div class="area-coverage" aria-label={t('Staffing minimums')}>
+                <span class:is-set={cov.lunch > 0}><i aria-hidden="true">☀</i><b>{t('Lunch')}</b><strong>{cov.lunch || '—'}</strong></span>
+                <span class:is-set={cov.evening > 0}><i aria-hidden="true">☾</i><b>{t('Evening')}</b><strong>{cov.evening || '—'}</strong></span>
               </div>
               <div class="entity-card__status">
                 <i class:is-active={area.active}></i>
-                <span>{area.active ? 'Active' : 'Inactive'}</span>
-                <span class="cov-note">{cov.count ? `${cov.count} staffing rule${cov.count === 1 ? '' : 's'}` : 'No rules yet'}</span>
+                <span>{t(area.active ? 'Active' : 'Inactive')}</span>
+                <span class="cov-note">{cov.count ? t('{count} staffing rules', { count: cov.count }) : t('No rules yet')}</span>
               </div>
               <div class="entity-card__hover" aria-hidden="true">
-                <span>Lunch {area.lunchStart && area.lunchEnd ? `${area.lunchStart}–${area.lunchEnd}` : 'not set'}</span>
-                <span>Evening {area.eveningStart && area.eveningEnd ? `${area.eveningStart}–${area.eveningEnd}` : 'not set'}</span>
-                <span>{cov.count} staffing rule{cov.count === 1 ? '' : 's'} · tap to edit</span>
+                <span>{t('Lunch {range}', { range: area.lunchStart && area.lunchEnd ? `${area.lunchStart}–${area.lunchEnd}` : t('not set') })}</span>
+                <span>{t('Evening {range}', { range: area.eveningStart && area.eveningEnd ? `${area.eveningStart}–${area.eveningEnd}` : t('not set') })}</span>
+                <span>{t('{count} staffing rules · tap to edit', { count: cov.count })}</span>
               </div>
             </button>
           {/each}
           <button type="button" class="ghost-card" onclick={addArea}>
             <span class="ghost-icon">+</span>
-            <strong>{draft.areas.length ? 'Add area' : 'Add your first area'}</strong>
+            <strong>{t(draft.areas.length ? 'Add area' : 'Add your first area')}</strong>
           </button>
         </div>
       </section>
 
       <section id="section-positions" class="section-shelf">
         <div class="section-head">
-          <strong>Positions</strong>
-          <span>{activePositions} active</span>
+          <strong>{t('Positions')}</strong>
+          <span>{t('{count} active', { count: activePositions })}</span>
         </div>
-        <p class="section-copy">The role catalog employees are assigned to from Team.</p>
+        <p class="section-copy">{t('The role catalog employees are assigned to from Team.')}</p>
         <div class="entity-grid entity-grid--column">
           {#each draft.jobFunctions as position, index (position.id)}
             {@const ruleCount = positionRuleCount(position.id)}
@@ -416,23 +417,23 @@
               onclick={() => openPosition(position.id)}
             >
               <span class="position-swatch" aria-hidden="true"></span>
-              <strong>{position.name || 'Unnamed position'}</strong>
-              <small>{position.estimatedHourlyCost ? `€${position.estimatedHourlyCost}/h estimate` : 'No cost estimate'}</small>
+              <strong>{position.name || t('Unnamed position')}</strong>
+              <small>{position.estimatedHourlyCost ? t('€{cost}/h estimate', { cost: position.estimatedHourlyCost }) : t('No cost estimate')}</small>
               <div class="entity-card__status">
                 <i class:is-active={position.active}></i>
-                <span>{position.active ? 'Active' : 'Inactive'}</span>
+                <span>{t(position.active ? 'Active' : 'Inactive')}</span>
                 <span class="position-usage">{ruleCount} coverage link{ruleCount === 1 ? '' : 's'}</span>
               </div>
               <div class="entity-card__hover" aria-hidden="true">
-                <span>Badge colour on Schedule &amp; Timesheet</span>
-                <span>Estimated cost {position.estimatedHourlyCost ? `€${position.estimatedHourlyCost.toFixed(2)} per hour` : 'not set'}</span>
-                <span>Used in {ruleCount} staffing rule{ruleCount === 1 ? '' : 's'}</span>
+                <span>{t('Badge colour on Schedule & Timesheet')}</span>
+                <span>{t('Estimated cost {cost}', { cost: position.estimatedHourlyCost ? t('€{cost} per hour', { cost: position.estimatedHourlyCost.toFixed(2) }) : t('not set') })}</span>
+                <span>{t('Used in {count} staffing rules', { count: ruleCount })}</span>
               </div>
             </button>
           {/each}
           <button type="button" class="ghost-card" onclick={addPosition}>
             <span class="ghost-icon">+</span>
-            <strong>{draft.jobFunctions.length ? 'Add position' : 'Add your first position'}</strong>
+            <strong>{t(draft.jobFunctions.length ? 'Add position' : 'Add your first position')}</strong>
           </button>
         </div>
       </section>
@@ -455,7 +456,7 @@
         </article>
       {/each}
     </div>
-    <p class="internal-defaults">Holiday, Sick leave, Unpaid leave, Public holiday and Other are available across Team, My time and payroll evidence. Special cases use the request note.</p>
+    <p class="internal-defaults">{t('Holiday, Sick leave, Unpaid leave, Public holiday and Other are available across Team, My time and payroll evidence. Special cases use the request note.')}</p>
   </Drawer>
 
   <Drawer
@@ -466,13 +467,13 @@
     actions={drawerActions}
   >
     <div class="fields">
-      <label>Legal name<input bind:value={draft.legalName} /></label>
-      <label>Company number<input bind:value={draft.companyNumber} /></label>
-      <label>Email<input type="email" bind:value={draft.email} /></label>
-      <label>Phone<input bind:value={draft.phone} /></label>
-      <label class="wide">Address<input bind:value={draft.address} /></label>
-      <label>Postal code<input bind:value={draft.postalCode} /></label>
-      <label>City<input bind:value={draft.city} /></label>
+      <label>{t('Legal name')}<input bind:value={draft.legalName} /></label>
+      <label>{t('Company number')}<input bind:value={draft.companyNumber} /></label>
+      <label>{t('Email')}<input type="email" bind:value={draft.email} /></label>
+      <label>{t('Phone')}<input bind:value={draft.phone} /></label>
+      <label class="wide">{t('Address')}<input bind:value={draft.address} /></label>
+      <label>{t('Postal code')}<input bind:value={draft.postalCode} /></label>
+      <label>{t('City')}<input bind:value={draft.city} /></label>
     </div>
     <p class="internal-defaults">Regional settings: Belgium · Europe/Brussels · fr-BE · EUR.</p>
   </Drawer>
@@ -488,23 +489,23 @@
       {#each draft.opening as day (day.weekday)}
         <div class="day-card" class:is-closed={!day.open}>
           <header>
-            <strong>{WEEKDAYS[day.weekday - 1]}</strong>
+            <strong>{t(WEEKDAYS[day.weekday - 1])}</strong>
             <label class="day-toggle">
-              <input type="checkbox" bind:checked={day.open} aria-label={`${WEEKDAYS[day.weekday - 1]} open`} />
+              <input type="checkbox" bind:checked={day.open} aria-label={t('{day} open', { day: t(WEEKDAYS[day.weekday - 1]) })} />
               <span></span>
             </label>
           </header>
           <div class="day-service">
             <span class="day-service__icon" aria-hidden="true">☀</span>
-            <input type="time" disabled={!day.open} bind:value={day.lunchStart} aria-label="Lunch start" />
+            <input type="time" disabled={!day.open} bind:value={day.lunchStart} aria-label={t('Lunch start')} />
             <span aria-hidden="true">–</span>
-            <input type="time" disabled={!day.open} bind:value={day.lunchEnd} aria-label="Lunch end" />
+            <input type="time" disabled={!day.open} bind:value={day.lunchEnd} aria-label={t('Lunch end')} />
           </div>
           <div class="day-service">
             <span class="day-service__icon" aria-hidden="true">☾</span>
-            <input type="time" disabled={!day.open} bind:value={day.eveningStart} aria-label="Evening start" />
+            <input type="time" disabled={!day.open} bind:value={day.eveningStart} aria-label={t('Evening start')} />
             <span aria-hidden="true">–</span>
-            <input type="time" disabled={!day.open} bind:value={day.eveningEnd} aria-label="Evening end" />
+            <input type="time" disabled={!day.open} bind:value={day.eveningEnd} aria-label={t('Evening end')} />
           </div>
         </div>
       {/each}
@@ -521,7 +522,7 @@
     {#if areaDrawerItem}
       <div class="fields">
         <label class="wide">
-          Area name
+          {t('Area name')}
           <input
             value={areaDrawerItem.name}
             oninput={(event) => {
@@ -531,44 +532,44 @@
             placeholder="Salle, Cuisine, Bar…"
           />
         </label>
-        <label class="wide">Notes<input value={areaDrawerItem.notes} oninput={(event) => mutateArea({ notes: event.currentTarget.value })} placeholder="Optional notes" /></label>
-        <label>Lunch start<input type="time" value={areaDrawerItem.lunchStart} oninput={(event) => mutateArea({ lunchStart: event.currentTarget.value })} /></label>
-        <label>Lunch end<input type="time" value={areaDrawerItem.lunchEnd} oninput={(event) => mutateArea({ lunchEnd: event.currentTarget.value })} /></label>
-        <label>Evening start<input type="time" value={areaDrawerItem.eveningStart} oninput={(event) => mutateArea({ eveningStart: event.currentTarget.value })} /></label>
-        <label>Evening end<input type="time" value={areaDrawerItem.eveningEnd} oninput={(event) => mutateArea({ eveningEnd: event.currentTarget.value })} /></label>
-        <label class="check"><input type="checkbox" checked={areaDrawerItem.active} onchange={(event) => mutateArea({ active: event.currentTarget.checked })} /> Active area</label>
+        <label class="wide">{t('Notes')}<input value={areaDrawerItem.notes} oninput={(event) => mutateArea({ notes: event.currentTarget.value })} placeholder={t('Optional notes')} /></label>
+        <label>{t('Lunch start')}<input type="time" value={areaDrawerItem.lunchStart} oninput={(event) => mutateArea({ lunchStart: event.currentTarget.value })} /></label>
+        <label>{t('Lunch end')}<input type="time" value={areaDrawerItem.lunchEnd} oninput={(event) => mutateArea({ lunchEnd: event.currentTarget.value })} /></label>
+        <label>{t('Evening start')}<input type="time" value={areaDrawerItem.eveningStart} oninput={(event) => mutateArea({ eveningStart: event.currentTarget.value })} /></label>
+        <label>{t('Evening end')}<input type="time" value={areaDrawerItem.eveningEnd} oninput={(event) => mutateArea({ eveningEnd: event.currentTarget.value })} /></label>
+        <label class="check"><input type="checkbox" checked={areaDrawerItem.active} onchange={(event) => mutateArea({ active: event.currentTarget.checked })} /> {t('Active area')}</label>
       </div>
 
       <div class="drawer-coverage">
         <div class="drawer-coverage__head">
-          <strong>Staffing rules</strong>
+          <strong>{t('Staffing rules')}</strong>
           <span>{areaCoverage(areaDrawerItem.id).length} rule{areaCoverage(areaDrawerItem.id).length === 1 ? '' : 's'}</span>
         </div>
-        <p class="drawer-coverage__hint">Minimum staff this area needs per service. Schedule flags gaps against these.</p>
+        <p class="drawer-coverage__hint">{t('Minimum staff this area needs per service. Schedule flags gaps against these.')}</p>
         <div class="cov-rules">
           {#each areaCoverage(areaDrawerItem.id) as rule (rule.id)}
             <div class="cov-rule">
               <span class="cov-rule__icon" class:is-evening={rule.serviceKey === 'evening'} aria-hidden="true">{rule.serviceKey === 'lunch' ? '☀' : '☾'}</span>
               <select aria-label="Position" value={rule.jobFunctionId} onchange={(event) => mutateCoverage(rule.id, { jobFunctionId: event.currentTarget.value })}>
-                <option value="">Position</option>
+                <option value="">{t('Position')}</option>
                 {#each activePositionList as position (position.id)}<option value={position.id}>{position.name}</option>{/each}
               </select>
               <select aria-label="Service" value={rule.serviceKey} onchange={(event) => mutateCoverage(rule.id, { serviceKey: event.currentTarget.value === 'evening' ? 'evening' : 'lunch' })}>
-                <option value="lunch">Lunch</option>
-                <option value="evening">Evening</option>
+                <option value="lunch">{t('Lunch')}</option>
+                <option value="evening">{t('Evening')}</option>
               </select>
               <label class="cov-rule__count">
                 <input type="number" min="0" value={rule.requiredCount} oninput={(event) => mutateCoverage(rule.id, { requiredCount: event.currentTarget.valueAsNumber || 0 })} aria-label="Required count" />
-                <span>need</span>
+                <span>{t('need')}</span>
               </label>
               <button type="button" class="cov-rule__x" aria-label="Remove rule" onclick={() => removeCoverageRule(rule.id)}>×</button>
             </div>
           {/each}
           <button type="button" class="cov-add" disabled={!activePositionList.length} onclick={() => addCoverageRule(areaDrawerItem.id)}>
-            <span class="cov-add__icon">+</span> Add staffing rule
+            <span class="cov-add__icon">+</span> {t('Add staffing rule')}
           </button>
           {#if !activePositionList.length}
-            <p class="drawer-coverage__hint">Add an active position first, then set its minimum here.</p>
+            <p class="drawer-coverage__hint">{t('Add an active position first, then set its minimum here.')}</p>
           {/if}
         </div>
       </div>
@@ -585,7 +586,7 @@
     {#if positionDrawerItem}
       <div class="fields">
         <label class="wide">
-          Position name
+          {t('Position name')}
           <input
             value={positionDrawerItem.name}
             oninput={(event) => {
@@ -595,8 +596,8 @@
             placeholder="Chef de rang, Plongeur…"
           />
         </label>
-        <label>Estimated hourly cost<input type="number" min="0" step="0.01" value={positionDrawerItem.estimatedHourlyCost} oninput={(event) => mutatePosition({ estimatedHourlyCost: event.currentTarget.valueAsNumber || 0 })} /></label>
-        <label class="check"><input type="checkbox" checked={positionDrawerItem.active} onchange={(event) => mutatePosition({ active: event.currentTarget.checked })} /> Active position</label>
+        <label>{t('Estimated hourly cost')}<input type="number" min="0" step="0.01" value={positionDrawerItem.estimatedHourlyCost} oninput={(event) => mutatePosition({ estimatedHourlyCost: event.currentTarget.valueAsNumber || 0 })} /></label>
+        <label class="check"><input type="checkbox" checked={positionDrawerItem.active} onchange={(event) => mutatePosition({ active: event.currentTarget.checked })} /> {t('Active position')}</label>
       </div>
     {/if}
   </Drawer>

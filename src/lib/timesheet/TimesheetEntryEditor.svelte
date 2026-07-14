@@ -4,6 +4,7 @@
   import { instantToLocalInput, localInputToInstant } from '$lib/calendar/date';
   import ActionButton from '$lib/components/ActionButton.svelte';
   import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
+  import { i18n, t } from '$lib/i18n/i18n.svelte';
 
   type FeedbackTone = 'info' | 'success' | 'warning' | 'danger';
   type ActualsEntrySave = {
@@ -69,29 +70,29 @@
   async function submit() {
     if (busy || !editable) return;
     if (!clockIn || reason.trim().length < 3) {
-      onfeedback('Clock-in and a manager reason are required.', 'danger');
+      onfeedback(t('Clock-in and a manager reason are required.'), 'danger');
       return;
     }
     const clockInAt = localInputToInstant(clockIn, timezone);
     const clockOutAt = clockOut ? localInputToInstant(clockOut, timezone) : '';
     if (!clockInAt || (clockOut && !clockOutAt)) {
-      onfeedback('Enter valid restaurant-local times.', 'danger');
+      onfeedback(t('Enter valid restaurant-local times.'), 'danger');
       return;
     }
     if (clockOutAt && new Date(clockOutAt) <= new Date(clockInAt)) {
-      onfeedback('Clock-out must be after clock-in.', 'danger');
+      onfeedback(t('Clock-out must be after clock-in.'), 'danger');
       return;
     }
     if (!Number.isInteger(Number(breakMinutes)) || Number(breakMinutes) < 0) {
-      onfeedback('Break must be a whole number of minutes.', 'danger');
+      onfeedback(t('Break must be a whole number of minutes.'), 'danger');
       return;
     }
     if (!clockOutAt && Number(breakMinutes) > 0) {
-      onfeedback('Add a clock-out before recording a break.', 'danger');
+      onfeedback(t('Add a clock-out before recording a break.'), 'danger');
       return;
     }
     if (clockOutAt && Number(breakMinutes) >= enteredGrossHours * 60) {
-      onfeedback('Break must be shorter than the worked interval.', 'danger');
+      onfeedback(t('Break must be shorter than the worked interval.'), 'danger');
       return;
     }
     busy = true;
@@ -111,7 +112,7 @@
   async function cancel() {
     if (busy || !slot.entryId || !editable) return;
     if (reason.trim().length < 3) {
-      onfeedback('A cancellation reason is required.', 'danger');
+      onfeedback(t('A cancellation reason is required.'), 'danger');
       return;
     }
     busy = true;
@@ -138,24 +139,24 @@
 {#if unresolvedConflict}
   <FeedbackBanner
     tone="warning"
-    message={`Resolve ${slot.truth.conflictReasons.join(' and ')} before recording worked time. This prevents payroll from carrying two contradictory truths.`}
+    message={t('Resolve {reasons} before recording worked time. This prevents payroll from carrying two contradictory truths.', { reasons: slot.truth.conflictReasons.map((reason) => t(reason)).join(` ${t('and')} `) })}
   />
 {/if}
 <div class="hours-summary" aria-live="polite">
-  <span class="hours-summary__kicker">Worked time</span>
+  <span class="hours-summary__kicker">{t('Worked time')}</span>
   <div class="hours-summary__stats">
-    <div><span>Gross</span><strong>{enteredGrossHours.toFixed(2)}h</strong></div>
-    <div><span>Net for payroll</span><strong>{enteredNetHours.toFixed(2)}h</strong></div>
+    <div><span>{t('Gross')}</span><strong>{enteredGrossHours.toFixed(2)}h</strong></div>
+    <div><span>{t('Net for payroll')}</span><strong>{enteredNetHours.toFixed(2)}h</strong></div>
   </div>
 </div>
 <form onsubmit={(event) => { event.preventDefault(); submit(); }}>
-  <label><span>Clock in</span><input type="datetime-local" bind:value={clockIn} disabled={!editable || busy} /></label>
-  <label><span>Clock out</span><input type="datetime-local" bind:value={clockOut} disabled={!editable || busy} /></label>
-  <label><span>Unpaid break (minutes)</span><input type="number" min="0" step="1" bind:value={breakMinutes} disabled={!editable || busy} /></label>
-  <label class="reason"><span>Manager reason</span><input bind:value={reason} disabled={!editable || busy} /></label>
+  <label><span>{t('Clock in')}</span><input type="datetime-local" bind:value={clockIn} disabled={!editable || busy} /></label>
+  <label><span>{t('Clock out')}</span><input type="datetime-local" bind:value={clockOut} disabled={!editable || busy} /></label>
+  <label><span>{t('Unpaid break (minutes)')}</span><input type="number" min="0" step="1" bind:value={breakMinutes} disabled={!editable || busy} /></label>
+  <label class="reason"><span>{t('Manager reason')}</span><input bind:value={reason} disabled={!editable || busy} /></label>
   {#if slot.proof}
     <div class="proof">
-      <span>Proof status: <strong>{slot.proof}</strong></span>
+      <span>{t('Proof status')}: <strong>{t(slot.proof)}</strong></span>
       {#if slot.proof === 'Photo captured'}
         {#if proofUrl}
           <ActionButton label="Hide proof" disabled={proofLoading} onclick={() => (proofUrl = '')} />
@@ -179,13 +180,13 @@
 </form>
 {#if proofUrl}
   <figure class="proof-preview">
-    <figcaption>Private badge proof. This short-lived image link expires automatically.</figcaption>
+    <figcaption>{t('Private badge proof. This short-lived image link expires automatically.')}</figcaption>
     <img class="proof-image" src={proofUrl} alt={`Badge proof for ${slot.employeeName}`} />
   </figure>
 {/if}
 {#if adjustments.length}
   <div class="adjustments">
-    <strong>Correction history</strong>
+    <strong>{t('Correction history')}</strong>
     <div class="trail-line">
       {#each adjustments as adjustment (adjustment.id)}
         {@const previous = adjustment.previous_values as Record<string, unknown>}
@@ -193,7 +194,7 @@
         <article>
           <i></i>
           <div>
-            <strong>{adjustment.action.replaceAll('_', ' ')}</strong>
+            <strong>{t(adjustment.action.replaceAll('_', ' '))}</strong>
             <p>{adjustment.reason}</p>
             {#if next.clock_in_at}
               <p>
@@ -206,7 +207,7 @@
                 · {Number(next.break_minutes ?? 0)} min break
               </p>
             {/if}
-            <time datetime={adjustment.created_at}>{new Date(adjustment.created_at).toLocaleString()}</time>
+            <time datetime={adjustment.created_at}>{new Date(adjustment.created_at).toLocaleString(i18n.intlLocale)}</time>
           </div>
         </article>
       {/each}

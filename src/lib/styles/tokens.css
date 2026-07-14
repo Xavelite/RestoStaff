@@ -91,6 +91,16 @@
   --rst-ui-shadow-floating: none;
   /* Elevated cockpit/feature card. Warm, low-alpha — barely visible on dark themes. */
   --rst-ui-shadow-card: 0 16px 48px rgba(48, 35, 18, 0.08);
+  /* Operational command surfaces share structure while their radial tint carries status. */
+  --rst-command-border: rgba(255, 255, 255, 0.1);
+  --rst-command-radius: var(--rst-ui-radius-2xl);
+  --rst-command-shadow: 0 22px 60px rgba(29, 20, 10, 0.14);
+  --rst-command-text: #fffaf2;
+  --rst-command-bg: linear-gradient(145deg, #211b18, #15191f);
+  --rst-command-bg-warm: linear-gradient(145deg, #211913, #4b2b1e);
+  --rst-command-bg-ready: linear-gradient(145deg, #172018, #11191f);
+  --rst-command-bg-blocked: linear-gradient(145deg, #241915, #15191f);
+  --rst-command-bg-info: linear-gradient(145deg, #111a27, #0c1622);
   --rst-ui-focus: 0 0 0 3px rgba(225,143,37,.24);
   --rst-content-max: 1640px;
   --rst-gutter: 48px;

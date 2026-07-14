@@ -14,6 +14,7 @@ import {
   WEEKDAYS,
   addDays,
   clockLabel,
+  clockMinutes,
   dateForWeekday,
   formatHours,
   hoursBetweenClocks,
@@ -87,6 +88,27 @@ export type EmployeeWeekSlot = {
   editable: boolean;
   editReason: string;
 };
+
+export function nextEmployeeService(
+  slots: ReadonlyArray<EmployeeWeekSlot>,
+  localNow: { date: string; minutes: number }
+): EmployeeWeekSlot | null {
+  return (
+    slots
+      .filter((slot) => {
+        if (!slot.shift || slot.date < localNow.date) return false;
+        if (slot.date > localNow.date) return true;
+        const start = clockMinutes(slot.shift.startsAt);
+        return start !== null && start > localNow.minutes;
+      })
+      .sort(
+        (a, b) =>
+          `${a.date}-${a.shift?.startsAt ?? ''}`.localeCompare(
+            `${b.date}-${b.shift?.startsAt ?? ''}`
+          )
+      )[0] ?? null
+  );
+}
 
 export function employeeForId(snapshot: EmployeeOperationsReadModel, employeeId: string | null) {
   return snapshot.employees.find((employee) => employee.id === employeeId) ?? null;

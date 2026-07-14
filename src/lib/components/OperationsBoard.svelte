@@ -148,6 +148,9 @@
 </script>
 
 <script lang="ts">
+  import { t } from '$lib/i18n/i18n.svelte';
+  import { weatherCondition, type DailyWeather } from '$lib/weather/weather';
+  import WeatherIcon from '$lib/weather/WeatherIcon.svelte';
   import LiveDuration from './LiveDuration.svelte';
   import StaffChip from './StaffChip.svelte';
 
@@ -156,6 +159,7 @@
     periodMode = 'week',
     expanded = false,
     columns,
+    weatherFor,
     rows,
     slotsFor,
     dayRails = [],
@@ -170,6 +174,7 @@
     periodMode?: 'week' | 'month';
     expanded?: boolean;
     columns: BoardColumn[];
+    weatherFor?: (date: string) => DailyWeather | null;
     rows: BoardRow[];
     slotsFor?: (rowId: string, date: string) => BoardSlot[];
     dayRails?: BoardDayRail[];
@@ -182,6 +187,16 @@
   } = $props();
 
   const isMonth = $derived(periodMode === 'month');
+
+  function weatherTone(weather: DailyWeather): 'fair' | 'cloud' | 'wet' | 'frost' | 'storm' {
+    if ([95, 96, 99].includes(weather.code)) return 'storm';
+    if ([71, 73, 75, 77, 85, 86].includes(weather.code)) return 'frost';
+    if (weather.rainChance >= 55 || [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(weather.code)) {
+      return 'wet';
+    }
+    if ([2, 3, 45, 48].includes(weather.code)) return 'cloud';
+    return 'fair';
+  }
 
   // Toggle at-start/at-end classes so the pinned staff/NET columns only cast an
   // inward shadow while there are more days to scroll toward.
@@ -214,12 +229,27 @@
       <div class="roster-grid" style={`--day-count:${columns.length}`}>
         <div class="roster-head roster-head--staff">Staff</div>
         {#each columns as column (column.date)}
+          {@const weather = weatherFor?.(column.date)}
           <div class="roster-head roster-head--day" class:is-today={column.today}>
-            <span>{column.label}</span>
-            <strong>{column.day}</strong>
-            {#if isMonth && column.month}
-              <small>{column.month}</small>
-            {/if}
+            <div class="roster-head__line">
+              <span class="roster-head__date">
+                <span>{column.label}</span>
+                <strong>{column.day}</strong>
+                {#if isMonth && column.month}
+                  <small>{column.month}</small>
+                {/if}
+              </span>
+              {#if weather}
+                <div
+                  class={`board-weather is-${weatherTone(weather)}`}
+                  aria-label={`${t(weatherCondition(weather.code))} · ${Math.round(weather.lowC)}–${Math.round(weather.highC)}° · ${weather.rainChance}% ${t('rain')}`}
+                  title={`${t(weatherCondition(weather.code))} · ${Math.round(weather.lowC)}–${Math.round(weather.highC)}° · ${weather.rainChance}% ${t('rain')}`}
+                >
+                  <WeatherIcon code={weather.code} size={18} />
+                  <span class="board-weather__temp">{Math.round(weather.highC)}°</span>
+                </div>
+              {/if}
+            </div>
           </div>
         {/each}
         <div class="roster-head roster-head--total">Net</div>
@@ -254,6 +284,7 @@
                     disabled={slot.disabled}
                     onclick={slot.onclick}
                     aria-label={slot.ariaLabel}
+                    title={slot.ariaLabel}
                   >
                     <span>{slot.icon}</span>
                     <strong>{slot.main}</strong>
@@ -308,6 +339,7 @@
       {#each Array.from({ length: Math.ceil(monthDays.length / 7) }, (_, index) => monthDays.slice(index * 7, index * 7 + 7)) as week, weekIndex (weekIndex)}
         <div class="board-month__week">
           {#each week as day (day.date)}
+            {@const weather = weatherFor?.(day.date)}
             <article
               class={`board-month__day is-${day.tone}`}
               class:is-today={day.today}
@@ -316,6 +348,16 @@
               <header>
                 <span>{day.dayNumber}</span>
                 {#if day.totalLabel}<strong>{day.totalLabel}</strong>{/if}
+                {#if weather}
+                  <div
+                    class={`board-weather is-${weatherTone(weather)}`}
+                    aria-label={`${t(weatherCondition(weather.code))} · ${Math.round(weather.lowC)}–${Math.round(weather.highC)}° · ${weather.rainChance}% ${t('rain')}`}
+                    title={`${t(weatherCondition(weather.code))} · ${Math.round(weather.lowC)}–${Math.round(weather.highC)}° · ${weather.rainChance}% ${t('rain')}`}
+                  >
+                    <WeatherIcon code={weather.code} size={18} />
+                    <span class="board-weather__temp">{Math.round(weather.highC)}°</span>
+                  </div>
+                {/if}
                 {#if day.reviewCount}<em>{day.reviewCount}</em>{/if}
               </header>
               <div class="board-month__lanes">
@@ -340,10 +382,22 @@
   {:else}
     <div class="board-service">
       {#each dayRails as rail (rail.date)}
+        {@const weather = weatherFor?.(rail.date)}
         <article class="service-day" class:is-today={columns.find((c) => c.date === rail.date)?.today}>
           <button type="button" class="service-day__rail" onclick={rail.onclick}>
-            <span>{rail.label}</span>
-            <strong>{rail.value}</strong>
+            <span class="service-day__date-line">
+              <span class="service-day__weekday">{rail.label}</span>
+              <strong>{rail.value}</strong>
+              {#if weather}
+                <span
+                  class={`service-day__weather is-${weatherTone(weather)}`}
+                  aria-label={`${t(weatherCondition(weather.code))} · ${Math.round(weather.lowC)}–${Math.round(weather.highC)}° · ${weather.rainChance}% ${t('rain')}`}
+                  title={`${t(weatherCondition(weather.code))} · ${Math.round(weather.lowC)}–${Math.round(weather.highC)}° · ${weather.rainChance}% ${t('rain')}`}
+                >
+                  <WeatherIcon code={weather.code} size={17} />
+                </span>
+              {/if}
+            </span>
             <small>{rail.meta}</small>
           </button>
 
@@ -475,11 +529,11 @@
   }
 
   .roster-head {
-    min-height: 66px;
+    min-height: 58px;
     display: grid;
     align-content: center;
-    gap: 3px;
-    padding: 12px;
+    gap: 0;
+    padding: 10px 12px;
     color: rgba(255, 250, 242, 0.62);
     background: rgba(255, 255, 255, 0.035);
     font-size: 10px;
@@ -530,19 +584,106 @@
   }
 
   .roster-head--day {
+    position: relative;
     text-align: center;
+  }
+
+  .roster-head__line {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+
+  .roster-head__date {
+    min-width: 0;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 7px;
+    white-space: nowrap;
   }
 
   .roster-head--day strong {
     color: #fff;
-    font-size: 20px;
+    font-size: 18px;
     line-height: 1;
-    letter-spacing: -0.04em;
+    letter-spacing: 0;
+  }
+
+  .roster-head__date small {
+    color: #8fa5bd;
+    font-size: 8px;
+    letter-spacing: 0;
+  }
+
+  .roster-ledger.is-month .roster-head__date > span {
+    display: none;
   }
 
   .roster-head--day.is-today {
     color: #fff;
     background: rgba(240, 100, 35, 0.18);
+  }
+
+  .board-weather {
+    min-width: 32px;
+    height: 32px;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 0 7px;
+    border: 1px solid #6d8197;
+    border-radius: 8px;
+    color: #eaf3fb;
+    background: #35475a;
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.1), 0 5px 12px rgba(3, 10, 19, 0.22);
+    letter-spacing: 0;
+  }
+
+  .board-weather__temp {
+    font-size: 12px;
+    font-weight: var(--rst-fw-display);
+    line-height: 1;
+  }
+
+  .board-weather.is-fair,
+  .service-day__weather.is-fair {
+    border-color: rgba(255, 194, 76, 0.32);
+    color: #ffda64;
+    background: #55411d;
+  }
+
+  .board-weather.is-cloud,
+  .service-day__weather.is-cloud {
+    border-color: #71879d;
+    color: #edf6ff;
+    background: #43576b;
+  }
+
+  .board-weather.is-wet,
+  .service-day__weather.is-wet {
+    border-color: #328dc8;
+    color: #7ed2ff;
+    background: #173f5e;
+  }
+
+  .board-weather.is-frost,
+  .service-day__weather.is-frost {
+    border-color: #52adbd;
+    color: #d2f9ff;
+    background: #245260;
+  }
+
+  .board-weather.is-storm,
+  .service-day__weather.is-storm {
+    border-color: #a06ce0;
+    color: #efd7ff;
+    background: #493267;
   }
 
   .roster-person {
@@ -983,6 +1124,13 @@
     transition: color 0.18s ease, transform 0.18s var(--rst-ease-out);
   }
 
+  .service-day__date-line {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
   .service-day:hover .service-day__rail {
     transform: translateX(2px);
   }
@@ -1001,8 +1149,29 @@
   }
 
   .service-day__rail strong {
-    font-size: 22px;
-    line-height: 0.9;
+    color: #fff;
+    font-size: 19px;
+    line-height: 1;
+    letter-spacing: 0;
+  }
+
+  .service-day__rail .service-day__weather {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 auto;
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 0;
+    border: 1px solid #6d8197;
+    border-radius: 8px;
+    color: #eaf3fb;
+    background: #35475a;
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.1), 0 5px 12px rgba(3, 10, 19, 0.2);
+    letter-spacing: 0;
+    text-transform: none;
   }
 
   .service-card {
@@ -1394,7 +1563,7 @@
   .board-month__day > header {
     min-width: 0;
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
     gap: 8px;
     align-items: center;
   }
@@ -1430,6 +1599,10 @@
     font-style: normal;
     font-size: 11px;
     font-weight: var(--rst-fw-display);
+  }
+
+  .board-month__day > header .board-weather {
+    margin: 0;
   }
 
   .board-month__lanes {
@@ -1533,6 +1706,20 @@
     .roster-ledger.is-month {
       --roster-staff-column: 112px;
       --roster-day-column: 84px;
+    }
+
+    .roster-ledger.is-month .roster-head {
+      padding-inline: 8px;
+    }
+
+    .roster-ledger.is-month .roster-head__date {
+      gap: 4px;
+    }
+
+    .roster-ledger.is-month .board-weather {
+      width: 28px;
+      height: 28px;
+      flex-basis: 28px;
     }
 
     .board-month {

@@ -9,9 +9,11 @@ import type {
 } from './calendar-model.ts';
 import {
   clockLabel,
+  clockMinutes,
   dateForWeekday,
   formatHours,
   hoursBetweenInstants,
+  localDateTimeParts,
   mondayFor,
   weekday,
   type ServiceKey
@@ -73,6 +75,7 @@ type ResolveWorkspaceServiceSlotInput = {
   availability?: ServiceSlotAvailability;
   publishedPlanOnly?: boolean;
   includeActual?: boolean;
+  asOf?: Date;
 };
 
 function planFromSnapshot(
@@ -171,12 +174,26 @@ export function resolveWorkspaceServiceSlot(
   if (availability === 'unavailable') conflictReasons.push('unavailable');
 
   let state: ServiceSlotState;
+  const localNow = input.asOf
+    ? localDateTimeParts(
+        input.asOf,
+        input.snapshot.restaurant_settings.timezone || 'Europe/Brussels'
+      )
+    : null;
+  const planStartMinutes = clockMinutes(plan?.startsAt);
+  const currentServiceHasStarted = Boolean(
+    plan &&
+      localNow &&
+      localNow.date === input.date &&
+      planStartMinutes !== null &&
+      localNow.minutes >= planStartMinutes
+  );
   if (entry && conflictReasons.length) state = 'conflict';
   else if (entry?.status === 'open') state = 'live';
   else if (entry?.status === 'adjusted' || entry?.adjusted_at) state = 'corrected';
   else if (entry) state = 'worked';
   else if (plan && conflictReasons.length) state = 'conflict';
-  else if (plan && input.date < input.today) state = 'missing_badge';
+  else if (plan && (input.date < input.today || currentServiceHasStarted)) state = 'missing_badge';
   else if (plan) state = 'planned';
   else if (absence?.status === 'approved') state = 'leave_approved';
   else if (workPatternException?.status === 'approved') state = 'work_pattern_approved';

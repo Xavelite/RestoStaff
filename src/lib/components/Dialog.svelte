@@ -2,6 +2,7 @@
   import { tick } from 'svelte';
   import type { Snippet } from 'svelte';
   import { portal } from '$lib/actions/portal';
+  import { t } from '$lib/i18n/i18n.svelte';
 
   let {
     open,
@@ -72,10 +73,10 @@
     <dialog bind:this={dialogElement} class="dialog is-{size}" open aria-modal="true" aria-labelledby="dialog-title">
       <header>
         <div>
-          <h2 id="dialog-title">{title}</h2>
-          {#if description}<p>{description}</p>{/if}
+          <h2 id="dialog-title">{t(title)}</h2>
+          {#if description}<p>{t(description)}</p>{/if}
         </div>
-        <button type="button" aria-label="Close dialog" onclick={onclose}>×</button>
+        <button type="button" aria-label={t('Close dialog')} onclick={onclose}>×</button>
       </header>
       <div class="body">{@render children()}</div>
       {#if footer}<footer>{@render footer()}</footer>{/if}

@@ -968,7 +968,7 @@ button.glow-card:hover {
   }
 
   .page-body.has-tray {
-    padding-bottom: 100px;
+    padding-bottom: 170px;
   }
 
   .fields {
@@ -982,5 +982,6 @@ button.glow-card:hover {
   .request-tray {
     flex-wrap: wrap;
     width: calc(100vw - 24px);
+    bottom: calc(68px + env(safe-area-inset-bottom, 0px));
   }
 }

@@ -28,6 +28,7 @@
   import TeamAccessPanel from '$lib/team/TeamAccessPanel.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { workspaceRealtime } from '$lib/realtime/workspace-realtime.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
 
   const tabs = ['General', 'Access', 'Contract', 'Payroll', 'Absences'] as const;
   type Tab = (typeof tabs)[number];
@@ -396,6 +397,10 @@
         }
       });
       await workspace.loadTeam(true);
+      await workspaceRealtime.publish('notification-refresh', {
+        restaurantId: workspace.activeId,
+        source: 'team'
+      });
       absenceComment = '';
       feedback = 'Absence created.';
       feedbackTone = 'success';
@@ -425,6 +430,10 @@
             : { manager_comment: absenceComment.trim() || null }
       });
       await workspace.loadTeam(true);
+      await workspaceRealtime.publish('notification-refresh', {
+        restaurantId: workspace.activeId,
+        source: 'team'
+      });
       feedback = action === 'approve' ? 'Absence approved.' : action === 'reject' ? 'Absence rejected.' : 'Absence cancelled.';
       feedbackTone = 'success';
     } catch (error) {
@@ -518,15 +527,17 @@
   }
 </script>
 
-<svelte:head><title>Team · restogogo</title></svelte:head>
+<svelte:head><title>{t('Team')} · restogogo</title></svelte:head>
 
 {#if snapshot}
   <section class="page-shell team">
     <PageHero
-      eyebrow={`Team · ${activeEmployees.length} active`}
+      eyebrow={`${t('Team')} · ${activeEmployees.length} ${t('active')}`}
       titleId="team-title"
-      title={issueEmployees.length ? `${issueEmployees.length} ${issueEmployees.length === 1 ? 'person needs' : 'people need'} a quick fix.` : 'Everyone is ready.'}
-      subtitle="Keep access, contracts, payroll details and absences trustworthy in one place."
+      title={issueEmployees.length ? t(issueEmployees.length === 1 ? '{count} person needs a quick fix.' : '{count} people need a quick fix.', { count: issueEmployees.length }) : t('Everyone is ready.')}
+      subtitle={owner
+        ? t('Keep access, contracts, payroll details and absences trustworthy in one place.')
+        : t('Keep access, positions, schedules and absences trustworthy in one place.')}
     >
       {#snippet command()}
         <HeroReadiness
@@ -541,22 +552,22 @@
     <div class="page-body team-body">
       <FeedbackBanner message={feedback} tone={feedbackTone} />
 
-      <section class="people-command" aria-label="Team command summary">
+      <section class="people-command" aria-label={t('Team command summary')}>
         <article class="people-command__lead">
-          <span class="page-kicker">{setupIncomplete ? 'Crew foundation' : 'Crew foundation ready'}</span>
-          <strong>{setupIncomplete ? 'Make the roster trustworthy before service.' : 'People data can support scheduling and payroll.'}</strong>
+          <span class="page-kicker">{setupIncomplete ? t('Crew foundation') : t('Crew foundation ready')}</span>
+          <strong>{setupIncomplete ? t('Make the roster trustworthy before service.') : owner ? t('People data can support scheduling and payroll.') : t('People data can support scheduling and daily operations.')}</strong>
           <p>
             {openIssueCount
               ? `${openIssueCount} open team issue${openIssueCount === 1 ? '' : 's'} across ${issueEmployees.length} employee${issueEmployees.length === 1 ? '' : 's'}.`
-              : 'No blocking people issues right now.'}
+              : t('No blocking people issues right now.')}
           </p>
         </article>
         <div class="people-command__checks">
           {#each setupSteps as step}
             <button type="button" class:is-complete={step.complete} onclick={() => step.onselect?.()}>
               <span>{step.complete ? '✓' : '!'}</span>
-              <strong>{step.label}</strong>
-              <small>{step.detail}</small>
+              <strong>{t(step.label)}</strong>
+              <small>{t(step.detail)}</small>
             </button>
           {/each}
         </div>
@@ -569,8 +580,8 @@
       {/if}
 
       <div class="section-head">
-        <strong>Your team</strong>
-        <span>{drafts.length} {drafts.length === 1 ? 'member' : 'members'}</span>
+        <strong>{t('Your team')}</strong>
+        <span>{drafts.length} {t(drafts.length === 1 ? 'member' : 'members')}</span>
       </div>
 
       <div class="team-columns">
@@ -599,31 +610,31 @@
                   {/each}
                   {#if issues.length > 2}<span>+{issues.length - 2}</span>{/if}
                 {:else}
-                  <span class="is-ready">Ready</span>
+                  <span class="is-ready">{t('Ready')}</span>
                 {/if}
               </div>
               <div class="staff-card__hover" aria-hidden="true">
-                <span>{employee.email || 'No email on file'}</span>
+                <span>{employee.email || t('No email on file')}</span>
                 <span>{employee.weeklyContractHours || 0}h / week</span>
                 {#if issues.length}
                   <b class="is-{severity}">{issues.length} issue{issues.length === 1 ? '' : 's'}</b>
                 {:else}
-                  <b class="is-ready">Ready for scheduling &amp; payroll</b>
+                  <b class="is-ready">{owner ? 'Ready for scheduling & payroll' : 'Ready for scheduling'}</b>
                 {/if}
               </div>
             </button>
           {/each}
           <button type="button" class="staff-card staff-card--ghost" onclick={addEmployee}>
             <span class="ghost-icon">+</span>
-            <strong>{drafts.length ? 'Add employee' : 'Add your first employee'}</strong>
+            <strong>{drafts.length ? t('Add employee') : t('Add your first employee')}</strong>
           </button>
         </div>
 
         {#if issueEmployees.length}
-          <aside id="attention-panel" class="attention-panel" aria-label="Needs attention">
+          <aside id="attention-panel" class="attention-panel" aria-label={t('Needs attention')}>
             <header>
-              <span class="page-kicker">Needs attention</span>
-              <strong>{issueEmployees.length} open</strong>
+              <span class="page-kicker">{t('Needs attention')}</span>
+              <strong>{issueEmployees.length} {t('open')}</strong>
             </header>
             <div>
               {#each issueEmployees as employee, index (employee.id)}
@@ -638,15 +649,15 @@
             </div>
           </aside>
         {:else}
-          <aside class="attention-panel is-clear" aria-label="Team clear">
+          <aside class="attention-panel is-clear" aria-label={t('Team clear')}>
             <header>
-              <span class="page-kicker">People radar</span>
-              <strong>Clear</strong>
+              <span class="page-kicker">{t('People radar')}</span>
+              <strong>{t('Clear')}</strong>
             </header>
             <div class="clear-state">
               <span>✓</span>
-              <strong>No team blockers.</strong>
-              <p>Access, contracts and payroll data are ready for the current active team.</p>
+              <strong>{t('No team blockers.')}</strong>
+              <p>{owner ? 'Access, contracts and payroll data are ready for the current active team.' : 'Access and position assignments are ready for the current active team.'}</p>
             </div>
           </aside>
         {/if}
@@ -657,7 +668,7 @@
   {#snippet drawerTabs()}
     {#if selected}
       {@const selectedIssues = employeeIssues(selected)}
-      <div class="facet-strip" role="tablist" aria-label="Employee sections">
+      <div class="facet-strip" role="tablist" aria-label={t('Employee sections')}>
         {#each tabItems as item}
           {@const hasIssue = selectedIssues.some((issue) => issue.tab === item.id)}
           <button
@@ -669,7 +680,7 @@
             onclick={() => (tab = item.id)}
           >
             <span>{hasIssue ? '!' : '✓'}</span>
-            <strong>{item.label}</strong>
+            <strong>{t(item.label)}</strong>
           </button>
         {/each}
       </div>
@@ -682,7 +693,7 @@
 
   <Drawer
     open={detailOpen}
-    title={selected?.displayName ?? 'Employee'}
+    title={selected?.displayName ?? t('Employee')}
     description={selected ? positionLabel(selected) : ''}
     onclose={() => (detailOpen = false)}
     tabs={drawerTabs}
@@ -692,22 +703,22 @@
       {@const selectedIssues = employeeIssues(selected)}
       <div class="employee-hero">
         <div>
-          <span>{selected.active ? 'Active employee' : 'Inactive employee'}</span>
+          <span>{selected.active ? t('Active employee') : t('Inactive employee')}</span>
           <small>{positionLabel(selected)}</small>
         </div>
         {#if selectedIssues.length}
           <div class="employee-hero__ready is-issues">{selectedIssues.length} issue{selectedIssues.length === 1 ? '' : 's'} to resolve</div>
         {:else}
-          <div class="employee-hero__ready">Ready for scheduling and payroll</div>
+          <div class="employee-hero__ready">{owner ? 'Ready for scheduling and payroll' : 'Ready for scheduling'}</div>
         {/if}
       </div>
 
       {#if tab === 'General'}
-        <Panel title="Identity and contact" eyebrow={selected.displayName}>
+        <Panel title={t('Identity and contact')} eyebrow={selected.displayName}>
           <div class="fields">
-            <label>Display name<input value={selected.displayName} oninput={(event) => mutate({ displayName: event.currentTarget.value })} /></label>
+            <label>{t('Display name')}<input value={selected.displayName} oninput={(event) => mutate({ displayName: event.currentTarget.value })} /></label>
             <fieldset class="positions wide">
-              <legend>Positions / job functions</legend>
+              <legend>{t('Positions / job functions')}</legend>
               <div class="chip-toggles">
                 {#each snapshot.job_functions.filter((item) => item.active) as item}
                   <button
@@ -721,17 +732,17 @@
                 {/each}
               </div>
             </fieldset>
-            <label>First name<input value={selected.firstName} oninput={(event) => mutate({ firstName: event.currentTarget.value })} /></label>
-            <label>Last name<input value={selected.lastName} oninput={(event) => mutate({ lastName: event.currentTarget.value })} /></label>
-            <label>Email<input type="email" value={selected.email} oninput={(event) => mutate({ email: event.currentTarget.value })} /></label>
-            <label>Phone<input value={selected.phone} oninput={(event) => mutate({ phone: event.currentTarget.value })} /></label>
-            <label class="wide">Address<input value={selected.address} oninput={(event) => mutate({ address: event.currentTarget.value })} /></label>
-            <label>Postal code<input value={selected.postalCode} oninput={(event) => mutate({ postalCode: event.currentTarget.value })} /></label>
-            <label>City<input value={selected.city} oninput={(event) => mutate({ city: event.currentTarget.value })} /></label>
-            <label>Emergency contact<input value={selected.emergencyName} oninput={(event) => mutate({ emergencyName: event.currentTarget.value })} /></label>
-            <label>Emergency phone<input value={selected.emergencyPhone} oninput={(event) => mutate({ emergencyPhone: event.currentTarget.value })} /></label>
-            <label class="wide">Notes<textarea value={selected.notes} oninput={(event) => mutate({ notes: event.currentTarget.value })}></textarea></label>
-            <label class="check"><input type="checkbox" checked={selected.active} onchange={(event) => mutate({ active: event.currentTarget.checked })} /> Active employee</label>
+            <label>{t('First name')}<input value={selected.firstName} oninput={(event) => mutate({ firstName: event.currentTarget.value })} /></label>
+            <label>{t('Last name')}<input value={selected.lastName} oninput={(event) => mutate({ lastName: event.currentTarget.value })} /></label>
+            <label>{t('Email')}<input type="email" value={selected.email} oninput={(event) => mutate({ email: event.currentTarget.value })} /></label>
+            <label>{t('Phone')}<input value={selected.phone} oninput={(event) => mutate({ phone: event.currentTarget.value })} /></label>
+            <label class="wide">{t('Address')}<input value={selected.address} oninput={(event) => mutate({ address: event.currentTarget.value })} /></label>
+            <label>{t('Postal code')}<input value={selected.postalCode} oninput={(event) => mutate({ postalCode: event.currentTarget.value })} /></label>
+            <label>{t('City')}<input value={selected.city} oninput={(event) => mutate({ city: event.currentTarget.value })} /></label>
+            <label>{t('Emergency contact')}<input value={selected.emergencyName} oninput={(event) => mutate({ emergencyName: event.currentTarget.value })} /></label>
+            <label>{t('Emergency phone')}<input value={selected.emergencyPhone} oninput={(event) => mutate({ emergencyPhone: event.currentTarget.value })} /></label>
+            <label class="wide">{t('Notes')}<textarea value={selected.notes} oninput={(event) => mutate({ notes: event.currentTarget.value })}></textarea></label>
+            <label class="check"><input type="checkbox" checked={selected.active} onchange={(event) => mutate({ active: event.currentTarget.checked })} /> {t('Active employee')}</label>
           </div>
         </Panel>
       {:else if tab === 'Access'}
@@ -749,13 +760,13 @@
         />
       {:else if tab === 'Contract' && owner}
         <div class="contract-summary">
-          <span class="contract-summary__kicker">Current contract</span>
+          <span class="contract-summary__kicker">{t('Current contract')}</span>
           <strong>{snapshot.contract_types.find((item) => item.id === selected.contractTypeId)?.name ?? 'Not set'} · {selected.workRegime.replaceAll('_', ' ')}</strong>
-          <p>{selected.contractStart || 'No start'} → {selected.contractEnd || 'Open ended'}</p>
+          <p>{selected.contractStart || t('No start')} → {selected.contractEnd || t('Open ended')}</p>
           <div class="contract-summary__stats">
-            <div><span>Weekly hours</span><strong>{selected.weeklyContractHours || 0}h</strong></div>
-            <div><span>Contract days</span><strong>{selected.contractDays || 0}d</strong></div>
-            <div><span>Annual leave</span><strong>{selected.annualLeaveEntitlementDays || 0}d</strong></div>
+            <div><span>{t('Weekly hours')}</span><strong>{selected.weeklyContractHours || 0}h</strong></div>
+            <div><span>{t('Contract days')}</span><strong>{selected.contractDays || 0}d</strong></div>
+            <div><span>{t('Annual leave')}</span><strong>{selected.annualLeaveEntitlementDays || 0}d</strong></div>
           </div>
         </div>
 
@@ -793,7 +804,7 @@
 
         {#if contractHistory.length}
           <div class="contract-timeline">
-            <strong>Contract history</strong>
+            <strong>{t('Contract history')}</strong>
             <div class="trail-line">
               {#each contractHistory as contract (contract.id)}
                 <article class:is-current={contract.is_current && contract.active}>
@@ -804,7 +815,7 @@
                     {#if expandedContractId === contract.id}
                       <p class="trail-detail">
                         {contract.weekly_contract_hours}h/week · {contract.contract_days}d/week · {contract.annual_leave_entitlement_days}d annual leave
-                        <br />Created {new Date(contract.created_at).toLocaleDateString()}
+                        <br />Created {new Date(contract.created_at).toLocaleDateString('en-GB')}
                       </p>
                     {/if}
                   </button>
@@ -816,13 +827,13 @@
         {/if}
       {:else if tab === 'Payroll' && owner}
         <div class="payroll-summary">
-          <span class="payroll-summary__kicker">Compensation</span>
+          <span class="payroll-summary__kicker">{t('Compensation')}</span>
           <strong>€{(selected.hourlyWageRate || 0).toFixed(2)}/h</strong>
           <p>Estimated cost at {selected.weeklyContractHours || 0}h/week</p>
           <div class="payroll-summary__stats">
-            <div><span>Hourly wage</span><strong>€{(selected.hourlyWageRate || 0).toFixed(2)}</strong></div>
-            <div><span>Est. weekly cost</span><strong>€{estimatedWeeklyCost.toFixed(2)}</strong></div>
-            <div><span>Est. hourly cost</span><strong>€{(selected.estimatedHourlyCost || 0).toFixed(2)}</strong></div>
+            <div><span>{t('Hourly wage')}</span><strong>€{(selected.hourlyWageRate || 0).toFixed(2)}</strong></div>
+            <div><span>{t('Est. weekly cost')}</span><strong>€{estimatedWeeklyCost.toFixed(2)}</strong></div>
+            <div><span>{t('Est. hourly cost')}</span><strong>€{(selected.estimatedHourlyCost || 0).toFixed(2)}</strong></div>
           </div>
         </div>
 
@@ -883,9 +894,9 @@
                     <div class="absence-detail">
                       {#if absence.manager_comment}<p><b>Manager comment</b>{absence.manager_comment}</p>{/if}
                       {#if absence.employee_comment}<p><b>Employee comment</b>{absence.employee_comment}</p>{/if}
-                      {#if absence.approved_at}<p><b>Approved</b>{new Date(absence.approved_at).toLocaleString()}</p>{/if}
+                      {#if absence.approved_at}<p><b>Approved</b>{new Date(absence.approved_at).toLocaleString('en-GB')}</p>{/if}
                       {#if absence.cancellation_reason}<p><b>Cancellation reason</b>{absence.cancellation_reason}</p>{/if}
-                      <p><b>Requested</b>{new Date(absence.created_at).toLocaleString()}</p>
+                      <p><b>Requested</b>{new Date(absence.created_at).toLocaleString('en-GB')}</p>
                     </div>
                   {/if}
                   {#if absence.status === 'pending'}

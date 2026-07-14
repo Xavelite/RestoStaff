@@ -11,7 +11,9 @@
   let errorMessage = $state('');
   let loading = $state(false);
   let resetSent = $state(false);
-  let mode = $state<'signin' | 'signup'>('signin');
+  let mode = $state<'signin' | 'signup'>(
+    new URLSearchParams(location.search).get('mode') === 'signup' ? 'signup' : 'signin'
+  );
   let redirecting = $state(false);
   const next = $derived(
     normalizeNext(page.url.searchParams.get('next'))
@@ -184,19 +186,26 @@
 <style>
   .login {
     min-height: 100vh;
+    min-height: 100svh;
     display: grid;
     place-items: center;
-    padding: 24px;
+    padding: clamp(20px, 5vw, 64px);
+    color: var(--rst-command-text);
+    background:
+      linear-gradient(110deg, rgba(15, 17, 20, .94), rgba(20, 17, 15, .72)),
+      url('/module-backgrounds/home.webp') center / cover no-repeat;
   }
   .login__card {
-    width: min(400px, 100%);
+    width: min(440px, 100%);
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding: 32px;
-    background: var(--rst-ui-panel);
-    border: 1px solid var(--rst-ui-line);
+    gap: 18px;
+    padding: clamp(26px, 5vw, 42px);
+    border: 1px solid rgba(255, 250, 242, .14);
     border-radius: var(--rst-ui-radius-xl);
+    background: rgba(24, 25, 27, .9);
+    box-shadow: 0 28px 80px rgba(0, 0, 0, .36);
+    backdrop-filter: blur(14px);
   }
   .login__head {
     display: flex;
@@ -205,13 +214,15 @@
   }
   .login__title {
     margin: 0;
-    font-size: 28px;
+    color: var(--rst-command-text);
+    font-size: 32px;
     font-weight: var(--rst-fw-display);
   }
   .login__subtitle {
     margin: 0;
-    color: var(--rst-ui-muted);
+    color: rgba(255, 250, 242, .7);
     font-size: 14px;
+    line-height: 1.5;
   }
   .field {
     display: flex;
@@ -221,16 +232,16 @@
   .field__label {
     font-size: 12px;
     font-weight: var(--rst-fw-bold);
-    color: var(--rst-ui-muted);
+    color: rgba(255, 250, 242, .72);
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
   .field__input {
     padding: 12px 14px;
-    background: var(--rst-ui-surface-field-strong);
-    border: 1px solid var(--rst-ui-line);
+    background: rgba(255, 250, 242, .96);
+    border: 1px solid rgba(255, 250, 242, .2);
     border-radius: var(--rst-ui-radius-md);
-    color: var(--rst-ui-text);
+    color: #1f160f;
     font: inherit;
   }
   .field__input:focus {
@@ -265,11 +276,27 @@
   }
   .login__switch {
     border: 0;
-    color: var(--rst-ui-panel-title);
+    color: rgba(255, 250, 242, .76);
     background: transparent;
     font: inherit;
     font-size: 12px;
     font-weight: var(--rst-fw-bold);
     cursor: pointer;
+  }
+  .login__switch:hover:not(:disabled) {
+    color: var(--rst-command-text);
+  }
+  .login__switch:disabled {
+    opacity: .55;
+    cursor: default;
+  }
+
+  @media (max-width: 520px) {
+    .login {
+      padding: 16px;
+    }
+    .login__card {
+      padding: 26px 22px;
+    }
   }
 </style>

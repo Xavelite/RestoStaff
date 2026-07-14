@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/i18n.svelte';
+
   let {
     entitlement,
     approved,
@@ -12,11 +14,11 @@
   } = $props();
 </script>
 
-<div class="balance" aria-label="Annual holiday balance">
-  <article><span>Entitlement</span><strong>{entitlement}d</strong></article>
-  <article><span>Approved</span><strong>{approved}d</strong></article>
-  <article class:is-active={pending > 0}><span>Pending</span><strong>{pending}d</strong></article>
-  <article class="is-remaining" class:is-low={remaining <= 0}><span>Remaining</span><strong>{remaining}d</strong></article>
+<div class="balance" aria-label={t('Annual holiday balance')}>
+  <article><span>{t('Entitlement')}</span><strong>{entitlement}d</strong></article>
+  <article><span>{t('Approved')}</span><strong>{approved}d</strong></article>
+  <article class:is-active={pending > 0}><span>{t('Pending')}</span><strong>{pending}d</strong></article>
+  <article class="is-remaining" class:is-low={remaining <= 0}><span>{t('Remaining')}</span><strong>{remaining}d</strong></article>
 </div>
 
 <style>

@@ -8,6 +8,14 @@
   import Dialog from '$lib/components/Dialog.svelte';
   import NotificationBell from '$lib/components/NotificationBell.svelte';
   import ToastHost from '$lib/components/ToastHost.svelte';
+  import {
+    ACCOUNT_LOCALE_METADATA_KEY,
+    i18n,
+    languageOptions,
+    normalizeLocale,
+    t,
+    type AppLocale
+  } from '$lib/i18n/i18n.svelte';
   import { workspaceRealtime } from '$lib/realtime/workspace-realtime.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
@@ -25,11 +33,18 @@
   let accountLastName = $state('');
   let accountPassword = $state('');
   let accountPasswordConfirm = $state('');
+  let accountLanguage = $state<AppLocale>('en');
   let savingAccount = $state(false);
   let sendingVerification = $state(false);
   let verificationSent = $state(false);
   let online = $state(true);
   let contentEl = $state<HTMLElement | undefined>();
+
+  $effect(() => {
+    const preferredLanguage = auth.user?.user_metadata?.[ACCOUNT_LOCALE_METADATA_KEY];
+    i18n.setLocale(preferredLanguage);
+    if (typeof document !== 'undefined') document.documentElement.lang = i18n.locale;
+  });
 
   $effect(() => {
     void page.url.pathname;
@@ -60,9 +75,10 @@
     { href: '/home', label: 'Home' },
     { href: '/schedule', label: 'Schedule' },
     { href: '/timesheet', label: 'Timesheet' },
-    { href: '/badge-terminal', label: 'Time clock' },
+    { href: '/badge-terminal', label: 'Badge' },
     { href: '/team', label: 'Team' },
-    { href: '/restaurant', label: 'Restaurant' }
+    { href: '/restaurant', label: 'Restaurant' },
+    { href: '/dashboard', label: 'Insights' }
   ];
   const managerNav = ownerNav.filter((item) => item.href !== '/restaurant');
   const employeeNav = [
@@ -90,6 +106,7 @@
     if (pathname === '/restaurant') return 'restaurant';
     if (pathname === '/my-service') return 'my-service';
     if (pathname === '/my-time') return 'my-time';
+    if (pathname === '/dashboard') return 'dashboard';
     return 'none';
   });
   const setupNotifications = $derived.by(() => {
@@ -97,13 +114,13 @@
     if (!bootstrap || workspace.active?.role === 'employee') return [];
     const notifications: Array<{ label: string; href: string }> = [];
     if (!bootstrap.readiness.has_active_employees) {
-      notifications.push({ label: 'Add your first active employee', href: '/team' });
+      notifications.push({ label: t('Add your first active employee'), href: '/team' });
     }
     if (!bootstrap.readiness.has_active_areas) {
-      notifications.push({ label: 'Configure restaurant areas', href: '/restaurant' });
+      notifications.push({ label: t('Configure restaurant areas'), href: '/restaurant' });
     }
     if (!bootstrap.readiness.has_active_job_functions) {
-      notifications.push({ label: 'Configure job functions', href: '/restaurant' });
+      notifications.push({ label: t('Configure job functions'), href: '/restaurant' });
     }
     if (workspace.error) notifications.unshift({ label: workspace.error, href: page.url.pathname });
     return notifications;
@@ -154,11 +171,11 @@
     workspaceRealtime.connect(workspace.activeId, (event) => {
       const label =
         event === 'planning-saved'
-          ? 'Schedule changed in another session.'
+          ? t('Schedule changed in another session.')
           : event === 'actuals-updated'
-            ? 'Timesheet received a live update.'
-            : 'Workspace data changed.';
-      toasts.show(`${label} Refreshing…`, 'info', 3000);
+            ? t('Timesheet received a live update.')
+            : t('Workspace data changed.');
+      toasts.show(t('{label} Refreshing…', { label }), 'info', 3000);
       void workspace.reloadForRoute(page.url.pathname).catch(() => undefined);
     });
     return () => workspaceRealtime.disconnect();
@@ -188,7 +205,7 @@
       });
       if (error) throw error;
       verificationSent = true;
-      toasts.show('Verification email sent.', 'success');
+      toasts.show(t('Verification email sent.'), 'success');
     } catch (error) {
       toasts.show(error instanceof Error ? error.message : String(error), 'danger');
     } finally {
@@ -215,11 +232,11 @@
 
   async function savePin() {
     if (!/^\d{4}$/.test(pin)) {
-      toasts.show('Enter a four-digit badge PIN.', 'warning');
+      toasts.show(t('Enter a four-digit badge PIN.'), 'warning');
       return;
     }
     if (pin !== pinConfirm) {
-      toasts.show('PIN confirmation does not match.', 'warning');
+      toasts.show(t('PIN confirmation does not match.'), 'warning');
       return;
     }
     savingPin = true;
@@ -228,7 +245,7 @@
       pin = '';
       pinConfirm = '';
       pinDialogOpen = false;
-      toasts.show('Badge PIN updated.', 'success');
+      toasts.show(t('Badge PIN updated.'), 'success');
     } catch (error) {
       toasts.show(error instanceof Error ? error.message : String(error), 'danger');
     } finally {
@@ -242,21 +259,22 @@
     accountLastName = employee?.last_name ?? '';
     accountPassword = '';
     accountPasswordConfirm = '';
+    accountLanguage = normalizeLocale(auth.user?.user_metadata?.[ACCOUNT_LOCALE_METADATA_KEY]);
     accountOpen = false;
     accountDialogOpen = true;
   }
 
   async function saveAccount() {
     if (!accountFirstName.trim() || !accountLastName.trim()) {
-      toasts.show('First and last name are required.', 'warning');
+      toasts.show(t('First and last name are required.'), 'warning');
       return;
     }
     if (accountPassword && accountPassword.length < 8) {
-      toasts.show('Use at least eight characters for the app password.', 'warning');
+      toasts.show(t('Use at least eight characters for the app password.'), 'warning');
       return;
     }
     if (accountPassword !== accountPasswordConfirm) {
-      toasts.show('Password confirmation does not match.', 'warning');
+      toasts.show(t('Password confirmation does not match.'), 'warning');
       return;
     }
     savingAccount = true;
@@ -267,13 +285,15 @@
         data: {
           ...auth.user?.user_metadata,
           first_name: accountFirstName.trim(),
-          last_name: accountLastName.trim()
+          last_name: accountLastName.trim(),
+          [ACCOUNT_LOCALE_METADATA_KEY]: accountLanguage
         }
       });
       if (error) throw error;
+      i18n.setLocale(accountLanguage);
       accountDialogOpen = false;
       await workspace.reloadBootstrap();
-      toasts.show('Account updated.', 'success');
+      toasts.show(t('Account updated.'), 'success');
     } catch (error) {
       toasts.show(error instanceof Error ? error.message : String(error), 'danger');
     } finally {
@@ -288,12 +308,12 @@
       <span class="topbar__brand">restogogo</span>
 
       {#if navItems.length}
-        <nav class="topbar__nav rst-scroll-strip" aria-label="Main">
+        <nav class="topbar__nav rst-scroll-strip" aria-label={t('Main')}>
           {#each navItems as item (item.href)}
             <a
               class="topbar__link"
               class:is-active={page.url.pathname === item.href}
-              href={item.href}>{item.label}</a>
+              href={item.href}>{t(item.label)}</a>
           {/each}
         </nav>
       {:else}
@@ -301,16 +321,6 @@
       {/if}
 
       <div class="topbar__user">
-        <span
-          class="theme-indicator"
-          role="status"
-          aria-label="Visual style"
-          title="Visual style"
-        >
-          <span aria-hidden="true"></span>
-          <strong>Aa</strong>
-        </span>
-
         <NotificationBell
           restaurantId={workspace.activeId}
           role={workspace.active?.role ?? null}
@@ -323,6 +333,7 @@
           <button
             class="account-button"
             type="button"
+            aria-label={t('Account menu')}
             aria-expanded={accountOpen}
             onclick={() => (accountOpen = !accountOpen)}
           >
@@ -333,11 +344,11 @@
             <section class="menu account-menu">
               <header>
                 <strong>{auth.user?.email}</strong>
-                <small>{workspace.active?.restaurant_name} · {workspace.active?.role ?? 'Account'}</small>
+                <small>{workspace.active?.restaurant_name} · {workspace.active?.role ?? t('Account')}</small>
               </header>
               {#if workspaceOptions.length > 1}
                 <div class="workspace-switcher" aria-label="Workspaces">
-                  <span>Workspace</span>
+                  <span>{t('Workspace')}</span>
                   {#each workspaceOptions as membership (membership.restaurant_id)}
                     <button
                       type="button"
@@ -351,16 +362,16 @@
                   {/each}
                 </div>
               {/if}
-              <button type="button" onclick={openAccount}>Account settings</button>
-              <button type="button" onclick={() => { accountOpen = false; pinDialogOpen = true; }}>Change badge PIN</button>
-              <button class="danger" type="button" onclick={signOut}>Sign out</button>
+              <button type="button" onclick={openAccount}>{t('Account settings')}</button>
+              <button type="button" onclick={() => { accountOpen = false; pinDialogOpen = true; }}>{t('Change badge PIN')}</button>
+              <button class="danger" type="button" onclick={signOut}>{t('Sign out')}</button>
             </section>
           {/if}
         </div>
       </div>
     </header>
 
-    {#if navItems.length}
+    {#if navItems.length && page.url.pathname !== '/badge-terminal'}
       {#snippet tabIcon(href: string)}
         {#if href === '/home'}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11 12 4l8 7"/><path d="M6 10v9h4v-5h4v5h4v-9"/></svg>
@@ -372,12 +383,14 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.6 19a5.4 5.4 0 0 1 10.8 0"/><path d="M16.2 5.6a3.2 3.2 0 0 1 0 4.8M17.4 13.4A5.4 5.4 0 0 1 20.4 18.4"/></svg>
         {:else if href === '/restaurant'}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h16l-1.2-4H5.2z"/><path d="M5 9v10h14V9"/><path d="M10 19v-5h4v5"/></svg>
+        {:else if href === '/dashboard'}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V4M4 20h16"/><rect x="8" y="11" width="3" height="6"/><rect x="14" y="7" width="3" height="10"/></svg>
         {:else}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="13" rx="1.6"/><path d="M9 20h6M12 17v3"/></svg>
         {/if}
       {/snippet}
 
-      <nav class="bottomnav" aria-label="Main">
+      <nav class="bottomnav" aria-label={t('Main')}>
         {#each navItems as item (item.href)}
           <a
             class="bottomnav__link"
@@ -386,7 +399,7 @@
             href={item.href}
           >
             {@render tabIcon(item.href)}
-            <span>{item.label}</span>
+            <span>{t(item.label)}</span>
           </a>
         {/each}
       </nav>
@@ -395,46 +408,45 @@
     <main class="app__content" data-atmosphere={pageAtmosphere} bind:this={contentEl}>
       {#if !online}
         <aside class="offline" role="status">
-          You are offline. Existing information remains visible; reconnect before saving changes.
+          {t('You are offline. Existing information remains visible; reconnect before saving changes.')}
         </aside>
       {/if}
       {#if !emailVerified}
         <section class="workspace-state verify-state" role="status">
-          <p class="workspace-state__eyebrow">Email verification</p>
-          <h1>Verify your owner email</h1>
+          <p class="workspace-state__eyebrow">{t('Email verification')}</p>
+          <h1>{t('Verify your owner email')}</h1>
           <p>
-            We sent the verification link to {auth.user?.email}. Confirm it before opening
-            restaurant operations.
+            {t('We sent the verification link to {email}. Confirm it before opening restaurant operations.', { email: auth.user?.email ?? '' })}
           </p>
           {#if verificationSent}
-            <small>Check your inbox, then reload this page after confirming.</small>
+            <small>{t('Check your inbox, then reload this page after confirming.')}</small>
           {/if}
           <div class="workspace-state__actions">
             <button type="button" disabled={sendingVerification} onclick={resendVerification}>
-              {sendingVerification ? 'Sending…' : 'Resend verification'}
+              {sendingVerification ? t('Sending…') : t('Resend verification')}
             </button>
             <button class="workspace-state__secondary" type="button" onclick={signOut}>
-              Sign out
+              {t('Sign out')}
             </button>
           </div>
         </section>
       {:else if workspace.loading && !workspace.bootstrap}
         <section class="workspace-state" aria-live="polite">
           <span class="spinner" aria-hidden="true"></span>
-          <h1>Loading your workspace</h1>
-          <p>Fetching the latest restaurant operations data.</p>
+          <h1>{t('Loading your workspace')}</h1>
+          <p>{t('Fetching the latest restaurant operations data.')}</p>
         </section>
       {:else if workspace.error && !workspace.bootstrap}
         <section class="workspace-state" role="alert">
-          <h1>Workspace unavailable</h1>
+          <h1>{t('Workspace unavailable')}</h1>
           <p>{workspace.error}</p>
-          <button type="button" onclick={() => workspace.load()}>Try again</button>
+          <button type="button" onclick={() => workspace.load()}>{t('Try again')}</button>
         </section>
       {:else if workspace.loaded && !workspace.active}
         <section class="workspace-state">
-          <h1>No active workspace</h1>
-          <p>Your account is not linked to an active restaurant. Create one if this is a new owner account.</p>
-          <a class="workspace-state__action" href="/onboarding">Set up a restaurant</a>
+          <h1>{t('No active workspace')}</h1>
+          <p>{t('Your account is not linked to an active restaurant. Create one if this is a new owner account.')}</p>
+          <a class="workspace-state__action" href="/onboarding">{t('Set up a restaurant')}</a>
         </section>
       {:else}
         {@render children()}
@@ -445,43 +457,51 @@
 {/if}
 
 {#snippet pinFooter()}
-  <ActionButton label="Cancel" disabled={savingPin} onclick={() => (pinDialogOpen = false)} />
-  <ActionButton label={savingPin ? 'Saving…' : 'Save PIN'} tone="primary" disabled={savingPin} onclick={savePin} />
+  <ActionButton label={t('Cancel')} disabled={savingPin} onclick={() => (pinDialogOpen = false)} />
+  <ActionButton label={savingPin ? t('Saving…') : t('Save PIN')} tone="primary" disabled={savingPin} onclick={savePin} />
 {/snippet}
 
 <Dialog
   open={pinDialogOpen}
-  title="Change badge PIN"
-  description="This PIN authorizes badge-terminal actions. It never signs you into restogogo."
+  title={t('Change badge PIN')}
+  description={t('This PIN authorizes badge-terminal actions. It never signs you into restogogo.')}
   size="small"
   onclose={() => !savingPin && (pinDialogOpen = false)}
   footer={pinFooter}
 >
   <div class="pin-form">
-    <label><span>New four-digit PIN</span><input type="password" inputmode="numeric" maxlength="4" bind:value={pin} /></label>
-    <label><span>Confirm PIN</span><input type="password" inputmode="numeric" maxlength="4" bind:value={pinConfirm} /></label>
+    <label><span>{t('New four-digit PIN')}</span><input type="password" inputmode="numeric" maxlength="4" bind:value={pin} /></label>
+    <label><span>{t('Confirm PIN')}</span><input type="password" inputmode="numeric" maxlength="4" bind:value={pinConfirm} /></label>
   </div>
 </Dialog>
 
 {#snippet accountFooter()}
-  <ActionButton label="Cancel" disabled={savingAccount} onclick={() => (accountDialogOpen = false)} />
-  <ActionButton label={savingAccount ? 'Saving…' : 'Save account'} tone="primary" disabled={savingAccount} onclick={saveAccount} />
+  <ActionButton label={t('Cancel')} disabled={savingAccount} onclick={() => (accountDialogOpen = false)} />
+  <ActionButton label={savingAccount ? t('Saving…') : t('Save account')} tone="primary" disabled={savingAccount} onclick={saveAccount} />
 {/snippet}
 
 <Dialog
   open={accountDialogOpen}
-  title="Account settings"
-  description="Update your personal profile and optionally choose a new app password."
+  title={t('Account settings')}
+  description={t('Update your personal profile, language and optionally choose a new app password.')}
   size="small"
   onclose={() => !savingAccount && (accountDialogOpen = false)}
   footer={accountFooter}
 >
   <div class="pin-form">
-    <label><span>Email</span><input value={auth.user?.email ?? ''} disabled /></label>
-    <label><span>First name</span><input autocomplete="given-name" bind:value={accountFirstName} /></label>
-    <label><span>Last name</span><input autocomplete="family-name" bind:value={accountLastName} /></label>
-    <label><span>New app password (optional)</span><input type="password" minlength="8" autocomplete="new-password" bind:value={accountPassword} /></label>
-    <label><span>Confirm new password</span><input type="password" minlength="8" autocomplete="new-password" bind:value={accountPasswordConfirm} /></label>
+    <label><span>{t('Email')}</span><input value={auth.user?.email ?? ''} disabled /></label>
+    <label><span>{t('First name')}</span><input autocomplete="given-name" bind:value={accountFirstName} /></label>
+    <label><span>{t('Last name')}</span><input autocomplete="family-name" bind:value={accountLastName} /></label>
+    <label>
+      <span>{t('Language')}</span>
+      <select bind:value={accountLanguage}>
+        {#each languageOptions as option (option.value)}
+          <option value={option.value}>{option.nativeLabel}</option>
+        {/each}
+      </select>
+    </label>
+    <label><span>{t('New app password (optional)')}</span><input type="password" minlength="8" autocomplete="new-password" bind:value={accountPassword} /></label>
+    <label><span>{t('Confirm new password')}</span><input type="password" minlength="8" autocomplete="new-password" bind:value={accountPasswordConfirm} /></label>
   </div>
 </Dialog>
 
@@ -568,7 +588,8 @@
     border-radius: var(--rst-ui-radius-md);
     color: var(--rst-topbar-muted);
     text-decoration: none;
-    font-size: 10px;
+    min-height: 50px;
+    font-size: 11px;
     font-weight: var(--rst-fw-bold);
   }
   .bottomnav__link svg {
@@ -583,6 +604,8 @@
   }
   .bottomnav__link.is-active {
     color: var(--rst-topbar-text);
+    background: rgba(var(--rst-ui-action-rgb), 0.16);
+    box-shadow: inset 0 2px 0 var(--rst-ui-action);
   }
   .workspace-switcher {
     display: grid;
@@ -624,8 +647,7 @@
     font-style: normal;
   }
   .menu-wrap { position: relative; }
-  .account-button,
-  .theme-indicator {
+  .account-button {
     min-height: 38px;
     display: inline-flex;
     align-items: center;
@@ -638,21 +660,6 @@
     font: inherit;
   }
   .account-button { cursor: pointer; }
-  .theme-indicator {
-    gap: 9px;
-    padding-inline: 13px;
-    font-size: 13px;
-    font-weight: var(--rst-fw-bold);
-    white-space: nowrap;
-    cursor: default;
-  }
-  .theme-indicator > span {
-    width: 10px;
-    height: 10px;
-    border-radius: var(--rst-ui-radius-round);
-    background: var(--rst-ui-action);
-    box-shadow: 0 0 0 4px rgba(var(--rst-ui-action-rgb), .14);
-  }
   .account-button > span {
     width: 26px;
     height: 26px;
@@ -712,7 +719,8 @@
   .pin-form { display: grid; gap: 12px; }
   .pin-form label { display: grid; gap: 6px; }
   .pin-form span { color: var(--rst-ui-muted); font-size: 11px; font-weight: var(--rst-fw-bold); }
-  .pin-form input {
+  .pin-form input,
+  .pin-form select {
     min-height: 42px;
     padding: 9px 11px;
     border: 1px solid var(--rst-ui-line);
@@ -720,8 +728,8 @@
     color: var(--rst-ui-text);
     background: var(--rst-ui-surface-field-strong);
     font: inherit;
-    letter-spacing: .24em;
   }
+  .pin-form input[type='password'] { letter-spacing: .24em; }
   .app__content {
     flex: 1;
     padding: var(--rst-gutter);
@@ -746,6 +754,7 @@
   .app__content[data-atmosphere='restaurant'] { --rst-atmosphere-image: url('/module-backgrounds/restaurant.webp'); }
   .app__content[data-atmosphere='my-service'] { --rst-atmosphere-image: url('/module-backgrounds/my-service.webp'); }
   .app__content[data-atmosphere='my-time'] { --rst-atmosphere-image: url('/module-backgrounds/my-time.webp'); }
+  .app__content[data-atmosphere='dashboard'] { --rst-atmosphere-image: url('/module-backgrounds/home.webp'); }
 
   .app__content[data-atmosphere='home'],
   .app__content[data-atmosphere='schedule'],
@@ -753,7 +762,8 @@
   .app__content[data-atmosphere='team'],
   .app__content[data-atmosphere='restaurant'],
   .app__content[data-atmosphere='my-service'],
-  .app__content[data-atmosphere='my-time'] {
+  .app__content[data-atmosphere='my-time'],
+  .app__content[data-atmosphere='dashboard'] {
     padding: 0;
   }
   .offline {
@@ -867,6 +877,10 @@
     .app__content,
     .app__content[data-atmosphere] {
       padding-bottom: 80px;
+    }
+
+    .app__content[data-atmosphere='badge'] {
+      padding-bottom: 0;
     }
   }
 </style>

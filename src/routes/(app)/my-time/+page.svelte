@@ -7,6 +7,7 @@
     saveWorkPatternException
   } from '$lib/api/mutations';
   import { friendlyError } from '$lib/api/error-messages';
+  import { workspaceRealtime } from '$lib/realtime/workspace-realtime.svelte';
   import { leaveBalanceForEmployee } from '$lib/absence/leave-balance';
   import {
     addDays,
@@ -50,6 +51,7 @@
   } from '$lib/employee/employee-model';
   import { workRegime } from '$lib/domain/operations';
   import { workspace } from '$lib/workspace/workspace.svelte';
+  import { i18n, t } from '$lib/i18n/i18n.svelte';
 
   const snapshot = $derived(workspace.employeeOperations);
   const employeeId = $derived(workspace.active?.employee_id ?? '');
@@ -392,19 +394,22 @@
     saving = true;
     const messages: string[] = [];
     let hasError = false;
+    let changed = false;
 
     // Each bucket submits by its own kind, independent of what triggered it,
     // so a pending time-off draft is never stranded or wiped by another edit.
     if (availabilityMode === 'weekly_availability' && availabilityOverrides.length > 0) {
       const weeks = selectionWeekStarts(selectedAvailabilitySlots);
       const rows = weeks.flatMap((weekStart) =>
-        availabilityForWeek(snapshot, employeeId, weekStart).map((slot) => ({
-          ...slot,
-          state:
-            availabilityOverrides.find(
-              (override) => override.date === slot.date && override.serviceKey === slot.serviceKey
-            )?.state ?? slot.state
-        }))
+        availabilityForWeek(snapshot, employeeId, weekStart)
+          .filter((slot) => slot.date >= today)
+          .map((slot) => ({
+            ...slot,
+            state:
+              availabilityOverrides.find(
+                (override) => override.date === slot.date && override.serviceKey === slot.serviceKey
+              )?.state ?? slot.state
+          }))
       );
       try {
         await saveEmployeeAvailability({
@@ -416,6 +421,7 @@
             availability_state: slot.state
           }))
         });
+        changed = true;
         messages.push('Availability saved');
       } catch (err) {
         hasError = true;
@@ -444,6 +450,7 @@
                 employee_comment: comment.trim()
               }
             });
+            changed = true;
             ok += 1;
           } catch (err) {
             hasError = true;
@@ -458,6 +465,18 @@
       saving = false;
       return;
     }
+    let refreshFailed = false;
+    if (changed) {
+      try {
+        await workspace.reloadEmployeeOperations();
+      } catch {
+        refreshFailed = true;
+      }
+      await workspaceRealtime.publish('notification-refresh', {
+        restaurantId: workspace.activeId,
+        source: 'system'
+      });
+    }
     if (hasError) {
       // Keep every draft so the employee can retry the part that failed.
       feedback = messages.join(' · ');
@@ -467,9 +486,10 @@
       slotDetailsOpen = false;
       drawerDate = '';
       drawerService = '';
-      try { await workspace.reloadEmployeeOperations(); } catch { /* non-critical */ }
-      feedback = messages.join(' · ');
-      feedbackTone = 'success';
+      feedback = refreshFailed
+        ? `${messages.join(' · ')} · Refresh to see the latest data.`
+        : messages.join(' · ');
+      feedbackTone = refreshFailed ? 'warning' : 'success';
     }
     saving = false;
   }
@@ -497,6 +517,10 @@
         }
       });
       await workspace.reloadEmployeeOperations();
+      await workspaceRealtime.publish('notification-refresh', {
+        restaurantId: workspace.activeId,
+        source: 'system'
+      });
       slotDetailsOpen = false;
       drawerDate = '';
       drawerService = '';
@@ -525,6 +549,10 @@
         }
       });
       await workspace.reloadEmployeeOperations();
+      await workspaceRealtime.publish('planning-saved', {
+        restaurantId: workspace.activeId,
+        source: 'planning'
+      });
       slotDetailsOpen = false;
       drawerDate = '';
       drawerService = '';
@@ -539,7 +567,7 @@
   }
 
   function dayName(date: string) {
-    return new Intl.DateTimeFormat('en-GB', { weekday: 'short' }).format(new Date(`${date}T12:00:00Z`));
+    return new Intl.DateTimeFormat(i18n.intlLocale, { weekday: 'short' }).format(new Date(`${date}T12:00:00Z`));
   }
 
   function dayNumber(date: string) {
@@ -551,13 +579,13 @@
   }
 
   function requestCopy() {
-    if (!hasPendingEdits) return 'Nothing waiting';
+    if (!hasPendingEdits) return t('Nothing waiting');
     const parts: string[] = [];
     if (selectedAvailabilitySlots.length) {
-      parts.push(`${selectedAvailabilitySlots.length} availability edit${selectedAvailabilitySlots.length > 1 ? 's' : ''}`);
+      parts.push(t(selectedAvailabilitySlots.length === 1 ? '{count} availability edit' : '{count} availability edits', { count: selectedAvailabilitySlots.length }));
     }
     if (selectedTimeOffSlots.length) {
-      parts.push(`${selectedTimeOffSlots.length} time-off service${selectedTimeOffSlots.length > 1 ? 's' : ''}`);
+      parts.push(t(selectedTimeOffSlots.length === 1 ? '{count} time-off service' : '{count} time-off services', { count: selectedTimeOffSlots.length }));
     }
     return parts.join(' · ');
   }
@@ -579,22 +607,34 @@
   }
 
   function slotLabel(slot: CalendarDay['slots'][number]) {
-    if (timeOffSelectedKeySet.has(slot.key)) return 'Time off';
-    if (slot.presentation.card) return slot.presentation.card.label;
-    if (slot.presentation.background === 'available') return 'Available';
-    return serviceLabel(slot.serviceKey);
+    if (timeOffSelectedKeySet.has(slot.key)) return t('Time off');
+    if (slot.presentation.card) return t(slot.presentation.card.label);
+    if (slot.presentation.background === 'available') return t('Available');
+    return t(serviceLabel(slot.serviceKey));
   }
 
   function slotTitle(slot: CalendarDay['slots'][number]) {
-    const service = serviceLabel(slot.serviceKey);
+    const service = t(serviceLabel(slot.serviceKey));
     const label = slotLabel(slot);
     return label === service ? service : `${service} · ${label}`;
   }
 
   function slotMeta(slot: CalendarDay['slots'][number]) {
-    if (slot.presentation.card?.meta) return slot.presentation.card.meta;
-    if (slot.presentation.background === 'available') return 'Can work';
-    return 'Tap ⋯ for options';
+    if (slot.presentation.card?.meta) return t(slot.presentation.card.meta);
+    if (slot.presentation.background === 'available') return t('Can work');
+    return t('Tap ⋯ for options');
+  }
+
+  function dayAriaLabel(day: CalendarDay) {
+    const date = new Intl.DateTimeFormat(i18n.intlLocale, {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'UTC'
+    }).format(new Date(`${day.date}T12:00:00Z`));
+    const services = day.slots.map((slot) => slotTitle(slot)).join('; ');
+    return `${date}: ${services}${day.total ? `; ${day.total} worked` : ''}`;
   }
 
   function workedEntryHours(entry: (typeof monthEntries)[number]) {
@@ -605,32 +645,32 @@
   }
 </script>
 
-<svelte:head><title>My time · restogogo</title></svelte:head>
+<svelte:head><title>{t('My time')} · restogogo</title></svelte:head>
 
 {#if snapshot && employee}
   <section class="page-shell employee-page time-page">
     <PageHero
       heroClass="hero-time"
       eyebrow="My time"
-      title={hasPendingEdits ? 'Your month has changes waiting.' : `${formatHours(workedHours)} recorded this month.`}
-      subtitle={availabilityMode === 'fixed_schedule' ? 'See badge proof, leave balance and published shifts in one monthly rhythm.' : 'See badge proof, leave balance, published shifts and availability in one monthly rhythm.'}
+      title={hasPendingEdits ? t('Your month has changes waiting.') : t('{hours} recorded this month.', { hours: formatHours(workedHours) })}
+      subtitle={availabilityMode === 'fixed_schedule' ? t('See badge proof, leave balance and your fixed schedule in one monthly rhythm.') : t('See badge proof, leave balance, published shifts and availability in one monthly rhythm.')}
     >
       {#snippet nav()}
         <div class="page-nav">
-          <button type="button" onclick={() => changeMonth(-1)} aria-label="Previous month">&lsaquo;</button>
-          <strong>{monthLabel(activeMonth)}</strong>
-          <button type="button" onclick={() => changeMonth(1)} aria-label="Next month">&rsaquo;</button>
+          <button type="button" onclick={() => changeMonth(-1)} aria-label={t('Previous month')}>&lsaquo;</button>
+          <strong>{monthLabel(activeMonth, i18n.intlLocale)}</strong>
+          <button type="button" onclick={() => changeMonth(1)} aria-label={t('Next month')}>&rsaquo;</button>
         </div>
       {/snippet}
       {#snippet command()}
-        <aside class="glass-card glass-card--row time-dial-card" aria-label="Leave balance">
+        <aside class="glass-card glass-card--row time-dial-card" aria-label={t('Leave balance')}>
           <div class:has-issues={leaveBalancePercent < 30} class="readiness-dial" style={`--ready:${leaveBalancePercent}%`}>
             <strong>{leaveBalance.remaining}</strong>
-            <span>days left</span>
+            <span>{t('days left')}</span>
           </div>
           <dl>
-            <div><dt>Worked</dt><dd>{formatHours(workedHours)}</dd></div>
-            <div><dt>Pending</dt><dd>{leaveBalance.pending}</dd></div>
+            <div><dt>{t('Worked')}</dt><dd>{formatHours(workedHours)}</dd></div>
+            <div><dt>{t('Pending')}</dt><dd>{leaveBalance.pending}</dd></div>
           </dl>
         </aside>
       {/snippet}
@@ -640,9 +680,9 @@
       <FeedbackBanner message={feedback} tone={feedbackTone} />
 
       <div class="time-layout">
-        <section class="time-month" aria-label={`Monthly calendar for ${monthLabel(activeMonth)}`}>
+        <section class="time-month" aria-label={t('Monthly calendar for {month}', { month: monthLabel(activeMonth, i18n.intlLocale) })}>
           <div class="weekday-row" aria-hidden="true">
-            <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+            {#each Array.from({ length: 7 }, (_, index) => new Intl.DateTimeFormat(i18n.intlLocale, { weekday: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2026, 0, 5 + index)))) as weekday}<span>{weekday}</span>{/each}
           </div>
 
           <div class="month-grid">
@@ -654,6 +694,7 @@
                   class:is-selected={day.date === selectedDate}
                   class:is-today={day.today}
                   class:is-outside={!day.inMonth}
+                  aria-label={dayAriaLabel(day)}
                   onclick={() => selectDate(day.date)}
                 >
                   <span class="month-day__number">{day.dayNumber}</span>
@@ -669,16 +710,16 @@
           </div>
         </section>
 
-        <aside class="time-side-panel" aria-label="Selected day">
+        <aside class="time-side-panel" aria-label={t('Selected day')}>
           <section class="day-panel">
             <div class="day-panel__head">
               <div>
-                <span class="page-kicker">Selected day</span>
-                <strong>{selectedDay ? `${dayName(selectedDay.date)} ${dayNumber(selectedDay.date)}` : 'Pick a day'}</strong>
+                <span class="page-kicker">{t('Selected day')}</span>
+                <strong>{selectedDay ? `${dayName(selectedDay.date)} ${dayNumber(selectedDay.date)}` : t('Pick a day')}</strong>
               </div>
               <div class="day-panel__proof">
                 <strong>{details.entries.reduce((sum, entry) => sum + workedEntryHours(entry), 0) ? formatHours(details.entries.reduce((sum, entry) => sum + workedEntryHours(entry), 0)) : '0h'}</strong>
-                <span>worked</span>
+                <span>{t('worked')}</span>
               </div>
             </div>
 
@@ -686,7 +727,12 @@
               <div class="day-panel__services">
                 {#each selectedDay.slots as slot (slot.key)}
                   <div class={`day-service is-${slotTone(slot)}`} class:is-selected={isSlotDirty(slot.key)}>
-                    <button type="button" class="day-service__tap" onclick={() => primaryTap(selectedDay.date, slot.serviceKey)}>
+                    <button
+                      type="button"
+                      class="day-service__tap"
+                      aria-label={`${selectedDay.date}, ${slotTitle(slot)}: ${slotMeta(slot)}`}
+                      onclick={() => primaryTap(selectedDay.date, slot.serviceKey)}
+                    >
                       <b>{serviceIcon(slot.serviceKey)}</b>
                       <span>
                         <strong>{slotLabel(slot)}</strong>
@@ -696,7 +742,7 @@
                     <button
                       type="button"
                       class="day-service__more"
-                      aria-label={`More options for ${serviceLabel(slot.serviceKey)}`}
+                      aria-label={t('More options for {service} on {date}', { service: t(serviceLabel(slot.serviceKey)), date: selectedDay.date })}
                       onclick={() => openSlotDetails(selectedDay.date, slot.serviceKey)}
                     >
                       ⋯
@@ -712,7 +758,7 @@
           <article>
             <div>
               <StatusPill label="Published shift" tone="info" />
-              <strong>{serviceLabel(shift.serviceKey)} · {shift.startsAt}–{shift.endsAt}</strong>
+              <strong>{t(serviceLabel(shift.serviceKey))} · {shift.startsAt}–{shift.endsAt}</strong>
               <span>{shift.area} · {shift.jobFunction}</span>
             </div>
             <ActionButton
@@ -731,7 +777,7 @@
                 label={entry.status === 'open' ? 'Working now' : corrected ? 'Corrected' : 'Worked'}
                 tone={entry.status === 'open' ? 'success' : corrected ? 'warning' : 'info'}
               />
-              <strong>{serviceLabel(entry.service_key)} · {formatHours(hours)}</strong>
+              <strong>{t(serviceLabel(entry.service_key))} · {formatHours(hours)}</strong>
               <span>{instantClockLabel(entry.clock_in_at, timezone)}–{instantClockLabel(entry.clock_out_at, timezone) || 'open'} · {entry.break_minutes || 0} min break</span>
               {#if entry.adjustment_reason}<small>Correction: {entry.adjustment_reason}</small>{/if}
               {#if entry.clock_in_photo_status || entry.clock_out_photo_status}
@@ -751,7 +797,7 @@
                   label={slot.availability_state === 'partial' ? 'Needs update' : slot.availability_state}
                   tone={slot.availability_state === 'unavailable' ? 'danger' : slot.availability_state === 'partial' ? 'warning' : 'success'}
                 />
-                <strong>{serviceLabel(slot.service_key)} availability</strong>
+                <strong>{t(serviceLabel(slot.service_key))} {t('availability')}</strong>
                 {#if slot.note}<span>{slot.note}</span>{/if}
               </div>
               <ActionButton
@@ -767,8 +813,8 @@
             <article>
               <div>
                 <StatusPill label="Recurring" tone="success" />
-                <strong>{serviceLabel(slot.service_key)} · Scheduled</strong>
-                <span>From your fixed contract schedule</span>
+                <strong>{t(serviceLabel(slot.service_key))} · {t('Scheduled')}</strong>
+                <span>{t('From your fixed contract schedule')}</span>
               </div>
             </article>
           {/each}
@@ -781,7 +827,7 @@
                 label={exception.status === 'approved' ? 'Schedule change' : 'Change pending'}
                 tone={exception.status === 'approved' ? 'danger' : 'warning'}
               />
-              <strong>{exception.service_key ? serviceLabel(exception.service_key) : 'Full day'}</strong>
+              <strong>{exception.service_key ? t(serviceLabel(exception.service_key)) : t('Full day')}</strong>
               <span>{exception.start_date}–{exception.end_date} · {exception.reason}</span>
               {#if exception.manager_comment}<small>Manager: {exception.manager_comment}</small>{/if}
             </div>
@@ -801,7 +847,7 @@
                 label={absence.status}
                 tone={absence.status === 'approved' ? 'absence' : 'warning'}
               />
-              <strong>{snapshot.absence_types.find((item) => item.id === absence.absence_type_id)?.name || 'Leave'}</strong>
+              <strong>{t(snapshot.absence_types.find((item) => item.id === absence.absence_type_id)?.name || 'Leave')}</strong>
               <span>{absence.start_date}–{absence.end_date}{absence.service_key ? ` · ${absence.service_key}` : ' · Full day'}</span>
               {#if absence.employee_comment}<small>{absence.employee_comment}</small>{/if}
             </div>
@@ -813,13 +859,13 @@
                 onclick={() => cancelAbsence(absence.id)}
               />
             {:else if absence.status === 'approved'}
-              <small>Contact your manager to change approved leave.</small>
+              <small>{t('Contact your manager to change approved leave.')}</small>
             {/if}
           </article>
         {/each}
 
         {#if !details.shifts.length && !details.entries.length && (availabilityMode !== 'weekly_availability' || !details.availability.length) && !details.recurring.length && !details.workPatternExceptions.length && !details.absences.length}
-          <p>Nothing recorded for this day.</p>
+          <p>{t('Nothing recorded for this day.')}</p>
         {/if}
           </section>
         </aside>
@@ -830,9 +876,9 @@
       <div class="request-tray" role="status">
         <span>{requestCopy()}</span>
         <div>
-          <ActionButton label="Undo" disabled={saving} onclick={discardChanges} />
+          <ActionButton label={t('Undo')} disabled={saving} onclick={discardChanges} />
           <ActionButton
-            label={saving ? 'Submitting…' : 'Submit'}
+            label={saving ? t('Submitting…') : t('Submit')}
             tone="primary"
             disabled={!canSave}
             onclick={saveChanges}

@@ -2,6 +2,7 @@
   import ActionButton from '$lib/components/ActionButton.svelte';
   import Panel from '$lib/components/Panel.svelte';
   import type { WeekHistoryItem } from '$lib/calendar/week-history';
+  import { i18n, t } from '$lib/i18n/i18n.svelte';
 
   let {
     title = 'Recent activity',
@@ -32,11 +33,11 @@
         {#each ordered as item (item.id)}
           <li>
             <span class="history__text">
-              <strong>{item.title}</strong>
-              {#if item.detail}<small>{item.detail}</small>{/if}
+              <strong>{t(item.title)}</strong>
+              {#if item.detail}<small>{t(item.detail)}</small>{/if}
             </span>
             <span class="history__meta">
-              <time datetime={item.when}>{new Date(item.when).toLocaleString()}</time>
+              <time datetime={item.when}>{new Date(item.when).toLocaleString(i18n.intlLocale)}</time>
               {#if item.actionLabel && item.onaction}
                 <ActionButton label={item.actionLabel} disabled={item.actionDisabled} onclick={item.onaction} />
               {/if}
@@ -45,7 +46,7 @@
         {/each}
       </ol>
     {:else}
-      <p class="history__empty">{emptyMessage}</p>
+      <p class="history__empty">{t(emptyMessage)}</p>
     {/if}
   </Panel>
 </div>

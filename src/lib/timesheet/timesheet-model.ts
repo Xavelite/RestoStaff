@@ -90,7 +90,8 @@ export function actualsStatusForWeek(
 export function actualSlotsForDate(
   snapshot: ManagerOperationsReadModel,
   date: string,
-  today: string
+  today: string,
+  asOf = new Date()
 ): ActualSlot[] {
   const timezone = snapshot.restaurant_settings.timezone || 'Europe/Brussels';
   const weekStart = mondayFor(date);
@@ -124,6 +125,7 @@ export function actualSlotsForDate(
         date,
         serviceKey,
         today,
+        asOf,
         plan: plan
           ? {
               id: plan.id,
@@ -196,12 +198,13 @@ export function actualSlotsForDate(
 export function actualsWeekTotals(
   snapshot: ManagerOperationsReadModel,
   weekStart: string,
-  today: string
+  today: string,
+  asOf = new Date()
 ) {
   const dates = Array.from({ length: 7 }, (_, index) =>
     dateForWeekday(weekStart, index + 1)
   );
-  const slots = dates.flatMap((date) => actualSlotsForDate(snapshot, date, today));
+  const slots = dates.flatMap((date) => actualSlotsForDate(snapshot, date, today, asOf));
   const actualHours = slots.reduce((sum, slot) => sum + slot.actualHours, 0);
   // Planned hours follow the same rule as the slot grid: count the week's planned
   // shifts whether published or a draft-with-shifts (approval auto-finalizes it).
@@ -225,6 +228,7 @@ export function buildActualsWeek(input: {
   snapshot: ManagerOperationsReadModel;
   weekStart: string;
   today: string;
+  asOf?: Date;
 }): { days: WeekColumn[]; rows: WeekRow[]; slotsByKey: Map<string, ActualSlot> } {
   const dates = Array.from({ length: 7 }, (_, index) =>
     dateForWeekday(input.weekStart, index + 1)
@@ -239,7 +243,7 @@ export function buildActualsWeek(input: {
 
   const slotsByKey = new Map(
     dates
-      .flatMap((date) => actualSlotsForDate(input.snapshot, date, input.today))
+      .flatMap((date) => actualSlotsForDate(input.snapshot, date, input.today, input.asOf))
       .map((slot) => [slot.key, slot] as const)
   );
 

@@ -17,8 +17,14 @@ export type WorkspaceRealtimeEnvelope = {
 class WorkspaceRealtime {
   connected = $state(false);
   lastEvent = $state<WorkspaceRealtimeEvent | ''>('');
+  eventSequence = $state(0);
   #channel: RealtimeChannel | null = null;
   #restaurantId = '';
+
+  #record(event: WorkspaceRealtimeEvent): void {
+    this.lastEvent = event;
+    this.eventSequence += 1;
+  }
 
   connect(restaurantId: string, onEvent: (event: WorkspaceRealtimeEvent) => void): void {
     if (this.#restaurantId === restaurantId && this.#channel) return;
@@ -36,7 +42,7 @@ class WorkspaceRealtime {
     ];
     for (const event of events) {
       channel.on('broadcast', { event }, () => {
-        this.lastEvent = event;
+        this.#record(event);
         onEvent(event);
       });
     }
@@ -50,7 +56,11 @@ class WorkspaceRealtime {
     event: WorkspaceRealtimeEvent,
     payload: WorkspaceRealtimeEnvelope
   ): Promise<void> {
-    if (!this.#channel || !this.connected || payload.restaurantId !== this.#restaurantId) return;
+    if (payload.restaurantId !== this.#restaurantId) return;
+    // The channel excludes self-broadcasts. Record local mutations explicitly
+    // so the current session refreshes notification truth as well.
+    this.#record(event);
+    if (!this.#channel || !this.connected) return;
     await this.#channel.send({
       type: 'broadcast',
       event,
