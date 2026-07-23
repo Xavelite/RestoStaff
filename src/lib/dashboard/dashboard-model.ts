@@ -1,4 +1,5 @@
 import type { ManagerOperationsReadModel } from '../api/workspace-snapshot.ts';
+import { personInitials } from '../ui/person.ts';
 import {
   addDays,
   addMonths,
@@ -284,14 +285,27 @@ export function insightComparisonRange(
   return { ...range, label: range.label || current.label };
 }
 
-export function insightLoadRange(
+export function insightReadRanges(
   anchor: string,
   period: InsightPeriod,
   mode: ComparisonMode
-): { from: string; to: string } {
+): { from: string; to: string }[] {
   const current = insightPeriodRange(anchor, period);
   const comparison = insightComparisonRange(anchor, period, mode);
-  return { from: minDate(current.from, comparison.from), to: maxDate(current.to, comparison.to) };
+  const spans = [
+    { from: current.from, to: current.to },
+    { from: comparison.from, to: comparison.to }
+  ].sort((left, right) => left.from.localeCompare(right.from));
+  const merged: { from: string; to: string }[] = [];
+  for (const span of spans) {
+    const previous = merged.at(-1);
+    if (previous && span.from <= addDays(previous.to, 1)) {
+      previous.to = maxDate(previous.to, span.to);
+    } else {
+      merged.push({ ...span });
+    }
+  }
+  return merged.flatMap((span) => dashboardReadRanges(span.from, span.to));
 }
 
 export function moveInsightAnchor(anchor: string, period: InsightPeriod, direction: -1 | 1): string {
@@ -299,7 +313,7 @@ export function moveInsightAnchor(anchor: string, period: InsightPeriod, directi
   return addMonths(anchor, (period === 'month' ? 1 : 12) * direction);
 }
 
-export function dashboardReadRanges(from: string, to: string): { from: string; to: string }[] {
+function dashboardReadRanges(from: string, to: string): { from: string; to: string }[] {
   const ranges: { from: string; to: string }[] = [];
   let cursor = from;
   while (cursor <= to) {
@@ -381,13 +395,6 @@ function workedHours(entry: ManagerOperationsReadModel['time_entries'][number]):
     (new Date(entry.clock_out_at).getTime() - new Date(entry.clock_in_at).getTime()) / HOUR_MS -
     (entry.break_minutes ?? 0) / 60;
   return Number.isFinite(duration) && duration > 0 && duration <= 24 ? duration : 0;
-}
-
-function employeeInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return '??';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
 function monthsSince(start: string, anchor: string): number {
@@ -840,7 +847,7 @@ export function buildInsights(
       return {
         id: employee.id,
         name: employee.display_name,
-        initials: employeeInitials(employee.display_name),
+        initials: personInitials(employee.display_name),
         role: roleFor(employee.id, model),
         regime: regimes.get(employee.id) ?? 'fixed',
         planned: round1(row.planned),

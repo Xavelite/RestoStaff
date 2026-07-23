@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { ManagerOperationsReadModel } from '$lib/api/workspace-snapshot';
   import ActionButton from '$lib/components/ActionButton.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
   import {
     blocksPlanningAssignment,
     defaultPlanningShift,
@@ -18,6 +19,7 @@
     onchange,
     onnotes,
     oncancelleave,
+    onresolveleave,
     onresolveexception
   }: {
     snapshot: ManagerOperationsReadModel;
@@ -28,6 +30,7 @@
     onchange: (draft: PlanningShiftDraft[]) => void;
     onnotes: (notes: PlanningNoteDraft[]) => void;
     oncancelleave: () => Promise<boolean>;
+    onresolveleave: (action: 'approve' | 'reject') => Promise<boolean>;
     onresolveexception: (
       action: 'approve' | 'reject' | 'cancel_for_planning'
     ) => Promise<boolean>;
@@ -42,12 +45,12 @@
       slot.context.workPatternException === 'pending'
   );
   const leaveStateLabel = $derived(
-    slot.context.absence === 'pending' ? 'pending leave request' : 'approved leave'
+    t(slot.context.absence === 'pending' ? 'pending leave request' : 'approved leave')
   );
   const exceptionStateLabel = $derived(
-    slot.context.workPatternException === 'pending'
+    t(slot.context.workPatternException === 'pending'
       ? 'pending schedule change'
-      : 'approved schedule change'
+      : 'approved schedule change')
   );
   const planningBlockerLabel = $derived(
     hasLeaveBlocker
@@ -57,11 +60,11 @@
         : ''
   );
   const addShiftLabel = $derived(
-    hasLeaveBlocker
+    t(hasLeaveBlocker
       ? 'Review leave before scheduling'
       : hasExceptionBlocker
         ? 'Review schedule change before scheduling'
-        : 'Plan shift'
+        : 'Plan shift')
   );
 
   const assignmentPairs = $derived(
@@ -84,10 +87,10 @@
   );
   const emptySlotCopy = $derived(
     !assignmentPairs.length
-      ? 'Configure an area-position assignment for this service before scheduling.'
+      ? t('Configure an area-position assignment for this service before scheduling.')
       : planningBlockerLabel
-        ? `This slot has ${planningBlockerLabel}. Review it before scheduling.`
-        : 'No shift is planned for this slot.'
+        ? t('This slot has {blocker}. Review it before scheduling.', { blocker: planningBlockerLabel })
+        : t('No shift is planned for this slot.')
   );
   const areas = $derived(
     snapshot.work_areas.filter(
@@ -130,6 +133,15 @@
       if (await oncancelleave()) {
         insertShift();
       }
+    } finally {
+      resolvingLeave = false;
+    }
+  }
+
+  async function resolveLeave(action: 'approve' | 'reject') {
+    resolvingLeave = true;
+    try {
+      await onresolveleave(action);
     } finally {
       resolvingLeave = false;
     }
@@ -198,27 +210,42 @@
 <div class="editor">
     <div class="context-chips">
       <div class={`context-chip is-${slot.context.availability}`}>
-        <span>Availability</span>
-        <strong>{slot.context.availability}</strong>
+        <span>{t('Availability')}</span>
+        <strong>{t(slot.context.availability)}</strong>
       </div>
       <div class={`context-chip is-${slot.context.absence || 'none'}`}>
-        <span>Leave</span>
-        <strong>{slot.context.absence || 'none'}</strong>
+        <span>{t('Leave')}</span>
+        <strong>{t(slot.context.absence || 'none')}</strong>
       </div>
       <div class={`context-chip is-${slot.context.workPatternException || 'none'}`}>
-        <span>Schedule change</span>
-        <strong>{slot.context.workPatternException || 'none'}</strong>
+        <span>{t('Schedule change')}</span>
+        <strong>{t(slot.context.workPatternException || 'none')}</strong>
       </div>
     </div>
+    {#if slot.context.absence === 'pending'}
+      <div class="context-actions">
+        <ActionButton
+          label={resolvingLeave ? t('Approving…') : t('Approve leave')}
+          disabled={resolvingLeave}
+          onclick={() => resolveLeave('approve')}
+        />
+        <ActionButton
+          label={t('Reject leave')}
+          tone="danger"
+          disabled={resolvingLeave}
+          onclick={() => resolveLeave('reject')}
+        />
+      </div>
+    {/if}
     {#if slot.context.workPatternException === 'pending'}
       <div class="context-actions">
         <ActionButton
-          label="Approve exception"
+          label={t('Approve exception')}
           disabled={resolvingException}
           onclick={() => resolveException('approve')}
         />
         <ActionButton
-          label="Reject exception"
+          label={t('Reject exception')}
           tone="danger"
           disabled={resolvingException}
           onclick={() => resolveException('reject')}
@@ -228,26 +255,25 @@
 
     {#if slot.shift}
       <div class="fields">
-        <label>Area<select disabled={!editable} value={slot.shift.areaId} onchange={(event) => updateShift('areaId', event.currentTarget.value)}><option value="">No area</option>{#each areas as area (area.id)}<option value={area.id}>{area.name}</option>{/each}</select></label>
-        <label>Job function<select disabled={!editable} value={slot.shift.jobFunctionId} onchange={(event) => updateShift('jobFunctionId', event.currentTarget.value)}><option value="">Not assigned</option>{#each jobFunctions as job (job.id)}<option value={job.id}>{job.name}</option>{/each}</select></label>
-        <label>Starts<input type="time" disabled={!editable} value={slot.shift.startsAt} onchange={(event) => updateShift('startsAt', event.currentTarget.value)} /></label>
-        <label>Ends<input type="time" disabled={!editable} value={slot.shift.endsAt} onchange={(event) => updateShift('endsAt', event.currentTarget.value)} /></label>
+        <label>{t('Area')}<select disabled={!editable} value={slot.shift.areaId} onchange={(event) => updateShift('areaId', event.currentTarget.value)}><option value="">{t('No area')}</option>{#each areas as area (area.id)}<option value={area.id}>{area.name}</option>{/each}</select></label>
+        <label>{t('Job function')}<select disabled={!editable} value={slot.shift.jobFunctionId} onchange={(event) => updateShift('jobFunctionId', event.currentTarget.value)}><option value="">{t('Not assigned')}</option>{#each jobFunctions as job (job.id)}<option value={job.id}>{job.name}</option>{/each}</select></label>
+        <label>{t('Starts')}<input type="time" disabled={!editable} value={slot.shift.startsAt} onchange={(event) => updateShift('startsAt', event.currentTarget.value)} /></label>
+        <label>{t('Ends')}<input type="time" disabled={!editable} value={slot.shift.endsAt} onchange={(event) => updateShift('endsAt', event.currentTarget.value)} /></label>
       </div>
-      <div class="actions"><ActionButton label="Remove shift" tone="danger" disabled={!editable} onclick={removeShift} /></div>
+      <div class="actions"><ActionButton label={t('Remove shift')} tone="danger" disabled={!editable} onclick={removeShift} /></div>
     {:else}
       <div class="empty">
         <p>{emptySlotCopy}</p>
         {#if hasLeaveBlocker}
           <div class="decision-card is-leave">
             <span>{leaveStateLabel}</span>
-            <strong>Leave stays unless you cancel it for scheduling.</strong>
+            <strong>{t('Leave stays unless you cancel it for scheduling.')}</strong>
             <p>
-              Cancelling records an audited scheduling decision before the shift is
-              added, so Schedule never silently overlaps requested or approved time off.
+              {t('Cancelling records an audited scheduling decision before the shift is added, so Schedule never silently overlaps requested or approved time off.')}
             </p>
             <div class="decision-actions">
               <ActionButton
-                label={resolvingLeave ? 'Cancelling...' : 'Cancel leave and plan'}
+                label={resolvingLeave ? t('Cancelling...') : t('Cancel leave and plan')}
                 tone="danger"
                 disabled={!editable || resolvingLeave}
                 onclick={cancelLeaveAndPlan}
@@ -257,14 +283,13 @@
         {:else if hasExceptionBlocker}
           <div class="decision-card is-exception">
             <span>{exceptionStateLabel}</span>
-            <strong>Schedule change stays unless you cancel it for scheduling.</strong>
+            <strong>{t('Schedule change stays unless you cancel it for scheduling.')}</strong>
             <p>
-              Cancelling records an audited scheduling decision before the shift is
-              added, so Schedule never silently overlaps a schedule-change request.
+              {t('Cancelling records an audited scheduling decision before the shift is added, so Schedule never silently overlaps a schedule-change request.')}
             </p>
             <div class="decision-actions">
               <ActionButton
-                label={resolvingException ? 'Cancelling...' : 'Cancel change and plan'}
+                label={resolvingException ? t('Cancelling...') : t('Cancel change and plan')}
                 tone="danger"
                 disabled={!editable || resolvingException}
                 onclick={() => resolveException('cancel_for_planning')}
@@ -277,7 +302,7 @@
       </div>
     {/if}
 
-    <label class="note">Service note<input disabled={!editable} value={note} oninput={(event) => updateNote(event.currentTarget.value)} placeholder="Optional note for this service" /></label>
+    <label class="note">{t('Service note')}<input disabled={!editable} value={note} oninput={(event) => updateNote(event.currentTarget.value)} placeholder={t('Optional note for this service')} /></label>
 </div>
 
 <style>
@@ -292,7 +317,7 @@
     background: var(--rst-ui-surface-field);
     animation: rst-fade-up .3s var(--rst-ease-out) backwards;
   }
-  .context-chip span { color: var(--rst-ui-muted); font-size: 9px; font-weight: var(--rst-fw-bold); letter-spacing: .04em; text-transform: uppercase; }
+  .context-chip span { color: var(--rst-ui-muted); font-size: 9px; font-weight: var(--rst-fw-bold); letter-spacing: 0; text-transform: uppercase; }
   .context-chip strong { font-size: 13px; text-transform: capitalize; }
   .context-chip.is-available,
   .context-chip.is-none {
@@ -341,7 +366,7 @@
     color: var(--rst-ui-muted);
     font-size: 10px;
     font-weight: var(--rst-fw-bold);
-    letter-spacing: .06em;
+    letter-spacing: 0;
     text-transform: uppercase;
   }
   .decision-card strong { color: var(--rst-ui-text); font-size: 13px; }

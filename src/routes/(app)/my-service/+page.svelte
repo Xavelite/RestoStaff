@@ -10,6 +10,7 @@
     formatHours,
     localDateTimeParts,
     mondayFor,
+    serviceDisplay,
     serviceLabel,
     weekLabel
   } from '$lib/calendar/date';
@@ -22,7 +23,7 @@
     defaultEmployeeTimeOffType,
     availabilityChanges,
     groupTimeOffRanges,
-    timeOffServiceDrafts,
+    removeEmployeeSlotSelection,
     toggleEmployeeSlotSelection,
     toggleSimpleAvailability,
     type EmployeeSelfServiceMode,
@@ -42,6 +43,7 @@
   import { workRegime } from '$lib/domain/operations';
   import { friendlyError } from '$lib/api/error-messages';
   import { workspaceRealtime } from '$lib/realtime/workspace-realtime.svelte';
+  import { confirmAction } from '$lib/ui/confirm.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
 
@@ -106,7 +108,6 @@
     snapshot?.work_weeks.find((week) => week.week_start === activeWeek)?.planning_status ===
       'published'
   );
-  const serviceDrafts = $derived(timeOffServiceDrafts(selectedTimeOffSlots));
   const grid = $derived(
     snapshot && employeeId
       ? buildEmployeeWeek({
@@ -115,10 +116,9 @@
           weekStart: activeWeek,
           today,
           availability,
-          availabilityMode,
-          serviceDrafts
+          availabilityMode
         })
-      : { days: [], rows: [], slotsByKey: new Map<string, EmployeeWeekSlot>() }
+      : { days: [], slotsByKey: new Map<string, EmployeeWeekSlot>() }
   );
   const slots = $derived([...grid.slotsByKey.values()]);
   const selectedSlot = $derived(grid.slotsByKey.get(selectedKey) ?? null);
@@ -258,7 +258,7 @@
     if (blockReasonFor(slot, 'availability')) return;
     // A direct availability tap owns the slot: drop any draft time-off request
     // so tapping can never get stuck in absence mode.
-    selectedTimeOffSlots = selectedTimeOffSlots.filter((item) => item.key !== slot.key);
+    selectedTimeOffSlots = removeEmployeeSlotSelection(selectedTimeOffSlots, slot.key);
     const current = availability.find(
       (item) => item.date === slot.date && item.serviceKey === slot.serviceKey
     )?.state;
@@ -270,7 +270,7 @@
   // tap, so every employee update is operationally unambiguous.
   function chooseAvailabilityFor(slot: EmployeeWeekSlot, state: AvailabilityDraft['state']) {
     if (blockReasonFor(slot, 'availability')) return;
-    selectedTimeOffSlots = selectedTimeOffSlots.filter((item) => item.key !== slot.key);
+    selectedTimeOffSlots = removeEmployeeSlotSelection(selectedTimeOffSlots, slot.key);
     setAvailability(slot, state);
     feedback = '';
   }
@@ -361,7 +361,7 @@
             .map((slot) => ({
               date: slot.date,
               service_key: slot.serviceKey,
-              availability_state: slot.state
+              availability_state: slot.state === 'available' ? 'available' : ''
             }))
         });
         changed = true;
@@ -448,6 +448,13 @@
 
   async function cancelAbsence(absenceId: string) {
     if (!workspace.activeId || !employeeId || saving) return;
+    const confirmed = await confirmAction({
+      title: 'Cancel this time-off request?',
+      body: 'Your manager will no longer see it. You can request the same days again afterwards.',
+      confirmLabel: 'Cancel request',
+      cancelLabel: 'Keep it'
+    });
+    if (!confirmed) return;
     saving = true;
     try {
       await saveAbsence({
@@ -476,6 +483,13 @@
 
   async function cancelWorkPatternException(workPatternExceptionId: string) {
     if (!workspace.activeId || !employeeId || saving) return;
+    const confirmed = await confirmAction({
+      title: 'Cancel this schedule change request?',
+      body: 'Your manager will no longer see it. You can ask again afterwards.',
+      confirmLabel: 'Cancel request',
+      cancelLabel: 'Keep it'
+    });
+    if (!confirmed) return;
     saving = true;
     try {
       await saveWorkPatternException({
@@ -512,10 +526,6 @@
     );
   }
 
-  function serviceIcon(serviceKey: 'lunch' | 'evening') {
-    return serviceKey === 'lunch' ? '☀' : '☾';
-  }
-
   function slotTime(slot: EmployeeWeekSlot) {
     if (slot.shift) return `${slot.shift.startsAt}–${slot.shift.endsAt}`;
     return t(serviceLabel(slot.serviceKey));
@@ -525,7 +535,7 @@
     if (timeOffSelectedKeySet.has(slot.key)) return t('Time off selected');
     if (slot.state === 'available') return t('Available');
     if (slot.state === 'partial') return t('Availability needs update');
-    if (slot.state === 'unavailable') return t('Unavailable');
+    if (slot.state === 'unavailable') return t('Availability needs update');
     if (slot.state === 'leave_pending') return t('Time off pending');
     if (slot.state === 'leave_approved') return t('Time off approved');
     if (slot.state === 'work_pattern_pending') return t('Change pending');
@@ -545,15 +555,14 @@
       return slot.absenceType || t('Time off');
     }
     if (slot.shift) return `${slot.shift.jobFunction} · ${formatHours(slot.shift.hours)}`;
-    if (slot.state === 'partial') return t('Choose available or unavailable');
-    if (slot.state === 'unavailable') return t("You can't work this service");
-    if (slot.editReason) return slot.editReason;
+    if (slot.state === 'partial' || slot.state === 'unavailable') return t('Mark available or request time off');
+    if (slot.editReason) return t(slot.editReason);
     if (slot.availability === 'available') return t('You can work');
     return slot.editable ? t('Tap to mark available') : (slot.editReason || t('Tap ⋯ for options'));
   }
 
   function slotAriaLabel(slot: EmployeeWeekSlot) {
-    return `${dayName(slot.date)} ${slot.date}, ${serviceLabel(slot.serviceKey)}: ${slotTitle(slot)}, ${slotTime(slot)}, ${slotMeta(slot)}`;
+    return `${dayName(slot.date)} ${slot.date}, ${t(serviceLabel(slot.serviceKey))}: ${slotTitle(slot)}, ${slotTime(slot)}, ${slotMeta(slot)}`;
   }
 
   function slotVisual(slot: EmployeeWeekSlot) {
@@ -606,7 +615,7 @@
   <section class="page-shell employee-page service-page">
     <PageHero heroClass="hero-service" eyebrow="My service" title={heroTitle} subtitle={heroSubtitle}>
       {#snippet nav()}
-        <div class="page-nav">
+        <div class="page-nav" data-tour="svc-nav">
           <button type="button" onclick={() => changeWeek(-1)} aria-label={t('Previous week')}>&lsaquo;</button>
           <strong>{weekLabel(activeWeek, i18n.intlLocale)}</strong>
           <button type="button" onclick={() => changeWeek(1)} aria-label={t('Next week')}>&rsaquo;</button>
@@ -626,7 +635,7 @@
         </div>
       {/snippet}
       {#snippet command()}
-        <aside class="glass-card week-glance" aria-label={t('Week glance')}>
+        <aside class="glass-card week-glance" aria-label={t('Week glance')} data-tour="svc-glance">
           <span class="week-glance__kicker">{t('Week glance')}</span>
           <div class="week-glance__dots">
             {#each grid.days as day (day.date)}
@@ -642,7 +651,7 @@
           {#if nextService}
             <p class="week-glance__next"><b>{t('Next')}</b> {dayName(nextService.date)} · {t(serviceLabel(nextService.serviceKey))} {nextService.shift?.startsAt ?? ''}</p>
           {:else}
-            <p class="week-glance__next"><b>{weekGlanceSummary.label}</b> {weekGlanceSummary.value}</p>
+            <p class="week-glance__next"><b>{t(weekGlanceSummary.label)}</b> {t(weekGlanceSummary.value)}</p>
           {/if}
         </aside>
       {/snippet}
@@ -651,9 +660,9 @@
     <div class="page-body has-tray">
       <FeedbackBanner message={feedback} tone={feedbackTone} />
 
-      <section class="agenda" aria-label={t('Weekly agenda')}>
-        {#each grid.days as day (day.date)}
-          <article class="agenda-day" class:is-today={day.today} class:is-past={day.past}>
+      <section class="agenda" aria-label={t('Weekly agenda')} data-tour="svc-agenda">
+        {#each grid.days as day, dayIndex (day.date)}
+          <article class="agenda-day" class:is-today={day.today} class:is-past={day.past} data-tour={dayIndex === 0 ? 'svc-day' : undefined}>
             <div class="agenda-day__date">
               <span>{dayName(day.date)}</span>
               <strong>{dayNumber(day.date)}</strong>
@@ -663,7 +672,7 @@
               {#each slotsForDay(day.date) as slot (slot.key)}
                 <div class={`agenda-slot is-${slotVisual(slot)}`} class:is-selected={isSlotDirty(slot.key)}>
                   <button type="button" class="agenda-slot__tap" aria-label={slotAriaLabel(slot)} onclick={() => primaryTap(slot.key)}>
-                    <b>{serviceIcon(slot.serviceKey)}</b>
+                    <b>{serviceDisplay(slot.serviceKey).icon}</b>
                     <span>
                       <strong>{slotTitle(slot)}</strong>
                       <small>{slotTime(slot)} · {slotMeta(slot)}</small>
@@ -734,7 +743,7 @@
     color: #ffb26f;
     font-size: 10px;
     font-weight: var(--rst-fw-display);
-    letter-spacing: 0.1em;
+    letter-spacing: 0;
     text-transform: uppercase;
   }
 
@@ -849,13 +858,13 @@
     color: var(--rst-ui-muted);
     font-size: 10px;
     font-weight: var(--rst-fw-display);
-    letter-spacing: 0.08em;
+    letter-spacing: 0;
     text-transform: uppercase;
   }
 
   .agenda-day__date strong {
     font-size: 20px;
-    letter-spacing: -0.02em;
+    letter-spacing: 0;
   }
 
   .agenda-day__date em {

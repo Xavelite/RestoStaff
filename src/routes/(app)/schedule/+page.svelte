@@ -3,14 +3,13 @@
   import { page } from '$app/state';
   import {
     saveAbsence,
-    savePlanning,
     saveWorkPatternException
   } from '$lib/api/mutations';
+  import { invalidPlanningShift, saveSchedule } from '$lib/schedule/schedule-actions';
   import {
     SERVICES,
     addDays,
     addMonths,
-    clockMinutes,
     formatHours,
     hoursBetweenClocks,
     mondayFor,
@@ -19,12 +18,15 @@
     serviceDisplay,
     serviceLabel,
     todayInTimezone,
+    weekdayDateLabel,
+    weekdayLabel,
     weekLabel,
     type ServiceKey
   } from '$lib/calendar/date';
   import Drawer from '$lib/components/Drawer.svelte';
+  import Dialog from '$lib/components/Dialog.svelte';
   import ExportDialog from '$lib/components/ExportDialog.svelte';
-  import RailExportCard from '$lib/components/RailExportCard.svelte';
+  import RailExportCard from '$lib/operations/RailExportCard.svelte';
   import {
     PLANNING_EXPORT_FIELDS,
     DEFAULT_PLANNING_EXPORT_COLUMNS,
@@ -34,7 +36,7 @@
   import PageScaffold from '$lib/components/PageScaffold.svelte';
   import PageHero from '$lib/components/PageHero.svelte';
   import { workWeekHistoryItems } from '$lib/calendar/week-history';
-  import RevisionConflictDialog from '$lib/components/RevisionConflictDialog.svelte';
+  import RevisionConflictDialog from '$lib/operations/RevisionConflictDialog.svelte';
   import { downloadCsv } from '$lib/export/csv';
   import OperationsBoard, {
     type BoardChip,
@@ -47,7 +49,9 @@
     type BoardServiceCard,
     type BoardSlot,
     type BoardTone
-  } from '$lib/components/OperationsBoard.svelte';
+  } from '$lib/operations/OperationsBoard.svelte';
+  import BoardFocus from '$lib/operations/BoardFocus.svelte';
+  import CoverageLensFrame from '$lib/operations/CoverageLensFrame.svelte';
   import ScheduleSlotEditor from '$lib/schedule/ScheduleSlotEditor.svelte';
   import {
     buildPlanningWeek,
@@ -64,19 +68,14 @@
   } from '$lib/schedule/schedule-model';
   import { planningCsv } from '$lib/schedule/schedule-export';
   import { friendlyError } from '$lib/api/error-messages';
-  import { portal } from '$lib/actions/portal';
   import { buildEmployeeColorMap } from '$lib/ui/position-color';
+  import { personInitials, shortPersonName } from '$lib/ui/person';
   import { workspaceRealtime } from '$lib/realtime/workspace-realtime.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import { restaurantWeather } from '$lib/weather/restaurant-weather.svelte';
 
-  type ScheduleCockpitView = 'service' | 'roster';
   type SchedulePeriod = 'week' | 'month';
-  const cockpitViewLabels: Record<ScheduleCockpitView, string> = {
-    service: 'Service board',
-    roster: 'Roster grid'
-  };
 
   const snapshot = $derived(workspace.operations);
   const weatherLocation = $derived(
@@ -109,7 +108,6 @@
   let search = $state('');
   let scope = $state<'all' | 'conflicts' | 'scheduled'>('all');
   let positionId = $state('');
-  let cockpitView = $state<ScheduleCockpitView>('roster');
   let boardExpanded = $state(false);
   let boardPeriod = $state<SchedulePeriod>('week');
   let selectedDate = $state('');
@@ -117,6 +115,8 @@
   let coverageConfirmOpen = $state(false);
   let slotDetailsOpen = $state(false);
   let exportCsvOpen = $state(false);
+  let coverageLensOpen = $state(false);
+  let coverageLensDate = $state('');
   let planningColumns = $state<string[]>([...DEFAULT_PLANNING_EXPORT_COLUMNS]);
   const activeWeek = $derived(weekStart || mondayFor(today));
   const activeMonthDates = $derived(monthDates(activeWeek));
@@ -232,33 +232,30 @@
     return periodWeekGrids.get(mondayFor(date))?.slotsByKey.get(`${rowId}|${date}|${serviceKey}`) ?? null;
   }
 
-  function weekdayLabel(date: string) {
-    return new Intl.DateTimeFormat(i18n.intlLocale, { weekday: 'short', timeZone: 'UTC' }).format(
-      new Date(`${date}T00:00:00Z`)
-    );
-  }
-
   const periodColumns: BoardColumn[] = $derived(
     periodDates.map((date) => ({
       date,
-      label: weekdayLabel(date),
+      label: weekdayLabel(date, i18n.intlLocale),
       day: date.slice(8),
       month: date.slice(5, 7),
       today: date === today,
       future: date > today
     }))
   );
-  const planningSlots = $derived(Array.from(grid.slotsByKey.values()));
-  const plannedShiftCount = $derived(draft.length);
-  const scheduledEmployeeCount = $derived(new Set(draft.map((shift) => shift.employeeId)).size);
-  const availableSlotCount = $derived(
-    planningSlots.filter((slot) => slot.context.availability === 'available').length
+  const periodRosterSlots = $derived(
+    Array.from(periodWeekGrids.values())
+      .flatMap((periodGrid) => Array.from(periodGrid.slotsByKey.values()))
+      .filter((slot) => periodDates.includes(slot.date))
+  );
+  const periodPlannedShiftCount = $derived(periodRosterSlots.filter((slot) => slot.shift).length);
+  const periodAvailableSlotCount = $derived(
+    periodRosterSlots.filter((slot) => slot.context.availability === 'available').length
   );
   const publishBlockerCount = $derived(conflicts.length + pendingExceptions.length);
   const publishCheckCount = $derived(publishBlockerCount + issues.length);
   const publishState = $derived(
     publishCheckCount
-      ? `${publishCheckCount} check${publishCheckCount === 1 ? '' : 's'}`
+      ? t(publishCheckCount === 1 ? '{count} check' : '{count} checks', { count: publishCheckCount })
       : dirty
         ? 'Draft changed'
         : status.planning === 'published'
@@ -297,16 +294,15 @@
   );
   const publishSummary = $derived(
     publishBlockerCount
-      ? 'Resolve conflicts and schedule requests before employees see the week.'
+      ? t('Resolve conflicts and schedule requests before employees see the week.')
       : issues.length
-        ? 'Coverage gaps will be published as a visible warning.'
+        ? t('Coverage gaps will be published as a visible warning.')
       : dirty
-        ? 'Save the current draft before publishing.'
+        ? t('Save the current draft before publishing.')
         : status.actuals === 'open'
-          ? 'Coverage is clean. Timesheet is still open for last week.'
-          : 'All coverage checks are green.'
+          ? t('Coverage is clean. Timesheet is still open for last week.')
+          : t('All coverage checks are green.')
   );
-  const cockpitViewLabel = $derived(cockpitViewLabels[cockpitView]);
   // Rolling planning lifecycle log across all weeks (newest first, capped in the
   // component). Each entry shows which week it belongs to.
   const historyItems = $derived(workWeekHistoryItems(snapshot?.work_week_events, 'planning_'));
@@ -342,7 +338,8 @@
           activeWeek,
           draft,
           notes,
-          columns: planningColumns
+          columns: planningColumns,
+          translate: t
         })
       : { headers: planningColumns.map(planningFieldLabel), rows: [], filename: '' }
   );
@@ -352,7 +349,9 @@
           headers: planningPreview.headers,
           rows: planningPreview.rows,
           rowCount: planningPreview.rows.length,
-          note: `${planningPreview.rows.length} planned shifts`
+          note: t(planningPreview.rows.length === 1 ? '{count} planned shift' : '{count} planned shifts', {
+            count: planningPreview.rows.length
+          })
         }
       : null
   );
@@ -361,16 +360,6 @@
   // Maps PlanningGridSlot-shaped data onto the plain BoardX types the shared
   // OperationsBoard renders. Publish/coverage logic above never touches this
   // section; this only decides how things look.
-
-  function initials(name: string) {
-    return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
-  }
-
-  function shortName(name: string) {
-    const parts = name.split(/\s+/).filter(Boolean);
-    if (parts.length <= 1) return name;
-    return `${parts[0]} ${parts[1][0].toUpperCase()}.`;
-  }
 
   function compactClock(value: string) {
     return value.replace(/:00$/, '');
@@ -481,13 +470,13 @@
       );
       const chips: BoardChip[] = assigned.map((slot) => ({
         key: slot.key,
-        initials: initials(slot.employeeName),
+        initials: personInitials(slot.employeeName),
         tone: slotToneOf(slot),
         name: slot.employeeName,
         detail: slotCaptionOf(slot),
         color: employeeColor.get(slot.employeeId),
         onclick: activeDate ? () => openChip(date, slot.key) : () => jumpToWeek(date),
-        ariaLabel: `${date} ${slot.employeeName} ${serviceLabel(slot.serviceKey)} ${slotCaptionOf(slot)}`
+        ariaLabel: `${date} ${slot.employeeName} ${t(serviceLabel(slot.serviceKey))} ${t(slotCaptionOf(slot))}`
       }));
       return [
         {
@@ -502,7 +491,6 @@
           // that day, where staff are actually placed.
           onLocate: activeDate
             ? () => {
-                cockpitView = 'roster';
                 selectedDate = date;
               }
             : () => jumpToWeek(date)
@@ -574,7 +562,7 @@
     );
   }
 
-  function employeeMonthHours(employeeId: string) {
+  function employeePeriodHours(employeeId: string) {
     let total = 0;
     for (const date of periodDates) {
       for (const serviceKey of SERVICES) {
@@ -647,7 +635,6 @@
   }
 
   function scrollToService(date: string, serviceKey: ServiceKey) {
-    cockpitView = 'service';
     selectedDate = date;
     void tick().then(() => {
       requestAnimationFrame(() => {
@@ -678,11 +665,6 @@
   function employeeNameOf(id: string) {
     return snapshot?.employees.find((employee) => employee.id === id)?.display_name ?? 'Employee';
   }
-  function issueDayLabel(date: string) {
-    return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric' }).format(
-      new Date(`${date}T12:00:00Z`)
-    );
-  }
   function conflictShiftDate(shift: PlanningShiftDraft) {
     return addDays(activeWeek, shift.weekday - 1);
   }
@@ -704,14 +686,204 @@
       : new Map<string, string>()
   );
 
+  // Coverage lens: per-area coverage for one day, both services, in the same
+  // slot language as Home's floor card — and you can fill gaps from here. Reads
+  // the live draft so placements and removals show immediately.
+  const coverageLensWeekday = $derived.by(() => {
+    const day = new Date(`${coverageLensDate || activeWeek}T00:00:00Z`).getUTCDay();
+    return ((day + 6) % 7) + 1; // Mon = 1 … Sun = 7
+  });
+  const coverageLensAreas = $derived.by(() => {
+    if (!snapshot) return [];
+    const weekday = coverageLensWeekday;
+    return snapshot.work_areas
+      .filter((area) => area.active)
+      .sort((left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name))
+      .map((area) => {
+        const services = (['lunch', 'evening'] as const).map((serviceKey) => {
+          const required = snapshot.coverage_requirements
+            .filter(
+              (requirement) =>
+                requirement.active &&
+                requirement.area_id === area.id &&
+                requirement.service_key === serviceKey &&
+                Number(requirement.required_count) > 0 &&
+                (requirement.weekday === weekday ||
+                  requirement.weekday === null ||
+                  requirement.coverage_scope === 'default')
+            )
+            .reduce((total, requirement) => total + Number(requirement.required_count ?? 0), 0);
+          const people = draft
+            .filter(
+              (shift) =>
+                shift.weekday === weekday && shift.areaId === area.id && shift.serviceKey === serviceKey
+            )
+            .map((shift) => ({
+              id: shift.employeeId,
+              name: snapshot.employees.find((employee) => employee.id === shift.employeeId)?.display_name ?? ''
+            }))
+            .filter((person) => person.name);
+          const planned = people.length;
+          const status = (required === 0
+            ? planned > 0
+              ? 'covered'
+              : 'none'
+            : planned < required
+              ? 'under'
+              : planned > required
+                ? 'over'
+                : 'covered') as 'under' | 'covered' | 'over' | 'none';
+          return {
+            serviceKey,
+            icon: serviceKey === 'evening' ? '☾' : '☀',
+            required,
+            planned,
+            people,
+            gaps: Math.max(0, required - planned),
+            status
+          };
+        });
+        return { id: area.id, name: area.name, services };
+      });
+  });
+
+  let coverageLensPicker = $state<{ areaId: string; serviceKey: ServiceKey } | null>(null);
+
+  type LensCandidate = {
+    id: string;
+    name: string;
+    status: 'available' | 'partial' | 'nopref' | 'pending' | 'unavailable' | 'off';
+    label: string;
+    blocked: boolean;
+    otherService: '' | 'lunch' | 'evening';
+    rank: number;
+  };
+
+  // The lens picker ranks who you can add by real availability that day, so the
+  // decision is informed: available first, soft "no preference" next, then
+  // pending requests, and hard blocks (unavailable / time off) last and locked.
+  function availableForLens(serviceKey: ServiceKey): LensCandidate[] {
+    if (!snapshot) return [];
+    const date = coverageLensDate || activeWeek;
+    const placed = new Set(
+      draft
+        .filter((shift) => shift.weekday === coverageLensWeekday && shift.serviceKey === serviceKey)
+        .map((shift) => shift.employeeId)
+    );
+    const otherKey: ServiceKey = serviceKey === 'evening' ? 'lunch' : 'evening';
+    const onOther = new Set(
+      draft
+        .filter((shift) => shift.weekday === coverageLensWeekday && shift.serviceKey === otherKey)
+        .map((shift) => shift.employeeId)
+    );
+    return snapshot.employees
+      .filter((employee) => employee.active && !placed.has(employee.id))
+      .map((employee) => {
+        const context = grid.slotsByKey.get(`${employee.id}|${date}|${serviceKey}`)?.context;
+        let status: LensCandidate['status'] = 'nopref';
+        let label = 'No preference';
+        let rank = 2;
+        let blocked = false;
+        if (context?.absence === 'approved') {
+          status = 'off';
+          label = 'Time off';
+          rank = 5;
+          blocked = true;
+        } else if (context?.workPatternException === 'approved') {
+          status = 'off';
+          label = 'Schedule change';
+          rank = 5;
+          blocked = true;
+        } else if (context?.availability === 'unavailable') {
+          status = 'unavailable';
+          label = 'Unavailable';
+          rank = 4;
+          blocked = true;
+        } else if (context?.absence === 'pending') {
+          status = 'pending';
+          label = 'Leave pending';
+          rank = 3;
+        } else if (context?.workPatternException === 'pending') {
+          status = 'pending';
+          label = 'Change pending';
+          rank = 3;
+        } else if (context?.availability === 'available') {
+          status = 'available';
+          label = 'Available';
+          rank = 0;
+        } else if (context?.availability === 'partial') {
+          status = 'partial';
+          label = 'Partly available';
+          rank = 1;
+        }
+        return {
+          id: employee.id,
+          name: employee.display_name,
+          status,
+          label,
+          blocked,
+          otherService: (onOther.has(employee.id) ? otherKey : '') as LensCandidate['otherService'],
+          rank
+        };
+      })
+      .sort((left, right) => left.rank - right.rank || left.name.localeCompare(right.name));
+  }
+
+  function toggleLensPicker(areaId: string, serviceKey: ServiceKey) {
+    coverageLensPicker =
+      coverageLensPicker?.areaId === areaId && coverageLensPicker?.serviceKey === serviceKey
+        ? null
+        : { areaId, serviceKey };
+  }
+
+  function placeInLens(areaId: string, serviceKey: ServiceKey, employeeId: string) {
+    coverageLensPicker = null;
+    if (!snapshot || !editable) return;
+    const base = defaultPlanningShift(snapshot, {
+      employeeId,
+      weekday: coverageLensWeekday,
+      date: coverageLensDate || activeWeek,
+      serviceKey
+    });
+    if (!base) return;
+    draft = [...draft, { ...base, areaId }];
+    feedback = 'Shift added from the coverage lens.';
+    feedbackTone = 'success';
+  }
+
+  function removeFromLens(areaId: string, serviceKey: ServiceKey, employeeId: string) {
+    if (!editable) return;
+    let removed = false;
+    draft = draft.filter((shift) => {
+      if (
+        !removed &&
+        shift.weekday === coverageLensWeekday &&
+        shift.serviceKey === serviceKey &&
+        shift.areaId === areaId &&
+        shift.employeeId === employeeId
+      ) {
+        removed = true;
+        return false;
+      }
+      return true;
+    });
+  }
+
+  function openCoverageLens() {
+    coverageLensDate =
+      selectedDate || grid.days.find((day) => day.today)?.date || grid.days[0]?.date || activeWeek;
+    coverageLensPicker = null;
+    coverageLensOpen = true;
+  }
+
   const boardRows: BoardRow[] = $derived(
     visibleRows.map((row) => ({
       id: row.id,
-      name: shortName(row.name),
+      name: shortPersonName(row.name),
       meta: row.meta || 'Staff',
       color: employeeColor.get(row.id),
       avatarTone: attentionEmployees.has(row.id) ? 'danger' : 'neutral',
-      totalLabel: formatHours(employeeMonthHours(row.id))
+      totalLabel: formatHours(employeePeriodHours(row.id))
     }))
   );
 
@@ -726,7 +898,7 @@
       color: slot.shift ? employeeColor.get(slot.employeeId) : undefined,
       selected: selectedKey === slot.key,
       onclick: isActiveWeekDate ? () => openRosterEditor(date, slot.key) : () => jumpToWeek(date),
-      ariaLabel: `${date} ${slot.employeeName} ${serviceLabel(slot.serviceKey)} ${slotCaptionOf(slot)}`
+      ariaLabel: `${date} ${slot.employeeName} ${t(serviceLabel(slot.serviceKey))} ${t(slotCaptionOf(slot))}`
     }));
   }
 
@@ -758,7 +930,7 @@
       const planned = plannedSlotsFor(date, serviceKey);
       const chips: BoardChip[] = planned.map((slot) => ({
         key: slot.key,
-        initials: initials(slot.employeeName),
+        initials: personInitials(slot.employeeName),
         tone: slotToneOf(slot),
         name: slot.employeeName,
         detail: slotCaptionOf(slot),
@@ -779,7 +951,6 @@
         summaryValue: serviceStatusTextFor(date, serviceKey),
         onHeaderClick: isActiveWeekDate
           ? () => {
-              cockpitView = 'roster';
               selectedDate = date;
             }
           : () => jumpToWeek(date),
@@ -821,7 +992,6 @@
                 onclick: isActiveWeekDate
                   ? () => {
                       selectedDate = column.date;
-                      cockpitView = 'service';
                     }
                   : () => jumpToWeek(column.date),
                 ariaLabel: `${column.date} ${service.label}: ${serviceStatusTextFor(column.date, serviceKey)}`
@@ -945,7 +1115,7 @@
   }
 
   function formatTrailTime(value: string) {
-    return new Intl.DateTimeFormat('en-GB', {
+    return new Intl.DateTimeFormat(i18n.intlLocale, {
       day: '2-digit',
       month: '2-digit',
       hour: '2-digit',
@@ -995,6 +1165,54 @@
       return true;
     } catch (error) {
       conflictOpen = (error instanceof Error ? error.message : String(error)).includes('CONFLICT:');
+      feedback = friendlyError(error);
+      feedbackTone = 'danger';
+      return false;
+    }
+  }
+
+  // Approve or reject a pending leave request straight from the roster slot,
+  // the same way fixed-schedule changes are resolved — managers should not have
+  // to leave Schedule to clear a holiday.
+  async function resolveSelectedLeave(action: 'approve' | 'reject'): Promise<boolean> {
+    if (!snapshot || !workspace.activeId || !selectedSlot) return false;
+    const absenceId = planningRequestIdentity(selectedSlot.context, 'absence');
+    const absence = snapshot.absences.find(
+      (item) =>
+        item.id === absenceId &&
+        item.employee_id === selectedSlot.employeeId &&
+        item.start_date <= selectedSlot.date &&
+        item.end_date >= selectedSlot.date &&
+        (!item.service_key || item.service_key === selectedSlot.serviceKey) &&
+        item.status === 'pending'
+    );
+    if (!absence) {
+      feedback = 'The leave request could not be found. Refresh and try again.';
+      feedbackTone = 'danger';
+      return false;
+    }
+    try {
+      await saveAbsence({
+        restaurantId: workspace.activeId,
+        employeeId: selectedSlot.employeeId,
+        absenceId: absence.id,
+        action,
+        payload: {
+          reason: action === 'approve' ? 'Approved from Schedule.' : 'Rejected from Schedule.'
+        }
+      });
+      await workspace.reloadOperations();
+      await workspaceRealtime.publish('planning-saved', {
+        restaurantId: workspace.activeId,
+        revision: workspace.operations
+          ? planningStatusForWeek(workspace.operations, activeWeek).revision
+          : null,
+        source: 'planning'
+      });
+      feedback = action === 'approve' ? 'Leave approved.' : 'Leave rejected.';
+      feedbackTone = 'success';
+      return true;
+    } catch (error) {
       feedback = friendlyError(error);
       feedbackTone = 'danger';
       return false;
@@ -1067,20 +1285,13 @@
 
   async function persist(
     targetStatus: 'draft' | 'published',
-    options: { allowCoverageGaps?: boolean } = {}
+    options: { allowCoverageGaps?: boolean; allowConflicts?: boolean } = {}
   ) {
     if (!snapshot || !workspace.activeId || saving) return;
-    if (targetStatus === 'published' && conflicts.length) {
-      feedback = `Resolve ${conflicts.length} availability, leave or fixed-schedule change conflict${conflicts.length === 1 ? '' : 's'} before publishing.`;
-      feedbackTone = 'danger';
-      return;
-    }
-    const invalid = draft.find((shift) => {
-      const start = clockMinutes(shift.startsAt);
-      const end = clockMinutes(shift.endsAt);
-      return !shift.employeeId || start === null || end === null || start === end;
-    });
-    if (invalid) {
+    // Publishing is never hard-blocked by coverage gaps or availability/leave
+    // conflicts — they are surfaced as confirmable warnings so the manager
+    // stays in control. Only genuinely invalid shift times stop a publish.
+    if (invalidPlanningShift(draft)) {
       feedback = 'Every planned shift needs a valid start and end time.';
       feedbackTone = 'danger';
       return;
@@ -1088,43 +1299,18 @@
     saving = true;
     feedback = '';
     try {
-      await savePlanning({
+      await saveSchedule({
         restaurantId: workspace.activeId,
         weekStart: activeWeek,
         status: targetStatus,
-        shifts: draft.map((shift) => ({
-          employee_id: shift.employeeId,
-          weekday: shift.weekday,
-          service_key: shift.serviceKey,
-          area_id: shift.areaId || null,
-          job_function_id: shift.jobFunctionId || null,
-          starts_at: shift.startsAt || null,
-          ends_at: shift.endsAt || null,
-          source: shift.source
-        })),
-        notes: notes.map((note) => ({
-          weekday: note.weekday,
-          service_key: note.serviceKey,
-          note: note.note
-        })),
+        shifts: draft,
+        notes,
         expectedRevision: status.revision,
-        allowCoverageGaps: targetStatus === 'published' && options.allowCoverageGaps,
-        reason:
-          targetStatus === 'published'
-            ? 'Weekly schedule reviewed and published.'
-            : status.planning === 'published'
-              ? 'Published schedule reopened for changes.'
-              : 'Draft schedule saved.'
+        wasPublished: status.planning === 'published',
+        allowCoverageGaps: options.allowCoverageGaps,
+        allowConflicts: options.allowConflicts
       });
-      await workspace.reloadOperations();
       loadedKey = '';
-      await workspaceRealtime.publish('planning-saved', {
-        restaurantId: workspace.activeId,
-        revision: workspace.operations
-          ? planningStatusForWeek(workspace.operations, activeWeek).revision
-          : null,
-        source: 'planning'
-      });
       feedback =
         targetStatus === 'published'
           ? 'Schedule published. Employees can now see their shifts.'
@@ -1147,16 +1333,35 @@
   }
 
   function requestPublish() {
-    if (conflicts.length) {
-      void persist('published');
-      return;
-    }
-    if (issues.length) {
+    // Coverage gaps, availability/leave conflicts and pending requests never
+    // block publishing — they route through one clear confirm. A clean week
+    // publishes straight away.
+    if (issues.length || conflicts.length || pendingExceptions.length) {
       coverageConfirmOpen = true;
       return;
     }
-    void persist('published');
+    void persist('published', { allowCoverageGaps: true, allowConflicts: conflicts.length > 0 });
   }
+
+  const publishWarnings = $derived([
+    ...(conflicts.length
+      ? [
+          t(conflicts.length === 1 ? '{count} availability or leave conflict' : '{count} availability or leave conflicts', {
+            count: conflicts.length
+          })
+        ]
+      : []),
+    ...(pendingExceptions.length
+      ? [
+          t(pendingExceptions.length === 1 ? '{count} pending time-off request' : '{count} pending time-off requests', {
+            count: pendingExceptions.length
+          })
+        ]
+      : []),
+    ...(issues.length
+      ? [t(issues.length === 1 ? '{count} coverage gap' : '{count} coverage gaps', { count: issues.length })]
+      : [])
+  ]);
 </script>
 
 <svelte:head><title>{t('Schedule')} · restogogo</title></svelte:head>
@@ -1189,28 +1394,21 @@
   {#snippet boardSection()}
         <header class="cockpit-console" aria-label={t('Schedule cockpit controls')}>
           <div class="cockpit-console__context">
-            <span class="planning-kicker">{t('Schedule cockpit')} · {t(cockpitViewLabel)}</span>
-            <div class="cockpit-console__title">
-              <strong>{weekLabel(activeWeek, i18n.intlLocale)}</strong>
-              <small>{visibleRows.length} {t('people')} · {plannedShiftCount} {t('shifts')} · {availableSlotCount} {t('open')}</small>
+            <span class="planning-kicker">{t('Schedule cockpit')} · {t('Roster grid')}</span>
+            <div class="cockpit-console__title" data-tour="sch-week">
+              <strong>{periodLabel}</strong>
+              <span class={`week-status is-${status.planning === 'published' ? 'published' : 'draft'}`}>
+                {status.planning === 'published' ? t('Published') : t('Draft')}
+              </span>
+              <small>{visibleRows.length} {t('people')} · {periodPlannedShiftCount} {t('shifts')} · {periodAvailableSlotCount} {t('open')}</small>
             </div>
           </div>
 
           <div class="cockpit-console__controls">
-            <div class="cockpit-view-switch" aria-label={t('Schedule cockpit view')}>
-              <button
-                type="button"
-                class:is-active={cockpitView === 'service'}
-                aria-pressed={cockpitView === 'service'}
-                onclick={() => (cockpitView = 'service')}
-              ><span aria-hidden="true"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><rect x="2" y="3" width="4.5" height="10" rx="1.2"/><rect x="9.5" y="3" width="4.5" height="10" rx="1.2"/></svg></span><b>{t('Service')}</b></button>
-              <button
-                type="button"
-                class:is-active={cockpitView === 'roster'}
-                aria-pressed={cockpitView === 'roster'}
-                onclick={() => (cockpitView = 'roster')}
-              ><span aria-hidden="true"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><line x1="2.5" y1="4.5" x2="13.5" y2="4.5"/><line x1="2.5" y1="8" x2="13.5" y2="8"/><line x1="2.5" y1="11.5" x2="13.5" y2="11.5"/></svg></span><b>{t('Roster')}</b></button>
-            </div>
+            <button type="button" class="cockpit-coverage" onclick={openCoverageLens} data-tour="sch-coverage">
+              <span aria-hidden="true"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2.5" width="5" height="5" rx="1"/><rect x="9" y="2.5" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg></span>
+              <b>{t('Coverage')}</b>
+            </button>
 
             {#if boardExpanded}
               <div class="period-switch" aria-label={t('Schedule period')}>
@@ -1229,7 +1427,7 @@
               </div>
             {/if}
 
-            <div class="cockpit-week" aria-label={t('Choose period')}>
+            <div class="cockpit-week" aria-label={t('Choose period')} data-tour="sch-period">
               <button type="button" aria-label={t('Previous period')} onclick={() => changePeriod(-1)}>
                 &lsaquo;
               </button>
@@ -1286,7 +1484,7 @@
         </header>
 
         <OperationsBoard
-          view={cockpitView}
+          view="roster"
           periodMode={boardExpanded ? boardPeriod : 'week'}
           expanded={boardExpanded}
           columns={periodColumns}
@@ -1304,44 +1502,43 @@
 
         {#if boardExpanded && boardPeriod === 'month'}
           <p class="month-note">
-            Monthly focus is a review lens only. Publish and coverage checks still apply to {weekLabel(activeWeek)}.
+            {t('Monthly focus is a review lens only. Publish and coverage checks still apply to {week}.', { week: weekLabel(activeWeek, i18n.intlLocale) })}
           </p>
         {/if}
     {/snippet}
 
   <PageScaffold header={pageHeader} label={t('Schedule workspace')}>
     {#if boardExpanded}
-      <div class="board-fullscreen" use:portal role="dialog" aria-modal="true" aria-label={t('Schedule focus')}>
-        <button type="button" class="board-fullscreen__scrim" aria-label={t('Close focus')} onclick={() => { boardExpanded = false; boardPeriod = 'week'; }}></button>
-        <div class="board-fullscreen__panel schedule-board">
+      <BoardFocus label="Schedule focus" onclose={() => { boardExpanded = false; boardPeriod = 'week'; }}>
+        <div class="schedule-board">
           {@render boardSection()}
         </div>
-      </div>
+      </BoardFocus>
     {:else}
       <div class="planning-workspace">
-        <section class="schedule-board" aria-label={t('Weekly service board')}>
+        <section class="schedule-board" aria-label={t('Weekly service board')} data-tour="sch-grid">
           {@render boardSection()}
         </section>
 
         <aside class="schedule-rail" aria-label={t('Schedule inspector')}>
-          <section class={`week-actions is-${publishTone}`} class:is-celebrating={justPublished} aria-label={t('Schedule publish gate')}>
+          <section class={`week-actions is-${publishTone}`} class:is-celebrating={justPublished} aria-label={t('Schedule publish gate')} data-tour="sch-gate">
             <span class="planning-kicker">{t('Publish gate')}</span>
-            <h2>{status.planning === 'published' ? 'Published week' : publishCheckCount ? `${publishCheckCount} checks` : dirty ? 'Save changes first' : 'Ready when you are'}</h2>
+            <h2>{status.planning === 'published' ? t('Published week') : publishCheckCount ? t('{count} checks', { count: publishCheckCount }) : dirty ? t('Save changes first') : t('Ready when you are')}</h2>
             <p>{publishSummary}</p>
             <div class="rail-checks" aria-label={t('Publish checks')}>
               <button type="button" class:needs-attention={issues.length > 0} class:is-open={gateExpanded === 'gaps'} style="--rst-i:0" disabled={!issues.length} onclick={() => toggleGate('gaps')}>
                 <strong>{issues.length}</strong>
-                <span>coverage gaps{issues.length ? ' · click to inspect' : ''}</span>
+                <span>{t('coverage gaps')}{issues.length ? ` · ${t('click to inspect')}` : ''}</span>
                 <em class:is-clear={!issues.length}>{issues.length ? '!' : '✓'}</em>
               </button>
               <button type="button" class:needs-danger={conflicts.length > 0} class:is-open={gateExpanded === 'conflicts'} style="--rst-i:1" disabled={!conflicts.length} onclick={() => toggleGate('conflicts')}>
                 <strong>{conflicts.length}</strong>
-                <span>slot conflicts{conflicts.length ? ' · click to inspect' : ''}</span>
+                <span>{t('slot conflicts')}{conflicts.length ? ` · ${t('click to inspect')}` : ''}</span>
                 <em class:is-clear={!conflicts.length}>{conflicts.length ? '!' : '✓'}</em>
               </button>
               <article class:needs-attention={pendingExceptions.length > 0} style="--rst-i:2">
                 <strong>{pendingExceptions.length}</strong>
-                <span>schedule requests</span>
+                <span>{t('schedule requests')}</span>
                 <em class:is-clear={!pendingExceptions.length}>{pendingExceptions.length ? '!' : '✓'}</em>
               </article>
             </div>
@@ -1352,7 +1549,7 @@
                   <li>
                     <button type="button" onclick={() => scrollToService(issue.date, issue.serviceKey)}>
                       <span class="gate-issue__where">{areaNameOf(issue.areaId)} · {jobNameOf(issue.jobFunctionId)}</span>
-                      <span class="gate-issue__when">{issueDayLabel(issue.date)} · {serviceLabel(issue.serviceKey)}</span>
+                      <span class="gate-issue__when">{weekdayDateLabel(issue.date, i18n.intlLocale)} · {t(serviceLabel(issue.serviceKey))}</span>
                       <em class="is-short">{issue.planned}/{issue.required}</em>
                     </button>
                   </li>
@@ -1365,14 +1562,14 @@
                   <li>
                     <button type="button" onclick={() => scrollToService(conflictShiftDate(shift), shift.serviceKey)}>
                       <span class="gate-issue__where">{employeeNameOf(shift.employeeId)}</span>
-                      <span class="gate-issue__when">{issueDayLabel(conflictShiftDate(shift))} · {serviceLabel(shift.serviceKey)}</span>
+                      <span class="gate-issue__when">{weekdayDateLabel(conflictShiftDate(shift), i18n.intlLocale)} · {t(serviceLabel(shift.serviceKey))}</span>
                       <em class="is-danger">{conflictReasonOf(shift)}</em>
                     </button>
                   </li>
                 {/each}
               </ul>
             {/if}
-            <div class="gate-actions">
+            <div class="gate-actions" data-tour="sch-publish">
               {#if status.planning === 'published'}
                 <button
                   type="button"
@@ -1380,16 +1577,16 @@
                   disabled={saving}
                   onclick={() => persist('draft')}
                 >
-                  {saving ? 'Reverting…' : 'Revert to draft'}
+                  {t(saving ? 'Reverting…' : 'Revert to draft')}
                 </button>
               {:else}
-                <button type="button" disabled={!dirty || saving} onclick={cancelChanges}>Cancel</button>
+                <button type="button" disabled={!dirty || saving} onclick={cancelChanges}>{t('Cancel')}</button>
                 <button
                   type="button"
                   disabled={!dirty || !editable || saving}
                   onclick={() => persist('draft')}
                 >
-                  {saving ? 'Saving…' : 'Save draft'}
+                  {t(saving ? 'Saving…' : 'Save draft')}
                 </button>
                 <button
                   type="button"
@@ -1398,46 +1595,21 @@
                   disabled={!editable || saving}
                   onclick={requestPublish}
                 >
-                  {saving ? 'Publishing…' : justPublished ? 'Published ✓' : 'Publish schedule'}
+                  {t(saving ? 'Publishing…' : justPublished ? 'Published ✓' : 'Publish schedule')}
                 </button>
               {/if}
             </div>
             {#if status.planning !== 'published'}
               <div class="gate-tools">
                 <button type="button" disabled={!editable || saving} onclick={copyPreviousWeek}>
-                  Copy previous week
+                  {t('Copy previous week')}
                 </button>
-              </div>
-            {/if}
-            {#if coverageConfirmOpen}
-              <div class="inline-confirm" role="status" aria-live="polite">
-                <span>Coverage gaps will remain visible after publishing.</span>
-                <p>
-                  Employees can still receive the schedule. The gaps stay in the
-                  publish gate so the manager can fill them later without hiding the risk.
-                </p>
-                <div class="inline-confirm__actions">
-                  <button type="button" disabled={saving} onclick={() => {
-                    coverageConfirmOpen = false;
-                    locateIssue();
-                  }}>Review gaps</button>
-                  <button
-                    type="button"
-                    class="is-primary"
-                    disabled={saving}
-                    onclick={() => {
-                      coverageConfirmOpen = false;
-                      void persist('published', { allowCoverageGaps: true });
-                    }}
-                  >
-                    {saving ? 'Publishing...' : 'Publish with gaps'}
-                  </button>
-                </div>
               </div>
             {/if}
           </section>
 
           <RailExportCard
+            dataTour="sch-export"
             eyebrow="Schedule export"
             title="Preview before sharing."
             description="Column order, draft preview and shared handoff stay in the export wizard."
@@ -1447,26 +1619,26 @@
           />
         </aside>
 
-        <section class="schedule-lower schedule-lower--history" aria-label="Schedule history">
-          <section class="week-trail" aria-label="Schedule week trail">
+        <section class="schedule-lower schedule-lower--history" aria-label={t('Schedule history')}>
+          <section class="week-trail" aria-label={t('Schedule week trail')}>
             <div class="week-trail__head">
-              <span class="planning-kicker">Week trail</span>
-              <strong>Schedule story</strong>
+              <span class="planning-kicker">{t('Week trail')}</span>
+              <strong>{t('Schedule story')}</strong>
             </div>
             <div class="trail-line">
               {#each historyItems.slice(0, 4) as item (item.id)}
                 <article>
                   <i></i>
                   <div>
-                    <strong>{item.title}</strong>
+                    <strong>{t(item.title)}</strong>
                     {#if item.detail}
-                      <p>{item.detail}</p>
+                      <p>{t(item.detail)}</p>
                     {/if}
                     <time datetime={item.when}>{formatTrailTime(item.when)}</time>
                   </div>
                 </article>
               {:else}
-                <p class="trail-empty">No schedule decisions yet. Publish, reopen, or finalize the week to create the audit trail.</p>
+                <p class="trail-empty">{t('No schedule decisions yet. Publish, reopen, or finalize the week to create the audit trail.')}</p>
               {/each}
             </div>
           </section>
@@ -1476,8 +1648,8 @@
 
   <Drawer
     open={slotDetailsOpen && Boolean(selectedSlot)}
-    title={selectedSlot ? `${selectedSlot.employeeName} · ${serviceLabel(selectedSlot.serviceKey)}` : 'Schedule details'}
-    description={selectedSlot ? `${selectedSlot.date} · ${editable ? 'Draft editing' : 'Read only'}` : ''}
+    title={selectedSlot ? `${selectedSlot.employeeName} · ${t(serviceLabel(selectedSlot.serviceKey))}` : t('Schedule details')}
+    description={selectedSlot ? `${selectedSlot.date} · ${t(editable ? 'Draft editing' : 'Read only')}` : ''}
     onclose={() => (slotDetailsOpen = false)}
   >
     {#if selectedSlot}
@@ -1490,15 +1662,130 @@
         onchange={(value) => (draft = value)}
         onnotes={(value) => (notes = value)}
         oncancelleave={cancelSelectedLeave}
+        onresolveleave={resolveSelectedLeave}
         onresolveexception={resolveSelectedException}
       />
     {/if}
   </Drawer>
 
+  <CoverageLensFrame
+    open={coverageLensOpen}
+    description={coverageLensDate ? weekdayLabel(coverageLensDate, i18n.intlLocale) : ''}
+    days={grid.days}
+    activeDate={coverageLensDate}
+    onselect={(date) => (coverageLensDate = date)}
+    onclose={() => (coverageLensOpen = false)}
+  >
+    <div class="lens-rooms">
+        {#each coverageLensAreas as area (area.id)}
+          <div class="lens-room">
+            <div class="lens-room__head">
+              <strong>{area.name}</strong>
+              {#if area.services.some((service) => service.status === 'under')}
+                <span class="lens-flag is-under">{t('Short')}</span>
+              {:else}
+                <span class="lens-flag is-ok">{t('Covered')}</span>
+              {/if}
+            </div>
+            {#each area.services as service (service.serviceKey)}
+              <div class={`lens-srow is-${service.status}`}>
+                <span class="lens-srow__lead">
+                  <b class={`lens-srow__icon is-${service.serviceKey}`}>{service.icon}</b>
+                  <span class="lens-srow__count">{service.planned}/{service.required || service.planned}</span>
+                </span>
+                <span class="lens-srow__slots">
+                  {#each service.people as person (person.id)}
+                    {#if editable}
+                      <button
+                        type="button"
+                        class="lens-slot is-filled is-removable"
+                        style={employeeColor.get(person.id) ? `--avatar-color:${employeeColor.get(person.id)};` : undefined}
+                        title={`${person.name} — ${t('Remove')}`}
+                        onclick={() => removeFromLens(area.id, service.serviceKey, person.id)}
+                      >{personInitials(person.name)}</button>
+                    {:else}
+                      <span
+                        class="lens-slot is-filled"
+                        style={employeeColor.get(person.id) ? `--avatar-color:${employeeColor.get(person.id)};` : undefined}
+                        title={person.name}
+                      >{personInitials(person.name)}</span>
+                    {/if}
+                  {/each}
+                  {#if editable}
+                    {#each Array(service.gaps) as _, gapIndex (gapIndex)}
+                      <button type="button" class="lens-slot is-add" aria-label={t('Add')} onclick={() => toggleLensPicker(area.id, service.serviceKey)}>+</button>
+                    {/each}
+                    {#if service.gaps === 0}
+                      <button type="button" class="lens-slot is-add is-extra" aria-label={t('Add')} onclick={() => toggleLensPicker(area.id, service.serviceKey)}>+</button>
+                    {/if}
+                  {:else}
+                    {#each Array(service.gaps) as _, gapIndex (gapIndex)}
+                      <span class="lens-slot is-empty" aria-hidden="true"></span>
+                    {/each}
+                  {/if}
+
+                  {#if coverageLensPicker?.areaId === area.id && coverageLensPicker?.serviceKey === service.serviceKey}
+                    <div class="lens-picker">
+                      {#each availableForLens(service.serviceKey) as candidate (candidate.id)}
+                        <button
+                          type="button"
+                          class={`is-${candidate.status}`}
+                          disabled={candidate.blocked}
+                          onclick={() => placeInLens(area.id, service.serviceKey, candidate.id)}
+                        >
+                          <span class="lens-picker__avatar" style={employeeColor.get(candidate.id) ? `--avatar-color:${employeeColor.get(candidate.id)};` : undefined}>{personInitials(candidate.name)}</span>
+                          <span class="lens-picker__name">{candidate.name}</span>
+                          {#if candidate.otherService}
+                            <span class="lens-picker__also" title={t('Already on the other service')}>{candidate.otherService === 'evening' ? '☾' : '☀'}</span>
+                          {/if}
+                          <span class={`lens-picker__status is-${candidate.status}`}>{t(candidate.label)}</span>
+                        </button>
+                      {:else}
+                        <span class="lens-picker__empty">{t('Everyone is placed')}</span>
+                      {/each}
+                    </div>
+                  {/if}
+                </span>
+              </div>
+            {/each}
+          </div>
+        {:else}
+          <p class="lens-empty">{t('No active work areas yet')}</p>
+        {/each}
+    </div>
+  </CoverageLensFrame>
+
+  <Dialog
+    open={coverageConfirmOpen}
+    title="Publish this week?"
+    description="Employees will see their shifts. These points stay flagged so you can fix them later — nothing is hidden."
+    size="small"
+    onclose={() => (coverageConfirmOpen = false)}
+  >
+    <ul class="publish-warnings">
+      {#each publishWarnings as warning}
+        <li>{warning}</li>
+      {/each}
+    </ul>
+    <p class="publish-warnings__note">{t('You can publish now and resolve these from the board or the coverage lens afterwards.')}</p>
+    {#snippet footer()}
+      <button type="button" class="dialog-btn" disabled={saving} onclick={() => (coverageConfirmOpen = false)}>{t('Keep editing')}</button>
+      <button
+        type="button"
+        class="dialog-btn is-primary"
+        disabled={saving}
+        onclick={() => {
+          coverageConfirmOpen = false;
+          void persist('published', { allowCoverageGaps: true, allowConflicts: conflicts.length > 0 });
+        }}
+      >{saving ? t('Publishing…') : t('Publish anyway')}</button>
+    {/snippet}
+  </Dialog>
+
   <ExportDialog
     open={exportCsvOpen}
     title="Export CSV"
-    description="Planned schedule for week of {weekLabel(activeWeek)}."
+    description={t('Planned schedule for week of {week}', { week: weekLabel(activeWeek, i18n.intlLocale) })}
     formatLabel="Schedule"
     fields={PLANNING_EXPORT_FIELDS}
     bind:columns={planningColumns}
@@ -1544,13 +1831,13 @@
     color: var(--rst-ui-action);
     font-size: 11px;
     font-weight: var(--rst-fw-display);
-    letter-spacing: 0.1em;
+    letter-spacing: 0;
     text-transform: uppercase;
   }
 
   .schedule-rail h2 {
     margin: 0;
-    letter-spacing: -0.055em;
+    letter-spacing: 0;
   }
 
   .schedule-lower p {
@@ -1602,7 +1889,7 @@
     color: rgba(255, 250, 242, 0.62);
     font-size: 10px;
     font-weight: var(--rst-fw-display);
-    letter-spacing: 0.08em;
+    letter-spacing: 0;
     text-transform: uppercase;
   }
 
@@ -1636,7 +1923,7 @@
     color: #fff;
     font-size: clamp(20px, 1.55vw, 26px);
     line-height: 1;
-    letter-spacing: -0.045em;
+    letter-spacing: 0;
   }
 
   .publish-dial small {
@@ -1815,34 +2102,6 @@
     padding: clamp(20px, 4vw, 38px);
   }
 
-  .board-fullscreen {
-    position: fixed;
-    inset: 0;
-    z-index: var(--rst-z-overlay);
-    display: grid;
-    place-items: center;
-    padding: clamp(12px, 2.4vw, 32px);
-  }
-
-  .board-fullscreen__scrim {
-    position: absolute;
-    inset: 0;
-    border: 0;
-    background: rgba(4, 8, 14, 0.72);
-    backdrop-filter: blur(4px);
-    cursor: pointer;
-    animation: rst-fade-up .2s var(--rst-ease-out) backwards;
-  }
-
-  .board-fullscreen__panel {
-    position: relative;
-    z-index: 1;
-    width: min(1720px, 100%);
-    max-height: 100%;
-    overflow: auto;
-    animation: rst-scale-in .3s var(--rst-ease-spring) backwards;
-  }
-
   .schedule-board,
   .schedule-rail > section,
   .schedule-lower > section {
@@ -1885,12 +2144,34 @@
     gap: 10px 14px;
   }
 
+  .week-status {
+    align-self: center;
+    flex: 0 0 auto;
+    padding: 3px 11px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: var(--rst-fw-display);
+    text-transform: uppercase;
+    letter-spacing: 0;
+  }
+
+  .week-status.is-draft {
+    color: rgba(255, 250, 242, 0.82);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+  }
+
+  .week-status.is-published {
+    color: #0e2f1c;
+    background: #59d98a;
+  }
+
   .cockpit-console__context strong {
     min-width: 0;
     overflow: hidden;
     font-size: clamp(24px, 2.4vw, 34px);
     line-height: 0.95;
-    letter-spacing: -0.055em;
+    letter-spacing: 0;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -1901,7 +2182,7 @@
     color: rgba(255, 250, 242, 0.62);
     font-size: 10px;
     font-weight: var(--rst-fw-display);
-    letter-spacing: 0.08em;
+    letter-spacing: 0;
     text-transform: uppercase;
   }
 
@@ -1914,7 +2195,6 @@
     justify-content: flex-end;
   }
 
-  .cockpit-view-switch,
   .cockpit-week,
   .period-switch {
     min-width: 0;
@@ -1926,7 +2206,6 @@
     background: rgba(255, 255, 255, 0.06);
   }
 
-  .cockpit-view-switch,
   .period-switch {
     align-items: center;
   }
@@ -1985,12 +2264,10 @@
     gap: 6px;
   }
 
-  .cockpit-view-switch button,
   .cockpit-week button,
   .cockpit-week .week-picker,
   .period-switch button,
-  .cockpit-staff-tools summary,
-  .rail-actions button {
+  .cockpit-staff-tools summary {
     min-height: 38px;
     display: inline-flex;
     align-items: center;
@@ -2005,22 +2282,6 @@
     font-size: 12px;
     font-weight: var(--rst-fw-display);
     cursor: pointer;
-  }
-
-  .cockpit-view-switch button span,
-  .cockpit-view-switch button b {
-    font: inherit;
-  }
-
-  .cockpit-view-switch button span {
-    display: grid;
-    place-items: center;
-    line-height: 0;
-    opacity: 0.9;
-  }
-
-  .cockpit-view-switch button.is-active span {
-    opacity: 1;
   }
 
   .week-picker {
@@ -2042,7 +2303,6 @@
 
   /* Clean segmented control: borderless segments inside the pill, active reads
      as a calm fill with a crisp orange underline (not a loud gradient block). */
-  .cockpit-view-switch button,
   .period-switch button {
     min-height: 32px;
     padding: 6px 12px;
@@ -2050,19 +2310,16 @@
     background: transparent;
   }
 
-  .cockpit-view-switch button.is-active,
   .period-switch button.is-active {
     color: #fffaf2;
     background: rgba(255, 255, 255, 0.14);
     box-shadow: inset 0 -2px 0 var(--rst-ui-action);
   }
 
-  .cockpit-view-switch button:not(.is-active),
   .period-switch button:not(.is-active) {
     color: rgba(255, 250, 242, 0.62);
   }
 
-  .cockpit-view-switch button:not(.is-active):hover,
   .period-switch button:not(.is-active):hover {
     color: #fffaf2;
   }
@@ -2072,10 +2329,8 @@
   }
 
   .cockpit-week button:hover,
-  .cockpit-view-switch button:hover,
   .cockpit-staff-tools summary:hover,
-  .cockpit-expand:hover,
-  .rail-actions button:hover {
+  .cockpit-expand:hover {
     transform: translateY(-1px);
     box-shadow: 0 10px 22px rgba(0, 0, 0, 0.14);
   }
@@ -2164,57 +2419,73 @@
     color: var(--rst-ui-action);
     font-size: 11px;
     font-weight: var(--rst-fw-display);
-    letter-spacing: 0.1em;
+    letter-spacing: 0;
     text-transform: uppercase;
   }
 
-  .inline-confirm__actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-
-  .inline-confirm__actions button {
-    flex: 1 1 120px;
-    min-height: 38px;
-    padding: 0 14px;
-    border-color: rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    color: #fffaf2;
-    background: rgba(255, 255, 255, 0.07);
-    font-weight: var(--rst-fw-display);
-  }
-
-  .inline-confirm__actions button.is-primary {
-    justify-content: center;
-    color: #160c06;
-    border-color: rgba(240, 100, 35, 0.7);
-    background: var(--rst-ui-action);
-    font-weight: var(--rst-fw-display);
-  }
-
-  .rail-actions {
-    min-width: 0;
+  .publish-warnings {
+    margin: 0 0 12px;
+    padding: 0;
     display: grid;
-    gap: 8px;
+    gap: 7px;
+    list-style: none;
   }
 
-  .rail-actions {
-    grid-template-columns: 1fr;
+  .publish-warnings li {
+    position: relative;
+    padding: 9px 12px 9px 34px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: var(--rst-ui-radius-md);
+    background: var(--rst-ui-bg-2);
+    color: var(--rst-ui-text);
+    font-size: 13px;
+    font-weight: var(--rst-fw-bold);
   }
 
-  .rail-actions button {
-    justify-content: flex-start;
-    border-color: rgba(255, 255, 255, 0.14);
-    color: #fffaf2;
-    background: rgba(255, 255, 255, 0.09);
+  .publish-warnings li::before {
+    content: '!';
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: #fff;
+    background: var(--rst-ui-action);
+    font-size: 11px;
+    font-weight: var(--rst-fw-display);
   }
 
-  .rail-actions button:disabled {
+  .publish-warnings__note {
+    margin: 0;
+    color: var(--rst-ui-muted);
+    font-size: 12px;
+  }
+
+  .dialog-btn {
+    min-height: 40px;
+    padding: 0 16px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: var(--rst-ui-radius-md);
+    color: var(--rst-ui-text);
+    background: var(--rst-ui-surface-field);
+    font: inherit;
+    font-weight: var(--rst-fw-bold);
+    cursor: pointer;
+  }
+
+  .dialog-btn.is-primary {
+    color: #fff;
+    border-color: transparent;
+    background: var(--rst-ui-action);
+  }
+
+  .dialog-btn:disabled {
+    opacity: 0.6;
     cursor: default;
-    opacity: 0.5;
-    transform: none;
-    box-shadow: none;
   }
 
   .schedule-rail p {
@@ -2252,28 +2523,6 @@
   .gate-tools button:disabled {
     cursor: default;
     opacity: 0.48;
-  }
-
-  .inline-confirm {
-    display: grid;
-    gap: 10px;
-    padding: 12px;
-    border: 1px solid rgba(var(--rst-state-warning-rgb), 0.32);
-    border-radius: 18px;
-    background:
-      radial-gradient(circle at 100% 0%, rgba(var(--rst-state-warning-rgb), 0.18), transparent 42%),
-      rgba(255, 255, 255, 0.06);
-  }
-
-  .inline-confirm > span {
-    color: #fffaf2;
-    font-size: 13px;
-    font-weight: var(--rst-fw-display);
-  }
-
-  .inline-confirm p {
-    color: rgba(255, 250, 242, 0.68);
-    font-size: 12px;
   }
 
   .gate-actions button:only-child {
@@ -2421,8 +2670,177 @@
     color: #f06423;
     font-size: 10px;
     font-weight: var(--rst-fw-display);
-    letter-spacing: 0.08em;
+    letter-spacing: 0;
     text-transform: uppercase;
+  }
+
+  /* ---- coverage lens ---- */
+  .cockpit-coverage {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 32px;
+    padding: 6px 13px;
+    border: 1px solid var(--rst-topbar-active-border, rgba(255, 255, 255, 0.16));
+    border-radius: 999px;
+    color: #fffaf2;
+    background: rgba(255, 255, 255, 0.06);
+    font: inherit;
+    font-size: 13px;
+    font-weight: var(--rst-fw-bold);
+    cursor: pointer;
+    transition: background-color 0.16s ease, border-color 0.16s ease;
+  }
+
+  .cockpit-coverage:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .cockpit-coverage span {
+    display: grid;
+    place-items: center;
+    line-height: 0;
+    color: var(--rst-ui-action);
+  }
+
+  button.lens-slot.is-removable {
+    cursor: pointer;
+    transition: filter 0.14s ease, transform 0.14s ease;
+  }
+
+  button.lens-slot.is-removable:hover {
+    filter: brightness(0.9) saturate(0.9);
+    transform: translateY(-1px);
+  }
+
+  .lens-slot.is-add {
+    border: 1.5px dashed var(--rst-ui-action);
+    color: var(--rst-ui-action);
+    background: transparent;
+    font-size: 16px;
+    line-height: 0;
+    cursor: pointer;
+    transition: background-color 0.14s ease;
+  }
+
+  .lens-slot.is-add.is-extra {
+    border-style: dotted;
+    opacity: 0.7;
+  }
+
+  .lens-slot.is-add:hover {
+    background: var(--rst-ui-action-soft, rgba(240, 100, 35, 0.12));
+  }
+
+  .lens-picker {
+    position: absolute;
+    z-index: 5;
+    top: calc(100% + 4px);
+    left: 62px;
+    width: min(300px, 78vw);
+    max-height: 248px;
+    overflow-y: auto;
+    display: grid;
+    gap: 2px;
+    padding: 6px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: var(--rst-ui-radius-md);
+    background: var(--rst-ui-bg-2);
+    box-shadow: 0 18px 40px rgba(4, 11, 20, 0.18);
+  }
+
+  .lens-picker button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 8px;
+    border: 0;
+    border-left: 2px solid transparent;
+    border-radius: var(--rst-ui-radius-md);
+    color: var(--rst-ui-text);
+    background: transparent;
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.14s ease;
+  }
+
+  .lens-picker button.is-available { border-left-color: var(--rst-green); }
+  .lens-picker button.is-partial { border-left-color: #7bbf8a; }
+  .lens-picker button.is-pending { border-left-color: var(--rst-ui-action); }
+
+  .lens-picker button:hover:not(:disabled) {
+    background: var(--rst-ui-bg);
+  }
+
+  .lens-picker button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .lens-picker button:disabled .lens-picker__avatar {
+    filter: grayscale(0.7);
+  }
+
+  .lens-picker__also {
+    flex: 0 0 auto;
+    color: var(--rst-ui-muted);
+    font-size: 12px;
+    line-height: 1;
+  }
+
+  .lens-picker__status {
+    flex: 0 0 auto;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: var(--rst-fw-display);
+    text-transform: uppercase;
+    letter-spacing: 0;
+    white-space: nowrap;
+    color: var(--rst-ui-muted);
+    background: var(--rst-ui-bg);
+  }
+
+  .lens-picker__status.is-available { color: #1f7a4d; background: rgba(64, 200, 120, 0.16); }
+  .lens-picker__status.is-partial { color: #2f7d57; background: rgba(64, 200, 120, 0.1); }
+  .lens-picker__status.is-pending { color: #9a3d1a; background: rgba(240, 100, 35, 0.14); }
+  .lens-picker__status.is-unavailable,
+  .lens-picker__status.is-off { color: #a23b2a; background: rgba(214, 74, 52, 0.14); }
+
+  .lens-picker__avatar {
+    width: 24px;
+    height: 24px;
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    border-radius: var(--rst-ui-radius-round);
+    color: #fffaf2;
+    background: var(--avatar-color, #35507a);
+    font-size: 9px;
+    font-weight: var(--rst-fw-display);
+  }
+
+  .lens-picker__name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .lens-picker__empty {
+    padding: 8px;
+    color: var(--rst-ui-muted);
+    font-size: 12px;
+  }
+
+  .lens-empty {
+    margin: 8px 0;
+    color: var(--rst-ui-muted);
+    font-size: 13px;
   }
 
   @media (max-width: 1180px) {

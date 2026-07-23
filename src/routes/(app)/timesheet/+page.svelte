@@ -6,7 +6,6 @@
     getBadgeProofUrl,
     getPayrollExportRun,
     previewPayrollExport,
-    saveActuals,
     setPayrollExportColumns
   } from '$lib/api/mutations';
   import type { PayrollExportPreview } from '$lib/api/mutations';
@@ -22,7 +21,7 @@
     payrollRunHistoryItems
   } from '$lib/payroll/payroll-export';
   import ExportDialog from '$lib/components/ExportDialog.svelte';
-  import RailExportCard from '$lib/components/RailExportCard.svelte';
+  import RailExportCard from '$lib/operations/RailExportCard.svelte';
   import OperationsBoard, {
     type BoardChip,
     type BoardColumn,
@@ -32,7 +31,9 @@
     type BoardServiceCard,
     type BoardSlot,
     type BoardTone
-  } from '$lib/components/OperationsBoard.svelte';
+  } from '$lib/operations/OperationsBoard.svelte';
+  import BoardFocus from '$lib/operations/BoardFocus.svelte';
+  import CoverageLensFrame from '$lib/operations/CoverageLensFrame.svelte';
   import {
     actualSlotsForDate,
     actualsStatusForWeek,
@@ -48,31 +49,39 @@
     mondayFor,
     monthDates,
     monthLabel,
+    serviceDisplay,
     serviceLabel,
     todayInTimezone,
+    weekdayDateLabel,
+    weekdayLabel,
     weekLabel,
     type ServiceKey
   } from '$lib/calendar/date';
   import TimesheetEntryEditor from '$lib/timesheet/TimesheetEntryEditor.svelte';
+  import {
+    cancelTimesheetEntry,
+    resolveTimesheetLeave,
+    saveTimesheetEntry,
+    setTimesheetWeekStatus
+  } from '$lib/timesheet/timesheet-actions';
   import LiveDuration from '$lib/components/LiveDuration.svelte';
   import Drawer from '$lib/components/Drawer.svelte';
   import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
   import PageScaffold from '$lib/components/PageScaffold.svelte';
   import PageHero from '$lib/components/PageHero.svelte';
-  import WeekHistory from '$lib/components/WeekHistory.svelte';
+  import WeekHistory from '$lib/timesheet/WeekHistory.svelte';
+  import PayrollWorkspace from '$lib/payroll/PayrollWorkspace.svelte';
   import { workWeekHistoryItems } from '$lib/calendar/week-history';
-  import RevisionConflictDialog from '$lib/components/RevisionConflictDialog.svelte';
+  import RevisionConflictDialog from '$lib/operations/RevisionConflictDialog.svelte';
   import { downloadCsv } from '$lib/export/csv';
   import { friendlyError } from '$lib/api/error-messages';
-  import { portal } from '$lib/actions/portal';
   import { buildEmployeeColorMap } from '$lib/ui/position-color';
-  import { workspaceRealtime } from '$lib/realtime/workspace-realtime.svelte';
+  import { personInitials, shortPersonName } from '$lib/ui/person';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import { restaurantWeather } from '$lib/weather/restaurant-weather.svelte';
 
   type TimesheetPeriod = 'week' | 'month';
-  type TimesheetView = 'roster' | 'service';
 
   const snapshot = $derived(workspace.operations);
   const weatherLocation = $derived(
@@ -121,7 +130,8 @@
   let payrollPreviewError = $state('');
   let boardExpanded = $state(false);
   let boardPeriod = $state<TimesheetPeriod>('week');
-  let timesheetView = $state<TimesheetView>('roster');
+  let coverageLensOpen = $state(false);
+  let coverageLensDate = $state('');
 
   onMount(() => {
     const timer = window.setInterval(() => (now = new Date()), 60_000);
@@ -176,17 +186,10 @@
   const periodLabel = $derived(
     boardExpanded && boardPeriod === 'month' ? monthLabel(activeWeek, i18n.intlLocale) : weekLabel(activeWeek, i18n.intlLocale)
   );
-  const timesheetModeLabel = $derived(
-    timesheetView === 'roster'
-      ? 'roster ledger'
-      : boardExpanded && boardPeriod === 'month'
-        ? 'monthly proof calendar'
-        : 'service proof'
-  );
   const periodColumns = $derived(
     periodDates.map((date) => ({
       date,
-      label: weekdayLabel(date),
+      label: weekdayLabel(date, i18n.intlLocale),
       day: date.slice(8),
       month: date.slice(5, 7),
       today: date === today,
@@ -203,6 +206,103 @@
       : new Map<string, ActualSlot>()
   );
   const selectedSlot = $derived(periodSlotsByKey.get(selectedKey) ?? null);
+
+  // Coverage lens (Timesheet): the same room-floor view as Schedule, but read
+  // from ACTUALS — who actually badged per room/service — so a manager can see
+  // whether a service was really covered, not just planned. A planned person is
+  // "present" if they worked (or are live) or the service hasn't happened yet;
+  // a no-show (planned, service past, never badged) is shown amber and does not
+  // count toward coverage. Area comes from the planned shift the badge belongs to.
+  const coverageLensWeekday = $derived.by(() => {
+    const day = new Date(`${coverageLensDate || activeWeek}T00:00:00Z`).getUTCDay();
+    return ((day + 6) % 7) + 1; // Mon = 1 … Sun = 7
+  });
+  const coverageLensSlots = $derived.by(() => {
+    const map = new Map<string, ActualSlot>();
+    if (!snapshot || !coverageLensDate) return map;
+    for (const slot of actualSlotsForDate(snapshot, coverageLensDate, today, now)) {
+      map.set(`${slot.employeeId}|${slot.serviceKey}`, slot);
+    }
+    return map;
+  });
+  const coverageLensAreas = $derived.by(() => {
+    if (!snapshot || !coverageLensDate) return [];
+    const weekday = coverageLensWeekday;
+    const weekStartOf = mondayFor(coverageLensDate);
+    const slots = coverageLensSlots;
+    return snapshot.work_areas
+      .filter((area) => area.active)
+      .sort((left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name))
+      .map((area) => {
+        const services = SERVICES.map((serviceKey) => {
+          const required = snapshot.coverage_requirements
+            .filter(
+              (requirement) =>
+                requirement.active &&
+                requirement.area_id === area.id &&
+                requirement.service_key === serviceKey &&
+                Number(requirement.required_count) > 0 &&
+                (requirement.weekday === weekday ||
+                  requirement.weekday === null ||
+                  requirement.coverage_scope === 'default')
+            )
+            .reduce((total, requirement) => total + Number(requirement.required_count ?? 0), 0);
+          const people = snapshot.planned_shifts
+            .filter(
+              (shift) =>
+                shift.week_start === weekStartOf &&
+                shift.weekday === weekday &&
+                shift.area_id === area.id &&
+                shift.service_key === serviceKey
+            )
+            .map((shift) => {
+              const slot = slots.get(`${shift.employee_id}|${serviceKey}`);
+              const status = slot?.status ?? 'empty';
+              const worked = status === 'recorded' || status === 'adjusted' || status === 'live';
+              const missing = status === 'missing';
+              const absent = status === 'absence' || status === 'unavailable';
+              const pending = !worked && !missing && !absent;
+              return {
+                id: shift.employee_id,
+                name:
+                  snapshot.employees.find((employee) => employee.id === shift.employee_id)?.display_name ?? '',
+                worked,
+                live: status === 'live',
+                missing,
+                absent,
+                pending,
+                range: slot?.actualRange || slot?.plannedRange || ''
+              };
+            })
+            .filter((person) => person.name);
+          const covered = people.filter((person) => person.worked || person.pending).length;
+          const status = (required === 0
+            ? covered > 0
+              ? 'covered'
+              : 'none'
+            : covered < required
+              ? 'under'
+              : covered > required
+                ? 'over'
+                : 'covered') as 'under' | 'covered' | 'over' | 'none';
+          return {
+            serviceKey,
+            icon: serviceKey === 'evening' ? '☾' : '☀',
+            required,
+            covered,
+            people,
+            gaps: Math.max(0, required - people.length),
+            status
+          };
+        });
+        return { id: area.id, name: area.name, services };
+      });
+  });
+
+  function openCoverageLens() {
+    coverageLensDate = grid.days.find((day) => day.today)?.date || grid.days[0]?.date || activeWeek;
+    coverageLensOpen = true;
+  }
   const selectedAdjustments = $derived(
     selectedSlot?.entryId
       ? snapshot?.time_entry_adjustments
@@ -265,16 +365,24 @@
       })
   );
   const blockedCount = $derived(totals.conflicts + totals.missing + totals.live);
+  // Approving is never hard-blocked by a manager decision: conflicts, missing
+  // badges and an unfinished week are confirmable warnings (like the Schedule
+  // publish gate). Only a live clock-in still blocks — you can't finalise pay
+  // while someone is actively on the clock.
+  const approveWarnings = $derived([
+    ...(totals.conflicts > 0
+      ? [t(totals.conflicts === 1 ? '{count} unresolved conflict' : '{count} unresolved conflicts', { count: totals.conflicts })]
+      : []),
+    ...(totals.missing > 0
+      ? [t(totals.missing === 1 ? '{count} missing badge (counted as not worked)' : '{count} missing badges (counted as not worked)', { count: totals.missing })]
+      : []),
+    ...(!weekComplete ? [t('The week is not over yet')] : [])
+  ]);
   // Approval-gate breakdown mirrors the Schedule publish gate: click a check to
   // expand a clean, clickable list of the exact entries (no messy hover flyout).
   let gateExpanded = $state<'' | 'conflicts' | 'missing' | 'live'>('');
   function toggleGate(panel: 'conflicts' | 'missing' | 'live') {
     gateExpanded = gateExpanded === panel ? '' : panel;
-  }
-  function issueDayLabel(date: string) {
-    return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric' }).format(
-      new Date(`${date}T12:00:00Z`)
-    );
   }
   const conflictSlots = $derived(reviewSlots.filter((slot) => slot.status === 'conflict'));
   const missingSlots = $derived(reviewSlots.filter((slot) => slot.status === 'missing'));
@@ -299,7 +407,7 @@
             ? t('Someone is still clocked in. Approval waits until the live badge is closed.')
           : weekComplete
               ? t('Every blocking badge issue is clear. Review corrections, then approve.')
-              : t('Keep watching the badges as service happens. Approval opens once the week is complete.')
+              : t('The week is still in progress — you can approve early and reopen it later if needed.')
   );
   const approvalTone = $derived(
     weekStatus === 'approved' || weekStatus === 'locked'
@@ -344,7 +452,11 @@
           loading: payrollPreviewLoading,
           error: payrollPreviewError,
           note: payrollPreview
-            ? `${payrollPreview.approved ? 'Approved' : 'Draft'} · ${payrollPreview.rowCount} rows · ${(payrollPreview.totalNetMinutes / 60).toFixed(2)}h`
+            ? t(payrollPreview.rowCount === 1 ? '{status} · {count} row · {hours}h' : '{status} · {count} rows · {hours}h', {
+                status: t(payrollPreview.approved ? 'Approved' : 'Draft'),
+                count: payrollPreview.rowCount,
+                hours: (payrollPreview.totalNetMinutes / 60).toFixed(2)
+              })
             : undefined
         }
       : null
@@ -561,35 +673,52 @@
     }
   }
 
+  // Approve/reject a pending leave straight from the Timesheet entry drawer,
+  // mirroring Schedule — a manager reviewing worked time can clear a holiday
+  // in place instead of switching pages.
+  async function resolveSelectedLeave(action: 'approve' | 'reject'): Promise<boolean> {
+    const absence = selectedSlot?.truth.absence;
+    if (!workspace.activeId || !selectedSlot || !absence || absence.status !== 'pending' || saving) {
+      return false;
+    }
+    saving = true;
+    try {
+      await resolveTimesheetLeave({
+        restaurantId: workspace.activeId,
+        slot: selectedSlot,
+        action
+      });
+      feedback = action === 'approve' ? 'Leave approved.' : 'Leave rejected.';
+      feedbackTone = 'success';
+      selectedKey = '';
+      entryDialogOpen = false;
+      return true;
+    } catch (error) {
+      feedback = friendlyError(error);
+      feedbackTone = 'danger';
+      return false;
+    } finally {
+      saving = false;
+    }
+  }
+
   async function saveEntry(values: {
     clockInAt: string;
     clockOutAt: string;
     breakMinutes: number;
+    actualJobFunctionId: string;
+    actualAreaId: string;
+    breakIntervals: Array<{ started_at: string; ended_at: string }>;
     reason: string;
     isCorrection: boolean;
   }): Promise<boolean> {
     if (!workspace.activeId || !selectedSlot || saving) return false;
     saving = true;
     try {
-      await saveActuals({
+      await saveTimesheetEntry({
         restaurantId: workspace.activeId,
-        action: values.isCorrection ? 'adjust_entry' : 'manual_entry',
-        payload: {
-          employee_id: selectedSlot.employeeId,
-          business_date: selectedSlot.date,
-          service_key: selectedSlot.serviceKey,
-          time_entry_id: selectedSlot.entryId ?? undefined,
-          clock_in_at: values.clockInAt,
-          clock_out_at: values.clockOutAt || undefined,
-          break_minutes: values.breakMinutes,
-          expected_revision: selectedSlot.entryRevision ?? undefined,
-          reason: values.reason
-        }
-      });
-      await workspace.reloadOperations();
-      await workspaceRealtime.publish('actuals-updated', {
-        restaurantId: workspace.activeId,
-        source: 'actuals'
+        slot: selectedSlot,
+        values
       });
       feedback = values.isCorrection ? 'Timesheet entry corrected.' : 'Manual timesheet entry added.';
       feedbackTone = 'success';
@@ -612,22 +741,10 @@
     if (!workspace.activeId || !selectedSlot?.entryId || saving) return false;
     saving = true;
     try {
-      await saveActuals({
+      await cancelTimesheetEntry({
         restaurantId: workspace.activeId,
-        action: 'cancel_entry',
-        payload: {
-          employee_id: selectedSlot.employeeId,
-          business_date: selectedSlot.date,
-          service_key: selectedSlot.serviceKey,
-          time_entry_id: selectedSlot.entryId,
-          expected_revision: selectedSlot.entryRevision ?? undefined,
-          reason: values.reason
-        }
-      });
-      await workspace.reloadOperations();
-      await workspaceRealtime.publish('actuals-updated', {
-        restaurantId: workspace.activeId,
-        source: 'actuals'
+        slot: selectedSlot,
+        reason: values.reason
       });
       feedback = 'Timesheet entry cancelled and retained in the audit trail.';
       feedbackTone = 'success';
@@ -653,19 +770,13 @@
     }
     saving = true;
     try {
-      await saveActuals({
+      await setTimesheetWeekStatus({
         restaurantId: workspace.activeId,
+        weekStart: activeWeek,
         action,
-        payload: {
-          week_start: activeWeek,
-          expected_revision: Number(activeWorkWeek?.actuals_revision ?? 0),
-          reason: weekReason.trim()
-        }
-      });
-      await workspace.reloadOperations();
-      await workspaceRealtime.publish('actuals-updated', {
-        restaurantId: workspace.activeId,
-        source: 'actuals'
+        expectedRevision: Number(activeWorkWeek?.actuals_revision ?? 0),
+        reason: weekReason.trim(),
+        allowWarnings: approveWarnings.length > 0
       });
       feedback = action === 'approve_week' ? 'Timesheet week approved.' : 'Timesheet week reopened.';
       feedbackTone = 'success';
@@ -755,13 +866,6 @@
     return date.slice(0, 7) !== activeWeek.slice(0, 7);
   }
 
-  function weekdayLabel(date: string) {
-    return new Intl.DateTimeFormat('en-GB', {
-      weekday: 'short',
-      timeZone: 'UTC'
-    }).format(new Date(`${date}T00:00:00Z`));
-  }
-
   function employeePeriodHours(employeeId: string) {
     return [...periodSlotsByKey.values()]
       .filter((slot) => slot.employeeId === employeeId)
@@ -783,26 +887,6 @@
     if (slots.some((slot) => slot.status === 'adjusted')) return 'warning';
     if (slots.some((slot) => slot.status === 'recorded')) return 'ready';
     return 'quiet';
-  }
-
-  function initials(name: string) {
-    return name
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0])
-      .join('')
-      .toUpperCase();
-  }
-
-  function shortName(name: string) {
-    const parts = name.split(/\s+/).filter(Boolean);
-    if (parts.length <= 1) return name;
-    return `${parts[0]} ${parts[1][0].toUpperCase()}.`;
-  }
-
-  function serviceIcon(serviceKey: ServiceKey) {
-    return serviceKey === 'lunch' ? '☀' : '☾';
   }
 
   function slotStateLabel(slot: ActualSlot) {
@@ -865,7 +949,7 @@
       const reviewCount = employeeReviewCount(row.id);
       return {
         id: row.id,
-        name: shortName(row.name),
+        name: shortPersonName(row.name),
         meta: row.meta || 'Staff',
         color: employeeColor.get(row.id),
         avatarTone: avatarToneOf(rowTone(row.id)),
@@ -884,7 +968,7 @@
         // A planned shift with no entry yet reads as "expected" (clear card),
         // not "empty" (faint), so awaited work is visible on the ledger.
         tone: (slot.planned && slot.status === 'empty' ? 'expected' : slot.status) as BoardTone,
-        icon: serviceIcon(slot.serviceKey),
+        icon: serviceDisplay(slot.serviceKey).icon,
         main: slotMainLabel(slot),
         detail:
           slot.status === 'empty' && slot.date <= today
@@ -899,7 +983,7 @@
         selected: selectedKey === slot.key,
         liveSince: slot.status === 'live' ? slot.clockInAt : undefined,
         onclick: () => openEntry(slot.key),
-        ariaLabel: `${slot.employeeName} · ${serviceLabel(slot.serviceKey)} · ${date}: ${slotStateLabel(slot)}`
+        ariaLabel: `${slot.employeeName} · ${t(serviceLabel(slot.serviceKey))} · ${date}: ${t(slotStateLabel(slot))}`
       }));
   }
 
@@ -908,7 +992,7 @@
       date: column.date,
       label: column.label,
       value: `${column.day}/${column.month}`,
-      meta: `${formatHours(dayNetHours(column.date))} · ${dayReviewCount(column.date)} review`,
+      meta: `${formatHours(dayNetHours(column.date))} · ${t(dayReviewCount(column.date) === 1 ? '{count} review' : '{count} reviews', { count: dayReviewCount(column.date) })}`,
       onclick: () => (selectedKey = '')
     }))
   );
@@ -921,7 +1005,7 @@
       const manualCap = boardExpanded ? 10 : 6;
       const chips: BoardChip[] = proofSlots.slice(0, cap).map((slot) => ({
         key: slot.key,
-        initials: initials(slot.employeeName),
+        initials: personInitials(slot.employeeName),
         tone: slot.status as BoardTone,
         name: slot.employeeName,
         detail: slotStateLabel(slot),
@@ -929,21 +1013,21 @@
         selected: selectedKey === slot.key,
         liveSince: slot.status === 'live' ? slot.clockInAt : undefined,
         onclick: () => openEntry(slot.key),
-        ariaLabel: `${slot.employeeName} ${serviceLabel(serviceKey)} ${slotStateLabel(slot)}`
+        ariaLabel: `${slot.employeeName} ${t(serviceLabel(serviceKey))} ${t(slotStateLabel(slot))}`
       }));
       const secondaryChips: BoardChip[] = manualSlots.slice(0, manualCap).map((slot) => ({
         key: slot.key,
-        initials: initials(slot.employeeName),
+        initials: personInitials(slot.employeeName),
         tone: 'empty' as BoardTone,
         name: slot.employeeName,
         detail: 'Add manually',
         color: employeeColor.get(slot.employeeId),
         onclick: () => openEntry(slot.key),
-        ariaLabel: `Add manual entry for ${slot.employeeName}`
+        ariaLabel: t('Add manual entry for {name}', { name: slot.employeeName })
       }));
       return {
         serviceKey,
-        icon: serviceIcon(serviceKey),
+        icon: serviceDisplay(serviceKey).icon,
         label: serviceLabel(serviceKey),
         tone: serviceTone(date, serviceKey) as BoardTone,
         summaryValue: formatHours(serviceNetHours(date, serviceKey)),
@@ -974,12 +1058,17 @@
           reviewCount: dayReviewCount(column.date) || undefined,
           lanes: SERVICES.map((serviceKey) => ({
             serviceKey,
-            icon: serviceIcon(serviceKey),
+            icon: serviceDisplay(serviceKey).icon,
             tone: serviceTone(column.date, serviceKey) as BoardTone,
             value: laneValueFor(column.date, serviceKey),
             reviewCount: serviceReviewCount(column.date, serviceKey) || undefined,
             onclick: () => openServiceEvidence(column.date, serviceKey),
-            ariaLabel: `${column.date} ${serviceLabel(serviceKey)}: ${formatHours(serviceNetHours(column.date, serviceKey))}, ${serviceReviewCount(column.date, serviceKey)} review item${serviceReviewCount(column.date, serviceKey) === 1 ? '' : 's'}`
+            ariaLabel: t('{date} {service}: {hours}, {count} review items', {
+              date: column.date,
+              service: t(serviceLabel(serviceKey)),
+              hours: formatHours(serviceNetHours(column.date, serviceKey)),
+              count: serviceReviewCount(column.date, serviceKey)
+            })
           }))
         }))
       : []
@@ -992,14 +1081,14 @@
   {#snippet exportPeriod()}
     <div class="payroll-period">
       <label>
-        <span>First Monday</span>
+        <span>{t('First Monday')}</span>
         <input type="date" bind:value={payrollPeriodStart} disabled={payrollExporting} />
       </label>
       <label>
-        <span>Last Sunday</span>
+        <span>{t('Last Sunday')}</span>
         <input type="date" bind:value={payrollPeriodEnd} disabled={payrollExporting} />
       </label>
-      <small>Approved weeks export as official, fingerprinted payroll lineage. Unapproved weeks download as a DRAFT with no lineage.</small>
+      <small>{t('Approved weeks export as official, fingerprinted payroll lineage. Unapproved weeks download as a DRAFT with no lineage.')}</small>
     </div>
   {/snippet}
   {#snippet pageHeader()}
@@ -1033,29 +1122,17 @@
   {#snippet boardSection()}
         <header class="timesheet-console" aria-label={t('Timesheet cockpit controls')}>
           <div class="timesheet-console__context">
-            <span class="timesheet-kicker">{t('Timesheet cockpit')} · {t(timesheetModeLabel)}</span>
-            <div class="timesheet-console__title">
+            <span class="timesheet-kicker">{t('Timesheet cockpit')} · {t('roster ledger')}</span>
+            <div class="timesheet-console__title" data-tour="ts-week">
               <strong>{periodLabel}</strong>
+              <span class={`week-status is-${weekStatus === 'open' ? 'open' : 'approved'}`}>
+                {weekStatus === 'approved' ? t('Approved') : weekStatus === 'locked' ? t('Locked') : t('Open')}
+              </span>
               <small>{visibleRows.length} {t('people')} · {formatHours([...periodSlotsByKey.values()].reduce((sum, slot) => sum + slot.actualHours, 0))} {t('badged')} · {reviewSlots.length} {t('review items')}</small>
             </div>
           </div>
 
           <div class="timesheet-console__controls">
-            <div class="timesheet-view-switch" aria-label={t('Timesheet view')}>
-              <button
-                type="button"
-                class:is-active={timesheetView === 'roster'}
-                aria-pressed={timesheetView === 'roster'}
-                onclick={() => (timesheetView = 'roster')}
-              ><span aria-hidden="true"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><line x1="2.5" y1="4.5" x2="13.5" y2="4.5"/><line x1="2.5" y1="8" x2="13.5" y2="8"/><line x1="2.5" y1="11.5" x2="13.5" y2="11.5"/></svg></span><b>{t('Roster')}</b></button>
-              <button
-                type="button"
-                class:is-active={timesheetView === 'service'}
-                aria-pressed={timesheetView === 'service'}
-                onclick={() => (timesheetView = 'service')}
-              ><span aria-hidden="true"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><rect x="2" y="3" width="4.5" height="10" rx="1.2"/><rect x="9.5" y="3" width="4.5" height="10" rx="1.2"/></svg></span><b>{t('Service')}</b></button>
-            </div>
-
             {#if boardExpanded}
               <div class="period-switch" aria-label={t('Timesheet period')}>
                 <button
@@ -1073,7 +1150,7 @@
               </div>
             {/if}
 
-            <div class="timesheet-period-nav" aria-label={t('Choose period')}>
+            <div class="timesheet-period-nav" aria-label={t('Choose period')} data-tour="ts-period">
               <button type="button" aria-label={t('Previous period')} onclick={() => changePeriod(-1)}>&lsaquo;</button>
               <label class="week-picker" aria-label={t('Week starting')}>
                 <input type="date" value={activeWeek} onchange={(event) => chooseWeek(event.currentTarget.value)} />
@@ -1111,6 +1188,11 @@
               </details>
             {/if}
 
+            <button type="button" class="cockpit-coverage" onclick={openCoverageLens} data-tour="ts-coverage">
+              <span aria-hidden="true"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2.5" width="5" height="5" rx="1"/><rect x="9" y="2.5" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg></span>
+              <b>{t('Coverage')}</b>
+            </button>
+
             <button
               type="button"
               class="timesheet-focus"
@@ -1125,7 +1207,7 @@
         </header>
 
         <OperationsBoard
-          view={timesheetView === 'roster' ? 'roster' : 'service'}
+          view="roster"
           periodMode={boardExpanded ? boardPeriod : 'week'}
           expanded={boardExpanded}
           columns={periodColumns}
@@ -1141,27 +1223,26 @@
 
         {#if boardExpanded && boardPeriod === 'month'}
           <p class="month-note">
-            Monthly focus is a review lens only. Payroll approval still happens week by week, so the current approval gate remains tied to {weekLabel(activeWeek)}.
+            {t('Monthly focus is a review lens only. Payroll approval still happens week by week, so the current approval gate remains tied to {week}.', { week: weekLabel(activeWeek, i18n.intlLocale) })}
           </p>
         {/if}
     {/snippet}
 
   <PageScaffold header={pageHeader} label={t('Timesheet payroll cockpit')}>
     {#if boardExpanded}
-      <div class="board-fullscreen" use:portal role="dialog" aria-modal="true" aria-label="Timesheet focus">
-        <button type="button" class="board-fullscreen__scrim" aria-label="Close focus" onclick={() => { boardExpanded = false; boardPeriod = 'week'; }}></button>
-        <div class="board-fullscreen__panel timesheet-board">
+      <BoardFocus label="Timesheet focus" onclose={() => { boardExpanded = false; boardPeriod = 'week'; }}>
+        <div class="timesheet-board">
           {@render boardSection()}
         </div>
-      </div>
+      </BoardFocus>
     {:else}
       <div class="timesheet-workspace">
-        <section class="timesheet-board" aria-label="Payroll roster ledger">
+        <section class="timesheet-board" aria-label={t('Payroll roster ledger')} data-tour="ts-grid">
           {@render boardSection()}
         </section>
 
-      <aside class="timesheet-rail" aria-label="Payroll actions">
-        <section class={`approval-card is-${approvalTone}`}>
+      <aside class="timesheet-rail" aria-label={t('Payroll actions')}>
+        <section class={`approval-card is-${approvalTone}`} data-tour="ts-gate">
           <p>{t('Approval gate')}</p>
           <h2>{t(approvalGateTitle)}</h2>
           <div class="approval-checks">
@@ -1177,72 +1258,81 @@
           </div>
 
           {#if gateExpanded === 'conflicts' && conflictSlots.length}
-            <ul class="gate-issues" aria-label="Worked-time conflicts">
+            <ul class="gate-issues" aria-label={t('Worked-time conflicts')}>
               {#each conflictSlots as slot (slot.key)}
                 <li><button type="button" onclick={() => openEntry(slot.key)}>
                   <span class="gate-issue__where">{slot.employeeName}</span>
-                  <span class="gate-issue__when">{issueDayLabel(slot.date)} · {serviceLabel(slot.serviceKey)}</span>
-                  <em class="is-danger">Conflict</em>
+                  <span class="gate-issue__when">{weekdayDateLabel(slot.date, i18n.intlLocale)} · {t(serviceLabel(slot.serviceKey))}</span>
+                  <em class="is-danger">{t('Conflict')}</em>
                 </button></li>
               {/each}
             </ul>
           {/if}
           {#if gateExpanded === 'missing' && missingSlots.length}
-            <ul class="gate-issues" aria-label="Missing badges">
+            <ul class="gate-issues" aria-label={t('Missing badges')}>
               {#each missingSlots as slot (slot.key)}
                 <li><button type="button" onclick={() => openEntry(slot.key)}>
                   <span class="gate-issue__where">{slot.employeeName}</span>
-                  <span class="gate-issue__when">{issueDayLabel(slot.date)} · {serviceLabel(slot.serviceKey)}</span>
-                  <em class="is-short">Missing</em>
+                  <span class="gate-issue__when">{weekdayDateLabel(slot.date, i18n.intlLocale)} · {t(serviceLabel(slot.serviceKey))}</span>
+                  <em class="is-short">{t('Missing')}</em>
                 </button></li>
               {/each}
             </ul>
           {/if}
           {#if gateExpanded === 'live' && liveSlots.length}
-            <ul class="gate-issues" aria-label="Live clock-ins">
+            <ul class="gate-issues" aria-label={t('Live clock-ins')}>
               {#each liveSlots as slot (slot.key)}
                 <li><button type="button" onclick={() => openEntry(slot.key)}>
                   <span class="gate-issue__where">{slot.employeeName}</span>
-                  <span class="gate-issue__when">{issueDayLabel(slot.date)} · {serviceLabel(slot.serviceKey)}</span>
-                  <em class="is-live">{#if slot.clockInAt}<LiveDuration since={slot.clockInAt} />{:else}Working{/if}</em>
+                  <span class="gate-issue__when">{weekdayDateLabel(slot.date, i18n.intlLocale)} · {t(serviceLabel(slot.serviceKey))}</span>
+                  <em class="is-live">{#if slot.clockInAt}<LiveDuration since={slot.clockInAt} />{:else}{t('Working')}{/if}</em>
                 </button></li>
               {/each}
             </ul>
           {/if}
-          <div class="approval-actions">
+          <div class="approval-actions" data-tour="ts-approve">
             {#if weekStatus === 'approved'}
-              <button type="button" class="danger-action" disabled={saving} onclick={() => beginWeekAction('reopen_week')}>{saving ? 'Reopening...' : 'Reopen week'}</button>
+              <button type="button" class="danger-action" disabled={saving} onclick={() => beginWeekAction('reopen_week')}>{t(saving ? 'Reopening...' : 'Reopen week')}</button>
             {:else if weekStatus === 'open'}
               <button
                 type="button"
                 class="primary-action"
-                disabled={saving || !weekComplete || totals.live > 0 || totals.missing > 0 || totals.conflicts > 0}
-                title={!weekComplete ? 'Approval opens once the week is complete.' : undefined}
+                disabled={saving || totals.live > 0}
                 onclick={() => beginWeekAction('approve_week')}
-              >{saving ? 'Approving...' : 'Approve week'}</button>
+              >{t(saving ? 'Approving...' : 'Approve week')}</button>
             {/if}
           </div>
+          {#if weekStatus === 'open' && totals.live > 0}
+            <p class="approval-block">{t('Resolve to approve')}: {t(totals.live === 1 ? '{count} shift still open' : '{count} shifts still open', { count: totals.live })}</p>
+          {:else if weekStatus === 'open' && approveWarnings.length > 0}
+            <p class="approval-note">{t('You can approve now and confirm the flagged points, then reopen the week later if needed.')}</p>
+          {/if}
           {#if weekAction}
             <div class="week-inline-action">
-              <span>{weekAction === 'approve_week' ? 'Approve payroll week' : 'Reopen payroll week'}</span>
+              <span>{t(weekAction === 'approve_week' ? 'Approve payroll week' : 'Reopen payroll week')}</span>
               <p>
-                {weekAction === 'approve_week'
+                {t(weekAction === 'approve_week'
                   ? 'Approval closes manager editing until the week is deliberately reopened.'
-                  : 'Reopening restores manager corrections and records an audit event.'}
+                  : 'Reopening restores manager corrections and records an audit event.')}
               </p>
+              {#if weekAction === 'approve_week' && approveWarnings.length > 0}
+                <ul class="approve-warnings">
+                  {#each approveWarnings as warning}<li>{warning}</li>{/each}
+                </ul>
+              {/if}
               <label>
-                <span>Manager reason</span>
+                <span>{t('Manager reason')}</span>
                 <input bind:value={weekReason} disabled={saving} />
               </label>
               <div class="week-inline-action__buttons">
-                <button type="button" disabled={saving} onclick={() => (weekAction = null)}>Cancel</button>
+                <button type="button" disabled={saving} onclick={() => (weekAction = null)}>{t('Cancel')}</button>
                 <button
                   type="button"
                   class={weekAction === 'reopen_week' ? 'danger-action' : 'primary-action'}
                   disabled={saving}
                   onclick={() => weekAction && setWeekStatus(weekAction)}
                 >
-                  {saving ? 'Saving...' : weekAction === 'approve_week' ? 'Approve week' : 'Reopen week'}
+                  {t(saving ? 'Saving...' : weekAction === 'reopen_week' ? 'Reopen week' : approveWarnings.length > 0 ? 'Approve anyway' : 'Approve week')}
                 </button>
               </div>
             </div>
@@ -1251,6 +1341,7 @@
 
         {#if isOwner}
           <RailExportCard
+            dataTour="ts-export"
             eyebrow="Payroll export"
             title="Preview before sending."
             description="Column order, draft preview and official lineage stay in the export wizard."
@@ -1260,27 +1351,27 @@
         {/if}
 
         <section class="review-card">
-          <p>Proof stack</p>
-          <h2>{reviewSlots.length ? 'Needs a look' : 'Clean ledger'}</h2>
+          <p>{t('Proof stack')}</p>
+          <h2>{t(reviewSlots.length ? 'Needs a look' : 'Clean ledger')}</h2>
           <div class="review-list">
             {#each reviewSlots.slice(0, 6) as slot (slot.key)}
               <button type="button" class={`review-item is-${slot.status}`} onclick={() => openEntry(slot.key)}>
-                <span>{initials(slot.employeeName)}</span>
-                <strong>{shortName(slot.employeeName)}</strong>
+                <span>{personInitials(slot.employeeName)}</span>
+                <strong>{shortPersonName(slot.employeeName)}</strong>
                 {#if slot.status === 'live' && slot.clockInAt}
-                  <small>{slot.date.slice(5)} · {serviceLabel(slot.serviceKey)} · <LiveDuration since={slot.clockInAt} /></small>
+                  <small>{slot.date.slice(5)} · {t(serviceLabel(slot.serviceKey))} · <LiveDuration since={slot.clockInAt} /></small>
                 {:else}
-                  <small>{slot.date.slice(5)} · {serviceLabel(slot.serviceKey)} · {slotStateLabel(slot)}</small>
+                  <small>{slot.date.slice(5)} · {t(serviceLabel(slot.serviceKey))} · {t(slotStateLabel(slot))}</small>
                 {/if}
               </button>
             {:else}
-              <span class="review-empty">No missing badges, live entries or corrections blocking the story.</span>
+              <span class="review-empty">{t('No missing badges, live entries or corrections blocking the story.')}</span>
             {/each}
           </div>
         </section>
       </aside>
 
-      <section class="timesheet-lower" aria-label="Payroll trail">
+      <section class="timesheet-lower" aria-label={t('Payroll trail')}>
         <WeekHistory items={historyItems}
           title="Payroll trail"
           eyebrow="Audited evidence"
@@ -1289,29 +1380,101 @@
           emptyMessage="No approval or export history yet."
         />
       </section>
+      {#if isOwner && workspace.activeId}
+        <PayrollWorkspace
+          restaurantId={workspace.activeId}
+          employees={snapshot.employees}
+          initialDate={activeWeek}
+          locale={i18n.intlLocale}
+        />
+      {/if}
       </div>
     {/if}
   </PageScaffold>
 
   <Drawer
     open={entryDialogOpen && Boolean(selectedSlot)}
-    title={selectedSlot ? `${selectedSlot.employeeName} · ${serviceLabel(selectedSlot.serviceKey)}` : 'Timesheet entry'}
-    description={selectedBlockedReason || (selectedSlot?.entryId ? 'Correct worked time with an audited manager reason.' : 'Add worked time manually for this service.')}
+    title={selectedSlot ? `${selectedSlot.employeeName} · ${t(serviceLabel(selectedSlot.serviceKey))}` : t('Timesheet entry')}
+    description={selectedBlockedReason ? t(selectedBlockedReason) : t(selectedSlot?.entryId ? 'Correct worked time with an audited manager reason.' : 'Add worked time manually for this service.')}
     onclose={() => !saving && (entryDialogOpen = false)}
   >
     {#if selectedSlot}
       <TimesheetEntryEditor
         slot={selectedSlot}
+        restaurantId={workspace.activeId ?? ''}
         {timezone}
         {editable}
+        jobFunctions={snapshot.job_functions}
+        workAreas={snapshot.work_areas}
         adjustments={selectedAdjustments}
         onsave={saveEntry}
         oncancel={cancelEntryAction}
         onproof={loadProof}
+        onresolveleave={resolveSelectedLeave}
         onfeedback={(message, tone) => { feedback = message; feedbackTone = tone; }}
       />
     {/if}
   </Drawer>
+
+  <CoverageLensFrame
+    open={coverageLensOpen}
+    description={coverageLensDate ? weekdayLabel(coverageLensDate, i18n.intlLocale) : ''}
+    days={grid.days}
+    activeDate={coverageLensDate}
+    onselect={(date) => (coverageLensDate = date)}
+    onclose={() => (coverageLensOpen = false)}
+  >
+    <p class="lens-legend">
+        <span class="lens-legend__dot is-worked"></span>{t('Worked')}
+        <span class="lens-legend__dot is-missing"></span>{t('No show')}
+        <span class="lens-legend__dot is-pending"></span>{t('Scheduled')}
+      </p>
+      <div class="lens-rooms">
+        {#each coverageLensAreas as area (area.id)}
+          <div class="lens-room">
+            <div class="lens-room__head">
+              <strong>{area.name}</strong>
+              {#if area.services.some((service) => service.status === 'under')}
+                <span class="lens-flag is-under">{t('Short')}</span>
+              {:else}
+                <span class="lens-flag is-ok">{t('Covered')}</span>
+              {/if}
+            </div>
+            {#each area.services as service (service.serviceKey)}
+              <div class={`lens-srow is-${service.status}`}>
+                <span class="lens-srow__lead">
+                  <b class={`lens-srow__icon is-${service.serviceKey}`}>{service.icon}</b>
+                  <span class="lens-srow__count">{service.covered}/{service.required || service.people.length}</span>
+                </span>
+                <span class="lens-srow__slots">
+                  {#each service.people as person (person.id)}
+                    <span
+                      class="lens-slot is-filled"
+                      class:is-worked={person.worked}
+                      class:is-missing={person.missing}
+                      class:is-pending={person.pending}
+                      class:is-absent={person.absent}
+                      class:is-live={person.live}
+                      style={!person.missing && employeeColor.get(person.id) ? `--avatar-color:${employeeColor.get(person.id)};` : undefined}
+                      title={`${person.name}${person.missing ? ` — ${t('No badge')}` : person.range ? ` — ${person.range}` : ''}`}
+                    >{personInitials(person.name)}</span>
+                  {/each}
+                  {#each Array(service.gaps) as _, gapIndex (gapIndex)}
+                    <span class="lens-slot is-empty" aria-hidden="true"></span>
+                  {/each}
+                  {#if service.people.length === 0 && service.gaps === 0}
+                    <span class="lens-srow__none">{t('No cover set')}</span>
+                  {/if}
+                </span>
+              </div>
+            {/each}
+          </div>
+        {:else}
+          <p class="lens-empty">{t('No active work areas yet')}</p>
+        {/each}
+    </div>
+  </CoverageLensFrame>
+
   <ExportDialog
     open={exportCsvOpen}
     title="Export CSV"
@@ -1359,93 +1522,16 @@
     gap: 18px;
   }
 
-  .evidence-board__head p,
   .approval-card p,
   .review-card p {
     margin: 0;
     color: var(--rst-ui-action);
     font-size: 11px;
     font-weight: var(--rst-fw-display);
-    letter-spacing: 0.1em;
+    letter-spacing: 0;
     text-transform: uppercase;
   }
 
-  .timesheet-proof {
-    position: relative;
-    z-index: 1;
-    justify-self: end;
-    width: min(460px, 100%);
-    display: grid;
-    grid-template-columns: 156px minmax(0, 1fr);
-    gap: 14px;
-    align-items: stretch;
-    padding: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    border-radius: 24px;
-    background: rgba(7, 13, 21, 0.52);
-    box-shadow: 0 18px 46px rgba(0, 0, 0, 0.22);
-    backdrop-filter: blur(16px);
-  }
-
-  .proof-orb {
-    --proof: 0%;
-    min-height: 150px;
-    display: grid;
-    place-items: center;
-    align-content: center;
-    border-radius: 22px;
-    background:
-      conic-gradient(from -90deg, #42d884 0 var(--proof), rgba(255, 255, 255, 0.12) var(--proof) 100%),
-      rgba(12, 23, 35, 0.8);
-    box-shadow: inset 0 0 0 10px rgba(8, 14, 22, 0.82);
-  }
-
-  .proof-orb strong {
-    font-size: 42px;
-    line-height: 0.9;
-    letter-spacing: -0.06em;
-  }
-
-  .proof-orb span {
-    color: rgba(255, 250, 242, 0.72);
-    font-size: 11px;
-    font-weight: var(--rst-fw-bold);
-    text-transform: uppercase;
-  }
-
-  .proof-facts {
-    display: grid;
-    gap: 8px;
-  }
-
-  .proof-facts span {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 11px 12px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 14px;
-    color: rgba(255, 250, 242, 0.76);
-    background: rgba(255, 255, 255, 0.055);
-    font-size: 12px;
-  }
-
-  .proof-facts b {
-    color: #fffaf2;
-    font-size: 18px;
-  }
-
-  .timesheet-layout {
-    min-width: 0;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 0.32fr);
-    gap: 18px;
-    align-items: start;
-    padding: 0 clamp(18px, 3vw, 44px) 34px;
-  }
-
-  .evidence-board,
   .timesheet-rail > section,
   .timesheet-rail :global(.panel) {
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -1453,36 +1539,15 @@
     box-shadow: 0 22px 60px rgba(29, 20, 10, 0.14);
   }
 
-  .evidence-board {
-    min-width: 0;
-    overflow: hidden;
-    color: #f8fbff;
-    background:
-      radial-gradient(circle at 96% 0%, rgba(56, 189, 248, 0.16), transparent 30%),
-      linear-gradient(145deg, #111a27 0%, #0c1825 55%, #0a1320 100%);
-  }
-
-  .evidence-board__head {
-    min-width: 0;
-    display: flex;
-    justify-content: space-between;
-    gap: 18px;
-    align-items: center;
-    padding: 24px 28px 18px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  }
-
-  .evidence-board__head h2,
   .approval-card h2,
   .review-card h2 {
     margin: 0;
     color: #fffaf2;
     font-size: clamp(24px, 2.4vw, 36px);
     line-height: 0.98;
-    letter-spacing: -0.055em;
+    letter-spacing: 0;
   }
 
-  .evidence-board__head span,
   .review-empty {
     color: #90a4bf;
     font-size: 12px;
@@ -1687,8 +1752,8 @@
   }
 
   .primary-action {
-    color: #160c06 !important;
-    border-color: rgba(240, 100, 35, 0.7) !important;
+    color: var(--rst-on-accent-text) !important;
+    border-color: rgba(var(--rst-ui-action-rgb), 0.7) !important;
     background: var(--rst-ui-action) !important;
   }
 
@@ -1697,6 +1762,58 @@
     cursor: not-allowed;
     opacity: 0.48;
     filter: grayscale(0.45);
+  }
+
+  .approval-block,
+  .approval-note {
+    margin: 10px 0 0;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .approval-block {
+    color: var(--rst-state-warning-text);
+    font-weight: var(--rst-fw-bold);
+  }
+
+  .approval-note {
+    color: rgba(255, 250, 242, 0.62);
+  }
+
+  .approve-warnings {
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 6px;
+    list-style: none;
+  }
+
+  .approve-warnings li {
+    position: relative;
+    padding: 8px 10px 8px 30px;
+    border: 1px solid rgba(var(--rst-state-warning-rgb), 0.35);
+    border-radius: var(--rst-ui-radius-md);
+    background: rgba(var(--rst-state-warning-rgb), 0.1);
+    color: #fff6ee;
+    font-size: 12px;
+    font-weight: var(--rst-fw-bold);
+  }
+
+  .approve-warnings li::before {
+    content: '!';
+    position: absolute;
+    left: 9px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 15px;
+    height: 15px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: #160c06;
+    background: var(--rst-state-warning);
+    font-size: 10px;
+    font-weight: var(--rst-fw-display);
   }
 
   .danger-action {
@@ -1736,7 +1853,7 @@
     color: rgba(255, 250, 242, 0.64);
     font-size: 10px;
     font-weight: var(--rst-fw-bold);
-    letter-spacing: 0.06em;
+    letter-spacing: 0;
     text-transform: uppercase;
   }
 
@@ -1839,35 +1956,8 @@
   .payroll-period input { min-height: 40px; padding: 8px 10px; border: 1px solid var(--rst-ui-line); border-radius: var(--rst-ui-radius-md); color: var(--rst-ui-text); background: var(--rst-ui-surface-field-strong); font: inherit; }
   .payroll-period small { color: var(--rst-ui-muted); }
 
-  @media (max-width: 1180px) {
-    .timesheet-layout {
-      grid-template-columns: 1fr;
-    }
-
-    .timesheet-proof {
-      justify-self: stretch;
-    }
-  }
-
-  @media (max-width: 760px) {
-    .timesheet-proof,
-    .evidence-board__head {
-      grid-template-columns: 1fr;
-    }
-
-    .evidence-board__head {
-      display: grid;
-    }
-
-    .timesheet-layout {
-      padding-inline: 12px;
-    }
-  }
-
   @media print {
-    .timesheet-rail,
-    .timesheet-view-switch,
-    .timesheet-focus-switch {
+    .timesheet-rail {
       display: none !important;
     }
   }
@@ -1881,7 +1971,7 @@
     color: var(--rst-ui-action);
     font-size: 11px;
     font-weight: var(--rst-fw-display);
-    letter-spacing: 0.1em;
+    letter-spacing: 0;
     text-transform: uppercase;
   }
 
@@ -1918,7 +2008,7 @@
   .proof-dial strong {
     font-size: 34px;
     line-height: 0.9;
-    letter-spacing: -0.06em;
+    letter-spacing: 0;
   }
 
   .proof-dial span,
@@ -1926,7 +2016,7 @@
     color: rgba(255, 250, 242, 0.62);
     font-size: 10px;
     font-weight: var(--rst-fw-display);
-    letter-spacing: 0.08em;
+    letter-spacing: 0;
     text-transform: uppercase;
   }
 
@@ -1975,34 +2065,6 @@
     min-width: 0;
   }
 
-  .board-fullscreen {
-    position: fixed;
-    inset: 0;
-    z-index: var(--rst-z-overlay);
-    display: grid;
-    place-items: center;
-    padding: clamp(12px, 2.4vw, 32px);
-  }
-
-  .board-fullscreen__scrim {
-    position: absolute;
-    inset: 0;
-    border: 0;
-    background: rgba(4, 8, 14, 0.72);
-    backdrop-filter: blur(4px);
-    cursor: pointer;
-    animation: rst-fade-up .2s var(--rst-ease-out) backwards;
-  }
-
-  .board-fullscreen__panel {
-    position: relative;
-    z-index: 1;
-    width: min(1720px, 100%);
-    max-height: 100%;
-    overflow: auto;
-    animation: rst-scale-in .3s var(--rst-ease-spring) backwards;
-  }
-
   .timesheet-board,
   .timesheet-rail > section,
   .timesheet-rail :global(.panel) {
@@ -2045,13 +2107,35 @@
     gap: 10px 14px;
   }
 
+  .week-status {
+    align-self: center;
+    flex: 0 0 auto;
+    padding: 3px 11px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: var(--rst-fw-display);
+    text-transform: uppercase;
+    letter-spacing: 0;
+  }
+
+  .week-status.is-open {
+    color: rgba(255, 250, 242, 0.82);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+  }
+
+  .week-status.is-approved {
+    color: #0e2f1c;
+    background: #59d98a;
+  }
+
   .timesheet-console__title strong {
     min-width: 0;
     overflow: hidden;
     color: #fff;
     font-size: clamp(24px, 2.4vw, 34px);
     line-height: 0.95;
-    letter-spacing: -0.055em;
+    letter-spacing: 0;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -2061,7 +2145,7 @@
     color: rgba(255, 250, 242, 0.62);
     font-size: 10px;
     font-weight: var(--rst-fw-display);
-    letter-spacing: 0.08em;
+    letter-spacing: 0;
     text-transform: uppercase;
   }
 
@@ -2074,7 +2158,6 @@
     justify-content: flex-end;
   }
 
-  .timesheet-view-switch,
   .period-switch,
   .timesheet-period-nav {
     min-width: 0;
@@ -2087,7 +2170,6 @@
     background: rgba(255, 255, 255, 0.06);
   }
 
-  .timesheet-view-switch button,
   .period-switch button,
   .timesheet-period-nav button,
   .timesheet-period-nav .week-picker,
@@ -2106,22 +2188,6 @@
     font-size: 12px;
     font-weight: var(--rst-fw-display);
     cursor: pointer;
-  }
-
-  .timesheet-view-switch button span,
-  .timesheet-view-switch button b {
-    font: inherit;
-  }
-
-  .timesheet-view-switch button span {
-    display: grid;
-    place-items: center;
-    line-height: 0;
-    opacity: 0.9;
-  }
-
-  .timesheet-view-switch button.is-active span {
-    opacity: 1;
   }
 
   .week-picker {
@@ -2143,7 +2209,6 @@
 
   /* Clean segmented control: borderless segments, active reads as a calm fill
      with a crisp orange underline (not a loud gradient block). */
-  .timesheet-view-switch button,
   .period-switch button {
     min-height: 32px;
     padding: 6px 12px;
@@ -2151,7 +2216,6 @@
     background: transparent;
   }
 
-  .timesheet-view-switch button.is-active,
   .period-switch button.is-active {
     color: #fffaf2;
     background: rgba(255, 255, 255, 0.14);
@@ -2159,7 +2223,6 @@
   }
 
   .timesheet-period-nav button:hover,
-  .timesheet-view-switch button:hover,
   .period-switch button:hover,
   .timesheet-staff-tools summary:hover {
     color: #fff;
@@ -2186,6 +2249,114 @@
     transform: translateY(-1px);
     border-color: rgba(255, 255, 255, 0.32);
     background: rgba(255, 255, 255, 0.12);
+  }
+
+  .cockpit-coverage {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 38px;
+    padding: 8px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: var(--rst-ui-radius-lg);
+    color: #fffaf2;
+    background: rgba(255, 255, 255, 0.06);
+    font: inherit;
+    font-size: 12px;
+    font-weight: var(--rst-fw-display);
+    cursor: pointer;
+    transition: background-color 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+  }
+
+  .cockpit-coverage:hover {
+    transform: translateY(-1px);
+    border-color: rgba(255, 255, 255, 0.32);
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .cockpit-coverage span {
+    display: grid;
+    place-items: center;
+    line-height: 0;
+    color: var(--rst-ui-action);
+  }
+
+  /* Coverage lens (actuals) — mirrors the Schedule lens and Home floor card so
+     the whole app speaks one coverage language. Read-only: it reports who
+     actually badged per room/service. */
+  .lens-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+    margin: 0 0 14px;
+    color: var(--rst-ui-muted);
+    font-size: 11px;
+    font-weight: var(--rst-fw-bold);
+  }
+
+  .lens-legend__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  .lens-legend__dot:not(:first-child) {
+    margin-left: 8px;
+  }
+
+  .lens-legend__dot.is-worked { background: var(--rst-green); }
+  .lens-legend__dot.is-missing { background: rgba(240, 150, 35, 0.9); }
+  .lens-legend__dot.is-pending {
+    background: transparent;
+    border: 1.5px dashed var(--rst-ui-line-strong, rgba(76, 48, 26, 0.4));
+  }
+
+  .lens-srow__none {
+    color: var(--rst-ui-muted);
+    font-size: 12px;
+  }
+
+  /* worked = confirmed present (badged): a green ring around their avatar. */
+  .lens-slot.is-worked {
+    box-shadow: 0 0 0 2px var(--rst-green), 0 2px 6px rgba(4, 11, 20, 0.22);
+  }
+
+  .lens-slot.is-live {
+    box-shadow: 0 0 0 2px var(--rst-green);
+    animation: lens-pulse 1.7s ease-in-out infinite;
+  }
+
+  /* scheduled, service not over yet — dimmed, "expected but not confirmed". */
+  .lens-slot.is-pending {
+    opacity: 0.5;
+    box-shadow: none;
+    border: 1.5px dashed rgba(255, 255, 255, 0.4);
+  }
+
+  .lens-slot.is-absent {
+    opacity: 0.4;
+    filter: grayscale(0.6);
+    box-shadow: none;
+  }
+
+  /* no-show — planned, service past, never badged. Reads amber, not their tone. */
+  .lens-slot.is-missing {
+    color: #7a3d12;
+    background: rgba(240, 150, 35, 0.24);
+    box-shadow: none;
+    border: 1.5px solid rgba(240, 150, 35, 0.75);
+  }
+
+  @keyframes lens-pulse {
+    0%, 100% { box-shadow: 0 0 0 2px var(--rst-green); }
+    50% { box-shadow: 0 0 0 4px rgba(64, 200, 120, 0.35); }
+  }
+
+  .lens-empty {
+    margin: 8px 0;
+    color: var(--rst-ui-muted);
+    font-size: 13px;
   }
 
   .timesheet-staff-tools {

@@ -7,11 +7,10 @@
 newer migration normally. Adding a migration does not require recapturing the
 baseline. Advance the cutoff only during a deliberate consolidation.
 
-The V503 cutoff is
-`202607110019_public_schema_privilege_hardening`. Runtime roles `anon`,
-`authenticated`, and `service_role` have schema `USAGE` without `CREATE`.
-Administrative owners retain schema management. Public business access uses
-explicit object allowlists, RPCs, and RLS.
+The current cutoff is `202607120020_preserve_elapsed_availability`.
+Runtime roles `anon`, `authenticated`, and `service_role` have schema `USAGE`
+without `CREATE`. Administrative owners retain schema management. Public
+business access uses explicit object allowlists, RPCs, and RLS.
 
 The generated public type file includes Restogogo routines and extension-owned
 public routines/overloads, notably from `citext`; raw routine totals therefore
@@ -26,26 +25,56 @@ source, dead code, and the production build. It does not contact a database.
 rollback-contained SQL security/workflow contracts, lints `public`, and compares
 freshly generated types with the committed file.
 
+After deploying `dispatch-push`, configure its environment-specific scheduler:
+
+```powershell
+npm run configure:push-scheduler
+```
+
+The command reads the linked project's URL from `.env`, generates and synchronizes
+a dispatch secret when one is not supplied, stores only the URL and secret in
+Supabase Vault, schedules the Edge invocation every minute, and verifies
+the complete database-to-Edge path with a dry run. Pass `-ProjectUrl`,
+`-ProjectRef`, `-DispatchSecret`, or `-Schedule` explicitly when configuring
+another environment. An explicit project ref uses isolated temporary CLI state
+and does not change the repository's development link.
+
+For the production project, set the canonical Auth site and redirect URL with:
+
+```powershell
+npm run configure:hosted-auth -- -ProjectRef '<REF>' -AppOrigin 'https://restogogo.com'
+```
+
+The command accepts only a hosted project named exactly `Restogogo Production`
+and updates only the granular Auth configuration. It uses
+`SUPABASE_ACCESS_TOKEN` when present and otherwise reuses the Supabase CLI
+credential on Windows.
+
 `npm run bootstrap:database -- -ProjectRef <ref>` performs the complete empty
 hosted replay. It requires `ALLOW_DESTRUCTIVE_DATABASE_BOOTSTRAP=YES` and
 `SUPABASE_DB_PASSWORD`, accepts only an empty project named
 `restogogo-acceptance-*`, refuses the linked development ref, uses an isolated
 temporary CLI link, and removes local temporary state.
 
-Hosted acceptance then loads guarded Auth fixtures, deploys the three Edge
-Functions with exact `APP_ORIGIN`, and runs `npm run verify:hosted`. That layer
-executes managed Auth, role RPC, private Realtime, Edge CORS/auth, and private
-Storage behavior. Browser QA remains a separate human acceptance layer.
+For a permanent empty production project named exactly `Restogogo Production`,
+run `npm run bootstrap:production -- -ProjectRef <ref>` with
+`SUPABASE_DB_PASSWORD` and `ALLOW_PRODUCTION_DATABASE_BOOTSTRAP` set to that
+exact project ref. The command uses the same replay and validation path, refuses
+the linked development project, and cannot target a differently named project.
 
-Run the complete disposable lifecycle with a Supabase organization id:
+Run the complete disposable hosted lifecycle with:
 
 ```powershell
 npm run verify:hosted:disposable -- -OrganizationId '<ORGANIZATION_ID>'
 ```
 
 The command creates a uniquely named project, waits for health, bootstraps it,
-creates fixtures, deploys Edge Functions, runs acceptance, clears process
-secrets, and deletes the project in `finally`.
+creates managed Auth fixtures, deploys Edge Functions, executes role/Realtime/
+Storage acceptance, clears process secrets, and deletes the project in `finally`.
+Workspace Realtime uses the RLS-protected `workspace_realtime_events` table and
+`publish_workspace_realtime_event` RPC; the bootstrap never alters objects in
+Supabase's platform-owned `realtime` schema.
+Browser QA remains a separate human acceptance layer.
 
 ## Consolidation
 
@@ -63,3 +92,30 @@ credentials, and row data.
 Never run `supabase db reset --linked`, bootstrap development or production,
 load disposable fixtures outside an acceptance project, or hand-edit generated
 types to imitate a deployment.
+
+## Pilot tenant promotion
+
+The production bootstrap intentionally contains no development identities or
+restaurant rows. A reviewed pilot tenant can be copied from the hosted
+development project only while production is still empty:
+
+```powershell
+npm run promote:pilot-tenant -- `
+  --source-ref '<DEVELOPMENT_REF>' `
+  --target-ref '<PRODUCTION_REF>' `
+  --restaurant-id '<RESTAURANT_UUID>' `
+  --owner-email '<OWNER_EMAIL>'
+```
+
+The default is a read-only dry run. It checks the exact hosted project names,
+the selected restaurant and owner, all tenant-scoped row counts, Auth identity,
+Storage, push, onboarding, and platform-admin boundaries. It refuses test-lab
+restaurants, non-email identities, environment-specific owner records, Storage
+objects, or any non-empty production target.
+
+After reviewing the dry-run manifest, set
+`ALLOW_PRODUCTION_TENANT_PROMOTION` to the exact production ref and add
+`--execute`. The import runs in one transaction, preserves the owner's existing
+password hash and stable IDs, then re-exports production and compares every
+tenant-table count. Auth sessions and push subscriptions are deliberately not
+portable; the owner signs in again against the production Auth project.

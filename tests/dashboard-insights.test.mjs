@@ -2,9 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   buildInsights,
-  dashboardReadRanges,
   insightComparisonRange,
-  insightLoadRange,
+  insightReadRanges,
   insightPeriodRange
 } from '../src/lib/dashboard/dashboard-model.ts';
 
@@ -15,12 +14,12 @@ test('Insights periods stay calendar-aligned and backend reads never exceed 63 d
   assert.match(week.label, /^13 Jul.+19 Jul$/);
   assert.equal(insightComparisonRange('2026-07-14', 'month', 'previous').from, '2026-06-01');
   assert.equal(insightComparisonRange('2026-07-14', 'month', 'year').from, '2025-07-01');
-  assert.deepEqual(insightLoadRange('2026-07-14', 'year', 'year'), {
-    from: '2025-01-01',
-    to: '2026-12-31'
-  });
+  assert.deepEqual(insightReadRanges('2026-07-14', 'month', 'year'), [
+    { from: '2025-07-01', to: '2025-07-31' },
+    { from: '2026-07-01', to: '2026-07-31' }
+  ]);
 
-  const chunks = dashboardReadRanges('2025-01-01', '2026-12-31');
+  const chunks = insightReadRanges('2026-07-14', 'year', 'year');
   assert.equal(chunks[0].from, '2025-01-01');
   assert.equal(chunks.at(-1).to, '2026-12-31');
   for (const chunk of chunks) {

@@ -54,8 +54,10 @@
 
   $effect(() => {
     if (!open) return;
+    let cancelled = false;
     returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     void tick().then(() => {
+      if (cancelled) return;
       panelElement
         ?.querySelector<HTMLElement>(
           'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), a[href]'
@@ -63,6 +65,7 @@
         ?.focus();
     });
     return () => {
+      cancelled = true;
       returnFocus?.focus();
       returnFocus = null;
     };
@@ -79,7 +82,7 @@
           <h2 id="drawer-title">{t(title)}</h2>
           {#if description}<p>{t(description)}</p>{/if}
         </div>
-        <button type="button" aria-label={t('Close panel')} onclick={onclose}>×</button>
+        <button type="button" data-tour="drawer-close" aria-label={t('Close panel')} onclick={onclose}>×</button>
       </header>
       {#if tabs}<div class="drawer-tabs">{@render tabs()}</div>{/if}
       <div class="drawer-body">{@render children()}</div>
@@ -93,6 +96,7 @@
     position: fixed;
     z-index: var(--rst-z-overlay);
     inset: 0;
+    min-height: 100dvh;
     display: flex;
     justify-content: flex-end;
     background: var(--rst-overlay-bg);
@@ -103,7 +107,8 @@
   .drawer {
     position: relative;
     width: min(720px, 94vw);
-    height: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
     display: grid;
     grid-template-rows: auto auto minmax(0, 1fr) auto;
     overflow: hidden;
@@ -166,6 +171,7 @@
     justify-content: flex-end;
     gap: 8px;
     padding: 12px 22px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
     border-top: 1px solid var(--rst-ui-divider-soft);
     background: var(--rst-ui-surface-panel-head);
   }

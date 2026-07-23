@@ -1,12 +1,13 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/i18n.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
 </script>
 
-<aside class="host" aria-label="Notifications">
+<aside class="host" aria-label={t('Notifications')}>
   {#each toasts.messages as toast (toast.id)}
     <div class="toast is-{toast.tone}" role={toast.tone === 'danger' ? 'alert' : 'status'}>
       <span>{toast.message}</span>
-      <button type="button" aria-label="Dismiss notification" onclick={() => toasts.dismiss(toast.id)}>×</button>
+      <button type="button" aria-label={t('Dismiss notification')} onclick={() => toasts.dismiss(toast.id)}>×</button>
     </div>
   {/each}
 </aside>
@@ -52,4 +53,11 @@
     cursor: pointer;
   }
   button:hover { color: var(--rst-ui-text); background: var(--rst-ui-surface-field-strong); }
+  @media (max-width: 760px) {
+    .host {
+      right: 12px;
+      bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+      width: calc(100vw - 24px);
+    }
+  }
 </style>

@@ -17,10 +17,9 @@ database. A small set of source guardrails covers asset/route integrity,
 official responsive breakpoints, and security-sensitive configuration where a
 runtime unit test is not the right layer.
 
-The SQL contract filenames describe the boundary they execute (badge and
+The SQL contract filenames describe the boundary they execute: badge and
 operations, work patterns, access, Schedule/Timesheet lifecycle, read models,
-payroll, model integrity, and notification/payroll integration). They are
-current acceptance contracts rather than iteration milestones.
+payroll, model integrity, and notification/payroll integration.
 
 ## Browser matrix
 
@@ -29,10 +28,12 @@ Review Owner, Manager, and Employee routes at 1440x900, 1024x768, 768x1024,
 states, dialogs and drawers, keyboard focus, page overflow, mobile navigation,
 and the primary workflow for each role.
 
-The shared maximum-width ladder is 1180, 980, 760, and 520 pixels. Mobile
-manager boards prioritize a selected day rather than compressing the desktop
-week. Local scrolling is reserved for dense boards, calendars, dialogs, and
-bounded previews.
+The shared maximum-width ladder is 1180, 980, 760, and 520 pixels. On phones,
+Schedule and Timesheet use the shared selected-day roster: a weather-aware day
+strip, daily operational summary, and one employee row with Lunch and Evening
+side by side. Desktop and tablet retain the full roster ledger. Local scrolling
+is reserved for day strips, dense boards, calendars, dialogs, and bounded
+previews.
 
 Before committing, inspect the complete diff, run all validation layers relevant
 to the change, confirm generated types and migration parity, and ensure Git

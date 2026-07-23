@@ -1,0 +1,934 @@
+/* ==========================================================================
+   restogogo — classic design
+   ==========================================================================
+   A calmer, table-first admin layout that lives alongside the modern cockpit.
+
+   Rules this file exists to enforce:
+     - The page chrome stays neutral: white surfaces on light grey, ink text.
+     - Orange is the primary action and the active nav item. Nowhere else.
+     - Colour is allowed, but it must carry meaning — it goes on status, data
+       and module identity, never on a surface as decoration. A calm page that
+       is still scannable at a glance, not a monochrome one.
+     - Tables are the default data surface; numbers are plain and tabular.
+     - Status is symbol + word AND colour — colour reinforces, never replaces.
+
+   Scoped under [data-design='classic'] rather than a wrapper class so that
+   dialogs and toasts — which portal to <body> — inherit the same palette.
+   ========================================================================== */
+
+:root[data-design='classic'] {
+  --cl-bg: #f7f7f8;
+  --cl-surface: #ffffff;
+  --cl-surface-muted: #fafafa;
+  --cl-line: #e5e5e7;
+  --cl-line-strong: #d4d4d8;
+  --cl-ink: #1a1a1a;
+  --cl-muted: #6b6b70;
+  --cl-accent: #c2410c;
+  --cl-accent-wash: rgba(194, 65, 12, 0.07);
+  --cl-radius: 6px;
+  --cl-row: 44px;
+  --cl-sidebar: 240px;
+  --cl-topbar: 64px;
+  --cl-gutter: 32px;
+
+  /* Shared components (Dialog, ActionButton, StatusPill, toasts, confirm)
+     read the --rst-* contract. Re-point the ones that carry colour so a
+     reused primitive lands in the classic palette instead of the warm one. */
+  --rst-ui-bg: var(--cl-bg);
+  --rst-ui-bg-2: var(--cl-surface);
+  --rst-ui-bg-deep: var(--cl-bg);
+  --rst-ui-panel: var(--cl-surface);
+  --rst-ui-card: var(--cl-surface);
+  --rst-ui-card-strong: var(--cl-surface-muted);
+  --rst-ui-surface-panel: var(--cl-surface);
+  --rst-ui-surface-panel-head: var(--cl-surface-muted);
+  --rst-ui-surface-panel-body: var(--cl-surface);
+  --rst-ui-surface-board: var(--cl-surface);
+  --rst-ui-surface-body: var(--cl-surface);
+  --rst-ui-surface-field: var(--cl-surface);
+  --rst-ui-surface-field-strong: var(--cl-surface);
+  --rst-ui-surface-subtle: var(--cl-surface-muted);
+  --rst-ui-section-row-hover: var(--cl-surface-muted);
+  --rst-ui-hover-bg: var(--cl-surface-muted);
+  --rst-ui-text: var(--cl-ink);
+  --rst-ui-text-heading: var(--cl-ink);
+  --rst-ui-ink: var(--cl-ink);
+  --rst-ui-muted: var(--cl-muted);
+  --rst-ui-subtle: var(--cl-muted);
+  --rst-ui-quiet: var(--cl-muted);
+  --rst-ui-line: var(--cl-line);
+  --rst-ui-line-strong: var(--cl-line-strong);
+  --rst-ui-divider: var(--cl-line);
+  --rst-ui-divider-soft: var(--cl-line);
+  --rst-ui-divider-strong: var(--cl-line-strong);
+  --rst-ui-action: var(--cl-accent);
+  --rst-ui-action-rgb: 194, 65, 12;
+  --rst-ui-accent: var(--cl-accent);
+  --rst-ui-panel-title: var(--cl-ink);
+  --rst-ui-radius-sm: 4px;
+  --rst-ui-radius-md: var(--cl-radius);
+  --rst-ui-radius-lg: var(--cl-radius);
+  --rst-ui-radius-xl: var(--cl-radius);
+  --rst-ui-radius-2xl: var(--cl-radius);
+  --rst-ui-shadow-card: none;
+  /* Reused editors keep their behaviour but lose their atmosphere: the summary
+     panel and command surfaces flatten to the one card style. */
+  --rst-summary-bg: var(--cl-surface-muted);
+  --rst-summary-border: var(--cl-line);
+  --rst-summary-text: var(--cl-ink);
+  --rst-summary-quiet: var(--cl-muted);
+  --rst-summary-tile: var(--cl-surface);
+  --rst-summary-kicker: var(--cl-muted);
+  --rst-command-bg: var(--cl-surface);
+  --rst-command-bg-warm: var(--cl-surface);
+  --rst-command-bg-ready: var(--cl-surface);
+  --rst-command-bg-blocked: var(--cl-surface);
+  --rst-command-bg-info: var(--cl-surface);
+  --rst-command-border: var(--cl-line);
+  --rst-command-text: var(--cl-ink);
+  --rst-command-radius: var(--cl-radius);
+  --rst-command-shadow: none;
+  --rst-state-selected-bg: var(--cl-accent-wash);
+  --rst-state-selected-border: var(--cl-line-strong);
+  --rst-overlay-bg: rgba(26, 26, 26, 0.32);
+  --rst-atmosphere-image: none;
+  --rst-atmosphere-fade: none;
+  --rst-atmosphere-tint: none;
+
+  /* ---- meaning colours -------------------------------------------------
+     Three operational tones. Each has an ink (for the glyph and emphasis),
+     a soft wash (for a tinted card or cell) and a border. The word next to
+     a coloured glyph stays --cl-ink, so colour reinforces and never carries
+     the meaning alone. */
+  --cl-ok: #15803d;
+  --cl-ok-rgb: 21, 128, 61;
+  --cl-ok-wash: #eef8f1;
+  --cl-ok-line: #bfe3cb;
+  --cl-attention: #b45309;
+  --cl-attention-rgb: 180, 83, 9;
+  --cl-attention-wash: #fdf5e9;
+  --cl-attention-line: #f0d8ac;
+  --cl-problem: #be123c;
+  --cl-problem-rgb: 190, 18, 60;
+  --cl-problem-wash: #fdeef1;
+  --cl-problem-line: #f2c2ce;
+  --cl-info: #1d4ed8;
+  --cl-info-rgb: 29, 78, 216;
+  --cl-info-wash: #eef2fd;
+  --cl-info-line: #c3d1f6;
+
+  /* ---- service colours -------------------------------------------------
+     Lunch is daytime gold, evening is indigo. Shared with the modern design
+     through the same --rst-service-* source tokens. */
+  --cl-lunch: #b8860b;
+  --cl-lunch-wash: #fbf3df;
+  --cl-evening: #4f46e5;
+  --cl-evening-wash: #eeecfb;
+
+  /* ---- module identity -------------------------------------------------
+     A soft tint per module, used only on the Home portal tiles and the
+     stat-card accent rail — wayfinding, not decoration. The sidebar and
+     page headers stay neutral. */
+  --cl-mod-home: #0d9488;
+  --cl-mod-schedule: #2563eb;
+  --cl-mod-time: #7c3aed;
+  --cl-mod-team: #db2777;
+  --cl-mod-restaurant: #ea580c;
+  --cl-mod-inventory: #65a30d;
+  --cl-mod-payroll: #0891b2;
+  --cl-mod-badge: #4f46e5;
+  --cl-mod-reports: #c026d3;
+
+  /* ---- motion ----------------------------------------------------------
+     Everything is short and explains a change; nothing performs. Honoured by
+     the global prefers-reduced-motion reset in app.css. */
+  --cl-ease: cubic-bezier(0.2, 0, 0, 1);
+  --cl-ease-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
+  --cl-dur: 0.16s;
+  --cl-dur-slow: 0.28s;
+}
+
+/* Scrollbars and text selection are part of the noise budget too. */
+:root[data-design='classic'] {
+  scrollbar-color: var(--cl-line-strong) transparent;
+}
+
+:root[data-design='classic'] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:root[data-design='classic'] ::-webkit-scrollbar-thumb {
+  border: 3px solid var(--cl-bg);
+  background: var(--cl-line-strong);
+}
+
+:root[data-design='classic'] ::selection {
+  color: var(--cl-ink);
+  background: var(--cl-accent-wash);
+}
+
+/* -------------------------------------------------- shell ---------------- */
+
+.cl-app {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: var(--cl-sidebar) minmax(0, 1fr);
+  grid-template-rows: var(--cl-topbar) minmax(0, 1fr);
+  grid-template-areas:
+    'brand topbar'
+    'sidebar main';
+  color: var(--cl-ink);
+  background: var(--cl-bg);
+}
+
+.cl-brand {
+  grid-area: brand;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px;
+  border-right: 1px solid var(--cl-line);
+  border-bottom: 1px solid var(--cl-line);
+  background: var(--cl-surface);
+  color: var(--cl-ink);
+  font-size: 18px;
+  font-weight: var(--rst-fw-display);
+  text-decoration: none;
+}
+
+.cl-brand img {
+  width: 26px;
+  height: 26px;
+  display: block;
+}
+
+.cl-topbar {
+  grid-area: topbar;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 var(--cl-gutter);
+  border-bottom: 1px solid var(--cl-line);
+  background: var(--cl-surface);
+}
+
+.cl-topbar__spacer {
+  margin-left: auto;
+}
+
+.cl-sidebar {
+  grid-area: sidebar;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 0;
+  border-right: 1px solid var(--cl-line);
+  background: var(--cl-surface);
+}
+
+.cl-sidebar__nav {
+  display: grid;
+  gap: 1px;
+}
+
+/* The rail toggle sits at the foot of the sidebar and, collapsed, becomes an
+   icon-only control like the links above it. */
+.cl-rail-toggle {
+  margin-top: auto;
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 10px 20px;
+  border: 0;
+  border-top: 1px solid var(--cl-line);
+  color: var(--cl-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: var(--rst-fw-medium);
+  text-align: left;
+  cursor: pointer;
+}
+.cl-rail-toggle svg {
+  transition: transform var(--cl-dur-slow) var(--cl-ease);
+}
+.cl-rail-toggle:hover {
+  color: var(--cl-ink);
+  background: var(--cl-surface-muted);
+}
+
+/* ---- collapsed rail --------------------------------------------------- */
+.cl-app.is-rail {
+  --cl-sidebar: 66px;
+}
+.cl-app.is-rail .cl-brand {
+  justify-content: center;
+  padding-inline: 0;
+}
+.cl-app.is-rail .cl-brand span,
+.cl-app.is-rail .cl-sidebar__link span {
+  display: none;
+}
+.cl-app.is-rail .cl-sidebar__link {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  padding-inline: 0;
+}
+.cl-app.is-rail .cl-sidebar__link.is-active::before {
+  top: 8px;
+  bottom: 8px;
+}
+.cl-app.is-rail .cl-rail-toggle {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  padding-inline: 0;
+}
+.cl-app.is-rail .cl-rail-toggle span {
+  display: none;
+}
+.cl-app.is-rail .cl-rail-toggle svg {
+  transform: rotate(180deg);
+}
+
+.cl-sidebar__link {
+  position: relative;
+  min-height: var(--cl-row);
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 10px 20px;
+  color: var(--cl-ink);
+  font-size: 14px;
+  font-weight: var(--rst-fw-medium);
+  text-decoration: none;
+}
+
+.cl-sidebar__link svg {
+  width: 20px;
+  height: 20px;
+  color: var(--cl-muted);
+}
+
+.cl-sidebar__link:hover {
+  background: var(--cl-surface-muted);
+}
+
+.cl-sidebar__link.is-active,
+.cl-sidebar__link.is-active svg {
+  color: var(--cl-accent);
+}
+
+.cl-sidebar__link.is-active {
+  font-weight: var(--rst-fw-bold);
+}
+
+.cl-sidebar__link.is-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  background: var(--cl-accent);
+}
+
+.cl-main {
+  grid-area: main;
+  min-width: 0;
+  padding: 28px var(--cl-gutter) 64px;
+}
+
+/* -------------------------------------------------- page ----------------- */
+
+.cl-page {
+  max-width: 1240px;
+  display: grid;
+  gap: 24px;
+  animation: cl-page-in var(--cl-dur-slow) var(--cl-ease) backwards;
+}
+
+/* A short settle-in when a page mounts — enough to feel responsive, not
+   enough to wait on. */
+@keyframes cl-page-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.cl-page__head {
+  display: grid;
+  gap: 4px;
+}
+
+.cl-page__titlerow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cl-page__title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: var(--rst-fw-display);
+  letter-spacing: -0.01em;
+}
+
+.cl-page__subtitle {
+  margin: 0;
+  color: var(--cl-muted);
+  font-size: 14px;
+}
+
+.cl-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cl-tabs {
+  display: flex;
+  gap: 24px;
+  margin-top: 10px;
+  border-bottom: 1px solid var(--cl-line);
+  /* Long tab rows scroll sideways on narrow screens. overflow-y must be set
+     explicitly: leaving it visible makes the browser compute it as auto, and
+     the 1px the underline overhangs is enough to draw a vertical scrollbar. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.cl-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.cl-tab {
+  position: relative;
+  padding: 10px 2px 11px;
+  color: var(--cl-muted);
+  font-size: 14px;
+  font-weight: var(--rst-fw-medium);
+  white-space: nowrap;
+  text-decoration: none;
+  transition: color var(--cl-dur) var(--cl-ease);
+}
+
+.cl-tab::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--cl-accent);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform var(--cl-dur-slow) var(--cl-ease);
+}
+
+.cl-tab:hover {
+  color: var(--cl-ink);
+}
+
+.cl-tab.is-active {
+  color: var(--cl-accent);
+  font-weight: var(--rst-fw-bold);
+}
+
+.cl-tab.is-active::after {
+  transform: scaleX(1);
+}
+
+.cl-section {
+  display: grid;
+  gap: 12px;
+}
+
+.cl-section__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: var(--rst-fw-bold);
+}
+
+.cl-section__note {
+  margin: 0;
+  color: var(--cl-muted);
+  font-size: 13px;
+}
+
+/* -------------------------------------------------- card ----------------- */
+
+.cl-card {
+  border: 1px solid var(--cl-line);
+  border-radius: var(--cl-radius);
+  background: var(--cl-surface);
+}
+
+.cl-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: var(--cl-row);
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--cl-line);
+}
+
+.cl-card__head h2,
+.cl-card__head h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: var(--rst-fw-bold);
+}
+
+.cl-card__body {
+  padding: 16px;
+}
+
+.cl-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--cl-line);
+}
+
+/* A card that leads with a coloured header rail — used where a card stands for
+   one status or one module. The body stays white. */
+.cl-card.is-accent {
+  --card-accent: var(--cl-line-strong);
+}
+.cl-card.is-accent .cl-card__head {
+  box-shadow: inset 0 3px 0 var(--card-accent);
+}
+.cl-card.is-ok { --card-accent: var(--cl-ok); }
+.cl-card.is-attention { --card-accent: var(--cl-attention); }
+.cl-card.is-problem { --card-accent: var(--cl-problem); }
+
+/* -------------------------------------------------- skeleton ------------- */
+
+/* Loading placeholder rows: a soft shimmer while the read model arrives, so a
+   table's shape is there before its data. Calmer than a spinner and it holds
+   layout. */
+.cl-skel {
+  display: block;
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--cl-surface-muted) 25%,
+    color-mix(in srgb, var(--cl-line) 60%, var(--cl-surface-muted)) 50%,
+    var(--cl-surface-muted) 75%
+  );
+  background-size: 200% 100%;
+  animation: cl-shimmer 1.3s var(--cl-ease) infinite;
+}
+
+@keyframes cl-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* Individual stat cards, each with a coloured accent rail on the left. The
+   rail (and, for a toned card, the value) is the only colour — the surface
+   stays white. Pages set --stat-accent per card, or add is-ok/is-attention/
+   is-problem to tie the number to its meaning. */
+.cl-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  gap: 12px;
+}
+
+.cl-stat {
+  --stat-accent: var(--cl-line-strong);
+  --stat-value: var(--cl-ink);
+  position: relative;
+  display: grid;
+  gap: 5px;
+  padding: 15px 18px 15px 19px;
+  border: 1px solid var(--cl-line);
+  border-radius: var(--cl-radius);
+  background: var(--cl-surface);
+  overflow: hidden;
+}
+
+.cl-stat::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--stat-accent);
+}
+
+.cl-stat.is-ok {
+  --stat-accent: var(--cl-ok);
+  --stat-value: var(--cl-ok);
+}
+.cl-stat.is-attention {
+  --stat-accent: var(--cl-attention);
+  --stat-value: var(--cl-attention);
+}
+.cl-stat.is-problem {
+  --stat-accent: var(--cl-problem);
+  --stat-value: var(--cl-problem);
+}
+
+.cl-stat__label {
+  color: var(--cl-muted);
+  font-size: 13px;
+  font-weight: var(--rst-fw-medium);
+}
+
+.cl-stat__value {
+  color: var(--stat-value);
+  font-size: 25px;
+  font-weight: var(--rst-fw-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* A muted value: a zero or an empty measure recedes so real numbers lead. */
+.cl-stat__value.is-zero {
+  color: var(--cl-line-strong);
+}
+
+/* A word (a status), not a number: shares the card but not the display size. */
+.cl-stat__value.is-word {
+  font-size: 17px;
+  font-weight: var(--rst-fw-bold);
+}
+
+/* -------------------------------------------------- table ---------------- */
+
+.cl-tablewrap {
+  overflow-x: auto;
+  border: 1px solid var(--cl-line);
+  border-radius: var(--cl-radius);
+  background: var(--cl-surface);
+}
+
+/* Inside a card the table supplies its own borders already. */
+.cl-card .cl-tablewrap {
+  border: 0;
+  border-radius: 0;
+}
+
+.cl-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.cl-table th {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--cl-line);
+  background: var(--cl-surface-muted);
+  color: var(--cl-ink);
+  font-size: 13px;
+  font-weight: var(--rst-fw-bold);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.cl-table td {
+  height: var(--cl-row);
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--cl-line);
+  vertical-align: middle;
+}
+
+.cl-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.cl-table tbody tr {
+  transition: background-color var(--cl-dur) var(--cl-ease);
+}
+
+.cl-table tbody tr:hover td {
+  background: var(--cl-surface-muted);
+}
+
+/* A row that needs a look wears a coloured rail on its first cell — scannable
+   straight down the table without washing the whole row. The status cell still
+   carries the glyph + word, so this only reinforces. */
+.cl-table tbody tr.is-attention td:first-child {
+  box-shadow: inset 3px 0 0 var(--cl-attention);
+}
+.cl-table tbody tr.is-problem td:first-child {
+  box-shadow: inset 3px 0 0 var(--cl-problem);
+}
+
+.cl-table .is-num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.cl-table .is-quiet {
+  color: var(--cl-muted);
+}
+
+.cl-table__link {
+  color: inherit;
+  font-weight: var(--rst-fw-medium);
+  text-decoration: none;
+}
+
+.cl-table__link:hover {
+  text-decoration: underline;
+}
+
+/* A whole row that navigates: the chevron is the affordance, not colour. */
+.cl-table tr.is-clickable td {
+  cursor: pointer;
+}
+
+.cl-table__chevron {
+  width: 16px;
+  height: 16px;
+  color: var(--cl-muted);
+}
+
+.cl-table__name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Initials in a disc. By default neutral; pages pass --avatar-color (the
+   shared position-colour map) so a roster is scannable by role — the colour is
+   the person's function, not decoration. */
+.cl-avatar {
+  --avatar-color: var(--cl-muted);
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--avatar-color) 32%, var(--cl-line));
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--avatar-color) 12%, var(--cl-surface));
+  color: color-mix(in srgb, var(--avatar-color) 72%, var(--cl-ink));
+  font-size: 11px;
+  font-weight: var(--rst-fw-bold);
+}
+
+/* -------------------------------------------------- status --------------- */
+
+/* Symbol + word + colour. The glyph sits in a small tinted disc so the tone
+   reads instantly down a column; the word stays ink so meaning never depends
+   on colour alone. */
+.cl-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: var(--rst-fw-medium);
+  white-space: nowrap;
+  color: var(--cl-ink);
+}
+
+.cl-status__symbol {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: var(--rst-fw-bold);
+  line-height: 1;
+}
+
+.cl-status.is-ok {
+  color: var(--cl-muted);
+}
+.cl-status.is-ok .cl-status__symbol {
+  color: var(--cl-ok);
+  background: var(--cl-ok-wash);
+}
+.cl-status.is-attention {
+  font-weight: var(--rst-fw-bold);
+}
+.cl-status.is-attention .cl-status__symbol {
+  color: var(--cl-attention);
+  background: var(--cl-attention-wash);
+}
+.cl-status.is-problem {
+  font-weight: var(--rst-fw-bold);
+}
+.cl-status.is-problem .cl-status__symbol {
+  color: var(--cl-problem);
+  background: var(--cl-problem-wash);
+}
+
+/* -------------------------------------------------- controls ------------- */
+
+.cl-btn {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--cl-line-strong);
+  border-radius: var(--cl-radius);
+  color: var(--cl-ink);
+  background: var(--cl-surface);
+  font: inherit;
+  font-size: 14px;
+  font-weight: var(--rst-fw-medium);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.cl-btn:hover:not(:disabled) {
+  background: var(--cl-surface-muted);
+}
+
+.cl-btn.is-primary {
+  border-color: var(--cl-accent);
+  color: #ffffff;
+  background: var(--cl-accent);
+  font-weight: var(--rst-fw-bold);
+}
+
+.cl-btn.is-primary:hover:not(:disabled) {
+  background: #a5360a;
+}
+
+/* A disabled primary is no longer a primary: it drops the accent entirely so
+   orange only ever marks something you can actually do. */
+.cl-btn:disabled,
+.cl-btn.is-primary:disabled {
+  border-color: var(--cl-line);
+  color: var(--cl-muted);
+  background: var(--cl-surface-muted);
+  cursor: default;
+}
+
+.cl-btn.is-icon {
+  width: 38px;
+  padding: 0;
+}
+
+.cl-field {
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid var(--cl-line-strong);
+  border-radius: var(--cl-radius);
+  color: var(--cl-ink);
+  background: var(--cl-surface);
+  font: inherit;
+  font-size: 14px;
+}
+
+.cl-field::placeholder {
+  color: var(--cl-muted);
+}
+
+.cl-label {
+  display: grid;
+  gap: 6px;
+}
+
+.cl-label > span {
+  color: var(--cl-muted);
+  font-size: 13px;
+  font-weight: var(--rst-fw-medium);
+}
+
+.cl-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.cl-toolbar__grow {
+  margin-left: auto;
+}
+
+.cl-empty {
+  display: grid;
+  gap: 6px;
+  padding: 40px 20px;
+  color: var(--cl-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.cl-empty strong {
+  color: var(--cl-ink);
+  font-size: 15px;
+}
+
+/* -------------------------------------------------- responsive ----------- */
+
+@media (max-width: 1180px) {
+  :root[data-design='classic'] {
+    --cl-sidebar: 210px;
+    --cl-gutter: 24px;
+  }
+}
+
+@media (max-width: 980px) {
+  .cl-app {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'topbar'
+      'main';
+  }
+
+  .cl-brand {
+    display: none;
+  }
+
+  .cl-sidebar {
+    display: none;
+  }
+
+  .cl-topbar {
+    padding-inline: 20px;
+  }
+
+  .cl-main {
+    padding: 20px 20px 96px;
+  }
+}
+
+@media (max-width: 760px) {
+  .cl-page__title {
+    font-size: 24px;
+  }
+
+  .cl-page__titlerow {
+    flex-direction: column;
+  }
+
+  .cl-stat {
+    border-left: 0;
+    border-top: 1px solid var(--cl-line);
+  }
+
+  .cl-stat:first-child {
+    border-top: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .cl-main {
+    padding-inline: 14px;
+  }
+
+  .cl-topbar {
+    padding-inline: 14px;
+  }
+}

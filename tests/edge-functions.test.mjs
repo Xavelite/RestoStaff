@@ -54,4 +54,20 @@ test('Supabase config keeps gateway JWT verification enabled for every Edge Func
   ]) {
     assert.match(config, new RegExp(`\\[functions\\.${name}\\]\\s+verify_jwt = true`));
   }
+  assert.match(config, /\[functions\.dispatch-push\]\s+verify_jwt = false/);
+});
+
+test('Edge checks and hosted fixtures use the official Deno runtime', async () => {
+  const packageJson = JSON.parse(
+    await readFile(new URL('../package.json', import.meta.url), 'utf8')
+  );
+  const hostedRunner = await readFile(
+    new URL('../scripts/run-hosted-acceptance.ps1', import.meta.url),
+    'utf8'
+  );
+
+  assert.equal(typeof packageJson.devDependencies.deno, 'string');
+  assert.equal(packageJson.devDependencies['deno-bin'], undefined);
+  assert.match(packageJson.scripts['check:edge'], /^deno check /);
+  assert.match(hostedRunner, /npx --no-install deno run/);
 });

@@ -6,7 +6,8 @@
     greetingForMinutes,
     localDateTimeParts,
     mondayFor,
-    serviceLabel
+    serviceLabel,
+    WEEKDAYS
   } from '$lib/calendar/date';
   import LiveDuration from '$lib/components/LiveDuration.svelte';
   import PageScaffold from '$lib/components/PageScaffold.svelte';
@@ -14,9 +15,11 @@
   import SetupGuide, { type SetupStep } from '$lib/components/SetupGuide.svelte';
   import type { ManagerOperationsReadModel } from '$lib/api/workspace-snapshot';
   import { buildHomeModel, type HomeActionRow, type HomeLiveRow, type Tone } from '$lib/home/home-model';
+  import { actualSlotsForDate } from '$lib/timesheet/timesheet-model';
   import { countUp } from '$lib/motion/countUp';
   import { portal } from '$lib/actions/portal';
   import { buildEmployeeColorMap } from '$lib/ui/position-color';
+  import { personInitials } from '$lib/ui/person';
   import { workspaceRealtime } from '$lib/realtime/workspace-realtime.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
@@ -66,7 +69,7 @@
   });
   const model = $derived(
     snapshot && membership
-      ? buildHomeModel(snapshot, membership.role)
+      ? buildHomeModel(snapshot, membership.role, currentInstant)
       : null
   );
   const weather = $derived(restaurantWeather.snapshot);
@@ -121,7 +124,7 @@
   );
   const pendingAbsences = $derived(
     snapshot?.absences
-      .filter((absence) => absence.status === 'pending')
+      .filter((absence) => absence.status === 'pending' && absence.end_date >= today)
       .sort((left, right) => left.start_date.localeCompare(right.start_date)) ?? []
   );
   const payrollAction = $derived(model?.actions.rows.find((row) => row.key === 'payroll') ?? null);
@@ -165,6 +168,30 @@
   );
   const timelineTicks = $derived(buildTimelineTicks(timelineWindow));
   const nowMarkerLeft = $derived(`${timelinePercent(nowMinutes, timelineWindow)}%`);
+  // Today's actual badge status per employee|service, so the floor card can
+  // show live presence (green ring = worked/live, amber = no-show, dimmed =
+  // still scheduled) instead of only the plan — the same language as the
+  // Schedule and Timesheet coverage lenses.
+  const todayActualByKey = $derived.by(() => {
+    const map = new Map<
+      string,
+      { worked: boolean; missing: boolean; pending: boolean; absent: boolean; live: boolean }
+    >();
+    if (!snapshot) return map;
+    for (const slot of actualSlotsForDate(snapshot, today, today, currentInstant)) {
+      const worked = slot.status === 'recorded' || slot.status === 'adjusted' || slot.status === 'live';
+      const missing = slot.status === 'missing';
+      const absent = slot.status === 'absence' || slot.status === 'unavailable';
+      map.set(`${slot.employeeId}|${slot.serviceKey}`, {
+        worked,
+        missing,
+        absent,
+        pending: !worked && !missing && !absent,
+        live: slot.status === 'live'
+      });
+    }
+    return map;
+  });
   const coverageRooms = $derived(
     snapshot
       ? snapshot.work_areas
@@ -208,8 +235,17 @@
                 icon: serviceKey === 'evening' ? '☾' : '☀',
                 required: requiredCount,
                 planned: plannedCount,
+                covered: plannedCount,
                 status,
-                people: [] as { id: string; name: string }[]
+                people: [] as {
+                  id: string;
+                  name: string;
+                  worked: boolean;
+                  missing: boolean;
+                  pending: boolean;
+                  absent: boolean;
+                  live: boolean;
+                }[]
               };
             });
             // One row per person, tagged with the services they cover, so
@@ -237,11 +273,37 @@
             }
             const assignments = [...assignmentMap.values()];
             // Attach the actual people covering each service so the floor card
-            // shows who works lunch vs evening, not one blended crew.
+            // shows who works lunch vs evening, not one blended crew — each
+            // tagged with today's live badge status, and recompute coverage from
+            // real presence (worked or still-scheduled), so a no-show drops the
+            // count instead of counting as covered.
             for (const service of services) {
               service.people = assignments
                 .filter((entry) => (service.serviceKey === 'evening' ? entry.evening : entry.lunch))
-                .map((entry) => ({ id: entry.id, name: entry.name }));
+                .map((entry) => {
+                  const st = todayActualByKey.get(`${entry.id}|${service.serviceKey}`);
+                  return {
+                    id: entry.id,
+                    name: entry.name,
+                    worked: st?.worked ?? false,
+                    missing: st?.missing ?? false,
+                    pending: st ? st.pending : true,
+                    absent: st?.absent ?? false,
+                    live: st?.live ?? false
+                  };
+                });
+              const covered = service.people.filter((person) => person.worked || person.pending).length;
+              service.covered = covered;
+              service.status =
+                service.required === 0
+                  ? covered > 0
+                    ? 'covered'
+                    : 'none'
+                  : covered < service.required
+                    ? 'under'
+                    : covered > service.required
+                      ? 'over'
+                      : 'covered';
             }
             return {
               id: area.id,
@@ -269,6 +331,14 @@
 
   function decisionLinkLabel(href: string) {
     return decisionDestinations[href] ?? 'Open';
+  }
+
+  function liveSummary() {
+    return t('{working} working · {late} late · {upcoming} upcoming', {
+      working: model?.live.working ?? 0,
+      late: model?.live.late ?? 0,
+      upcoming: model?.live.upcoming ?? 0
+    });
   }
 
   function clamp(value: number, min: number, max: number) {
@@ -420,6 +490,13 @@
     expandedDecisionKey = expandedDecisionKey === row.key ? '' : row.key;
   }
 
+  function actionItemLabel(item: HomeActionRow['items'][number]) {
+    if (item.weekday && item.serviceKey) {
+      return `${t(WEEKDAYS[item.weekday - 1] ?? 'Day')} · ${t(serviceLabel(item.serviceKey))}`;
+    }
+    return t(item.label);
+  }
+
   function liveRowKey(row: HomeLiveRow) {
     return `${row.employeeId}-${row.startMinutes}-${row.status}`;
   }
@@ -432,21 +509,30 @@
   function liveRowDetail(row: HomeLiveRow) {
     if (row.tone === 'danger') {
       const lateBy = Math.max(0, nowMinutes - row.startMinutes);
-      return `Was due at ${formatClock(row.startMinutes)} — ${lateBy} min ago. Nobody has badged in yet.`;
+      return t('Was due at {time} · {minutes} min ago. Nobody has badged in yet.', {
+        time: formatClock(row.startMinutes),
+        minutes: lateBy
+      });
     }
     if (row.tone === 'success') {
       const worked = Math.max(0, nowMinutes - row.startMinutes);
       const hours = Math.floor(worked / 60);
       const mins = worked % 60;
-      return `On the floor for ${hours ? `${hours}h ` : ''}${mins}m so far, since ${formatClock(row.startMinutes)}.`;
+      return t('On the floor for {duration} so far, since {time}.', {
+        duration: `${hours ? `${hours}h ` : ''}${mins}m`,
+        time: formatClock(row.startMinutes)
+      });
     }
     if (row.tone === 'warning') {
-      return 'Clocked in without a matching published shift. Worth a quick check.';
+      return t('Clocked in without a matching published shift. Worth a quick check.');
     }
     const until = Math.max(0, row.startMinutes - nowMinutes);
     const hours = Math.floor(until / 60);
     const mins = until % 60;
-    return `Starts in ${hours ? `${hours}h ` : ''}${mins}m, at ${formatClock(row.startMinutes)}.`;
+    return t('Starts in {duration}, at {time}.', {
+      duration: `${hours ? `${hours}h ` : ''}${mins}m`,
+      time: formatClock(row.startMinutes)
+    });
   }
 
   function toggleLiveFilter(tone: Tone) {
@@ -478,7 +564,7 @@
         restaurantId: workspace.activeId,
         source: 'team'
       });
-      toasts.show(action === 'approve' ? 'Leave approved.' : 'Leave rejected.', 'success');
+      toasts.show(t(action === 'approve' ? 'Leave approved.' : 'Leave rejected.'), 'success');
       if (!workspace.operations?.absences.some((absence) => absence.status === 'pending')) {
         expandedDecisionKey = '';
       }
@@ -491,7 +577,7 @@
 </script>
 
 <svelte:head>
-  <title>Home · restogogo</title>
+  <title>{t('Home')} · restogogo</title>
 </svelte:head>
 
 <section class="home">
@@ -511,11 +597,11 @@
       <PageHero
         eyebrow={`${serviceDateLabel} · ${t('Service command')}`}
         titleId="home-title"
-        title={`${t(greeting)}, ${firstName}.`}
+        title={t('{greeting}, {name}.', { greeting: t(greeting), name: firstName })}
         subtitle={t('Start with the one thing that can block service, keep the floor moving, then close payroll with proof.')}
       >
         {#snippet command()}
-          <div class="home-hero__command" aria-label={t('Today command signal')}>
+          <div class="home-hero__command" aria-label={t('Today command signal')} data-tour="home-ring">
             <div class:has-pressure={decisionTotal > 0 || model.live.late > 0} class="signal-orb">
               <strong use:countUp={decisionTotal}>{decisionTotal}</strong>
               <span>{t(decisionTotal === 1 ? 'decision' : 'decisions')}</span>
@@ -546,7 +632,7 @@
       <div class="command-center">
         <div class="command-grid">
           <aside class="decision-stack" aria-label={t('Decision wall')}>
-            <section class="decision-wall" aria-label={t('Open decisions')}>
+            <section class="decision-wall" aria-label={t('Open decisions')} data-tour="home-decisions">
               <header>
                 <span class="section-kicker">{t('Decision wall')}</span>
                 <strong>{decisionTotal} {t('open')}</strong>
@@ -579,7 +665,7 @@
                             {#each pendingAbsences.slice(0, 6) as absence (absence.id)}
                               <li class="decision-approve">
                                 <div>
-                                  <b>{snapshot?.employees.find((employee) => employee.id === absence.employee_id)?.display_name ?? 'Employee'}</b>
+                                  <b>{snapshot?.employees.find((employee) => employee.id === absence.employee_id)?.display_name ?? t('Employee')}</b>
                                   <span>{absence.start_date === absence.end_date ? absence.start_date : `${absence.start_date} → ${absence.end_date}`}</span>
                                 </div>
                                 <span class="decision-approve__actions">
@@ -592,13 +678,13 @@
                         {:else if action.items.length}
                           <ul>
                             {#each action.items as item (item.id)}
-                              <li><b>{item.label}</b><span>{item.meta}</span></li>
+                              <li><b>{actionItemLabel(item)}</b><span>{t(item.meta, item.metaParams)}</span></li>
                             {/each}
                           </ul>
                         {:else}
                           <p>{t('No specific items to review right now.')}</p>
                         {/if}
-                        <a href={action.href}>{decisionLinkLabel(action.href)} →</a>
+                        <a href={action.href}>{t(decisionLinkLabel(action.href))} →</a>
                       </div>
                     {/if}
                   </div>
@@ -613,16 +699,16 @@
                 <p>{t(payrollAction.meta)}</p>
                 <div class="payroll-setup__count">
                   <strong use:countUp={payrollAction.count}>{payrollAction.count}</strong>
-                  <span>{payrollAction.count ? payrollAction.count === 1 ? 'employee needs setup' : 'employees need setup' : 'no records missing'}</span>
+                  <span>{t(payrollAction.count ? payrollAction.count === 1 ? 'employee needs setup' : 'employees need setup' : 'no records missing')}</span>
                 </div>
                 <a class="primary-link" href={payrollAction.href}>{t('Open Team')}</a>
               </article>
             {/if}
           </aside>
 
-          <section class="operations-stack" aria-label="Live monitor and coverage">
+          <section class="operations-stack" aria-label={t('Live monitor and coverage')}>
             {#if weatherLocation?.city}
-              <section class={`weather-brief is-${weatherImpact?.tone ?? 'loading'}`} aria-label={t('Restaurant weather')}>
+              <section class={`weather-brief is-${weatherImpact?.tone ?? 'loading'}`} aria-label={t('Restaurant weather')} data-tour="home-weather">
                 {#if weather}
                   <header class="weather-current">
                     <span class="weather-symbol" aria-hidden="true">{weatherSymbol(weather.code, weather.isDay)}</span>
@@ -683,7 +769,7 @@
                     onclick={() => toggleLiveExpand(key)}
                   >
                     <span class="live-row__person">
-                      <span class="avatar" style={employeeColor.get(row.employeeId) ? `--avatar-color:${employeeColor.get(row.employeeId)};` : undefined}>{row.name.slice(0, 2).toUpperCase()}</span>
+                      <span class="avatar" style={employeeColor.get(row.employeeId) ? `--avatar-color:${employeeColor.get(row.employeeId)};` : undefined}>{personInitials(row.name)}</span>
                       <span>
                         <strong>{row.name}</strong>
                         <small>{row.role}</small>
@@ -696,10 +782,10 @@
                         </span>
                       {/each}
                     </span>
-                    <em>{liveStateLabel(row)}</em>
+                    <em>{t(liveStateLabel(row))}</em>
                     {#if detailed}
                       <span class="live-row__stat">
-                        <span>{row.detail}</span>
+                        <span>{liveRowDetail(row)}</span>
                         {#if row.liveSince}<LiveDuration since={row.liveSince} />{/if}
                       </span>
                     {/if}
@@ -719,7 +805,7 @@
               </div>
             {/snippet}
 
-            <div class="live-command">
+            <div class="live-command" data-tour="home-floor">
               <div class="live-command__timeline">
                 <header>
                   <div>
@@ -728,16 +814,16 @@
                   </div>
                   <div class="live-command__tools">
                     <strong class="live-summary">
-                      {model.live.working} working &middot; {model.live.late} late &middot; {model.live.upcoming} upcoming
+                      {liveSummary()}
                     </strong>
-                    <button type="button" class="live-expand" onclick={() => (liveExpanded = true)} aria-label="Expand live monitor" title="Expand to full screen">⤢</button>
+                    <button type="button" class="live-expand" onclick={() => (liveExpanded = true)} aria-label={t('Expand live monitor')} title={t('Expand to full screen')}>⤢</button>
                   </div>
                 </header>
                 {@render liveTimeline(liveRows)}
               </div>
             </div>
 
-            <div class="coverage-map" aria-label="Coverage by work area">
+            <div class="coverage-map" aria-label={t('Coverage by work area')}>
               <header>
                 <div>
                   <span class="section-kicker">{t('Coverage floor')}</span>
@@ -745,6 +831,11 @@
                 </div>
                 <a href="/schedule">{t('Open Schedule')}</a>
               </header>
+              <p class="coverage-legend">
+                <span class="coverage-legend__dot is-worked"></span>{t('Worked')}
+                <span class="coverage-legend__dot is-missing"></span>{t('No show')}
+                <span class="coverage-legend__dot is-pending"></span>{t('Scheduled')}
+              </p>
               <div class="coverage-rooms">
                 {#each coverageRooms as room, roomIndex}
                   <a href="/schedule" class={`coverage-room is-${room.tone} rst-stagger-in`} style={`--rst-i:${roomIndex}`}>
@@ -759,16 +850,21 @@
                     {#each room.services as service}
                       <div class={`room-service is-${service.status}`}>
                         <span class="room-service__lead">
-                          <b class="room-service__icon">{service.icon}</b>
-                          <span class="room-service__count">{service.planned}/{service.required || service.planned}</span>
+                          <b class={`room-service__icon is-${service.serviceKey}`}>{service.icon}</b>
+                          <span class="room-service__count">{service.covered}/{service.required || service.people.length}</span>
                         </span>
                         <span class="room-service__slots">
                           {#each service.people.slice(0, 5) as person (person.id)}
                             <span
                               class="room-slot is-filled"
-                              style={employeeColor.get(person.id) ? `--avatar-color:${employeeColor.get(person.id)};` : undefined}
-                              title={person.name}
-                            >{person.name.slice(0, 2).toUpperCase()}</span>
+                              class:is-worked={person.worked}
+                              class:is-missing={person.missing}
+                              class:is-pending={person.pending}
+                              class:is-absent={person.absent}
+                              class:is-live={person.live}
+                              style={!person.missing && employeeColor.get(person.id) ? `--avatar-color:${employeeColor.get(person.id)};` : undefined}
+                              title={`${person.name}${person.missing ? ` — ${t('No badge')}` : ''}`}
+                            >{personInitials(person.name)}</span>
                           {/each}
                           {#if service.people.length > 5}
                             <span class="room-slot__more">+{service.people.length - 5}</span>
@@ -792,17 +888,17 @@
               </div>
             </div>
             {#if liveExpanded}
-              <div class="live-fullscreen" use:portal role="dialog" aria-modal="true" aria-label="Live floor monitor">
-                <button type="button" class="live-fullscreen__scrim" aria-label="Close live monitor" onclick={() => (liveExpanded = false)}></button>
+              <div class="live-fullscreen" use:portal role="dialog" aria-modal="true" aria-label={t('Live floor monitor')}>
+                <button type="button" class="live-fullscreen__scrim" aria-label={t('Close live monitor')} onclick={() => (liveExpanded = false)}></button>
                 <div class="live-fullscreen__panel">
                   <header>
                     <div>
-                      <span class="section-kicker">Live monitor · {serviceDateLabel}</span>
-                      <h2>{model.live.late ? 'Service pressure' : 'Floor movement'}</h2>
+                      <span class="section-kicker">{t('Live monitor')} · {serviceDateLabel}</span>
+                      <h2>{t(model.live.late ? 'Service pressure' : 'Floor movement')}</h2>
                     </div>
                     <div class="live-command__tools">
                       <strong class="live-summary">
-                        {model.live.working} working &middot; {model.live.late} late &middot; {model.live.upcoming} upcoming
+                        {liveSummary()}
                       </strong>
                       <button type="button" class="live-expand" onclick={() => (liveExpanded = false)} aria-label="Close" title="Close">✕</button>
                     </div>
@@ -822,8 +918,8 @@
     </PageScaffold>
   {:else}
     <div class="state">
-      <strong>No active workspace</strong>
-      <p>Your account is not linked to an active restaurant.</p>
+      <strong>{t('No active workspace')}</strong>
+      <p>{t('Your account is not linked to an active restaurant.')}</p>
     </div>
   {/if}
 </section>
@@ -848,7 +944,7 @@
     color: var(--rst-ui-action);
     font-size: 11px;
     font-weight: var(--rst-fw-display);
-    letter-spacing: 0.1em;
+    letter-spacing: 0;
     text-transform: uppercase;
   }
 
@@ -892,14 +988,14 @@
   .signal-orb strong {
     font-size: clamp(44px, 6vw, 70px);
     line-height: 0.9;
-    letter-spacing: -0.08em;
+    letter-spacing: 0;
   }
 
   .signal-orb span {
     color: #ffd9c8;
     font-size: 10px;
     font-weight: var(--rst-fw-display);
-    letter-spacing: 0.08em;
+    letter-spacing: 0;
     text-transform: uppercase;
   }
 
@@ -1033,7 +1129,7 @@
     margin: 0;
     font-size: clamp(22px, 2.4vw, 34px);
     line-height: 0.98;
-    letter-spacing: -0.055em;
+    letter-spacing: 0;
   }
 
   .payroll-setup p {
@@ -1053,7 +1149,7 @@
     color: var(--rst-ui-action);
     font-size: 44px;
     line-height: 0.9;
-    letter-spacing: -0.06em;
+    letter-spacing: 0;
   }
 
   .primary-link {
@@ -1524,7 +1620,7 @@
     color: rgba(255, 250, 242, 0.46);
     font-size: 11px;
     font-weight: var(--rst-fw-display);
-    letter-spacing: 0.06em;
+    letter-spacing: 0;
   }
 
   .axis-track {
@@ -1637,7 +1733,7 @@
     color: rgba(255, 250, 242, 0.7);
     font-size: 11.5px;
     font-weight: var(--rst-fw-regular);
-    letter-spacing: 0.01em;
+    letter-spacing: 0;
   }
 
   .live-row__stat :global(.live-duration) {
@@ -1882,7 +1978,7 @@
     white-space: nowrap;
     font-size: 13px;
     font-weight: var(--rst-fw-display);
-    letter-spacing: 0.04em;
+    letter-spacing: 0;
     text-transform: uppercase;
   }
 
@@ -1893,7 +1989,7 @@
     font-size: 10px;
     font-weight: var(--rst-fw-display);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0;
   }
 
   .coverage-room__flag.is-under {
@@ -1937,6 +2033,14 @@
     line-height: 1;
   }
 
+  .room-service__icon.is-lunch {
+    color: var(--rst-service-lunch);
+  }
+
+  .room-service__icon.is-evening {
+    color: var(--rst-service-evening);
+  }
+
   .room-service__slots {
     display: flex;
     flex-wrap: wrap;
@@ -1962,8 +2066,74 @@
     animation: rst-pop-in 0.35s var(--rst-ease-spring) backwards;
   }
 
+  /* worked = confirmed present today (badged): green ring around their avatar. */
+  .room-slot.is-worked {
+    box-shadow: 0 0 0 2px var(--rst-green), 0 2px 6px rgba(4, 11, 20, 0.28);
+  }
+
+  .room-slot.is-live {
+    box-shadow: 0 0 0 2px var(--rst-green);
+    animation: rst-room-pulse 1.7s ease-in-out infinite;
+  }
+
+  /* scheduled, service not over yet — dimmed, "expected but not confirmed". */
+  .room-slot.is-pending {
+    opacity: 0.5;
+    box-shadow: none;
+    border: 1.5px dashed rgba(255, 255, 255, 0.4);
+  }
+
+  .room-slot.is-absent {
+    opacity: 0.4;
+    filter: grayscale(0.6);
+    box-shadow: none;
+  }
+
+  /* no-show — scheduled, service past, never badged. Reads amber, not their tone. */
+  .room-slot.is-missing {
+    color: #3a2205;
+    background: rgba(240, 150, 35, 0.92);
+    box-shadow: none;
+    border: 0;
+  }
+
   .room-slot.is-empty {
     border: 1.5px dashed rgba(255, 255, 255, 0.3);
+  }
+
+  @keyframes rst-room-pulse {
+    0%, 100% { box-shadow: 0 0 0 2px var(--rst-green); }
+    50% { box-shadow: 0 0 0 4px rgba(64, 200, 120, 0.35); }
+  }
+
+  .coverage-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px 7px;
+    margin: 0 0 4px;
+    color: rgba(255, 250, 242, 0.7);
+    font-size: 10px;
+    font-weight: var(--rst-fw-bold);
+    text-transform: uppercase;
+    letter-spacing: 0;
+  }
+
+  .coverage-legend__dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+  }
+
+  .coverage-legend__dot:not(:first-child) {
+    margin-left: 7px;
+  }
+
+  .coverage-legend__dot.is-worked { background: var(--rst-green); }
+  .coverage-legend__dot.is-missing { background: rgba(240, 150, 35, 0.92); }
+  .coverage-legend__dot.is-pending {
+    background: transparent;
+    border: 1.5px dashed rgba(255, 255, 255, 0.45);
   }
 
   .room-slot__more {

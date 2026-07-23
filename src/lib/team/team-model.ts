@@ -6,6 +6,19 @@ import {
   workRegime,
   type WorkRegime
 } from '../domain/operations.ts';
+import type { Tables } from '../supabase/database.types.ts';
+import { cents, parseHourlyRate } from '../payroll-engine/money.ts';
+
+export type ContractDurationKind = 'indefinite' | 'fixed_term' | 'defined_work' | 'replacement';
+export type EmploymentPayrollRegime =
+  | 'ordinary'
+  | 'flexi'
+  | 'student'
+  | 'student_reduced'
+  | 'student_ordinary'
+  | 'horeca_occasional'
+  | 'interim'
+  | 'self_employed';
 
 export type EmployeeDraft = {
   id: string;
@@ -31,6 +44,7 @@ export type EmployeeDraft = {
   contractId: string;
   contractTypeId: string;
   workRegime: WorkRegime;
+  workerStatus: 'blue_collar' | 'white_collar' | '';
   recurringSlots: Array<{
     weekday: number;
     serviceKey: 'lunch' | 'evening';
@@ -40,6 +54,25 @@ export type EmployeeDraft = {
   weeklyContractHours: number;
   contractDays: number;
   annualLeaveEntitlementDays: number;
+  employmentTermsId: string;
+  employmentTermsVersion: number;
+  employmentValidFrom: string;
+  employmentValidTo: string;
+  contractDurationKind: ContractDurationKind;
+  employmentRegime: EmploymentPayrollRegime;
+  employmentVolume: 'full_time' | 'part_time';
+  weeklyHoursRegime: 'fixed' | 'variable_average';
+  legalScheduleType: 'fixed' | 'variable';
+  salaryBasis: 'hourly' | 'monthly' | '';
+  referenceFullTimeWeeklyMinutes: number;
+  referencePeriodWeeks: number;
+  cp302ReferenceFunctionCode: string;
+  cp302Category: number | '';
+  functionSeniorityDate: string;
+  companySeniorityDate: string;
+  contractualHourlyRate: string;
+  contractualMonthlySalary: string;
+  employmentSourceStatus: 'recorded' | 'complete' | 'migrated_unverified' | 'verified';
   payrollEmployeeId: string;
   iban: string;
   bic: string;
@@ -63,7 +96,29 @@ export type EmployeeDraft = {
   pinStatus: string;
 };
 
-export function employeeDrafts(snapshot: TeamReadModel): EmployeeDraft[] {
+function durationFromLegacy(code?: string): ContractDurationKind {
+  if (code === 'CDI') return 'indefinite';
+  if (code === 'FREELANCE') return 'defined_work';
+  return 'fixed_term';
+}
+
+function regimeFromLegacy(code?: string): EmploymentPayrollRegime {
+  if (code === 'FLEXI') return 'flexi';
+  if (code === 'STUDENT') return 'student';
+  if (code === 'EXTRA') return 'horeca_occasional';
+  if (code === 'FREELANCE') return 'self_employed';
+  return 'ordinary';
+}
+
+function euroInput(value: string | number | bigint | null | undefined): string {
+  const amount = cents(value);
+  return `${amount / 100n}.${String(amount % 100n).padStart(2, '0')}`;
+}
+
+export function employeeDrafts(
+  snapshot: TeamReadModel,
+  employmentTerms: Tables<'employee_employment_terms'>[] = []
+): EmployeeDraft[] {
   return snapshot.employees.map((employee) => {
     const contact = snapshot.employee_contact_details.find(
       (row) => row.employee_id === employee.id
@@ -92,6 +147,9 @@ export function employeeDrafts(snapshot: TeamReadModel): EmployeeDraft[] {
     const contractType = snapshot.contract_types.find(
       (row) => row.id === contract?.contract_type_id
     );
+    const terms = employmentTerms
+      .filter((row) => row.employee_id === employee.id && row.active)
+      .sort((left, right) => right.valid_from.localeCompare(left.valid_from))[0];
     const jobFunctionIds = (snapshot.employee_job_functions ?? [])
       .filter((row) => row.employee_id === employee.id && row.active)
       .sort((a, b) => Number(b.is_primary) - Number(a.is_primary))
@@ -121,6 +179,7 @@ export function employeeDrafts(snapshot: TeamReadModel): EmployeeDraft[] {
       contractId: contract?.id ?? '',
       contractTypeId: contract?.contract_type_id ?? '',
       workRegime: workRegime(contract?.work_regime, contractType?.code),
+      workerStatus: terms?.worker_status ?? contract?.worker_status ?? '',
       recurringSlots: (snapshot.recurring_schedule_slots ?? [])
         .filter((row) => row.employee_id === employee.id && row.active)
         .map((row) => ({
@@ -132,6 +191,42 @@ export function employeeDrafts(snapshot: TeamReadModel): EmployeeDraft[] {
       weeklyContractHours: contract?.weekly_contract_hours ?? 0,
       contractDays: contract?.contract_days ?? 0,
       annualLeaveEntitlementDays: contract?.annual_leave_entitlement_days ?? 0,
+      employmentTermsId: terms?.id ?? '',
+      employmentTermsVersion: terms?.version_number ?? 0,
+      employmentValidFrom: terms?.valid_from ?? contract?.contract_start ?? '',
+      employmentValidTo: terms?.valid_to ?? contract?.contract_end ?? '',
+      contractDurationKind: terms?.contract_duration_kind ?? durationFromLegacy(contractType?.code),
+      employmentRegime: terms?.employment_regime ?? regimeFromLegacy(contractType?.code),
+      employmentVolume:
+        terms?.employment_volume ?? ((contract?.weekly_contract_hours ?? 0) >= 38 ? 'full_time' : 'part_time'),
+      weeklyHoursRegime: terms?.weekly_hours_regime ?? 'fixed',
+      legalScheduleType:
+        terms?.legal_schedule_type ?? (contract?.work_regime === 'fixed_schedule' ? 'fixed' : 'variable'),
+      salaryBasis:
+        terms?.salary_basis === 'hourly' || terms?.salary_basis === 'monthly'
+          ? terms.salary_basis
+          : payroll?.hourly_wage_rate
+            ? 'hourly'
+            : '',
+      referenceFullTimeWeeklyMinutes: terms?.reference_full_time_weekly_minutes ?? 2280,
+      referencePeriodWeeks: terms?.reference_period_weeks ?? 1,
+      cp302ReferenceFunctionCode: terms?.cp302_reference_function_code ?? '',
+      cp302Category: terms?.cp302_category ?? '',
+      functionSeniorityDate: terms?.function_seniority_date ?? '',
+      companySeniorityDate: terms?.company_seniority_date ?? '',
+      contractualHourlyRate:
+        terms?.contractual_hourly_rate != null
+          ? String(terms.contractual_hourly_rate)
+          : payroll?.hourly_wage_rate
+            ? parseHourlyRate(String(payroll.hourly_wage_rate)) ?? ''
+            : '',
+      contractualMonthlySalary: euroInput(terms?.contractual_monthly_salary_cents),
+      employmentSourceStatus:
+        terms?.source_status === 'verified' ||
+        terms?.source_status === 'complete' ||
+        terms?.source_status === 'migrated_unverified'
+          ? terms.source_status
+          : 'recorded',
       payrollEmployeeId: payroll?.payroll_employee_id ?? '',
       iban: payroll?.iban ?? '',
       bic: payroll?.bic ?? '',
@@ -190,12 +285,32 @@ export function newEmployeeDraft(id: string): EmployeeDraft {
     contractId: '',
     contractTypeId: '',
     workRegime: 'weekly_availability',
+    workerStatus: '',
     recurringSlots: [],
     contractStart: '',
     contractEnd: '',
     weeklyContractHours: 0,
     contractDays: 0,
     annualLeaveEntitlementDays: 0,
+    employmentTermsId: '',
+    employmentTermsVersion: 0,
+    employmentValidFrom: '',
+    employmentValidTo: '',
+    contractDurationKind: 'fixed_term',
+    employmentRegime: 'ordinary',
+    employmentVolume: 'part_time',
+    weeklyHoursRegime: 'fixed',
+    legalScheduleType: 'variable',
+    salaryBasis: '',
+    referenceFullTimeWeeklyMinutes: 2280,
+    referencePeriodWeeks: 1,
+    cp302ReferenceFunctionCode: '',
+    cp302Category: '',
+    functionSeniorityDate: '',
+    companySeniorityDate: '',
+    contractualHourlyRate: '',
+    contractualMonthlySalary: '0.00',
+    employmentSourceStatus: 'recorded',
     payrollEmployeeId: '',
     iban: '',
     bic: '',
@@ -211,6 +326,28 @@ export function newEmployeeDraft(id: string): EmployeeDraft {
     invitationSentAt: '',
     badgeEnabled: true,
     pinStatus: 'not_set'
+  };
+}
+
+export function employmentTermsPayload(employee: EmployeeDraft) {
+  const monthly = employee.contractualMonthlySalary.trim().replace(',', '.');
+  const [whole = '0', fraction = ''] = monthly.split('.');
+  const monthlySalaryCents = /^\d+$/.test(whole) && /^\d{0,2}$/.test(fraction)
+    ? String(BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0') || '0'))
+    : null;
+  return {
+    contract_id: employee.contractId || null,
+    valid_from: employee.employmentValidFrom || employee.contractStart || null,
+    weekly_hours_regime: employee.weeklyHoursRegime,
+    salary_basis: employee.salaryBasis || null,
+    reference_period_weeks: employee.referencePeriodWeeks,
+    cp302_reference_function_code: employee.cp302ReferenceFunctionCode.trim() || null,
+    function_seniority_date: employee.functionSeniorityDate || null,
+    company_seniority_date: employee.companySeniorityDate || null,
+    contractual_hourly_rate: employee.contractualHourlyRate.trim().replace(',', '.') || null,
+    contractual_monthly_salary_cents: employee.salaryBasis === 'monthly' ? monthlySalaryCents : null,
+    annual_leave_entitlement_days: Math.max(0, employee.annualLeaveEntitlementDays),
+    source_notes: 'Recorded by the restaurant owner in Team.'
   };
 }
 
@@ -329,6 +466,7 @@ export function teamSavePayload(
         employee_id: employee.id,
         contract_type_id: nullable(employee.contractTypeId),
         work_regime: employee.workRegime,
+        worker_status: nullable(employee.workerStatus),
         contract_start: nullable(employee.contractStart),
         contract_end: nullable(employee.contractEnd),
         weekly_contract_hours: Math.max(0, Number(employee.weeklyContractHours) || 0),
@@ -375,12 +513,20 @@ export function teamSetupSteps(input: {
   activeEmployees: EmployeeDraft[];
   payrollReady: number;
   onSelect: () => void;
-}) {
+}): Array<{
+  label: string;
+  detail: string;
+  values?: Record<string, string | number>;
+  complete: boolean;
+  href: string;
+  onselect: () => void;
+}> {
   const { owner, activeEmployees, payrollReady, onSelect } = input;
-  return [
+  const sharedSteps = [
     {
       label: 'Active employees',
-      detail: activeEmployees.length ? `${activeEmployees.length} active` : 'Add the first employee',
+      detail: activeEmployees.length ? '{count} active' : 'Add the first employee',
+      values: activeEmployees.length ? { count: activeEmployees.length } : undefined,
       complete: activeEmployees.length > 0,
       href: '#staff-grid',
       onselect: onSelect
@@ -409,11 +555,15 @@ export function teamSetupSteps(input: {
       href: '#staff-grid',
       onselect: onSelect
     },
+  ];
+  if (!owner) return sharedSteps;
+  return [
+    ...sharedSteps,
     {
       label: 'Employment contracts',
-      detail: owner ? 'Contracts ready' : 'Owner only',
+      detail: 'Contracts ready',
       complete:
-        !owner ||
+        activeEmployees.length > 0 &&
         activeEmployees.every(
           (employee) => employee.contractTypeId && employee.contractStart
         ),
@@ -422,10 +572,10 @@ export function teamSetupSteps(input: {
     },
     {
       label: 'Payroll readiness',
-      detail: owner ? `${payrollReady}/${activeEmployees.length} ready` : 'Owner only',
+      detail: '{ready}/{total} ready',
+      values: { ready: payrollReady, total: activeEmployees.length },
       complete:
-        !owner ||
-        (activeEmployees.length > 0 && payrollReady === activeEmployees.length),
+        activeEmployees.length > 0 && payrollReady === activeEmployees.length,
       href: '#staff-grid',
       onselect: onSelect
     }

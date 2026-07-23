@@ -37,7 +37,7 @@ $routine_lint_contract$;
 do $phase4_schema$
 begin
   if to_regprocedure(
-    'public.save_manager_planning(uuid,date,text,jsonb,jsonb,bigint,text,boolean)'
+    'public.save_manager_planning(uuid,date,text,jsonb,jsonb,bigint,text,boolean,boolean)'
   ) is null then
     raise exception 'Revision-backed Planning RPC is missing';
   end if;

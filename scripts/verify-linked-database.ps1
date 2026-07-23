@@ -23,8 +23,11 @@ $workflowContracts = @(
   'availability_lifecycle_contract.sql',
   'focused_read_models_contract.sql',
   'payroll_export_contract.sql',
+  'payroll_engine_contract.sql',
+  'employment_derivation_contract.sql',
   'model_integrity_contract.sql',
-  'notification_payroll_contract.sql'
+  'notification_payroll_contract.sql',
+  'push_notification_contract.sql'
 )
 foreach ($contract in $workflowContracts) {
   Invoke-Supabase db query --linked --file "supabase/tests/$contract"

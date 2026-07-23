@@ -13,6 +13,7 @@ $secretNames = @(
   'SUPABASE_DB_PASSWORD', 'SUPABASE_URL', 'SUPABASE_ANON_KEY',
   'SUPABASE_SERVICE_ROLE_KEY', 'FIXTURE_PASSWORD', 'FIXTURE_RESTAURANT_ID',
   'FIXTURE_PROJECT_NAME', 'ACCEPTANCE_PROJECT_NAME', 'APP_ORIGIN',
+  'PUSH_DISPATCH_SECRET', 'VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY', 'VAPID_SUBJECT',
   'ALLOW_DESTRUCTIVE_DATABASE_BOOTSTRAP', 'ALLOW_DESTRUCTIVE_FIXTURES',
   'ALLOW_HOSTED_ACCEPTANCE'
 )
@@ -85,16 +86,26 @@ try {
   $env:FIXTURE_PROJECT_NAME = $projectName
   $env:ALLOW_DESTRUCTIVE_FIXTURES = 'YES'
   Write-Host 'Creating disposable managed-Auth role fixtures...'
-  $fixtureOutput = (& npx deno-bin run --allow-env --allow-net `
+  $fixtureOutput = (& npx --no-install deno run --allow-env --allow-net `
     supabase/seed/create-role-fixtures.ts | Out-String)
   if ($LASTEXITCODE -ne 0) { throw 'Role fixture creation failed.' }
   $fixtureJson = [regex]::Match($fixtureOutput, '\{[\s\S]*\}').Value | ConvertFrom-Json
   if (-not $fixtureJson.restaurantId) { throw 'Fixture creation returned no restaurant id.' }
 
   Write-Host 'Configuring and deploying disposable Edge Functions...'
-  Invoke-Supabase secrets set --project-ref $projectRef "APP_ORIGIN=$AppOrigin" | Out-Null
+  $pushKeys = (& node scripts/generate-web-push-keys.mjs | Out-String) | ConvertFrom-Json
+  $env:PUSH_DISPATCH_SECRET = $pushKeys.dispatchSecret
+  $env:VAPID_PUBLIC_KEY = $pushKeys.publicKey
+  $env:VAPID_PRIVATE_KEY = $pushKeys.privateKey
+  $env:VAPID_SUBJECT = 'mailto:acceptance@restogogo.invalid'
+  Invoke-Supabase secrets set --project-ref $projectRef `
+    "APP_ORIGIN=$AppOrigin" `
+    "PUSH_DISPATCH_SECRET=$($env:PUSH_DISPATCH_SECRET)" `
+    "VAPID_PUBLIC_KEY=$($env:VAPID_PUBLIC_KEY)" `
+    "VAPID_PRIVATE_KEY=$($env:VAPID_PRIVATE_KEY)" `
+    "VAPID_SUBJECT=$($env:VAPID_SUBJECT)" | Out-Null
   Invoke-Supabase functions deploy send-employee-invitation upload-badge-proof `
-    get-badge-proof --project-ref $projectRef --use-api | Out-Null
+    get-badge-proof dispatch-push --project-ref $projectRef --use-api | Out-Null
 
   $env:FIXTURE_RESTAURANT_ID = $fixtureJson.restaurantId
   $env:APP_ORIGIN = $AppOrigin

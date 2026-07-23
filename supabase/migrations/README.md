@@ -13,7 +13,7 @@ Every migration must:
    contract;
 5. be deployed to development before generated TypeScript types are refreshed.
 
-The ordered chain currently ends at
-`202607120020_preserve_elapsed_availability.sql`. Apply every unapplied
-file in order; never rerun an already recorded migration or skip directly to a
-later contract.
+The ordered chain ends at the highest timestamped `.sql` file in this
+directory. Apply every unapplied file in order; never rerun an already recorded
+migration or skip directly to a later contract. The baseline cutoff is a
+separate, intentional marker documented in `supabase/baseline/README.md`.

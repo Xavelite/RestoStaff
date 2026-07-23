@@ -2,6 +2,7 @@
   import type { Snippet } from 'svelte';
   import ActionButton from '$lib/components/ActionButton.svelte';
   import Dialog from '$lib/components/Dialog.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
 
   type Field = { key: string; label: string };
   type Preview = {
@@ -77,9 +78,9 @@
 </script>
 
 {#snippet footer()}
-  <ActionButton label="Cancel" disabled={exporting} onclick={onclose} />
+  <ActionButton label={t('Cancel')} disabled={exporting} onclick={onclose} />
   <ActionButton
-    label={exporting ? 'Exporting…' : exportLabel}
+    label={exporting ? t('Exporting…') : t(exportLabel)}
     tone="primary"
     disabled={exporting || !columns.length}
     onclick={onexport}
@@ -93,34 +94,39 @@
         <div class="export__preview" aria-live="polite">
           <header>
             <div>
-              <span class="export__eyebrow">Spreadsheet preview</span>
-              <strong>This is what will be exported</strong>
+              <span class="export__eyebrow">{t('Spreadsheet preview')}</span>
+              <strong>{t('This is what will be exported')}</strong>
               <small>
                 {#if preview.loading}
-                  Preparing the export preview…
+                  {t('Preparing the export preview…')}
                 {:else if preview.error}
-                  Preview unavailable
+                  {t('Preview unavailable')}
                 {:else}
-                  Showing {previewRows.length} of {previewCount} rows in the selected column order.
+                  {t(
+                    previewCount === 1
+                      ? 'Showing {shown} of {total} row in the selected column order.'
+                      : 'Showing {shown} of {total} rows in the selected column order.',
+                    { shown: previewRows.length, total: previewCount }
+                  )}
                 {/if}
               </small>
             </div>
-            {#if preview.note}<span>{preview.note}</span>{/if}
+            {#if preview.note}<span>{t(preview.note)}</span>{/if}
           </header>
 
           {#if preview.error}
-            <p class="export__preview-error">{preview.error}</p>
+            <p class="export__preview-error">{t(preview.error)}</p>
           {:else if preview.loading}
             <div class="export__preview-state">
               <span class="spinner" aria-hidden="true"></span>
-              <p>Preparing preview…</p>
+              <p>{t('Preparing preview…')}</p>
             </div>
           {:else}
-            <div class="export__sheet" role="region" aria-label="Export spreadsheet preview">
+            <div class="export__sheet" role="region" aria-label={t('Export spreadsheet preview')}>
               <table>
                 <thead>
                   <tr>
-                    <th aria-label="Row number"></th>
+                    <th aria-label={t('Row number')}></th>
                     {#each previewHeaders as header, index (`${index}-${header}`)}
                       <th>{header}</th>
                     {/each}
@@ -137,7 +143,7 @@
                   {:else}
                     <tr>
                       <th>1</th>
-                      <td colspan={Math.max(previewHeaders.length, 1)}>No rows match this export period yet.</td>
+                      <td colspan={Math.max(previewHeaders.length, 1)}>{t('No rows match this export period yet.')}</td>
                     </tr>
                   {/each}
                 </tbody>
@@ -149,33 +155,33 @@
 
       <div class="export__setup">
         <div class="export__setup-title">
-          <span class="export__eyebrow">Export setup</span>
-          <strong>Choose the file shape</strong>
-          <small>Change columns here and the preview updates to match.</small>
+          <span class="export__eyebrow">{t('Export setup')}</span>
+          <strong>{t('Choose the file shape')}</strong>
+          <small>{t('Change columns here and the preview updates to match.')}</small>
         </div>
 
         <div class="export__format">
-          <span class="export__format-tag">Format</span>
-          <strong>{formatLabel}</strong>
-          {#if status}<span class="export__status export__status--{status.tone}">{status.text}</span>{/if}
+          <span class="export__format-tag">{t('Format')}</span>
+          <strong>{t(formatLabel)}</strong>
+          {#if status}<span class="export__status export__status--{status.tone}">{t(status.text)}</span>{/if}
         </div>
 
         {#if controls}<div class="export__controls">{@render controls()}</div>{/if}
 
         <div class="export__columns">
           <header>
-            <strong>Columns</strong>
-            <small>Order left to right is the column order in the file.</small>
+            <strong>{t('Columns')}</strong>
+            <small>{t('Order left to right is the column order in the file.')}</small>
           </header>
           <div class="col-chips">
             {#each columns as column, index (column)}
               <div class="col-chip">
                 <span class="col-chip__n">{index + 1}</span>
-                <span class="col-chip__label">{fieldLabel(column)}</span>
+                <span class="col-chip__label">{t(fieldLabel(column))}</span>
                 <div class="col-chip__actions">
-                  <button type="button" aria-label="Move left" disabled={index === 0 || exporting} onclick={() => move(index, -1)}>‹</button>
-                  <button type="button" aria-label="Move right" disabled={index === columns.length - 1 || exporting} onclick={() => move(index, 1)}>›</button>
-                  <button type="button" class="col-chip__remove" aria-label="Remove column" disabled={columns.length <= 1 || exporting} onclick={() => remove(column)}>×</button>
+                  <button type="button" aria-label={t('Move left')} disabled={index === 0 || exporting} onclick={() => move(index, -1)}>‹</button>
+                  <button type="button" aria-label={t('Move right')} disabled={index === columns.length - 1 || exporting} onclick={() => move(index, 1)}>›</button>
+                  <button type="button" class="col-chip__remove" aria-label={t('Remove column')} disabled={columns.length <= 1 || exporting} onclick={() => remove(column)}>×</button>
                 </div>
               </div>
             {/each}
@@ -186,17 +192,17 @@
                 disabled={exporting}
                 onchange={(event) => { add(event.currentTarget.value); event.currentTarget.value = ''; }}
               >
-                <option value="">Add a column…</option>
+                <option value="">{t('Add a column…')}</option>
                 {#each available as field (field.key)}
-                  <option value={field.key}>{field.label}</option>
+                  <option value={field.key}>{t(field.label)}</option>
                 {/each}
               </select>
             {:else}
-              <small>All available columns are in use.</small>
+              <small>{t('All available columns are in use.')}</small>
             {/if}
             {#if canSaveDefault && onsavedefault}
               <ActionButton
-                label={savingDefault ? 'Saving…' : 'Save as default'}
+                label={savingDefault ? t('Saving…') : t('Save as default')}
                 disabled={savingDefault || exporting}
                 onclick={onsavedefault}
               />
@@ -223,7 +229,7 @@
   .export__eyebrow { color: var(--rst-ui-muted); font-size: 11px; }
   .export__eyebrow {
     font-weight: var(--rst-fw-bold);
-    letter-spacing: 0.06em;
+    letter-spacing: 0;
     text-transform: uppercase;
   }
 
@@ -242,7 +248,7 @@
     font-size: 10px;
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0;
   }
 
   .export__format strong { font-size: 14px; }
@@ -253,7 +259,7 @@
     font-size: 10px;
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0;
   }
   .export__status--success { color: var(--rst-ui-text); background: var(--rst-tone-success-soft, rgba(45, 160, 100, 0.18)); }
   .export__status--warning { color: var(--rst-ui-text); background: var(--rst-tone-warning-soft, rgba(210, 150, 40, 0.20)); }
@@ -380,7 +386,7 @@
     font-size: 10px;
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0;
   }
   .export__sheet {
     max-height: 460px;
@@ -407,7 +413,7 @@
     font-size: 10px;
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0;
   }
   tbody th {
     position: sticky;

@@ -6,13 +6,23 @@ export type WorkspaceRealtimeEvent =
   | 'actuals-updated'
   | 'team-updated'
   | 'restaurant-updated'
-  | 'notification-refresh';
+  | 'notification-refresh'
+  | 'communications-updated';
 
 export type WorkspaceRealtimeEnvelope = {
   restaurantId: string;
   revision?: number | null;
-  source: 'planning' | 'actuals' | 'team' | 'restaurant' | 'badge' | 'system';
+  source: 'planning' | 'actuals' | 'team' | 'restaurant' | 'badge' | 'system' | 'communications';
 };
+
+const WORKSPACE_EVENTS = new Set<WorkspaceRealtimeEvent>([
+  'planning-saved',
+  'actuals-updated',
+  'team-updated',
+  'restaurant-updated',
+  'notification-refresh',
+  'communications-updated'
+]);
 
 class WorkspaceRealtime {
   connected = $state(false);
@@ -30,22 +40,24 @@ class WorkspaceRealtime {
     if (this.#restaurantId === restaurantId && this.#channel) return;
     this.disconnect();
     this.#restaurantId = restaurantId;
-    const channel = supabase.channel(`workspace:${restaurantId}`, {
-      config: { private: true, broadcast: { self: false } }
-    });
-    const events: WorkspaceRealtimeEvent[] = [
-      'planning-saved',
-      'actuals-updated',
-      'team-updated',
-      'restaurant-updated',
-      'notification-refresh'
-    ];
-    for (const event of events) {
-      channel.on('broadcast', { event }, () => {
-        this.#record(event);
-        onEvent(event);
-      });
-    }
+    const channel = supabase.channel(`workspace-db:${restaurantId}`);
+    channel.on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'workspace_realtime_events',
+        filter: `restaurant_id=eq.${restaurantId}`
+      },
+      (payload) => {
+        const event = (payload.new as { event?: string } | null)?.event;
+        if (event && WORKSPACE_EVENTS.has(event as WorkspaceRealtimeEvent)) {
+          const workspaceEvent = event as WorkspaceRealtimeEvent;
+          this.#record(workspaceEvent);
+          onEvent(workspaceEvent);
+        }
+      }
+    );
     channel.subscribe((status) => {
       this.connected = status === 'SUBSCRIBED';
     });
@@ -57,15 +69,21 @@ class WorkspaceRealtime {
     payload: WorkspaceRealtimeEnvelope
   ): Promise<void> {
     if (payload.restaurantId !== this.#restaurantId) return;
-    // The channel excludes self-broadcasts. Record local mutations explicitly
-    // so the current session refreshes notification truth as well.
-    this.#record(event);
-    if (!this.#channel || !this.connected) return;
-    await this.#channel.send({
-      type: 'broadcast',
-      event,
-      payload
+    if (!this.#channel || !this.connected) {
+      this.#record(event);
+      return;
+    }
+    const { error } = await supabase.rpc('publish_workspace_realtime_event', {
+      p_restaurant_id: payload.restaurantId,
+      p_event: event,
+      p_source: payload.source
     });
+    if (error) {
+      // Realtime refreshes are advisory and must not turn a completed mutation
+      // into a visible failure. Keep this session fresh even if signaling fails.
+      this.#record(event);
+      console.warn('Workspace Realtime signal failed', error.message);
+    }
   }
 
   disconnect(): void {

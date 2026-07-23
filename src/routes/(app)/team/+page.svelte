@@ -12,23 +12,35 @@
   import PageHero from '$lib/components/PageHero.svelte';
   import Drawer from '$lib/components/Drawer.svelte';
   import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
-  import LeaveBalanceSummary from '$lib/components/LeaveBalanceSummary.svelte';
+  import LeaveBalanceSummary from '$lib/team/LeaveBalanceSummary.svelte';
   import Panel from '$lib/components/Panel.svelte';
-  import type { SetupStep } from '$lib/components/SetupGuide.svelte';
   import SaveActions from '$lib/components/SaveActions.svelte';
-  import { addDays, todayInTimezone, WEEKDAYS } from '$lib/calendar/date';
-  import { contractRequiresFixedSchedule, defaultWorkRegime } from '$lib/domain/operations';
+  import { addDays, serviceLabel, todayInTimezone, WEEKDAYS } from '$lib/calendar/date';
+  import { defaultWorkRegime } from '$lib/domain/operations';
   import {
     employeeDrafts,
+    employmentTermsPayload,
     newEmployeeDraft,
     teamSetupSteps,
     teamSavePayload,
     type EmployeeDraft
   } from '$lib/team/team-model';
+  import {
+    getEmployeeEmploymentTerms,
+    getPayrollCatalogue,
+    saveEmployeeEmploymentTerms,
+    validateEmployeeEmploymentTerms
+  } from '$lib/payroll/payroll-api';
+  import type { PayrollCatalogue } from '$lib/payroll/payroll-model';
+  import EmployeePayrollDetails from '$lib/payroll/EmployeePayrollDetails.svelte';
+  import { amountForMinutes, formatCents, parseHourlyRate } from '$lib/payroll-engine/money';
+  import type { Tables } from '$lib/supabase/database.types';
   import TeamAccessPanel from '$lib/team/TeamAccessPanel.svelte';
+  import { confirmAction } from '$lib/ui/confirm.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { workspaceRealtime } from '$lib/realtime/workspace-realtime.svelte';
-  import { t } from '$lib/i18n/i18n.svelte';
+  import { i18n, t } from '$lib/i18n/i18n.svelte';
+  import { personInitials } from '$lib/ui/person';
 
   const tabs = ['General', 'Access', 'Contract', 'Payroll', 'Absences'] as const;
   type Tab = (typeof tabs)[number];
@@ -59,6 +71,12 @@
   let expandedContractId = $state('');
   let expandedAbsenceId = $state('');
   let revealPayroll = $state(false);
+  let employmentTerms = $state<Tables<'employee_employment_terms'>[]>([]);
+  let employmentTermsLoading = $state(false);
+  let employmentTermsRestaurantId = $state('');
+  let employmentTermsError = $state('');
+  let payrollCatalogue = $state<PayrollCatalogue | null>(null);
+  let cp302Search = $state('');
 
   $effect(() => {
     if (workspace.activeId && role !== 'employee') {
@@ -66,12 +84,52 @@
     }
   });
 
+  $effect(() => {
+    if (!workspace.activeId || !owner || employmentTermsLoading || employmentTermsRestaurantId === workspace.activeId) return;
+    const restaurantId = workspace.activeId;
+    employmentTermsRestaurantId = restaurantId;
+    employmentTermsLoading = true;
+    employmentTermsError = '';
+    void Promise.all([
+      getEmployeeEmploymentTerms(restaurantId),
+      getPayrollCatalogue(restaurantId)
+    ])
+      .then(([rows, catalogue]) => {
+        employmentTerms = rows;
+        payrollCatalogue = catalogue;
+      })
+      .catch((error) => {
+        employmentTerms = [];
+        payrollCatalogue = null;
+        employmentTermsError = error instanceof Error ? error.message : String(error);
+        feedback = employmentTermsError;
+        feedbackTone = 'danger';
+      })
+      .finally(() => (employmentTermsLoading = false));
+  });
+
   const selected = $derived(drafts.find((employee) => employee.id === selectedId) ?? null);
-  const selectedContractCode = $derived(
+  const selectedContractTypeCode = $derived(
     snapshot?.contract_types.find((item) => item.id === selected?.contractTypeId)?.code ?? ''
   );
-  const selectedRequiresFixedSchedule = $derived(
-    contractRequiresFixedSchedule(selectedContractCode)
+  const selectedReferenceFunction = $derived(
+    payrollCatalogue?.referenceFunctions.find(
+      (item) => item.code === selected?.cp302ReferenceFunctionCode
+    ) ?? null
+  );
+  const referenceFunctionOptions = $derived(
+    (payrollCatalogue?.referenceFunctions ?? [])
+      .filter((item) => item.status === 'effective' || item.status === 'verified')
+      .sort((left, right) =>
+        referenceFunctionLabel(left).localeCompare(referenceFunctionLabel(right), i18n.intlLocale)
+      )
+  );
+  const scheduleRegimeHint = $derived(
+    selected?.workRegime === 'fixed_schedule'
+      ? 'Their recurring contract shifts are the Schedule baseline.'
+      : selected?.workRegime === 'manager_only'
+        ? 'You place every shift. They are never asked for availability.'
+        : 'They tell you each week when they can work.'
   );
   const selectedAccessRole = $derived(
     selected?.accessRole || selected?.invitationRole || 'employee'
@@ -100,6 +158,9 @@
     if (owner && employee.active && (!employee.contractTypeId || !employee.contractStart)) {
       issues.push({ label: 'Contract missing', tab: 'Contract', tone: 'warning' });
     }
+    if (owner && employee.active && employee.contractTypeId && !employee.cp302ReferenceFunctionCode) {
+      issues.push({ label: 'CP 302 function missing', tab: 'Payroll', tone: 'warning' });
+    }
     if (
       owner &&
       employee.active &&
@@ -112,10 +173,6 @@
 
   function employeeIssueCount(employee: EmployeeDraft): number {
     return employeeIssues(employee).length;
-  }
-
-  function initialsOf(name: string) {
-    return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
   }
 
   function positionLabel(employee: EmployeeDraft) {
@@ -157,9 +214,13 @@
       ? leaveBalanceForEmployee(snapshot, selected.id, today)
       : { entitlement: 0, approved: 0, pending: 0, remaining: 0 };
   });
-  const estimatedWeeklyCost = $derived(
-    selected ? (selected.hourlyWageRate || 0) * (selected.weeklyContractHours || 0) : 0
-  );
+  const estimatedWeeklyCostCents = $derived.by(() => {
+    if (!selected) return 0n;
+    const rate = parseHourlyRate(String(selected.estimatedHourlyCost || 0));
+    return rate
+      ? amountForMinutes(Math.round((selected.weeklyContractHours || 0) * 60), BigInt(rate.replace('.', '')))
+      : 0n;
+  });
   const payrollReady = $derived(
     activeEmployees.filter((employee) => {
       const payroll = snapshot?.employee_payroll_profiles.find(
@@ -186,35 +247,30 @@
   const contractReady = $derived(
     activeEmployees.filter((employee) => employee.contractTypeId && employee.contractStart).length
   );
+  const assignmentReady = $derived(
+    activeEmployees.filter((employee) => employee.jobFunctionIds.length > 0).length
+  );
   const openIssueCount = $derived(
     issueEmployees.reduce((total, employee) => total + employeeIssueCount(employee), 0)
   );
-  const readinessCards = $derived([
-    {
-      label: 'Access',
-      value: `${accessReady}/${activeEmployees.length}`,
-      complete: activeEmployees.length > 0 && accessReady === activeEmployees.length,
-      tab: 'Access' as Tab
-    },
-    {
-      label: 'Contracts',
-      value: owner ? `${contractReady}/${activeEmployees.length}` : 'Owner',
-      complete: !owner || (activeEmployees.length > 0 && contractReady === activeEmployees.length),
-      tab: 'Contract' as Tab
-    },
-    {
-      label: 'Payroll',
-      value: owner ? `${payrollReady}/${activeEmployees.length}` : 'Owner',
-      complete: !owner || (activeEmployees.length > 0 && payrollReady === activeEmployees.length),
-      tab: 'Payroll' as Tab
-    }
-  ]);
+  const readinessCards = $derived(owner
+    ? [
+        { label: t('Access'), value: `${accessReady}/${activeEmployees.length}`, complete: activeEmployees.length > 0 && accessReady === activeEmployees.length },
+        { label: t('Contracts'), value: `${contractReady}/${activeEmployees.length}`, complete: activeEmployees.length > 0 && contractReady === activeEmployees.length },
+        { label: t('Payroll'), value: `${payrollReady}/${activeEmployees.length}`, complete: activeEmployees.length > 0 && payrollReady === activeEmployees.length }
+      ]
+    : [
+        { label: t('Access'), value: `${accessReady}/${activeEmployees.length}`, complete: activeEmployees.length > 0 && accessReady === activeEmployees.length },
+        { label: t('Positions'), value: `${assignmentReady}/${activeEmployees.length}`, complete: activeEmployees.length > 0 && assignmentReady === activeEmployees.length },
+        { label: t('Active team'), value: activeEmployees.length, complete: activeEmployees.length > 0 }
+      ]
+  );
   const tabItems = $derived<Array<{ id: Tab; label: Tab }>>(
     tabs
       .filter((item) => owner || !['Contract', 'Payroll'].includes(item))
       .map((item) => ({ id: item, label: item }))
   );
-  const setupSteps = $derived<SetupStep[]>(
+  const setupSteps = $derived(
     teamSetupSteps({
       owner,
       activeEmployees,
@@ -235,10 +291,13 @@
         .join('|'),
       snapshot.employee_invitation_states
         .map((item) => `${item.id}:${item.status}:${item.sent_at}`)
+        .join('|'),
+      employmentTerms
+        .map((item) => `${item.id}:${item.version_number}:${item.active}:${item.source_status}`)
         .join('|')
     ].join('::');
     if (key === loadedSnapshot) return;
-    drafts = employeeDrafts(snapshot);
+    drafts = employeeDrafts(snapshot, employmentTerms);
     baseline = JSON.stringify(drafts);
     loadedSnapshot = key;
   });
@@ -253,7 +312,40 @@
     expandedContractId = '';
     expandedAbsenceId = '';
     revealPayroll = false;
+    cp302Search = selected.cp302ReferenceFunctionCode
+      ? referenceFunctionLabel(
+          payrollCatalogue?.referenceFunctions.find(
+            (item) => item.code === selected.cp302ReferenceFunctionCode
+          )
+        )
+      : '';
   });
+
+  function referenceFunctionLabel(
+    item: PayrollCatalogue['referenceFunctions'][number] | undefined
+  ): string {
+    if (!item) return '';
+    const name = i18n.locale === 'fr'
+      ? item.name_fr
+      : i18n.locale === 'nl'
+        ? item.name_nl
+        : item.name_en || item.name_fr;
+    return `${item.code} · ${name}`;
+  }
+
+  function selectReferenceFunction(value: string) {
+    const match = referenceFunctionOptions.find(
+      (item) => referenceFunctionLabel(item) === value || item.code === value.trim()
+    );
+    cp302Search = value;
+    if (!match) return;
+    cp302Search = referenceFunctionLabel(match);
+    mutate({
+      cp302ReferenceFunctionCode: match.code,
+      cp302Category: match.category,
+      workerStatus: match.default_worker_status ?? ''
+    });
+  }
 
   function toggleContractExpand(contractId: string) {
     expandedContractId = expandedContractId === contractId ? '' : contractId;
@@ -274,22 +366,9 @@
     document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  function contractCodeFor(contractTypeId: string) {
-    return snapshot?.contract_types.find((item) => item.id === contractTypeId)?.code ?? '';
-  }
-
-  function normalizeContractScheduling(employee: EmployeeDraft): EmployeeDraft {
-    if (!contractRequiresFixedSchedule(contractCodeFor(employee.contractTypeId))) {
-      return employee;
-    }
-    return { ...employee, workRegime: 'fixed_schedule' };
-  }
-
   function mutate(changes: Partial<EmployeeDraft>) {
     drafts = drafts.map((employee) =>
-      employee.id === selectedId
-        ? normalizeContractScheduling({ ...employee, ...changes })
-        : employee
+      employee.id === selectedId ? { ...employee, ...changes } : employee
     );
   }
 
@@ -337,13 +416,20 @@
 
   function cancelChanges() {
     if (!snapshot) return;
-    drafts = employeeDrafts(snapshot);
+    drafts = employeeDrafts(snapshot, employmentTerms);
     baseline = JSON.stringify(drafts);
     feedback = '';
   }
 
   async function persistTeam() {
     if (!snapshot || !workspace.activeId || saving) return;
+    if (owner && (employmentTermsLoading || employmentTermsError)) {
+      feedback = employmentTermsLoading
+        ? 'Employment terms are still loading.'
+        : 'Employment terms could not be loaded. Reload Team before saving.';
+      feedbackTone = 'danger';
+      return;
+    }
     if (drafts.some((employee) => !employee.displayName.trim())) {
       feedback = 'Every employee needs a display name.';
       feedbackTone = 'danger';
@@ -352,18 +438,129 @@
     saving = true;
     feedback = '';
     try {
+      const termUpdates = owner
+        ? drafts.filter((employee) => employmentTermsChanged(employee))
+        : [];
       await saveTeam(
         workspace.activeId,
         teamSavePayload(workspace.activeId, drafts, role)
       );
       await workspace.loadTeam(true);
+      const refreshedDrafts = workspace.team
+        ? employeeDrafts(workspace.team, employmentTerms)
+        : [];
+      for (const employee of termUpdates) {
+        const refreshed = refreshedDrafts.find((item) => item.id === employee.id);
+        if (!refreshed) {
+          throw new Error(`Saved employee ${employee.displayName} could not be reloaded.`);
+        }
+        await saveEmployeeEmploymentTerms({
+          restaurantId: workspace.activeId,
+          employeeId: employee.id,
+          terms: employmentTermsPayload({
+            ...refreshed,
+            employmentValidFrom: employee.employmentValidFrom,
+            weeklyHoursRegime: employee.weeklyHoursRegime,
+            referencePeriodWeeks: employee.referencePeriodWeeks,
+            salaryBasis: employee.salaryBasis,
+            cp302ReferenceFunctionCode: employee.cp302ReferenceFunctionCode,
+            functionSeniorityDate: employee.functionSeniorityDate,
+            companySeniorityDate: employee.companySeniorityDate,
+            contractualHourlyRate: employee.contractualHourlyRate,
+            contractualMonthlySalary: employee.contractualMonthlySalary,
+            annualLeaveEntitlementDays: employee.annualLeaveEntitlementDays
+          })
+        });
+      }
+      if (owner) {
+        employmentTerms = await getEmployeeEmploymentTerms(workspace.activeId);
+      }
+      await workspace.loadTeam(true);
       await workspaceRealtime.publish('team-updated', {
         restaurantId: workspace.activeId,
         source: 'team'
       });
-      if (workspace.team) baseline = JSON.stringify(employeeDrafts(workspace.team));
+      if (workspace.team) baseline = JSON.stringify(employeeDrafts(workspace.team, employmentTerms));
       feedback = 'Team saved.';
       feedbackTone = 'success';
+    } catch (error) {
+      feedback = error instanceof Error ? error.message : String(error);
+      feedbackTone = 'danger';
+    } finally {
+      saving = false;
+    }
+  }
+
+  function employmentTermsChanged(employee: EmployeeDraft): boolean {
+    const payload = employmentTermsPayload(employee);
+    if (!payload.valid_from) return false;
+    const current = employmentTerms
+      .filter((item) => item.employee_id === employee.id && item.active)
+      .sort((left, right) => right.valid_from.localeCompare(left.valid_from))[0];
+    if (!current) return true;
+    const employmentTypeCode = snapshot?.contract_types.find(
+      (item) => item.id === employee.contractTypeId
+    )?.code ?? 'CUSTOM';
+    const expectedValidTo = employmentTypeCode === 'CDI' ? null : employee.contractEnd || null;
+    return [
+      [current.contract_id, employee.contractId],
+      [current.employment_type_code, employmentTypeCode],
+      [current.valid_from, payload.valid_from],
+      [current.valid_to, expectedValidTo],
+      [current.weekly_hours_regime, payload.weekly_hours_regime],
+      [current.scheduling_policy, employee.workRegime],
+      [current.salary_basis, payload.salary_basis],
+      [current.contract_weekly_minutes, Math.round(employee.weeklyContractHours * 60)],
+      [current.reference_period_weeks, payload.reference_period_weeks],
+      [current.cp302_reference_function_code, payload.cp302_reference_function_code],
+      [current.function_seniority_date, payload.function_seniority_date],
+      [current.company_seniority_date, payload.company_seniority_date],
+      [
+        current.contractual_hourly_rate == null ? '' : parseHourlyRate(String(current.contractual_hourly_rate)),
+        payload.contractual_hourly_rate == null ? '' : parseHourlyRate(String(payload.contractual_hourly_rate))
+      ],
+      [String(current.contractual_monthly_salary_cents ?? ''), String(payload.contractual_monthly_salary_cents ?? '')],
+      [String(current.annual_leave_entitlement_days), String(payload.annual_leave_entitlement_days)]
+    ].some(([left, right]) => String(left ?? '') !== String(right ?? ''));
+  }
+
+  async function validateSelectedEmployment() {
+    if (!workspace.activeId || !selected || saving) return;
+    if (dirty) {
+      feedback = 'Save Team before validating this setup.';
+      feedbackTone = 'warning';
+      return;
+    }
+    const current = employmentTerms
+      .filter((item) => item.employee_id === selected.id && item.active)
+      .sort((left, right) => right.valid_from.localeCompare(left.valid_from))[0];
+    if (!current) {
+      feedback = 'Record employment and salary terms before validation.';
+      feedbackTone = 'warning';
+      return;
+    }
+    saving = true;
+    try {
+      const result = await validateEmployeeEmploymentTerms({
+        restaurantId: workspace.activeId,
+        employeeId: selected.id,
+        employmentTermsId: current.id
+      });
+      const value = result && typeof result === 'object' && !Array.isArray(result)
+        ? result as Record<string, unknown>
+        : {};
+      const blockers = Array.isArray(value.blockers)
+        ? value.blockers as Array<{ message?: string }>
+        : [];
+      employmentTerms = await getEmployeeEmploymentTerms(workspace.activeId);
+      if (workspace.team) {
+        drafts = employeeDrafts(workspace.team, employmentTerms);
+        baseline = JSON.stringify(drafts);
+      }
+      feedback = blockers.length
+        ? blockers.map((item) => item.message).filter(Boolean).join(' ')
+        : 'Employment setup verified.';
+      feedbackTone = blockers.length ? 'warning' : 'success';
     } catch (error) {
       feedback = error instanceof Error ? error.message : String(error);
       feedbackTone = 'danger';
@@ -485,6 +682,12 @@
 
   async function revokeInvite() {
     if (!workspace.activeId || !selected || inviting) return;
+    const confirmed = await confirmAction({
+      title: 'Revoke this invitation?',
+      body: 'Their invitation link stops working straight away. You can send a new invitation afterwards.',
+      confirmLabel: 'Revoke invitation'
+    });
+    if (!confirmed) return;
     inviting = true;
     try {
       await revokeEmployeeInvitation(
@@ -544,7 +747,7 @@
           percent={readinessPercent}
           hasIssues={issueEmployees.length > 0}
           cards={readinessCards}
-          label="Team readiness signal"
+          label={t('Team readiness signal')}
         />
       {/snippet}
     </PageHero>
@@ -552,13 +755,13 @@
     <div class="page-body team-body">
       <FeedbackBanner message={feedback} tone={feedbackTone} />
 
-      <section class="people-command" aria-label={t('Team command summary')}>
+      <section class="people-command" aria-label={t('Team command summary')} data-tour="team-ready">
         <article class="people-command__lead">
           <span class="page-kicker">{setupIncomplete ? t('Crew foundation') : t('Crew foundation ready')}</span>
           <strong>{setupIncomplete ? t('Make the roster trustworthy before service.') : owner ? t('People data can support scheduling and payroll.') : t('People data can support scheduling and daily operations.')}</strong>
           <p>
             {openIssueCount
-              ? `${openIssueCount} open team issue${openIssueCount === 1 ? '' : 's'} across ${issueEmployees.length} employee${issueEmployees.length === 1 ? '' : 's'}.`
+              ? t(openIssueCount === 1 ? '{issues} open team issue across {employees} employees.' : '{issues} open team issues across {employees} employees.', { issues: openIssueCount, employees: issueEmployees.length })
               : t('No blocking people issues right now.')}
           </p>
         </article>
@@ -567,7 +770,7 @@
             <button type="button" class:is-complete={step.complete} onclick={() => step.onselect?.()}>
               <span>{step.complete ? '✓' : '!'}</span>
               <strong>{t(step.label)}</strong>
-              <small>{t(step.detail)}</small>
+              <small>{t(step.detail, step.values)}</small>
             </button>
           {/each}
         </div>
@@ -585,7 +788,7 @@
       </div>
 
       <div class="team-columns">
-        <div id="staff-grid" class="staff-grid">
+        <div id="staff-grid" class="staff-grid" data-tour="team-list">
           {#each drafts as employee, index (employee.id)}
             {@const issues = employeeIssues(employee)}
             {@const severity = issues.some((issue) => issue.tone === 'danger') ? 'danger' : issues.length ? 'warning' : 'ready'}
@@ -594,19 +797,20 @@
               class={`staff-card is-${severity} rst-stagger-in`}
               style={`--rst-i:${index}`}
               class:is-inactive={!employee.active}
+              data-tour={index === 0 ? 'team-member' : undefined}
               onclick={() => openEmployee(employee.id)}
             >
-              <span class="staff-card__avatar">{initialsOf(employee.displayName)}</span>
+              <span class="staff-card__avatar">{personInitials(employee.displayName)}</span>
               <strong>{employee.displayName}</strong>
               <small>{positionLabel(employee)}</small>
               <div class="staff-card__status">
                 <i></i>
-                <span>{employee.active ? employee.accessState.replaceAll('_', ' ') : 'inactive'}</span>
+                <span>{t(employee.active ? employee.accessState.replaceAll('_', ' ') : 'inactive')}</span>
               </div>
               <div class="staff-card__issues">
                 {#if issues.length}
                   {#each issues.slice(0, 2) as issue}
-                    <span class="is-{issue.tone}">{issue.label}</span>
+                    <span class="is-{issue.tone}">{t(issue.label)}</span>
                   {/each}
                   {#if issues.length > 2}<span>+{issues.length - 2}</span>{/if}
                 {:else}
@@ -615,23 +819,23 @@
               </div>
               <div class="staff-card__hover" aria-hidden="true">
                 <span>{employee.email || t('No email on file')}</span>
-                <span>{employee.weeklyContractHours || 0}h / week</span>
+                <span>{t('{hours}h / week', { hours: employee.weeklyContractHours || 0 })}</span>
                 {#if issues.length}
-                  <b class="is-{severity}">{issues.length} issue{issues.length === 1 ? '' : 's'}</b>
+                  <b class="is-{severity}">{t(issues.length === 1 ? '{count} issue' : '{count} issues', { count: issues.length })}</b>
                 {:else}
-                  <b class="is-ready">{owner ? 'Ready for scheduling & payroll' : 'Ready for scheduling'}</b>
+                  <b class="is-ready">{t(owner ? 'Ready for scheduling & payroll' : 'Ready for scheduling')}</b>
                 {/if}
               </div>
             </button>
           {/each}
-          <button type="button" class="staff-card staff-card--ghost" onclick={addEmployee}>
+          <button type="button" class="staff-card staff-card--ghost" onclick={addEmployee} data-tour="team-add">
             <span class="ghost-icon">+</span>
             <strong>{drafts.length ? t('Add employee') : t('Add your first employee')}</strong>
           </button>
         </div>
 
         {#if issueEmployees.length}
-          <aside id="attention-panel" class="attention-panel" aria-label={t('Needs attention')}>
+          <aside id="attention-panel" class="attention-panel" aria-label={t('Needs attention')} data-tour="team-radar">
             <header>
               <span class="page-kicker">{t('Needs attention')}</span>
               <strong>{issueEmployees.length} {t('open')}</strong>
@@ -640,16 +844,16 @@
               {#each issueEmployees as employee, index (employee.id)}
                 {@const issues = employeeIssues(employee)}
                 <button type="button" class="attention-row rst-stagger-in" style={`--rst-i:${index}`} onclick={() => openEmployee(employee.id)}>
-                  <span>{initialsOf(employee.displayName)}</span>
+                  <span>{personInitials(employee.displayName)}</span>
                   <strong>{employee.displayName}</strong>
-                  <small>{issues.map((issue) => issue.label).join(' · ')}</small>
+                  <small>{issues.map((issue) => t(issue.label)).join(' · ')}</small>
                   <i class="attention-row__go" aria-hidden="true">→</i>
                 </button>
               {/each}
             </div>
           </aside>
         {:else}
-          <aside class="attention-panel is-clear" aria-label={t('Team clear')}>
+          <aside class="attention-panel is-clear" aria-label={t('Team clear')} data-tour="team-radar">
             <header>
               <span class="page-kicker">{t('People radar')}</span>
               <strong>{t('Clear')}</strong>
@@ -657,7 +861,7 @@
             <div class="clear-state">
               <span>✓</span>
               <strong>{t('No team blockers.')}</strong>
-              <p>{owner ? 'Access, contracts and payroll data are ready for the current active team.' : 'Access and position assignments are ready for the current active team.'}</p>
+              <p>{t(owner ? 'Access, contracts and payroll data are ready for the current active team.' : 'Access and position assignments are ready for the current active team.')}</p>
             </div>
           </aside>
         {/if}
@@ -707,9 +911,9 @@
           <small>{positionLabel(selected)}</small>
         </div>
         {#if selectedIssues.length}
-          <div class="employee-hero__ready is-issues">{selectedIssues.length} issue{selectedIssues.length === 1 ? '' : 's'} to resolve</div>
+          <div class="employee-hero__ready is-issues">{t(selectedIssues.length === 1 ? '{count} issue to resolve' : '{count} issues to resolve', { count: selectedIssues.length })}</div>
         {:else}
-          <div class="employee-hero__ready">{owner ? 'Ready for scheduling and payroll' : 'Ready for scheduling'}</div>
+          <div class="employee-hero__ready">{t(owner ? 'Ready for scheduling and payroll' : 'Ready for scheduling')}</div>
         {/if}
       </div>
 
@@ -761,36 +965,44 @@
       {:else if tab === 'Contract' && owner}
         <div class="contract-summary">
           <span class="contract-summary__kicker">{t('Current contract')}</span>
-          <strong>{snapshot.contract_types.find((item) => item.id === selected.contractTypeId)?.name ?? 'Not set'} · {selected.workRegime.replaceAll('_', ' ')}</strong>
+          <strong>{snapshot.contract_types.find((item) => item.id === selected.contractTypeId)?.name ?? t('Not set')} · {t(selected.workRegime.replaceAll('_', ' '))}</strong>
           <p>{selected.contractStart || t('No start')} → {selected.contractEnd || t('Open ended')}</p>
           <div class="contract-summary__stats">
             <div><span>{t('Weekly hours')}</span><strong>{selected.weeklyContractHours || 0}h</strong></div>
             <div><span>{t('Contract days')}</span><strong>{selected.contractDays || 0}d</strong></div>
             <div><span>{t('Annual leave')}</span><strong>{selected.annualLeaveEntitlementDays || 0}d</strong></div>
           </div>
+          <small class:needs-review={selected.employmentSourceStatus !== 'verified'}>
+            {selected.employmentSourceStatus === 'verified'
+              ? t('Payroll terms verified · version {version}', { version: selected.employmentTermsVersion || 1 })
+              : t('{status} · validate in Payroll', { status: selected.employmentSourceStatus.replaceAll('_', ' ') })}
+          </small>
         </div>
 
-        <Panel title="Edit contract" eyebrow="Owner only">
+        <Panel title={t('Edit contract')} eyebrow={t('Owner only')}>
           <div class="fields">
-            <label>Contract type<select value={selected.contractTypeId} onchange={(event) => { const contractTypeId = event.currentTarget.value; const code = snapshot.contract_types.find((item) => item.id === contractTypeId)?.code ?? ''; mutate({ contractTypeId, workRegime: defaultWorkRegime(code) }); }}><option value="">Not set</option>{#each snapshot.contract_types.filter((item) => item.active) as item}<option value={item.id}>{item.name}</option>{/each}</select></label>
-            <label>Availability mode<select value={selectedRequiresFixedSchedule ? 'fixed_schedule' : selected.workRegime} disabled={selectedRequiresFixedSchedule} onchange={(event) => mutate({ workRegime: event.currentTarget.value as EmployeeDraft['workRegime'] })}><option value="fixed_schedule">Fixed schedule</option><option value="weekly_availability">Weekly availability</option><option value="manager_only">Manager only</option></select>{#if selectedRequiresFixedSchedule}<small>CDI and CDD use the recurring schedule as the Schedule baseline.</small>{/if}</label>
-            <label>Start date<input type="date" value={selected.contractStart} oninput={(event) => mutate({ contractStart: event.currentTarget.value })} /></label>
-            <label>End date<input type="date" value={selected.contractEnd} oninput={(event) => mutate({ contractEnd: event.currentTarget.value })} /></label>
-            <label>Weekly hours<input type="number" min="0" step="0.25" value={selected.weeklyContractHours} oninput={(event) => mutate({ weeklyContractHours: event.currentTarget.valueAsNumber || 0 })} /></label>
-            <label>Contract days<input type="number" min="0" step="0.5" value={selected.contractDays} oninput={(event) => mutate({ contractDays: event.currentTarget.valueAsNumber || 0 })} /></label>
-            <label>Annual leave days<input type="number" min="0" step="0.5" value={selected.annualLeaveEntitlementDays} oninput={(event) => mutate({ annualLeaveEntitlementDays: event.currentTarget.valueAsNumber || 0 })} /></label>
-            <div class="contract-action"><ActionButton label="Start contract renewal" onclick={startContractRenewal} /></div>
+            <label>{t('Employment type')}<select value={selected.contractTypeId} onchange={(event) => { const contractTypeId = event.currentTarget.value; const code = snapshot.contract_types.find((item) => item.id === contractTypeId)?.code ?? ''; mutate({ contractTypeId, workRegime: defaultWorkRegime(code) }); }}><option value="">{t('Not set')}</option>{#each snapshot.contract_types.filter((item) => item.active) as item}<option value={item.id}>{item.name}</option>{/each}</select></label>
+            <label>{t('Start date')}<input type="date" value={selected.contractStart} oninput={(event) => mutate({ contractStart: event.currentTarget.value })} /></label>
+            {#if selectedContractTypeCode !== 'CDI'}<label>{t('End date')}<input type="date" value={selected.contractEnd} oninput={(event) => mutate({ contractEnd: event.currentTarget.value })} /></label>{/if}
+            <label>{t('Contract hours per week')}<input type="number" min="0" step="0.25" value={selected.weeklyContractHours} oninput={(event) => mutate({ weeklyContractHours: event.currentTarget.valueAsNumber || 0 })} /></label>
+            <label>{t('How are contract hours defined?')}<select value={selected.weeklyHoursRegime} onchange={(event) => mutate({ weeklyHoursRegime: event.currentTarget.value as EmployeeDraft['weeklyHoursRegime'] })}><option value="fixed">{t('The same number every week')}</option><option value="variable_average">{t('An average over a reference period')}</option></select></label>
+            {#if selected.weeklyHoursRegime === 'variable_average'}<label>{t('Reference period')}<input type="number" min="2" max="52" value={selected.referencePeriodWeeks} oninput={(event) => mutate({ referencePeriodWeeks: event.currentTarget.valueAsNumber || 2 })} /><small>{t('Weeks')}</small></label>{/if}
+            <label>{t('How the employee is scheduled')}<select value={selected.workRegime} onchange={(event) => mutate({ workRegime: event.currentTarget.value as EmployeeDraft['workRegime'] })}><option value="fixed_schedule">{t('Recurring fixed schedule')}</option><option value="weekly_availability">{t('Weekly availability')}</option><option value="manager_only">{t('Manager planned')}</option></select><small>{t(scheduleRegimeHint)}</small></label>
+            <label>{t('Contract days')}<input type="number" min="0" step="0.5" value={selected.contractDays} oninput={(event) => mutate({ contractDays: event.currentTarget.valueAsNumber || 0 })} /></label>
+            <label>{t('Annual leave days')}<input type="number" min="0" step="0.5" value={selected.annualLeaveEntitlementDays} oninput={(event) => mutate({ annualLeaveEntitlementDays: event.currentTarget.valueAsNumber || 0 })} /></label>
+            <label>{t('Terms effective from')}<input type="date" value={selected.employmentValidFrom} oninput={(event) => mutate({ employmentValidFrom: event.currentTarget.value })} /><small>{t('Use a future date when employment terms change.')}</small></label>
+            <div class="contract-action"><ActionButton label={t('Start contract renewal')} onclick={startContractRenewal} /></div>
           </div>
           {#if selected.workRegime === 'fixed_schedule'}
             <fieldset class="recurring">
-              <legend>Recurring work pattern</legend>
-              <div class="recurring__head"><span>Day</span><span>Lunch</span><span>Evening</span></div>
+              <legend>{t('Recurring work pattern')}</legend>
+              <div class="recurring__head"><span>{t('Day')}</span><span>{t('Lunch')}</span><span>{t('Evening')}</span></div>
               {#each WEEKDAYS as day, index}
                 <div class="recurring__row">
-                  <strong>{day}</strong>
+                  <strong>{t(day)}</strong>
                   {#each ['lunch', 'evening'] as service}
                     <input
-                      aria-label={`${day} ${service}`}
+                      aria-label={`${t(day)} ${t(serviceLabel(service as 'lunch' | 'evening'))}`}
                       type="checkbox"
                       checked={selected.recurringSlots.some((slot) => slot.weekday === index + 1 && slot.serviceKey === service)}
                       onchange={(event) => toggleRecurring(index + 1, service as 'lunch' | 'evening', event.currentTarget.checked)}
@@ -810,16 +1022,16 @@
                 <article class:is-current={contract.is_current && contract.active}>
                   <i></i>
                   <button type="button" onclick={() => toggleContractExpand(contract.id)}>
-                    <strong>{snapshot.contract_types.find((type) => type.id === contract.contract_type_id)?.name ?? 'Contract'} · {(contract.work_regime ?? 'weekly_availability').replaceAll('_', ' ')}</strong>
-                    <time>{contract.contract_start || 'No start'} → {contract.contract_end || 'Open ended'}</time>
+                    <strong>{snapshot.contract_types.find((type) => type.id === contract.contract_type_id)?.name ?? t('Contract')} · {t((contract.work_regime ?? 'weekly_availability').replaceAll('_', ' '))}</strong>
+                    <time>{contract.contract_start || t('No start')} → {contract.contract_end || t('Open ended')}</time>
                     {#if expandedContractId === contract.id}
                       <p class="trail-detail">
-                        {contract.weekly_contract_hours}h/week · {contract.contract_days}d/week · {contract.annual_leave_entitlement_days}d annual leave
-                        <br />Created {new Date(contract.created_at).toLocaleDateString('en-GB')}
+                        {t('{hours}h/week · {days}d/week · {leave}d annual leave', { hours: contract.weekly_contract_hours, days: contract.contract_days, leave: contract.annual_leave_entitlement_days })}
+                        <br />{t('Created {date}', { date: new Date(contract.created_at).toLocaleDateString(i18n.intlLocale) })}
                       </p>
                     {/if}
                   </button>
-                  <em class:is-current={contract.is_current && contract.active}>{contract.is_current && contract.active ? 'Current' : 'Historical'}</em>
+                  <em class:is-current={contract.is_current && contract.active}>{t(contract.is_current && contract.active ? 'Current' : 'Historical')}</em>
                 </article>
               {/each}
             </div>
@@ -828,23 +1040,43 @@
       {:else if tab === 'Payroll' && owner}
         <div class="payroll-summary">
           <span class="payroll-summary__kicker">{t('Compensation')}</span>
-          <strong>€{(selected.hourlyWageRate || 0).toFixed(2)}/h</strong>
-          <p>Estimated cost at {selected.weeklyContractHours || 0}h/week</p>
+          <strong>{selected.salaryBasis === 'monthly' ? `€${selected.contractualMonthlySalary}/month` : `€${selected.contractualHourlyRate || '0.0000'}/h`}</strong>
+          <p>{t('CP 302 category {category} · effective {date}', { category: selected.cp302Category || t('Not set'), date: selected.employmentValidFrom || t('Not set') })}</p>
           <div class="payroll-summary__stats">
-            <div><span>{t('Hourly wage')}</span><strong>€{(selected.hourlyWageRate || 0).toFixed(2)}</strong></div>
-            <div><span>{t('Est. weekly cost')}</span><strong>€{estimatedWeeklyCost.toFixed(2)}</strong></div>
-            <div><span>{t('Est. hourly cost')}</span><strong>€{(selected.estimatedHourlyCost || 0).toFixed(2)}</strong></div>
+            <div><span>{t('Salary basis')}</span><strong>{t(selected.salaryBasis || 'Not set')}</strong></div>
+            <div><span>{t('Est. weekly cost')}</span><strong>{formatCents(estimatedWeeklyCostCents, i18n.intlLocale)}</strong></div>
+            <div><span>{t('Terms version')}</span><strong>v{selected.employmentTermsVersion || '—'}</strong></div>
           </div>
         </div>
 
-        <Panel title="Payroll profile" eyebrow="Owner only">
+        <Panel title={t('Legal salary terms')} eyebrow="CP 302">
           <div class="fields">
-            <label>Payroll employee ID<input value={selected.payrollEmployeeId} oninput={(event) => mutate({ payrollEmployeeId: event.currentTarget.value })} /></label>
+            <label>{t('Salary basis')}<select value={selected.salaryBasis} onchange={(event) => mutate({ salaryBasis: event.currentTarget.value as EmployeeDraft['salaryBasis'] })}><option value="">{t('Not set')}</option><option value="hourly">{t('Hourly')}</option><option value="monthly">{t('Monthly')}</option></select></label>
+            {#if selected.salaryBasis === 'monthly'}
+              <label>{t('Monthly gross salary')}<input inputmode="decimal" value={selected.contractualMonthlySalary} oninput={(event) => mutate({ contractualMonthlySalary: event.currentTarget.value })} /><small>{t('Monthly payroll is recorded but remains blocked until lawful proration is implemented.')}</small></label>
+            {:else}
+              <label>{t('Contractual hourly rate')}<input inputmode="decimal" value={selected.contractualHourlyRate} oninput={(event) => mutate({ contractualHourlyRate: event.currentTarget.value })} placeholder="0.0000" /></label>
+            {/if}
+            <label class="wide">{t('Official CP 302 function')}<input type="search" list="cp302-functions" value={cp302Search} placeholder={t('Search by function or code')} oninput={(event) => (cp302Search = event.currentTarget.value)} onchange={(event) => selectReferenceFunction(event.currentTarget.value)} /><datalist id="cp302-functions">{#each referenceFunctionOptions as item (item.id)}<option value={referenceFunctionLabel(item)}></option>{/each}</datalist><small>{t('The official function derives category and worker status.')}</small></label>
+            <div class="derived-classification">
+              <span>{t('Derived classification')}</span>
+              <strong>{selectedReferenceFunction ? `${t('Category')} ${selectedReferenceFunction.category} · ${t(selectedReferenceFunction.default_worker_status === 'white_collar' ? 'White-collar employee' : 'Blue-collar worker')}` : t('Select an official function')}</strong>
+              <small>{selectedReferenceFunction ? `${selectedReferenceFunction.code} · ${selectedReferenceFunction.department ?? t('CP 302')}` : t('Category and worker status cannot be edited independently.')}</small>
+            </div>
+            <label>{t('Function seniority date')}<input type="date" value={selected.functionSeniorityDate} oninput={(event) => mutate({ functionSeniorityDate: event.currentTarget.value })} /></label>
+            <label>{t('Company seniority date')}<input type="date" value={selected.companySeniorityDate} oninput={(event) => mutate({ companySeniorityDate: event.currentTarget.value })} /></label>
+            <div class="validation-action"><ActionButton label={t('Validate setup')} tone="primary" disabled={saving || dirty} onclick={validateSelectedEmployment} /><small>{t('Server checks the contract, CP 302 classification, wage, evidence and restaurant setup.')}</small></div>
+          </div>
+        </Panel>
+
+        <Panel title={t('Payroll profile')} eyebrow={t('Owner only')}>
+          <div class="fields">
+            <label>{t('Payroll employee ID')}<input value={selected.payrollEmployeeId} oninput={(event) => mutate({ payrollEmployeeId: event.currentTarget.value })} /></label>
             <label>
-              National registry number
+              {t('National registry number')}
               <input type={revealPayroll ? 'text' : 'password'} value={selected.nationalRegistryNumber} oninput={(event) => mutate({ nationalRegistryNumber: event.currentTarget.value })} />
             </label>
-            <label>Birth date<input type="date" value={selected.birthDate} oninput={(event) => mutate({ birthDate: event.currentTarget.value })} /></label>
+            <label>{t('Birth date')}<input type="date" value={selected.birthDate} oninput={(event) => mutate({ birthDate: event.currentTarget.value })} /></label>
             <label>
               IBAN
               <input type={revealPayroll ? 'text' : 'password'} value={selected.iban} oninput={(event) => mutate({ iban: event.currentTarget.value })} />
@@ -852,27 +1084,32 @@
             <label>BIC<input value={selected.bic} oninput={(event) => mutate({ bic: event.currentTarget.value })} /></label>
             <label class="check reveal-toggle">
               <input type="checkbox" checked={revealPayroll} onchange={(event) => (revealPayroll = event.currentTarget.checked)} />
-              Show sensitive fields
+              {t('Show sensitive fields')}
             </label>
-            <label>Hourly wage<input type="number" min="0" step="0.01" value={selected.hourlyWageRate} oninput={(event) => mutate({ hourlyWageRate: event.currentTarget.valueAsNumber || 0 })} /></label>
-            <label>Estimated hourly cost<input type="number" min="0" step="0.01" value={selected.estimatedHourlyCost} oninput={(event) => mutate({ estimatedHourlyCost: event.currentTarget.valueAsNumber || 0 })} /></label>
-            <label class="wide">Payroll notes<textarea value={selected.payrollNotes} oninput={(event) => mutate({ payrollNotes: event.currentTarget.value })}></textarea></label>
+            <label>{t('Budget cost estimate')}<input type="number" min="0" step="0.01" value={selected.estimatedHourlyCost} oninput={(event) => mutate({ estimatedHourlyCost: event.currentTarget.valueAsNumber || 0 })} /><small>{t('Planning estimate only; payroll uses the legal terms above.')}</small></label>
+            <label class="wide">{t('Payroll notes')}<textarea value={selected.payrollNotes} oninput={(event) => mutate({ payrollNotes: event.currentTarget.value })}></textarea></label>
           </div>
         </Panel>
+        <EmployeePayrollDetails
+          restaurantId={workspace.activeId ?? ''}
+          employeeId={selected.id}
+          effectiveDate={today}
+          {employmentTerms}
+        />
       {:else if tab === 'Absences'}
         <LeaveBalanceSummary {...leaveBalance} />
         <div class="absence-grid">
-          <Panel title="Create absence" eyebrow="Audited lifecycle">
+          <Panel title={t('Create absence')} eyebrow={t('Audited lifecycle')}>
             <form class="fields" onsubmit={(event) => { event.preventDefault(); createAbsence(); }}>
-              <label>Type<select required bind:value={absenceTypeId}><option value="">Select type</option>{#each snapshot.absence_types.filter((item) => item.active) as item}<option value={item.id}>{item.name}</option>{/each}</select></label>
-              <label>Service<select bind:value={absenceService}><option value="">Full day</option><option value="lunch">Lunch</option><option value="evening">Evening</option></select></label>
-              <label>Start<input required type="date" bind:value={absenceStart} /></label>
-              <label>End<input required type="date" min={absenceStart} bind:value={absenceEnd} /></label>
-              <label class="wide">Manager comment<textarea bind:value={absenceComment}></textarea></label>
-              <div><ActionButton type="submit" tone="primary" label="Create absence" disabled={saving} /></div>
+              <label>{t('Type')}<select required bind:value={absenceTypeId}><option value="">{t('Select type')}</option>{#each snapshot.absence_types.filter((item) => item.active) as item}<option value={item.id}>{t(item.name)}</option>{/each}</select></label>
+              <label>{t('Service')}<select bind:value={absenceService}><option value="">{t('Full day')}</option><option value="lunch">{t('Lunch')}</option><option value="evening">{t('Evening')}</option></select></label>
+              <label>{t('Start')}<input required type="date" bind:value={absenceStart} /></label>
+              <label>{t('End')}<input required type="date" min={absenceStart} bind:value={absenceEnd} /></label>
+              <label class="wide">{t('Manager comment')}<textarea bind:value={absenceComment}></textarea></label>
+              <div><ActionButton type="submit" tone="primary" label={t('Create absence')} disabled={saving} /></div>
             </form>
           </Panel>
-          <Panel title="Absence history" eyebrow={`${employeeAbsences.length} records`}>
+          <Panel title={t('Absence history')} eyebrow={t('{count} records', { count: employeeAbsences.length })}>
             <div class="absence-list">
               {#each employeeAbsences as absence (absence.id)}
                 {@const hasDetail = Boolean(absence.manager_comment || absence.employee_comment || absence.approved_at || absence.cancellation_reason)}
@@ -884,34 +1121,34 @@
                     onclick={() => hasDetail && toggleAbsenceExpand(absence.id)}
                   >
                     <div>
-                      <strong>{snapshot.absence_types.find((item) => item.id === absence.absence_type_id)?.name || 'Absence'}</strong>
-                      <span>{absence.start_date} → {absence.end_date}{absence.service_key ? ` · ${absence.service_key}` : ''}</span>
+                      <strong>{t(snapshot.absence_types.find((item) => item.id === absence.absence_type_id)?.name || 'Absence')}</strong>
+                      <span>{absence.start_date} → {absence.end_date}{absence.service_key ? ` · ${t(serviceLabel(absence.service_key as 'lunch' | 'evening'))}` : ''}</span>
                     </div>
-                    <em class="is-{absence.status}">{absence.status}</em>
+                    <em class="is-{absence.status}">{t(absence.status)}</em>
                     {#if hasDetail}<i class="absence-row__chevron" aria-hidden="true">{expandedAbsenceId === absence.id ? '−' : '+'}</i>{/if}
                   </button>
                   {#if expandedAbsenceId === absence.id}
                     <div class="absence-detail">
-                      {#if absence.manager_comment}<p><b>Manager comment</b>{absence.manager_comment}</p>{/if}
-                      {#if absence.employee_comment}<p><b>Employee comment</b>{absence.employee_comment}</p>{/if}
-                      {#if absence.approved_at}<p><b>Approved</b>{new Date(absence.approved_at).toLocaleString('en-GB')}</p>{/if}
-                      {#if absence.cancellation_reason}<p><b>Cancellation reason</b>{absence.cancellation_reason}</p>{/if}
-                      <p><b>Requested</b>{new Date(absence.created_at).toLocaleString('en-GB')}</p>
+                      {#if absence.manager_comment}<p><b>{t('Manager comment')}</b>{absence.manager_comment}</p>{/if}
+                      {#if absence.employee_comment}<p><b>{t('Employee comment')}</b>{absence.employee_comment}</p>{/if}
+                      {#if absence.approved_at}<p><b>{t('Approved')}</b>{new Date(absence.approved_at).toLocaleString(i18n.intlLocale)}</p>{/if}
+                      {#if absence.cancellation_reason}<p><b>{t('Cancellation reason')}</b>{absence.cancellation_reason}</p>{/if}
+                      <p><b>{t('Requested')}</b>{new Date(absence.created_at).toLocaleString(i18n.intlLocale)}</p>
                     </div>
                   {/if}
                   {#if absence.status === 'pending'}
                     <div class="absence-actions">
-                      <ActionButton label="Approve" onclick={() => absenceAction(absence.id, 'approve')} />
-                      <ActionButton label="Reject" tone="danger" onclick={() => absenceAction(absence.id, 'reject')} />
+                      <ActionButton label={t('Approve')} onclick={() => absenceAction(absence.id, 'approve')} />
+                      <ActionButton label={t('Reject')} tone="danger" onclick={() => absenceAction(absence.id, 'reject')} />
                     </div>
                   {:else if !['cancelled', 'rejected'].includes(absence.status)}
                     <div class="absence-actions">
-                      <ActionButton label="Cancel" tone="danger" onclick={() => absenceAction(absence.id, 'cancel_by_manager')} />
+                      <ActionButton label={t('Cancel')} tone="danger" onclick={() => absenceAction(absence.id, 'cancel_by_manager')} />
                     </div>
                   {/if}
                 </article>
               {:else}
-                <p class="empty">No absence records for this employee.</p>
+                <p class="empty">{t('No absence records for this employee.')}</p>
               {/each}
             </div>
           </Panel>
@@ -960,7 +1197,7 @@
     max-width: 520px;
     font-size: clamp(25px, 3vw, 36px);
     line-height: 0.98;
-    letter-spacing: -0.045em;
+    letter-spacing: 0;
   }
 
   .people-command__lead p {
@@ -1081,7 +1318,7 @@
     font-size: 12px;
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0;
   }
 
   .team-columns {
@@ -1522,7 +1759,7 @@
   }
 
   .employee-hero > div:first-child { display: grid; gap: 4px; }
-  .employee-hero > div:first-child span { color: var(--rst-ui-panel-title); font-size: 10px; font-weight: var(--rst-fw-bold); letter-spacing: .07em; text-transform: uppercase; }
+  .employee-hero > div:first-child span { color: var(--rst-ui-panel-title); font-size: 10px; font-weight: var(--rst-fw-bold); letter-spacing: 0; text-transform: uppercase; }
   .employee-hero small { color: var(--rst-ui-muted); }
   .employee-hero__ready { width: fit-content; padding: 8px 9px; border: 1px solid rgba(var(--rst-state-success-rgb), 0.22); border-radius: var(--rst-ui-radius-md); color: var(--rst-state-success-text); background: rgba(var(--rst-state-success-rgb), 0.1); font-size: 11px; font-weight: var(--rst-fw-bold); }
   .employee-hero__ready.is-issues { border-color: rgba(var(--rst-state-warning-rgb), 0.22); color: var(--rst-state-warning-text); background: rgba(var(--rst-state-warning-rgb), 0.1); }
@@ -1532,6 +1769,21 @@
   label input:focus-visible, label select:focus-visible, label textarea:focus-visible { border-bottom-color: var(--rst-ui-action); outline: none; box-shadow: 0 1.5px 0 0 var(--rst-ui-action); }
   label textarea { min-height: 78px; resize: vertical; }
   .contract-action { display: flex; align-items: end; }
+  .derived-classification {
+    min-width: 0;
+    display: grid;
+    align-content: center;
+    gap: 4px;
+    padding: 12px 14px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: var(--rst-ui-radius-md);
+    background: var(--rst-ui-section-row);
+  }
+  .derived-classification span { color: var(--rst-ui-muted); font-size: 10px; font-weight: var(--rst-fw-bold); text-transform: uppercase; }
+  .derived-classification strong { font-size: 13px; }
+  .derived-classification small { color: var(--rst-ui-muted); font-size: 11px; }
+  .validation-action { display: grid; align-content: end; gap: 6px; }
+  .validation-action small { color: var(--rst-ui-muted); font-size: 11px; }
 
   .contract-summary {
     display: grid;
@@ -1545,7 +1797,7 @@
       linear-gradient(145deg, #111b28, #1c314a);
     animation: rst-fade-up .35s var(--rst-ease-out) backwards;
   }
-  .contract-summary__kicker { color: var(--rst-gold); font-size: 10px; font-weight: var(--rst-fw-display); letter-spacing: .08em; text-transform: uppercase; }
+  .contract-summary__kicker { color: var(--rst-gold); font-size: 10px; font-weight: var(--rst-fw-display); letter-spacing: 0; text-transform: uppercase; }
   .contract-summary strong { font-size: 20px; text-transform: capitalize; }
   .contract-summary p { margin: 0; color: rgba(255, 250, 242, .7); font-size: 12px; }
   .contract-summary__stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 6px; }
@@ -1565,7 +1817,7 @@
       linear-gradient(145deg, #111b28, #123324);
     animation: rst-fade-up .35s var(--rst-ease-out) backwards;
   }
-  .payroll-summary__kicker { color: var(--rst-green); font-size: 10px; font-weight: var(--rst-fw-display); letter-spacing: .08em; text-transform: uppercase; }
+  .payroll-summary__kicker { color: var(--rst-green); font-size: 10px; font-weight: var(--rst-fw-display); letter-spacing: 0; text-transform: uppercase; }
   .payroll-summary strong { font-size: 20px; }
   .payroll-summary p { margin: 0; color: rgba(255, 250, 242, .7); font-size: 12px; }
   .payroll-summary__stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 6px; }
@@ -1634,7 +1886,7 @@
   .trail-line em { align-self: center; padding: 4px 8px; border-radius: var(--rst-ui-radius-pill); color: var(--rst-ui-muted); background: var(--rst-state-neutral-bg); font-size: 10px; font-style: normal; white-space: nowrap; }
   .trail-line em.is-current { color: var(--rst-state-success-text); background: var(--rst-state-success-bg); }
   label { display: grid; align-content: start; gap: 6px; color: var(--rst-ui-muted); font-size: 12px; font-weight: var(--rst-fw-bold); }
-  label.wide, .hint.wide { grid-column: 1 / -1; }
+  label.wide { grid-column: 1 / -1; }
   .positions { grid-column: 1 / -1; margin: 0; padding: 12px; border: 1px solid var(--rst-ui-line); border-radius: var(--rst-ui-radius-md); }
   .positions legend { padding: 0 6px; color: var(--rst-ui-muted); font-size: 11px; font-weight: var(--rst-fw-bold); }
   .chip-toggles { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -1722,7 +1974,7 @@
       grid-column: 2;
       justify-self: start;
     }
-    label.wide, .hint.wide {
+    label.wide {
       grid-column: auto;
     }
   }

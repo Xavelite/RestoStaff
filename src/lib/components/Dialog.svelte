@@ -51,8 +51,10 @@
 
   $effect(() => {
     if (!open) return;
+    let cancelled = false;
     returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     void tick().then(() => {
+      if (cancelled) return;
       dialogElement
         ?.querySelector<HTMLElement>(
           'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), a[href]'
@@ -60,6 +62,7 @@
         ?.focus();
     });
     return () => {
+      cancelled = true;
       returnFocus?.focus();
       returnFocus = null;
     };
@@ -76,7 +79,7 @@
           <h2 id="dialog-title">{t(title)}</h2>
           {#if description}<p>{t(description)}</p>{/if}
         </div>
-        <button type="button" aria-label={t('Close dialog')} onclick={onclose}>×</button>
+        <button type="button" data-tour="dialog-close" aria-label={t('Close dialog')} onclick={onclose}>×</button>
       </header>
       <div class="body">{@render children()}</div>
       {#if footer}<footer>{@render footer()}</footer>{/if}

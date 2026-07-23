@@ -15,11 +15,24 @@ import type {
   WorkspaceBootstrap
 } from '$lib/api/workspace-snapshot';
 import { untrack } from 'svelte';
+import { canonicalPath } from '$lib/classic/classic-routes';
 import { preferredMembership } from './workspace-selection';
+import { getPreviewBootstrap, getPreviewModule, getPreviewOperations } from '$lib/preview/preview-api';
+import type { WorkspaceRole } from '$lib/api/workspace';
 
 const ACTIVE_WORKSPACE_KEY = 'restogogo.active-workspace';
 
 type DateRange = { from: string; to: string };
+
+export type PreviewSession = {
+  restaurantId: string;
+  restaurantName: string;
+  role: WorkspaceRole;
+  employeeId: string | null;
+  displayName: string;
+  source: 'manager' | 'admin';
+  returnPath: string;
+};
 
 function storedWorkspaceId(): string | null {
   if (typeof localStorage === 'undefined') return null;
@@ -44,6 +57,7 @@ class WorkspaceStore {
   loading = $state(false);
   moduleLoading = $state(false);
   error = $state('');
+  preview = $state<PreviewSession | null>(null);
   #requestId = 0;
   #operationsRequestId = 0;
   #employeeRequestId = 0;
@@ -54,11 +68,55 @@ class WorkspaceStore {
   #employeeRange: DateRange | null = null;
 
   get active(): Membership | null {
+    if (this.preview) {
+      return {
+        restaurant_id: this.preview.restaurantId,
+        restaurant_name: this.preview.restaurantName,
+        role: this.preview.role,
+        employee_id: this.preview.employeeId ?? '',
+        status: 'active',
+        workspace_slug: 'preview'
+      };
+    }
     return (
       this.memberships.find((membership) => membership.restaurant_id === this.activeId) ??
       this.memberships[0] ??
       null
     );
+  }
+
+  get isPreview(): boolean {
+    return this.preview !== null;
+  }
+
+  get effectiveRole(): WorkspaceRole | null {
+    return this.preview?.role ?? this.active?.role ?? null;
+  }
+
+  get effectiveEmployeeId(): string | null {
+    return this.preview?.employeeId ?? this.bootstrap?.current_employee?.id ?? this.active?.employee_id ?? null;
+  }
+
+  async startPreview(session: PreviewSession): Promise<void> {
+    const bootstrap = await getPreviewBootstrap(
+      session.restaurantId,
+      session.role,
+      session.employeeId
+    );
+    this.preview = session;
+    this.activeId = session.restaurantId;
+    this.bootstrap = bootstrap;
+    this.loaded = true;
+    this.loading = false;
+    this.error = '';
+    this.clearModules();
+  }
+
+  async stopPreview(): Promise<string> {
+    const returnPath = this.preview?.returnPath ?? '/home';
+    this.preview = null;
+    await this.load();
+    return returnPath;
   }
 
   async load(): Promise<void> {
@@ -137,9 +195,11 @@ class WorkspaceStore {
     // range, so client navigation never flashes a blank screen.
     const requestId = ++this.#operationsRequestId;
     await this.loadModule(async () => {
-      const model = await getManagerOperationsReadModel(this.activeId!, from, to);
+      const model = this.preview
+        ? await getPreviewOperations(this.activeId!, this.preview.role, this.preview.employeeId, from, to)
+        : await getManagerOperationsReadModel(this.activeId!, from, to);
       if (requestId !== this.#operationsRequestId) return;
-      this.operations = model;
+      this.operations = model as ManagerOperationsReadModel;
       this.#operationsRange = range;
     });
   }
@@ -159,9 +219,11 @@ class WorkspaceStore {
     // range, so navigating My service (week) <-> My time (month) never blanks.
     const requestId = ++this.#employeeRequestId;
     await this.loadModule(async () => {
-      const model = await getEmployeeOperationsReadModel(this.activeId!, from, to);
+      const model = this.preview
+        ? await getPreviewOperations(this.activeId!, this.preview.role, this.preview.employeeId, from, to)
+        : await getEmployeeOperationsReadModel(this.activeId!, from, to);
       if (requestId !== this.#employeeRequestId) return;
-      this.employeeOperations = model;
+      this.employeeOperations = model as EmployeeOperationsReadModel;
       this.#employeeRange = range;
     });
   }
@@ -170,7 +232,9 @@ class WorkspaceStore {
     if (!this.activeId || (!force && untrack(() => this.team))) return;
     const requestId = ++this.#teamRequestId;
     await this.loadModule(async () => {
-      const model = await getTeamReadModel(this.activeId!);
+      const model = this.preview
+        ? await getPreviewModule(this.activeId!, this.preview.role, this.preview.employeeId, 'team')
+        : await getTeamReadModel(this.activeId!);
       if (requestId === this.#teamRequestId) this.team = model;
     });
   }
@@ -179,7 +243,9 @@ class WorkspaceStore {
     if (!this.activeId || (!force && untrack(() => this.restaurant))) return;
     const requestId = ++this.#restaurantRequestId;
     await this.loadModule(async () => {
-      const model = await getRestaurantReadModel(this.activeId!);
+      const model = this.preview
+        ? await getPreviewModule(this.activeId!, this.preview.role, this.preview.employeeId, 'restaurant')
+        : await getRestaurantReadModel(this.activeId!);
       if (requestId === this.#restaurantRequestId) this.restaurant = model;
     });
   }
@@ -204,7 +270,10 @@ class WorkspaceStore {
     }
   }
 
-  async reloadForRoute(pathname: string): Promise<void> {
+  async reloadForRoute(routePath: string): Promise<void> {
+    // Both designs serve the same modules, so refresh by module rather than by
+    // URL: /classic/team needs exactly what /team needs.
+    const pathname = canonicalPath(routePath);
     if (pathname === '/team') {
       await Promise.all([this.reloadBootstrap(), this.loadTeam(true)]);
       return;
@@ -243,6 +312,7 @@ class WorkspaceStore {
     this.loading = false;
     this.moduleLoading = false;
     this.error = '';
+    this.preview = null;
     rememberWorkspaceId(null);
   }
 

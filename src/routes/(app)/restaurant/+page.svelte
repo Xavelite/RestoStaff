@@ -1,16 +1,23 @@
 <script lang="ts">
-  import { saveRestaurant } from '$lib/api/mutations';
-  import { WEEKDAYS, serviceLabel, type ServiceKey } from '$lib/calendar/date';
+  import {
+    saveRestaurant,
+    createRestaurantStation,
+    revokeRestaurantStation,
+    listRestaurantStations,
+    type RestaurantStation
+  } from '$lib/api/mutations';
+  import { friendlyError } from '$lib/api/error-messages';
+  import { WEEKDAYS, serviceLabel, todayInTimezone, type ServiceKey } from '$lib/calendar/date';
   import Drawer from '$lib/components/Drawer.svelte';
   import HeroReadiness from '$lib/components/HeroReadiness.svelte';
   import PageHero from '$lib/components/PageHero.svelte';
   import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
   import SaveActions from '$lib/components/SaveActions.svelte';
-  import { t } from '$lib/i18n/i18n.svelte';
+  import { i18n, t } from '$lib/i18n/i18n.svelte';
   import {
     restaurantDraft,
     restaurantSavePayload,
-    slug,
+    setupItemCode,
     type AreaDraft,
     type CoverageDraft,
     type JobFunctionDraft,
@@ -18,7 +25,15 @@
   } from '$lib/restaurant/restaurant-model';
   import { workspaceRealtime } from '$lib/realtime/workspace-realtime.svelte';
   import { buildPositionColorMap } from '$lib/ui/position-color';
+  import {
+    LOGO_ACCEPT,
+    removeRestaurantLogo,
+    restaurantLogoUrl,
+    uploadRestaurantLogo
+  } from '$lib/restaurant/logo-api';
+  import { confirmAction } from '$lib/ui/confirm.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
+  import RestaurantPayrollSetup from '$lib/payroll/RestaurantPayrollSetup.svelte';
 
   const snapshot = $derived(workspace.restaurant);
   const positionColorMap = $derived(
@@ -33,11 +48,141 @@
   let drawerKind = $state<'area' | 'position' | 'identity' | 'hours' | 'absences' | null>(null);
   let drawerId = $state('');
 
+  // Paired badge devices (station credentials).
+  let stations = $state<RestaurantStation[]>([]);
+  let stationBusy = $state(false);
+  let stationError = $state('');
+  let newStation = $state<{ token: string; url: string } | null>(null);
+  let copied = $state(false);
+
   $effect(() => {
     if (workspace.activeId && workspace.active?.role === 'owner') {
       void workspace.loadRestaurant(true).catch(() => undefined);
     }
   });
+
+  $effect(() => {
+    if (!workspace.activeId) return;
+    void reloadStations();
+  });
+
+  async function reloadStations() {
+    if (!workspace.activeId) return;
+    try {
+      stations = await listRestaurantStations(workspace.activeId);
+    } catch (error) {
+      stationError = friendlyError(error);
+    }
+  }
+
+  async function pairDevice() {
+    if (!workspace.activeId || stationBusy) return;
+    stationBusy = true;
+    stationError = '';
+    newStation = null;
+    try {
+      const { token } = await createRestaurantStation(workspace.activeId, 'Badge tablet');
+      newStation = { token, url: `${location.origin}/station` };
+      await reloadStations();
+    } catch (error) {
+      stationError = friendlyError(error);
+    } finally {
+      stationBusy = false;
+    }
+  }
+
+  // The logo is uploaded immediately rather than held in the draft: it is a
+  // file, not a field, and saving the blueprint should not depend on it.
+  let logoBusy = $state(false);
+  let logoError = $state('');
+  let logoVersion = $state(0);
+  const logoUrl = $derived.by(() => {
+    const url = restaurantLogoUrl(snapshot?.restaurant.logo_path);
+    return url && logoVersion ? `${url}?v=${logoVersion}` : url;
+  });
+
+  async function handleLogoChange(event: Event & { currentTarget: HTMLInputElement }) {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+    if (!file || !workspace.activeId || logoBusy) return;
+    logoBusy = true;
+    logoError = '';
+    try {
+      await uploadRestaurantLogo(
+        workspace.activeId,
+        file,
+        snapshot?.restaurant.logo_path ?? null
+      );
+      await workspace.loadRestaurant(true);
+      logoVersion = Date.now();
+    } catch (error) {
+      logoError = friendlyError(error);
+    } finally {
+      logoBusy = false;
+    }
+  }
+
+  async function removeLogo() {
+    if (!workspace.activeId || logoBusy) return;
+    const confirmed = await confirmAction({
+      title: 'Remove the restaurant logo?',
+      body: 'Your badge terminal and paired devices go back to showing the restaurant name.',
+      confirmLabel: 'Remove logo'
+    });
+    if (!confirmed) return;
+    logoBusy = true;
+    logoError = '';
+    try {
+      await removeRestaurantLogo(workspace.activeId, snapshot?.restaurant.logo_path ?? null);
+      await workspace.loadRestaurant(true);
+      logoVersion = Date.now();
+    } catch (error) {
+      logoError = friendlyError(error);
+    } finally {
+      logoBusy = false;
+    }
+  }
+
+  async function revokeStation(id: string) {
+    if (!workspace.activeId || stationBusy) return;
+    const confirmed = await confirmAction({
+      title: 'Revoke this badge device?',
+      body: 'The tablet stops working immediately and staff can no longer clock in on it. You can pair it again with a new code.',
+      confirmLabel: 'Revoke device'
+    });
+    if (!confirmed) return;
+    stationBusy = true;
+    stationError = '';
+    try {
+      await revokeRestaurantStation(workspace.activeId, id);
+      newStation = null;
+      await reloadStations();
+    } catch (error) {
+      stationError = friendlyError(error);
+    } finally {
+      stationBusy = false;
+    }
+  }
+
+  function formatStationTime(value: string) {
+    return new Intl.DateTimeFormat(i18n.intlLocale, {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(new Date(value));
+  }
+
+  async function copyStationCode() {
+    if (!newStation) return;
+    try {
+      await navigator.clipboard.writeText(newStation.token);
+      copied = true;
+      setTimeout(() => (copied = false), 1600);
+    } catch {
+      copied = false;
+    }
+  }
 
   $effect(() => {
     if (!snapshot) return;
@@ -304,7 +449,7 @@
     <div class="page-body">
       <FeedbackBanner message={feedback} tone={feedbackTone} />
 
-      <section class="command-grid" aria-label={t('Restaurant command summary')}>
+      <section class="command-grid" aria-label={t('Restaurant command summary')} data-tour="rest-blueprint">
         <article class="command-lead">
           <span class="page-kicker">{t(readiness.percent === 100 ? 'Blueprint ready' : 'Blueprint foundation')}</span>
           <strong>{t(readiness.percent === 100 ? 'Configuration can support Schedule and Timesheet.' : 'Finish the blueprint before relying on Coverage.')}</strong>
@@ -314,7 +459,7 @@
               : t('Every section is ready.')}
           </p>
         </article>
-        <nav class="foundation-strip" aria-label={t('Jump to restaurant section')}>
+        <nav class="foundation-strip" aria-label={t('Jump to restaurant section')} data-tour="rest-nav">
           {#each setupSteps as step}
             <button type="button" class:is-complete={step.complete} onclick={() => step.onSelect()}>
               <span>{step.complete ? '✓' : '!'}</span>
@@ -331,7 +476,7 @@
         </div>
       {/if}
 
-      <section id="section-identity" class="blueprint-row">
+      <section id="section-identity" class="blueprint-row" data-tour="rest-identity">
         <button type="button" class="glow-card glow-card--sky" onclick={openIdentity}>
           <span class="glow-card__kicker">{t('Restaurant profile')}</span>
           <strong>{draft.legalName || t('Legal name not set')}</strong>
@@ -358,7 +503,7 @@
       </section>
 
       <div class="blueprint-columns">
-      <section id="section-areas" class="section-shelf">
+      <section id="section-areas" class="section-shelf" data-tour="rest-areas">
         <div class="section-head">
           <strong>{t('Areas')}</strong>
           <span>{t('{count} active', { count: activeAreas })}</span>
@@ -399,7 +544,7 @@
         </div>
       </section>
 
-      <section id="section-positions" class="section-shelf">
+      <section id="section-positions" class="section-shelf" data-tour="rest-positions">
         <div class="section-head">
           <strong>{t('Positions')}</strong>
           <span>{t('{count} active', { count: activePositions })}</span>
@@ -422,7 +567,7 @@
               <div class="entity-card__status">
                 <i class:is-active={position.active}></i>
                 <span>{t(position.active ? 'Active' : 'Inactive')}</span>
-                <span class="position-usage">{ruleCount} coverage link{ruleCount === 1 ? '' : 's'}</span>
+                <span class="position-usage">{t(ruleCount === 1 ? '{count} coverage link' : '{count} coverage links', { count: ruleCount })}</span>
               </div>
               <div class="entity-card__hover" aria-hidden="true">
                 <span>{t('Badge colour on Schedule & Timesheet')}</span>
@@ -438,6 +583,51 @@
         </div>
       </section>
       </div>
+
+      <section class="section-shelf badge-devices" data-tour="rest-devices">
+        <div class="section-head">
+          <strong>{t('Badge devices')}</strong>
+          <span>{t(stations.length === 1 ? '{count} device paired' : '{count} devices paired', { count: stations.length })}</span>
+        </div>
+        <p class="section-copy">{t('Pair a tablet as a dedicated badge terminal. A paired device stays signed out of the app — it can only clock staff in and out, never reach manager screens.')}</p>
+
+        {#if stationError}<FeedbackBanner message={stationError} tone="danger" />{/if}
+
+        {#if newStation}
+          <div class="station-code">
+            <span class="eyebrow">{t('Pairing code — shown once')}</span>
+            <code>{newStation.token}</code>
+            <p>{t('On the tablet, open {url} and enter this code.', { url: newStation.url })}</p>
+            <div class="station-code__actions">
+              <button type="button" onclick={copyStationCode}>{copied ? t('Copied') : t('Copy code')}</button>
+              <a href="/station" target="_blank" rel="noopener">{t('Open station')}</a>
+            </div>
+          </div>
+        {/if}
+
+        <div class="station-list">
+          {#each stations as station (station.id)}
+            <div class="station-row">
+              <div>
+                <strong>{station.label}</strong>
+                <small>{station.lastUsedAt ? t('Last used {when}', { when: formatStationTime(station.lastUsedAt) }) : t('Never used')}</small>
+              </div>
+              <button type="button" class="station-revoke" disabled={stationBusy} onclick={() => revokeStation(station.id)}>{t('Revoke')}</button>
+            </div>
+          {:else}
+            <p class="station-empty">{t('No devices paired yet.')}</p>
+          {/each}
+        </div>
+
+        <button type="button" class="station-pair" disabled={stationBusy} onclick={pairDevice}>
+          {stationBusy ? t('Working…') : t('Pair a device')}
+        </button>
+      </section>
+
+      <RestaurantPayrollSetup
+        restaurantId={workspace.activeId ?? ''}
+        effectiveDate={todayInTimezone(snapshot.restaurant_settings.timezone || 'Europe/Brussels')}
+      />
     </div>
   </section>
 
@@ -451,8 +641,8 @@
       {#each snapshot.absence_types.filter((item) => item.active) as item (item.id)}
         <article>
           <span style:background={item.color}></span>
-          <strong>{item.name}</strong>
-          <small>{item.paid_policy}</small>
+          <strong>{t(item.name)}</strong>
+          <small>{t(item.paid_policy)}</small>
         </article>
       {/each}
     </div>
@@ -466,6 +656,38 @@
     onclose={closeDrawer}
     actions={drawerActions}
   >
+    <section class="logo-field">
+      <div class="logo-field__preview" class:is-empty={!logoUrl}>
+        {#if logoUrl}
+          <img src={logoUrl} alt={t('Restaurant logo')} />
+        {:else}
+          <span aria-hidden="true">{(draft.legalName || 'R').charAt(0).toUpperCase()}</span>
+        {/if}
+      </div>
+      <div class="logo-field__copy">
+        <strong>{t('Restaurant logo')}</strong>
+        <small>{t('Shown on your badge terminal and paired devices. PNG, JPEG or WebP, up to 1 MB.')}</small>
+        {#if logoError}<em class="logo-field__error">{logoError}</em>{/if}
+      </div>
+      <div class="logo-field__actions">
+        <input
+          id="restaurant-logo-input"
+          type="file"
+          accept={LOGO_ACCEPT}
+          disabled={logoBusy}
+          onchange={handleLogoChange}
+        />
+        <label class="logo-field__button" for="restaurant-logo-input">
+          {t(logoBusy ? 'Uploading…' : logoUrl ? 'Replace' : 'Upload logo')}
+        </label>
+        {#if logoUrl}
+          <button type="button" class="logo-field__remove" disabled={logoBusy} onclick={removeLogo}>
+            {t('Remove')}
+          </button>
+        {/if}
+      </div>
+    </section>
+
     <div class="fields">
       <label>{t('Legal name')}<input bind:value={draft.legalName} /></label>
       <label>{t('Company number')}<input bind:value={draft.companyNumber} /></label>
@@ -475,7 +697,7 @@
       <label>{t('Postal code')}<input bind:value={draft.postalCode} /></label>
       <label>{t('City')}<input bind:value={draft.city} /></label>
     </div>
-    <p class="internal-defaults">Regional settings: Belgium · Europe/Brussels · fr-BE · EUR.</p>
+    <p class="internal-defaults">{t('Regional settings: {country} · {timezone} · {locale} · {currency}.', { country: t('Belgium'), timezone: 'Europe/Brussels', locale: 'fr-BE', currency: 'EUR' })}</p>
   </Drawer>
 
   <Drawer
@@ -502,7 +724,7 @@
             <input type="time" disabled={!day.open} bind:value={day.lunchEnd} aria-label={t('Lunch end')} />
           </div>
           <div class="day-service">
-            <span class="day-service__icon" aria-hidden="true">☾</span>
+            <span class="day-service__icon is-evening" aria-hidden="true">☾</span>
             <input type="time" disabled={!day.open} bind:value={day.eveningStart} aria-label={t('Evening start')} />
             <span aria-hidden="true">–</span>
             <input type="time" disabled={!day.open} bind:value={day.eveningEnd} aria-label={t('Evening end')} />
@@ -514,7 +736,7 @@
 
   <Drawer
     open={drawerKind === 'area' && Boolean(areaDrawerItem)}
-    title={areaDrawerItem?.name || 'New area'}
+    title={areaDrawerItem?.name || t('New area')}
     description="Work area"
     onclose={closeDrawer}
     actions={drawerActions}
@@ -527,9 +749,9 @@
             value={areaDrawerItem.name}
             oninput={(event) => {
               const name = event.currentTarget.value;
-              mutateArea({ name, code: areaDrawerItem?.code || slug(name, areaDrawerItem?.id.slice(0, 8) ?? 'area') });
+              mutateArea({ name, code: setupItemCode(name, areaDrawerItem.id, 'area') });
             }}
-            placeholder="Salle, Cuisine, Bar…"
+            placeholder={t('Dining room, Kitchen, Bar…')}
           />
         </label>
         <label class="wide">{t('Notes')}<input value={areaDrawerItem.notes} oninput={(event) => mutateArea({ notes: event.currentTarget.value })} placeholder={t('Optional notes')} /></label>
@@ -543,26 +765,39 @@
       <div class="drawer-coverage">
         <div class="drawer-coverage__head">
           <strong>{t('Staffing rules')}</strong>
-          <span>{areaCoverage(areaDrawerItem.id).length} rule{areaCoverage(areaDrawerItem.id).length === 1 ? '' : 's'}</span>
+          <span>{t(areaCoverage(areaDrawerItem.id).length === 1 ? '{count} rule' : '{count} rules', { count: areaCoverage(areaDrawerItem.id).length })}</span>
         </div>
         <p class="drawer-coverage__hint">{t('Minimum staff this area needs per service. Schedule flags gaps against these.')}</p>
         <div class="cov-rules">
           {#each areaCoverage(areaDrawerItem.id) as rule (rule.id)}
             <div class="cov-rule">
               <span class="cov-rule__icon" class:is-evening={rule.serviceKey === 'evening'} aria-hidden="true">{rule.serviceKey === 'lunch' ? '☀' : '☾'}</span>
-              <select aria-label="Position" value={rule.jobFunctionId} onchange={(event) => mutateCoverage(rule.id, { jobFunctionId: event.currentTarget.value })}>
+              <select aria-label={t('Position')} value={rule.jobFunctionId} onchange={(event) => mutateCoverage(rule.id, { jobFunctionId: event.currentTarget.value })}>
                 <option value="">{t('Position')}</option>
                 {#each activePositionList as position (position.id)}<option value={position.id}>{position.name}</option>{/each}
               </select>
-              <select aria-label="Service" value={rule.serviceKey} onchange={(event) => mutateCoverage(rule.id, { serviceKey: event.currentTarget.value === 'evening' ? 'evening' : 'lunch' })}>
+              <select aria-label={t('Service')} value={rule.serviceKey} onchange={(event) => mutateCoverage(rule.id, { serviceKey: event.currentTarget.value === 'evening' ? 'evening' : 'lunch' })}>
                 <option value="lunch">{t('Lunch')}</option>
                 <option value="evening">{t('Evening')}</option>
               </select>
+              <select
+                aria-label={t('Day')}
+                value={rule.coverageScope === 'weekday' ? String(rule.weekday) : 'default'}
+                onchange={(event) => {
+                  const choice = event.currentTarget.value;
+                  mutateCoverage(rule.id, choice === 'default'
+                    ? { coverageScope: 'default' }
+                    : { coverageScope: 'weekday', weekday: Number(choice) });
+                }}
+              >
+                <option value="default">{t('Every day')}</option>
+                {#each WEEKDAYS as day, index (day)}<option value={String(index + 1)}>{t(day)}</option>{/each}
+              </select>
               <label class="cov-rule__count">
-                <input type="number" min="0" value={rule.requiredCount} oninput={(event) => mutateCoverage(rule.id, { requiredCount: event.currentTarget.valueAsNumber || 0 })} aria-label="Required count" />
+                <input type="number" min="0" value={rule.requiredCount} oninput={(event) => mutateCoverage(rule.id, { requiredCount: event.currentTarget.valueAsNumber || 0 })} aria-label={t('Required count')} />
                 <span>{t('need')}</span>
               </label>
-              <button type="button" class="cov-rule__x" aria-label="Remove rule" onclick={() => removeCoverageRule(rule.id)}>×</button>
+              <button type="button" class="cov-rule__x" aria-label={t('Remove rule')} onclick={() => removeCoverageRule(rule.id)}>×</button>
             </div>
           {/each}
           <button type="button" class="cov-add" disabled={!activePositionList.length} onclick={() => addCoverageRule(areaDrawerItem.id)}>
@@ -578,7 +813,7 @@
 
   <Drawer
     open={drawerKind === 'position' && Boolean(positionDrawerItem)}
-    title={positionDrawerItem?.name || 'New position'}
+    title={positionDrawerItem?.name || t('New position')}
     description="Position / job function"
     onclose={closeDrawer}
     actions={drawerActions}
@@ -591,9 +826,9 @@
             value={positionDrawerItem.name}
             oninput={(event) => {
               const name = event.currentTarget.value;
-              mutatePosition({ name, code: positionDrawerItem?.code || slug(name, positionDrawerItem?.id.slice(0, 8) ?? 'position') });
+              mutatePosition({ name, code: setupItemCode(name, positionDrawerItem.id, 'position') });
             }}
-            placeholder="Chef de rang, Plongeur…"
+            placeholder={t('Head waiter, Dishwasher…')}
           />
         </label>
         <label>{t('Estimated hourly cost')}<input type="number" min="0" step="0.01" value={positionDrawerItem.estimatedHourlyCost} oninput={(event) => mutatePosition({ estimatedHourlyCost: event.currentTarget.valueAsNumber || 0 })} /></label>
@@ -621,6 +856,121 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
     align-items: start;
+  }
+
+  .badge-devices {
+    margin-top: 16px;
+  }
+
+  .station-code {
+    display: grid;
+    gap: 8px;
+    margin: 4px 0 14px;
+    padding: 16px;
+    border: 1px solid rgba(66, 216, 132, 0.34);
+    border-radius: var(--rst-ui-radius-md);
+    background:
+      linear-gradient(135deg, rgba(66, 216, 132, 0.1), transparent 70%),
+      var(--rst-ui-surface-field);
+  }
+
+  .station-code code {
+    padding: 10px 12px;
+    border: 1px dashed var(--rst-ui-line-strong);
+    border-radius: var(--rst-ui-radius-md);
+    background: var(--rst-ui-surface-field-strong);
+    font-family: var(--rst-font-mono, ui-monospace, monospace);
+    font-size: 15px;
+    letter-spacing: 0;
+    word-break: break-all;
+  }
+
+  .station-code p {
+    margin: 0;
+    color: var(--rst-ui-muted);
+    font-size: 12px;
+  }
+
+  .station-code__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .station-code__actions button,
+  .station-code__actions a,
+  .station-pair {
+    min-height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 16px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: var(--rst-ui-radius-md);
+    color: var(--rst-ui-text);
+    background: var(--rst-ui-surface-field-strong);
+    font: inherit;
+    font-size: 13px;
+    font-weight: var(--rst-fw-bold);
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .station-list {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .station-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: var(--rst-ui-radius-md);
+    background: var(--rst-ui-surface-field);
+  }
+
+  .station-row strong {
+    font-size: 13px;
+  }
+
+  .station-row small {
+    display: block;
+    margin-top: 2px;
+    color: var(--rst-ui-muted);
+    font-size: 11px;
+  }
+
+  .station-revoke {
+    padding: 6px 12px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: var(--rst-ui-radius-md);
+    color: var(--rst-state-danger-text);
+    background: transparent;
+    font: inherit;
+    font-size: 12px;
+    font-weight: var(--rst-fw-bold);
+    cursor: pointer;
+  }
+
+  .station-empty {
+    margin: 0 0 12px;
+    color: var(--rst-ui-muted);
+    font-size: 12px;
+  }
+
+  .station-pair {
+    color: var(--rst-on-accent-text);
+    border-color: var(--rst-ui-action);
+    background: var(--rst-ui-action);
+  }
+
+  .station-pair:disabled {
+    opacity: 0.6;
+    cursor: default;
   }
 
   .blueprint-columns .section-shelf {
@@ -685,6 +1035,11 @@
     font-size: 13px;
     font-style: normal;
   }
+
+  /* Same service-time language as the coverage lenses and Home floor:
+     gold sun for lunch, indigo moon for evening. */
+  .area-coverage > span:first-child i { color: var(--rst-service-lunch); }
+  .area-coverage > span:last-child i { color: var(--rst-service-evening); }
 
   .area-coverage b {
     color: var(--rst-ui-muted);
@@ -814,6 +1169,74 @@
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
   }
+  .logo-field {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 18px;
+    padding: 14px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: var(--rst-ui-radius-lg);
+    background: var(--rst-ui-surface-field);
+  }
+  .logo-field__preview {
+    width: 64px;
+    height: 64px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border-radius: var(--rst-ui-radius-md);
+    background: var(--rst-ui-surface-panel);
+  }
+  .logo-field__preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  .logo-field__preview.is-empty {
+    color: var(--rst-ui-muted);
+    font-size: 24px;
+    font-weight: var(--rst-fw-display);
+  }
+  .logo-field__copy { display: grid; gap: 3px; min-width: 0; }
+  .logo-field__copy small { color: var(--rst-ui-muted); font-size: 11px; line-height: 1.45; }
+  .logo-field__error { color: var(--rst-state-danger-text); font-size: 11px; font-style: normal; }
+  .logo-field__actions { display: flex; align-items: center; gap: 8px; }
+  .logo-field__actions input[type='file'] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .logo-field__button,
+  .logo-field__remove {
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    padding: 7px 14px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: var(--rst-ui-radius-md);
+    color: var(--rst-ui-text);
+    background: var(--rst-ui-surface-panel);
+    font: inherit;
+    font-size: 12px;
+    font-weight: var(--rst-fw-bold);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .logo-field__button:hover,
+  .logo-field__remove:hover { background: var(--rst-ui-hover-bg); }
+  .logo-field__remove { color: var(--rst-state-danger-text); }
+  .logo-field__actions input[type='file']:focus-visible + .logo-field__button {
+    outline: 2px solid var(--rst-ui-action);
+    outline-offset: 2px;
+  }
+  @media (max-width: 520px) {
+    .logo-field { grid-template-columns: 56px minmax(0, 1fr); }
+    .logo-field__actions { grid-column: 1 / -1; }
+  }
   .cov-rule__x {
     width: 28px;
     height: 28px;
@@ -914,7 +1337,7 @@
   .day-card header strong {
     color: var(--rst-ui-text);
     font-size: 13px;
-    letter-spacing: .04em;
+    letter-spacing: 0;
     text-transform: uppercase;
   }
 
@@ -975,6 +1398,11 @@
 
   .day-service__icon {
     font-size: 12px;
+    color: var(--rst-service-lunch);
+  }
+
+  .day-service__icon.is-evening {
+    color: var(--rst-service-evening);
   }
 
   .day-service input[type='time'] {

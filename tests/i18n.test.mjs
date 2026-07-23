@@ -30,6 +30,60 @@ test('translations interpolate operational values without losing unknown placeho
   assert.equal(translate('fr', 'Unknown {value}', {}), 'Unknown {value}');
 });
 
+test('notification templates localize dynamic employee events', () => {
+  assert.equal(
+    translate('fr', '{name} submitted availability', { name: 'Sarah' }),
+    'Sarah a envoyé ses disponibilités'
+  );
+  assert.equal(translate('nl', 'Week of {week}', { week: '2026-06-29' }), 'Week van 2026-06-29');
+});
+
+test('dynamic request and service-slot states are localized', () => {
+  const dynamicLabels = [
+    'rejected',
+    'cancelled',
+    'No activity',
+    'Available',
+    'Partly available',
+    'Unavailable',
+    'Leave pending',
+    'Time off',
+    'Change pending',
+    'Schedule change',
+    'Scheduled',
+    'Missing badge',
+    'Working now',
+    'Worked',
+    'Corrected',
+    'Conflict',
+    'submitted',
+    'draft',
+    'not submitted',
+    'Pending submission',
+    'Time off draft',
+    'Pending request',
+    'Tap the shift to request time off.',
+    'No planned shift.',
+    'Availability is maintained by your manager.',
+    'Past availability is read-only.',
+    'Availability is locked once the week is published.',
+    'Worked time cannot be replaced by availability.',
+    'Approved leave already covers this service.',
+    'An approved schedule change covers this service.',
+    'Past services are read-only.',
+    'Worked time cannot be changed through employee self-service.',
+    'A time-off request is already pending for this service.',
+    'An approved schedule change already covers this service.',
+    'A schedule change is already pending for this service.',
+    'You can only request time off on a scheduled shift.',
+    'Fixed-schedule employees request time off from planned shifts.'
+  ];
+
+  for (const locale of ['fr', 'nl']) {
+    for (const message of dynamicLabels) assert.equal(hasTranslation(locale, message), true, `${locale}: ${message}`);
+  }
+});
+
 test('critical account and workflow vocabulary exists in both added languages', () => {
   const critical = [
     'Account settings',

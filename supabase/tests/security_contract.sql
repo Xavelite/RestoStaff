@@ -151,9 +151,10 @@ begin
      or to_regclass('public.zones') is not null then
     raise exception 'Legacy organization tables still exist';
   end if;
-  if to_regclass('public.payroll_periods') is not null
-     or to_regclass('public.payroll_period_lines') is not null then
-    raise exception 'Unused payroll review snapshot tables still exist';
+  -- `payroll_periods` is now the active monthly calculation aggregate. The
+  -- retired pre-engine review snapshot used `payroll_period_lines`.
+  if to_regclass('public.payroll_period_lines') is not null then
+    raise exception 'Unused payroll review snapshot table still exists';
   end if;
   if exists (
     select 1 from information_schema.columns

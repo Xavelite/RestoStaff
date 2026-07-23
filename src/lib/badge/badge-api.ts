@@ -29,6 +29,22 @@ export type BadgeRosterEmployee = {
   lastAction?: 'in' | 'out';
   lastLocalTime?: string;
 };
+
+// The badge terminal UI (BadgeTerminal.svelte) runs against this small,
+// restaurant-agnostic surface. A manager session and a paired station provide
+// two different implementations; the component never knows which.
+export type BadgeTerminalApi = {
+  listRoster: () => Promise<BadgeRosterEmployee[]>;
+  verifyPin: (employeeId: string, pin: string) => Promise<BadgeVerification>;
+  recordBadge: (input: {
+    employeeId: string;
+    token: string;
+    photoUrl?: string;
+    photoStatus?: string;
+  }) => Promise<BadgeResult>;
+  // Optional: paired stations skip photo proof (no manager upload session).
+  uploadProof?: (input: { employeeId: string; token: string; file: File }) => Promise<string>;
+};
 export type BadgeVerification = { token: string; expiresAt: string };
 export type BadgeResult = {
   action: 'in' | 'out';
@@ -41,7 +57,7 @@ export type BadgeResult = {
   totalBreakMinutes: number;
 };
 
-export async function listBadgeRoster(restaurantId: string): Promise<BadgeRosterEmployee[]> {
+async function listBadgeRoster(restaurantId: string): Promise<BadgeRosterEmployee[]> {
   const result = await rpc('list_badge_roster', { p_restaurant_id: restaurantId });
   const employees = Array.isArray(result.employees) ? result.employees : [];
   return employees.flatMap((item) => {
@@ -80,7 +96,7 @@ export async function verifyBadgePin(
   return { token, expiresAt: String(result.expires_at ?? '') };
 }
 
-export async function recordBadge(input: {
+async function recordBadge(input: {
   restaurantId: string;
   employeeId: string;
   token: string;
@@ -108,7 +124,7 @@ export async function recordBadge(input: {
   };
 }
 
-export async function uploadBadgeProof(input: {
+async function uploadBadgeProof(input: {
   restaurantId: string;
   employeeId: string;
   token: string;
@@ -137,4 +153,14 @@ export async function uploadBadgeProof(input: {
   const path = String(result.path ?? '');
   if (!path) throw new Error('Badge proof path is missing.');
   return path;
+}
+
+// Bind the manager (JWT) badge calls to one restaurant for BadgeTerminal.
+export function createManagerBadgeApi(restaurantId: string): BadgeTerminalApi {
+  return {
+    listRoster: () => listBadgeRoster(restaurantId),
+    verifyPin: (employeeId, pin) => verifyBadgePin(restaurantId, employeeId, pin),
+    recordBadge: (input) => recordBadge({ restaurantId, ...input }),
+    uploadProof: (input) => uploadBadgeProof({ restaurantId, ...input })
+  };
 }

@@ -81,6 +81,21 @@ export function monthLabel(value: string, locale = 'en-GB'): string {
   }).format(new Date(`${monthStart(value)}T00:00:00Z`));
 }
 
+export function weekdayLabel(value: string, locale = 'en-GB'): string {
+  return new Intl.DateTimeFormat(locale, {
+    weekday: 'short',
+    timeZone: 'UTC'
+  }).format(new Date(`${value}T00:00:00Z`));
+}
+
+export function weekdayDateLabel(value: string, locale = 'en-GB'): string {
+  return new Intl.DateTimeFormat(locale, {
+    weekday: 'short',
+    day: 'numeric',
+    timeZone: 'UTC'
+  }).format(new Date(`${value}T00:00:00Z`));
+}
+
 export function weekLabel(weekStart: string, locale = 'en-GB'): string {
   const start = new Date(`${weekStart}T00:00:00Z`);
   if (Number.isNaN(start.getTime())) return '';

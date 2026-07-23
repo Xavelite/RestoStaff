@@ -17,6 +17,7 @@
     mondayFor,
     monthLabel,
     monthStart,
+    serviceDisplay,
     serviceLabel,
     todayInTimezone
   } from '$lib/calendar/date';
@@ -31,6 +32,7 @@
     employeeSlotActionReason,
     defaultEmployeeTimeOffType,
     groupTimeOffRanges,
+    removeEmployeeSlotSelection,
     selectionWeekStarts,
     setAvailabilityOverride,
     timeOffServiceDrafts,
@@ -50,6 +52,7 @@
     type EmployeeShift,
   } from '$lib/employee/employee-model';
   import { workRegime } from '$lib/domain/operations';
+  import { confirmAction } from '$lib/ui/confirm.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
 
@@ -277,6 +280,7 @@
   // entry points always agree on what this service allows right now.
   function toggleAvailabilityFor(date: string, serviceKey: 'lunch' | 'evening', truth: ServiceSlotTruth) {
     if (blockReasonFor(truth, date, 'availability')) return;
+    selectedTimeOffSlots = removeEmployeeSlotSelection(selectedTimeOffSlots, truth.key);
     availabilityOverrides = toggleAvailabilityOverride(
       availabilityOverrides,
       { date, serviceKey },
@@ -286,7 +290,7 @@
     feedback = '';
   }
 
-  // Drawer path: set the exact three-state availability the quick tap collapses.
+  // Drawer path: set available or clear it; leave remains a separate request.
   function chooseAvailabilityFor(
     date: string,
     serviceKey: 'lunch' | 'evening',
@@ -294,6 +298,7 @@
     state: AvailabilityDraft['state']
   ) {
     if (blockReasonFor(truth, date, 'availability')) return;
+    selectedTimeOffSlots = removeEmployeeSlotSelection(selectedTimeOffSlots, truth.key);
     availabilityOverrides = setAvailabilityOverride(
       availabilityOverrides,
       { date, serviceKey },
@@ -418,7 +423,7 @@
           availability: rows.map((slot) => ({
             date: slot.date,
             service_key: slot.serviceKey,
-            availability_state: slot.state
+              availability_state: slot.state === 'available' ? 'available' : ''
           }))
         });
         changed = true;
@@ -504,6 +509,13 @@
 
   async function cancelAbsence(absenceId: string) {
     if (!workspace.activeId || !employeeId || saving) return;
+    const confirmed = await confirmAction({
+      title: 'Cancel this time-off request?',
+      body: 'Your manager will no longer see it. You can request the same days again afterwards.',
+      confirmLabel: 'Cancel request',
+      cancelLabel: 'Keep it'
+    });
+    if (!confirmed) return;
     saving = true;
     try {
       await saveAbsence({
@@ -536,6 +548,13 @@
 
   async function cancelWorkPatternException(workPatternExceptionId: string) {
     if (!workspace.activeId || !employeeId || saving) return;
+    const confirmed = await confirmAction({
+      title: 'Cancel this schedule change request?',
+      body: 'Your manager will no longer see it. You can ask again afterwards.',
+      confirmLabel: 'Cancel request',
+      cancelLabel: 'Keep it'
+    });
+    if (!confirmed) return;
     saving = true;
     try {
       await saveWorkPatternException({
@@ -572,10 +591,6 @@
 
   function dayNumber(date: string) {
     return new Intl.DateTimeFormat('en-GB', { day: '2-digit' }).format(new Date(`${date}T12:00:00Z`));
-  }
-
-  function serviceIcon(serviceKey: 'lunch' | 'evening') {
-    return serviceKey === 'lunch' ? '☀' : '☾';
   }
 
   function requestCopy() {
@@ -656,14 +671,14 @@
       subtitle={availabilityMode === 'fixed_schedule' ? t('See badge proof, leave balance and your fixed schedule in one monthly rhythm.') : t('See badge proof, leave balance, published shifts and availability in one monthly rhythm.')}
     >
       {#snippet nav()}
-        <div class="page-nav">
+        <div class="page-nav" data-tour="time-nav">
           <button type="button" onclick={() => changeMonth(-1)} aria-label={t('Previous month')}>&lsaquo;</button>
           <strong>{monthLabel(activeMonth, i18n.intlLocale)}</strong>
           <button type="button" onclick={() => changeMonth(1)} aria-label={t('Next month')}>&rsaquo;</button>
         </div>
       {/snippet}
       {#snippet command()}
-        <aside class="glass-card glass-card--row time-dial-card" aria-label={t('Leave balance')}>
+        <aside class="glass-card glass-card--row time-dial-card" aria-label={t('Leave balance')} data-tour="time-balance">
           <div class:has-issues={leaveBalancePercent < 30} class="readiness-dial" style={`--ready:${leaveBalancePercent}%`}>
             <strong>{leaveBalance.remaining}</strong>
             <span>{t('days left')}</span>
@@ -680,7 +695,7 @@
       <FeedbackBanner message={feedback} tone={feedbackTone} />
 
       <div class="time-layout">
-        <section class="time-month" aria-label={t('Monthly calendar for {month}', { month: monthLabel(activeMonth, i18n.intlLocale) })}>
+        <section class="time-month" aria-label={t('Monthly calendar for {month}', { month: monthLabel(activeMonth, i18n.intlLocale) })} data-tour="time-calendar">
           <div class="weekday-row" aria-hidden="true">
             {#each Array.from({ length: 7 }, (_, index) => new Intl.DateTimeFormat(i18n.intlLocale, { weekday: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2026, 0, 5 + index)))) as weekday}<span>{weekday}</span>{/each}
           </div>
@@ -711,7 +726,7 @@
         </section>
 
         <aside class="time-side-panel" aria-label={t('Selected day')}>
-          <section class="day-panel">
+          <section class="day-panel" data-tour="time-day">
             <div class="day-panel__head">
               <div>
                 <span class="page-kicker">{t('Selected day')}</span>
@@ -733,7 +748,7 @@
                       aria-label={`${selectedDay.date}, ${slotTitle(slot)}: ${slotMeta(slot)}`}
                       onclick={() => primaryTap(selectedDay.date, slot.serviceKey)}
                     >
-                      <b>{serviceIcon(slot.serviceKey)}</b>
+                      <b>{serviceDisplay(slot.serviceKey).icon}</b>
                       <span>
                         <strong>{slotLabel(slot)}</strong>
                         <small>{slotMeta(slot)}</small>
@@ -794,8 +809,8 @@
             <article>
               <div>
                 <StatusPill
-                  label={slot.availability_state === 'partial' ? 'Needs update' : slot.availability_state}
-                  tone={slot.availability_state === 'unavailable' ? 'danger' : slot.availability_state === 'partial' ? 'warning' : 'success'}
+                  label={slot.availability_state === 'available' ? 'Available' : 'Needs update'}
+                  tone={slot.availability_state === 'available' ? 'success' : 'warning'}
                 />
                 <strong>{t(serviceLabel(slot.service_key))} {t('availability')}</strong>
                 {#if slot.note}<span>{slot.note}</span>{/if}
@@ -976,7 +991,7 @@
     color: var(--rst-ui-action);
     font-size: 10px;
     font-weight: var(--rst-fw-display);
-    letter-spacing: 0.1em;
+    letter-spacing: 0;
     text-align: center;
     text-transform: uppercase;
   }

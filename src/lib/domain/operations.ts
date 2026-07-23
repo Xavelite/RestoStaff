@@ -1,4 +1,4 @@
-import type { Database } from '../supabase/database.types';
+import type { Database } from '../supabase/database.types.ts';
 
 type OperationalEnums = Database['public']['Enums'];
 
@@ -74,16 +74,22 @@ export function defaultWorkRegime(contractCode: string): WorkRegime {
       : 'weekly_availability';
 }
 
-export function contractRequiresFixedSchedule(contractCode: string): boolean {
+function contractRequiresFixedSchedule(contractCode: string): boolean {
   const code = contractCode.trim().toUpperCase();
   return code === 'CDI' || code === 'CDD';
 }
 
+// How someone is scheduled is a separate decision from what contract they are
+// on: a CDI can be placed by the manager, and an extra can hold a recurring
+// schedule. A stored regime therefore always wins. The contract code is only a
+// fallback for rows saved before the regime was recorded.
 export function workRegime(value: unknown, contractCode = ''): WorkRegime {
-  if (contractRequiresFixedSchedule(contractCode)) return 'fixed_schedule';
-  return value === 'fixed_schedule' ||
-    value === 'weekly_availability' ||
-    value === 'manager_only'
-    ? value
-    : 'weekly_availability';
+  if (value === 'fixed_schedule' || value === 'weekly_availability' || value === 'manager_only') {
+    return value;
+  }
+  // Nothing usable stored: fall back to what the contract implies — but never
+  // silently to manager_only, which would stop asking someone for their
+  // availability without anyone having decided that.
+  const implied = defaultWorkRegime(contractCode);
+  return implied === 'manager_only' ? 'weekly_availability' : implied;
 }

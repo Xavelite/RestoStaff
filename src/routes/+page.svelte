@@ -78,7 +78,7 @@
 {#if !auth.session}
   <div class="landing">
     <header class="landing__bar">
-      <span class="wordmark">restogogo</span>
+      <span class="wordmark"><i>resto</i><b>gogo</b></span>
       <a class="bar-signin" href="/login">Sign in</a>
     </header>
 
@@ -177,7 +177,7 @@
     </main>
 
     <footer class="landing__footer">
-      <span class="wordmark">restogogo</span>
+      <span class="wordmark"><i>resto</i><b>gogo</b></span>
       <a href="/login">Sign in</a>
     </footer>
   </div>
@@ -195,7 +195,7 @@
     color: var(--rst-ui-action);
     font-size: 11px;
     font-weight: var(--rst-fw-display);
-    letter-spacing: 0.08em;
+    letter-spacing: 0;
     text-transform: uppercase;
   }
 
@@ -203,6 +203,8 @@
     font-weight: var(--rst-fw-display);
     font-size: 18px;
   }
+  .wordmark i { color: var(--rst-ui-action); font-style: normal; }
+  .wordmark b { color: currentColor; }
 
   /* ---- top bar ---- */
 
@@ -311,7 +313,7 @@
     font-size: clamp(34px, 4.6vw, 58px);
     font-weight: var(--rst-fw-display);
     line-height: 0.99;
-    letter-spacing: -0.01em;
+    letter-spacing: 0;
   }
 
   .hero__copy > p {
@@ -349,7 +351,7 @@
   }
 
   .cta--primary:hover {
-    background: #d9541a;
+    background: var(--rst-ui-action-2);
   }
 
   .cta--ghost {
@@ -409,7 +411,7 @@
     color: rgba(255, 250, 242, 0.72);
     font-size: 11px;
     font-weight: var(--rst-fw-bold);
-    letter-spacing: 0.04em;
+    letter-spacing: 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -483,7 +485,7 @@
     color: rgba(255, 250, 242, 0.55);
     font-size: 8px;
     font-weight: var(--rst-fw-display);
-    letter-spacing: 0.06em;
+    letter-spacing: 0;
     text-transform: uppercase;
   }
 

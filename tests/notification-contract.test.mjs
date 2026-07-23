@@ -278,7 +278,10 @@ test('manager notifications include employee submitted availability from submiss
   const item = items.find((candidate) => candidate.type === 'employee_availability_updated');
   assert.ok(item);
   assert.equal(item.key, 'availability-submitted:e1:2026-06-29:2026-06-23T09:00:00.000Z');
-  assert.equal(item?.title, 'Sarah submitted availability');
+  assert.equal(item?.title, '{name} submitted availability');
+  assert.deepEqual(item?.titleParams, { name: 'Sarah' });
+  assert.equal(item?.body, 'Week of {week}');
+  assert.deepEqual(item?.bodyParams, { week: '2026-06-29' });
   assert.equal(item?.source.table, 'employee_availability_submissions');
   assert.equal(item?.targetUrl, '/schedule?week=2026-06-29');
 });

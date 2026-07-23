@@ -1,16 +1,15 @@
 param(
   [Parameter(Mandatory = $true)]
   [ValidatePattern('^[a-z]{20}$')]
-  [string]$ProjectRef
+  [string]$ProjectRef,
+  [ValidateSet('acceptance', 'production')]
+  [string]$Target = 'acceptance'
 )
 
 $ErrorActionPreference = 'Stop'
 
-if ($env:ALLOW_DESTRUCTIVE_DATABASE_BOOTSTRAP -ne 'YES') {
-  throw 'Set ALLOW_DESTRUCTIVE_DATABASE_BOOTSTRAP=YES for an explicitly disposable target.'
-}
 if (-not $env:SUPABASE_DB_PASSWORD) {
-  throw 'Set SUPABASE_DB_PASSWORD for the disposable hosted project.'
+  throw 'Set SUPABASE_DB_PASSWORD for the empty hosted project.'
 }
 
 $projectsJson = (& npx supabase projects list -o json | Out-String)
@@ -20,8 +19,23 @@ if ($LASTEXITCODE -ne 0) {
 $targetProject = ($projectsJson | ConvertFrom-Json) |
   Where-Object { $_.id -eq $ProjectRef } |
   Select-Object -First 1
-if (-not $targetProject -or $targetProject.name -notmatch '^restogogo-acceptance-') {
-  throw 'Refusing a target that is not an explicitly named Restogogo acceptance project.'
+if (-not $targetProject) {
+  throw 'The requested Supabase project does not exist in the current account.'
+}
+if ($Target -eq 'production') {
+  if ($env:ALLOW_PRODUCTION_DATABASE_BOOTSTRAP -cne $ProjectRef) {
+    throw 'Set ALLOW_PRODUCTION_DATABASE_BOOTSTRAP to the exact production project ref.'
+  }
+  if ($targetProject.name -cne 'Restogogo Production') {
+    throw 'Production bootstrap accepts only the exact project name Restogogo Production.'
+  }
+} else {
+  if ($env:ALLOW_DESTRUCTIVE_DATABASE_BOOTSTRAP -ne 'YES') {
+    throw 'Set ALLOW_DESTRUCTIVE_DATABASE_BOOTSTRAP=YES for an explicitly disposable target.'
+  }
+  if ($targetProject.name -notmatch '^restogogo-acceptance-') {
+    throw 'Refusing a target that is not an explicitly named Restogogo acceptance project.'
+  }
 }
 
 $linkedRefPath = 'supabase/.temp/project-ref'
@@ -35,6 +49,7 @@ if (Test-Path -LiteralPath $linkedRefPath) {
 $repositoryRoot = (Resolve-Path '.').Path
 $temporaryRoot = Join-Path ([IO.Path]::GetTempPath()) ('restogogo-bootstrap-' + [guid]::NewGuid())
 $temporarySupabase = Join-Path $temporaryRoot 'supabase'
+$databaseUrl = $null
 
 function Invoke-TemporarySupabase {
   param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
@@ -47,7 +62,18 @@ function Invoke-TemporarySupabase {
 function Invoke-SqlFile {
   param([Parameter(Mandatory = $true)][string]$RelativePath)
   $absolutePath = Join-Path $repositoryRoot $RelativePath
-  Invoke-TemporarySupabase db query --linked --file $absolutePath
+  $previousDatabaseUrl = $env:RESTOGOGO_BOOTSTRAP_DATABASE_URL
+  try {
+    $env:RESTOGOGO_BOOTSTRAP_DATABASE_URL = $databaseUrl
+    & node (Join-Path $repositoryRoot 'scripts/execute-database-sql.mjs') $absolutePath
+    if ($LASTEXITCODE -ne 0) { throw 'A database SQL file failed.' }
+  } finally {
+    if ($null -eq $previousDatabaseUrl) {
+      Remove-Item Env:RESTOGOGO_BOOTSTRAP_DATABASE_URL -ErrorAction SilentlyContinue
+    } else {
+      $env:RESTOGOGO_BOOTSTRAP_DATABASE_URL = $previousDatabaseUrl
+    }
+  }
 }
 
 try {
@@ -56,37 +82,16 @@ try {
   Copy-Item -LiteralPath 'supabase/migrations' -Destination $temporarySupabase -Recurse
   Invoke-TemporarySupabase link --project-ref $ProjectRef --password $env:SUPABASE_DB_PASSWORD
 
+  $poolerUrlPath = Join-Path $temporarySupabase '.temp/pooler-url'
+  $poolerUrl = (Get-Content -Raw -LiteralPath $poolerUrlPath).Trim()
+  if ($poolerUrl -notmatch '^postgresql://[^@]+@[^/]+/postgres$') {
+    throw 'Supabase returned an invalid temporary database connection URL.'
+  }
+  $encodedPassword = [Uri]::EscapeDataString($env:SUPABASE_DB_PASSWORD)
+  $databaseUrl = $poolerUrl -replace '@', ":$encodedPassword@"
+
   Write-Host 'Confirming the target has no Restogogo schema...'
   Invoke-SqlFile 'supabase/baseline/assert-empty.sql'
-
-  Write-Host 'Initializing the hosted Realtime authorization schema...'
-  $keysJson = (& npx supabase projects api-keys --project-ref $ProjectRef --reveal -o json | Out-String)
-  if ($LASTEXITCODE -ne 0) {
-    throw 'Supabase API key discovery failed.'
-  }
-  $apiKeys = $keysJson | ConvertFrom-Json
-  $realtimeBootstrapKey = ($apiKeys |
-    Where-Object { $_.name -eq 'anon' -and $_.type -eq 'legacy' } |
-    Select-Object -First 1).api_key
-  if (-not $realtimeBootstrapKey) {
-    $realtimeBootstrapKey = ($apiKeys |
-      Where-Object { $_.type -eq 'publishable' } |
-      Select-Object -First 1).api_key
-  }
-  if (-not $realtimeBootstrapKey) {
-    throw 'The disposable project has no browser-safe API key.'
-  }
-  $env:RESTOGOGO_BOOTSTRAP_SUPABASE_URL = "https://$ProjectRef.supabase.co"
-  $env:RESTOGOGO_BOOTSTRAP_API_KEY = $realtimeBootstrapKey
-  try {
-    & node (Join-Path $repositoryRoot 'scripts/initialize-hosted-realtime.mjs')
-    if ($LASTEXITCODE -ne 0) {
-      throw 'Hosted Realtime initialization failed.'
-    }
-  } finally {
-    Remove-Item Env:RESTOGOGO_BOOTSTRAP_SUPABASE_URL -ErrorAction SilentlyContinue
-    Remove-Item Env:RESTOGOGO_BOOTSTRAP_API_KEY -ErrorAction SilentlyContinue
-  }
 
   Write-Host 'Applying fresh-project prerequisites...'
   Invoke-SqlFile 'supabase/baseline/prerequisites.sql'
@@ -121,7 +126,8 @@ try {
     'focused_read_models_contract.sql',
     'payroll_export_contract.sql',
     'model_integrity_contract.sql',
-    'notification_payroll_contract.sql'
+    'notification_payroll_contract.sql',
+    'push_notification_contract.sql'
   )
 
   Write-Host 'Executing rollback-contained security and workflow contracts...'
@@ -145,6 +151,8 @@ try {
 
   Write-Host 'Disposable Restogogo bootstrap and all database contracts passed.'
 } finally {
+  $databaseUrl = $null
+  $encodedPassword = $null
   $resolvedTemp = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\') + '\'
   $resolvedTarget = [IO.Path]::GetFullPath($temporaryRoot)
   if ($resolvedTarget.StartsWith($resolvedTemp, [StringComparison]::OrdinalIgnoreCase) -and

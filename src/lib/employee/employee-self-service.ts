@@ -31,8 +31,8 @@ export function timeOffServiceDrafts(
 export type SimpleAvailabilityDraft = {
   date: string;
   serviceKey: ServiceKey;
-  // `partial` is retained only so legacy saved rows can round-trip until the
-  // employee replaces them with one of the two supported choices.
+  // Legacy states remain readable, but employee input only creates `available`
+  // or clears the slot back to neutral.
   state: 'available' | 'partial' | 'unavailable' | '';
 };
 
@@ -141,6 +141,13 @@ export function toggleEmployeeSlotSelection(
     : [...selected, slot].sort(
         (a, b) => a.date.localeCompare(b.date) || a.serviceKey.localeCompare(b.serviceKey)
       );
+}
+
+export function removeEmployeeSlotSelection(
+  selected: EmployeeSlotSelection[],
+  key: string
+): EmployeeSlotSelection[] {
+  return selected.filter((item) => item.key !== key);
 }
 
 export function employeeSlotActionReason(input: {

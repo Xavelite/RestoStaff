@@ -5,11 +5,14 @@
   import { addMonths, formatHours, serviceLabel, todayInTimezone } from '$lib/calendar/date';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
+  import { workspaceRealtime } from '$lib/realtime/workspace-realtime.svelte';
+  import { getInsightsCostRates, type InsightsCostRates } from '$lib/payroll/payroll-api';
+  import CostInsights from '$lib/dashboard/CostInsights.svelte';
+  import { buildCostInsights, type CostInsights as CostInsightsView } from '$lib/dashboard/cost-model';
   import {
     buildInsights,
-    dashboardReadRanges,
     insightFilterOptions,
-    insightLoadRange,
+    insightReadRanges,
     insightPeriodRange,
     mergeDashboardReadModels,
     moveInsightAnchor,
@@ -23,7 +26,7 @@
     type WorkforceFilter
   } from '$lib/dashboard/dashboard-model';
 
-  type StudioTab = 'overview' | 'people' | 'operations';
+  type StudioTab = 'overview' | 'people' | 'operations' | 'cost';
   type PeopleMetric = 'hours' | 'adherence' | 'punctuality' | 'exceptions';
 
   let activeTab = $state<StudioTab>('overview');
@@ -41,8 +44,10 @@
   let model = $state<ManagerOperationsReadModel | null>(null);
   let loading = $state(true);
   let errorMessage = $state('');
+  let costRates = $state<InsightsCostRates | null>(null);
 
   const timezone = $derived(workspace.bootstrap?.restaurant_settings.timezone || 'Europe/Brussels');
+  const owner = $derived(workspace.active?.role === 'owner');
   const today = $derived(todayInTimezone(timezone));
   const earliestAnchor = $derived(addMonths(today, -23));
   const currentRange = $derived(insightPeriodRange(anchor, period, i18n.intlLocale));
@@ -50,6 +55,19 @@
   const filterOptions = $derived(model ? insightFilterOptions(model) : null);
   const view = $derived<InsightView | null>(
     model ? buildInsights(model, anchor, period, comparisonMode, filters, today, i18n.intlLocale) : null
+  );
+  const costView = $derived<CostInsightsView | null>(
+    owner && model && view && costRates
+      ? buildCostInsights(
+          model,
+          costRates,
+          view.currentRange,
+          view.comparisonRange,
+          filters,
+          view.buckets.map((bucket) => bucket.key),
+          period
+        )
+      : null
   );
   const focusedEmployee = $derived(
     view?.employees.find((employee) => employee.id === focusedEmployeeId) ?? null
@@ -91,6 +109,7 @@
         : t('Understand the people behind service.');
     }
     if (activeTab === 'operations') return t('See where the plan meets the floor.');
+    if (activeTab === 'cost') return t('See where scheduled cost meets the floor.');
     if (!view?.hasData) return t('Your restaurant, in evidence.');
     if (view.current.missingBadges > 0) {
       return t(
@@ -114,19 +133,28 @@
     const selectedPeriod = period;
     const selectedComparison = comparisonMode;
     const selectedAnchor = anchor;
+    const realtimeSequence = workspaceRealtime.eventSequence;
     if (!restaurantId) return;
     let cancelled = false;
     loading = true;
     errorMessage = '';
-    const loadRange = insightLoadRange(selectedAnchor, selectedPeriod, selectedComparison);
-    const ranges = dashboardReadRanges(loadRange.from, loadRange.to);
-    Promise.all(
-      ranges.map((range) =>
-        getManagerOperationsReadModel(restaurantId, range.from, range.to)
-      )
-    )
-      .then((models) => {
-        if (!cancelled) model = mergeDashboardReadModels(models);
+    void realtimeSequence;
+    const ranges = insightReadRanges(selectedAnchor, selectedPeriod, selectedComparison);
+    Promise.all([
+      Promise.all(
+        ranges.map((range) =>
+          getManagerOperationsReadModel(restaurantId, range.from, range.to)
+        )
+      ),
+      workspace.active?.role === 'owner'
+        ? getInsightsCostRates(restaurantId)
+        : Promise.resolve(null)
+    ])
+      .then(([models, rates]) => {
+        if (!cancelled) {
+          model = mergeDashboardReadModels(models);
+          costRates = rates;
+        }
       })
       .catch((error) => {
         if (!cancelled) {
@@ -354,7 +382,7 @@
     subtitle={t('Explore the restaurant, compare periods, and open the evidence behind every signal.')}
   >
     {#snippet command()}
-      <div class="hero-lens">
+      <div class="hero-lens" data-tour="ins-lens">
         <span>{t('Current lens')}</span>
         <strong>{currentRange.label}</strong>
         <small>{comparisonMode === 'year' ? t('Same period last year') : t('Previous period')}</small>
@@ -363,7 +391,7 @@
   </PageHero>
 
   <div class="studio-shell">
-    <nav class="studio-tabs" aria-label={t('Insights sections')}>
+    <nav class="studio-tabs" class:has-cost={owner} aria-label={t('Insights sections')} data-tour="ins-tabs">
       <button type="button" class:is-active={activeTab === 'overview'} onclick={() => (activeTab = 'overview')}>
         <span>01</span><strong>{t('Overview')}</strong><small>{t('Restaurant pulse')}</small>
       </button>
@@ -373,9 +401,14 @@
       <button type="button" class:is-active={activeTab === 'operations'} onclick={() => (activeTab = 'operations')}>
         <span>03</span><strong>{t('Operations')}</strong><small>{t('Services and areas')}</small>
       </button>
+      {#if owner}
+        <button type="button" class:is-active={activeTab === 'cost'} onclick={() => (activeTab = 'cost')}>
+          <span>04</span><strong>{t('Cost')}</strong><small>{t('Owner only')}</small>
+        </button>
+      {/if}
     </nav>
 
-    <section class="evidence-bar" aria-label={t('Insights controls')}>
+    <section class="evidence-bar" aria-label={t('Insights controls')} data-tour="ins-filters">
       <div class="control-block">
         <span>{t('Period')}</span>
         <div class="segmented" role="group" aria-label={t('Period')}>
@@ -448,9 +481,11 @@
       <div class="state is-error"><strong>{t('Insights could not be loaded')}</strong><small>{errorMessage}</small></div>
     {:else if !view || !view.hasData}
       <div class="state"><strong>{t('No evidence in this lens yet')}</strong><small>{t('Try another period or clear one of the filters.')}</small></div>
+    {:else if activeTab === 'cost' && costView}
+      <CostInsights view={costView} labels={view.buckets.map((bucket) => bucket.shortLabel)} locale={i18n.intlLocale} />
     {:else if activeTab === 'overview'}
       <div class="view-stack overview-view">
-        <section class="signal-grid" aria-label={t('Period signals')}>
+        <section class="signal-grid" aria-label={t('Period signals')} data-tour="ins-kpis">
           {@render signalCard(
             t('Worked hours'),
             formatHours(view.current.worked),
@@ -468,21 +503,21 @@
           {@render signalCard(
             t('On-time starts'),
             view.current.evaluatedStarts ? `${Math.round((1 - (view.current.lateRate ?? 0)) * 100)}%` : t('No sample'),
-            t('{late} late across {starts} evaluated starts', { late: view.current.lateCount, starts: view.current.evaluatedStarts }),
+            t('Late starts: {late} · evaluated: {starts}', { late: view.current.lateCount, starts: view.current.evaluatedStarts }),
             view.current.lateCount ? 'warning' : 'good',
             view.current.evaluatedStarts ? (1 - (view.current.lateRate ?? 0)) * 100 : 0
           )}
           {@render signalCard(
             t('Evidence gaps'),
             String(view.current.missingBadges + view.current.corrections),
-            t('{missing} missing - {corrected} corrected', { missing: view.current.missingBadges, corrected: view.current.corrections }),
+            t('Missing: {missing} · corrected: {corrected}', { missing: view.current.missingBadges, corrected: view.current.corrections }),
             view.current.missingBadges ? 'bad' : view.current.corrections ? 'warning' : 'good',
             Math.max(0, 100 - (view.current.missingBadges + view.current.corrections) * 12)
           )}
         </section>
 
         <div class="overview-grid">
-          <section class="chart-panel" aria-label={t('Worked against plan')}>
+          <section class="chart-panel" aria-label={t('Worked against plan')} data-tour="ins-chart">
             <header class="panel-heading on-dark">
               <div><span>{t('Performance trace')}</span><h2>{t('Worked against plan')}</h2></div>
               <div class="chart-legend">
@@ -560,7 +595,7 @@
               <div><span>{t('Service rhythm')}</span><h2>{t('When service holds - and where it slips')}</h2></div>
               <small>{t('Worked shifts / planned shifts')}</small>
             </header>
-            {@render pulseGrid(view.pulse, 'Restaurant service pulse')}
+            {@render pulseGrid(view.pulse, t('Restaurant service pulse'))}
           </section>
           <section class="briefing-panel">
             <header class="panel-heading on-dark"><div><span>{t('Evidence briefing')}</span><h2>{t('What deserves attention')}</h2></div></header>
@@ -759,6 +794,7 @@
     background: var(--rst-ui-bg-2);
     overflow: hidden;
   }
+  .studio-tabs.has-cost { grid-template-columns: repeat(4, 1fr); }
 
   .studio-tabs button {
     min-width: 0;
@@ -872,7 +908,7 @@
   .chart-panel { padding: 20px 22px 16px; overflow: hidden; }
   .panel-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
   .panel-heading > div { min-width: 0; }
-  .panel-heading span { color: var(--rst-ui-action); font-size: 10px; font-weight: var(--rst-fw-display); letter-spacing: .07em; text-transform: uppercase; }
+  .panel-heading span { color: var(--rst-ui-action); font-size: 10px; font-weight: var(--rst-fw-display); letter-spacing: 0; text-transform: uppercase; }
   .panel-heading h2, .panel-heading h3 { margin: 3px 0 0; font-size: 20px; line-height: 1.05; }
   .panel-heading p { max-width: 560px; margin: 6px 0 0; color: var(--rst-ui-muted); font-size: 12px; }
   .panel-heading > small { color: var(--rst-ui-muted); font-size: 11px; text-align: right; }

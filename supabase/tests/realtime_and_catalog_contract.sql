@@ -3,38 +3,50 @@ begin;
 do $$
 declare
   v_select_policy text;
-  v_insert_policy text;
 begin
   select coalesce(qual, '')
   into v_select_policy
   from pg_policies
-  where schemaname = 'realtime'
-    and tablename = 'messages'
-    and policyname = 'workspace members can receive broadcasts'
+  where schemaname = 'public'
+    and tablename = 'workspace_realtime_events'
+    and policyname = 'workspace_realtime_events_select'
     and cmd = 'SELECT'
     and 'authenticated' = any(roles);
 
-  select coalesce(with_check, '')
-  into v_insert_policy
-  from pg_policies
-  where schemaname = 'realtime'
-    and tablename = 'messages'
-    and policyname = 'workspace members can send broadcasts'
-    and cmd = 'INSERT'
-    and 'authenticated' = any(roles);
-
   if v_select_policy is null
-     or position('is_restaurant_member' in v_select_policy) = 0
-     or position('realtime.topic' in v_select_policy) = 0
-     or position('broadcast' in v_select_policy) = 0 then
-    raise exception 'Private workspace broadcast read authorization is missing or too broad.';
+     or position('is_restaurant_member' in v_select_policy) = 0 then
+    raise exception 'Workspace Realtime event read authorization is missing or too broad.';
   end if;
 
-  if v_insert_policy is null
-     or position('is_restaurant_member' in v_insert_policy) = 0
-     or position('realtime.topic' in v_insert_policy) = 0
-     or position('broadcast' in v_insert_policy) = 0 then
-    raise exception 'Private workspace broadcast write authorization is missing or too broad.';
+  if exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'workspace_realtime_events'
+      and cmd in ('INSERT', 'UPDATE', 'DELETE', 'ALL')
+  ) then
+    raise exception 'Workspace Realtime event rows must not be directly writable by clients.';
+  end if;
+
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'workspace_realtime_events'
+  ) then
+    raise exception 'Workspace Realtime event table is absent from the Realtime publication.';
+  end if;
+
+  if not exists (
+    select 1
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname = 'publish_workspace_realtime_event'
+      and p.prosecdef
+  ) then
+    raise exception 'Workspace Realtime publisher is missing or is not security definer.';
   end if;
 
   if not exists (
@@ -107,9 +119,25 @@ begin
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
-      and p.prosrc ~ '\m(Planning|Actuals)\M'
+      and exists (
+        select 1
+        from regexp_split_to_table(p.prosrc, chr(10)) line
+        where btrim(line) not like '--%'
+          and line ~ '\m(Planning|Actuals)\M'
+      )
   ) then
-    raise exception 'Retired Planning or Actuals copy remains in public functions.';
+    raise exception 'Retired Schedule or Timesheet copy remains in public functions: %', (
+      select string_agg(p.oid::regprocedure::text, ', ' order by p.oid::regprocedure::text)
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public'
+        and exists (
+          select 1
+          from regexp_split_to_table(p.prosrc, chr(10)) line
+          where btrim(line) not like '--%'
+            and line ~ '\m(Planning|Actuals)\M'
+        )
+    );
   end if;
 end
 $$;

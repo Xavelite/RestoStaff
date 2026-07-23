@@ -39,6 +39,27 @@ export type ServiceSlotState =
   | 'corrected'
   | 'conflict';
 
+const SERVICE_SLOT_STATE_LABELS: Record<ServiceSlotState, string> = {
+  empty: 'No activity',
+  available: 'Available',
+  partial: 'Partly available',
+  unavailable: 'Unavailable',
+  leave_pending: 'Leave pending',
+  leave_approved: 'Time off',
+  work_pattern_pending: 'Change pending',
+  work_pattern_approved: 'Schedule change',
+  planned: 'Scheduled',
+  missing_badge: 'Missing badge',
+  live: 'Working now',
+  worked: 'Worked',
+  corrected: 'Corrected',
+  conflict: 'Conflict'
+};
+
+export function serviceSlotStateLabel(state: ServiceSlotState): string {
+  return SERVICE_SLOT_STATE_LABELS[state];
+}
+
 export type ServiceSlotPlan = {
   id: string;
   startsAt: string;

@@ -199,17 +199,34 @@ export async function dismissNotification(input: {
   });
 }
 
-export async function setNotificationTypeEnabled(input: {
+export async function setNotificationTypeChannels(input: {
   restaurantId: string;
   profileId: string;
   notificationType: NotificationTypeCode;
-  enabled: boolean;
+  inAppEnabled: boolean;
+  pushEnabled: boolean;
 }): Promise<void> {
   await saveNotificationPreference({
     restaurantId: input.restaurantId,
     profileId: input.profileId,
     notificationType: input.notificationType,
-    inAppEnabled: input.enabled,
-    pushEnabled: false
+    inAppEnabled: input.inAppEnabled,
+    pushEnabled: input.pushEnabled
+  });
+}
+
+export async function markPushNotificationOpened(input: {
+  restaurantId: string;
+  profileId: string;
+  notificationKey: string;
+  notificationType: NotificationTypeCode;
+}): Promise<void> {
+  await saveNotificationReceipt({
+    restaurantId: input.restaurantId,
+    profileId: input.profileId,
+    notificationKey: input.notificationKey,
+    notificationType: input.notificationType,
+    readAt: new Date().toISOString(),
+    dismissedAt: null
   });
 }

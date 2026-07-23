@@ -63,7 +63,7 @@
     color: var(--rst-ui-panel-title);
     font-size: 11px;
     font-weight: var(--rst-fw-bold);
-    letter-spacing: 0.07em;
+    letter-spacing: 0;
     text-transform: uppercase;
   }
 

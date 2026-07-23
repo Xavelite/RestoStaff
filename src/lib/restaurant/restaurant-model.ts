@@ -1,4 +1,5 @@
 import { asJsonArray } from '../api/json.ts';
+import { setupItemCode, slug } from './setup-item-code.ts';
 import type { RestaurantReadModel } from '$lib/api/workspace-snapshot';
 import type { RestaurantSavePayload } from '$lib/api/mutations';
 import {
@@ -146,17 +147,7 @@ export function restaurantDraft(snapshot: RestaurantReadModel): RestaurantDraft 
 
 const nullable = (value: string) => value.trim() || null;
 
-export function slug(value: string, fallback: string): string {
-  return (
-    value
-      .trim()
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '') || fallback
-  );
-}
+export { setupItemCode } from './setup-item-code.ts';
 
 function inheritedOpening(
   draft: RestaurantDraft,

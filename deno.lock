@@ -1,5 +1,5 @@
 {
-  "version": "4",
+  "version": "5",
   "redirects": {
     "https://esm.sh/@supabase/phoenix@^0.4.2?target=denonext": "https://esm.sh/@supabase/phoenix@0.4.4?target=denonext",
     "https://esm.sh/@supabase/supabase-js@2": "https://esm.sh/@supabase/supabase-js@2.108.2",
@@ -27,19 +27,25 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
-        "npm:@lucide/svelte@^1.24.0",
         "npm:@supabase/supabase-js@^2.108.2",
         "npm:@sveltejs/adapter-static@^3.0.10",
+        "npm:@sveltejs/adapter-vercel@^6.3.4",
         "npm:@sveltejs/kit@^2.66.0",
         "npm:@sveltejs/vite-plugin-svelte@^7.1.2",
         "npm:@types/node@^25.9.3",
-        "npm:deno-bin@^2.2.7",
+        "npm:@types/web-push@^3.6.4",
+        "npm:deno@^2.9.3",
         "npm:knip@^5.88.1",
+        "npm:pg@^8.22.0",
         "npm:svelte-check@^4.6.0",
         "npm:svelte@^5.56.1",
         "npm:typescript@^6.0.3",
-        "npm:vite@^8.0.16"
-      ]
+        "npm:vite@^8.0.16",
+        "npm:web-push@^3.6.7"
+      ],
+      "overrides": {
+        "cookie": "0.7.2"
+      }
     }
   }
 }

@@ -1,0 +1,29 @@
+name: Validate
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PUBLIC_SUPABASE_URL: https://example.supabase.co
+      PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-key
+      PUBLIC_APP_RELEASE: ci
+      PUBLIC_ERROR_ENDPOINT: ''
+      PUBLIC_WEB_PUSH_VAPID_KEY: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: npm
+      - run: npm ci
+      - run: npm run validate
+

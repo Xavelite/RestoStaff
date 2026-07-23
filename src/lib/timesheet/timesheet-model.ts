@@ -34,6 +34,9 @@ export type ActualSlot = {
   actualRange: string;
   grossHours: number;
   breakMinutes: number;
+  actualJobFunctionId: string;
+  actualAreaId: string;
+  actualAssignmentSource: string;
   actualHours: number;
   status:
     | 'empty'
@@ -178,6 +181,9 @@ export function actualSlotsForDate(
         entryRevision: entry ? Number(entry.revision) : null,
         grossHours: entryGrossHours,
         breakMinutes,
+        actualJobFunctionId: entry?.actual_job_function_id ?? plan?.job_function_id ?? '',
+        actualAreaId: entry?.actual_area_id ?? plan?.area_id ?? '',
+        actualAssignmentSource: entry?.actual_assignment_source ?? (plan ? 'planned_shift' : 'unresolved'),
         actualRange: clockIn ? `${clockIn}-${clockOut || 'live'}` : '',
         actualHours,
         status,

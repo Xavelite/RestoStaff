@@ -1,4 +1,4 @@
-import type { Tables } from '../supabase/database.types';
+import type { Tables } from '../supabase/database.types.ts';
 
 export type WorkPatternException = Tables<'work_pattern_exceptions'>;
 export type WorkPatternExceptionStatus = WorkPatternException['status'];

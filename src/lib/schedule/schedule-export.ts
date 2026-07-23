@@ -17,7 +17,9 @@ export function planningCsv(input: {
   draft: PlanningShiftDraft[];
   notes: PlanningNoteDraft[];
   columns: string[];
+  translate?: (value: string) => string;
 }): PlanningCsv {
+  const translate = input.translate ?? ((value: string) => value);
   const employeeName = new Map(
     input.snapshot.employees.map((employee) => [employee.id, employee.display_name])
   );
@@ -32,7 +34,7 @@ export function planningCsv(input: {
       case 'date':
         return addDays(input.activeWeek, shift.weekday - 1);
       case 'service':
-        return serviceLabel(shift.serviceKey);
+        return translate(serviceLabel(shift.serviceKey));
       case 'start':
         return shift.startsAt ?? '';
       case 'end':
@@ -57,7 +59,7 @@ export function planningCsv(input: {
 
   return {
     filename: `schedule-${input.activeWeek}.csv`,
-    headers: input.columns.map((column) => planningFieldLabel(column)),
+    headers: input.columns.map((column) => translate(planningFieldLabel(column))),
     rows: input.draft.map((shift) => input.columns.map((column) => value(shift, column)))
   };
 }

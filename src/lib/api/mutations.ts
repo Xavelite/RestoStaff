@@ -230,6 +230,7 @@ export async function savePlanning(input: {
   expectedRevision?: number | null;
   reason?: string;
   allowCoverageGaps?: boolean;
+  allowConflicts?: boolean;
 }): Promise<MutationAck> {
   const data = await rpcJson('save_manager_planning', {
     p_restaurant_id: input.restaurantId,
@@ -239,7 +240,8 @@ export async function savePlanning(input: {
     p_weekly_notes: asJson(input.notes ?? []),
     p_expected_revision: input.expectedRevision ?? undefined,
     p_reason: input.reason?.trim() || undefined,
-    p_allow_coverage_gaps: input.allowCoverageGaps || undefined
+    p_allow_coverage_gaps: input.allowCoverageGaps || undefined,
+    p_allow_conflicts: input.allowConflicts || undefined
   });
   return mutationAck(data);
 }
@@ -567,5 +569,50 @@ export async function setupOwnerWorkspace(input: OwnerWorkspaceSetup): Promise<J
     p_job_functions: input.jobFunctions,
     p_coverage: input.coverage,
     p_employees: input.employees
+  });
+}
+
+// Paired badge devices (station credentials). ------------------------------
+export type RestaurantStation = {
+  id: string;
+  label: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+};
+
+export async function createRestaurantStation(
+  restaurantId: string,
+  label: string
+): Promise<{ stationId: string; token: string }> {
+  const data = object(
+    await rpcJson('create_restaurant_station', { p_restaurant_id: restaurantId, p_label: label })
+  );
+  return { stationId: String(data.station_id ?? ''), token: String(data.token ?? '') };
+}
+
+export async function revokeRestaurantStation(
+  restaurantId: string,
+  stationId: string
+): Promise<void> {
+  await rpcJson('revoke_restaurant_station', {
+    p_restaurant_id: restaurantId,
+    p_station_id: stationId
+  });
+}
+
+export async function listRestaurantStations(restaurantId: string): Promise<RestaurantStation[]> {
+  const data = object(await rpcJson('list_restaurant_stations', { p_restaurant_id: restaurantId }));
+  const rows = Array.isArray(data.stations) ? data.stations : [];
+  return rows.flatMap((row) => {
+    if (!row || typeof row !== 'object') return [];
+    const record = row as Record<string, unknown>;
+    return [
+      {
+        id: String(record.id),
+        label: String(record.label ?? ''),
+        createdAt: String(record.created_at ?? ''),
+        lastUsedAt: record.last_used_at ? String(record.last_used_at) : null
+      }
+    ];
   });
 }

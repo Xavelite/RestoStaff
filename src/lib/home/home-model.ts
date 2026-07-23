@@ -1,6 +1,5 @@
 import type { WorkspaceRole } from '$lib/api/workspace';
 import type { ManagerOperationsReadModel } from '$lib/api/workspace-snapshot';
-import { serviceLabel } from '../calendar/date.ts';
 
 export type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
@@ -13,19 +12,8 @@ export type HomeLiveRow = {
   status: string;
   tone: Tone;
   startMinutes: number;
-  // Full-mode extras: a rich one-line stat (X min late, worked time, starts in)
-  // and, when working now, the clock-in instant so the view can tick live.
-  detail: string;
   liveSince?: string | null;
 };
-
-function liveMinutesLabel(minutes: number): string {
-  const total = Math.max(0, Math.round(minutes));
-  if (total < 60) return `${total} min`;
-  const hours = Math.floor(total / 60);
-  const rest = total % 60;
-  return rest ? `${hours}h ${rest}m` : `${hours}h`;
-}
 
 export type HomeActionRow = {
   key: 'leave' | 'payroll' | 'planning' | 'availability';
@@ -35,19 +23,17 @@ export type HomeActionRow = {
   tone: Tone;
   href: string;
   symbol: string;
-  items: Array<{ id: string; label: string; meta: string }>;
-};
-
-export type HomePulseRow = {
-  label: string;
-  value: string;
-  meta: string;
-  tone: Tone;
-  href: string;
+  items: Array<{
+    id: string;
+    label: string;
+    meta: string;
+    metaParams?: Record<string, string | number>;
+    weekday?: number;
+    serviceKey?: string;
+  }>;
 };
 
 export type HomeModel = {
-  weekLabel: string;
   live: {
     working: number;
     late: number;
@@ -56,18 +42,11 @@ export type HomeModel = {
     todayRoster: HomeLiveRow[];
   };
   actions: {
-    total: number;
     rows: HomeActionRow[];
-  };
-  pulse: {
-    tone: Tone;
-    rows: HomePulseRow[];
   };
 };
 
 const LATE_THRESHOLD_MINUTES = 45;
-const DAY_MS = 86_400_000;
-
 function liveTonePriority(tone: Tone) {
   if (tone === 'danger') return 0;
   if (tone === 'warning') return 1;
@@ -169,38 +148,6 @@ function clockRange(start: string | null, end: string | null): string {
   return from && to ? `${from}-${to}` : from;
 }
 
-function hoursBetweenClocks(start: string | null, end: string | null): number {
-  const from = clockMinutes(start);
-  const to = clockMinutes(end);
-  if (from === null || to === null) return 0;
-  const duration = to >= from ? to - from : to + 1440 - from;
-  return duration / 60;
-}
-
-function hoursBetweenInstants(start: string | null, end: string | null): number {
-  if (!start || !end) return 0;
-  const duration = new Date(end).getTime() - new Date(start).getTime();
-  return Number.isFinite(duration) && duration > 0 ? duration / 3_600_000 : 0;
-}
-
-function formatHours(value: number): string {
-  const minutes = Math.max(0, Math.round(value * 60));
-  const hours = Math.floor(minutes / 60);
-  const remainder = minutes % 60;
-  return remainder ? `${hours}h${String(remainder).padStart(2, '0')}` : `${hours}h`;
-}
-
-function formatWeekRange(weekStart: string): string {
-  const start = new Date(`${weekStart}T00:00:00Z`);
-  const end = new Date(start.getTime() + 6 * DAY_MS);
-  const formatter = new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    timeZone: 'UTC'
-  });
-  return `${formatter.format(start)} - ${formatter.format(end)}`;
-}
-
 function formatInstant(value: string | null, timezone: string): string {
   if (!value) return '';
   const date = new Date(value);
@@ -300,7 +247,6 @@ export function buildHomeModel(
         status: plan ? 'Working now' : 'Unplanned live',
         tone: plan ? 'success' : 'warning',
         startMinutes: plan?.startMinutes ?? clockMinutes(clockIn) ?? 0,
-        detail: plan ? `On the floor | in since ${clockIn}` : `Unplanned | in since ${clockIn}`,
         liveSince: entry.clock_in_at
       };
     });
@@ -327,11 +273,7 @@ export function buildHomeModel(
         status:
           localNow.minutes - shift.startMinutes > LATE_THRESHOLD_MINUTES ? 'No-show' : 'Late',
         tone: 'danger',
-        startMinutes: shift.startMinutes,
-        detail:
-          localNow.minutes - shift.startMinutes > LATE_THRESHOLD_MINUTES
-            ? `No badge | ${liveMinutesLabel(localNow.minutes - shift.startMinutes)} overdue`
-            : `${liveMinutesLabel(localNow.minutes - shift.startMinutes)} late`
+        startMinutes: shift.startMinutes
       };
     });
 
@@ -346,8 +288,7 @@ export function buildHomeModel(
         range: shift.range,
         status: 'Upcoming',
         tone: 'neutral' as Tone,
-        startMinutes: shift.startMinutes,
-        detail: `Starts in ${liveMinutesLabel(shift.startMinutes - localNow.minutes)}`
+        startMinutes: shift.startMinutes
       };
     })
     .sort((a, b) => a.startMinutes - b.startMinutes || a.name.localeCompare(b.name));
@@ -362,28 +303,21 @@ export function buildHomeModel(
     const onLeave = hasApprovedAbsence(shift.employee_id, shift.date, shift.service_key);
     let status = 'Upcoming';
     let tone: Tone = 'neutral';
-    let detail = `Starts in ${liveMinutesLabel(shift.startMinutes - localNow.minutes)}`;
     let liveSince: string | null = null;
     if (actual?.clock_in_at && !actual.clock_out_at) {
       status = 'Working now';
       tone = 'success';
-      detail = `On the floor | in since ${formatInstant(actual.clock_in_at, timezone)}`;
       liveSince = actual.clock_in_at;
     } else if (actual?.clock_out_at) {
       status = 'Done';
       tone = 'info';
-      detail = `Worked ${formatInstant(actual.clock_in_at, timezone)}-${formatInstant(actual.clock_out_at, timezone)}`;
     } else if (onLeave) {
       status = 'On leave';
       tone = 'neutral';
-      detail = 'On approved leave';
     } else if (shift.startMinutes <= localNow.minutes) {
       const over = localNow.minutes - shift.startMinutes;
       status = over > LATE_THRESHOLD_MINUTES ? 'No-show' : 'Late';
       tone = 'danger';
-      detail = over > LATE_THRESHOLD_MINUTES
-        ? `No badge | ${liveMinutesLabel(over)} overdue`
-        : `${liveMinutesLabel(over)} late`;
     }
     return {
       employeeId: shift.employee_id,
@@ -393,21 +327,8 @@ export function buildHomeModel(
       status,
       tone,
       startMinutes: shift.startMinutes,
-      detail,
       liveSince
     };
-  });
-
-  const missingBadges = planned.filter((shift) => {
-    if (shift.date > localNow.date) return false;
-    if (shift.date === localNow.date && shift.startMinutes > localNow.minutes) return false;
-    const actual = actualsBySlot.get(
-      `${shift.employee_id}|${shift.date}|${shift.service_key}`
-    );
-    return (
-      !actual?.clock_in_at &&
-      !hasApprovedAbsence(shift.employee_id, shift.date, shift.service_key)
-    );
   });
 
   const pendingAbsences = snapshot.absences.filter(
@@ -510,42 +431,6 @@ export function buildHomeModel(
   const affectedServices = new Set(
     coverageIssues.map((issue) => `${issue.weekday}|${issue.serviceKey}`)
   ).size;
-  const coverage =
-    !requirements.length || !openServices.length
-      ? {
-          tone: 'warning' as Tone,
-          label: 'Setup needed',
-          detail: !requirements.length
-            ? 'No coverage requirements configured'
-            : 'No opening schedule configured'
-        }
-      : coverageIssues.length
-        ? {
-            tone: 'danger' as Tone,
-            label: 'At risk',
-            detail: `${affectedServices} service${affectedServices === 1 ? '' : 's'} affected`
-          }
-        : {
-            tone: 'success' as Tone,
-            label: 'Good',
-            detail: 'Coverage requirements matched'
-          };
-
-  const plannedHours = planned.reduce(
-    (total, shift) => total + hoursBetweenClocks(shift.starts_at, shift.ends_at),
-    0
-  );
-  const actualHours = actuals.reduce(
-    (total, entry) => total + hoursBetweenInstants(entry.clock_in_at, entry.clock_out_at),
-    0
-  );
-  const planningStatus =
-    snapshot.work_weeks.find((week) => week.week_start === weekStart)?.planning_status ===
-    'published'
-      ? 'Published'
-      : 'Draft';
-
-  const weekdayShort = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const affectedServiceKeys = [
     ...new Set(coverageIssues.map((issue) => `${issue.weekday}|${issue.serviceKey}`))
   ];
@@ -565,7 +450,11 @@ export function buildHomeModel(
         meta:
           absence.start_date === absence.end_date
             ? absence.start_date
-            : `${absence.start_date} to ${absence.end_date}`
+            : '{start} to {end}',
+        metaParams:
+          absence.start_date === absence.end_date
+            ? undefined
+            : { start: absence.start_date, end: absence.end_date }
       }))
     },
     ...(role === 'owner'
@@ -601,8 +490,11 @@ export function buildHomeModel(
           .reduce((total, issue) => total + issue.missing, 0);
         return {
           id: key,
-          label: `${weekdayShort[Number(weekdayNumber) - 1] ?? 'Day'} | ${serviceLabel(serviceKey)}`,
-          meta: `${missing} position${missing === 1 ? '' : 's'} short`
+          label: '',
+          weekday: Number(weekdayNumber),
+          serviceKey,
+          meta: missing === 1 ? '{count} position short' : '{count} positions short',
+          metaParams: { count: missing }
         };
       })
     },
@@ -621,51 +513,10 @@ export function buildHomeModel(
       }))
     }
   ];
-  const actionTotal = actionRows.reduce((total, row) => total + row.count, 0);
-
   const combinedLiveRows = combineLiveRowsByEmployee([...lateRows, ...liveRows, ...upcomingRows]).slice(0, 9);
   const todayRoster = combineLiveRowsByEmployee([...todayRosterRows, ...liveRows]);
 
-  const pulseRows: HomePulseRow[] = [
-    {
-      label: 'Planned hours',
-      value: formatHours(plannedHours),
-      meta: planningStatus,
-      tone: 'neutral',
-      href: '/schedule'
-    },
-    {
-      label: 'Actual hours',
-      value: formatHours(actualHours),
-      meta: 'Badged so far',
-      tone: 'info',
-      href: '/timesheet'
-    },
-    {
-      label: 'Coverage status',
-      value: coverage.label,
-      meta: coverage.detail,
-      tone: coverage.tone,
-      href: '/schedule'
-    },
-    {
-      label: 'Missing badges',
-      value: String(missingBadges.length),
-      meta: missingBadges.length ? 'Started planned shifts' : 'No missing badges',
-      tone: missingBadges.length ? 'warning' : 'success',
-      href: '/timesheet'
-    },
-    {
-      label: 'Schedule status',
-      value: planningStatus,
-      meta: planningStatus === 'Published' ? 'Published' : 'Not published',
-      tone: planningStatus === 'Published' ? 'success' : 'neutral',
-      href: '/schedule'
-    }
-  ];
-
   return {
-    weekLabel: formatWeekRange(weekStart),
     live: {
       working: liveRows.length,
       late: lateRows.length,
@@ -673,7 +524,6 @@ export function buildHomeModel(
       rows: combinedLiveRows,
       todayRoster
     },
-    actions: { total: actionTotal, rows: actionRows },
-    pulse: { tone: coverage.tone, rows: pulseRows }
+    actions: { rows: actionRows }
   };
 }

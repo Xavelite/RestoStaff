@@ -3,10 +3,18 @@ import test from 'node:test';
 import { buildActualsWeek } from '../src/lib/timesheet/timesheet-model.ts';
 import {
   projectServiceSlot,
-  resolveWorkspaceServiceSlot
+  resolveWorkspaceServiceSlot,
+  serviceSlotStateLabel
 } from '../src/lib/calendar/service-slot.ts';
 import { buildEmployeeWeek, employeeMonth } from '../src/lib/employee/employee-model.ts';
 import { buildPlanningWeek, planningDraftForWeek } from '../src/lib/schedule/schedule-model.ts';
+
+test('service-slot states expose product language instead of database codes', () => {
+  assert.equal(serviceSlotStateLabel('missing_badge'), 'Missing badge');
+  assert.equal(serviceSlotStateLabel('leave_approved'), 'Time off');
+  assert.equal(serviceSlotStateLabel('work_pattern_pending'), 'Change pending');
+  assert.equal(serviceSlotStateLabel('empty'), 'No activity');
+});
 
 function snapshot(overrides = {}) {
   return {

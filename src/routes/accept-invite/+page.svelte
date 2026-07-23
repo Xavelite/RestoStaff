@@ -188,6 +188,6 @@
   .context span, .context small { color: var(--rst-ui-muted); }
   form { display: grid; gap: 13px; }
   label { display: grid; gap: 6px; color: var(--rst-ui-muted); font-size: 11px; font-weight: var(--rst-fw-bold); }
-  input { min-height: 44px; padding: 10px 12px; border: 1px solid var(--rst-ui-line); border-radius: var(--rst-ui-radius-md); color: var(--rst-ui-text); background: var(--rst-ui-surface-field-strong); font: inherit; letter-spacing: .24em; }
+  input { min-height: 44px; padding: 10px 12px; border: 1px solid var(--rst-ui-line); border-radius: var(--rst-ui-radius-md); color: var(--rst-ui-text); background: var(--rst-ui-surface-field-strong); font: inherit; letter-spacing: 0; }
   .login { display: block; width: 100%; padding: 11px 14px; border: 0; border-radius: var(--rst-ui-radius-md); color: var(--rst-on-accent-text); background: var(--rst-ui-action); font: inherit; font-weight: var(--rst-fw-bold); text-align: center; text-decoration: none; cursor: pointer; }
 </style>

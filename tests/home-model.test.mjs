@@ -50,10 +50,10 @@ test('unplanned live work is never reported as on track', () => {
 
   assert.equal(model.live.rows[0]?.status, 'Unplanned live');
   assert.equal(model.live.rows[0]?.tone, 'warning');
-  assert.match(model.live.rows[0]?.detail ?? '', /Unplanned/i);
+  assert.equal(model.live.rows[0]?.liveSince, '2026-06-18T10:00:00Z');
 });
 
-test('late, missing-badge and coverage truths remain visible together', () => {
+test('no-show pressure and coverage decisions remain visible together', () => {
   const model = buildHomeModel(
     snapshot({
       coverage_requirements: [
@@ -90,9 +90,7 @@ test('late, missing-badge and coverage truths remain visible together', () => {
   );
 
   assert.equal(model.live.late, 1);
-  assert.equal(model.pulse.tone, 'danger');
-  assert.equal(
-    model.pulse.rows.find((row) => row.label === 'Missing badges')?.value,
-    '1'
-  );
+  assert.equal(model.live.rows[0]?.status, 'No-show');
+  assert.equal(model.live.rows[0]?.tone, 'danger');
+  assert.equal(model.actions.rows.find((row) => row.key === 'planning')?.count, 1);
 });

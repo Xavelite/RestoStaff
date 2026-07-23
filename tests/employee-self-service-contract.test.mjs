@@ -5,6 +5,7 @@ import {
   employeeSlotAction,
   employeeTimeOffTypes,
   groupTimeOffRanges,
+  removeEmployeeSlotSelection,
   setAvailabilityOverride,
   toggleEmployeeSlotSelection
 } from '../src/lib/employee/employee-self-service.ts';
@@ -24,14 +25,31 @@ function serviceSlot(date, startsAt) {
   };
 }
 
-test('employee availability is binary while historical partial values require an update', () => {
+test('employees answer availability both ways while leave stays a separate action', () => {
+  // Saying "I cannot work this" is a real answer, distinct from saying nothing,
+  // and distinct again from formally requesting time off.
   assert.deepEqual(
     SELECTABLE_AVAILABILITY.map((option) => option.value),
     ['available', 'unavailable']
   );
   assert.equal(
+    availabilityUpdateHint('available'),
+    'Your manager can schedule you for this service. Clear availability before requesting time off.'
+  );
+  assert.equal(
+    availabilityUpdateHint('unavailable'),
+    'Your manager sees you cannot work this service. Being scheduled anyway shows as a clash.'
+  );
+  // No answer at all is its own state, and prompts for one.
+  assert.equal(
+    availabilityUpdateHint(''),
+    'Tell your manager whether you can work this service.'
+  );
+  // 'partial' is retired: still rendered for old rows, never offered again.
+  assert.ok(!SELECTABLE_AVAILABILITY.some((option) => option.value === 'partial'));
+  assert.equal(
     availabilityUpdateHint('partial'),
-    'Your saved availability needs updating. Choose available or unavailable.'
+    'This old response needs updating. Say whether you are available or not.'
   );
 });
 
@@ -60,6 +78,7 @@ test('slot selection toggles without duplicate state', () => {
   const slot = { key: 'e1|2026-06-22|lunch', date: '2026-06-22', serviceKey: 'lunch' };
   assert.deepEqual(toggleEmployeeSlotSelection([], slot), [slot]);
   assert.deepEqual(toggleEmployeeSlotSelection([slot], slot), []);
+  assert.deepEqual(removeEmployeeSlotSelection([slot], slot.key), []);
 });
 
 test('time off groups any selection into ranges — never silently dropped', () => {

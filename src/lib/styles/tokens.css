@@ -2,7 +2,7 @@
 :root {
   --rst-blue: #9a5b1f;
   --rst-blue-rgb: 154,91,31;
-  --rst-ui-action-rgb: 240,100,35;
+  --rst-ui-action-rgb: 194,65,12;
   --rst-indigo: #5d4630;
   --rst-mint: #4f8f5b;
   --rst-coral: #e9822f;
@@ -10,6 +10,10 @@
   /* Brand spectrum accents (the home rule + cockpit highlights). */
   --rst-gold: #f7b733;
   --rst-green: #40c878;
+  /* Service-time accents — lunch = gold sun, evening = indigo moon. One source
+     of truth for the ☀/☾ glyphs across Home, Schedule, Timesheet, Restaurant. */
+  --rst-service-lunch: #ffce54;
+  --rst-service-evening: #9aa8ec;
   --rst-ui-font: Manrope, "Segoe UI", Arial, sans-serif;
   --rst-ui-bg: #f4ede0;
   --rst-ui-bg-2: #fffaf2;
@@ -56,8 +60,8 @@
   --rst-ui-line-strong: rgba(76,48,26,.24);
   --rst-ui-accent: #d97706;
   --rst-ui-accent-dark: #9a5b1f;
-  --rst-ui-action: #f06423;
-  --rst-ui-action-2: #c2410c;
+  --rst-ui-action: #c2410c;
+  --rst-ui-action-2: #9a3412;
   --rst-ui-hover-bg: rgba(76,48,26,.06);
   --rst-ui-brand: #1f160f;
   --rst-ui-brand-accent: #f06423;
@@ -91,6 +95,16 @@
   --rst-ui-shadow-floating: none;
   /* Elevated cockpit/feature card. Warm, low-alpha — barely visible on dark themes. */
   --rst-ui-shadow-card: 0 16px 48px rgba(48, 35, 18, 0.08);
+  /* Summary surface — the "here is the number that matters" panel inside an
+     editor. Tokenised so a calmer design can flatten it to a plain card. */
+  --rst-summary-bg:
+    radial-gradient(circle at 92% 10%, rgba(66, 216, 132, 0.28), transparent 36%),
+    linear-gradient(145deg, #111b28, #123324);
+  --rst-summary-border: transparent;
+  --rst-summary-text: #fffaf2;
+  --rst-summary-quiet: rgba(255, 250, 242, .6);
+  --rst-summary-tile: rgba(255, 255, 255, .08);
+  --rst-summary-kicker: var(--rst-green);
   /* Operational command surfaces share structure while their radial tint carries status. */
   --rst-command-border: rgba(255, 255, 255, 0.1);
   --rst-command-radius: var(--rst-ui-radius-2xl);

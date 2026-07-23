@@ -44,6 +44,7 @@
   }
 
   button.is-primary {
+    color: var(--rst-on-accent-text);
     border-color: var(--rst-ui-action);
     background: var(--rst-ui-action);
   }

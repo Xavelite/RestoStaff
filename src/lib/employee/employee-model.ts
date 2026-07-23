@@ -1,7 +1,7 @@
 import type { EmployeeOperationsReadModel } from '../api/workspace-snapshot';
 import type { Database } from '../supabase/database.types';
 import { buildMonthDays, type CalendarDay, type ServiceSlotPresentation } from '../calendar/calendar-model.ts';
-import type { WeekCell, WeekColumn, WeekRow, WeekSlot } from '../calendar/week-grid';
+import type { WeekColumn } from '../calendar/week-grid';
 import {
   instantClockLabel,
   resolveWorkspaceServiceSlot,
@@ -39,6 +39,10 @@ export type AvailabilityDraft = {
   state: AvailabilityState;
 };
 
+// Saying "I cannot work this" is a different statement from saying nothing, and
+// the schedule treats it as one: planning someone who marked themselves
+// unavailable is surfaced as a clash. 'partial' is a legacy state kept only so
+// old answers still render; it is no longer offered.
 export type SelectableAvailability = 'available' | 'unavailable';
 
 export const SELECTABLE_AVAILABILITY: ReadonlyArray<{
@@ -47,16 +51,14 @@ export const SELECTABLE_AVAILABILITY: ReadonlyArray<{
   icon: string;
 }> = [
   { value: 'available', label: 'Available', icon: '✓' },
-  { value: 'unavailable', label: 'Unavailable', icon: '✕' }
+  { value: 'unavailable', label: 'Not available', icon: '✕' }
 ];
 
 export function availabilityUpdateHint(state: AvailabilityState): string {
-  if (state === 'available') return 'Your manager can schedule you for this service.';
-  if (state === 'partial') {
-    return 'Your saved availability needs updating. Choose available or unavailable.';
-  }
-  if (state === 'unavailable') return "You've told your manager you can't work this service.";
-  return 'Tap a state to tell your manager how this service works for you.';
+  if (state === 'available') return 'Your manager can schedule you for this service. Clear availability before requesting time off.';
+  if (state === 'unavailable') return 'Your manager sees you cannot work this service. Being scheduled anyway shows as a clash.';
+  if (state === 'partial') return 'This old response needs updating. Say whether you are available or not.';
+  return 'Tell your manager whether you can work this service.';
 }
 
 export type EmployeeShift = {
@@ -297,13 +299,10 @@ export function buildEmployeeWeek(input: {
   today: string;
   availability: AvailabilityDraft[];
   availabilityMode: AvailabilityMode;
-  serviceDrafts?: EmployeeServiceDraft[];
 }): {
   days: WeekColumn[];
-  rows: WeekRow[];
   slotsByKey: Map<string, EmployeeWeekSlot>;
 } {
-  const employee = employeeForId(input.snapshot, input.employeeId);
   const published =
     input.snapshot.work_weeks.find((week) => week.week_start === input.weekStart)
       ?.planning_status === 'published';
@@ -318,8 +317,8 @@ export function buildEmployeeWeek(input: {
     return { weekday: index + 1, label, date, today: date === input.today, past: date < input.today };
   });
   const slotsByKey = new Map<string, EmployeeWeekSlot>();
-  const cells: WeekCell[] = days.map((day) => {
-    const slots: WeekSlot[] = SERVICES.map((serviceKey) => {
+  for (const day of days) {
+    for (const serviceKey of SERVICES) {
       const key = `${input.employeeId}|${day.date}|${serviceKey}`;
       const shift =
         shifts.find((item) => item.date === day.date && item.serviceKey === serviceKey) ??
@@ -411,33 +410,9 @@ export function buildEmployeeWeek(input: {
                   : '';
       const slot: EmployeeWeekSlot = { ...baseSlot, state, truth, editable, editReason };
       slotsByKey.set(key, slot);
-      return {
-        key,
-        serviceKey,
-        presentation: withServiceDraft(
-          projectServiceSlot(truth, 'employee'),
-          serviceDraftFor(input.serviceDrafts ?? [], day.date, serviceKey)
-        )
-      };
-    });
-    return { date: day.date, slots };
-  });
-  const total = shifts.reduce((sum, shift) => sum + shift.hours, 0);
-  return {
-    days,
-    rows: employee
-      ? [
-          {
-            id: employee.id,
-            name: employee.display_name,
-            meta: 'Your week',
-            total: formatHours(total),
-            cells
-          }
-        ]
-      : [],
-    slotsByKey
-  };
+    }
+  }
+  return { days, slotsByKey };
 }
 
 function absenceForDate(snapshot: EmployeeOperationsReadModel, employeeId: string, date: string) {

@@ -3,7 +3,11 @@
   import StatusPill from '$lib/components/StatusPill.svelte';
   import ActionButton from '$lib/components/ActionButton.svelte';
   import { serviceLabel } from '$lib/calendar/date';
-  import { instantClockLabel, type ServiceSlotTruth } from '$lib/calendar/service-slot';
+  import {
+    instantClockLabel,
+    serviceSlotStateLabel,
+    type ServiceSlotTruth
+  } from '$lib/calendar/service-slot';
   import {
     defaultEmployeeTimeOffType,
     employeeSlotActionReason,
@@ -61,9 +65,8 @@
     onCancelChange: (workPatternExceptionId: string) => void;
   } = $props();
 
-  // A service is either available or unavailable. The persisted `partial`
-  // value remains readable for historical compatibility, but it is not a
-  // usable employee choice without a time range or operational constraint.
+  // Employees positively declare availability. Leaving a service unselected
+  // is neutral; time off remains a separate, audited request.
   const availabilityHint = $derived(availabilityUpdateHint(availabilityState));
 
   const availabilityBlocked = $derived(
@@ -78,6 +81,9 @@
   );
   const defaultType = $derived(defaultEmployeeTimeOffType(absenceTypes));
   const timeOffTypes = $derived(employeeTimeOffTypes(absenceTypes));
+  $effect(() => {
+    if (open && defaultType && !absenceTypeId) absenceTypeId = defaultType.id;
+  });
   const stateTone = $derived.by(() => {
     if (!truth) return 'neutral' as const;
     if (truth.state === 'worked' || truth.state === 'live' || truth.state === 'available') return 'success' as const;
@@ -99,7 +105,7 @@
   {#if truth}
     <div class="slot-drawer">
       <div class="slot-summary">
-        <StatusPill label={truth.state.replaceAll('_', ' ')} tone={stateTone} />
+        <StatusPill label={serviceSlotStateLabel(truth.state)} tone={stateTone} />
         {#if truth.plan}
           <div class="fact">
             <strong>{truth.plan.startsAt}–{truth.plan.endsAt}</strong>
@@ -112,10 +118,10 @@
           <div class="fact">
             <strong>{truth.entry.status === 'open' ? t('Working now') : t('Worked time')}</strong>
             <span>
-              {instantClockLabel(truth.entry.clock_in_at, timezone)}–{instantClockLabel(truth.entry.clock_out_at, timezone) || 'open'}
-              · {truth.entry.break_minutes || 0} min break
+              {instantClockLabel(truth.entry.clock_in_at, timezone)}–{instantClockLabel(truth.entry.clock_out_at, timezone) || t('open')}
+              · {t('{minutes} min break', { minutes: truth.entry.break_minutes || 0 })}
             </span>
-            {#if truth.entry.adjustment_reason}<small>Correction: {truth.entry.adjustment_reason}</small>{/if}
+            {#if truth.entry.adjustment_reason}<small>{t('Correction: {reason}', { reason: truth.entry.adjustment_reason })}</small>{/if}
           </div>
         {/if}
         {#if pendingAbsence}
@@ -164,11 +170,22 @@
                 <span>{t(option.label)}</span>
               </button>
             {/each}
+            {#if availabilityState === 'partial'}
+              <button
+                type="button"
+                class="availability-option is-clear"
+                disabled={saving}
+                onclick={() => onSetAvailability('')}
+              >
+                <b aria-hidden="true">−</b>
+                <span>{t('Clear availability')}</span>
+              </button>
+            {/if}
           </div>
           <p class="availability-hint">{t(availabilityHint)}</p>
         {/if}
 
-        {#if !timeOffBlocked && !pendingAbsence}
+        {#if !timeOffBlocked && !pendingAbsence && (policy !== 'weekly_availability' || availabilityState !== 'available')}
           <!-- Set the leave type and an optional note, then request. The button
                stages the request and closes the drawer; the page's action bar
                submits it. -->
@@ -196,7 +213,7 @@
         {/if}
 
         {#if availabilityBlocked && timeOffBlocked && !pendingAbsence && !pendingChange}
-          <p class="muted">{availabilityBlocked || timeOffBlocked}</p>
+          <p class="muted">{t(availabilityBlocked || timeOffBlocked)}</p>
         {/if}
       </div>
     </div>
@@ -250,7 +267,7 @@
   }
   .availability-picker {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 8px;
   }
   .availability-option {
@@ -288,8 +305,12 @@
     background: linear-gradient(135deg, rgba(51, 170, 107, 0.24), rgba(51, 170, 107, 0.08));
   }
   .availability-option.is-unavailable.is-active {
-    border-color: rgba(239, 68, 68, 0.6);
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.06));
+    border-color: rgba(var(--rst-state-danger-rgb), 0.55);
+    background: linear-gradient(
+      135deg,
+      rgba(var(--rst-state-danger-rgb), 0.2),
+      rgba(var(--rst-state-danger-rgb), 0.07)
+    );
   }
   .availability-hint {
     margin: 0;

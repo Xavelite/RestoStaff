@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { newEmployeeDraft, teamSavePayload } from '../src/lib/team/team-model.ts';
+import { employmentTermsPayload, newEmployeeDraft, teamSavePayload } from '../src/lib/team/team-model.ts';
 import { defaultWorkRegime, workRegime } from '../src/lib/domain/operations.ts';
 
 test('manager saves never submit owner-only employee data', () => {
@@ -83,10 +83,44 @@ test('contract types produce restaurant-native availability defaults', () => {
   assert.equal(defaultWorkRegime(''), 'weekly_availability');
 });
 
+test('a stored scheduling regime always wins over the contract type', () => {
+  // How someone is scheduled is independent of what contract they hold: a CDI
+  // can be manager-placed, and an extra can hold a recurring schedule.
+  assert.equal(workRegime('weekly_availability', 'CDI'), 'weekly_availability');
+  assert.equal(workRegime('manager_only', 'CDD'), 'manager_only');
+  assert.equal(workRegime('fixed_schedule', 'STUDENT'), 'fixed_schedule');
+  assert.equal(workRegime('manager_only', 'FREELANCE'), 'manager_only');
+});
+
 test('missing or invalid stored scheduling policy never becomes manager-managed', () => {
-  assert.equal(workRegime('weekly_availability', 'CDI'), 'fixed_schedule');
-  assert.equal(workRegime('manager_only', 'CDD'), 'fixed_schedule');
+  // Only when nothing usable is stored does the contract imply a regime, and it
+  // may never silently land on manager_only — that would stop asking someone
+  // for availability without anyone deciding it.
+  assert.equal(workRegime(undefined, 'CDI'), 'fixed_schedule');
   assert.equal(workRegime(undefined, 'FREELANCE'), 'weekly_availability');
   assert.equal(workRegime('invalid', 'FREELANCE'), 'weekly_availability');
-  assert.equal(workRegime('manager_only', 'FREELANCE'), 'manager_only');
+  assert.equal(workRegime(null, ''), 'weekly_availability');
+});
+
+test('employment terms submit facts and never browser-derived classifications', () => {
+  const payload = employmentTermsPayload({
+    ...newEmployeeDraft('employee-1'),
+    contractId: 'contract-1',
+    contractStart: '2026-07-01',
+    weeklyContractHours: 24,
+    weeklyHoursRegime: 'variable_average',
+    referencePeriodWeeks: 13,
+    salaryBasis: 'hourly',
+    contractualHourlyRate: '18.2500',
+    cp302ReferenceFunctionCode: '206B'
+  });
+  assert.equal(payload.contract_id, 'contract-1');
+  assert.equal(payload.weekly_hours_regime, 'variable_average');
+  assert.equal(payload.cp302_reference_function_code, '206B');
+  for (const derived of [
+    'contract_duration_kind', 'employment_regime', 'worker_status',
+    'employment_volume', 'legal_schedule_type', 'cp302_category', 'source_status'
+  ]) {
+    assert.equal(Object.hasOwn(payload, derived), false, `${derived} must be server-derived`);
+  }
 });

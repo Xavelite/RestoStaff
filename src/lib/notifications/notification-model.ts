@@ -1,4 +1,7 @@
-import type { Tables } from '$lib/supabase/database.types';
+import type { Tables } from '../supabase/database.types.ts';
+import type { ServiceKey } from '../calendar/date.ts';
+
+type NotificationParams = Record<string, string | number>;
 
 const NOTIFICATION_TYPE_CODES = [
   'absence_request_submitted',
@@ -15,7 +18,8 @@ const NOTIFICATION_TYPE_CODES = [
   'absence_request_decided',
   'own_forgot_badge_out',
   'shift_soon',
-  'shift_changed_after_publication'
+  'shift_changed_after_publication',
+  'operational_message_received'
 ] as const;
 
 export type NotificationTypeCode = (typeof NOTIFICATION_TYPE_CODES)[number];
@@ -32,7 +36,8 @@ const IMPLEMENTED_NOTIFICATION_TYPE_CODES = [
   'planning_published',
   'absence_request_decided',
   'own_forgot_badge_out',
-  'shift_soon'
+  'shift_soon',
+  'operational_message_received'
 ] as const satisfies readonly NotificationTypeCode[];
 
 type NotificationAudience = 'manager' | 'employee' | 'both';
@@ -59,7 +64,10 @@ export type NotificationItem = {
   audience: Exclude<NotificationAudience, 'both'>;
   severity: NotificationSeverity;
   title: string;
+  titleParams?: NotificationParams;
   body: string;
+  bodyParams?: NotificationParams;
+  serviceKey?: ServiceKey;
   createdAt: string;
   actionMode: NotificationActionMode;
   targetUrl: string;

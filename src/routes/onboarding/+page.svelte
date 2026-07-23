@@ -805,7 +805,7 @@
     margin: 0;
     font-size: clamp(40px, 8vw, 76px);
     line-height: 0.92;
-    letter-spacing: -0.055em;
+    letter-spacing: 0;
   }
 
   .gate-hero p {
@@ -887,7 +887,7 @@
     margin: 0;
     font-size: clamp(34px, 5.2vw, 64px);
     line-height: 0.94;
-    letter-spacing: -0.06em;
+    letter-spacing: 0;
   }
 
   .launch-hero p {
@@ -1052,7 +1052,7 @@
     margin: 4px 0 0;
     font-size: clamp(26px, 3.4vw, 40px);
     line-height: 0.96;
-    letter-spacing: -0.05em;
+    letter-spacing: 0;
   }
 
   .text-action {
@@ -1344,7 +1344,7 @@
     font-size: 10px;
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0;
   }
 
   .matrix__col-head {
@@ -1490,7 +1490,7 @@
   .blueprint__head strong {
     font-size: 19px;
     line-height: 1.05;
-    letter-spacing: -0.03em;
+    letter-spacing: 0;
   }
 
   .blueprint__head p {

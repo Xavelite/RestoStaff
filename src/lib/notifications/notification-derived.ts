@@ -2,7 +2,7 @@ import type {
   EmployeeOperationsReadModel,
   ManagerOperationsReadModel,
   TeamReadModel
-} from '../api/workspace-snapshot';
+} from '../api/workspace-snapshot.ts';
 import {
   clockMinutes,
   dateForWeekday,
@@ -11,7 +11,7 @@ import {
   mondayFor,
   type ServiceKey
 } from '../calendar/date.ts';
-import type { NotificationItem } from './notification-model';
+import type { NotificationItem } from './notification-model.ts';
 
 type Role = 'owner' | 'manager' | 'employee';
 
@@ -64,11 +64,29 @@ function dateTimeForShift(shift: PlannedShift): string {
   return dateForWeekday(shift.week_start, shift.weekday);
 }
 
-function shiftLabel(shift: PlannedShift): string {
+function shiftMessage(
+  shift: PlannedShift
+): Pick<NotificationItem, 'body' | 'bodyParams' | 'serviceKey'> {
   const date = dateTimeForShift(shift);
-  const service = shift.service_key === 'evening' ? 'evening' : 'lunch';
-  const time = shift.starts_at && shift.ends_at ? ` · ${shift.starts_at.slice(0, 5)}–${shift.ends_at.slice(0, 5)}` : '';
-  return `${date} ${service}${time}`;
+  const time = shift.starts_at && shift.ends_at
+    ? ` · ${shift.starts_at.slice(0, 5)}–${shift.ends_at.slice(0, 5)}`
+    : '';
+  return {
+    body: '{date} {service}{time}',
+    bodyParams: { date, time },
+    serviceKey: shift.service_key as ServiceKey
+  };
+}
+
+function serviceMessage(
+  date: string,
+  serviceKey: string
+): Pick<NotificationItem, 'body' | 'bodyParams' | 'serviceKey'> {
+  return {
+    body: '{date} {service}',
+    bodyParams: { date },
+    serviceKey: serviceKey as ServiceKey
+  };
 }
 
 function availabilitySubmissionCreatedAt(submission: AvailabilitySubmission): string {
@@ -199,7 +217,8 @@ function managerNotifications(input: ManagerNotificationInput): NotificationItem
       type: 'absence_request_submitted',
       audience: 'manager',
       severity: 'attention',
-      title: `${name} requested absence`,
+      title: '{name} requested absence',
+      titleParams: { name },
       body: `${absence.start_date}${absence.end_date !== absence.start_date ? ` – ${absence.end_date}` : ''}`,
       createdAt: absence.created_at,
       actionMode: 'popup',
@@ -222,8 +241,10 @@ function managerNotifications(input: ManagerNotificationInput): NotificationItem
       type: 'employee_availability_updated',
       audience: 'manager',
       severity: 'info',
-      title: `${name} submitted availability`,
-      body: `Week of ${submission.week_start}`,
+      title: '{name} submitted availability',
+      titleParams: { name },
+      body: 'Week of {week}',
+      bodyParams: { week: submission.week_start },
       createdAt,
       actionMode: 'route',
       targetUrl: routeWithWeek('/schedule', submission.week_start),
@@ -243,8 +264,9 @@ function managerNotifications(input: ManagerNotificationInput): NotificationItem
       type: 'employee_unavailable_on_planned_shift',
       audience: 'manager',
       severity: approvedAbsence ? 'critical' : 'attention',
-      title: `${name} is unavailable on a planned shift`,
-      body: shiftLabel(shift),
+      title: '{name} is unavailable on a planned shift',
+      titleParams: { name },
+      ...shiftMessage(shift),
       createdAt: shift.updated_at,
       actionMode: 'route',
       targetUrl: routeWithWeek('/schedule', shift.week_start),
@@ -260,8 +282,9 @@ function managerNotifications(input: ManagerNotificationInput): NotificationItem
         type: 'employee_forgot_badge_out',
         audience: 'manager',
         severity: 'attention',
-        title: `${name} forgot to badge out`,
-        body: `${entry.business_date} ${entry.service_key}`,
+        title: '{name} forgot to badge out',
+        titleParams: { name },
+        ...serviceMessage(entry.business_date, entry.service_key),
         createdAt: entry.updated_at,
         actionMode: 'popup',
         targetUrl: routeWithWeek('/timesheet', mondayFor(entry.business_date)),
@@ -276,8 +299,9 @@ function managerNotifications(input: ManagerNotificationInput): NotificationItem
         type: 'worked_during_approved_absence',
         audience: 'manager',
         severity: 'critical',
-        title: `${name} worked during approved absence`,
-        body: `${entry.business_date} ${entry.service_key}`,
+        title: '{name} worked during approved absence',
+        titleParams: { name },
+        ...serviceMessage(entry.business_date, entry.service_key),
         createdAt: entry.updated_at,
         actionMode: 'route',
         targetUrl: routeWithWeek('/timesheet', mondayFor(entry.business_date)),
@@ -292,8 +316,9 @@ function managerNotifications(input: ManagerNotificationInput): NotificationItem
         type: 'employee_badged_late',
         audience: 'manager',
         severity: 'info',
-        title: `${name} badged in late`,
-        body: `${entry.business_date} ${entry.service_key}`,
+        title: '{name} badged in late',
+        titleParams: { name },
+        ...serviceMessage(entry.business_date, entry.service_key),
         createdAt: entry.clock_in_at ?? entry.updated_at,
         actionMode: 'route',
         targetUrl: routeWithWeek('/timesheet', mondayFor(entry.business_date)),
@@ -315,8 +340,9 @@ function managerNotifications(input: ManagerNotificationInput): NotificationItem
       type: 'employee_no_show',
       audience: 'manager',
       severity: 'critical',
-      title: `${name} did not show up`,
-      body: shiftLabel(shift),
+      title: '{name} did not show up',
+      titleParams: { name },
+      ...shiftMessage(shift),
       createdAt: `${date}T23:59:00.000Z`,
       actionMode: 'route',
       targetUrl: routeWithWeek('/timesheet', shift.week_start),
@@ -332,7 +358,8 @@ function managerNotifications(input: ManagerNotificationInput): NotificationItem
       type: 'employee_invite_accepted',
       audience: 'manager',
       severity: 'success',
-      title: `${name} accepted the invite`,
+      title: '{name} accepted the invite',
+      titleParams: { name },
       body: invitation.email,
       createdAt: invitation.accepted_at ?? invitation.sent_at,
       actionMode: 'route',
@@ -370,8 +397,9 @@ function employeeNotifications(input: EmployeeNotificationInput): NotificationIt
       severity: 'info',
       title: hasOwnShift ? 'Your shifts are published' : 'Schedule published',
       body: hasOwnShift
-        ? `Week of ${week.week_start} — see your shifts`
-        : `Week of ${week.week_start} — you're not scheduled`,
+        ? 'Week of {week} - see your shifts'
+        : "Week of {week} - you're not scheduled",
+      bodyParams: { week: week.week_start },
       createdAt: week.published_at,
       actionMode: 'route',
       targetUrl: routeWithWeek('/my-service', week.week_start),
@@ -389,7 +417,7 @@ function employeeNotifications(input: EmployeeNotificationInput): NotificationIt
       type: 'absence_request_decided',
       audience: 'employee',
       severity: approved ? 'success' : 'attention',
-      title: `Absence ${approved ? 'approved' : 'refused'}`,
+      title: approved ? 'Absence approved' : 'Absence refused',
       body: `${absence.start_date}${absence.end_date !== absence.start_date ? ` – ${absence.end_date}` : ''}`,
       createdAt: decidedAt,
       actionMode: 'popup',
@@ -406,7 +434,7 @@ function employeeNotifications(input: EmployeeNotificationInput): NotificationIt
       audience: 'employee',
       severity: 'attention',
       title: 'You forgot to badge out',
-      body: `${entry.business_date} ${entry.service_key}`,
+      ...serviceMessage(entry.business_date, entry.service_key),
       createdAt: entry.updated_at,
       actionMode: 'popup',
       targetUrl: routeWithWeek('/my-service', mondayFor(entry.business_date)),
@@ -427,7 +455,7 @@ function employeeNotifications(input: EmployeeNotificationInput): NotificationIt
       audience: 'employee',
       severity: 'info',
       title: 'Shift soon',
-      body: shiftLabel(shift),
+      ...shiftMessage(shift),
       createdAt: startsAt.toISOString(),
       actionMode: 'popup',
       targetUrl: routeWithWeek('/my-service', shift.week_start),

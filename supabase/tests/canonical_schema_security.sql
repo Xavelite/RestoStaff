@@ -7,40 +7,96 @@ do $$
 declare
   v_allowed regprocedure[] := array[
     'public.accept_employee_invite(uuid,text,text)'::regprocedure,
+    'public.admin_dashboard()'::regprocedure,
+    'public.admin_delete_restaurant(uuid)'::regprocedure,
+    'public.admin_delete_user(uuid)'::regprocedure,
+    'public.admin_update_feedback(uuid,text,text)'::regprocedure,
+    'public.admin_set_restaurant_active(uuid,boolean)'::regprocedure,
+    'public.admin_set_user_suspended(uuid,boolean)'::regprocedure,
+    'public.am_i_platform_admin()'::regprocedure,
+    'public.accept_payroll_readiness_warning(uuid,date,date,uuid,text,text)'::regprocedure,
+    'public.calculate_payroll_run(uuid,date,date)'::regprocedure,
     'public.clear_owner_onboarding_draft()'::regprocedure,
+    'public.create_payroll_provider_export(uuid,uuid,uuid)'::regprocedure,
     'public.create_payroll_export_run(uuid,date,date,jsonb)'::regprocedure,
+    'public.create_restaurant_station(uuid,text)'::regprocedure,
     'public.current_profile_id()'::regprocedure,
     'public.get_employee_invitation_context(uuid,text)'::regprocedure,
+    'public.get_employee_employment_terms(uuid)'::regprocedure,
+    'public.get_insights_cost_rates(uuid)'::regprocedure,
+    'public.get_admin_feedback()'::regprocedure,
+    'public.get_communications_read_model(uuid)'::regprocedure,
     'public.get_current_memberships()'::regprocedure,
     'public.get_owner_onboarding_draft()'::regprocedure,
+    'public.get_preview_bootstrap(uuid,text,uuid)'::regprocedure,
+    'public.get_preview_module(uuid,text,uuid,text)'::regprocedure,
+    'public.get_preview_operations(uuid,text,uuid,date,date)'::regprocedure,
+    'public.get_preview_personas(uuid)'::regprocedure,
     'public.get_payroll_export_run(uuid,uuid)'::regprocedure,
+    'public.get_payroll_catalogue(uuid)'::regprocedure,
+    'public.get_payroll_workspace(uuid,date,date)'::regprocedure,
     'public.get_workspace_context(uuid)'::regprocedure,
     'public.get_workspace_bootstrap(uuid)'::regprocedure,
     'public.get_manager_operations_read_model(uuid,date,date)'::regprocedure,
     'public.get_employee_operations_read_model(uuid,date,date)'::regprocedure,
     'public.get_team_read_model(uuid)'::regprocedure,
+    'public.get_time_entry_payroll_evidence(uuid,uuid)'::regprocedure,
     'public.get_restaurant_read_model(uuid)'::regprocedure,
+    'public.is_own_employee(uuid,uuid)'::regprocedure,
+    'public.is_owner(uuid)'::regprocedure,
+    'public.is_owner_or_manager(uuid)'::regprocedure,
+    'public.is_restaurant_member(uuid)'::regprocedure,
+    'public.import_payroll_provider_return(uuid,uuid,uuid,text,jsonb)'::regprocedure,
     'public.list_badge_roster(uuid)'::regprocedure,
+    'public.list_badge_roster_station(text)'::regprocedure,
+    'public.list_restaurant_stations(uuid)'::regprocedure,
     'public.preview_payroll_export(uuid,date,date,jsonb)'::regprocedure,
+    'public.payroll_readiness_report(uuid,date,date)'::regprocedure,
+    'public.publish_workspace_realtime_event(uuid,text,text)'::regprocedure,
     'public.record_badge_entry(uuid,uuid,uuid,text,text,text)'::regprocedure,
+    'public.record_badge_entry_station(text,uuid,uuid,text,text)'::regprocedure,
+    'public.mark_operational_message(uuid,uuid,boolean)'::regprocedure,
+    'public.register_push_subscription(uuid,text,text,text,text,text,text)'::regprocedure,
     'public.revoke_employee_invitation(uuid,uuid,text)'::regprocedure,
+    'public.revoke_restaurant_station(uuid,uuid)'::regprocedure,
+    'public.record_employee_regime_evidence(uuid,uuid,jsonb)'::regprocedure,
+    'public.resolve_payroll_reconciliation(uuid,uuid,text,text)'::regprocedure,
     'public.save_absence_lifecycle(uuid,uuid,uuid,text,jsonb)'::regprocedure,
     'public.save_actuals_lifecycle(uuid,text,jsonb)'::regprocedure,
     'public.save_employee_availability(uuid,uuid,jsonb)'::regprocedure,
-    'public.save_manager_planning(uuid,date,text,jsonb,jsonb,bigint,text,boolean)'::regprocedure,
+    'public.save_employee_employment_terms(uuid,uuid,jsonb)'::regprocedure,
+    'public.save_employee_payroll_benefit(uuid,uuid,jsonb)'::regprocedure,
+    'public.save_employee_tax_profile(uuid,uuid,jsonb)'::regprocedure,
+    'public.save_manager_planning(uuid,date,text,jsonb,jsonb,bigint,text,boolean,boolean)'::regprocedure,
     'public.save_owner_onboarding_draft(smallint,jsonb)'::regprocedure,
+    'public.save_payroll_provider_mapping(uuid,uuid,text,jsonb)'::regprocedure,
+    'public.save_restaurant_payroll_configuration(uuid,jsonb)'::regprocedure,
     'public.save_restaurant_model(uuid,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb)'::regprocedure,
     'public.save_work_pattern_exception_lifecycle(uuid,uuid,uuid,text,jsonb)'::regprocedure,
     'public.save_team_model(uuid,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb)'::regprocedure,
+    'public.save_time_entry_payroll_evidence(uuid,uuid,uuid,uuid,jsonb,text)'::regprocedure,
+    'public.validate_employee_employment_terms(uuid,uuid,uuid)'::regprocedure,
+    'public.validate_restaurant_payroll_configuration(uuid,uuid)'::regprocedure,
     'public.set_payroll_export_columns(uuid,jsonb)'::regprocedure,
     'public.set_own_pin(text,uuid)'::regprocedure,
     'public.set_employee_access_state(uuid,uuid,text)'::regprocedure,
+    'public.set_restaurant_logo(uuid,text)'::regprocedure,
+    'public.set_payroll_run_status(uuid,uuid,text)'::regprocedure,
     'public.setup_owner_workspace(text,text,citext,text,text,jsonb,jsonb,jsonb,jsonb,jsonb)'::regprocedure,
+    'public.send_operational_message(uuid,text,uuid[],text,boolean)'::regprocedure,
+    'public.submit_pilot_feedback(uuid,text,text,text,text,text,text,text,text)'::regprocedure,
     'public.update_own_profile(text,text)'::regprocedure,
+    'public.unregister_push_subscription(text)'::regprocedure,
     'public.verify_badge_pin(uuid,uuid,text)'::regprocedure,
-    'public.is_restaurant_member(uuid)'::regprocedure
+    'public.verify_badge_pin_station(text,uuid,text)'::regprocedure
+  ];
+  v_anon_allowed regprocedure[] := array[
+    'public.list_badge_roster_station(text)'::regprocedure,
+    'public.record_badge_entry_station(text,uuid,uuid,text,text)'::regprocedure,
+    'public.verify_badge_pin_station(text,uuid,text)'::regprocedure
   ];
   v_service_allowed regprocedure[] := array[
+    'public.get_push_dispatch_context(uuid,uuid,date,date)'::regprocedure,
     'public.register_employee_invitation(uuid,uuid,citext,text,text,timestamptz,uuid)'::regprocedure,
     'public.revoke_employee_invitation_delivery(uuid,text)'::regprocedure
   ];
@@ -65,10 +121,11 @@ begin
       and g.table_name not in (
         'notification_types',
         'notification_preferences',
-        'notification_receipts'
+        'notification_receipts',
+        'workspace_realtime_events'
       )
   ) then
-    raise exception 'Public business tables must remain RPC-only except personal notification preferences/receipts';
+    raise exception 'Public business tables must remain RPC-only except reviewed RLS read models';
   end if;
 
   if exists (
@@ -106,6 +163,24 @@ begin
       )
   ) then
     raise exception 'Notification table grants exceed the personal RLS contract';
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.role_table_grants g
+    where g.table_schema = 'public'
+      and g.grantee = 'authenticated'
+      and g.table_name = 'workspace_realtime_events'
+      and g.privilege_type <> 'SELECT'
+  ) or not exists (
+    select 1
+    from information_schema.role_table_grants g
+    where g.table_schema = 'public'
+      and g.grantee = 'authenticated'
+      and g.table_name = 'workspace_realtime_events'
+      and g.privilege_type = 'SELECT'
+  ) then
+    raise exception 'Workspace Realtime table grants exceed its RLS read-only contract';
   end if;
 
   if not exists (
@@ -285,9 +360,16 @@ begin
           and d.deptype = 'e'
       )
   loop
-    if has_function_privilege('public', v_routine, 'EXECUTE')
-       or has_function_privilege('anon', v_routine, 'EXECUTE') then
+    if has_function_privilege('public', v_routine, 'EXECUTE') then
       raise exception 'App-owned routine is publicly executable: %', v_routine;
+    end if;
+    if v_routine = any(v_anon_allowed)
+       and not has_function_privilege('anon', v_routine, 'EXECUTE') then
+      raise exception 'Badge-station anonymous grant is missing: %', v_routine;
+    end if;
+    if v_routine <> all(v_anon_allowed)
+       and has_function_privilege('anon', v_routine, 'EXECUTE') then
+      raise exception 'Routine is outside anonymous allowlist: %', v_routine;
     end if;
     if v_routine = any(v_allowed)
        and not has_function_privilege('authenticated', v_routine, 'EXECUTE') then
@@ -344,5 +426,26 @@ begin
   end if;
 end
 $$;
+
+do $restaurant_suspension_boundary$
+declare
+  v_routine regprocedure;
+begin
+  foreach v_routine in array array[
+    'public.active_membership_role(uuid,uuid)'::regprocedure,
+    'public.is_owner(uuid)'::regprocedure,
+    'public.is_owner_or_manager(uuid)'::regprocedure,
+    'public.is_restaurant_member(uuid)'::regprocedure,
+    'public.is_own_employee(uuid,uuid)'::regprocedure,
+    'public.set_own_pin(text,uuid)'::regprocedure,
+    'public.resolve_station_token(text)'::regprocedure
+  ]
+  loop
+    if position('r.active' in pg_get_functiondef(v_routine)) = 0 then
+      raise exception 'Restaurant suspension is not enforced by %.', v_routine;
+    end if;
+  end loop;
+end
+$restaurant_suspension_boundary$;
 
 rollback;

@@ -10,6 +10,12 @@ transactional RPCs.
 - `src/lib/api`: typed RPC calls and read-model validation.
 - `src/lib/<domain>`: shared business projections for Schedule, Timesheet,
   Team, employee self-service, notifications, payroll, and calendar behavior.
+- `src/lib/operations`: manager operation boards, coverage lenses, and shared
+  Schedule/Timesheet workflow presentation.
+- `src/lib/communications`: operational messages, delivery receipts, and their
+  phone-notification projection.
+- `src/lib/preview` and `src/lib/feedback`: read-only role projection and
+  contextual pilot-reporting boundaries.
 - `src/lib/components`: globally shared presentation primitives.
 - `src/lib/styles`: product tokens and shared visual contracts.
 - `supabase/migrations`: incremental changes for existing projects.
@@ -25,13 +31,23 @@ domain modules own reusable calculations and selection rules. Supabase owns
 authorization and lifecycle invariants. Frontend checks explain server rules
 early but never replace server authority.
 
+`/admin` is a platform-operator console outside the restaurant app shell. Its
+authenticated RPCs enforce a separate platform-admin entitlement and every
+operator mutation is audited. Restaurant roles never imply platform access.
+Its preview picker reads dedicated reduced models; it never changes the Auth
+session or adopts another person's authorization.
+
 Normal authenticated pages use the app topbar, `PageHero`, an optional header
-command or toolbar, and a focused workspace. `PageScaffold` provides the flex
-boundary for pages whose header and operational body need one; full-width native
-flows use the same shell spacing directly. `OperationsBoard`
-is the shared manager grid; `EmployeeSlotDrawer` in `src/lib/employee` owns the
-shared employee service-slot actions. Onboarding, authentication, and Time clock
-remain purpose-built because their interaction models are not normal modules.
+command or toolbar, and a focused workspace. Mobile uses a role-aware bottom
+navigation bar while retaining the same route and authorization contracts.
+`PageScaffold` provides the flex boundary for pages whose header and operational
+body need one; full-width native flows use the same shell spacing directly.
+`OperationsBoard`, `BoardFocus`, and `CoverageLensFrame` in
+`src/lib/operations` keep Schedule and Timesheet geometry aligned while each
+route retains its own lifecycle rules. `EmployeeSlotDrawer` in
+`src/lib/employee` owns shared employee service-slot actions. Onboarding,
+authentication, Badge, and platform administration remain purpose-built
+because their interaction models are not normal restaurant modules.
 
 Components under a domain folder are domain-shared. Components under
 `src/lib/components` are global primitives. Markup that serves only one route
@@ -41,10 +57,31 @@ stays route-local until sharing removes real duplication.
 
 Focused read-model RPCs prevent pages from loading unrelated private data.
 Mutations return compact acknowledgements and routes reload the owning model.
-Realtime broadcasts are private to `workspace:<restaurant-id>` topics. Badge
-proofs use a private Storage bucket and short-lived signed reads through Edge.
+Live workspace refreshes use one application-owned event row per restaurant.
+Postgres Changes streams that row through its normal tenant RLS; authenticated
+clients publish only through a membership-checking RPC. Badge proofs use a
+private Storage bucket and short-lived signed reads through Edge.
 
-Edge source uses pinned Deno imports and is checked with the dev-only
-`deno-bin` package. Its downloaded runtime is about 100 MB, remains in
-`node_modules`, is absent from production bundles and Git archives, and keeps
-normal installation plus Edge validation reproducible on Windows and CI.
+Edge source uses pinned Deno imports and is checked with Deno's official
+dev-only npm runtime. Its downloaded binary remains in `node_modules`, is absent
+from production bundles and Git archives, and keeps Edge validation reproducible
+on Windows and CI.
+
+The notification bell and Web Push dispatcher derive from the same operational
+notification rules. Browser capability endpoints are profile-owned and hidden
+behind registration RPCs; restaurant preferences select in-app and phone
+channels independently. The `dispatch-push` Edge Function is scheduler-only,
+authenticated by `PUSH_DISPATCH_SECRET`, and records a per-device delivery
+ledger before sending so repeated runs remain idempotent.
+
+Restaurant communications are RPC-only. Managers can send a message to all
+active employees or a deliberate subset and can request acknowledgement.
+Employees can read and acknowledge only their own receipt rows. Realtime
+invalidation refreshes the same secure communications read model. Messages are
+the single team-contact workflow; urgency and recipient selection cover both
+general updates and last-minute staffing requests without a parallel inbox.
+
+Preview mode is an application-owned, read-only projection with a persistent
+identity banner and inert mutation controls. Pilot feedback captures route,
+release, role, locale, viewport, and browser context through a security-definer
+RPC; the platform-admin inbox owns triage status and internal notes.

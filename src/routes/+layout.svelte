@@ -3,7 +3,6 @@
   import { onMount } from 'svelte';
   import { auth } from '$lib/auth/session.svelte';
   import { startClientMonitoring } from '$lib/monitoring/client';
-  import favicon from '$lib/assets/favicon.svg';
 
   let { children } = $props();
 
@@ -18,7 +17,12 @@
 </script>
 
 <svelte:head>
-  <link rel="icon" href={favicon} />
+  <link rel="icon" href="/brand/favicon.png" sizes="64x64" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  <meta name="theme-color" content="#171c24" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 </svelte:head>
 
 {#if auth.ready}

@@ -84,7 +84,7 @@
   margin: 0;
   font-size: clamp(32px, 4.5vw, 58px);
   line-height: 0.96;
-  letter-spacing: -0.055em;
+  letter-spacing: 0;
 }
 
 .page-hero__copy p {
@@ -130,7 +130,7 @@
   color: var(--rst-ui-action);
   font-size: 11px;
   font-weight: var(--rst-fw-display);
-  letter-spacing: 0.1em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
@@ -232,14 +232,14 @@
 .readiness-dial strong {
   font-size: clamp(28px, 3.4vw, 40px);
   line-height: 0.9;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
 }
 
 .readiness-dial span {
   color: #ffd9c8;
   font-size: 9px;
   font-weight: var(--rst-fw-display);
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
@@ -366,7 +366,7 @@
   max-width: 520px;
   font-size: clamp(25px, 3vw, 36px);
   line-height: 0.98;
-  letter-spacing: -0.045em;
+  letter-spacing: 0;
 }
 
 .command-lead p {
@@ -518,7 +518,7 @@
   font-size: 12px;
   font-weight: var(--rst-fw-bold);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
 }
 
 .section-copy {
@@ -776,7 +776,7 @@ button.glow-card:hover {
   color: var(--glow-ink, #7dd3fc);
   font-size: 10px;
   font-weight: var(--rst-fw-display);
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 

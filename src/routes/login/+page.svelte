@@ -5,6 +5,8 @@
   import { auth } from '$lib/auth/session.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { roleHome, type RoleHome } from '$lib/workspace/workspace-selection';
+  import { design } from '$lib/classic/classic-design.svelte';
+  import { designedHome } from '$lib/classic/classic-routes';
 
   let email = $state('');
   let password = $state('');
@@ -21,7 +23,7 @@
   const pageTitle = $derived(mode === 'signin' ? 'Sign in' : 'Create owner account');
   const pageDescription = $derived(
     mode === 'signin'
-      ? 'Restaurant operations, in one calm workspace.'
+      ? 'Access your restaurant workspace.'
       : 'Create the owner account first. Restaurant setup continues after sign-up.'
   );
 
@@ -53,7 +55,12 @@
       await workspace.load().catch(() => undefined);
     }
     const fallback = workspace.active ? roleHome(workspace.active.role) : '/home';
-    return roleSafeNext(next, fallback);
+    const target = roleSafeNext(next, fallback);
+    // An explicit deep link wins. Otherwise land on whichever of the two
+    // designs this device last chose, so the switch survives sign-out.
+    return page.url.searchParams.get('next')
+      ? target
+      : designedHome(target, design.preferred);
   }
 
   // Already signed in? Skip the login screen without bouncing through a route the
@@ -125,8 +132,14 @@
 <main class="login">
   <form class="login__card" onsubmit={signIn}>
     <header class="login__head">
-      <h1 class="login__title">restogogo</h1>
-      <p class="login__subtitle">{pageDescription}</p>
+      <a class="login__brand" href="/" aria-label="restogogo home">
+        <img src="/brand/restogogo-mark.png" alt="" width="46" height="46" />
+        <b aria-hidden="true"><i>esto</i><i>gogo</i></b>
+      </a>
+      <div class="login__intro">
+        <h1 class="login__title">{pageTitle}</h1>
+        <p class="login__subtitle">{pageDescription}</p>
+      </div>
     </header>
 
     <label class="field">
@@ -210,12 +223,35 @@
   .login__head {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 20px;
   }
+  .login__brand {
+    width: fit-content;
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    color: var(--rst-command-text);
+    text-decoration: none;
+  }
+  .login__brand img {
+    width: 46px;
+    height: 46px;
+    display: block;
+  }
+  .login__brand b {
+    display: inline-flex;
+    align-items: baseline;
+    font-size: 27px;
+    font-weight: var(--rst-fw-display);
+    letter-spacing: 0;
+  }
+  .login__brand i { color: var(--rst-ui-action); font-style: normal; }
+  .login__brand i + i { color: var(--rst-command-text); }
+  .login__intro { display: grid; gap: 4px; }
   .login__title {
     margin: 0;
     color: var(--rst-command-text);
-    font-size: 32px;
+    font-size: 28px;
     font-weight: var(--rst-fw-display);
   }
   .login__subtitle {
@@ -234,7 +270,7 @@
     font-weight: var(--rst-fw-bold);
     color: rgba(255, 250, 242, .72);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0;
   }
   .field__input {
     padding: 12px 14px;

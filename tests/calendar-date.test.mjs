@@ -7,7 +7,9 @@ import {
   hoursBetweenClocks,
   mondayFor,
   monthDates,
-  todayInTimezone
+  todayInTimezone,
+  weekdayDateLabel,
+  weekdayLabel
 } from '../src/lib/calendar/date.ts';
 
 test('calendar dates stay Monday-first across month and year boundaries', () => {
@@ -31,4 +33,12 @@ test('greetings follow the restaurant-local time of day', () => {
   assert.equal(greetingForMinutes(12 * 60), 'Good afternoon');
   assert.equal(greetingForMinutes(17 * 60 + 59), 'Good afternoon');
   assert.equal(greetingForMinutes(18 * 60), 'Good evening');
+});
+
+test('weekday labels respect the active account locale', () => {
+  assert.equal(weekdayLabel('2026-07-20', 'en-GB'), 'Mon');
+  assert.match(weekdayLabel('2026-07-20', 'fr-BE'), /^lun/i);
+  assert.match(weekdayLabel('2026-07-20', 'nl-BE'), /^ma/i);
+  assert.match(weekdayDateLabel('2026-07-20', 'fr-BE'), /^lun\.?.*20/i);
+  assert.match(weekdayDateLabel('2026-07-20', 'nl-BE'), /^ma\.?.*20/i);
 });

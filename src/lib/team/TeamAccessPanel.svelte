@@ -51,7 +51,7 @@
   </div>
 </div>
 
-<Panel title="Access actions" eyebrow="Security">
+<Panel title={t('Access actions')} eyebrow={t('Security')}>
   <div class="action-row">
     {#if !employee.profileId}
       <label class="role-select">
@@ -64,17 +64,17 @@
       <p class="hint">{t('The invitation stays tied to the saved employee email until that person accepts it.')}</p>
       <div class="actions">
         <ActionButton
-          label={busy
+          label={t(busy
             ? 'Sending…'
             : employee.accessState === 'invited'
               ? 'Resend invitation'
-              : 'Send invitation'}
+              : 'Send invitation')}
           tone="primary"
           disabled={busy || dirty || !employee.email || !canManage}
           onclick={onSendInvite}
         />
         {#if employee.accessState === 'invited'}
-          <ActionButton label="Revoke invitation" tone="danger" disabled={busy || !canManage} onclick={onRevokeInvite} />
+          <ActionButton label={t('Revoke invitation')} tone="danger" disabled={busy || !canManage} onclick={onRevokeInvite} />
         {/if}
       </div>
     {:else}
@@ -82,11 +82,11 @@
       {#if employee.accessRole !== 'owner'}
         <div class="actions">
           <ActionButton
-            label={busy
+            label={t(busy
               ? 'Updating…'
               : employee.accessState === 'disabled'
                 ? 'Restore access'
-                : 'Disable access'}
+                : 'Disable access')}
             tone={employee.accessState === 'disabled' ? 'primary' : 'danger'}
             disabled={busy || dirty || !canManage}
             onclick={() =>
@@ -100,7 +100,7 @@
   </div>
 </Panel>
 
-<Panel title="Time clock access" eyebrow="Badge PIN">
+<Panel title={t('Time clock access')} eyebrow={t('Badge PIN')}>
   <div class="fields">
     <label>{t('Badge PIN status')}<input value={t(employee.pinStatus)} disabled /></label>
     <label class="check">

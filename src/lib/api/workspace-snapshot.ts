@@ -1,15 +1,15 @@
-import type { Json, Tables } from '$lib/supabase/database.types';
+import type { Json, Tables } from '../supabase/database.types.ts';
 import type {
   AreaServiceDefault,
   EmployeeJobFunction,
   RecurringScheduleSlot,
   WorkArea
-} from '$lib/domain/operations';
+} from '../domain/operations.ts';
 import { ABSENCE_TYPE_CODES, CONTRACT_TYPE_CODES } from '../domain/operations.ts';
 import type {
   WorkPatternException,
   WorkPatternExceptionEvent
-} from '../work-pattern-exceptions/work-pattern-exception';
+} from '../work-pattern-exceptions/work-pattern-exception.ts';
 
 type RestaurantSettings = Partial<Tables<'restaurant_settings'>>;
 type RestaurantOnboardingState = Partial<Tables<'restaurant_onboarding_state'>>;

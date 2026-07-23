@@ -15,8 +15,10 @@ Apply the files in this order:
 Use `scripts/bootstrap-disposable-database.ps1`; it enforces the order, records
 the consolidated migration cutoff, applies any newer migrations normally, runs
 every executable SQL contract, lints the schema, and compares generated public
-types. It accepts only an empty project named `restogogo-acceptance-*` and
-refuses the linked development project.
+types. Its default mode accepts only an empty project named
+`restogogo-acceptance-*`. Production mode accepts only the exact project name
+`Restogogo Production` and requires the target project ref as a second explicit
+confirmation. Both modes refuse the linked development project.
 
 `public.sql` is a reviewed schema-only capture of the linked development public
 schema after migration `202607120020_preserve_elapsed_availability`. It does

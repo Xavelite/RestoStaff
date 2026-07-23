@@ -10,6 +10,7 @@ const password = env.FIXTURE_PASSWORD ?? '';
 const restaurantId = env.FIXTURE_RESTAURANT_ID ?? '';
 const appOrigin = (env.APP_ORIGIN ?? '').replace(/\/$/, '');
 const projectName = env.ACCEPTANCE_PROJECT_NAME ?? '';
+const pushDispatchSecret = env.PUSH_DISPATCH_SECRET ?? '';
 const projectRef = new URL(url || 'https://invalid.local').hostname.split('.')[0];
 let linkedRef = '';
 try {
@@ -26,6 +27,7 @@ if (
   password.length < 12 ||
   !restaurantId ||
   !appOrigin ||
+  pushDispatchSecret.length < 32 ||
   !/^restogogo-acceptance-[a-z0-9-]+$/.test(projectName) ||
   projectRef === linkedRef
 ) {
@@ -111,39 +113,65 @@ const { error: employeeModelError } = await clients.employee.rpc('get_employee_o
 });
 assert.ifError(employeeModelError);
 
-const topic = `workspace:${restaurantId}`;
-let receivedBroadcast = null;
+let receivedWorkspaceEvent = null;
 const managerChannel = clients.manager
-  .channel(topic, { config: { private: true, broadcast: { ack: true } } })
-  .on('broadcast', { event: 'hosted-acceptance' }, ({ payload }) => {
-    receivedBroadcast = payload;
-  });
-const ownerChannel = clients.owner.channel(topic, {
-  config: { private: true, broadcast: { ack: true } }
-});
-await Promise.all([subscribe(managerChannel), subscribe(ownerChannel)]);
-assert.equal(
-  await ownerChannel.send({
-    type: 'broadcast',
-    event: 'hosted-acceptance',
-    payload: { restaurantId }
-  }),
-  'ok'
+  .channel(`workspace-db:${restaurantId}`)
+  .on(
+    'postgres_changes',
+    {
+      event: '*',
+      schema: 'public',
+      table: 'workspace_realtime_events',
+      filter: `restaurant_id=eq.${restaurantId}`
+    },
+    ({ new: row }) => {
+      receivedWorkspaceEvent = row;
+    }
+  );
+await subscribe(managerChannel);
+const { data: workspaceSequence, error: workspaceEventError } = await clients.owner.rpc(
+  'publish_workspace_realtime_event',
+  {
+    p_restaurant_id: restaurantId,
+    p_event: 'planning-saved',
+    p_source: 'system'
+  }
 );
-for (let index = 0; index < 20 && !receivedBroadcast; index += 1) {
+assert.ifError(workspaceEventError);
+assert.ok(workspaceSequence >= 1, 'Workspace Realtime sequence was not advanced');
+for (let index = 0; index < 40 && !receivedWorkspaceEvent; index += 1) {
   await new Promise((resolve) => setTimeout(resolve, 100));
 }
-assert.equal(receivedBroadcast?.restaurantId, restaurantId, 'Private Realtime broadcast was not delivered');
+assert.equal(
+  receivedWorkspaceEvent?.restaurant_id,
+  restaurantId,
+  'Tenant-scoped workspace change was not delivered'
+);
+assert.equal(receivedWorkspaceEvent?.event, 'planning-saved');
 
-const deniedChannel = clients.owner.channel(`workspace:${crypto.randomUUID()}`, {
-  config: { private: true }
-});
-await subscribe(deniedChannel, 'CHANNEL_ERROR');
-await Promise.all([
-  clients.manager.removeChannel(managerChannel),
-  clients.owner.removeChannel(ownerChannel),
-  clients.owner.removeChannel(deniedChannel)
-]);
+const { error: deniedWorkspaceEventError } = await clients.owner.rpc(
+  'publish_workspace_realtime_event',
+  {
+    p_restaurant_id: crypto.randomUUID(),
+    p_event: 'planning-saved',
+    p_source: 'system'
+  }
+);
+assert.ok(deniedWorkspaceEventError, 'A member published a workspace event for another tenant');
+await clients.manager.removeChannel(managerChannel);
+
+const { data: visibleWorkspaceEvents, error: visibleWorkspaceEventsError } = await clients.employee
+  .from('workspace_realtime_events')
+  .select('restaurant_id,event,sequence')
+  .eq('restaurant_id', restaurantId);
+assert.ifError(visibleWorkspaceEventsError);
+assert.equal(visibleWorkspaceEvents.length, 1);
+const { data: hiddenWorkspaceEvents, error: hiddenWorkspaceEventsError } = await clients.employee
+  .from('workspace_realtime_events')
+  .select('restaurant_id')
+  .eq('restaurant_id', crypto.randomUUID());
+assert.ifError(hiddenWorkspaceEventsError);
+assert.deepEqual(hiddenWorkspaceEvents, []);
 
 const { data: fixtureEmployee, error: fixtureEmployeeError } = await admin
   .from('employees')
@@ -190,6 +218,24 @@ const managerEscalation = await edge('send-employee-invitation', {
   }
 });
 assert.equal(managerEscalation.status, 403);
+
+const unauthenticatedPushDispatch = await fetch(`${url}/functions/v1/dispatch-push`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ dry_run: true })
+});
+assert.equal(unauthenticatedPushDispatch.status, 401);
+const pushDispatch = await fetch(`${url}/functions/v1/dispatch-push`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-restogogo-push-secret': pushDispatchSecret
+  },
+  body: JSON.stringify({ dry_run: true })
+});
+const pushDispatchText = await pushDispatch.text();
+assert.equal(pushDispatch.status, 200, pushDispatchText);
+assert.equal(JSON.parse(pushDispatchText).ok, true);
 
 const { data: verification, error: verificationError } = await clients.owner.rpc('verify_badge_pin', {
   p_restaurant_id: restaurantId,
