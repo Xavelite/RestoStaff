@@ -146,8 +146,22 @@ test('platform administration requires explicit deployment provisioning', async 
 });
 
 test('deployment uses the Vercel adapter outside the Windows local build', async () => {
-  const config = await read('vite.config.ts');
+  // The adapter lives in svelte.config.js, where SvelteKit and Vercel both
+  // look for it; vite.config.ts stays a plain plugin list.
+  const config = await read('svelte.config.js');
   assert.match(config, /vercelAdapter\(\)/);
   assert.match(config, /process\.platform === 'win32'/);
   assert.match(config, /process\.env\.VERCEL !== '1'/);
+});
+
+test('the deployed app keeps its security headers and badge-camera policy', async () => {
+  // vercel.json is the only place these are set: losing it would silently drop
+  // the camera permission the badge terminal needs to capture proof photos.
+  const vercel = JSON.parse(await read('vercel.json'));
+  const global = vercel.headers.find((entry) => entry.source === '/(.*)');
+  const keys = global.headers.map((header) => header.key);
+  assert.ok(keys.includes('X-Content-Type-Options'));
+  assert.ok(keys.includes('Referrer-Policy'));
+  const permissions = global.headers.find((header) => header.key === 'Permissions-Policy');
+  assert.match(permissions.value, /camera=\(self\)/);
 });
