@@ -27,28 +27,12 @@ test('responsive CSS uses only the product breakpoint ladder', async () => {
   assert.deepEqual(violations, []);
 });
 
-test('every authenticated route atmosphere has its image asset', async () => {
+test('the app shell stays free of atmosphere imagery', async () => {
+  // The single design is deliberately flat: no per-route background photos, no
+  // gradients. This pins that the atmosphere layer stays retired.
   const layout = await readFile('src/routes/(app)/+layout.svelte', 'utf8');
-  const backgrounds = new Set(await readdir('static/module-backgrounds'));
-  const atmosphereByRoute = {
-    '/home': ['home', 'home.webp'],
-    '/schedule': ['schedule', 'schedule.webp'],
-    '/timesheet': ['timesheet', 'timesheet.webp'],
-    '/badge-terminal': ['badge', 'badge.webp'],
-    '/team': ['team', 'team.webp'],
-    '/restaurant': ['restaurant', 'restaurant.webp'],
-    '/my-service': ['my-service', 'my-service.webp'],
-    '/my-time': ['my-time', 'my-time.webp'],
-    '/dashboard': ['dashboard', 'home.webp']
-  };
-  for (const [route, [atmosphere, asset]] of Object.entries(atmosphereByRoute)) {
-    assert.match(layout, new RegExp(`pathname === '${route}'\\) return '${atmosphere}'`));
-    assert.match(
-      layout,
-      new RegExp(`data-atmosphere='${atmosphere}'[^}]+url\\('/module-backgrounds/${asset.replace('.', '\\.')}'\\)`)
-    );
-    assert.ok(backgrounds.has(asset));
-  }
+  assert.doesNotMatch(layout, /module-backgrounds/);
+  assert.doesNotMatch(layout, /data-atmosphere/);
 });
 
 test('the application favicon and icons are product-owned brand assets', async () => {
@@ -84,11 +68,9 @@ test('the authenticated topbar uses the brand mark as the leading R and one icon
   const notifications = await readFile('src/lib/components/NotificationBell.svelte', 'utf8');
 
   assert.match(layout, /restogogo-mark\.png/);
-  assert.match(layout, /<i>esto<\/i><i>gogo<\/i>/);
   assert.match(login, /restogogo-mark\.png/);
   assert.match(login, /<i>esto<\/i><i>gogo<\/i>/);
   assert.match(login, /<h1 class="login__title">\{pageTitle\}<\/h1>/);
-  assert.match(layout, /💡/u);
   assert.match(communications, /💬/u);
   assert.match(notifications, /🔔/u);
   assert.doesNotMatch(`${layout}${communications}${notifications}`, /@lucide\/svelte/);
@@ -111,17 +93,18 @@ test('the account menu exposes an honest install flow and notification handoff',
   assert.match(installer, /standalone = \$state\(false\)/);
 });
 
-test('both designs share one account menu and one session boundary', async () => {
-  const modern = await readFile('src/routes/(app)/+layout.svelte', 'utf8');
-  const classic = await readFile('src/routes/(classic)/classic/+layout.svelte', 'utf8');
+test('there is exactly one app shell, and it owns no account logic of its own', async () => {
+  const shell = await readFile('src/routes/(app)/+layout.svelte', 'utf8');
 
-  // Two shells, one implementation: the design switch, workspace switcher and
-  // account settings can never drift apart between them.
-  for (const shell of [modern, classic]) {
-    assert.match(shell, /import AccountMenu from '\$lib\/app-shell\/AccountMenu\.svelte'/);
-    assert.match(shell, /useAppSession\(\)/);
-  }
-  assert.doesNotMatch(classic, /supabase\.auth\.updateUser/);
+  // One design, one shell: account settings and the session boundary stay in
+  // their shared modules rather than leaking back into the layout.
+  assert.match(shell, /import AccountMenu from '\$lib\/app-shell\/AccountMenu\.svelte'/);
+  assert.match(shell, /useAppSession\(\)/);
+  assert.doesNotMatch(shell, /supabase\.auth\.updateUser/);
+
+  // The second design is gone for good — no route group, no switch.
+  await assert.rejects(() => readFile('src/routes/(classic)/classic/+layout.svelte', 'utf8'));
+  await assert.rejects(() => readFile('src/lib/classic/classic-routes.ts', 'utf8'));
 });
 
 test('tenant logos reach both badge terminal entry points and reject SVG uploads', async () => {

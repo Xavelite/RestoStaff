@@ -5,8 +5,6 @@
   import { auth } from '$lib/auth/session.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { roleHome, type RoleHome } from '$lib/workspace/workspace-selection';
-  import { design } from '$lib/classic/classic-design.svelte';
-  import { designedHome } from '$lib/classic/classic-routes';
 
   let email = $state('');
   let password = $state('');
@@ -55,12 +53,7 @@
       await workspace.load().catch(() => undefined);
     }
     const fallback = workspace.active ? roleHome(workspace.active.role) : '/home';
-    const target = roleSafeNext(next, fallback);
-    // An explicit deep link wins. Otherwise land on whichever of the two
-    // designs this device last chose, so the switch survives sign-out.
-    return page.url.searchParams.get('next')
-      ? target
-      : designedHome(target, design.preferred);
+    return roleSafeNext(next, fallback);
   }
 
   // Already signed in? Skip the login screen without bouncing through a route the

@@ -38,11 +38,12 @@ export type ClassicIcon =
 
 const MANAGER: WorkspaceRole[] = ['owner', 'manager'];
 const OWNER: WorkspaceRole[] = ['owner'];
+const EMPLOYEE: WorkspaceRole[] = ['employee'];
 
 const CLASSIC_MODULES: ClassicModule[] = [
   {
     key: 'home',
-    href: '/classic/home',
+    href: '/home',
     label: 'Home',
     summary: 'Your modules and what needs attention today',
     icon: 'home',
@@ -50,64 +51,64 @@ const CLASSIC_MODULES: ClassicModule[] = [
   },
   {
     key: 'schedule',
-    href: '/classic/schedule',
+    href: '/schedule',
     label: 'Schedule',
     summary: 'Weekly planning, coverage and publishing',
     icon: 'schedule',
     roles: MANAGER,
     subNav: [
-      { href: '/classic/schedule', label: 'Planning' },
-      { href: '/classic/schedule/coverage', label: 'Coverage' },
-      { href: '/classic/schedule/publish', label: 'Publish' },
-      { href: '/classic/schedule/history', label: 'History' }
+      { href: '/schedule', label: 'Planning' },
+      { href: '/schedule/coverage', label: 'Coverage' },
+      { href: '/schedule/publish', label: 'Publish' },
+      { href: '/schedule/history', label: 'History' }
     ]
   },
   {
     key: 'time',
-    href: '/classic/time',
+    href: '/timesheet',
     label: 'Time & attendance',
     summary: 'Clock-ins, corrections and week approval',
     icon: 'time',
     roles: MANAGER,
     subNav: [
-      { href: '/classic/time', label: 'Timesheet' },
-      { href: '/classic/time/calendar', label: 'Calendar' },
-      { href: '/classic/time/live', label: 'Live monitor' }
+      { href: '/timesheet', label: 'Timesheet' },
+      { href: '/timesheet/calendar', label: 'Calendar' },
+      { href: '/timesheet/live', label: 'Live monitor' }
     ]
   },
   {
     key: 'team',
-    href: '/classic/team',
+    href: '/team',
     label: 'Team',
     summary: 'People, contracts, access and absences',
     icon: 'team',
     roles: MANAGER,
     subNav: [
-      { href: '/classic/team', label: 'People' },
-      { href: '/classic/team/contracts', label: 'Contracts' },
-      { href: '/classic/team/access', label: 'Access' },
-      { href: '/classic/team/absences', label: 'Absences' }
+      { href: '/team', label: 'People' },
+      { href: '/team/contracts', label: 'Contracts' },
+      { href: '/team/access', label: 'Access' },
+      { href: '/team/absences', label: 'Absences' }
     ]
   },
   {
     key: 'restaurant',
-    href: '/classic/restaurant',
+    href: '/restaurant',
     label: 'Restaurant',
     summary: 'Identity, opening hours, areas and positions',
     icon: 'restaurant',
     roles: OWNER,
     subNav: [
-      { href: '/classic/restaurant', label: 'Identity' },
-      { href: '/classic/restaurant/hours', label: 'Hours' },
-      { href: '/classic/restaurant/areas', label: 'Areas' },
-      { href: '/classic/restaurant/positions', label: 'Positions' },
-      { href: '/classic/restaurant/absence-types', label: 'Absence types' },
-      { href: '/classic/restaurant/devices', label: 'Badge devices' }
+      { href: '/restaurant', label: 'Identity' },
+      { href: '/restaurant/hours', label: 'Hours' },
+      { href: '/restaurant/areas', label: 'Areas' },
+      { href: '/restaurant/positions', label: 'Positions' },
+      { href: '/restaurant/absence-types', label: 'Absence types' },
+      { href: '/restaurant/devices', label: 'Badge devices' }
     ]
   },
   {
     key: 'inventory',
-    href: '/classic/inventory',
+    href: '/inventory',
     label: 'Inventory',
     summary: 'Stock counts and item management',
     icon: 'inventory',
@@ -116,20 +117,20 @@ const CLASSIC_MODULES: ClassicModule[] = [
   },
   {
     key: 'payroll',
-    href: '/classic/payroll',
+    href: '/payroll',
     label: 'Payroll',
     summary: 'Employment terms, labour cost and exports',
     icon: 'payroll',
     roles: OWNER,
     subNav: [
-      { href: '/classic/payroll', label: 'Employment terms' },
-      { href: '/classic/payroll/costs', label: 'Costs' },
-      { href: '/classic/payroll/exports', label: 'Exports' }
+      { href: '/payroll', label: 'Employment terms' },
+      { href: '/payroll/costs', label: 'Costs' },
+      { href: '/payroll/exports', label: 'Exports' }
     ]
   },
   {
     key: 'badge-terminal',
-    href: '/classic/badge-terminal',
+    href: '/badge-terminal',
     label: 'Badge terminal',
     summary: 'Clock in and out on a shared device',
     icon: 'badge',
@@ -138,16 +139,34 @@ const CLASSIC_MODULES: ClassicModule[] = [
   },
   {
     key: 'reports',
-    href: '/classic/reports',
+    href: '/reports',
     label: 'Reports',
     summary: 'Hours, cost and operational trends',
     icon: 'reports',
     roles: MANAGER,
     subNav: [
-      { href: '/classic/reports', label: 'Overview' },
-      { href: '/classic/reports/people', label: 'People' },
-      { href: '/classic/reports/operations', label: 'Operations' }
+      { href: '/reports', label: 'Overview' },
+      { href: '/reports/people', label: 'People' },
+      { href: '/reports/operations', label: 'Operations' }
     ]
+  },
+  // Employees share the same shell; their two screens are simply the only
+  // modules their role can see.
+  {
+    key: 'my-service',
+    href: '/my-service',
+    label: 'My service',
+    summary: 'Your week and your availability',
+    icon: 'schedule',
+    roles: EMPLOYEE
+  },
+  {
+    key: 'my-time',
+    href: '/my-time',
+    label: 'My time',
+    summary: 'Your hours, time off and balance',
+    icon: 'time',
+    roles: EMPLOYEE
   }
 ];
 

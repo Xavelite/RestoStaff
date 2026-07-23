@@ -24,8 +24,6 @@
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { orderedMemberships, roleHome } from '$lib/workspace/workspace-selection';
-  import { design } from '$lib/classic/classic-design.svelte';
-  import { counterpartPath, designForPath } from '$lib/classic/classic-routes';
   import { exitPreviewSession, signOutOfApp } from './app-actions';
 
   let {
@@ -69,20 +67,6 @@
       )
   );
 
-  // The switch only appears where the other design has the same page to show.
-  // Employee screens are modern-only for now, so they simply do not offer it.
-  const switchTarget = $derived(counterpartPath(page.url.pathname));
-  const switchLabel = $derived(
-    designForPath(page.url.pathname) === 'classic' ? 'Use the modern design' : 'Use the classic design'
-  );
-
-  async function switchDesign() {
-    if (!switchTarget) return;
-    open = false;
-    design.remember(designForPath(switchTarget));
-    await goto(switchTarget);
-  }
-
   async function selectWorkspace(restaurantId: string) {
     const membership = workspace.memberships.find((item) => item.restaurant_id === restaurantId);
     if (!membership || membership.restaurant_id === workspace.activeId) {
@@ -92,8 +76,7 @@
     try {
       await workspace.select(restaurantId);
       open = false;
-      const home = roleHome(membership.role);
-      await goto(designForPath(page.url.pathname) === 'classic' ? (counterpartPath(home) ?? home) : home);
+      await goto(roleHome(membership.role));
     } catch (error) {
       toasts.show(error instanceof Error ? error.message : String(error), 'danger');
     }
@@ -296,9 +279,6 @@
               </button>
             {/each}
           </div>
-        {/if}
-        {#if switchTarget}
-          <button type="button" onclick={switchDesign}>{t(switchLabel)}</button>
         {/if}
         <button type="button" onclick={openAccount}>{t('Account settings')}</button>
         {#if !appInstall.installed}

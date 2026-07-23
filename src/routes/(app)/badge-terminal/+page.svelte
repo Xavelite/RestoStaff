@@ -37,7 +37,7 @@
   >
     {#snippet headerAction()}
       {#if !kiosk.locked}
-        <a href="/timesheet" aria-label={t('Close terminal')} title={t('Close terminal')}>&times;</a>
+        <a href="/home" aria-label={t('Close terminal')} title={t('Close terminal')}>&times;</a>
       {/if}
     {/snippet}
   </BadgeTerminal>

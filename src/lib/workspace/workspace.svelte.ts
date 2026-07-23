@@ -15,7 +15,6 @@ import type {
   WorkspaceBootstrap
 } from '$lib/api/workspace-snapshot';
 import { untrack } from 'svelte';
-import { canonicalPath } from '$lib/classic/classic-routes';
 import { preferredMembership } from './workspace-selection';
 import { getPreviewBootstrap, getPreviewModule, getPreviewOperations } from '$lib/preview/preview-api';
 import type { WorkspaceRole } from '$lib/api/workspace';
@@ -271,9 +270,9 @@ class WorkspaceStore {
   }
 
   async reloadForRoute(routePath: string): Promise<void> {
-    // Both designs serve the same modules, so refresh by module rather than by
-    // URL: /classic/team needs exactly what /team needs.
-    const pathname = canonicalPath(routePath);
+    // Sub-pages share their module's read model, so refresh by the first path
+    // segment: /team/contracts needs exactly what /team needs.
+    const pathname = `/${routePath.split('/').filter(Boolean)[0] ?? ''}`;
     if (pathname === '/team') {
       await Promise.all([this.reloadBootstrap(), this.loadTeam(true)]);
       return;
