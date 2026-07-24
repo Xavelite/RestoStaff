@@ -2,6 +2,15 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import ClassicRestaurantPage from '$lib/classic/ClassicRestaurantPage.svelte';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
+  import { dragReorder, moved } from '$lib/classic/dragReorder';
+
+  // Row order is the saved order, so dragging an area is a real edit.
+  function moveArea(from: number, to: number) {
+    const draft = restaurantConfig.draft;
+    if (!draft) return;
+    draft.areas = moved(draft.areas, from, to);
+    restaurantConfig.touch();
+  }
 
   function addArea() {
     const draft = restaurantConfig.draft;
@@ -44,6 +53,7 @@
       <table class="cl-table">
         <thead>
           <tr>
+            <th class="cl-grip"></th>
             <th>{t('Name')}</th>
             <th>{t('Lunch')}</th>
             <th>{t('Evening')}</th>
@@ -51,10 +61,10 @@
             <th>{t('Active')}</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody use:dragReorder={{ onmove: moveArea }}>
           {#if !draft.areas.length}
             <tr>
-              <td colspan="5">
+              <td colspan="6">
                 <div class="cl-empty">
                   <strong>{t('No areas yet')}</strong>
                   <span>{t('Add the parts of the house you plan for, such as Hall, Bar or Kitchen.')}</span>
@@ -62,8 +72,9 @@
               </td>
             </tr>
           {:else}
-            {#each draft.areas as area (area.id)}
-              <tr>
+            {#each draft.areas as area, index (area.id)}
+              <tr draggable="true" data-drag={index}>
+                <td class="cl-grip" aria-hidden="true">⠿</td>
                 <td><input class="cl-field" bind:value={area.name} oninput={() => restaurantConfig.touch()} /></td>
                 <td>
                   <span class="range">

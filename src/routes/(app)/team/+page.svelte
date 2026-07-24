@@ -12,6 +12,7 @@
   import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
   import ClassicTeamPage from '$lib/classic/ClassicTeamPage.svelte';
   import { teamDraft } from '$lib/classic/classic-team.svelte';
+  import { dragReorder, moved } from '$lib/classic/dragReorder';
 
   let search = $state('');
   let scope = $state<'active' | 'archived' | 'all'>('active');
@@ -101,6 +102,15 @@
     }
   }
 
+  // Dragging only makes sense when the visible list is the whole list in its
+  // real order — under a search or a scope filter the row positions would not
+  // map back to the roster, so the handle disappears.
+  const canReorder = $derived(!search.trim() && scope === 'all' && !workspace.isPreview);
+
+  function moveEmployee(from: number, to: number) {
+    teamDraft.employees = moved(teamDraft.employees, from, to);
+  }
+
   function matches(employee: EmployeeDraft): boolean {
     if (employee.id === freshId) return true;
     const term = search.trim().toLowerCase();
@@ -153,6 +163,7 @@
       <table class="cl-table">
         <thead>
           <tr>
+            <th class="cl-grip"></th>
             <th>{t('Name')}</th>
             <th>{t('Position')}</th>
             <th class="is-num">{t('Weekly hours')}</th>
@@ -161,10 +172,10 @@
             <th></th>
           </tr>
         </thead>
-        <tbody>
+        <tbody use:dragReorder={{ onmove: moveEmployee, enabled: canReorder }}>
           {#if !rows.length}
             <tr>
-              <td colspan="6">
+              <td colspan="7">
                 <div class="cl-empty">
                   <strong>{t('No employees match')}</strong>
                   <span>{t('Change the filter, or add someone to the team.')}</span>
@@ -172,9 +183,10 @@
               </td>
             </tr>
           {:else}
-            {#each rows as employee (employee.id)}
+            {#each rows as employee, index (employee.id)}
               {@const isNew = !employee.displayName.trim() || employee.id === freshId}
-              <tr class:is-attention={isNew}>
+              <tr class:is-attention={isNew} draggable={canReorder} data-drag={index}>
+                <td class="cl-grip" aria-hidden="true">{canReorder ? '⠿' : ''}</td>
                 <td>
                   <span class="cl-table__name">
                     <span class="cl-avatar" style="--avatar-color:{employeeColor.get(employee.id) ?? 'var(--cl-muted)'}">{personInitials(employee.displayName || '?')}</span>

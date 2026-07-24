@@ -4,6 +4,15 @@
   import { workspace } from '$lib/workspace/workspace.svelte';
   import ClassicRestaurantPage from '$lib/classic/ClassicRestaurantPage.svelte';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
+  import { dragReorder, moved } from '$lib/classic/dragReorder';
+
+  // Row order is the saved order, so dragging a position is a real edit.
+  function movePosition(from: number, to: number) {
+    const draft = restaurantConfig.draft;
+    if (!draft) return;
+    draft.jobFunctions = moved(draft.jobFunctions, from, to);
+    restaurantConfig.touch();
+  }
 
   // The colour each saved position wears on the schedule board, shown here so
   // its identity is set where the position is defined.
@@ -44,16 +53,17 @@
       <table class="cl-table">
         <thead>
           <tr>
+            <th class="cl-grip"></th>
             <th class="swatch-col"><span class="sr-only">{t('Colour')}</span></th>
             <th>{t('Name')}</th>
             <th class="is-num">{t('Estimated hourly cost')}</th>
             <th>{t('Active')}</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody use:dragReorder={{ onmove: movePosition }}>
           {#if !draft.jobFunctions.length}
             <tr>
-              <td colspan="4">
+              <td colspan="5">
                 <div class="cl-empty">
                   <strong>{t('No positions yet')}</strong>
                   <span>{t('Add the jobs people do on a shift, such as Server, Cook or Bartender.')}</span>
@@ -61,8 +71,9 @@
               </td>
             </tr>
           {:else}
-            {#each draft.jobFunctions as position (position.id)}
-              <tr>
+            {#each draft.jobFunctions as position, index (position.id)}
+              <tr draggable="true" data-drag={index}>
+                <td class="cl-grip" aria-hidden="true">⠿</td>
                 <td class="swatch-col">
                   <span class="swatch" style="background:{positionColor.get(position.id) ?? 'var(--cl-line-strong)'}"></span>
                 </td>

@@ -39,14 +39,10 @@
   });
 
   const context = $derived<ClassicTeamContext>({
-    // A row you just added has no name yet and stays pinned to the top until
-    // it does; everything else sorts active-first, then alphabetically.
-    employees: [...teamDraft.employees].sort(
-      (left, right) =>
-        Number(Boolean(right.displayName.trim())) - Number(Boolean(left.displayName.trim())) ||
-        Number(right.active) - Number(left.active) ||
-        left.displayName.localeCompare(right.displayName)
-    ),
+    // The roster keeps its own saved order — that order is what drag-to-reorder
+    // edits, and it is written back as sort_order — so this deliberately does
+    // not re-sort. A row you just added is already inserted on top.
+    employees: teamDraft.employees,
     jobName: new Map((team?.job_functions ?? []).map((job) => [job.id, job.name])),
     contractName: new Map(
       (team?.contract_types ?? []).map((type) => [type.id, type.name])
