@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
+  import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
   import {
     getPayrollCatalogue,
     saveRestaurantPayrollConfiguration,
@@ -25,6 +27,45 @@
   let gksStatus = $state<'unknown' | 'yes' | 'no'>('unknown');
   let employerCategoryCode = $state('');
   let withholdingMode = $state<'not_configured' | 'manual_estimate' | 'official_formula'>('not_configured');
+
+  type SetupDraft = {
+    validFrom: string;
+    ruleSetId: string;
+    weeklyHours: string;
+    dailyLimitHours: string;
+    referencePeriodWeeks: string;
+    gksStatus: 'unknown' | 'yes' | 'no';
+    employerCategoryCode: string;
+    withholdingMode: 'not_configured' | 'manual_estimate' | 'official_formula';
+  };
+
+  let baseline = $state<SetupDraft | null>(null);
+
+  function currentDraft(): SetupDraft {
+    return {
+      validFrom,
+      ruleSetId,
+      weeklyHours,
+      dailyLimitHours,
+      referencePeriodWeeks,
+      gksStatus,
+      employerCategoryCode,
+      withholdingMode
+    };
+  }
+
+  function restoreDraft(value: SetupDraft): void {
+    validFrom = value.validFrom;
+    ruleSetId = value.ruleSetId;
+    weeklyHours = value.weeklyHours;
+    dailyLimitHours = value.dailyLimitHours;
+    referencePeriodWeeks = value.referencePeriodWeeks;
+    gksStatus = value.gksStatus;
+    employerCategoryCode = value.employerCategoryCode;
+    withholdingMode = value.withholdingMode;
+  }
+
+  const dirty = $derived(Boolean(baseline && JSON.stringify(currentDraft()) !== JSON.stringify(baseline)));
 
   const current = $derived(
     catalogue?.configurations
@@ -60,6 +101,7 @@
       withholdingMode = active?.withholding_mode === 'manual_estimate' || active?.withholding_mode === 'official_formula'
         ? active.withholding_mode
         : 'not_configured';
+      baseline = currentDraft();
     } catch (error) {
       feedback = error instanceof Error ? error.message : String(error);
       feedbackTone = 'danger';
@@ -68,8 +110,24 @@
     }
   }
 
+  function discard(): void {
+    if (baseline) restoreDraft(baseline);
+    feedback = '';
+  }
+
+  onMount(() =>
+    unsavedChanges.register({
+      id: 'restaurant-payroll-configuration',
+      label: 'Payroll configuration',
+      isDirty: () => dirty,
+      save,
+      discard
+    })
+  );
+
   async function save() {
-    if (busy || !ruleSetId || !validFrom) return;
+    if (busy) return;
+    if (!ruleSetId || !validFrom) throw new Error('Choose a legal rule set and effective date.');
     busy = true;
     feedback = '';
     try {
@@ -92,13 +150,14 @@
     } catch (error) {
       feedback = error instanceof Error ? error.message : String(error);
       feedbackTone = 'danger';
+      throw error;
     } finally {
       busy = false;
     }
   }
 
   async function validateSetup() {
-    if (busy || !current) return;
+    if (busy || !current || dirty) return;
     busy = true;
     feedback = '';
     try {
@@ -117,6 +176,7 @@
     } catch (error) {
       feedback = error instanceof Error ? error.message : String(error);
       feedbackTone = 'danger';
+      throw error;
     } finally {
       busy = false;
     }
@@ -156,7 +216,11 @@
 
   <footer>
     <p>Net salary remains labelled estimated until the FPS Finance formula and provider return are reconciled.</p>
-    <div class="actions"><button type="button" disabled={busy || !current} onclick={validateSetup}>Validate setup</button><button type="button" disabled={busy || !ruleSetId || !validFrom} onclick={save}>{busy ? 'Saving…' : 'Save draft'}</button></div>
+    <div class="actions">
+      <button class="secondary" type="button" disabled={busy || !dirty} onclick={discard}>Discard</button>
+      <button class="secondary" type="button" disabled={busy || !current || dirty} onclick={() => void validateSetup().catch(() => undefined)}>Validate setup</button>
+      <button type="button" disabled={busy || !dirty || !ruleSetId || !validFrom} onclick={() => void save().catch(() => undefined)}>{busy ? 'Saving…' : 'Save draft'}</button>
+    </div>
   </footer>
 </section>
 
@@ -189,6 +253,7 @@
   footer { align-items: center; }
   footer p { max-width: 620px; }
   button { min-height: 40px; padding: 8px 15px; border: 0; border-radius: var(--rst-ui-radius-md); background: var(--rst-ui-accent); color: white; font: inherit; font-weight: 700; cursor: pointer; }
+  button.secondary { border: 1px solid var(--rst-ui-line); background: var(--rst-ui-surface-field); color: var(--rst-ui-text); }
   .actions { display: flex; gap: 8px; }
   button:disabled { opacity: .55; cursor: default; }
   @media (max-width: 980px) { .setup-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

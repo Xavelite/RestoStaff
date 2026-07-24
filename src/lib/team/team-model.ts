@@ -329,6 +329,26 @@ export function newEmployeeDraft(id: string): EmployeeDraft {
   };
 }
 
+
+export function teamDraftValidationError(drafts: EmployeeDraft[]): string | null {
+  if (drafts.some((employee) => !employee.displayName.trim())) {
+    return 'Give every new employee a name before saving.';
+  }
+  for (const employee of drafts) {
+    if (employee.contractEnd && employee.contractStart && employee.contractEnd < employee.contractStart) {
+      return 'Contract end date must be after the start date.';
+    }
+    if (
+      employee.employmentValidTo &&
+      employee.employmentValidFrom &&
+      employee.employmentValidTo < employee.employmentValidFrom
+    ) {
+      return 'Employment end date must be after the effective date.';
+    }
+  }
+  return null;
+}
+
 export function employmentTermsPayload(employee: EmployeeDraft) {
   const monthly = employee.contractualMonthlySalary.trim().replace(',', '.');
   const [whole = '0', fraction = ''] = monthly.split('.');

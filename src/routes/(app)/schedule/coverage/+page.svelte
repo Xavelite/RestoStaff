@@ -84,12 +84,13 @@
   }
 
   async function persist(weekStart: string, revision: number, published: boolean) {
-    if (!workspace.activeId || saving) return;
+    if (!workspace.activeId || saving || scheduleDraft.saving) return;
     if (invalidPlanningShift(scheduleDraft.shifts)) {
       toasts.show(t('Every planned shift needs a valid start and end time.'), 'danger');
       return;
     }
     saving = true;
+    scheduleDraft.saving = true;
     try {
       await saveSchedule({
         restaurantId: workspace.activeId,
@@ -106,6 +107,7 @@
       toasts.show(friendlyError(error), 'danger');
     } finally {
       saving = false;
+      scheduleDraft.saving = false;
     }
   }
 </script>

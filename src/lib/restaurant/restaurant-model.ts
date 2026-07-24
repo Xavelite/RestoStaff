@@ -190,6 +190,20 @@ function inheritedOpening(
   return null;
 }
 
+
+export function restaurantDraftValidationError(draft: RestaurantDraft): string | null {
+  if (!draft.legalName.trim()) return 'Restaurant name is required.';
+  if (draft.areas.some((area) => !area.name.trim())) return 'Give every area a name before saving.';
+  if (draft.jobFunctions.some((job) => !job.name.trim())) return 'Give every position a name before saving.';
+
+  const areaIds = new Set(draft.areas.map((area) => area.id));
+  const jobIds = new Set(draft.jobFunctions.map((job) => job.id));
+  if (draft.coverage.some((row) => !areaIds.has(row.areaId) || !jobIds.has(row.jobFunctionId))) {
+    return 'A coverage requirement refers to an area or position that no longer exists.';
+  }
+  return null;
+}
+
 export function restaurantSavePayload(
   snapshot: RestaurantReadModel,
   draft: RestaurantDraft

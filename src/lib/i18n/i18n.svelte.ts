@@ -2832,8 +2832,6 @@ Object.assign(french, {
   'This module is not available yet.': "Ce module n'est pas encore disponible.",
   'Inventory is on the roadmap. Stock counts and item management will appear here.':
     'Le stock est prévu. Les inventaires et la gestion des articles apparaîtront ici.',
-  'Use the modern design': 'Utiliser le design moderne',
-  'Use the classic design': 'Utiliser le design classique',
   'Your modules and what needs attention today':
     "Vos modules et ce qui demande votre attention aujourd'hui",
   'Weekly planning, coverage and publishing': 'Planning hebdomadaire, couverture et publication',
@@ -2885,6 +2883,11 @@ Object.assign(french, {
   'Add shift': 'Ajouter un service',
   'Open terminal': 'Ouvrir la pointeuse',
   'Add requirement': 'Ajouter un besoin',
+  'Schedule data is not loaded.': "Les données du planning ne sont pas chargées.",
+  'A schedule save is already in progress.': "Un enregistrement du planning est déjà en cours.",
+  'Coverage setup is not editable.': "La configuration de la couverture n'est pas modifiable.",
+  'Choose an area and position before adding coverage.':
+    "Choisissez une zone et une fonction avant d'ajouter la couverture.",
   Default: 'Par défaut',
   'How many people each area needs per service. Set a default, then override only the days that differ.':
     'Combien de personnes chaque zone requiert par service. Définissez une valeur par défaut, puis ajustez uniquement les jours différents.',
@@ -3142,8 +3145,6 @@ Object.assign(dutch, {
   'This module is not available yet.': 'Deze module is nog niet beschikbaar.',
   'Inventory is on the roadmap. Stock counts and item management will appear here.':
     'Voorraad staat op de planning. Tellingen en artikelbeheer verschijnen hier.',
-  'Use the modern design': 'Het moderne ontwerp gebruiken',
-  'Use the classic design': 'Het klassieke ontwerp gebruiken',
   'Your modules and what needs attention today': 'Je modules en wat vandaag aandacht vraagt',
   'Weekly planning, coverage and publishing': 'Weekplanning, bezetting en publicatie',
   'Clock-ins, corrections and week approval': 'Badgeringen, correcties en weekgoedkeuring',
@@ -3192,6 +3193,11 @@ Object.assign(dutch, {
   'Add shift': 'Dienst toevoegen',
   'Open terminal': 'Terminal openen',
   'Add requirement': 'Vereiste toevoegen',
+  'Schedule data is not loaded.': 'De planningsgegevens zijn niet geladen.',
+  'A schedule save is already in progress.': 'Een planning wordt al opgeslagen.',
+  'Coverage setup is not editable.': 'De bezettingsinstellingen zijn niet bewerkbaar.',
+  'Choose an area and position before adding coverage.':
+    'Kies een zone en functie voordat je bezetting toevoegt.',
   Default: 'Standaard',
   'How many people each area needs per service. Set a default, then override only the days that differ.':
     'Hoeveel mensen elke zone per dienst nodig heeft. Stel een standaard in en pas alleen de afwijkende dagen aan.',
@@ -3494,6 +3500,77 @@ Object.assign(dutch, {
   'Employee status': 'Medewerkerstatus',
   'Undefined employees are shown first.': 'Niet-ingedeelde medewerkers worden eerst weergegeven.',
   'Contract saved.': 'Contract opgeslagen.'
+});
+
+
+Object.assign(french, {
+  'A new contract version is ready. Review it, then save.': 'Une nouvelle version du contrat est prête. Vérifiez-la, puis enregistrez.',
+  'Employee name is required.': 'Le nom de l’employé est obligatoire.',
+  'Contract end date must be after the start date.': 'La date de fin du contrat doit être postérieure à la date de début.',
+  'Employment end date must be after the effective date.': 'La date de fin d’emploi doit être postérieure à la date d’effet.',
+  'Profile': 'Profil',
+  'Set as primary position': 'Définir comme poste principal',
+  'Primary': 'Principal',
+  'Make primary': 'Rendre principal',
+  'Create positions in Restaurant before assigning them to employees.': 'Créez des postes dans Restaurant avant de les attribuer aux employés.',
+  'Employment contract': 'Contrat de travail',
+  'Loading payroll setup…': 'Chargement de la configuration de paie…',
+  'This employee could not be opened.': 'Cet employé n’a pas pu être ouvert.',
+  'Save employee': 'Enregistrer l’employé',
+  'Unsaved sections': 'Sections non enregistrées',
+  'Save keeps your changes. Discard restores the last saved version. Stay returns to editing.': 'Enregistrer conserve vos modifications. Ignorer restaure la dernière version enregistrée. Rester revient à la modification.',
+  'required people': 'personnes requises',
+  'This area, position and service already has a coverage row.': 'Cette zone, ce poste et ce service possèdent déjà une ligne de couverture.',
+  'Create an active area and position before adding coverage.': 'Créez une zone et un poste actifs avant d’ajouter une couverture.',
+  'Primary position determines the group. Undefined employees are shown first.': 'Le poste principal détermine le groupe. Les employés sans poste sont affichés en premier.',
+  'Create positions in Restaurant first.': 'Créez d’abord des postes dans Restaurant.',
+  'Add someone to define their contract and payroll setup.': 'Ajoutez une personne pour définir son contrat et sa configuration de paie.',
+  'New employee': 'Nouvel employé',
+  'Restaurant name is required.': 'Le nom du restaurant est obligatoire.',
+  'Give every area a name before saving.': 'Donnez un nom à chaque zone avant d’enregistrer.',
+  'Give every position a name before saving.': 'Donnez un nom à chaque poste avant d’enregistrer.',
+  'A coverage requirement refers to an area or position that no longer exists.': 'Une exigence de couverture fait référence à une zone ou un poste qui n’existe plus.',
+  'Unnamed area': 'Zone sans nom',
+  'Unnamed position': 'Poste sans nom',
+  'Leave remaining': 'Congés restants',
+  'Timesheet entry': 'Entrée de feuille de temps',
+  'The timesheet entry could not be saved.': 'L’entrée de feuille de temps n’a pas pu être enregistrée.',
+  'Some payroll details could not be saved. Review them before closing.': 'Certaines données de paie n’ont pas pu être enregistrées. Vérifiez-les avant de fermer.'
+});
+
+Object.assign(dutch, {
+  'A new contract version is ready. Review it, then save.': 'Een nieuwe contractversie staat klaar. Controleer ze en sla daarna op.',
+  'Employee name is required.': 'De naam van de medewerker is verplicht.',
+  'Contract end date must be after the start date.': 'De einddatum van het contract moet na de startdatum liggen.',
+  'Employment end date must be after the effective date.': 'De einddatum van de tewerkstelling moet na de ingangsdatum liggen.',
+  'Profile': 'Profiel',
+  'Set as primary position': 'Instellen als hoofdfunctie',
+  'Primary': 'Hoofdfunctie',
+  'Make primary': 'Hoofdfunctie maken',
+  'Create positions in Restaurant before assigning them to employees.': 'Maak functies aan in Restaurant voordat je ze aan medewerkers toewijst.',
+  'Employment contract': 'Arbeidsovereenkomst',
+  'Loading payroll setup…': 'Looninstelling laden…',
+  'This employee could not be opened.': 'Deze medewerker kon niet worden geopend.',
+  'Save employee': 'Medewerker opslaan',
+  'Unsaved sections': 'Niet-opgeslagen onderdelen',
+  'Save keeps your changes. Discard restores the last saved version. Stay returns to editing.': 'Opslaan bewaart je wijzigingen. Negeren herstelt de laatst opgeslagen versie. Blijven keert terug naar bewerken.',
+  'required people': 'vereiste medewerkers',
+  'This area, position and service already has a coverage row.': 'Deze zone, functie en dienst heeft al een bezettingsrij.',
+  'Create an active area and position before adding coverage.': 'Maak een actieve zone en functie aan voordat je bezetting toevoegt.',
+  'Primary position determines the group. Undefined employees are shown first.': 'De hoofdfunctie bepaalt de groep. Medewerkers zonder functie worden eerst getoond.',
+  'Create positions in Restaurant first.': 'Maak eerst functies aan in Restaurant.',
+  'Add someone to define their contract and payroll setup.': 'Voeg iemand toe om het contract en de looninstelling te bepalen.',
+  'New employee': 'Nieuwe medewerker',
+  'Restaurant name is required.': 'De naam van het restaurant is verplicht.',
+  'Give every area a name before saving.': 'Geef elke zone een naam voordat je opslaat.',
+  'Give every position a name before saving.': 'Geef elke functie een naam voordat je opslaat.',
+  'A coverage requirement refers to an area or position that no longer exists.': 'Een bezettingsvereiste verwijst naar een zone of functie die niet meer bestaat.',
+  'Unnamed area': 'Naamloze zone',
+  'Unnamed position': 'Naamloze functie',
+  'Leave remaining': 'Resterend verlof',
+  'Timesheet entry': 'Urenregistratie',
+  'The timesheet entry could not be saved.': 'De urenregistratie kon niet worden opgeslagen.',
+  'Some payroll details could not be saved. Review them before closing.': 'Sommige loongegevens konden niet worden opgeslagen. Controleer ze voordat je sluit.'
 });
 
 const dictionaries: Record<Exclude<AppLocale, 'en'>, Record<string, string>> = {

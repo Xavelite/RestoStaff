@@ -1,7 +1,7 @@
 /* ==========================================================================
    restogogo — classic design
    ==========================================================================
-   A calmer, table-first admin layout that lives alongside the modern cockpit.
+   A calm, table-first workspace for the complete application.
 
    Rules this file exists to enforce:
      - The page chrome stays neutral: white surfaces on light grey, ink text.
@@ -72,8 +72,7 @@
   --rst-ui-radius-xl: var(--cl-radius);
   --rst-ui-radius-2xl: var(--cl-radius);
   --rst-ui-shadow-card: none;
-  /* Reused editors keep their behaviour but lose their atmosphere: the summary
-     panel and command surfaces flatten to the one card style. */
+  /* Shared editors use the same neutral card and command surfaces. */
   --rst-summary-bg: var(--cl-surface-muted);
   --rst-summary-border: var(--cl-line);
   --rst-summary-text: var(--cl-ink);
@@ -119,8 +118,8 @@
   --cl-info-line: #c3d1f6;
 
   /* ---- service colours -------------------------------------------------
-     Lunch is daytime gold, evening is indigo. Shared with the modern design
-     through the same --rst-service-* source tokens. */
+     Lunch is daytime gold and evening is indigo, both mapped through the
+     shared --rst-service-* source tokens. */
   --cl-lunch: #b8860b;
   --cl-lunch-wash: #fbf3df;
   --cl-evening: #4f46e5;
@@ -1048,75 +1047,7 @@
   .cl-formgrid .is-wide, .cl-form-section { grid-column: 1; }
 }
 
-/* -------------------------------------------------- employee workspace ---
-   The employee routes keep their proven calendars and request flows, but their
-   former cinematic hero is flattened into the same neutral workspace shell. */
-:root[data-design='classic'] .page-shell.employee-page {
-  display: grid;
-  gap: 16px;
-}
-:root[data-design='classic'] .page-shell.employee-page .page-hero {
-  min-height: 0;
-  overflow: visible;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0;
-  color: var(--cl-ink);
-  background: transparent;
-}
-:root[data-design='classic'] .page-shell.employee-page .page-hero::before,
-:root[data-design='classic'] .page-shell.employee-page .page-hero::after {
-  display: none;
-}
-:root[data-design='classic'] .page-shell.employee-page .page-hero__copy {
-  max-width: none;
-  align-self: auto;
-  display: block;
-  animation: none;
-}
-:root[data-design='classic'] .page-shell.employee-page .page-nav {
-  margin: 0;
-}
-:root[data-design='classic'] .page-shell.employee-page .page-nav button {
-  min-height: 34px;
-  padding: 0 10px;
-  border-color: var(--cl-line);
-  border-radius: 0.65rem;
-  color: var(--cl-ink);
-  background: var(--cl-surface);
-}
-:root[data-design='classic'] .page-shell.employee-page .page-nav button:hover:not(:disabled) {
-  border-color: var(--cl-line-strong);
-  background: var(--cl-surface-muted);
-}
-:root[data-design='classic'] .page-shell.employee-page .page-nav__accent {
-  color: var(--cl-accent);
-  border-color: var(--cl-accent-line) !important;
-  background: var(--cl-accent-wash) !important;
-}
-:root[data-design='classic'] .page-shell.employee-page .glass-card {
-  min-width: min(420px, 50vw);
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 10px 14px;
-  border: 1px solid var(--cl-line);
-  border-radius: var(--cl-radius);
-  color: var(--cl-ink);
-  background: var(--cl-surface);
-  box-shadow: none;
-  backdrop-filter: none;
-  animation: none;
-}
-:root[data-design='classic'] .page-shell.employee-page .page-body {
-  gap: 16px;
-  padding: 0;
-}
-:root[data-design='classic'] .page-shell.employee-page .page-body.has-tray {
-  padding-bottom: 96px;
-}
+/* Compact toggle used in page toolbars. */
 :root[data-design='classic'] .toolbar-toggle {
   min-height: 34px;
   display: inline-flex;
@@ -1134,17 +1065,6 @@
   height: 15px;
   accent-color: var(--cl-accent);
 }
-@media (max-width: 760px) {
-  :root[data-design='classic'] .page-shell.employee-page .page-hero {
-    align-items: stretch;
-    flex-direction: column;
-  }
-  :root[data-design='classic'] .page-shell.employee-page .glass-card {
-    min-width: 0;
-    width: 100%;
-  }
-}
-
 /* Expanded employee editors stay inside their owning table row. */
 .cl-editor-row > td {
   padding: 12px !important;

@@ -1,9 +1,7 @@
 <script lang="ts">
-  import { friendlyError } from '$lib/api/error-messages';
   import { t } from '$lib/i18n/i18n.svelte';
   import { personInitials } from '$lib/ui/person';
   import { buildEmployeeColorMap } from '$lib/ui/position-color';
-  import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import ClassicStat from '$lib/classic/ClassicStat.svelte';
   import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
@@ -18,7 +16,6 @@
   let search = $state('');
   let groupBy = $state<GroupBy>('contract');
   let detailId = $state('');
-  let saving = $state(false);
 
   const employeeColor = $derived(
     workspace.team
@@ -85,25 +82,6 @@
     });
   }
 
-  async function persist(closeEditor = false) {
-    const role = workspace.effectiveRole;
-    if (!workspace.activeId || !role || saving) return;
-    saving = true;
-    try {
-      await teamDraft.save(workspace.activeId, role);
-      if (closeEditor) detailId = '';
-      toasts.show(t('Team saved.'), 'success');
-    } catch (error) {
-      toasts.show(friendlyError(error), 'danger');
-    } finally {
-      saving = false;
-    }
-  }
-
-  async function saveEmployee(employee: EmployeeDraft) {
-    teamDraft.update(employee.id, employee);
-    await persist(true);
-  }
 </script>
 
 <svelte:head><title>{t('Payroll')} &middot; restogogo</title></svelte:head>
@@ -115,13 +93,6 @@
     <option value="position">{t('Group by position')}</option>
     <option value="none">{t('No grouping')}</option>
   </select>
-  <span class="toolbar-grow"></span>
-  <button class="cl-btn is-icon" type="button" disabled={saving || !teamDraft.dirty || !workspace.team} title={t('Discard')} aria-label={t('Discard')} onclick={() => workspace.team && teamDraft.reload(workspace.team)}>
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6"/><path d="M4 4v4.6h4.6"/></svg>
-  </button>
-  <button class="cl-btn is-primary is-icon" type="button" disabled={saving || workspace.isPreview || !teamDraft.dirty || teamDraft.supplementaryLoading || Boolean(teamDraft.supplementaryError)} title={t(saving ? 'Saving…' : 'Save')} aria-label={t(saving ? 'Saving…' : 'Save')} onclick={() => persist()}>
-    {#if saving}<span aria-hidden="true">…</span>{:else}<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h12l2 2v14H5z"/><path d="M8 4v6h8V4M8 20v-6h8v6"/></svg>{/if}
-  </button>
 {/snippet}
 
 <ClassicTeamPage actions={pageActions}>
@@ -178,17 +149,18 @@
                       <span class="missing">{missing.map((item) => t(item)).join(', ')}</span>
                     {:else}<ClassicStatus label={terms?.label ?? 'Ready for payroll'} tone={terms?.tone ?? 'ok'} />{/if}
                   </td>
-                  <td class="is-num"><button class="cl-btn edit" type="button" disabled={!team.owner || !team.editable || teamDraft.supplementaryLoading} aria-expanded={detailId === employee.id} onclick={() => (detailId = detailId === employee.id ? '' : employee.id)}>{t(detailId === employee.id ? 'Close' : 'More')}</button></td>
+                  <td class="is-num"><button class="cl-btn edit" type="button" disabled={!team.owner || !team.editable || teamDraft.supplementaryLoading} onclick={() => (detailId = employee.id)}>{t('Details')}</button></td>
                 </tr>
-                {#if detailId === employee.id}
-                  <tr class="cl-editor-row"><td colspan="8"><EmployeeInlineEditor employeeId={employee.id} mode="payroll" {saving} onclose={() => (detailId = '')} onsave={saveEmployee} /></td></tr>
-                {/if}
               {/each}
             </tbody>
           {/each}
         {/if}
       </table>
     </div>
+
+    {#if detailId}
+      <EmployeeInlineEditor employeeId={detailId} mode="payroll" saving={team.saving} onclose={() => (detailId = '')} onsave={team.saveEmployee} />
+    {/if}
   {/snippet}
 </ClassicTeamPage>
 

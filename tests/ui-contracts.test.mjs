@@ -151,7 +151,7 @@ test('classic workspace chrome pins navigation and keeps page controls out of th
 
   assert.match(layout, /classicChrome\.tabs/);
   assert.doesNotMatch(layout, /classicChrome\.actions/);
-  assert.match(layout, /\{#key page\.url\.pathname\}[\s\S]*\{@render children\(\)\}[\s\S]*\{\/key\}/);
+  assert.match(layout, /\{#key `\$\{page\.url\.pathname\}\$\{page\.url\.search\}`\}[\s\S]*\{@render children\(\)\}[\s\S]*\{\/key\}/);
   assert.match(page, /class="cl-page__toolbar"/);
   assert.match(chrome, /tabs = \$state/);
   assert.doesNotMatch(chrome, /actions = \$state/);
@@ -160,21 +160,68 @@ test('classic workspace chrome pins navigation and keeps page controls out of th
   assert.match(css, /\.cl-brand\s*\{[\s\S]*?position:\s*fixed;/);
 });
 
-test('people, contracts and payroll expose stable direct and inline employee editing', async () => {
+test('people, contracts and payroll share direct rows and one complete employee dialog', async () => {
   const people = await readFile('src/routes/(app)/team/+page.svelte', 'utf8');
   const contracts = await readFile('src/routes/(app)/team/contracts/+page.svelte', 'utf8');
   const payroll = await readFile('src/routes/(app)/payroll/+page.svelte', 'utf8');
   const editor = await readFile('src/lib/classic/EmployeeInlineEditor.svelte', 'utf8');
+  const teamPage = await readFile('src/lib/classic/ClassicTeamPage.svelte', 'utf8');
 
+  assert.match(people, /let groupBy = \$state<GroupBy>\('position'\)/);
+  assert.match(contracts, /let groupBy = \$state<GroupBy>\('contract'\)/);
   assert.match(people, /oninput=.*teamDraft\.update\(employee\.id, \{ email:/s);
   assert.match(contracts, /setContractType\(employee, event\.currentTarget\.value\)/);
   assert.match(payroll, /setReferenceFunction\(employee, event\.currentTarget\.value\)/);
   for (const source of [people, contracts, payroll]) {
     assert.match(source, /<EmployeeInlineEditor/);
-    assert.match(source, /class="cl-editor-row"/);
+    assert.match(source, />\{t\('Details'\)\}<\/button>/);
   }
-  assert.doesNotMatch(editor, /Dialog|portalTarget|ActionButton/);
-  assert.match(editor, /mode === 'people'/);
-  assert.match(editor, /mode === 'contract'/);
+  assert.match(editor, /<Dialog/);
+  assert.match(editor, /section === 'people'/);
+  assert.match(editor, /section === 'contract'/);
   assert.match(editor, /EmployeePayrollDetails/);
+  assert.match(teamPage, /saveEmployee/);
+  assert.match(teamPage, /unsavedChanges\.register/);
+});
+
+test('restaurant coverage adds a complete weekday row before the shared save', async () => {
+  const coverage = await readFile('src/routes/(app)/restaurant/coverage/+page.svelte', 'utf8');
+  assert.match(coverage, /let newCounts = \$state<number\[]>\(WEEKDAYS\.map\(\(\) => 0\)\)/);
+  assert.match(coverage, /WEEKDAYS\.map\(\(_, index\) => \(\{/);
+  assert.match(coverage, /requiredCount: normalizedCount\(newCounts\[index\]\)/);
+  assert.match(coverage, /duplicateNewRow/);
+  assert.doesNotMatch(coverage, /coverageScope: 'default'/);
+});
+
+test('unsaved changes guard routes and context-changing account actions', async () => {
+  const layout = await readFile('src/routes/(app)/+layout.svelte', 'utf8');
+  const guard = await readFile('src/lib/navigation/unsaved-changes.svelte.ts', 'utf8');
+  const account = await readFile('src/lib/app-shell/AccountMenu.svelte', 'utf8');
+  const actions = await readFile('src/lib/app-shell/app-actions.ts', 'utf8');
+  const scheduleWeek = await readFile('src/lib/classic/ClassicScheduleWeek.svelte', 'utf8');
+  const myService = await readFile('src/routes/(app)/my-service/+page.svelte', 'utf8');
+  const myTime = await readFile('src/routes/(app)/my-time/+page.svelte', 'utf8');
+  const timesheetEditor = await readFile('src/lib/timesheet/TimesheetEntryEditor.svelte', 'utf8');
+  const timesheet = await readFile('src/routes/(app)/timesheet/+page.svelte', 'utf8');
+  const payrollSetup = await readFile('src/lib/payroll/RestaurantPayrollSetup.svelte', 'utf8');
+  const payrollDetails = await readFile('src/lib/payroll/EmployeePayrollDetails.svelte', 'utf8');
+  const access = await readFile('src/routes/(app)/team/access/+page.svelte', 'utf8');
+
+  assert.match(layout, /beforeNavigate/);
+  assert.match(layout, /navigation\.cancel\(\)/);
+  assert.match(layout, /beforeunload/);
+  assert.match(guard, /runOrRequest/);
+  assert.match(guard, /const attempted = new Set<string>/);
+  assert.match(guard, /if \(this\.hasDirty\)/);
+  assert.match(account, /unsavedChanges\.runOrRequest/);
+  assert.match(actions, /unsavedChanges\.runOrRequest/);
+  assert.match(scheduleWeek, /unsavedChanges\.runOrRequest/);
+  assert.match(myService, /unsavedChanges\.register/);
+  assert.match(myTime, /unsavedChanges\.register/);
+  assert.match(timesheetEditor, /id: 'timesheet-entry-editor'/);
+  assert.match(timesheet, /selectEntry[\s\S]*unsavedChanges\.runOrRequest/);
+  assert.match(timesheet, /closeEntry[\s\S]*unsavedChanges\.runOrRequest/);
+  assert.match(payrollSetup, /id: 'restaurant-payroll-configuration'/);
+  assert.match(payrollDetails, /id: `employee-payroll-details:\$\{employeeId\}`/);
+  assert.match(access, /id: 'team-invitation'/);
 });

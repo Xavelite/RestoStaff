@@ -1,11 +1,9 @@
 <script lang="ts">
-  import { friendlyError } from '$lib/api/error-messages';
   import { t } from '$lib/i18n/i18n.svelte';
   import { personInitials } from '$lib/ui/person';
   import { buildEmployeeColorMap } from '$lib/ui/position-color';
-  import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
-  import type { EmployeeDraft } from '$lib/team/team-model';
+  import { newEmployeeDraft, type EmployeeDraft } from '$lib/team/team-model';
   import ClassicStat from '$lib/classic/ClassicStat.svelte';
   import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
   import ClassicTeamPage from '$lib/classic/ClassicTeamPage.svelte';
@@ -18,7 +16,7 @@
   let search = $state('');
   let groupBy = $state<GroupBy>('contract');
   let detailId = $state('');
-  let saving = $state(false);
+  let freshId = $state('');
 
   const employeeColor = $derived(
     workspace.team
@@ -33,6 +31,22 @@
     manager_only: 'Manager planned'
   };
 
+  function addEmployee() {
+    if (workspace.isPreview || !workspace.team || workspace.effectiveRole !== 'owner') return;
+    const draft = newEmployeeDraft(crypto.randomUUID());
+    draft.displayName = '';
+    teamDraft.employees = [draft, ...teamDraft.employees];
+    freshId = draft.id;
+    detailId = draft.id;
+    search = '';
+    groupBy = 'contract';
+  }
+
+  function closeDetails() {
+    detailId = '';
+    freshId = '';
+  }
+
   function gaps(employee: EmployeeDraft): string[] {
     const missing: string[] = [];
     if (!employee.contractTypeId) missing.push('Contract type');
@@ -43,7 +57,7 @@
 
   function matches(employee: EmployeeDraft, contractName: Map<string, string>, jobName: Map<string, string>): boolean {
     const term = search.trim().toLowerCase();
-    if (!employee.active) return false;
+    if (!employee.active && employee.id !== freshId) return false;
     if (!term) return true;
     return `${employee.displayName} ${contractName.get(employee.contractTypeId) ?? ''} ${employee.jobFunctionIds.map((id) => jobName.get(id) ?? '').join(' ')}`
       .toLowerCase()
@@ -78,26 +92,6 @@
       employmentValidTo: code === 'CDI' ? '' : employee.employmentValidTo
     });
   }
-
-  async function persist(closeEditor = false) {
-    const role = workspace.effectiveRole;
-    if (!workspace.activeId || !role || saving) return;
-    saving = true;
-    try {
-      await teamDraft.save(workspace.activeId, role);
-      if (closeEditor) detailId = '';
-      toasts.show(t('Team saved.'), 'success');
-    } catch (error) {
-      toasts.show(friendlyError(error), 'danger');
-    } finally {
-      saving = false;
-    }
-  }
-
-  async function saveEmployee(employee: EmployeeDraft) {
-    teamDraft.update(employee.id, employee);
-    await persist(true);
-  }
 </script>
 
 <svelte:head><title>{t('Contracts')} &middot; restogogo</title></svelte:head>
@@ -109,12 +103,9 @@
     <option value="position">{t('Group by position')}</option>
     <option value="none">{t('No grouping')}</option>
   </select>
-  <span class="toolbar-grow"></span>
-  <button class="cl-btn is-icon" type="button" disabled={saving || !teamDraft.dirty || !workspace.team} title={t('Discard')} aria-label={t('Discard')} onclick={() => workspace.team && teamDraft.reload(workspace.team)}>
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6"/><path d="M4 4v4.6h4.6"/></svg>
-  </button>
-  <button class="cl-btn is-primary is-icon" type="button" disabled={saving || workspace.isPreview || !teamDraft.dirty} title={t(saving ? 'Saving…' : 'Save')} aria-label={t(saving ? 'Saving…' : 'Save')} onclick={() => persist()}>
-    {#if saving}<span aria-hidden="true">…</span>{:else}<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h12l2 2v14H5z"/><path d="M8 4v6h8V4M8 20v-6h8v6"/></svg>{/if}
+  <button class="cl-btn" type="button" disabled={workspace.isPreview || workspace.effectiveRole !== 'owner' || !workspace.team} onclick={addEmployee}>
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+    <span class="cl-action-label">{t('Add employee')}</span>
   </button>
 {/snippet}
 
@@ -133,15 +124,15 @@
       <table class="cl-table contract-table">
         <thead><tr><th>{t('Name')}</th><th>{t('Contract')}</th><th>{t('Work regime')}</th><th>{t('Start')}</th><th>{t('End')}</th><th class="is-num">{t('Weekly hours')}</th><th>{t('Status')}</th><th></th></tr></thead>
         {#if !rows.length}
-          <tbody><tr><td colspan="8"><div class="cl-empty"><strong>{t('No active employees')}</strong><span>{t('Add someone on the People page first.')}</span></div></td></tr></tbody>
+          <tbody><tr><td colspan="8"><div class="cl-empty"><strong>{t('No active employees')}</strong><span>{t('Add someone to define their contract and payroll setup.')}</span></div></td></tr></tbody>
         {:else}
           {#each groups as group (group.key)}
             <tbody>
               {#if groupBy !== 'none'}<tr class="cl-group-row"><td colspan="8">{group.label}<span class="cl-group-row__count">{t('{count} people', { count: group.employees.length })}</span></td></tr>{/if}
               {#each group.employees as employee (employee.id)}
                 {@const missing = gaps(employee)}
-                <tr class:is-attention={missing.length > 0}>
-                  <td><span class="cl-table__name"><span class="cl-avatar" style="--avatar-color:{employeeColor.get(employee.id) ?? 'var(--cl-muted)'}">{personInitials(employee.displayName)}</span>{employee.displayName}</span></td>
+                <tr class:is-attention={missing.length > 0 || employee.id === freshId}>
+                  <td><span class="cl-table__name"><span class="cl-avatar" style="--avatar-color:{employeeColor.get(employee.id) ?? 'var(--cl-muted)'}">{personInitials(employee.displayName || '?')}</span>{employee.displayName || t('New employee')}</span></td>
                   <td>
                     <select class="cl-field cellfield" value={employee.contractTypeId} disabled={!team.owner || !team.editable} onchange={(event) => setContractType(employee, event.currentTarget.value)}>
                       <option value="">{t('Not set')}</option>
@@ -162,17 +153,18 @@
                       <span class="missing">{missing.map((item) => t(item)).join(', ')}</span>
                     {:else}<ClassicStatus label="Complete" tone="ok" />{/if}
                   </td>
-                  <td class="is-num"><button class="cl-btn edit" type="button" disabled={!team.owner || !team.editable} aria-expanded={detailId === employee.id} onclick={() => (detailId = detailId === employee.id ? '' : employee.id)}>{t(detailId === employee.id ? 'Close' : 'More')}</button></td>
+                  <td class="is-num"><button class="cl-btn edit" type="button" disabled={!team.owner || !team.editable} onclick={() => (detailId = employee.id)}>{t('Details')}</button></td>
                 </tr>
-                {#if detailId === employee.id}
-                  <tr class="cl-editor-row"><td colspan="8"><EmployeeInlineEditor employeeId={employee.id} mode="contract" {saving} onclose={() => (detailId = '')} onsave={saveEmployee} /></td></tr>
-                {/if}
               {/each}
             </tbody>
           {/each}
         {/if}
       </table>
     </div>
+
+    {#if detailId}
+      <EmployeeInlineEditor employeeId={detailId} mode="contract" saving={team.saving} isNew={detailId === freshId} onclose={closeDetails} onsave={team.saveEmployee} />
+    {/if}
   {/snippet}
 </ClassicTeamPage>
 

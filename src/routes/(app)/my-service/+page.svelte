@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { page } from '$app/state';
   import {
     saveAbsence,
@@ -14,9 +15,8 @@
     serviceLabel,
     weekLabel
   } from '$lib/calendar/date';
-  import ActionButton from '$lib/components/ActionButton.svelte';
   import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
-  import PageHero from '$lib/components/PageHero.svelte';
+  import ClassicPage from '$lib/classic/ClassicPage.svelte';
   import EmployeeSlotDrawer from '$lib/employee/EmployeeSlotDrawer.svelte';
   import {
     employeeSlotActionReason,
@@ -46,6 +46,7 @@
   import { confirmAction } from '$lib/ui/confirm.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
+  import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
 
   const snapshot = $derived(workspace.employeeOperations);
   const employeeId = $derived(workspace.active?.employee_id ?? '');
@@ -215,13 +216,18 @@
   });
 
   function changeWeek(amount: number) {
-    if (hasPendingEdits) {
-      feedback = 'Submit or undo your pending changes before changing week.';
-      feedbackTone = 'warning';
-      return;
-    }
-    weekStart = addDays(activeWeek, amount * 7);
-    feedback = '';
+    void unsavedChanges.runOrRequest(() => {
+      weekStart = addDays(activeWeek, amount * 7);
+      feedback = '';
+    });
+  }
+
+
+  function goToCurrentWeek() {
+    void unsavedChanges.runOrRequest(() => {
+      weekStart = mondayFor(today);
+      feedback = '';
+    });
   }
 
   function setAvailability(slot: EmployeeWeekSlot, state: AvailabilityDraft['state']) {
@@ -446,6 +452,17 @@
     feedback = '';
   }
 
+
+  onMount(() =>
+    unsavedChanges.register({
+      id: 'employee-my-service',
+      label: 'My service',
+      isDirty: () => hasPendingEdits,
+      save: saveChanges,
+      discard: discardChanges
+    })
+  );
+
   async function cancelAbsence(absenceId: string) {
     if (!workspace.activeId || !employeeId || saving) return;
     const confirmed = await confirmAction({
@@ -611,53 +628,33 @@
 
 <svelte:head><title>{t('My service')} · restogogo</title></svelte:head>
 
-{#if snapshot && employee}
-  <section class="page-shell employee-page service-page">
-    <PageHero heroClass="hero-service" eyebrow="My service" title={heroTitle} subtitle={heroSubtitle}>
-      {#snippet nav()}
-        <div class="page-nav" data-tour="svc-nav">
-          <button type="button" onclick={() => changeWeek(-1)} aria-label={t('Previous week')}>&lsaquo;</button>
-          <strong>{weekLabel(activeWeek, i18n.intlLocale)}</strong>
-          <button type="button" onclick={() => changeWeek(1)} aria-label={t('Next week')}>&rsaquo;</button>
-          {#if activeWeek !== mondayFor(today)}
-            <button
-              type="button"
-              class="page-nav__accent"
-              disabled={hasPendingEdits}
-              onclick={() => {
-                weekStart = mondayFor(today);
-                feedback = '';
-              }}
-            >
-              {t('Today')}
-            </button>
-          {/if}
-        </div>
-      {/snippet}
-      {#snippet command()}
-        <aside class="glass-card week-glance" aria-label={t('Week glance')} data-tour="svc-glance">
-          <span class="week-glance__kicker">{t('Week glance')}</span>
-          <div class="week-glance__dots">
-            {#each grid.days as day (day.date)}
-              <span class:is-active={dayHasSignal(day.date)} class:is-today={day.today} title={dayName(day.date)}>
-                {dayName(day.date).slice(0, 2)}
-              </span>
-            {/each}
-          </div>
-          <div class="week-glance__stats">
-            <div><strong>{plannedSlots.length}</strong><span>{t('shifts')}</span></div>
-            <div><strong>{pendingRequestSlots.length}</strong><span>{t('requests')}</span></div>
-          </div>
-          {#if nextService}
-            <p class="week-glance__next"><b>{t('Next')}</b> {dayName(nextService.date)} · {t(serviceLabel(nextService.serviceKey))} {nextService.shift?.startsAt ?? ''}</p>
-          {:else}
-            <p class="week-glance__next"><b>{t(weekGlanceSummary.label)}</b> {t(weekGlanceSummary.value)}</p>
-          {/if}
-        </aside>
-      {/snippet}
-    </PageHero>
+{#snippet pageActions()}
+  <button class="cl-btn is-icon" type="button" onclick={() => changeWeek(-1)} aria-label={t('Previous week')}>&lsaquo;</button>
+  <strong class="period-label">{weekLabel(activeWeek, i18n.intlLocale)}</strong>
+  <button class="cl-btn is-icon" type="button" onclick={() => changeWeek(1)} aria-label={t('Next week')}>&rsaquo;</button>
+  {#if activeWeek !== mondayFor(today)}
+    <button class="cl-btn" type="button" onclick={goToCurrentWeek}>{t('Today')}</button>
+  {/if}
+  <span class="toolbar-grow"></span>
+  {#if hasPendingEdits}
+    <span class="pending-copy">{requestCopy()}</span>
+    <button class="cl-btn" type="button" disabled={saving} onclick={discardChanges}>{t('Discard')}</button>
+    <button class="cl-btn is-primary" type="button" disabled={!canSave} onclick={saveChanges}>{t(saving ? 'Submitting…' : 'Submit')}</button>
+  {/if}
+{/snippet}
 
-    <div class="page-body has-tray">
+{#if snapshot && employee}
+  <ClassicPage actions={pageActions}>
+    <div class="cl-stats employee-stats">
+      <div class="cl-stat"><span class="cl-stat__label">{t('Planned shifts')}</span><span class="cl-stat__value">{plannedSlots.length}</span></div>
+      <div class="cl-stat"><span class="cl-stat__label">{t('Pending requests')}</span><span class="cl-stat__value">{pendingRequestSlots.length}</span></div>
+      <div class="cl-stat summary-stat">
+        <span class="cl-stat__label">{t(nextService ? 'Next service' : weekGlanceSummary.label)}</span>
+        <span class="summary-stat__value">{nextService ? `${dayName(nextService.date)} · ${t(serviceLabel(nextService.serviceKey))} ${nextService.shift?.startsAt ?? ''}` : t(weekGlanceSummary.value)}</span>
+      </div>
+    </div>
+
+    <div class="employee-workspace">
       <FeedbackBanner message={feedback} tone={feedbackTone} />
 
       <section class="agenda" aria-label={t('Weekly agenda')} data-tour="svc-agenda">
@@ -684,9 +681,7 @@
                       class="agenda-slot__more"
                       aria-label={t('More options for {service} on {date}', { service: t(serviceLabel(slot.serviceKey)), date: slot.date })}
                       onclick={() => openSlotDetails(slot.key)}
-                    >
-                      ⋯
-                    </button>
+                    >⋯</button>
                   {/if}
                 </div>
               {/each}
@@ -696,334 +691,79 @@
       </section>
     </div>
 
-    {#if hasPendingEdits}
-      <div class="request-tray" role="status">
-        <span>{requestCopy()}</span>
-        <div>
-          <ActionButton label={t('Undo')} disabled={saving} onclick={discardChanges} />
-          <ActionButton
-            label={saving ? t('Submitting…') : t('Submit')}
-            tone="primary"
-            disabled={!canSave}
-            onclick={saveChanges}
-          />
-        </div>
-      </div>
-    {/if}
-
-  <EmployeeSlotDrawer
-    open={slotDetailsOpen}
-    truth={selectedSlot?.truth ?? null}
-    policy={availabilityMode}
-    {today}
-    {timezone}
-    {planningPublished}
-    availabilityState={selectedSlot?.availability ?? ''}
-    isTimeOffSelected={selectedSlot ? timeOffSelectedKeySet.has(selectedSlot.key) : false}
-    isChangeSelected={false}
-    absenceTypes={snapshot.absence_types}
-    bind:absenceTypeId
-    bind:comment={actionComment}
-    {saving}
-    onclose={() => (slotDetailsOpen = false)}
-    onSetAvailability={(state) => selectedSlot && chooseAvailabilityFor(selectedSlot, state)}
-    onRequestTimeOff={toggleDrawerTimeOff}
-    onCancelAbsence={cancelAbsence}
-    onCancelChange={cancelWorkPatternException}
-  />
-  </section>
+    <EmployeeSlotDrawer
+      open={slotDetailsOpen}
+      truth={selectedSlot?.truth ?? null}
+      policy={availabilityMode}
+      {today}
+      {timezone}
+      {planningPublished}
+      availabilityState={selectedSlot?.availability ?? ''}
+      isTimeOffSelected={selectedSlot ? timeOffSelectedKeySet.has(selectedSlot.key) : false}
+      isChangeSelected={false}
+      absenceTypes={snapshot.absence_types}
+      bind:absenceTypeId
+      bind:comment={actionComment}
+      {saving}
+      onclose={() => (slotDetailsOpen = false)}
+      onSetAvailability={(state) => selectedSlot && chooseAvailabilityFor(selectedSlot, state)}
+      onRequestTimeOff={toggleDrawerTimeOff}
+      onCancelAbsence={cancelAbsence}
+      onCancelChange={cancelWorkPatternException}
+    />
+  </ClassicPage>
 {/if}
 
 <style>
-  .week-glance {
-    align-content: center;
-  }
+  .period-label { min-width: 180px; text-align: center; font-size: 13px; }
+  .pending-copy { color: var(--cl-attention); font-size: 12px; font-weight: var(--rst-fw-bold); }
+  .employee-workspace { display: grid; gap: 16px; }
+  .employee-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .summary-stat__value { color: var(--cl-ink); font-size: 14px; font-weight: var(--rst-fw-bold); line-height: 1.35; }
 
-  .week-glance__kicker {
-    color: #ffb26f;
-    font-size: 10px;
-    font-weight: var(--rst-fw-display);
-    letter-spacing: 0;
-    text-transform: uppercase;
-  }
-
-  .week-glance__dots {
-    display: flex;
-    gap: 6px;
-  }
-
-  .week-glance__dots span {
-    flex: 1;
-    display: grid;
-    place-items: center;
-    height: 30px;
-    border-radius: var(--rst-ui-radius-md);
-    color: rgba(255, 250, 242, 0.5);
-    background: rgba(255, 255, 255, 0.08);
-    font-size: 9px;
-    font-weight: var(--rst-fw-display);
-    text-transform: uppercase;
-  }
-
-  .week-glance__dots span.is-active {
-    color: #13321f;
-    background: var(--rst-green);
-  }
-
-  .week-glance__dots span.is-today {
-    box-shadow: 0 0 0 2px var(--rst-ui-action);
-  }
-
-  .week-glance__stats {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-  }
-
-  .week-glance__stats div {
-    display: grid;
-    gap: 2px;
-    padding: 10px;
-    border-radius: var(--rst-ui-radius-md);
-    background: rgba(255, 255, 255, 0.08);
-  }
-
-  .week-glance__stats strong {
-    font-size: 20px;
-    font-weight: var(--rst-fw-display);
-  }
-
-  .week-glance__stats span {
-    color: rgba(255, 250, 242, 0.6);
-    font-size: 10px;
-    font-weight: var(--rst-fw-bold);
-    text-transform: uppercase;
-  }
-
-  .week-glance__next {
-    margin: 0;
-    color: rgba(255, 250, 242, 0.78);
-    font-size: 12px;
-  }
-
-  .week-glance__next b {
-    color: #ffb26f;
-    margin-right: 4px;
-  }
-
-  .agenda {
-    display: grid;
-    gap: 10px;
-  }
-
+  .agenda { display: grid; gap: 8px; }
   .agenda-day {
     display: grid;
     grid-template-columns: 84px minmax(0, 1fr);
     gap: 16px;
     align-items: center;
-    padding: 14px 18px;
-    border: 1px solid var(--rst-ui-line);
-    border-left: 4px solid transparent;
-    border-radius: var(--rst-ui-radius-xl);
-    background: #fff;
-    box-shadow: 0 2px 4px rgba(31, 22, 15, 0.05), 0 12px 26px rgba(31, 22, 15, 0.07);
-    transition: box-shadow 0.18s var(--rst-ease-out);
-    animation: rst-fade-up 0.5s var(--rst-ease-out) backwards;
+    padding: 12px 14px;
+    border: 1px solid var(--cl-line);
+    border-left: 3px solid transparent;
+    border-radius: var(--cl-radius);
+    background: var(--cl-surface);
   }
-
-  .agenda-day:nth-child(1) { animation-delay: 0.04s; }
-  .agenda-day:nth-child(2) { animation-delay: 0.09s; }
-  .agenda-day:nth-child(3) { animation-delay: 0.14s; }
-  .agenda-day:nth-child(4) { animation-delay: 0.19s; }
-  .agenda-day:nth-child(5) { animation-delay: 0.24s; }
-  .agenda-day:nth-child(6) { animation-delay: 0.29s; }
-  .agenda-day:nth-child(7) { animation-delay: 0.34s; }
-
-  .agenda-day.is-today {
-    border-left-color: var(--rst-ui-action);
-    background: linear-gradient(90deg, rgba(240, 100, 35, 0.06), transparent 30%), #fff;
-  }
-
-  .agenda-day.is-past {
-    opacity: 0.68;
-  }
-
-  .agenda-day__date {
-    display: grid;
-    gap: 2px;
-    justify-items: start;
-  }
-
-  .agenda-day__date span {
-    color: var(--rst-ui-muted);
-    font-size: 10px;
-    font-weight: var(--rst-fw-display);
-    letter-spacing: 0;
-    text-transform: uppercase;
-  }
-
-  .agenda-day__date strong {
-    font-size: 20px;
-    letter-spacing: 0;
-  }
-
-  .agenda-day__date em {
-    padding: 2px 7px;
-    border-radius: var(--rst-ui-radius-pill);
-    color: #fff;
-    background: var(--rst-ui-action);
-    font-size: 9px;
-    font-style: normal;
-    font-weight: var(--rst-fw-bold);
-    text-transform: uppercase;
-  }
-
-  .agenda-day__services {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 8px;
-  }
-
-  .agenda-slot {
-    position: relative;
-    display: flex;
-    align-items: stretch;
-    min-height: 0;
-    border-radius: var(--rst-ui-radius-lg);
-    overflow: hidden;
-  }
-
-  .agenda-slot__tap {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
-    padding: 10px 34px 10px 12px;
-    border: 1px solid var(--rst-ui-line);
-    border-radius: var(--rst-ui-radius-lg);
-    color: var(--rst-ui-text);
-    text-align: left;
-    background: var(--rst-ui-surface-field);
-    font: inherit;
-    cursor: pointer;
-    transition: transform 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
-  }
-
-  .agenda-slot__tap:hover {
-    transform: translateY(-1px);
-    border-color: color-mix(in srgb, var(--rst-ui-action) 45%, var(--rst-ui-line));
-  }
-
-  .agenda-slot__tap b {
-    display: grid;
-    flex: 0 0 auto;
-    width: 26px;
-    height: 26px;
-    place-items: center;
-    border-radius: 999px;
-    background: rgba(240, 100, 35, 0.14);
-    font-size: 13px;
-  }
-
-  .agenda-slot__tap span {
-    display: grid;
-    min-width: 0;
-    gap: 1px;
-  }
-
-  .agenda-slot__tap strong {
-    overflow: hidden;
-    font-size: 13px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .agenda-slot__tap small {
-    overflow: hidden;
-    color: var(--rst-ui-muted);
-    font-size: 11px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .agenda-slot__more {
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    z-index: 1;
-    width: 26px;
-    height: 26px;
-    display: grid;
-    place-items: center;
-    border: 0;
-    border-radius: 999px;
-    color: var(--rst-ui-muted);
-    background: transparent;
-    font-size: 15px;
-    line-height: 1;
-    cursor: pointer;
-  }
-
-  .agenda-slot.is-available .agenda-slot__tap {
-    border-color: rgba(42, 154, 98, 0.44);
-    background: linear-gradient(135deg, rgba(51, 170, 107, 0.2), rgba(51, 170, 107, 0.06));
-  }
-
-  .agenda-slot.is-warning .agenda-slot__tap {
-    border-color: rgba(234, 179, 8, 0.5);
-    background: linear-gradient(135deg, rgba(234, 179, 8, 0.18), rgba(234, 179, 8, 0.05));
-  }
-
-  .agenda-slot.is-unavailable .agenda-slot__tap {
-    border-color: rgba(239, 68, 68, 0.44);
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.14), rgba(239, 68, 68, 0.04));
-  }
-
-  .agenda-slot.is-planned .agenda-slot__tap {
-    border-color: rgba(66, 104, 161, 0.38);
-    background: linear-gradient(135deg, rgba(76, 118, 179, 0.2), rgba(76, 118, 179, 0.06));
-  }
-
-  .agenda-slot.is-worked .agenda-slot__tap {
-    border-color: rgba(52, 211, 153, 0.48);
-    background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(7, 30, 40, 0.04));
-  }
-
-  .agenda-slot.is-leave .agenda-slot__tap,
-  .agenda-slot.is-selected-leave .agenda-slot__tap {
-    border-color: rgba(135, 92, 198, 0.48);
-    background: linear-gradient(135deg, rgba(135, 92, 198, 0.2), rgba(135, 92, 198, 0.06));
-  }
-
+  .agenda-day.is-today { border-left-color: var(--cl-accent); background: var(--cl-accent-wash); }
+  .agenda-day.is-past { opacity: .68; }
+  .agenda-day__date { display: grid; gap: 2px; justify-items: start; }
+  .agenda-day__date span { color: var(--cl-muted); font-size: 10px; font-weight: var(--rst-fw-bold); text-transform: uppercase; }
+  .agenda-day__date strong { font-size: 20px; }
+  .agenda-day__date em { padding: 2px 7px; border-radius: 999px; color: var(--cl-accent); background: var(--cl-surface); font-size: 9px; font-style: normal; font-weight: var(--rst-fw-bold); text-transform: uppercase; }
+  .agenda-day__services { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+  .agenda-slot { position: relative; display: flex; align-items: stretch; border-radius: var(--cl-radius); overflow: hidden; }
+  .agenda-slot__tap { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; padding: 9px 34px 9px 10px; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); color: var(--cl-ink); text-align: left; background: var(--cl-surface); font: inherit; cursor: pointer; }
+  .agenda-slot__tap:hover { border-color: var(--cl-line-strong); background: var(--cl-surface-muted); }
+  .agenda-slot__tap b { display: grid; flex: 0 0 auto; width: 26px; height: 26px; place-items: center; border-radius: 999px; background: var(--cl-accent-wash); font-size: 13px; }
+  .agenda-slot__tap span { display: grid; min-width: 0; gap: 1px; }
+  .agenda-slot__tap strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+  .agenda-slot__tap small { overflow: hidden; color: var(--cl-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+  .agenda-slot__more { position: absolute; top: 6px; right: 6px; z-index: 1; width: 26px; height: 26px; display: grid; place-items: center; border: 0; border-radius: 999px; color: var(--cl-muted); background: transparent; font-size: 15px; line-height: 1; cursor: pointer; }
+  .agenda-slot.is-available .agenda-slot__tap { border-color: var(--cl-ok-line); background: var(--cl-ok-wash); }
+  .agenda-slot.is-warning .agenda-slot__tap,
   .agenda-slot.is-change .agenda-slot__tap,
-  .agenda-slot.is-selected-change .agenda-slot__tap,
-  .agenda-slot.is-warning .agenda-slot__tap {
-    border-color: rgba(234, 179, 8, 0.52);
-    background: linear-gradient(135deg, rgba(234, 179, 8, 0.18), rgba(234, 179, 8, 0.05));
-  }
-
-  .agenda-slot.is-danger .agenda-slot__tap {
-    border-color: rgba(239, 68, 68, 0.52);
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.16), rgba(239, 68, 68, 0.05));
-  }
-
-  .agenda-slot.is-selected .agenda-slot__tap {
-    box-shadow: 0 0 0 3px rgba(240, 100, 35, 0.18);
-  }
+  .agenda-slot.is-selected-change .agenda-slot__tap { border-color: var(--cl-attention-line); background: var(--cl-attention-wash); }
+  .agenda-slot.is-unavailable .agenda-slot__tap,
+  .agenda-slot.is-danger .agenda-slot__tap { border-color: var(--cl-problem-line); background: var(--cl-problem-wash); }
+  .agenda-slot.is-planned .agenda-slot__tap { border-color: var(--cl-info-line); background: var(--cl-info-wash); }
+  .agenda-slot.is-worked .agenda-slot__tap { border-color: var(--cl-ok-line); background: var(--cl-ok-wash); }
+  .agenda-slot.is-leave .agenda-slot__tap,
+  .agenda-slot.is-selected-leave .agenda-slot__tap { border-color: var(--rst-state-absence-border); background: var(--rst-state-absence-bg); }
+  .agenda-slot.is-selected .agenda-slot__tap { box-shadow: inset 0 0 0 2px rgba(var(--cl-attention-rgb), .28); }
 
   @media (max-width: 760px) {
-    .agenda-day {
-      grid-template-columns: 1fr;
-      gap: 10px;
-    }
-
-    .agenda-day__date {
-      grid-auto-flow: column;
-      align-items: baseline;
-      justify-content: start;
-      gap: 8px;
-    }
-
+    .employee-stats { grid-template-columns: 1fr; }
+    .agenda-day { grid-template-columns: 1fr; gap: 10px; }
+    .agenda-day__date { grid-auto-flow: column; align-items: baseline; justify-content: start; gap: 8px; }
+    .pending-copy { display: none; }
   }
 </style>

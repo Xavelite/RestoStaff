@@ -12,7 +12,7 @@
   } = $props();
 
   // Lunch is daytime gold (☀), evening is indigo (☾). The colour is the
-  // service's identity, shared with the modern design's service tokens.
+  // service's identity throughout the workspace.
   const glyph = $derived(service === 'evening' ? '☾' : '☀');
 </script>
 

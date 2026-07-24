@@ -16,6 +16,7 @@
     type AppLocale
   } from '$lib/i18n/i18n.svelte';
   import { kiosk } from '$lib/kiosk/kiosk.svelte';
+  import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
   import { appInstall } from '$lib/pwa/app-install.svelte';
   import { enablePhonePush, phonePushStatus } from '$lib/push/push-client';
   import { sound } from '$lib/sound/sound.svelte';
@@ -27,13 +28,10 @@
   import { exitPreviewSession, signOutOfApp } from './app-actions';
 
   let {
-    variant = 'dark',
     isPlatformAdmin = false,
     onnotificationsettings,
     onstarttour
   }: {
-    /** Dark sits on the modern topbar; light sits on the classic one. */
-    variant?: 'dark' | 'light';
     isPlatformAdmin?: boolean;
     onnotificationsettings: () => void;
     /** Present only when the current page has a guided tour. */
@@ -73,10 +71,12 @@
       open = false;
       return;
     }
+    open = false;
     try {
-      await workspace.select(restaurantId);
-      open = false;
-      await goto(roleHome(membership.role));
+      await unsavedChanges.runOrRequest(async () => {
+        await workspace.select(restaurantId);
+        await goto(roleHome(membership.role));
+      });
     } catch (error) {
       toasts.show(error instanceof Error ? error.message : String(error), 'danger');
     }
@@ -84,8 +84,10 @@
 
   function launchKiosk() {
     open = false;
-    kiosk.lock();
-    void goto('/badge-terminal/terminal');
+    void unsavedChanges.runOrRequest(async () => {
+      kiosk.lock();
+      await goto('/badge-terminal/terminal');
+    }).catch((error) => toasts.show(error instanceof Error ? error.message : String(error), 'danger'));
   }
 
   async function savePin() {
@@ -244,7 +246,7 @@
   }
 </script>
 
-<div class="menu-wrap is-{variant}" data-tour="account">
+<div class="menu-wrap" data-tour="account">
   <button
     class="account-button"
     type="button"
@@ -435,14 +437,6 @@
 <style>
   .menu-wrap {
     position: relative;
-    /* Each shell sets the chrome; the menu body itself is always a panel. */
-    --account-text: var(--rst-topbar-text);
-    --account-muted: var(--rst-topbar-muted);
-    --account-bg: var(--rst-topbar-control-bg);
-    --account-line: var(--rst-topbar-control-line);
-    --account-hover: var(--rst-topbar-control-hover);
-  }
-  .menu-wrap.is-light {
     --account-text: var(--rst-ui-text);
     --account-muted: var(--rst-ui-muted);
     --account-bg: transparent;
@@ -493,7 +487,7 @@
     transform-origin: top right;
     animation: rst-menu-in .16s var(--rst-ease-out) backwards;
   }
-  .menu-wrap.is-light .menu {
+  .menu-wrap .menu {
     box-shadow: none;
   }
   @keyframes rst-menu-in {

@@ -17,6 +17,7 @@
   import Dialog from '$lib/components/Dialog.svelte';
   import { friendlyError } from '$lib/api/error-messages';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
+  import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
   import { getBadgeProofUrl } from '$lib/api/mutations';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
@@ -206,6 +207,20 @@
   );
   const approveBlocked = $derived(totals.live > 0);
 
+  function selectEntry(key: string): void {
+    if (key === selectedKey) return;
+    void unsavedChanges.runOrRequest(() => {
+      selectedKey = key;
+    });
+  }
+
+  function closeEntry(): void {
+    if (saving) return;
+    void unsavedChanges.runOrRequest(() => {
+      selectedKey = '';
+    });
+  }
+
   function serviceName(slot: ActualSlot): string {
     return t(serviceLabel(slot.serviceKey));
   }
@@ -394,7 +409,7 @@
               {#each days as day (day.date)}
                 <td class="board__cell" class:is-past={day.past}>
                   {#each cellChips(row.id, day.date) as chip (chip.key)}
-                    <button class="chip is-{chip.kind}" type="button" onclick={() => (selectedKey = chip.key)}>
+                    <button class="chip is-{chip.kind}" type="button" onclick={() => selectEntry(chip.key)}>
                       <span class="chip__time">
                         {#if chip.live}<span class="chip__live" aria-hidden="true"></span>{/if}{chip.text}
                       </span>
@@ -417,7 +432,7 @@
   description={selectedSlot
     ? `${weekdayDateLabel(selectedSlot.date, i18n.intlLocale)} · ${serviceName(selectedSlot)}`
     : ''}
-  onclose={() => !saving && (selectedKey = '')}
+  onclose={closeEntry}
 >
   {#if selectedSlot && snapshot && workspace.activeId}
     <TimesheetEntryEditor

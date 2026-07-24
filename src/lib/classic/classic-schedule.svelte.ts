@@ -31,6 +31,7 @@ class ClassicScheduleDraft {
   shifts = $state<PlanningShiftDraft[]>([]);
   notes = $state<PlanningNoteDraft[]>([]);
   dirty = $state(false);
+  saving = $state(false);
 
   /** Week + revision the draft was built from; plain, so sync() is not reactive. */
   #loadedKey = '';

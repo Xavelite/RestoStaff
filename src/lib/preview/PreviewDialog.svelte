@@ -3,6 +3,7 @@
   import Dialog from '$lib/components/Dialog.svelte';
   import { getPreviewPersonas, type PreviewPersona } from './preview-api';
   import { workspace } from '$lib/workspace/workspace.svelte';
+  import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
 
@@ -51,17 +52,19 @@
     if (!restaurantId) return;
     openingKey = persona.key;
     try {
-      await workspace.startPreview({
-        restaurantId,
-        restaurantName,
-        role: persona.role,
-        employeeId: persona.employeeId,
-        displayName: persona.displayName,
-        source,
-        returnPath
+      await unsavedChanges.runOrRequest(async () => {
+        await workspace.startPreview({
+          restaurantId,
+          restaurantName,
+          role: persona.role,
+          employeeId: persona.employeeId,
+          displayName: persona.displayName,
+          source,
+          returnPath
+        });
+        onclose();
+        await goto(persona.role === 'employee' ? '/my-service' : '/home');
       });
-      onclose();
-      await goto(persona.role === 'employee' ? '/my-service' : '/home');
     } catch (error) {
       toasts.show(error instanceof Error ? error.message : String(error), 'danger');
     } finally {

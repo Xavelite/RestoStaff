@@ -37,7 +37,7 @@
 <svelte:head><title>{t('Positions')} &middot; restogogo</title></svelte:head>
 
 {#snippet pageActions()}
-  <button class="cl-btn" type="button" onclick={addPosition}>
+  <button class="cl-btn" type="button" disabled={workspace.isPreview || !restaurantConfig.draft} onclick={addPosition}>
     <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
     {t('Add position')}
   </button>
@@ -60,7 +60,7 @@
             <th>{t('Active')}</th>
           </tr>
         </thead>
-        <tbody use:dragReorder={{ onmove: movePosition }}>
+        <tbody use:dragReorder={{ onmove: movePosition, enabled: !workspace.isPreview }}>
           {#if !draft.jobFunctions.length}
             <tr>
               <td colspan="5">
@@ -72,16 +72,17 @@
             </tr>
           {:else}
             {#each draft.jobFunctions as position, index (position.id)}
-              <tr draggable="true" data-drag={index}>
+              <tr draggable={!workspace.isPreview} data-drag={index}>
                 <td class="cl-grip" aria-hidden="true">⠿</td>
                 <td class="swatch-col">
                   <span class="swatch" style="background:{positionColor.get(position.id) ?? 'var(--cl-line-strong)'}"></span>
                 </td>
-                <td><input class="cl-field" bind:value={position.name} oninput={() => restaurantConfig.touch()} /></td>
+                <td><input class="cl-field" disabled={workspace.isPreview} bind:value={position.name} oninput={() => restaurantConfig.touch()} /></td>
                 <td class="is-num">
                   <input
                     class="cl-field cost"
                     type="number"
+                    disabled={workspace.isPreview}
                     min="0"
                     step="0.5"
                     bind:value={position.estimatedHourlyCost}
@@ -90,7 +91,7 @@
                 </td>
                 <td>
                   <label class="switch">
-                    <input type="checkbox" bind:checked={position.active} onchange={() => restaurantConfig.touch()} />
+                    <input type="checkbox" disabled={workspace.isPreview} bind:checked={position.active} onchange={() => restaurantConfig.touch()} />
                     <span>{t(position.active ? 'Active' : 'Archived')}</span>
                   </label>
                 </td>

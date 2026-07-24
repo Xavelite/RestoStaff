@@ -23,12 +23,13 @@
   );
 
   async function publish(weekStart: string, revision: number, published: boolean, conflicts: number) {
-    if (!workspace.activeId || saving) return;
+    if (!workspace.activeId || saving || scheduleDraft.saving) return;
     if (invalidPlanningShift(scheduleDraft.shifts)) {
       toasts.show(t('Every planned shift needs a valid start and end time.'), 'danger');
       return;
     }
     saving = true;
+    scheduleDraft.saving = true;
     try {
       // Coverage gaps and conflicts never block: they are listed above and the
       // manager publishes with them in view.
@@ -49,6 +50,7 @@
       toasts.show(friendlyError(error), 'danger');
     } finally {
       saving = false;
+      scheduleDraft.saving = false;
     }
   }
 </script>

@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { page } from '$app/state';
-  import { goto } from '$app/navigation';
+  import { beforeNavigate, goto } from '$app/navigation';
   import { auth } from '$lib/auth/session.svelte';
   import ConfirmHost from '$lib/components/ConfirmHost.svelte';
+  import UnsavedChangesHost from '$lib/navigation/UnsavedChangesHost.svelte';
   import ToastHost from '$lib/components/ToastHost.svelte';
   import NotificationBell from '$lib/components/NotificationBell.svelte';
   import CommunicationCenter from '$lib/communications/CommunicationCenter.svelte';
@@ -20,6 +21,7 @@
   import { moduleForPath, modulesForRole } from '$lib/classic/classic-nav';
   import { classicChrome } from '$lib/classic/classic-chrome.svelte';
   import { roleHome } from '$lib/workspace/workspace-selection';
+  import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
   import '$lib/classic/classic.css';
 
   let { children } = $props();
@@ -32,6 +34,25 @@
   let sendingVerification = $state(false);
   let verificationSent = $state(false);
   let notificationSettingsRequest = $state(0);
+
+  beforeNavigate((navigation) => {
+    if (unsavedChanges.consumeNavigationBypass() || !unsavedChanges.hasDirty) return;
+    // External navigation and browser close use the browser's native protection;
+    // an async custom dialog cannot safely hold an unloading document open.
+    if (!navigation.to || navigation.willUnload) return;
+    navigation.cancel();
+    unsavedChanges.requestNavigation(navigation.to.url);
+  });
+
+  onMount(() => {
+    const protectUnload = (event: BeforeUnloadEvent) => {
+      if (!unsavedChanges.hasDirty) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', protectUnload);
+    return () => window.removeEventListener('beforeunload', protectUnload);
+  });
 
   onMount(() => {
     try {
@@ -188,7 +209,6 @@
         {/if}
 
         <AccountMenu
-          variant="light"
           isPlatformAdmin={session.isPlatformAdmin}
           onnotificationsettings={() => (notificationSettingsRequest += 1)}
         />
@@ -263,7 +283,7 @@
             </div>
           </section>
         {:else}
-          {#key page.url.pathname}
+          {#key `${page.url.pathname}${page.url.search}`}
             {@render children()}
           {/key}
         {/if}
@@ -271,6 +291,7 @@
     </div>
   {/if}
   <ConfirmHost />
+  <UnsavedChangesHost />
   <ToastHost />
 {/if}
 

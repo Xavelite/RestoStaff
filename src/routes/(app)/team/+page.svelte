@@ -1,9 +1,7 @@
 <script lang="ts">
-  import { friendlyError } from '$lib/api/error-messages';
   import { t } from '$lib/i18n/i18n.svelte';
   import { buildEmployeeColorMap } from '$lib/ui/position-color';
   import { personInitials } from '$lib/ui/person';
-  import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import type { EmployeeDraft } from '$lib/team/team-model';
   import { newEmployeeDraft } from '$lib/team/team-model';
@@ -20,7 +18,6 @@
   let search = $state('');
   let scope = $state<Scope>('active');
   let groupBy = $state<GroupBy>('position');
-  let saving = $state(false);
   let freshId = $state('');
   let detailId = $state('');
 
@@ -31,18 +28,24 @@
   );
 
   function addEmployee() {
+    if (workspace.isPreview || !workspace.team) return;
     const draft = newEmployeeDraft(crypto.randomUUID());
     draft.displayName = '';
     teamDraft.employees = [draft, ...teamDraft.employees];
     freshId = draft.id;
+    detailId = draft.id;
     scope = 'active';
+    groupBy = 'position';
     search = '';
+  }
+
+  function closeDetails() {
+    detailId = '';
+    freshId = '';
   }
 
   function setName(employee: EmployeeDraft, value: string) {
     const patch: Partial<EmployeeDraft> = { displayName: value };
-    // Only seed legal names for a genuinely blank profile. Editing the display
-    // name of an existing employee must never rewrite legal identity fields.
     if (!employee.firstName.trim() && !employee.lastName.trim()) {
       patch.firstName = value.split(' ')[0] ?? '';
       patch.lastName = value.split(' ').slice(1).join(' ');
@@ -53,36 +56,9 @@
   function togglePosition(employee: EmployeeDraft, id: string, on: boolean) {
     teamDraft.update(employee.id, {
       jobFunctionIds: on
-        ? [...employee.jobFunctionIds, id]
+        ? [...new Set([...employee.jobFunctionIds, id])]
         : employee.jobFunctionIds.filter((item) => item !== id)
     });
-  }
-
-  async function persist(closeDialog = false) {
-    if (!workspace.activeId || saving) return;
-    const role = workspace.effectiveRole;
-    if (!role) return;
-    const blank = teamDraft.employees.find((employee) => !employee.displayName.trim());
-    if (blank) {
-      toasts.show(t('Give every new employee a name before saving.'), 'warning');
-      return;
-    }
-    saving = true;
-    try {
-      await teamDraft.save(workspace.activeId, role);
-      freshId = '';
-      if (closeDialog) detailId = '';
-      toasts.show(t('Team saved.'), 'success');
-    } catch (error) {
-      toasts.show(friendlyError(error), 'danger');
-    } finally {
-      saving = false;
-    }
-  }
-
-  async function commitDetail(employee: EmployeeDraft) {
-    teamDraft.update(employee.id, employee);
-    await persist(true);
   }
 
   const canReorder = $derived(
@@ -156,20 +132,9 @@
     <option value="archived">{t('Archived')}</option>
     <option value="all">{t('All')}</option>
   </select>
-  <span class="toolbar-grow"></span>
-  <button class="cl-btn" type="button" disabled={workspace.isPreview} title={t('Add employee')} onclick={addEmployee}>
+  <button class="cl-btn" type="button" disabled={workspace.isPreview || !workspace.team} title={t('Add employee')} onclick={addEmployee}>
     <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
     <span class="cl-action-label">{t('Add employee')}</span>
-  </button>
-  <button class="cl-btn is-icon" type="button" disabled={saving || !teamDraft.dirty || !workspace.team} title={t('Discard')} aria-label={t('Discard')} onclick={() => workspace.team && teamDraft.reload(workspace.team)}>
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6"/><path d="M4 4v4.6h4.6"/></svg>
-  </button>
-  <button class="cl-btn is-primary is-icon" type="button" disabled={saving || workspace.isPreview || !teamDraft.dirty} title={t(saving ? 'Saving…' : 'Save')} aria-label={t(saving ? 'Saving…' : 'Save')} onclick={() => persist()}>
-    {#if saving}
-      <span aria-hidden="true">…</span>
-    {:else}
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h12l2 2v14H5z"/><path d="M8 4v6h8V4M8 20v-6h8v6"/></svg>
-    {/if}
   </button>
 {/snippet}
 
@@ -184,7 +149,7 @@
 
     <div class="table-meta">
       <span>{t('{count} people', { count: rows.length })}</span>
-      {#if groupBy !== 'none'}<span>{t('Undefined employees are shown first.')}</span>{/if}
+      {#if groupBy !== 'none'}<span>{t('Primary position determines the group. Undefined employees are shown first.')}</span>{/if}
     </div>
 
     <div class="cl-tablewrap">
@@ -211,37 +176,36 @@
                 <tr class="cl-group-row"><td colspan="9">{group.label}<span class="cl-group-row__count">{t('{count} people', { count: group.employees.length })}</span></td></tr>
               {/if}
               {#each group.employees as employee, index (employee.id)}
-                {@const isNew = !employee.displayName.trim() || employee.id === freshId}
+                {@const isNew = employee.id === freshId}
                 <tr class:is-attention={isNew} draggable={canReorder} data-drag={index}>
                   <td class="cl-grip" aria-hidden="true">{canReorder ? '⠿' : ''}</td>
                   <td>
                     <span class="cl-table__name">
                       <span class="cl-avatar" style="--avatar-color:{employeeColor.get(employee.id) ?? 'var(--cl-muted)'}">{personInitials(employee.displayName || '?')}</span>
-                      <input class="cl-field namefield" placeholder={t('Full name')} value={employee.displayName} oninput={(event) => setName(employee, event.currentTarget.value)} />
+                      <input class="cl-field namefield" placeholder={t('Full name')} value={employee.displayName} disabled={!team.editable} oninput={(event) => setName(employee, event.currentTarget.value)} />
                     </span>
                   </td>
                   <td>
                     <details class="posmenu">
                       <summary>{employee.jobFunctionIds.map((id) => team.jobName.get(id)).filter(Boolean).join(', ') || t('No position yet')}</summary>
                       <div class="posmenu__list">
-                        {#each [...team.jobName] as [id, name] (id)}
-                          <label><input type="checkbox" checked={employee.jobFunctionIds.includes(id)} onchange={(event) => togglePosition(employee, id, event.currentTarget.checked)} />{name}</label>
-                        {/each}
+                        {#if team.jobName.size}
+                          {#each [...team.jobName] as [id, name] (id)}
+                            <label><input type="checkbox" disabled={!team.editable} checked={employee.jobFunctionIds.includes(id)} onchange={(event) => togglePosition(employee, id, event.currentTarget.checked)} />{name}</label>
+                          {/each}
+                        {:else}
+                          <span>{t('Create positions in Restaurant first.')}</span>
+                        {/if}
                       </div>
                     </details>
                   </td>
-                  <td><input class="cl-field cellfield" type="email" placeholder={t('Email')} value={employee.email} oninput={(event) => teamDraft.update(employee.id, { email: event.currentTarget.value })} /></td>
-                  <td><input class="cl-field cellfield phonefield" placeholder={t('Phone')} value={employee.phone} oninput={(event) => teamDraft.update(employee.id, { phone: event.currentTarget.value })} /></td>
+                  <td><input class="cl-field cellfield" type="email" placeholder={t('Email')} value={employee.email} disabled={!team.editable} oninput={(event) => teamDraft.update(employee.id, { email: event.currentTarget.value })} /></td>
+                  <td><input class="cl-field cellfield phonefield" type="tel" placeholder={t('Phone')} value={employee.phone} disabled={!team.editable} oninput={(event) => teamDraft.update(employee.id, { phone: event.currentTarget.value })} /></td>
                   <td class="is-quiet">{team.contractName.get(employee.contractTypeId) ?? '—'}</td>
                   <td><ClassicStatus label={employee.accessState.replace('_', ' ')} tone={accessTone[employee.accessState] ?? 'attention'} /></td>
-                  <td>
-                    <label class="switch"><input type="checkbox" checked={employee.active} onchange={(event) => teamDraft.update(employee.id, { active: event.currentTarget.checked })} /><span>{t(employee.active ? 'Active' : 'Archived')}</span></label>
-                  </td>
-                  <td class="is-num"><button class="cl-btn detail" type="button" aria-expanded={detailId === employee.id} onclick={() => (detailId = detailId === employee.id ? '' : employee.id)}>{t(detailId === employee.id ? 'Close' : 'More')}</button></td>
+                  <td><label class="switch"><input type="checkbox" disabled={!team.editable} checked={employee.active} onchange={(event) => teamDraft.update(employee.id, { active: event.currentTarget.checked })} /><span>{t(employee.active ? 'Active' : 'Archived')}</span></label></td>
+                  <td class="is-num"><button class="cl-btn detail" type="button" disabled={!team.editable} onclick={() => (detailId = employee.id)}>{t('Details')}</button></td>
                 </tr>
-                {#if detailId === employee.id}
-                  <tr class="cl-editor-row"><td colspan="9"><EmployeeInlineEditor employeeId={employee.id} mode="people" {saving} onclose={() => (detailId = '')} onsave={commitDetail} /></td></tr>
-                {/if}
               {/each}
             </tbody>
           {/each}
@@ -249,6 +213,9 @@
       </table>
     </div>
 
+    {#if detailId}
+      <EmployeeInlineEditor employeeId={detailId} mode="people" saving={team.saving} isNew={detailId === freshId} onclose={closeDetails} onsave={team.saveEmployee} />
+    {/if}
   {/snippet}
 </ClassicTeamPage>
 
@@ -264,7 +231,8 @@
   .posmenu summary { list-style: none; padding: 6px 10px; border: 1px solid var(--cl-line-strong); border-radius: var(--cl-radius); color: var(--cl-ink); font-size: 14px; cursor: pointer; white-space: nowrap; }
   .posmenu summary::-webkit-details-marker { display: none; }
   .posmenu[open] summary { border-color: var(--cl-accent); }
-  .posmenu__list { position: absolute; z-index: var(--rst-z-popover, 120); top: calc(100% + 4px); left: 0; display: grid; gap: 6px; min-width: 180px; padding: 10px 12px; border: 1px solid var(--cl-line-strong); border-radius: var(--cl-radius); background: var(--cl-surface); box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+  .posmenu__list { position: absolute; z-index: var(--rst-z-popover, 120); top: calc(100% + 4px); left: 0; display: grid; gap: 6px; min-width: 200px; padding: 10px 12px; border: 1px solid var(--cl-line-strong); border-radius: var(--cl-radius); background: var(--cl-surface); box-shadow: 0 8px 24px rgba(0,0,0,.12); }
   .posmenu__list label { display: flex; align-items: center; gap: 8px; font-size: 14px; }
   .posmenu__list input { width: 15px; height: 15px; accent-color: var(--cl-accent); }
+  .posmenu__list span { color: var(--cl-muted); font-size: 12px; }
 </style>

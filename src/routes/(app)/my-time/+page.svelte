@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import {
@@ -25,7 +26,7 @@
   import { instantClockLabel, resolveWorkspaceServiceSlot, type ServiceSlotTruth } from '$lib/calendar/service-slot';
   import ActionButton from '$lib/components/ActionButton.svelte';
   import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
-  import PageHero from '$lib/components/PageHero.svelte';
+  import ClassicPage from '$lib/classic/ClassicPage.svelte';
   import StatusPill from '$lib/components/StatusPill.svelte';
   import EmployeeSlotDrawer from '$lib/employee/EmployeeSlotDrawer.svelte';
   import {
@@ -55,6 +56,7 @@
   import { confirmAction } from '$lib/ui/confirm.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
+  import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
 
   const snapshot = $derived(workspace.employeeOperations);
   const employeeId = $derived(workspace.active?.employee_id ?? '');
@@ -209,20 +211,22 @@
   });
 
   function selectDate(date: string) {
-    selectedDate = date;
-    month = monthStart(date);
-    feedback = '';
+    const select = () => {
+      selectedDate = date;
+      month = monthStart(date);
+      feedback = '';
+    };
+    if (monthStart(date) !== activeMonth) void unsavedChanges.runOrRequest(select);
+    else select();
   }
 
   function changeMonth(amount: number) {
-    if (hasPendingEdits) {
-      feedback = 'Submit or undo your pending changes before changing month.';
-      feedbackTone = 'warning';
-      return;
-    }
-    month = addMonths(activeMonth, amount);
-    selectedDate = month;
-    clearAllSelections();
+    void unsavedChanges.runOrRequest(() => {
+      month = addMonths(activeMonth, amount);
+      selectedDate = month;
+      clearAllSelections();
+      feedback = '';
+    });
   }
 
   function syncAvailabilityHighlight() {
@@ -507,6 +511,17 @@
     feedback = '';
   }
 
+
+  onMount(() =>
+    unsavedChanges.register({
+      id: 'employee-my-time',
+      label: 'My time',
+      isDirty: () => hasPendingEdits,
+      save: saveChanges,
+      discard: discardChanges
+    })
+  );
+
   async function cancelAbsence(absenceId: string) {
     if (!workspace.activeId || !employeeId || saving) return;
     const confirmed = await confirmAction({
@@ -662,36 +677,27 @@
 
 <svelte:head><title>{t('My time')} · restogogo</title></svelte:head>
 
-{#if snapshot && employee}
-  <section class="page-shell employee-page time-page">
-    <PageHero
-      heroClass="hero-time"
-      eyebrow="My time"
-      title={hasPendingEdits ? t('Your month has changes waiting.') : t('{hours} recorded this month.', { hours: formatHours(workedHours) })}
-      subtitle={availabilityMode === 'fixed_schedule' ? t('See badge proof, leave balance and your fixed schedule in one monthly rhythm.') : t('See badge proof, leave balance, published shifts and availability in one monthly rhythm.')}
-    >
-      {#snippet nav()}
-        <div class="page-nav" data-tour="time-nav">
-          <button type="button" onclick={() => changeMonth(-1)} aria-label={t('Previous month')}>&lsaquo;</button>
-          <strong>{monthLabel(activeMonth, i18n.intlLocale)}</strong>
-          <button type="button" onclick={() => changeMonth(1)} aria-label={t('Next month')}>&rsaquo;</button>
-        </div>
-      {/snippet}
-      {#snippet command()}
-        <aside class="glass-card glass-card--row time-dial-card" aria-label={t('Leave balance')} data-tour="time-balance">
-          <div class:has-issues={leaveBalancePercent < 30} class="readiness-dial" style={`--ready:${leaveBalancePercent}%`}>
-            <strong>{leaveBalance.remaining}</strong>
-            <span>{t('days left')}</span>
-          </div>
-          <dl>
-            <div><dt>{t('Worked')}</dt><dd>{formatHours(workedHours)}</dd></div>
-            <div><dt>{t('Pending')}</dt><dd>{leaveBalance.pending}</dd></div>
-          </dl>
-        </aside>
-      {/snippet}
-    </PageHero>
+{#snippet pageActions()}
+  <button class="cl-btn is-icon" type="button" onclick={() => changeMonth(-1)} aria-label={t('Previous month')}>&lsaquo;</button>
+  <strong class="period-label">{monthLabel(activeMonth, i18n.intlLocale)}</strong>
+  <button class="cl-btn is-icon" type="button" onclick={() => changeMonth(1)} aria-label={t('Next month')}>&rsaquo;</button>
+  <span class="toolbar-grow"></span>
+  {#if hasPendingEdits}
+    <span class="pending-copy">{requestCopy()}</span>
+    <button class="cl-btn" type="button" disabled={saving} onclick={discardChanges}>{t('Discard')}</button>
+    <button class="cl-btn is-primary" type="button" disabled={!canSave} onclick={saveChanges}>{t(saving ? 'Submitting…' : 'Submit')}</button>
+  {/if}
+{/snippet}
 
-    <div class="page-body has-tray">
+{#if snapshot && employee}
+  <ClassicPage actions={pageActions}>
+    <div class="cl-stats employee-stats">
+      <div class="cl-stat"><span class="cl-stat__label">{t('Worked')}</span><span class="cl-stat__value">{formatHours(workedHours)}</span></div>
+      <div class="cl-stat"><span class="cl-stat__label">{t('Leave remaining')}</span><span class="cl-stat__value">{leaveBalance.remaining}</span></div>
+      <div class="cl-stat"><span class="cl-stat__label">{t('Pending')}</span><span class="cl-stat__value">{leaveBalance.pending}</span></div>
+    </div>
+
+    <div class="employee-workspace">
       <FeedbackBanner message={feedback} tone={feedbackTone} />
 
       <div class="time-layout">
@@ -887,21 +893,6 @@
       </div>
     </div>
 
-    {#if hasPendingEdits}
-      <div class="request-tray" role="status">
-        <span>{requestCopy()}</span>
-        <div>
-          <ActionButton label={t('Undo')} disabled={saving} onclick={discardChanges} />
-          <ActionButton
-            label={saving ? t('Submitting…') : t('Submit')}
-            tone="primary"
-            disabled={!canSave}
-            onclick={saveChanges}
-          />
-        </div>
-      </div>
-    {/if}
-
   <EmployeeSlotDrawer
     open={slotDetailsOpen}
     truth={drawerTruth}
@@ -922,43 +913,15 @@
     onCancelAbsence={cancelAbsence}
     onCancelChange={cancelWorkPatternException}
   />
-  </section>
+
+  </ClassicPage>
 {/if}
 
 <style>
-  .time-dial-card .readiness-dial {
-    width: clamp(96px, 9vw, 116px);
-    flex: 0 0 auto;
-  }
-
-  .time-dial-card dl {
-    display: grid;
-    gap: 8px;
-    margin: 0;
-  }
-
-  .time-dial-card dl div {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    padding: 6px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.16);
-  }
-
-  .time-dial-card dt {
-    color: rgba(255, 250, 242, 0.64);
-    font-size: 10px;
-    font-weight: var(--rst-fw-display);
-    text-transform: uppercase;
-  }
-
-  .time-dial-card dd {
-    margin: 0;
-    color: #fff;
-    font-size: 17px;
-    font-weight: var(--rst-fw-display);
-  }
+  .period-label { min-width: 180px; text-align: center; font-size: 13px; }
+  .pending-copy { color: var(--cl-attention); font-size: 12px; font-weight: var(--rst-fw-bold); }
+  .employee-workspace { display: grid; gap: 16px; }
+  .employee-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
   .time-layout {
     display: grid;
@@ -969,10 +932,10 @@
 
   .time-month {
     border: 1px solid var(--rst-ui-line);
-    border-radius: var(--rst-ui-radius-2xl);
+    border-radius: var(--cl-radius);
     overflow: hidden;
-    background: #fff;
-    box-shadow: 0 2px 4px rgba(31, 22, 15, 0.05), 0 14px 30px rgba(31, 22, 15, 0.08);
+    background: var(--cl-surface);
+    box-shadow: none;
   }
 
   .weekday-row,
@@ -988,7 +951,7 @@
 
   .weekday-row span {
     padding: 10px 8px;
-    color: var(--rst-ui-action);
+    color: var(--cl-muted);
     font-size: 10px;
     font-weight: var(--rst-fw-display);
     letter-spacing: 0;
@@ -1027,8 +990,8 @@
   }
 
   .month-day.is-selected {
-    background: rgba(var(--rst-ui-action-rgb), 0.1);
-    box-shadow: inset 0 0 0 2px rgba(240, 100, 35, 0.4);
+    background: var(--cl-accent-wash);
+    box-shadow: inset 0 0 0 2px rgba(var(--cl-attention-rgb), 0.25);
   }
 
   .month-day__number {
@@ -1060,7 +1023,7 @@
   .month-day__dots i.is-leave { background: var(--rst-state-absence); }
   .month-day__dots i.is-change { background: var(--rst-state-warning); }
   .month-day__dots i.is-danger { background: var(--rst-state-danger); }
-  .month-day__dots i.is-selected { box-shadow: 0 0 0 2px rgba(240, 100, 35, 0.35); }
+  .month-day__dots i.is-selected { box-shadow: 0 0 0 2px rgba(var(--cl-attention-rgb), 0.28); }
 
   .month-day__hours {
     padding: 1px 6px;
@@ -1080,12 +1043,11 @@
     display: grid;
     gap: 12px;
     padding: 18px;
-    border-radius: var(--rst-ui-radius-2xl);
-    color: #fffaf2;
-    background:
-      radial-gradient(circle at 100% 0%, rgba(74, 112, 190, 0.28), transparent 34%),
-      linear-gradient(145deg, #101a28, #13243a);
-    box-shadow: var(--rst-ui-shadow-card);
+    border: 1px solid var(--cl-line);
+    border-radius: var(--cl-radius);
+    color: var(--cl-ink);
+    background: var(--cl-surface);
+    box-shadow: none;
   }
 
   .day-panel__head {
@@ -1115,7 +1077,7 @@
   }
 
   .day-panel__proof span {
-    color: rgba(255, 250, 242, 0.6);
+    color: var(--cl-muted);
     font-size: 10px;
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
@@ -1138,11 +1100,11 @@
     gap: 10px;
     width: 100%;
     padding: 11px 34px 11px 12px;
-    border: 1px solid rgba(255, 255, 255, 0.14);
+    border: 1px solid var(--cl-line);
     border-radius: var(--rst-ui-radius-lg);
-    color: #fffaf2;
+    color: var(--cl-ink);
     text-align: left;
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--cl-surface-muted);
     font: inherit;
     cursor: pointer;
   }
@@ -1154,7 +1116,7 @@
     height: 24px;
     place-items: center;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.12);
+    background: var(--cl-accent-wash);
     font-size: 12px;
   }
 
@@ -1173,7 +1135,7 @@
 
   .day-service__tap small {
     overflow: hidden;
-    color: rgba(255, 250, 242, 0.6);
+    color: var(--cl-muted);
     font-size: 11px;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1189,29 +1151,29 @@
     place-items: center;
     border: 0;
     border-radius: 999px;
-    color: rgba(255, 250, 242, 0.6);
+    color: var(--cl-muted);
     background: transparent;
     font-size: 14px;
     line-height: 1;
     cursor: pointer;
   }
 
-  .day-service.is-available .day-service__tap { background: rgba(51, 170, 107, 0.28); }
-  .day-service.is-planned .day-service__tap { background: rgba(76, 118, 179, 0.28); }
-  .day-service.is-worked .day-service__tap { background: rgba(16, 185, 129, 0.28); }
-  .day-service.is-leave .day-service__tap { background: rgba(135, 92, 198, 0.3); }
-  .day-service.is-change .day-service__tap { background: rgba(234, 179, 8, 0.26); }
-  .day-service.is-danger .day-service__tap { background: rgba(239, 68, 68, 0.26); }
-  .day-service.is-selected .day-service__tap { box-shadow: 0 0 0 2px rgba(240, 100, 35, 0.5); }
+  .day-service.is-available .day-service__tap { background: var(--cl-ok-wash); }
+  .day-service.is-planned .day-service__tap { background: var(--cl-info-wash); }
+  .day-service.is-worked .day-service__tap { background: var(--cl-ok-wash); }
+  .day-service.is-leave .day-service__tap { background: var(--rst-state-absence-bg); }
+  .day-service.is-change .day-service__tap { background: var(--cl-attention-wash); }
+  .day-service.is-danger .day-service__tap { background: var(--cl-problem-wash); }
+  .day-service.is-selected .day-service__tap { box-shadow: inset 0 0 0 2px rgba(var(--cl-attention-rgb), .28); }
 
   .day-list {
     display: grid;
     padding: 0;
     border: 1px solid var(--rst-ui-line);
-    border-radius: var(--rst-ui-radius-2xl);
+    border-radius: var(--cl-radius);
     overflow: hidden;
-    background: #fff;
-    box-shadow: 0 2px 4px rgba(31, 22, 15, 0.05), 0 14px 30px rgba(31, 22, 15, 0.07);
+    background: var(--cl-surface);
+    box-shadow: none;
   }
 
   .day-list article {
@@ -1228,6 +1190,7 @@
   .day-list p { margin: 0; padding: 18px 14px; }
 
   @media (max-width: 1180px) {
+    .employee-stats { grid-template-columns: 1fr; }
     .time-layout {
       grid-template-columns: 1fr;
     }

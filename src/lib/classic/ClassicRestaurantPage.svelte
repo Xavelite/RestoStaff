@@ -1,23 +1,19 @@
 <script lang="ts">
-  import type { Snippet } from 'svelte';
+  import { onMount, type Snippet } from 'svelte';
   import { friendlyError } from '$lib/api/error-messages';
   import { t } from '$lib/i18n/i18n.svelte';
+  import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
+  import { restaurantDraftValidationError, type RestaurantDraft } from '$lib/restaurant/restaurant-model';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
-  import type { RestaurantDraft } from '$lib/restaurant/restaurant-model';
   import ClassicPage from './ClassicPage.svelte';
   import { restaurantConfig } from './classic-restaurant.svelte';
 
-  /**
-   * The shell every Restaurant sub-page shares: it loads the restaurant read
-   * model, keeps the one shared draft in sync, and owns the Save / Discard
-   * pair so every page saves the same way.
-   */
+  /** One shared Restaurant draft and persistence contract across every tab. */
   let {
     actions,
     children
   }: {
-    /** Page-specific actions (Add area, Add position…) shown before Save. */
     actions?: Snippet;
     children: Snippet<[RestaurantDraft]>;
   } = $props();
@@ -35,18 +31,39 @@
     if (snapshot) restaurantConfig.sync(snapshot);
   });
 
-  async function save() {
-    if (!workspace.activeId || !snapshot || saving) return;
+  function discard(): void {
+    if (snapshot) restaurantConfig.reload(snapshot);
+  }
+
+  async function save(): Promise<void> {
+    if (!workspace.activeId || !snapshot || !restaurantConfig.draft || saving) return;
+    const validationError = restaurantDraftValidationError(restaurantConfig.draft);
+    if (validationError) {
+      const error = new Error(t(validationError));
+      toasts.show(error.message, 'warning');
+      throw error;
+    }
     saving = true;
     try {
       await restaurantConfig.save(workspace.activeId, snapshot);
       toasts.show(t('Restaurant setup saved.'), 'success');
     } catch (error) {
       toasts.show(friendlyError(error), 'danger');
+      throw error;
     } finally {
       saving = false;
     }
   }
+
+  onMount(() =>
+    unsavedChanges.register({
+      id: 'restaurant-workspace',
+      label: 'Restaurant',
+      isDirty: () => restaurantConfig.dirty,
+      save,
+      discard
+    })
+  );
 </script>
 
 {#snippet pageActions()}
@@ -58,7 +75,7 @@
     title={t('Discard')}
     aria-label={t('Discard')}
     disabled={saving || !restaurantConfig.dirty}
-    onclick={() => snapshot && restaurantConfig.reload(snapshot)}
+    onclick={discard}
   ><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6"/><path d="M4 4v4.6h4.6"/></svg></button>
   <button
     class="cl-btn is-primary is-icon"
@@ -66,7 +83,7 @@
     title={t(saving ? 'Saving…' : 'Save')}
     aria-label={t(saving ? 'Saving…' : 'Save')}
     disabled={saving || workspace.isPreview || !restaurantConfig.dirty}
-    onclick={save}
+    onclick={() => void save().catch(() => undefined)}
   >{#if saving}<span aria-hidden="true">…</span>{:else}<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h12l2 2v14H5z"/><path d="M8 4v6h8V4M8 20v-6h8v6"/></svg>{/if}</button>
 {/snippet}
 

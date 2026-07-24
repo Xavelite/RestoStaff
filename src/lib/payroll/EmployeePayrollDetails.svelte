@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
+  import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
   import { parseEuroCents } from '$lib/payroll-engine/money';
   import type { Tables } from '$lib/supabase/database.types';
   import {
@@ -60,6 +62,139 @@
   let evidenceUsedHours = $state('0');
   let evidenceStatus = $state<'draft' | 'verified'>('draft');
 
+  type DetailDraft = {
+    taxValidFrom: string;
+    residentStatus: string;
+    civilStatus: string;
+    partnerIncomeCategory: string;
+    dependentChildren: number;
+    otherDependants: number;
+    disabilityStatus: string;
+    withholdingTreatment: string;
+    manualWithholdingPercent: string;
+    taxEvidenceStatus: 'recorded' | 'verified';
+    benefitCode: string;
+    benefitValidFrom: string;
+    benefitAmount: string;
+    benefitQuantity: string;
+    benefitTaxable: boolean;
+    benefitSocialSecurity: boolean;
+    benefitStatus: 'recorded' | 'verified';
+    benefitNotes: string;
+    evidenceType: string;
+    evidenceValidFrom: string;
+    evidenceValidTo: string;
+    evidenceReference: string;
+    evidenceQuotaHours: string;
+    evidenceUsedHours: string;
+    evidenceStatus: 'draft' | 'verified';
+  };
+
+  let baseline = $state<DetailDraft | null>(null);
+
+  function currentDraft(): DetailDraft {
+    return {
+      taxValidFrom,
+      residentStatus,
+      civilStatus,
+      partnerIncomeCategory,
+      dependentChildren,
+      otherDependants,
+      disabilityStatus,
+      withholdingTreatment,
+      manualWithholdingPercent,
+      taxEvidenceStatus,
+      benefitCode,
+      benefitValidFrom,
+      benefitAmount,
+      benefitQuantity,
+      benefitTaxable,
+      benefitSocialSecurity,
+      benefitStatus,
+      benefitNotes,
+      evidenceType,
+      evidenceValidFrom,
+      evidenceValidTo,
+      evidenceReference,
+      evidenceQuotaHours,
+      evidenceUsedHours,
+      evidenceStatus
+    };
+  }
+
+  function restoreDraft(value: DetailDraft): void {
+    taxValidFrom = value.taxValidFrom;
+    residentStatus = value.residentStatus;
+    civilStatus = value.civilStatus;
+    partnerIncomeCategory = value.partnerIncomeCategory;
+    dependentChildren = value.dependentChildren;
+    otherDependants = value.otherDependants;
+    disabilityStatus = value.disabilityStatus;
+    withholdingTreatment = value.withholdingTreatment;
+    manualWithholdingPercent = value.manualWithholdingPercent;
+    taxEvidenceStatus = value.taxEvidenceStatus;
+    benefitCode = value.benefitCode;
+    benefitValidFrom = value.benefitValidFrom;
+    benefitAmount = value.benefitAmount;
+    benefitQuantity = value.benefitQuantity;
+    benefitTaxable = value.benefitTaxable;
+    benefitSocialSecurity = value.benefitSocialSecurity;
+    benefitStatus = value.benefitStatus;
+    benefitNotes = value.benefitNotes;
+    evidenceType = value.evidenceType;
+    evidenceValidFrom = value.evidenceValidFrom;
+    evidenceValidTo = value.evidenceValidTo;
+    evidenceReference = value.evidenceReference;
+    evidenceQuotaHours = value.evidenceQuotaHours;
+    evidenceUsedHours = value.evidenceUsedHours;
+    evidenceStatus = value.evidenceStatus;
+  }
+
+  function taxPart(value: DetailDraft) {
+    return {
+      taxValidFrom: value.taxValidFrom,
+      residentStatus: value.residentStatus,
+      civilStatus: value.civilStatus,
+      partnerIncomeCategory: value.partnerIncomeCategory,
+      dependentChildren: value.dependentChildren,
+      otherDependants: value.otherDependants,
+      disabilityStatus: value.disabilityStatus,
+      withholdingTreatment: value.withholdingTreatment,
+      manualWithholdingPercent: value.manualWithholdingPercent,
+      taxEvidenceStatus: value.taxEvidenceStatus
+    };
+  }
+
+  function benefitPart(value: DetailDraft) {
+    return {
+      benefitCode: value.benefitCode,
+      benefitValidFrom: value.benefitValidFrom,
+      benefitAmount: value.benefitAmount,
+      benefitQuantity: value.benefitQuantity,
+      benefitTaxable: value.benefitTaxable,
+      benefitSocialSecurity: value.benefitSocialSecurity,
+      benefitStatus: value.benefitStatus,
+      benefitNotes: value.benefitNotes
+    };
+  }
+
+  function evidencePart(value: DetailDraft) {
+    return {
+      evidenceType: value.evidenceType,
+      evidenceValidFrom: value.evidenceValidFrom,
+      evidenceValidTo: value.evidenceValidTo,
+      evidenceReference: value.evidenceReference,
+      evidenceQuotaHours: value.evidenceQuotaHours,
+      evidenceUsedHours: value.evidenceUsedHours,
+      evidenceStatus: value.evidenceStatus
+    };
+  }
+
+  const dirtyTax = $derived(Boolean(baseline && JSON.stringify(taxPart(currentDraft())) !== JSON.stringify(taxPart(baseline))));
+  const dirtyBenefit = $derived(Boolean(baseline && JSON.stringify(benefitPart(currentDraft())) !== JSON.stringify(benefitPart(baseline))));
+  const dirtyEvidence = $derived(Boolean(baseline && JSON.stringify(evidencePart(currentDraft())) !== JSON.stringify(evidencePart(baseline))));
+  const dirty = $derived(dirtyTax || dirtyBenefit || dirtyEvidence);
+
   const employeeTaxProfiles = $derived(
     catalogue?.taxProfiles.filter((item) => item.employee_id === employeeId) ?? []
   );
@@ -111,6 +246,44 @@
     benefitValidFrom = effectiveDate;
     evidenceValidFrom = effectiveDate;
     benefitCode = benefitComponents[0]?.code ?? '';
+    baseline = currentDraft();
+  }
+
+  onMount(() =>
+    unsavedChanges.register({
+      id: `employee-payroll-details:${employeeId}`,
+      label: 'Payroll evidence',
+      priority: 30,
+      isDirty: () => dirty,
+      save: saveActiveDraft,
+      discard: discardDraft
+    })
+  );
+
+  function discardDraft(): void {
+    if (baseline) restoreDraft(baseline);
+    feedback = '';
+  }
+
+  async function saveActiveDraft(): Promise<void> {
+    if (dirtyTax) await saveTax();
+    if (dirtyBenefit) await saveBenefit();
+    if (dirtyEvidence) await saveEvidence();
+  }
+
+  function markTaxSaved(): void {
+    const current = currentDraft();
+    baseline = { ...(baseline ?? current), ...taxPart(current) };
+  }
+
+  function markBenefitSaved(): void {
+    const current = currentDraft();
+    baseline = { ...(baseline ?? current), ...benefitPart(current) };
+  }
+
+  function markEvidenceSaved(): void {
+    const current = currentDraft();
+    baseline = { ...(baseline ?? current), ...evidencePart(current) };
   }
 
   function showError(error: unknown) {
@@ -149,7 +322,11 @@
       await reload();
       feedback = t('Tax profile saved as a new effective-dated version.');
       feedbackTone = 'success';
-    } catch (error) { showError(error); } finally { busy = false; }
+      markTaxSaved();
+    } catch (error) {
+      showError(error);
+      throw error;
+    } finally { busy = false; }
   }
 
   async function saveBenefit() {
@@ -181,7 +358,11 @@
       benefitNotes = '';
       feedback = t('Benefit saved.');
       feedbackTone = 'success';
-    } catch (error) { showError(error); } finally { busy = false; }
+      markBenefitSaved();
+    } catch (error) {
+      showError(error);
+      throw error;
+    } finally { busy = false; }
   }
 
   async function saveEvidence() {
@@ -211,7 +392,11 @@
       evidenceReference = '';
       feedback = t('Eligibility evidence recorded.');
       feedbackTone = 'success';
-    } catch (error) { showError(error); } finally { busy = false; }
+      markEvidenceSaved();
+    } catch (error) {
+      showError(error);
+      throw error;
+    } finally { busy = false; }
   }
 </script>
 
@@ -235,7 +420,7 @@
       <label>{t('Manual withholding estimate')}<input inputmode="decimal" bind:value={manualWithholdingPercent} placeholder="0.00" /><small>{t('Percentage · estimate only until provider reconciliation')}</small></label>
       <label>{t('Evidence status')}<select bind:value={taxEvidenceStatus}><option value="recorded">{t('Recorded')}</option><option value="verified">{t('Verified')}</option></select></label>
     </div>
-    <footer><p>{t('Restogogo does not claim official withholding until FPS Finance reference cases are validated.')}</p><button type="button" disabled={busy} onclick={saveTax}>{busy ? t('Saving…') : t('Save tax version')}</button></footer>
+    <footer><p>{t('Restogogo does not claim official withholding until FPS Finance reference cases are validated.')}</p><button type="button" disabled={busy} onclick={() => void saveTax().catch(() => undefined)}>{busy ? t('Saving…') : t('Save tax version')}</button></footer>
   {:else if activeTab === 'Benefits'}
     <div class="section-head"><div><span>{t('Effective-dated compensation')}</span><h3>{t('Benefits and allowances')}</h3></div><em>{employeeBenefits.filter((item) => item.active).length} {t('active')}</em></div>
     <div class="fields">
@@ -248,7 +433,7 @@
       <label>{t('Evidence status')}<select bind:value={benefitStatus}><option value="recorded">{t('Recorded')}</option><option value="verified">{t('Verified')}</option></select></label>
       <label class="wide">{t('Notes')}<input bind:value={benefitNotes} /></label>
     </div>
-    <footer><p>{t('Only verified benefits enter a payroll calculation.')}</p><button type="button" disabled={busy} onclick={saveBenefit}>{busy ? t('Saving…') : t('Add benefit version')}</button></footer>
+    <footer><p>{t('Only verified benefits enter a payroll calculation.')}</p><button type="button" disabled={busy} onclick={() => void saveBenefit().catch(() => undefined)}>{busy ? t('Saving…') : t('Add benefit version')}</button></footer>
     <div class="records">{#each employeeBenefits as item (item.id)}<article><div><strong>{item.component_code.replaceAll('_', ' ')}</strong><small>{item.valid_from} → {item.valid_to ?? t('Open ended')}</small></div><em>{t(item.evidence_status)}</em></article>{/each}</div>
   {:else if activeTab === 'Evidence'}
     <div class="section-head"><div><span>{t('Eligibility and quota proof')}</span><h3>{t('Regime evidence')}</h3></div><em>{employeeEvidence.filter((item) => item.status === 'verified').length} {t('verified')}</em></div>
@@ -261,7 +446,7 @@
       <label>{t('Hours already used')}<input inputmode="decimal" bind:value={evidenceUsedHours} /></label>
       <label>{t('Evidence status')}<select bind:value={evidenceStatus}><option value="draft">{t('Draft')}</option><option value="verified">{t('Verified')}</option></select></label>
     </div>
-    <footer><p>{t('Special regimes stay blocked until their eligibility evidence is verified.')}</p><button type="button" disabled={busy} onclick={saveEvidence}>{busy ? t('Saving…') : t('Record evidence')}</button></footer>
+    <footer><p>{t('Special regimes stay blocked until their eligibility evidence is verified.')}</p><button type="button" disabled={busy} onclick={() => void saveEvidence().catch(() => undefined)}>{busy ? t('Saving…') : t('Record evidence')}</button></footer>
     <div class="records">{#each employeeEvidence as item (item.id)}<article><div><strong>{item.evidence_type.replaceAll('_', ' ')}</strong><small>{item.valid_from} → {item.valid_to ?? t('Open ended')}{item.reference ? ` · ${item.reference}` : ''}</small></div><em>{t(item.status)}</em></article>{/each}</div>
   {:else}
     <div class="section-head"><div><span>{t('Append-only evidence')}</span><h3>{t('Payroll history')}</h3></div><em>{employmentTerms.length + employeeTaxProfiles.length + employeeBenefits.length + employeeEvidence.length} {t('records')}</em></div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import ActionButton from '$lib/components/ActionButton.svelte';
   import Dialog from '$lib/components/Dialog.svelte';
   import {
@@ -8,6 +9,8 @@
   } from '$lib/api/mutations';
   import { friendlyError } from '$lib/api/error-messages';
   import { t } from '$lib/i18n/i18n.svelte';
+  import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
+  import { confirmAction } from '$lib/ui/confirm.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import type { EmployeeDraft } from '$lib/team/team-model';
@@ -18,6 +21,11 @@
   let inviting = $state<EmployeeDraft | null>(null);
   let inviteEmail = $state('');
   let inviteRole = $state<'manager' | 'employee'>('employee');
+  let inviteBaseline = $state('');
+
+  const inviteDirty = $derived(
+    Boolean(inviting && inviteBaseline && JSON.stringify([inviteEmail, inviteRole]) !== inviteBaseline)
+  );
 
   const ACCESS_LABEL: Record<string, string> = {
     active: 'Signed in',
@@ -38,7 +46,41 @@
     inviting = employee;
     inviteEmail = employee.email;
     inviteRole = employee.invitationRole || 'employee';
+    inviteBaseline = JSON.stringify([inviteEmail, inviteRole]);
   }
+
+  function discardInvite() {
+    inviting = null;
+    inviteEmail = '';
+    inviteRole = 'employee';
+    inviteBaseline = '';
+  }
+
+  async function requestInviteClose() {
+    if (!inviteDirty) {
+      discardInvite();
+      return;
+    }
+    const discard = await confirmAction({
+      title: 'Discard invitation changes?',
+      body: 'The email address or role has not been sent yet.',
+      confirmLabel: 'Discard',
+      cancelLabel: 'Keep editing',
+      tone: 'danger'
+    });
+    if (discard) discardInvite();
+  }
+
+  onMount(() =>
+    unsavedChanges.register({
+      id: 'team-invitation',
+      label: 'Employee invitation',
+      priority: 10,
+      isDirty: () => inviteDirty,
+      save: sendInvite,
+      discard: discardInvite
+    })
+  );
 
   async function run(id: string, action: () => Promise<unknown>, message: string) {
     if (!workspace.activeId || busy) return;
@@ -49,6 +91,7 @@
       toasts.show(t(message), 'success');
     } catch (error) {
       toasts.show(friendlyError(error), 'danger');
+      throw error;
     } finally {
       busy = '';
     }
@@ -57,8 +100,9 @@
   async function sendInvite() {
     if (!workspace.activeId || !inviting) return;
     if (!inviteEmail.trim()) {
-      toasts.show(t('Enter an email address to invite.'), 'warning');
-      return;
+      const error = new Error(t('Enter an email address to invite.'));
+      toasts.show(error.message, 'warning');
+      throw error;
     }
     const employee = inviting;
     const email = inviteEmail.trim();
@@ -74,7 +118,7 @@
         }),
       'Invitation sent.'
     );
-    inviting = null;
+    discardInvite();
   }
 </script>
 
@@ -132,7 +176,7 @@
                             employee.id,
                             () => setEmployeeAccessState(workspace.activeId!, employee.id, 'disable'),
                             'App access disabled.'
-                          )}
+                          ).catch(() => undefined)}
                       >{t('Disable')}</button>
                     {:else if employee.accessState === 'disabled'}
                       <button
@@ -144,7 +188,7 @@
                             employee.id,
                             () => setEmployeeAccessState(workspace.activeId!, employee.id, 'restore'),
                             'App access restored.'
-                          )}
+                          ).catch(() => undefined)}
                       >{t('Restore')}</button>
                     {:else if employee.accessState === 'invited'}
                       <button
@@ -156,7 +200,7 @@
                             employee.id,
                             () => revokeEmployeeInvitation(workspace.activeId!, employee.id),
                             'Invitation revoked.'
-                          )}
+                          ).catch(() => undefined)}
                       >{t('Revoke')}</button>
                     {:else}
                       <button
@@ -176,8 +220,8 @@
     </div>
 
     {#snippet footer()}
-      <ActionButton label={t('Cancel')} onclick={() => (inviting = null)} />
-      <ActionButton label={t('Send invitation')} tone="primary" disabled={Boolean(busy)} onclick={sendInvite} />
+      <ActionButton label={t('Cancel')} onclick={() => void requestInviteClose()} />
+      <ActionButton label={t('Send invitation')} tone="primary" disabled={Boolean(busy)} onclick={() => void sendInvite().catch(() => undefined)} />
     {/snippet}
 
     <Dialog
@@ -185,7 +229,7 @@
       title={t('Invite {name}', { name: inviting?.displayName ?? '' })}
       description={t('They receive an email link to set a password and sign in.')}
       size="small"
-      onclose={() => (inviting = null)}
+      onclose={() => void requestInviteClose()}
       {footer}
     >
       <div class="form">

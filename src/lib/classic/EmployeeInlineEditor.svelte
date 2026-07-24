@@ -1,10 +1,14 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { addDays, WEEKDAYS } from '$lib/calendar/date';
   import { friendlyError } from '$lib/api/error-messages';
+  import Dialog from '$lib/components/Dialog.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
-  import type { EmployeeDraft } from '$lib/team/team-model';
+  import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
   import EmployeePayrollDetails from '$lib/payroll/EmployeePayrollDetails.svelte';
   import { validateEmployeeEmploymentTerms } from '$lib/payroll/payroll-api';
+  import type { EmployeeDraft } from '$lib/team/team-model';
+  import { confirmAction } from '$lib/ui/confirm.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { teamDraft } from './classic-team.svelte';
@@ -15,19 +19,25 @@
     employeeId,
     mode,
     saving = false,
+    isNew = false,
     onclose,
     onsave
   }: {
     employeeId: string;
     mode: Mode;
     saving?: boolean;
+    isNew?: boolean;
     onclose: () => void;
     onsave: (employee: EmployeeDraft) => void | Promise<void>;
   } = $props();
 
   let form = $state<EmployeeDraft | null>(null);
-  let loadedKey = '';
+  let original = $state<EmployeeDraft | null>(null);
+  let baseline = $state('');
+  let loadedId = '';
+  let section = $state<Mode>('people');
   let revealSensitive = $state(false);
+  let committing = $state(false);
 
   const snapshot = $derived(workspace.team);
   const owner = $derived(workspace.effectiveRole === 'owner');
@@ -48,23 +58,56 @@
       .filter((item) => item.employee_id === employeeId && item.active)
       .sort((left, right) => right.valid_from.localeCompare(left.valid_from))[0] ?? null
   );
+  const localDirty = $derived(Boolean(form && baseline && JSON.stringify(form) !== baseline));
+  const busy = $derived(saving || committing);
   const today = new Date().toISOString().slice(0, 10);
 
+  function payrollDetailSources() {
+    return unsavedChanges.dirtySources.filter(
+      (source) => source.id === `employee-payroll-details:${employeeId}`
+    );
+  }
+
+  async function savePayrollDetails(): Promise<void> {
+    for (const source of payrollDetailSources()) await source.save();
+    if (payrollDetailSources().length) {
+      throw new Error(t('Some payroll details could not be saved. Review them before closing.'));
+    }
+  }
+
+  async function discardPayrollDetails(): Promise<void> {
+    for (const source of payrollDetailSources()) await source.discard();
+  }
+
+  function clone(employee: EmployeeDraft): EmployeeDraft {
+    return {
+      ...employee,
+      jobFunctionIds: [...employee.jobFunctionIds],
+      recurringSlots: employee.recurringSlots.map((slot) => ({ ...slot }))
+    };
+  }
+
   $effect(() => {
-    const key = `${employeeId}:${mode}`;
-    if (!employeeId || key === loadedKey) return;
-    const employee = teamDraft.employees.find((item) => item.id === employeeId);
-    form = employee
-      ? {
-          ...employee,
-          jobFunctionIds: [...employee.jobFunctionIds],
-          recurringSlots: employee.recurringSlots.map((slot) => ({ ...slot }))
-        }
-      : null;
+    if (!employeeId || employeeId === loadedId) return;
+    const employee = teamDraft.clone(employeeId);
+    form = employee ? clone(employee) : null;
+    original = employee ? clone(employee) : null;
+    baseline = employee ? JSON.stringify(employee) : '';
+    section = mode;
     revealSensitive = false;
-    loadedKey = key;
+    loadedId = employeeId;
   });
 
+  onMount(() =>
+    unsavedChanges.register({
+      id: `employee-editor:${employeeId}`,
+      label: 'Employee details',
+      priority: 20,
+      isDirty: () => localDirty,
+      save: commit,
+      discard: discardNow
+    })
+  );
 
   function selectContractType(id: string) {
     if (!form) return;
@@ -79,8 +122,13 @@
   function togglePosition(id: string, enabled: boolean) {
     if (!form) return;
     form.jobFunctionIds = enabled
-      ? [...form.jobFunctionIds, id]
+      ? [...new Set([...form.jobFunctionIds, id])]
       : form.jobFunctionIds.filter((item) => item !== id);
+  }
+
+  function makePrimary(id: string) {
+    if (!form || !form.jobFunctionIds.includes(id)) return;
+    form.jobFunctionIds = [id, ...form.jobFunctionIds.filter((item) => item !== id)];
   }
 
   function toggleRecurring(weekday: number, serviceKey: 'lunch' | 'evening', enabled: boolean) {
@@ -99,6 +147,9 @@
     if (reference) {
       form.cp302Category = reference.category;
       form.workerStatus = reference.default_worker_status ?? '';
+    } else {
+      form.cp302Category = '';
+      form.workerStatus = '';
     }
   }
 
@@ -114,11 +165,11 @@
     form.contractStart = form.contractEnd ? addDays(form.contractEnd, 1) : today;
     form.contractEnd = '';
     form.employmentValidFrom = form.contractStart;
-    toasts.show(t('A new contract version is ready. Review it, then save Team.'), 'info');
+    toasts.show(t('A new contract version is ready. Review it, then save.'), 'info');
   }
 
   async function validateEmployment() {
-    if (!workspace.activeId || !currentEmploymentTerms || !savedEmployee || saving) {
+    if (!workspace.activeId || !currentEmploymentTerms || !savedEmployee || busy) {
       toasts.show(t('Record employment and salary terms before validation.'), 'warning');
       return;
     }
@@ -146,64 +197,108 @@
     }
   }
 
-  async function commit() {
-    if (!form) return;
-    await onsave({
-      ...form,
-      jobFunctionIds: [...form.jobFunctionIds],
-      recurringSlots: form.recurringSlots.map((slot) => ({ ...slot }))
-    });
+  function validate(): void {
+    if (!form?.displayName.trim()) throw new Error(t('Employee name is required.'));
+    if (form.contractEnd && form.contractStart && form.contractEnd < form.contractStart) {
+      throw new Error(t('Contract end date must be after the start date.'));
+    }
+    if (form.employmentValidTo && form.employmentValidFrom && form.employmentValidTo < form.employmentValidFrom) {
+      throw new Error(t('Employment end date must be after the effective date.'));
+    }
   }
 
-  const title = $derived(
-    mode === 'contract'
-      ? 'Edit contract'
-      : mode === 'payroll'
-        ? 'Edit payroll details'
-        : 'Employee details'
-  );
+  async function commit() {
+    if (!form || committing) return;
+    validate();
+    committing = true;
+    try {
+      await savePayrollDetails();
+      await onsave(clone(form));
+      baseline = JSON.stringify(form);
+      original = clone(form);
+      onclose();
+    } finally {
+      committing = false;
+    }
+  }
+
+  function discardNow() {
+    if (isNew) teamDraft.remove(employeeId);
+    else if (original) teamDraft.update(employeeId, clone(original));
+    baseline = form ? JSON.stringify(form) : '';
+    onclose();
+  }
+
+  async function requestClose() {
+    const payrollDirty = payrollDetailSources().length > 0;
+    if (!localDirty && !payrollDirty) {
+      if (isNew) teamDraft.remove(employeeId);
+      onclose();
+      return;
+    }
+    const discard = await confirmAction({
+      title: 'Discard employee changes?',
+      body: 'The profile, contract or payroll changes in this employee window have not been saved.',
+      confirmLabel: 'Discard',
+      cancelLabel: 'Keep editing',
+      tone: 'danger'
+    });
+    if (discard) {
+      await discardPayrollDetails();
+      discardNow();
+    }
+  }
+
+  const title = $derived(isNew ? 'Add employee' : 'Employee details');
 </script>
 
-<section class="employee-editor" aria-label={t(title)}>
-    <header class="employee-editor__head">
-      <div>
-        <h2>{t(title)}</h2>
-        {#if form?.displayName}<p>{form.displayName}</p>{/if}
-      </div>
-      <button class="cl-btn is-icon" type="button" aria-label={t('Close')} onclick={onclose}>×</button>
-    </header>
+<Dialog
+  open
+  size="large"
+  title={title}
+  description={form?.displayName || 'Complete the employee profile, contract and payroll setup.'}
+  onclose={() => void requestClose()}
+>
+  {#if form}
+    <nav class="editor-tabs" aria-label={t('Employee sections')}>
+      <button type="button" class:is-active={section === 'people'} onclick={() => (section = 'people')}>{t('Profile')}</button>
+      <button type="button" class:is-active={section === 'contract'} onclick={() => (section = 'contract')}>{t('Contract')}</button>
+      {#if owner}<button type="button" class:is-active={section === 'payroll'} onclick={() => (section = 'payroll')}>{t('Payroll')}</button>{/if}
+    </nav>
 
-    {#if form}
-      <div class="employee-editor__body">
-    {#if mode === 'people'}
+    {#if section === 'people'}
       <div class="cl-formgrid">
         <div class="cl-form-section">{t('Identity')}</div>
-        <label class="cl-label"><span>{t('Display name')}</span><input class="cl-field" bind:value={form.displayName} /></label>
+        <label class="cl-label"><span>{t('Display name')}</span><input class="cl-field" required bind:value={form.displayName} /></label>
         <div class="cl-label">
           <span>{t('Employee status')}</span>
-          <label class="status-toggle">
-            <input type="checkbox" bind:checked={form.active} />
-            <span>{t(form.active ? 'Active' : 'Archived')}</span>
-          </label>
+          <label class="status-toggle"><input type="checkbox" bind:checked={form.active} /><span>{t(form.active ? 'Active' : 'Archived')}</span></label>
         </div>
         <label class="cl-label"><span>{t('First name')}</span><input class="cl-field" bind:value={form.firstName} /></label>
         <label class="cl-label"><span>{t('Last name')}</span><input class="cl-field" bind:value={form.lastName} /></label>
 
         <fieldset class="position-field is-wide">
           <legend>{t('Positions / job functions')}</legend>
-          <div class="position-grid">
-            {#each jobFunctions as item (item.id)}
-              <label>
-                <input type="checkbox" checked={form.jobFunctionIds.includes(item.id)} onchange={(event) => togglePosition(item.id, event.currentTarget.checked)} />
-                <span>{item.name}</span>
-              </label>
-            {/each}
-          </div>
+          {#if jobFunctions.length}
+            <div class="position-grid">
+              {#each jobFunctions as item (item.id)}
+                <label class:is-selected={form.jobFunctionIds.includes(item.id)}>
+                  <input type="checkbox" checked={form.jobFunctionIds.includes(item.id)} onchange={(event) => togglePosition(item.id, event.currentTarget.checked)} />
+                  <span>{item.name}</span>
+                  {#if form.jobFunctionIds.includes(item.id)}
+                    <button type="button" class:is-primary={form.jobFunctionIds[0] === item.id} title={t('Set as primary position')} onclick={() => makePrimary(item.id)}>{form.jobFunctionIds[0] === item.id ? t('Primary') : t('Make primary')}</button>
+                  {/if}
+                </label>
+              {/each}
+            </div>
+          {:else}
+            <p class="field-empty">{t('Create positions in Restaurant before assigning them to employees.')}</p>
+          {/if}
         </fieldset>
 
         <div class="cl-form-section">{t('Contact')}</div>
         <label class="cl-label"><span>{t('Email')}</span><input class="cl-field" type="email" bind:value={form.email} /></label>
-        <label class="cl-label"><span>{t('Phone')}</span><input class="cl-field" bind:value={form.phone} /></label>
+        <label class="cl-label"><span>{t('Phone')}</span><input class="cl-field" type="tel" bind:value={form.phone} /></label>
         <label class="cl-label is-wide"><span>{t('Address')}</span><input class="cl-field" bind:value={form.address} /></label>
         <label class="cl-label"><span>{t('Postal code')}</span><input class="cl-field" bind:value={form.postalCode} /></label>
         <label class="cl-label"><span>{t('City')}</span><input class="cl-field" bind:value={form.city} /></label>
@@ -211,7 +306,7 @@
         <div class="cl-form-section">{t('Emergency contact')}</div>
         <label class="cl-label"><span>{t('Name')}</span><input class="cl-field" bind:value={form.emergencyName} /></label>
         <label class="cl-label"><span>{t('Relationship')}</span><input class="cl-field" bind:value={form.emergencyRelation} /></label>
-        <label class="cl-label"><span>{t('Emergency phone')}</span><input class="cl-field" bind:value={form.emergencyPhone} /></label>
+        <label class="cl-label"><span>{t('Emergency phone')}</span><input class="cl-field" type="tel" bind:value={form.emergencyPhone} /></label>
 
         {#if owner}
           <div class="cl-form-section">{t('Legal identity')}</div>
@@ -224,9 +319,9 @@
 
         <label class="cl-label is-wide"><span>{t('Notes')}</span><textarea class="cl-field textarea" bind:value={form.notes}></textarea></label>
       </div>
-    {:else if mode === 'contract'}
+    {:else if section === 'contract'}
       <div class="cl-formgrid">
-        <div class="cl-form-section">{t('Contract')}</div>
+        <div class="cl-form-section">{t('Employment contract')}</div>
         <label class="cl-label">
           <span>{t('Employment type')}</span>
           <select class="cl-field" value={form.contractTypeId} onchange={(event) => selectContractType(event.currentTarget.value)}>
@@ -287,10 +382,7 @@
           <div class="contract-history is-wide">
             {#each contractHistory as contract (contract.id)}
               <article class:is-current={contract.is_current && contract.active}>
-                <div>
-                  <strong>{contractTypes.find((item) => item.id === contract.contract_type_id)?.name ?? t('Contract')}</strong>
-                  <span>{contract.contract_start || t('No start')} → {contract.contract_end || t('Open ended')}</span>
-                </div>
+                <div><strong>{contractTypes.find((item) => item.id === contract.contract_type_id)?.name ?? t('Contract')}</strong><span>{contract.contract_start || t('No start')} → {contract.contract_end || t('Open ended')}</span></div>
                 <em>{t(contract.is_current && contract.active ? 'Current' : 'Historical')}</em>
               </article>
             {/each}
@@ -298,6 +390,11 @@
         {/if}
       </div>
     {:else}
+      {#if teamDraft.supplementaryLoading}
+        <div class="editor-state">{t('Loading payroll setup…')}</div>
+      {:else if teamDraft.supplementaryError}
+        <div class="editor-state is-error" role="alert">{teamDraft.supplementaryError}</div>
+      {/if}
       <div class="cl-formgrid">
         <div class="cl-form-section">{t('Legal salary terms')}</div>
         <label class="cl-label is-wide">
@@ -336,77 +433,44 @@
 
       {#if owner && savedEmployee && workspace.activeId}
         <div class="payroll-evidence">
-          <EmployeePayrollDetails
-            restaurantId={workspace.activeId}
-            employeeId={employeeId}
-            effectiveDate={form.employmentValidFrom || today}
-            employmentTerms={teamDraft.employmentTerms}
-          />
+          <EmployeePayrollDetails restaurantId={workspace.activeId} employeeId={employeeId} effectiveDate={form.employmentValidFrom || today} employmentTerms={teamDraft.employmentTerms} />
         </div>
       {/if}
     {/if}
-      </div>
-      <footer class="employee-editor__footer">
-        {#if mode === 'payroll' && savedEmployee}
-          <button class="cl-btn" type="button" disabled={saving || !currentEmploymentTerms} onclick={validateEmployment}>{t('Validate setup')}</button>
-        {/if}
-        <span class="employee-editor__spacer"></span>
-        <button class="cl-btn" type="button" disabled={saving} onclick={onclose}>{t('Cancel')}</button>
-        <button class="cl-btn is-primary" type="button" disabled={saving || !form} onclick={commit}>{saving ? t('Saving…') : t('Save')}</button>
-      </footer>
+  {:else}
+    <div class="editor-state is-error" role="alert">{t('This employee could not be opened.')}</div>
+  {/if}
+
+  {#snippet footer()}
+    {#if section === 'payroll' && savedEmployee}
+      <button class="cl-btn" type="button" disabled={busy || !currentEmploymentTerms} onclick={validateEmployment}>{t('Validate setup')}</button>
     {/if}
-</section>
+    <span class="editor-spacer"></span>
+    <button class="cl-btn" type="button" disabled={busy} onclick={() => void requestClose()}>{t('Cancel')}</button>
+    <button class="cl-btn is-primary" type="button" disabled={busy || !form || !localDirty} onclick={() => void commit().catch((error) => toasts.show(friendlyError(error), 'danger'))}>{busy ? t('Saving…') : t('Save employee')}</button>
+  {/snippet}
+</Dialog>
 
 <style>
-  .employee-editor {
-    display: grid;
-    gap: 0;
-    border: 1px solid var(--cl-line-strong);
-    border-radius: var(--cl-radius);
-    background: var(--cl-surface);
-  }
-  .employee-editor__head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 12px 14px;
-    border-bottom: 1px solid var(--cl-line);
-    background: var(--cl-surface-muted);
-  }
-  .employee-editor__head h2,
-  .employee-editor__head p { margin: 0; }
-  .employee-editor__head h2 { font-size: 15px; }
-  .employee-editor__head p { margin-top: 3px; color: var(--cl-muted); font-size: 12px; }
-  .employee-editor__head .cl-btn { font-size: 20px; }
-  .employee-editor__body { padding: 14px; }
-  .employee-editor__footer {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 14px;
-    border-top: 1px solid var(--cl-line);
-    background: var(--cl-surface-muted);
-  }
-  .employee-editor__spacer { margin-left: auto; }
-  .status-toggle {
-    min-height: 2.5rem;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.55rem;
-    padding: 0.55rem 0.7rem;
-    border: 1px solid var(--cl-line);
-    border-radius: 0.65rem;
-    background: var(--cl-surface);
-  }
-  .contract-actions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding-top: 4px;
-  }
+  .editor-tabs { display: flex; gap: 4px; margin: -4px 0 16px; padding-bottom: 10px; border-bottom: 1px solid var(--cl-line); }
+  .editor-tabs button { min-height: 34px; padding: 6px 11px; border: 1px solid transparent; border-radius: var(--cl-radius); color: var(--cl-muted); background: transparent; font: inherit; font-size: 13px; font-weight: var(--rst-fw-medium); cursor: pointer; }
+  .editor-tabs button:hover { color: var(--cl-ink); background: var(--cl-surface-muted); }
+  .editor-tabs button.is-active { color: var(--cl-accent); border-color: var(--cl-line); background: var(--cl-accent-wash); }
+  .editor-spacer { margin-left: auto; }
+  .status-toggle { min-height: 2.5rem; display: inline-flex; align-items: center; gap: .55rem; padding: .55rem .7rem; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); background: var(--cl-surface); }
+  .position-field { padding: 12px; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); }
+  .position-field legend { padding: 0 5px; color: var(--cl-muted); font-size: 13px; font-weight: var(--rst-fw-medium); }
+  .position-grid { display: grid; gap: 7px; }
+  .position-grid > label { min-height: 40px; display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 7px 9px; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); background: var(--cl-surface-muted); font-size: 13px; }
+  .position-grid > label.is-selected { border-color: var(--cl-line-strong); background: var(--cl-accent-wash); }
+  .position-grid button { padding: 3px 7px; border: 0; border-radius: 4px; color: var(--cl-muted); background: transparent; font: inherit; font-size: 11px; cursor: pointer; }
+  .position-grid button.is-primary { color: var(--cl-accent); font-weight: var(--rst-fw-bold); }
+  .position-grid input, .sensitive-toggle input { width: 15px; height: 15px; accent-color: var(--cl-accent); }
+  .field-empty { margin: 0; color: var(--cl-muted); font-size: 13px; }
+  .sensitive-toggle { display: inline-flex; align-items: center; gap: 7px; color: var(--cl-ink); font-size: 13px; }
+  .contract-actions { display: flex; align-items: center; gap: 12px; padding-top: 4px; }
   .contract-actions small { color: var(--cl-muted); font-size: 12px; }
-  .contract-history { display: grid; border: 1px solid var(--cl-line); border-radius: 0.7rem; overflow: hidden; }
+  .contract-history { display: grid; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); overflow: hidden; }
   .contract-history article { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-top: 1px solid var(--cl-line); }
   .contract-history article:first-child { border-top: 0; }
   .contract-history article.is-current { background: var(--cl-surface-muted); }
@@ -414,29 +478,13 @@
   .contract-history strong { font-size: 13px; }
   .contract-history span, .contract-history em { color: var(--cl-muted); font-size: 12px; font-style: normal; }
   .payroll-evidence { margin-top: 16px; }
-  fieldset { min-width: 0; }
-  .position-field {
-    padding: 12px;
-    border: 1px solid var(--cl-line);
-    border-radius: var(--cl-radius);
-  }
-  .position-field legend { padding: 0 5px; color: var(--cl-muted); font-size: 13px; font-weight: var(--rst-fw-medium); }
-  .position-grid { display: flex; flex-wrap: wrap; gap: 8px; }
-  .position-grid label,
-  .sensitive-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    color: var(--cl-ink);
-    font-size: 13px;
-  }
-  .position-grid label {
-    padding: 7px 10px;
-    border: 1px solid var(--cl-line);
-    border-radius: var(--cl-radius);
-    background: var(--cl-surface-muted);
-  }
-  .position-grid input,
-  .sensitive-toggle input { width: 15px; height: 15px; accent-color: var(--cl-accent); }
   .textarea { min-height: 90px; resize: vertical; }
+  .editor-state { padding: 14px; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); color: var(--cl-muted); background: var(--cl-surface-muted); font-size: 13px; }
+  .editor-state.is-error { color: var(--cl-problem); border-color: var(--cl-problem-line); background: var(--cl-problem-wash); }
+
+  @media (max-width: 760px) {
+    .editor-tabs { overflow-x: auto; }
+    .position-grid > label { grid-template-columns: 18px minmax(0, 1fr); }
+    .position-grid button { grid-column: 2; justify-self: start; }
+  }
 </style>

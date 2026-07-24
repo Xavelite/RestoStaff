@@ -1,10 +1,12 @@
 <script lang="ts">
+  import { onMount, untrack } from 'svelte';
   import type { ManagerOperationsReadModel } from '$lib/api/workspace-snapshot';
   import type { ActualSlot } from '$lib/timesheet/timesheet-model';
   import { instantToLocalInput, localInputToInstant } from '$lib/calendar/date';
   import ActionButton from '$lib/components/ActionButton.svelte';
   import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
+  import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
   import { getTimeEntryPayrollEvidence } from '$lib/payroll/payroll-api';
 
   type FeedbackTone = 'info' | 'success' | 'warning' | 'danger';
@@ -17,6 +19,17 @@
     breakIntervals: Array<{ started_at: string; ended_at: string }>;
     reason: string;
     isCorrection: boolean;
+  };
+
+  type EditorState = {
+    clockIn: string;
+    clockOut: string;
+    breakMinutes: number;
+    actualJobFunctionId: string;
+    actualAreaId: string;
+    breaks: Array<{ id: string; startedAt: string; endedAt: string }>;
+    aggregateBreakNeedsPosition: boolean;
+    reason: string;
   };
 
   // Content of the Timesheet entry drawer. Owns the manual/correction form, its
@@ -62,6 +75,26 @@
   let busy = $state(false);
   let proofUrl = $state('');
   let proofLoading = $state(false);
+  let baseline = $state<EditorState | null>(null);
+
+  function currentState(): EditorState {
+    return {
+      clockIn,
+      clockOut,
+      breakMinutes,
+      actualJobFunctionId,
+      actualAreaId,
+      breaks: breaks.map((item) => ({ ...item })),
+      aggregateBreakNeedsPosition,
+      reason
+    };
+  }
+
+  function stateKey(value: EditorState | null): string {
+    return value ? JSON.stringify(value) : '';
+  }
+
+  const dirty = $derived(Boolean(baseline && stateKey(currentState()) !== stateKey(baseline)));
 
   const enteredGrossHours = $derived(
     clockIn && clockOut
@@ -104,9 +137,22 @@
     actualAreaId = slot.actualAreaId;
     breaks = [];
     aggregateBreakNeedsPosition = slot.breakMinutes > 0;
-    reason = t(slot.entryId ? 'Manager correction' : 'Unplanned manual entry');
+    reason = untrack(() => t(slot.entryId ? 'Manager correction' : 'Unplanned manual entry'));
+    proofUrl = '';
+    baseline = untrack(() => currentState());
     if (slot.entryId) void loadPayrollEvidence(slot.entryId);
   });
+
+  onMount(() =>
+    unsavedChanges.register({
+      id: 'timesheet-entry-editor',
+      label: 'Timesheet entry',
+      priority: 20,
+      isDirty: () => dirty,
+      save: saveNow,
+      discard: discardNow
+    })
+  );
 
   async function loadPayrollEvidence(timeEntryId: string) {
     evidenceLoading = true;
@@ -126,6 +172,18 @@
       aggregateBreakNeedsPosition = evidence.breakIntervals.some(
         (item) => item.evidence_kind === 'aggregate_only' && item.duration_seconds > 0
       );
+      // Payroll evidence is server truth loaded after the dialog opens. Fold
+      // only those evidence fields into the baseline, preserving any clock or
+      // reason edits the manager may already have made while it was loading.
+      if (baseline) {
+        baseline = {
+          ...baseline,
+          actualJobFunctionId,
+          actualAreaId,
+          breaks: breaks.map((item) => ({ ...item })),
+          aggregateBreakNeedsPosition
+        };
+      }
     } catch (error) {
       onfeedback(error instanceof Error ? error.message : String(error), 'danger');
     } finally {
@@ -146,60 +204,79 @@
     breaks = breaks.filter((item) => item.id !== id);
   }
 
-  async function submit() {
-    if (busy || !editable) return;
+  function valuesToSave(): ActualsEntrySave {
     if (!clockIn || reason.trim().length < 3) {
-      onfeedback(t('Clock-in and a manager reason are required.'), 'danger');
-      return;
+      throw new Error(t('Clock-in and a manager reason are required.'));
     }
     const clockInAt = localInputToInstant(clockIn, timezone);
     const clockOutAt = clockOut ? localInputToInstant(clockOut, timezone) : '';
     if (!clockInAt || (clockOut && !clockOutAt)) {
-      onfeedback(t('Enter valid restaurant-local times.'), 'danger');
-      return;
+      throw new Error(t('Enter valid restaurant-local times.'));
     }
     if (clockOutAt && new Date(clockOutAt) <= new Date(clockInAt)) {
-      onfeedback(t('Clock-out must be after clock-in.'), 'danger');
-      return;
+      throw new Error(t('Clock-out must be after clock-in.'));
     }
     if (!actualJobFunctionId || !actualAreaId) {
-      onfeedback(t('Confirm the actual function and work area.'), 'danger');
-      return;
+      throw new Error(t('Confirm the actual function and work area.'));
     }
     if (aggregateBreakNeedsPosition) {
-      onfeedback(t('Position the existing break with an exact start and end.'), 'danger');
-      return;
+      throw new Error(t('Position the existing break with an exact start and end.'));
     }
     const breakIntervals = breaks.map((item) => ({
       started_at: localInputToInstant(item.startedAt, timezone),
       ended_at: localInputToInstant(item.endedAt, timezone)
     }));
     if (breakIntervals.some((item) => !item.started_at || !item.ended_at)) {
-      onfeedback(t('Every break needs an exact start and end.'), 'danger');
-      return;
+      throw new Error(t('Every break needs an exact start and end.'));
     }
     if (!clockOutAt && breaks.length > 0) {
-      onfeedback(t('Add a clock-out before recording a break.'), 'danger');
-      return;
+      throw new Error(t('Add a clock-out before recording a break.'));
     }
     if (clockOutAt && exactBreakMinutes >= enteredGrossHours * 60) {
-      onfeedback(t('Break must be shorter than the worked interval.'), 'danger');
-      return;
+      throw new Error(t('Break must be shorter than the worked interval.'));
     }
+    return {
+      clockInAt,
+      clockOutAt,
+      breakMinutes: exactBreakMinutes,
+      actualJobFunctionId,
+      actualAreaId,
+      breakIntervals: breakIntervals as Array<{ started_at: string; ended_at: string }>,
+      reason: reason.trim(),
+      isCorrection: Boolean(slot.entryId)
+    };
+  }
+
+  async function saveNow(): Promise<void> {
+    if (busy || !editable) return;
+    const values = valuesToSave();
     busy = true;
     try {
-      await onsave({
-        clockInAt,
-        clockOutAt,
-        breakMinutes: exactBreakMinutes,
-        actualJobFunctionId,
-        actualAreaId,
-        breakIntervals: breakIntervals as Array<{ started_at: string; ended_at: string }>,
-        reason: reason.trim(),
-        isCorrection: Boolean(slot.entryId)
-      });
+      const saved = await onsave(values);
+      if (!saved) throw new Error(t('The timesheet entry could not be saved.'));
+      baseline = currentState();
     } finally {
       busy = false;
+    }
+  }
+
+  function discardNow(): void {
+    if (!baseline) return;
+    clockIn = baseline.clockIn;
+    clockOut = baseline.clockOut;
+    breakMinutes = baseline.breakMinutes;
+    actualJobFunctionId = baseline.actualJobFunctionId;
+    actualAreaId = baseline.actualAreaId;
+    breaks = baseline.breaks.map((item) => ({ ...item }));
+    aggregateBreakNeedsPosition = baseline.aggregateBreakNeedsPosition;
+    reason = baseline.reason;
+  }
+
+  async function submit() {
+    try {
+      await saveNow();
+    } catch (error) {
+      onfeedback(error instanceof Error ? error.message : String(error), 'danger');
     }
   }
 
