@@ -429,6 +429,121 @@
   padding: 0;
 }
 
+/* The save affordance only appears while a draft is dirty, so no page carries a
+   permanent line for it. Sticky under the top bar so Save is always reachable,
+   even a long table down. */
+.cl-savebar {
+  position: sticky;
+  top: calc(var(--cl-topbar) + 12px);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 8px 7px 14px;
+  border: 1px solid var(--cl-accent);
+  border-radius: var(--cl-radius);
+  background: var(--cl-surface);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  animation: cl-savebar-in var(--cl-dur) var(--cl-ease);
+}
+
+@keyframes cl-savebar-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+.cl-savebar__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--cl-ink);
+  font-size: 13px;
+  font-weight: var(--rst-fw-medium);
+}
+
+.cl-savebar__dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--cl-accent);
+}
+
+.cl-savebar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cl-savebar .cl-btn {
+  min-height: 34px;
+  height: 34px;
+  font-size: 13px;
+}
+
+.cl-savebar .cl-btn.is-icon {
+  width: 34px;
+  padding: 0;
+}
+
+/* A data table with its own controls fused to the top edge — search and filters
+   sit in a header strip that shares the table's frame, so the controls read as
+   part of the table (like a spreadsheet), not a floating page toolbar. */
+.cl-datatable {
+  border: 1px solid var(--cl-line);
+  border-radius: var(--cl-radius);
+  background: var(--cl-surface);
+  overflow: hidden;
+}
+
+.cl-datatable__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--cl-line);
+  background: var(--cl-surface-muted);
+}
+
+.cl-datatable__tools .cl-grow {
+  margin-left: auto;
+}
+
+.cl-datatable__tools .cl-field,
+.cl-datatable__tools .cl-btn {
+  min-height: 34px;
+  height: 34px;
+  font-size: 13px;
+}
+
+/* The search field leads the strip; a magnifier keeps it obviously a filter. */
+.cl-datatable__search {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.cl-datatable__search svg {
+  position: absolute;
+  left: 10px;
+  width: 15px;
+  height: 15px;
+  color: var(--cl-muted);
+  pointer-events: none;
+}
+
+.cl-datatable__search .cl-field {
+  padding-left: 31px;
+}
+
+.cl-datatable .cl-tablewrap {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
 .cl-section {
   display: grid;
   gap: 12px;

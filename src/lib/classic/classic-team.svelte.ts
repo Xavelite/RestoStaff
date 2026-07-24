@@ -32,12 +32,33 @@ class ClassicTeamDraft {
   #supplementaryRestaurantId = '';
   #supplementaryPromiseRestaurantId = '';
   #supplementaryPromise: Promise<void> | null = null;
+  #preparedSnapshot: TeamReadModel | null = null;
+  #preparedRole: WorkspaceRole | null = null;
 
   async prepare(
     snapshot: TeamReadModel,
     restaurantId: string,
     role: WorkspaceRole
   ): Promise<void> {
+    // Idempotent guard. The effect that drives prepare re-fires whenever the
+    // workspace re-derives `team`, and prepare writes the draft's own state
+    // (employees, employmentTerms). Without this, a second render that merely
+    // *reads* that state — the save bar reading `dirty`, a page reading
+    // `employees` — schedules another prepare and the writes chase the reads
+    // forever (effect_update_depth). Re-running for an already-prepared
+    // snapshot must therefore do nothing. A real data change replaces the
+    // snapshot reference (see workspace.loadTeam), which lifts the guard.
+    if (
+      this.#preparedSnapshot === snapshot &&
+      this.#preparedRole === role &&
+      this.#supplementaryRestaurantId === restaurantId &&
+      !this.supplementaryError
+    ) {
+      return;
+    }
+    this.#preparedSnapshot = snapshot;
+    this.#preparedRole = role;
+
     if (role !== 'owner') {
       if (this.employmentTerms.length || this.payrollCatalogue || this.#supplementaryRestaurantId !== restaurantId) {
         this.employmentTerms = [];

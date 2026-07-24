@@ -96,20 +96,7 @@
 
 <svelte:head><title>{t('Contracts')} &middot; restogogo</title></svelte:head>
 
-{#snippet pageActions()}
-  <input class="cl-field toolbar-search" type="search" placeholder={t('Search employees')} bind:value={search} />
-  <select class="cl-field" aria-label={t('Group employees')} bind:value={groupBy}>
-    <option value="contract">{t('Group by contract')}</option>
-    <option value="position">{t('Group by position')}</option>
-    <option value="none">{t('No grouping')}</option>
-  </select>
-  <button class="cl-btn" type="button" disabled={workspace.isPreview || workspace.effectiveRole !== 'owner' || !workspace.team} onclick={addEmployee}>
-    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-    <span class="cl-action-label">{t('Add employee')}</span>
-  </button>
-{/snippet}
-
-<ClassicTeamPage actions={pageActions}>
+<ClassicTeamPage>
   {#snippet children(team)}
     {@const rows = team.employees.filter((employee) => matches(employee, team.contractName, team.jobName))}
     {@const incomplete = rows.filter((employee) => gaps(employee).length).length}
@@ -120,8 +107,26 @@
       <ClassicStat label="Incomplete contracts" value={incomplete} tone={incomplete ? 'attention' : 'ok'} />
     </div>
 
-    <div class="cl-tablewrap">
-      <table class="cl-table contract-table">
+    <div class="cl-datatable">
+      <div class="cl-datatable__tools">
+        <span class="cl-datatable__search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.2-3.2" /></svg>
+          <input class="cl-field" type="search" placeholder={t('Search employees')} bind:value={search} />
+        </span>
+        <select class="cl-field" aria-label={t('Group employees')} bind:value={groupBy}>
+          <option value="contract">{t('Group by contract')}</option>
+          <option value="position">{t('Group by position')}</option>
+          <option value="none">{t('No grouping')}</option>
+        </select>
+        <span class="cl-grow"></span>
+        <button class="cl-btn" type="button" disabled={workspace.isPreview || workspace.effectiveRole !== 'owner' || !workspace.team} onclick={addEmployee}>
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+          <span class="cl-action-label">{t('Add employee')}</span>
+        </button>
+      </div>
+
+      <div class="cl-tablewrap">
+        <table class="cl-table contract-table">
         <thead><tr><th>{t('Name')}</th><th>{t('Contract')}</th><th>{t('Work regime')}</th><th>{t('Start')}</th><th>{t('End')}</th><th class="is-num">{t('Weekly hours')}</th><th>{t('Status')}</th><th></th></tr></thead>
         {#if !rows.length}
           <tbody><tr><td colspan="8"><div class="cl-empty"><strong>{t('No active employees')}</strong><span>{t('Add someone to define their contract and payroll setup.')}</span></div></td></tr></tbody>
@@ -159,7 +164,8 @@
             </tbody>
           {/each}
         {/if}
-      </table>
+        </table>
+      </div>
     </div>
 
     {#if detailId}

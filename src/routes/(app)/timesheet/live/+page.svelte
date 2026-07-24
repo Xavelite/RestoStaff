@@ -126,12 +126,13 @@
             <th>{t('Recorded')}</th>
             <th class="is-num">{t('Worked')}</th>
             <th>{t('Status')}</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
           {#if !rows.length}
             <tr>
-              <td colspan="6">
+              <td colspan="7">
                 <div class="cl-empty">
                   <strong>{t('Nobody is scheduled today')}</strong>
                   <span>{t('Badge entries and planned shifts appear here as the week runs.')}</span>
@@ -158,6 +159,7 @@
                 </td>
                 <td class="is-num">{slot.actualHours ? formatHours(slot.actualHours) : '—'}</td>
                 <td><ClassicStatus label={slotLabel(slot.status)} {tone} /></td>
+                <td class="is-num"><a class="cl-btn" href={`/timesheet?date=${today}&entry=${encodeURIComponent(slot.key)}`}>{t('Details')}</a></td>
               </tr>
             {/each}
           {/if}

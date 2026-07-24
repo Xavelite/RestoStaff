@@ -102,7 +102,7 @@
         <div class="month__head" role="columnheader">{t(weekdayName)}</div>
       {/each}
       {#each days as day (day.date)}
-        <div class="month__day" class:is-out={!day.inMonth} class:is-today={day.isToday} role="gridcell">
+        <a class="month__day" class:is-out={!day.inMonth} class:is-today={day.isToday} role="gridcell" href={`/timesheet?date=${day.date}`}>
           <div class="month__top">
             <span class="month__num">{day.dayNumber}</span>
             {#if day.issues}
@@ -118,7 +118,7 @@
           {#if day.hours}
             <span class="month__bar" style="--fill:{Math.round((day.hours / peakHours) * 100)}%"></span>
           {/if}
-        </div>
+        </a>
       {/each}
     </div>
   </div>
@@ -153,6 +153,13 @@
     padding: 10px 14px 16px;
     border-bottom: 1px solid var(--cl-line);
     border-left: 1px solid var(--cl-line);
+    color: inherit;
+    text-decoration: none;
+    transition: background var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease);
+  }
+  .month__day:hover {
+    background: color-mix(in srgb, var(--cl-accent) 5%, var(--cl-surface));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cl-accent) 28%, transparent);
   }
   .month__head:nth-child(7n + 1),
   .month__day:nth-child(7n + 1) {

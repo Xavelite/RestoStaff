@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { clockLabel, formatHours, hoursBetweenClocks, type ServiceKey } from '$lib/calendar/date';
+  import { addDays, clockLabel, formatHours, hoursBetweenClocks, type ServiceKey } from '$lib/calendar/date';
   import Dialog from '$lib/components/Dialog.svelte';
   import { friendlyError } from '$lib/api/error-messages';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
@@ -14,12 +14,20 @@
     resolveScheduleLeave,
     saveSchedule
   } from '$lib/schedule/schedule-actions';
-  import { buildPlanningWeek, type PlanningGridSlot } from '$lib/schedule/schedule-model';
+  import {
+    buildPlanningWeek,
+    planningDraftForWeek,
+    planningNotesForWeek,
+    type PlanningGridSlot
+  } from '$lib/schedule/schedule-model';
   import { buildEmployeeColorMap } from '$lib/ui/position-color';
   import { personInitials } from '$lib/ui/person';
   import ClassicPage from '$lib/classic/ClassicPage.svelte';
   import ClassicScheduleWeek from '$lib/classic/ClassicScheduleWeek.svelte';
   import { scheduleDraft } from '$lib/classic/classic-schedule.svelte';
+  import { downloadCsv } from '$lib/export/csv';
+  import { planningCsv } from '$lib/schedule/schedule-export';
+  import { DEFAULT_PLANNING_EXPORT_COLUMNS } from '$lib/schedule/schedule-export-columns';
 
   const SERVICES: ServiceKey[] = ['lunch', 'evening'];
 
@@ -41,8 +49,80 @@
 
   let selectedKey = $state('');
   let saving = $state(false);
+  let search = $state('');
+  let positionId = $state('');
+  let onlyConflicts = $state(false);
   // Which empty day cell is choosing a service to add (key = employeeId|date).
   let pendingAdd = $state('');
+
+
+
+  const employeePosition = $derived.by(() => {
+    const primary = new Map<string, string>();
+    for (const assignment of snapshot?.employee_job_functions ?? []) {
+      if (!assignment.active) continue;
+      if (assignment.is_primary || !primary.has(assignment.employee_id)) {
+        primary.set(assignment.employee_id, assignment.job_function_id);
+      }
+    }
+    return primary;
+  });
+
+  function visibleRows(grid: ReturnType<typeof buildPlanningWeek>) {
+    const needle = search.trim().toLocaleLowerCase(i18n.intlLocale);
+    return grid.rows.filter((row) => {
+      if (needle && !`${row.name} ${row.meta}`.toLocaleLowerCase(i18n.intlLocale).includes(needle)) {
+        return false;
+      }
+      if (positionId && employeePosition.get(row.id) !== positionId) return false;
+      if (
+        onlyConflicts &&
+        ![...grid.slotsByKey.values()].some(
+          (slot) => slot.employeeId === row.id && slot.truth.state === 'conflict'
+        )
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }
+
+  function copyPreviousWeek(weekStart: string): void {
+    if (!snapshot) return;
+    const previousWeek = addDays(weekStart, -7);
+    const employeeIds = new Set(snapshot.employees.filter((item) => item.active).map((item) => item.id));
+    const areaIds = new Set(snapshot.work_areas.filter((item) => item.active).map((item) => item.id));
+    const positionIds = new Set(snapshot.job_functions.filter((item) => item.active).map((item) => item.id));
+    const copied = planningDraftForWeek(snapshot, previousWeek)
+      .filter(
+        (shift) =>
+          employeeIds.has(shift.employeeId) &&
+          (!shift.areaId || areaIds.has(shift.areaId)) &&
+          (!shift.jobFunctionId || positionIds.has(shift.jobFunctionId))
+      )
+      .map((shift) => ({ ...shift, source: 'copied' as const }));
+    scheduleDraft.replace(copied);
+    scheduleDraft.replaceNotes(planningNotesForWeek(snapshot, previousWeek));
+    toasts.show(
+      copied.length
+        ? t('{count} shifts copied from the previous week.', { count: copied.length })
+        : t('The previous week has no shifts to copy.'),
+      copied.length ? 'success' : 'warning'
+    );
+  }
+
+  function exportWeek(weekStart: string): void {
+    if (!snapshot) return;
+    const file = planningCsv({
+      snapshot,
+      activeWeek: weekStart,
+      draft: scheduleDraft.shifts,
+      notes: scheduleDraft.notes,
+      columns: DEFAULT_PLANNING_EXPORT_COLUMNS,
+      translate: t
+    });
+    downloadCsv(file.filename, file.headers, file.rows);
+  }
 
   function compact(value: string): string {
     const label = clockLabel(value);
@@ -126,9 +206,31 @@
 
 <svelte:head><title>{t('Schedule')} &middot; restogogo</title></svelte:head>
 
-<ClassicPage>
+{#snippet pageActions()}
+  <label class="cl-search">
+    <span class="sr-only">{t('Search employees')}</span>
+    <input class="cl-field" type="search" placeholder={t('Search employees…')} bind:value={search} />
+  </label>
+  <label class="toolbar-select">
+    <span class="sr-only">{t('Position')}</span>
+    <select class="cl-field" bind:value={positionId}>
+      <option value="">{t('All positions')}</option>
+      {#each snapshot?.job_functions.filter((item) => item.active).toSorted((left, right) => left.name.localeCompare(right.name)) ?? [] as position (position.id)}
+        <option value={position.id}>{position.name}</option>
+      {/each}
+    </select>
+  </label>
+  <label class="toggle toolbar-toggle">
+    <input type="checkbox" bind:checked={onlyConflicts} />
+    <span class="cl-action-label">{t('Only conflicts')}</span>
+  </label>
+{/snippet}
+
+<ClassicPage actions={pageActions}>
   <ClassicScheduleWeek>
     {#snippet actions(week)}
+      <button class="cl-btn" type="button" disabled={saving || !week.editable} onclick={() => copyPreviousWeek(week.weekStart)}>{t('Copy previous week')}</button>
+      <button class="cl-btn" type="button" disabled={!snapshot} onclick={() => exportWeek(week.weekStart)}>{t('Export CSV')}</button>
       <button
         class="cl-btn"
         type="button"
@@ -160,6 +262,7 @@
             .filter((shift) => shift.weekday === day.weekday)
             .reduce((sum, shift) => sum + hoursBetweenClocks(shift.startsAt, shift.endsAt), 0)
         )}
+        {@const rows = visibleRows(grid)}
         <div class="cl-tablewrap">
           <table class="cl-table board">
             <thead>
@@ -180,7 +283,10 @@
               </tr>
             </thead>
             <tbody>
-              {#each grid.rows as row (row.id)}
+              {#if !rows.length}
+                <tr><td colspan={grid.days.length + 1}><div class="cl-empty"><strong>{t('No employees match these filters')}</strong><span>{t('Clear a filter to show the full planning team.')}</span></div></td></tr>
+              {:else}
+              {#each rows as row (row.id)}
                 {@const target = contractHours.get(row.id) ?? 0}
                 <tr>
                   <td class="board__staff">
@@ -227,6 +333,7 @@
                   {/each}
                 </tr>
               {/each}
+              {/if}
             </tbody>
           </table>
         </div>
@@ -490,4 +597,22 @@
   .legend__swatch.is-lunch { background: var(--cl-lunch-wash); border-color: color-mix(in srgb, var(--cl-lunch) 26%, var(--cl-line)); }
   .legend__swatch.is-evening { background: var(--cl-evening-wash); border-color: color-mix(in srgb, var(--cl-evening) 26%, var(--cl-line)); }
   .legend__swatch.is-conflict { background: var(--cl-problem-wash); border-color: var(--cl-problem-line); }
+
+  .cl-search { min-width: min(260px, 100%); }
+  .cl-search .cl-field { width: 100%; }
+  .toolbar-select { min-width: 170px; }
+  .toolbar-select .cl-field { width: 100%; }
+  .toolbar-toggle { white-space: nowrap; }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
 </style>

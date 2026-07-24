@@ -115,7 +115,8 @@ const CLASSIC_MODULES: ClassicModule[] = [
     summary: 'Stock counts and item management',
     icon: 'inventory',
     roles: MANAGER,
-    placeholder: true
+    placeholder: true,
+    homeOnly: true
   },
   {
     key: 'reservations',
@@ -181,11 +182,13 @@ const CLASSIC_MODULES: ClassicModule[] = [
     key: 'payroll',
     href: '/payroll',
     label: 'Payroll',
-    summary: 'Employment terms per employee',
+    summary: 'Approved hours, calculations and payroll exports',
     icon: 'payroll',
     roles: OWNER,
     subNav: [
-      { href: '/payroll', label: 'Employees' },
+      { href: '/payroll', label: 'Runs' },
+      { href: '/payroll/exports', label: 'Exports' },
+      { href: '/payroll/employees', label: 'Employees' },
       { href: '/payroll/configuration', label: 'Configuration' }
     ]
   },

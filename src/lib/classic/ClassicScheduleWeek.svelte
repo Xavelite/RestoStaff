@@ -39,7 +39,9 @@
 
   $effect(() => {
     if (workspace.activeId && role && role !== 'employee') {
-      void workspace.loadOperations(weekStart, addDays(weekStart, 6)).catch(() => undefined);
+      // Include the prior week so Copy previous week is based on server truth, not
+      // on an empty current-week-only snapshot.
+      void workspace.loadOperations(addDays(weekStart, -7), addDays(weekStart, 6)).catch(() => undefined);
     }
   });
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { page } from '$app/state';
   import {
     addDays,
     dateForWeekday,
@@ -65,6 +66,8 @@
   });
 
   let onlyIssues = $state(false);
+  let search = $state('');
+  let positionId = $state('');
   let selectedKey = $state('');
   let saving = $state(false);
   let weekDialogOpen = $state(false);
@@ -78,19 +81,6 @@
     snapshot
       ? weekDates.flatMap((date) => actualSlotsForDate(snapshot, date, today, currentInstant))
       : []
-  );
-  // One row per planned or recorded service. A flat, sortable list reads more
-  // plainly than a grid, and every row is the thing you would open anyway.
-  const rows = $derived(
-    slots
-      .filter(isTimesheetRow)
-      .filter((slot) => !onlyIssues || needsAttention(slot))
-      .sort(
-        (left, right) =>
-          left.date.localeCompare(right.date) ||
-          left.employeeName.localeCompare(right.employeeName) ||
-          left.serviceKey.localeCompare(right.serviceKey)
-      )
   );
   const totals = $derived(
     snapshot
@@ -131,6 +121,39 @@
       slots.filter((slot) => slot.date === date).reduce((sum, slot) => sum + slot.actualHours, 0)
     )
   );
+
+  const employeePosition = $derived.by(() => {
+    const values = new Map<string, string>();
+    for (const assignment of snapshot?.employee_job_functions ?? []) {
+      if (!assignment.active) continue;
+      if (assignment.is_primary || !values.has(assignment.employee_id)) {
+        values.set(assignment.employee_id, assignment.job_function_id);
+      }
+    }
+    return values;
+  });
+
+  let lastDateParam = $state<string | null>(null);
+  let lastEntryParam = $state<string | null>(null);
+  $effect(() => {
+    const requested = page.url.searchParams.get('date');
+    if (requested === lastDateParam || !requested || !/^\d{4}-\d{2}-\d{2}$/.test(requested)) return;
+    lastDateParam = requested;
+    const requestedWeek = mondayFor(requested);
+    const currentWeek = mondayFor(today);
+    weekOffset = Math.round(
+      (Date.parse(`${requestedWeek}T00:00:00Z`) - Date.parse(`${currentWeek}T00:00:00Z`)) /
+        (7 * 86_400_000)
+    );
+  });
+
+  $effect(() => {
+    const requested = page.url.searchParams.get('entry');
+    if (requested === lastEntryParam || !requested || !slots.some((slot) => slot.key === requested)) return;
+    lastEntryParam = requested;
+    selectedKey = requested;
+  });
+
   // The employees to show: everyone with any planned or recorded time this week,
   // narrowed to those with an issue when the filter is on.
   const gridRows = $derived.by(() => {
@@ -147,8 +170,11 @@
       if (needsAttention(slot)) row.attention = true;
       byId.set(slot.employeeId, row);
     }
+    const needle = search.trim().toLocaleLowerCase(i18n.intlLocale);
     return [...byId.values()]
       .filter((row) => !onlyIssues || row.attention)
+      .filter((row) => !needle || row.name.toLocaleLowerCase(i18n.intlLocale).includes(needle))
+      .filter((row) => !positionId || employeePosition.get(row.id) === positionId)
       .sort((left, right) => left.name.localeCompare(right.name));
   });
 
@@ -327,6 +353,19 @@
 <svelte:head><title>{t('Timesheet')} &middot; restogogo</title></svelte:head>
 
 {#snippet pageActions()}
+  <label class="cl-search">
+    <span class="sr-only">{t('Search employees')}</span>
+    <input class="cl-field" type="search" placeholder={t('Search employees…')} bind:value={search} />
+  </label>
+  <label class="toolbar-select">
+    <span class="sr-only">{t('Position')}</span>
+    <select class="cl-field" bind:value={positionId}>
+      <option value="">{t('All positions')}</option>
+      {#each snapshot?.job_functions.filter((item) => item.active).toSorted((left, right) => left.name.localeCompare(right.name)) ?? [] as position (position.id)}
+        <option value={position.id}>{position.name}</option>
+      {/each}
+    </select>
+  </label>
   <label class="toggle toolbar-toggle">
     <input type="checkbox" bind:checked={onlyIssues} />
     <span class="cl-action-label">{t('Only rows needing attention')}</span>
@@ -388,7 +427,7 @@
           <tr>
             <td colspan={days.length + 1}>
               <div class="cl-empty">
-                <strong>{t(onlyIssues ? 'Nothing to review' : 'No recorded time this week')}</strong>
+                <strong>{t(search || positionId ? 'No employees match these filters' : onlyIssues ? 'Nothing to review' : 'No recorded time this week')}</strong>
                 <span>{t('Badge entries and planned shifts appear here as the week runs.')}</span>
               </div>
             </td>
@@ -632,5 +671,22 @@
     padding-left: 20px;
     color: var(--cl-muted);
     line-height: 1.6;
+  }
+
+  .cl-search { min-width: min(250px, 100%); }
+  .cl-search .cl-field { width: 100%; }
+  .toolbar-select { min-width: 170px; }
+  .toolbar-select .cl-field { width: 100%; }
+  .toolbar-toggle { white-space: nowrap; }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 </style>

@@ -61,15 +61,7 @@
 
 <svelte:head><title>{t('Absences')} &middot; restogogo</title></svelte:head>
 
-{#snippet pageActions()}
-  <select class="cl-field" aria-label={t('Employee status')} bind:value={scope}>
-    <option value="pending">{t('Awaiting decision')}</option>
-    <option value="upcoming">{t('Upcoming')}</option>
-    <option value="all">{t('All')}</option>
-  </select>
-{/snippet}
-
-<ClassicTeamPage actions={pageActions}>
+<ClassicTeamPage>
   {#snippet children(teamContext)}
     {@const today = new Date().toISOString().slice(0, 10)}
     {@const employeeName = new Map(teamContext.employees.map((employee) => [employee.id, employee.displayName]))}
@@ -84,21 +76,27 @@
       )
       .sort((left, right) => right.start_date.localeCompare(left.start_date))}
 
-    <div class="table-meta"><span>{t('{count} requests', { count: rows.length })}</span></div>
-
-    <div class="cl-tablewrap">
-      <table class="cl-table">
-        <thead>
-          <tr>
-            <th>{t('Name')}</th>
-            <th>{t('Type')}</th>
-            <th>{t('From')}</th>
-            <th>{t('To')}</th>
-            <th>{t('Service')}</th>
-            <th>{t('Status')}</th>
-            <th></th>
-          </tr>
-        </thead>
+    <div class="cl-datatable">
+      <div class="cl-datatable__tools">
+        <select class="cl-field" aria-label={t('Employee status')} bind:value={scope}>
+          <option value="pending">{t('Awaiting decision')}</option>
+          <option value="upcoming">{t('Upcoming')}</option>
+          <option value="all">{t('All')}</option>
+        </select>
+      </div>
+      <div class="cl-tablewrap">
+        <table class="cl-table">
+          <thead>
+            <tr>
+              <th>{t('Name')}</th>
+              <th>{t('Type')}</th>
+              <th>{t('From')}</th>
+              <th>{t('To')}</th>
+              <th>{t('Service')}</th>
+              <th>{t('Status')}</th>
+              <th></th>
+            </tr>
+          </thead>
         <tbody>
           {#if !rows.length}
             <tr>
@@ -148,7 +146,8 @@
             {/each}
           {/if}
         </tbody>
-      </table>
+        </table>
+      </div>
     </div>
   {/snippet}
 </ClassicTeamPage>

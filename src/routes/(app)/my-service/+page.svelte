@@ -163,28 +163,6 @@
               : t('Manager planned')
           }
   );
-  const heroTitle = $derived(
-    hasPendingEdits
-      ? t('Ready to send your update.')
-      : nextService
-        ? t('Next service: {day} · {service} {time}.', { day: dayName(nextService.date), service: t(serviceLabel(nextService.serviceKey)), time: nextService.shift?.startsAt ?? '' })
-        : plannedSlots.length
-          ? t('Your published week is ready.')
-          : availabilityMode === 'fixed_schedule'
-            ? t('Your schedule is clear.')
-            : t('Tell the restaurant when you can work.')
-  );
-  const heroSubtitle = $derived(
-    availabilityMode === 'weekly_availability'
-      ? planningPublished
-        ? t('This week is published, so availability is locked. Use the menu for time off or details.')
-        : t('Tap today or any future service to mark yourself available. Past services stay read-only.')
-      : availabilityMode === 'fixed_schedule'
-        ? planningPublished
-          ? t('Your published shifts are ready. Tap a scheduled shift to request time off.')
-          : t('Your fixed schedule is the working baseline. Tap a planned service to request time off.')
-        : t('Your manager sets your schedule. Tap a service to request time off.')
-  );
   // Follow the ?week= param on every navigation, not just first mount: a deep
   // link that arrives while the page is already open must still move the week.
   // We only react when the param itself changes so manual week stepping isn't

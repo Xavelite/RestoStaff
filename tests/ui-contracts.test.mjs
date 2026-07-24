@@ -160,10 +160,10 @@ test('classic workspace chrome pins navigation and keeps page controls out of th
   assert.match(css, /\.cl-brand\s*\{[\s\S]*?position:\s*fixed;/);
 });
 
-test('people, contracts and payroll share direct rows and one complete employee dialog', async () => {
+test('people, contracts and payroll employees share direct rows and one complete employee dialog', async () => {
   const people = await readFile('src/routes/(app)/team/+page.svelte', 'utf8');
   const contracts = await readFile('src/routes/(app)/team/contracts/+page.svelte', 'utf8');
-  const payroll = await readFile('src/routes/(app)/payroll/+page.svelte', 'utf8');
+  const payrollEmployees = await readFile('src/routes/(app)/payroll/employees/+page.svelte', 'utf8');
   const editor = await readFile('src/lib/classic/EmployeeInlineEditor.svelte', 'utf8');
   const teamPage = await readFile('src/lib/classic/ClassicTeamPage.svelte', 'utf8');
 
@@ -171,8 +171,8 @@ test('people, contracts and payroll share direct rows and one complete employee 
   assert.match(contracts, /let groupBy = \$state<GroupBy>\('contract'\)/);
   assert.match(people, /oninput=.*teamDraft\.update\(employee\.id, \{ email:/s);
   assert.match(contracts, /setContractType\(employee, event\.currentTarget\.value\)/);
-  assert.match(payroll, /setReferenceFunction\(employee, event\.currentTarget\.value\)/);
-  for (const source of [people, contracts, payroll]) {
+  assert.match(payrollEmployees, /setReferenceFunction\(employee, event\.currentTarget\.value\)/);
+  for (const source of [people, contracts, payrollEmployees]) {
     assert.match(source, /<EmployeeInlineEditor/);
     assert.match(source, />\{t\('Details'\)\}<\/button>/);
   }
@@ -182,6 +182,34 @@ test('people, contracts and payroll share direct rows and one complete employee 
   assert.match(editor, /EmployeePayrollDetails/);
   assert.match(teamPage, /saveEmployee/);
   assert.match(teamPage, /unsavedChanges\.register/);
+});
+
+
+test('operational core exposes planning, attendance and payroll as one classic workflow', async () => {
+  const nav = await readFile('src/lib/classic/classic-nav.ts', 'utf8');
+  const schedule = await readFile('src/routes/(app)/schedule/+page.svelte', 'utf8');
+  const timesheet = await readFile('src/routes/(app)/timesheet/+page.svelte', 'utf8');
+  const calendar = await readFile('src/routes/(app)/timesheet/calendar/+page.svelte', 'utf8');
+  const live = await readFile('src/routes/(app)/timesheet/live/+page.svelte', 'utf8');
+  const payrollRuns = await readFile('src/routes/(app)/payroll/+page.svelte', 'utf8');
+  const payrollExports = await readFile('src/routes/(app)/payroll/exports/+page.svelte', 'utf8');
+  const payrollConfig = await readFile('src/lib/payroll/RestaurantPayrollSetup.svelte', 'utf8');
+
+  assert.match(nav, /\{ href: '\/payroll', label: 'Runs' \}/);
+  assert.match(nav, /\{ href: '\/payroll\/exports', label: 'Exports' \}/);
+  assert.match(nav, /homeOnly: true/);
+  assert.match(schedule, /copyPreviousWeek/);
+  assert.match(schedule, /planningCsv/);
+  assert.match(schedule, /Only conflicts/);
+  assert.match(timesheet, /page\.url\.searchParams\.get\('date'\)/);
+  assert.match(timesheet, /page\.url\.searchParams\.get\('entry'\)/);
+  assert.match(calendar, /href=\{`\/timesheet\?date=\$\{day\.date\}`\}/);
+  assert.match(live, /entry=\$\{encodeURIComponent\(slot\.key\)\}/);
+  assert.match(payrollRuns, /<PayrollWorkspace/);
+  assert.match(payrollExports, /createPayrollExportRun/);
+  assert.match(payrollExports, /id: 'payroll-export-columns'/);
+  assert.match(payrollConfig, /class="cl-card"/);
+  assert.doesNotMatch(payrollConfig, /class="payroll-setup"/);
 });
 
 test('restaurant coverage adds a complete weekday row before the shared save', async () => {
