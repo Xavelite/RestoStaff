@@ -9,7 +9,7 @@
   import { newEmployeeDraft } from '$lib/team/team-model';
   import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
   import ClassicTeamPage from '$lib/classic/ClassicTeamPage.svelte';
-  import EmployeeEditDialog from '$lib/classic/EmployeeEditDialog.svelte';
+  import EmployeeInlineEditor from '$lib/classic/EmployeeInlineEditor.svelte';
   import { teamDraft } from '$lib/classic/classic-team.svelte';
   import { dragReorder, moved } from '$lib/classic/dragReorder';
 
@@ -40,11 +40,14 @@
   }
 
   function setName(employee: EmployeeDraft, value: string) {
-    teamDraft.update(employee.id, {
-      displayName: value,
-      firstName: value.split(' ')[0] ?? '',
-      lastName: value.split(' ').slice(1).join(' ')
-    });
+    const patch: Partial<EmployeeDraft> = { displayName: value };
+    // Only seed legal names for a genuinely blank profile. Editing the display
+    // name of an existing employee must never rewrite legal identity fields.
+    if (!employee.firstName.trim() && !employee.lastName.trim()) {
+      patch.firstName = value.split(' ')[0] ?? '';
+      patch.lastName = value.split(' ').slice(1).join(' ');
+    }
+    teamDraft.update(employee.id, patch);
   }
 
   function togglePosition(employee: EmployeeDraft, id: string, on: boolean) {
@@ -83,7 +86,7 @@
   }
 
   const canReorder = $derived(
-    !search.trim() && scope === 'all' && groupBy === 'none' && !workspace.isPreview
+    !search.trim() && scope === 'all' && groupBy === 'none' && !detailId && !workspace.isPreview
   );
 
   function moveEmployee(from: number, to: number) {
@@ -142,7 +145,7 @@
 <svelte:head><title>{t('Team')} &middot; restogogo</title></svelte:head>
 
 {#snippet pageActions()}
-  <input class="cl-field topbar-search" type="search" placeholder={t('Search employees')} bind:value={search} />
+  <input class="cl-field toolbar-search" type="search" placeholder={t('Search employees')} bind:value={search} />
   <select class="cl-field" aria-label={t('Group employees')} bind:value={groupBy}>
     <option value="position">{t('Group by position')}</option>
     <option value="contract">{t('Group by contract')}</option>
@@ -153,6 +156,7 @@
     <option value="archived">{t('Archived')}</option>
     <option value="all">{t('All')}</option>
   </select>
+  <span class="toolbar-grow"></span>
   <button class="cl-btn" type="button" disabled={workspace.isPreview} title={t('Add employee')} onclick={addEmployee}>
     <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
     <span class="cl-action-label">{t('Add employee')}</span>
@@ -190,20 +194,21 @@
             <th class="cl-grip"></th>
             <th>{t('Name')}</th>
             <th>{t('Position')}</th>
+            <th>{t('Email')}</th>
+            <th>{t('Phone')}</th>
             <th>{t('Contract')}</th>
-            <th class="is-num">{t('Weekly hours')}</th>
             <th>{t('Access')}</th>
             <th>{t('Active')}</th>
             <th></th>
           </tr>
         </thead>
         {#if !rows.length}
-          <tbody><tr><td colspan="8"><div class="cl-empty"><strong>{t('No employees match')}</strong><span>{t('Change the filter, or add someone to the team.')}</span></div></td></tr></tbody>
+          <tbody><tr><td colspan="9"><div class="cl-empty"><strong>{t('No employees match')}</strong><span>{t('Change the filter, or add someone to the team.')}</span></div></td></tr></tbody>
         {:else}
           {#each groups as group (group.key)}
             <tbody use:dragReorder={{ onmove: moveEmployee, enabled: canReorder }}>
               {#if groupBy !== 'none'}
-                <tr class="cl-group-row"><td colspan="8">{group.label}<span class="cl-group-row__count">{t('{count} people', { count: group.employees.length })}</span></td></tr>
+                <tr class="cl-group-row"><td colspan="9">{group.label}<span class="cl-group-row__count">{t('{count} people', { count: group.employees.length })}</span></td></tr>
               {/if}
               {#each group.employees as employee, index (employee.id)}
                 {@const isNew = !employee.displayName.trim() || employee.id === freshId}
@@ -225,14 +230,18 @@
                       </div>
                     </details>
                   </td>
+                  <td><input class="cl-field cellfield" type="email" placeholder={t('Email')} value={employee.email} oninput={(event) => teamDraft.update(employee.id, { email: event.currentTarget.value })} /></td>
+                  <td><input class="cl-field cellfield phonefield" placeholder={t('Phone')} value={employee.phone} oninput={(event) => teamDraft.update(employee.id, { phone: event.currentTarget.value })} /></td>
                   <td class="is-quiet">{team.contractName.get(employee.contractTypeId) ?? '—'}</td>
-                  <td class="is-num is-quiet">{employee.weeklyContractHours || '—'}</td>
                   <td><ClassicStatus label={employee.accessState.replace('_', ' ')} tone={accessTone[employee.accessState] ?? 'attention'} /></td>
                   <td>
                     <label class="switch"><input type="checkbox" checked={employee.active} onchange={(event) => teamDraft.update(employee.id, { active: event.currentTarget.checked })} /><span>{t(employee.active ? 'Active' : 'Archived')}</span></label>
                   </td>
-                  <td class="is-num"><button class="cl-btn detail" type="button" onclick={() => (detailId = employee.id)}>{t('Details')}</button></td>
+                  <td class="is-num"><button class="cl-btn detail" type="button" aria-expanded={detailId === employee.id} onclick={() => (detailId = detailId === employee.id ? '' : employee.id)}>{t(detailId === employee.id ? 'Close' : 'More')}</button></td>
                 </tr>
+                {#if detailId === employee.id}
+                  <tr class="cl-editor-row"><td colspan="9"><EmployeeInlineEditor employeeId={employee.id} mode="people" {saving} onclose={() => (detailId = '')} onsave={commitDetail} /></td></tr>
+                {/if}
               {/each}
             </tbody>
           {/each}
@@ -240,13 +249,14 @@
       </table>
     </div>
 
-    <EmployeeEditDialog open={Boolean(detailId)} employeeId={detailId} mode="people" {saving} onclose={() => (detailId = '')} onsave={commitDetail} />
   {/snippet}
 </ClassicTeamPage>
 
 <style>
   .table-meta { display: flex; justify-content: space-between; gap: 16px; color: var(--cl-muted); font-size: 13px; }
   .namefield { min-width: 140px; height: 34px; }
+  .cellfield { min-width: 150px; height: 34px; }
+  .phonefield { min-width: 125px; }
   .switch { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; }
   .switch input { width: 16px; height: 16px; accent-color: var(--cl-accent); }
   .detail { min-height: 30px; padding: 4px 10px; font-size: 13px; }

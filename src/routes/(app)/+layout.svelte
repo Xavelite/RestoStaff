@@ -170,9 +170,6 @@
 
         <span class="cl-topbar__spacer"></span>
 
-        {#if classicChrome.actions}
-          <div class="cl-topbar__actions">{@render classicChrome.actions()}</div>
-        {/if}
 
         {#if !workspace.isPreview}
           <CommunicationCenter
@@ -266,7 +263,9 @@
             </div>
           </section>
         {:else}
-          {@render children()}
+          {#key page.url.pathname}
+            {@render children()}
+          {/key}
         {/if}
       </main>
     </div>

@@ -142,3 +142,39 @@ test('service labels are not reimplemented outside their domain helper', async (
   }
   assert.deepEqual(offenders, []);
 });
+
+test('classic workspace chrome pins navigation and keeps page controls out of the topbar', async () => {
+  const layout = await readFile('src/routes/(app)/+layout.svelte', 'utf8');
+  const page = await readFile('src/lib/classic/ClassicPage.svelte', 'utf8');
+  const chrome = await readFile('src/lib/classic/classic-chrome.svelte.ts', 'utf8');
+  const css = await readFile('src/lib/classic/classic.css', 'utf8');
+
+  assert.match(layout, /classicChrome\.tabs/);
+  assert.doesNotMatch(layout, /classicChrome\.actions/);
+  assert.match(layout, /\{#key page\.url\.pathname\}[\s\S]*\{@render children\(\)\}[\s\S]*\{\/key\}/);
+  assert.match(page, /class="cl-page__toolbar"/);
+  assert.match(chrome, /tabs = \$state/);
+  assert.doesNotMatch(chrome, /actions = \$state/);
+  assert.match(css, /\.cl-topbar\s*\{[\s\S]*?position:\s*fixed;/);
+  assert.match(css, /\.cl-sidebar\s*\{[\s\S]*?position:\s*fixed;/);
+  assert.match(css, /\.cl-brand\s*\{[\s\S]*?position:\s*fixed;/);
+});
+
+test('people, contracts and payroll expose stable direct and inline employee editing', async () => {
+  const people = await readFile('src/routes/(app)/team/+page.svelte', 'utf8');
+  const contracts = await readFile('src/routes/(app)/team/contracts/+page.svelte', 'utf8');
+  const payroll = await readFile('src/routes/(app)/payroll/+page.svelte', 'utf8');
+  const editor = await readFile('src/lib/classic/EmployeeInlineEditor.svelte', 'utf8');
+
+  assert.match(people, /oninput=.*teamDraft\.update\(employee\.id, \{ email:/s);
+  assert.match(contracts, /setContractType\(employee, event\.currentTarget\.value\)/);
+  assert.match(payroll, /setReferenceFunction\(employee, event\.currentTarget\.value\)/);
+  for (const source of [people, contracts, payroll]) {
+    assert.match(source, /<EmployeeInlineEditor/);
+    assert.match(source, /class="cl-editor-row"/);
+  }
+  assert.doesNotMatch(editor, /Dialog|portalTarget|ActionButton/);
+  assert.match(editor, /mode === 'people'/);
+  assert.match(editor, /mode === 'contract'/);
+  assert.match(editor, /EmployeePayrollDetails/);
+});

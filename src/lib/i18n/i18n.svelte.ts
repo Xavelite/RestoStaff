@@ -2866,6 +2866,7 @@ Object.assign(french, {
   'Full name': 'Nom complet',
   Details: 'Détails',
   'Employee details': "Détails de l'employé",
+  'CP 302 function': 'Fonction CP 302',
   'Contact details for this employee. Contract and payroll live on their own pages.':
     'Coordonnées de cet employé. Le contrat et la paie ont leurs propres pages.',
   'Give every new employee a name before saving.':
@@ -3172,6 +3173,7 @@ Object.assign(dutch, {
   'Full name': 'Volledige naam',
   Details: 'Details',
   'Employee details': 'Gegevens van de medewerker',
+  'CP 302 function': 'PC 302-functie',
   'Contact details for this employee. Contract and payroll live on their own pages.':
     'Contactgegevens van deze medewerker. Contract en loon staan op hun eigen pagina.',
   'Give every new employee a name before saving.':

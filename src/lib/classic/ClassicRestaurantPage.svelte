@@ -51,6 +51,7 @@
 
 {#snippet pageActions()}
   {#if actions}{@render actions()}{/if}
+  <span class="toolbar-grow"></span>
   <button
     class="cl-btn is-icon"
     type="button"

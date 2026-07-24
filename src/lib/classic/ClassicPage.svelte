@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
   import type { Snippet } from 'svelte';
   import { page } from '$app/state';
   import { moduleForPath, subNavItemForPath } from './classic-nav';
@@ -19,12 +18,17 @@
   const activeSubNav = $derived(module ? subNavItemForPath(module, page.url.pathname) : null);
 
   $effect(() => {
-    classicChrome.set(owner, subNav, activeSubNav?.href ?? '', actions);
+    classicChrome.set(owner, subNav, activeSubNav?.href ?? '');
+    return () => classicChrome.clear(owner);
   });
-
-  onDestroy(() => classicChrome.clear(owner));
 </script>
 
 <div class="cl-page">
+  {#if actions}
+    <div class="cl-page__toolbar" aria-label="Page controls">
+      {@render actions()}
+    </div>
+  {/if}
+
   {@render children()}
 </div>

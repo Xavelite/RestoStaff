@@ -312,7 +312,7 @@
 <svelte:head><title>{t('Timesheet')} &middot; restogogo</title></svelte:head>
 
 {#snippet pageActions()}
-  <label class="toggle topbar-toggle">
+  <label class="toggle toolbar-toggle">
     <input type="checkbox" bind:checked={onlyIssues} />
     <span class="cl-action-label">{t('Only rows needing attention')}</span>
   </label>

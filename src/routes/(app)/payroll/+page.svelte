@@ -8,7 +8,7 @@
   import ClassicStat from '$lib/classic/ClassicStat.svelte';
   import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
   import ClassicTeamPage from '$lib/classic/ClassicTeamPage.svelte';
-  import EmployeeEditDialog from '$lib/classic/EmployeeEditDialog.svelte';
+  import EmployeeInlineEditor from '$lib/classic/EmployeeInlineEditor.svelte';
   import { teamDraft } from '$lib/classic/classic-team.svelte';
   import type { EmployeeDraft } from '$lib/team/team-model';
 
@@ -24,6 +24,9 @@
     workspace.team
       ? buildEmployeeColorMap(workspace.team.job_functions, workspace.team.employee_job_functions)
       : new Map<string, string>()
+  );
+  const referenceFunctions = $derived(
+    teamDraft.payrollCatalogue?.referenceFunctions.filter((item) => item.status === 'effective' || item.status === 'verified') ?? []
   );
 
   const TERMS_STATUS: Record<string, { label: string; tone: 'ok' | 'attention' | 'problem' }> = {
@@ -73,32 +76,52 @@
     });
   }
 
-  async function saveEmployee(employee: EmployeeDraft) {
+  function setReferenceFunction(employee: EmployeeDraft, code: string) {
+    const reference = referenceFunctions.find((item) => item.code === code);
+    teamDraft.update(employee.id, {
+      cp302ReferenceFunctionCode: code,
+      cp302Category: reference?.category ?? '',
+      workerStatus: reference?.default_worker_status ?? ''
+    });
+  }
+
+  async function persist(closeEditor = false) {
     const role = workspace.effectiveRole;
-    if (!workspace.activeId || !role) return;
+    if (!workspace.activeId || !role || saving) return;
     saving = true;
     try {
-      teamDraft.update(employee.id, employee);
       await teamDraft.save(workspace.activeId, role);
-      detailId = '';
-      toasts.show(t('Payroll details saved.'), 'success');
+      if (closeEditor) detailId = '';
+      toasts.show(t('Team saved.'), 'success');
     } catch (error) {
       toasts.show(friendlyError(error), 'danger');
     } finally {
       saving = false;
     }
   }
+
+  async function saveEmployee(employee: EmployeeDraft) {
+    teamDraft.update(employee.id, employee);
+    await persist(true);
+  }
 </script>
 
 <svelte:head><title>{t('Payroll')} &middot; restogogo</title></svelte:head>
 
 {#snippet pageActions()}
-  <input class="cl-field topbar-search" type="search" placeholder={t('Search employees')} bind:value={search} />
+  <input class="cl-field toolbar-search" type="search" placeholder={t('Search employees')} bind:value={search} />
   <select class="cl-field" aria-label={t('Group employees')} bind:value={groupBy}>
     <option value="contract">{t('Group by contract')}</option>
     <option value="position">{t('Group by position')}</option>
     <option value="none">{t('No grouping')}</option>
   </select>
+  <span class="toolbar-grow"></span>
+  <button class="cl-btn is-icon" type="button" disabled={saving || !teamDraft.dirty || !workspace.team} title={t('Discard')} aria-label={t('Discard')} onclick={() => workspace.team && teamDraft.reload(workspace.team)}>
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6"/><path d="M4 4v4.6h4.6"/></svg>
+  </button>
+  <button class="cl-btn is-primary is-icon" type="button" disabled={saving || workspace.isPreview || !teamDraft.dirty || teamDraft.supplementaryLoading || Boolean(teamDraft.supplementaryError)} title={t(saving ? 'Saving…' : 'Save')} aria-label={t(saving ? 'Saving…' : 'Save')} onclick={() => persist()}>
+    {#if saving}<span aria-hidden="true">…</span>{:else}<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h12l2 2v14H5z"/><path d="M8 4v6h8V4M8 20v-6h8v6"/></svg>{/if}
+  </button>
 {/snippet}
 
 <ClassicTeamPage actions={pageActions}>
@@ -120,8 +143,8 @@
     </div>
 
     <div class="cl-tablewrap">
-      <table class="cl-table">
-        <thead><tr><th>{t('Name')}</th><th>{t('Payroll ID')}</th><th>{t('Worker status')}</th><th class="is-num">{t('CP 302 category')}</th><th>{t('Salary basis')}</th><th>{t('Terms')}</th><th>{t('Status')}</th><th></th></tr></thead>
+      <table class="cl-table payroll-table">
+        <thead><tr><th>{t('Name')}</th><th>{t('Payroll ID')}</th><th>{t('CP 302 function')}</th><th>{t('Worker status')}</th><th>{t('Salary basis')}</th><th>{t('Rate')}</th><th>{t('Status')}</th><th></th></tr></thead>
         {#if !rows.length}
           <tbody><tr><td colspan="8"><div class="cl-empty"><strong>{t('No active employees')}</strong></div></td></tr></tbody>
         {:else}
@@ -133,31 +156,47 @@
                 {@const terms = TERMS_STATUS[employee.employmentSourceStatus]}
                 <tr class:is-problem={missing.length > 0}>
                   <td><span class="cl-table__name"><span class="cl-avatar" style="--avatar-color:{employeeColor.get(employee.id) ?? 'var(--cl-muted)'}">{personInitials(employee.displayName)}</span>{employee.displayName}</span></td>
-                  <td class="is-quiet">{employee.payrollEmployeeId || '—'}</td>
+                  <td><input class="cl-field payrollid" value={employee.payrollEmployeeId} disabled={!team.owner || !team.editable} oninput={(event) => teamDraft.update(employee.id, { payrollEmployeeId: event.currentTarget.value })} /></td>
+                  <td>
+                    <select class="cl-field functionfield" value={employee.cp302ReferenceFunctionCode} disabled={!team.owner || !team.editable || teamDraft.supplementaryLoading} onchange={(event) => setReferenceFunction(employee, event.currentTarget.value)}>
+                      <option value="">{t('Not set')}</option>
+                      {#each referenceFunctions as item (item.id)}<option value={item.code}>{item.code} · {item.name_en || item.name_fr || item.name_nl}</option>{/each}
+                    </select>
+                  </td>
                   <td class="is-quiet">{employee.workerStatus ? t(employee.workerStatus === 'blue_collar' ? 'Blue-collar worker' : 'White-collar employee') : '—'}</td>
-                  <td class="is-num">{employee.cp302Category || '—'}</td>
-                  <td class="is-quiet">{employee.salaryBasis ? t(employee.salaryBasis === 'monthly' ? 'Monthly' : 'Hourly') : '—'}</td>
-                  <td class="is-quiet">{t(terms?.label ?? employee.employmentSourceStatus)}</td>
+                  <td><select class="cl-field basisfield" value={employee.salaryBasis} disabled={!team.owner || !team.editable} onchange={(event) => teamDraft.update(employee.id, { salaryBasis: event.currentTarget.value as EmployeeDraft['salaryBasis'] })}><option value="">{t('Not set')}</option><option value="hourly">{t('Hourly')}</option><option value="monthly">{t('Monthly')}</option></select></td>
+                  <td>
+                    {#if employee.salaryBasis === 'monthly'}
+                      <input class="cl-field ratefield" inputmode="decimal" value={employee.contractualMonthlySalary} disabled={!team.owner || !team.editable} oninput={(event) => teamDraft.update(employee.id, { contractualMonthlySalary: event.currentTarget.value })} />
+                    {:else}
+                      <input class="cl-field ratefield" inputmode="decimal" value={employee.contractualHourlyRate} disabled={!team.owner || !team.editable} oninput={(event) => teamDraft.update(employee.id, { contractualHourlyRate: event.currentTarget.value })} />
+                    {/if}
+                  </td>
                   <td>
                     {#if missing.length}
                       <ClassicStatus label={missing.length === 1 ? '1 detail missing' : '{count} details missing'} params={{ count: missing.length }} tone="problem" />
                       <span class="missing">{missing.map((item) => t(item)).join(', ')}</span>
-                    {:else}<ClassicStatus label="Ready for payroll" tone="ok" />{/if}
+                    {:else}<ClassicStatus label={terms?.label ?? 'Ready for payroll'} tone={terms?.tone ?? 'ok'} />{/if}
                   </td>
-                  <td class="is-num"><button class="cl-btn edit" type="button" disabled={!team.owner || !team.editable || teamDraft.supplementaryLoading} onclick={() => (detailId = employee.id)}>{t('Edit')}</button></td>
+                  <td class="is-num"><button class="cl-btn edit" type="button" disabled={!team.owner || !team.editable || teamDraft.supplementaryLoading} aria-expanded={detailId === employee.id} onclick={() => (detailId = detailId === employee.id ? '' : employee.id)}>{t(detailId === employee.id ? 'Close' : 'More')}</button></td>
                 </tr>
+                {#if detailId === employee.id}
+                  <tr class="cl-editor-row"><td colspan="8"><EmployeeInlineEditor employeeId={employee.id} mode="payroll" {saving} onclose={() => (detailId = '')} onsave={saveEmployee} /></td></tr>
+                {/if}
               {/each}
             </tbody>
           {/each}
         {/if}
       </table>
     </div>
-
-    <EmployeeEditDialog open={Boolean(detailId)} employeeId={detailId} mode="payroll" {saving} onclose={() => (detailId = '')} onsave={saveEmployee} />
   {/snippet}
 </ClassicTeamPage>
 
 <style>
-  .missing { display: block; color: var(--cl-muted); font-size: 13px; }
+  .missing { display: block; color: var(--cl-muted); font-size: 12px; }
   .edit { min-height: 30px; padding: 4px 10px; font-size: 13px; }
+  .payrollid { min-width: 120px; height: 34px; }
+  .functionfield { min-width: 210px; max-width: 280px; height: 34px; }
+  .basisfield { min-width: 108px; height: 34px; }
+  .ratefield { width: 105px; height: 34px; }
 </style>

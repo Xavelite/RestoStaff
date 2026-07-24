@@ -1,6 +1,4 @@
 <script lang="ts">
-  import Dialog from '$lib/components/Dialog.svelte';
-  import ActionButton from '$lib/components/ActionButton.svelte';
   import { addDays, WEEKDAYS } from '$lib/calendar/date';
   import { friendlyError } from '$lib/api/error-messages';
   import { t } from '$lib/i18n/i18n.svelte';
@@ -14,14 +12,12 @@
   type Mode = 'people' | 'contract' | 'payroll';
 
   let {
-    open,
     employeeId,
     mode,
     saving = false,
     onclose,
     onsave
   }: {
-    open: boolean;
     employeeId: string;
     mode: Mode;
     saving?: boolean;
@@ -55,8 +51,8 @@
   const today = new Date().toISOString().slice(0, 10);
 
   $effect(() => {
-    const key = `${open}:${employeeId}:${mode}`;
-    if (!open || !employeeId || key === loadedKey) return;
+    const key = `${employeeId}:${mode}`;
+    if (!employeeId || key === loadedKey) return;
     const employee = teamDraft.employees.find((item) => item.id === employeeId);
     form = employee
       ? {
@@ -69,9 +65,16 @@
     loadedKey = key;
   });
 
-  $effect(() => {
-    if (!open) loadedKey = '';
-  });
+
+  function selectContractType(id: string) {
+    if (!form) return;
+    form.contractTypeId = id;
+    const code = contractTypes.find((item) => item.id === id)?.code ?? '';
+    if (code === 'CDI') {
+      form.contractEnd = '';
+      form.employmentValidTo = '';
+    }
+  }
 
   function togglePosition(id: string, enabled: boolean) {
     if (!form) return;
@@ -161,23 +164,17 @@
   );
 </script>
 
-{#snippet footer()}
-  {#if mode === 'payroll' && savedEmployee}
-    <ActionButton label={t('Validate setup')} disabled={saving || !currentEmploymentTerms} onclick={validateEmployment} />
-  {/if}
-  <ActionButton label={t('Cancel')} disabled={saving} onclick={onclose} />
-  <ActionButton label={saving ? t('Saving…') : t('Save')} tone="primary" disabled={saving || !form} onclick={commit} />
-{/snippet}
+<section class="employee-editor" aria-label={t(title)}>
+    <header class="employee-editor__head">
+      <div>
+        <h2>{t(title)}</h2>
+        {#if form?.displayName}<p>{form.displayName}</p>{/if}
+      </div>
+      <button class="cl-btn is-icon" type="button" aria-label={t('Close')} onclick={onclose}>×</button>
+    </header>
 
-<Dialog
-  {open}
-  {title}
-  description={form?.displayName || ''}
-  size="large"
-  {onclose}
-  {footer}
->
-  {#if form}
+    {#if form}
+      <div class="employee-editor__body">
     {#if mode === 'people'}
       <div class="cl-formgrid">
         <div class="cl-form-section">{t('Identity')}</div>
@@ -232,7 +229,7 @@
         <div class="cl-form-section">{t('Contract')}</div>
         <label class="cl-label">
           <span>{t('Employment type')}</span>
-          <select class="cl-field" bind:value={form.contractTypeId}>
+          <select class="cl-field" value={form.contractTypeId} onchange={(event) => selectContractType(event.currentTarget.value)}>
             <option value="">{t('Not set')}</option>
             {#each contractTypes as item (item.id)}<option value={item.id}>{item.name}</option>{/each}
           </select>
@@ -280,7 +277,7 @@
 
         {#if owner && savedEmployee}
           <div class="contract-actions is-wide">
-            <ActionButton label={t('Start contract renewal')} onclick={startContractRenewal} />
+            <button class="cl-btn" type="button" onclick={startContractRenewal}>{t('Start contract renewal')}</button>
             <small>{t('Create a new contract version without rewriting the employee history.')}</small>
           </div>
         {/if}
@@ -348,10 +345,50 @@
         </div>
       {/if}
     {/if}
-  {/if}
-</Dialog>
+      </div>
+      <footer class="employee-editor__footer">
+        {#if mode === 'payroll' && savedEmployee}
+          <button class="cl-btn" type="button" disabled={saving || !currentEmploymentTerms} onclick={validateEmployment}>{t('Validate setup')}</button>
+        {/if}
+        <span class="employee-editor__spacer"></span>
+        <button class="cl-btn" type="button" disabled={saving} onclick={onclose}>{t('Cancel')}</button>
+        <button class="cl-btn is-primary" type="button" disabled={saving || !form} onclick={commit}>{saving ? t('Saving…') : t('Save')}</button>
+      </footer>
+    {/if}
+</section>
 
 <style>
+  .employee-editor {
+    display: grid;
+    gap: 0;
+    border: 1px solid var(--cl-line-strong);
+    border-radius: var(--cl-radius);
+    background: var(--cl-surface);
+  }
+  .employee-editor__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--cl-line);
+    background: var(--cl-surface-muted);
+  }
+  .employee-editor__head h2,
+  .employee-editor__head p { margin: 0; }
+  .employee-editor__head h2 { font-size: 15px; }
+  .employee-editor__head p { margin-top: 3px; color: var(--cl-muted); font-size: 12px; }
+  .employee-editor__head .cl-btn { font-size: 20px; }
+  .employee-editor__body { padding: 14px; }
+  .employee-editor__footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--cl-line);
+    background: var(--cl-surface-muted);
+  }
+  .employee-editor__spacer { margin-left: auto; }
   .status-toggle {
     min-height: 2.5rem;
     display: inline-flex;
