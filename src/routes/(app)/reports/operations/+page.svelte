@@ -21,7 +21,7 @@
 
 <svelte:head><title>{t('Operations')} &middot; restogogo</title></svelte:head>
 
-<ClassicReportsPage subtitle="Operations">
+<ClassicReportsPage>
   {#snippet children(view)}
     <section class="cl-section">
       <h2 class="cl-section__title">{t('By area')}</h2>

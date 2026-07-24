@@ -61,7 +61,7 @@
 
 <svelte:head><title>{t('Absences')} &middot; restogogo</title></svelte:head>
 
-<ClassicTeamPage subtitle="Absences">
+<ClassicTeamPage>
   {#snippet children(teamContext)}
     {@const today = new Date().toISOString().slice(0, 10)}
     {@const employeeName = new Map(teamContext.employees.map((employee) => [employee.id, employee.displayName]))}

@@ -7,7 +7,7 @@
 
 <svelte:head><title>{t('Hours')} &middot; restogogo</title></svelte:head>
 
-<ClassicRestaurantPage subtitle="Hours">
+<ClassicRestaurantPage>
   {#snippet children(draft)}
     <p class="cl-section__note">
       {t('Opening hours drive the default shift times and decide which services need coverage.')}

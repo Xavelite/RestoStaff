@@ -108,7 +108,7 @@ test('there is exactly one app shell, and it owns no account logic of its own', 
 });
 
 test('tenant logos reach both badge terminal entry points and reject SVG uploads', async () => {
-  const manager = await readFile('src/routes/(app)/badge-terminal/+page.svelte', 'utf8');
+  const manager = await readFile('src/routes/(app)/badge-terminal/terminal/+page.svelte', 'utf8');
   const station = await readFile('src/routes/station/+page.svelte', 'utf8');
   const stationApi = await readFile('src/lib/station/station-api.ts', 'utf8');
   const logoApi = await readFile('src/lib/restaurant/logo-api.ts', 'utf8');

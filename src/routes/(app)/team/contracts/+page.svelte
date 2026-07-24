@@ -36,7 +36,7 @@
 
 <svelte:head><title>{t('Contracts')} &middot; restogogo</title></svelte:head>
 
-<ClassicTeamPage subtitle="Contracts">
+<ClassicTeamPage>
   {#snippet children(team)}
     {@const rows = team.employees.filter((employee) => employee.active)}
     {@const incomplete = rows.filter((employee) => gaps(employee).length).length}

@@ -29,7 +29,7 @@
 
 <svelte:head><title>{t('Absence types')} &middot; restogogo</title></svelte:head>
 
-<ClassicPage title="Restaurant" subtitle="Absence types">
+<ClassicPage>
   <p class="cl-section__note">
     {t('The leave types employees can choose from when they request time off.')}
   </p>

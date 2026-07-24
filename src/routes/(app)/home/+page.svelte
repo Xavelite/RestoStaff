@@ -4,8 +4,6 @@
   import { workspace } from '$lib/workspace/workspace.svelte';
   import ClassicIcon from '$lib/classic/ClassicIcon.svelte';
   import ClassicPage from '$lib/classic/ClassicPage.svelte';
-  import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
-  import { buildClassicTodayRows } from '$lib/classic/classic-home';
   import { modulesForRole } from '$lib/classic/classic-nav';
 
   const snapshot = $derived(workspace.operations);
@@ -29,8 +27,8 @@
     }
   });
 
-  // Home is the entry point, not the workbench: the tiles are the product and
-  // the table below is the short list of things that need a decision today.
+  // Home is the entry point, not the workbench: the module tiles are the whole
+  // page. Anything that needs a decision is surfaced by its own module.
   const tiles = $derived(modulesForRole(role).filter((module) => module.key !== 'home'));
 
   // Each module has a soft identity colour, used only here on the tile icon —
@@ -45,15 +43,11 @@
     'badge-terminal': 'var(--cl-mod-badge)',
     reports: 'var(--cl-mod-reports)'
   };
-  const todayRows = $derived(
-    snapshot && role ? buildClassicTodayRows(snapshot, role, currentInstant) : []
-  );
-  const openCount = $derived(todayRows.filter((row) => row.tone !== 'ok').length);
 </script>
 
 <svelte:head><title>{t('Home')} &middot; restogogo</title></svelte:head>
 
-<ClassicPage title="Home" subtitle="Your modules and what needs attention today">
+<ClassicPage>
   <section class="cl-section" aria-label={t('Modules')}>
     <div class="tiles">
       {#each tiles as module (module.key)}
@@ -69,57 +63,6 @@
     </div>
   </section>
 
-  <section class="cl-section" aria-label={t('Today')}>
-    <div class="sectionhead">
-      <h2 class="cl-section__title">{t('Today')}</h2>
-      <p class="cl-section__note">
-        {openCount === 1
-          ? t('1 item needs attention')
-          : t('{count} items need attention', { count: openCount })}
-      </p>
-    </div>
-
-    <div class="cl-tablewrap">
-      <table class="cl-table">
-        <thead>
-          <tr>
-            <th>{t('Item')}</th>
-            <th class="is-num">{t('Count')}</th>
-            <th>{t('Status')}</th>
-            <th><span class="sr-only">{t('Open')}</span></th>
-          </tr>
-        </thead>
-        <tbody>
-          {#if !todayRows.length}
-            <tr>
-              <td colspan="4">
-                <div class="cl-empty">
-                  <strong>{t('Nothing to review')}</strong>
-                  <span>{t('This list fills in as the week runs.')}</span>
-                </div>
-              </td>
-            </tr>
-          {:else}
-            {#each todayRows as row (row.key)}
-              <tr class:is-attention={row.tone === 'attention'} class:is-problem={row.tone === 'problem'}>
-                <td>
-                  <a class="cl-table__link" href={row.href}>{t(row.label)}</a>
-                  <span class="rowmeta">{t(row.meta)}</span>
-                </td>
-                <td class="is-num">{row.countable ? row.count : '—'}</td>
-                <td><ClassicStatus label={row.status} tone={row.tone} /></td>
-                <td class="is-num">
-                  <a class="rowgo" href={row.href} aria-label={t(row.label)}>
-                    <svg class="cl-table__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
-                  </a>
-                </td>
-              </tr>
-            {/each}
-          {/if}
-        </tbody>
-      </table>
-    </div>
-  </section>
 </ClassicPage>
 
 <style>
@@ -205,28 +148,5 @@
     background: var(--cl-surface-muted);
     font-size: 11px;
     font-weight: var(--rst-fw-bold);
-  }
-  .sectionhead {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 16px;
-  }
-  .rowmeta {
-    display: block;
-    color: var(--cl-muted);
-    font-size: 13px;
-  }
-  .rowgo {
-    display: inline-flex;
-    color: var(--cl-muted);
-  }
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
   }
 </style>

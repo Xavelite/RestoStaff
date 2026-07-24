@@ -73,7 +73,7 @@
 
 <svelte:head><title>{t('Live monitor')} &middot; restogogo</title></svelte:head>
 
-<ClassicPage title="Time & attendance" subtitle="Live monitor">
+<ClassicPage>
   <p class="daynote">{weekdayDateLabel(today, i18n.intlLocale)}</p>
 
   <div class="cl-stats">

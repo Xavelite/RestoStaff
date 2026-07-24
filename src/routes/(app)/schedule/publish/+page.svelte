@@ -55,7 +55,7 @@
 
 <svelte:head><title>{t('Publish')} &middot; restogogo</title></svelte:head>
 
-<ClassicPage title="Schedule" subtitle="Publish">
+<ClassicPage>
   <ClassicScheduleWeek>
     {#snippet children(week)}
       {@const gaps = snapshot ? coverageIssues(snapshot, scheduleDraft.shifts, week.weekStart) : []}

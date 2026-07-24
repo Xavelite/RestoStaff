@@ -34,7 +34,8 @@
   function addEmployee() {
     const draft = newEmployeeDraft(crypto.randomUUID());
     draft.displayName = '';
-    teamDraft.employees = [...teamDraft.employees, draft];
+    // New rows land on top, matching Add area and Add position.
+    teamDraft.employees = [draft, ...teamDraft.employees];
     freshId = draft.id;
     scope = 'active';
     search = '';
@@ -124,12 +125,16 @@
 <svelte:head><title>{t('Team')} &middot; restogogo</title></svelte:head>
 
 {#snippet pageActions()}
+  <button class="cl-btn" type="button" disabled={workspace.isPreview} onclick={addEmployee}>
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+    {t('Add employee')}
+  </button>
   <button class="cl-btn is-primary" type="button" disabled={saving || workspace.isPreview} onclick={save}>
     {saving ? t('Saving…') : t('Save')}
   </button>
 {/snippet}
 
-<ClassicTeamPage subtitle="People" actions={pageActions}>
+<ClassicTeamPage actions={pageActions}>
   {#snippet children(team)}
     {@const rows = team.employees.filter(matches)}
 
@@ -142,10 +147,6 @@
       </select>
       <span class="cl-toolbar__grow"></span>
       <span class="count">{t('{count} people', { count: rows.length })}</span>
-      <button class="cl-btn" type="button" disabled={workspace.isPreview} onclick={addEmployee}>
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-        {t('Add employee')}
-      </button>
     </div>
 
     <div class="cl-tablewrap">

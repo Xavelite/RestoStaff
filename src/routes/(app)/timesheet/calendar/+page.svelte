@@ -79,7 +79,7 @@
 
 <svelte:head><title>{t('Calendar')} &middot; restogogo</title></svelte:head>
 
-<ClassicPage title="Time & attendance" subtitle="Calendar">
+<ClassicPage>
   <div class="cl-toolbar">
     <ClassicPeriodNav
       label={monthLabel(activeMonth, i18n.intlLocale)}

@@ -29,7 +29,7 @@
 
 <svelte:head><title>{t('Reports')} &middot; restogogo</title></svelte:head>
 
-<ClassicReportsPage subtitle="Overview">
+<ClassicReportsPage>
   {#snippet children(view)}
     <div class="cl-stats">
       <ClassicStat label="Planned hours" value={view.current.planned} format={formatHours} accent="var(--cl-info)" mutedZero={false} />

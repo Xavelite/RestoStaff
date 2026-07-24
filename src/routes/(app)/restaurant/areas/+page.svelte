@@ -6,8 +6,8 @@
   function addArea() {
     const draft = restaurantConfig.draft;
     if (!draft) return;
+    // New rows land on top, so what you just added is the first thing you see.
     draft.areas = [
-      ...draft.areas,
       {
         id: crypto.randomUUID(),
         name: '',
@@ -18,7 +18,8 @@
         lunchEnd: '',
         eveningStart: '',
         eveningEnd: ''
-      }
+      },
+      ...draft.areas
     ];
     restaurantConfig.touch();
   }
@@ -26,15 +27,18 @@
 
 <svelte:head><title>{t('Areas')} &middot; restogogo</title></svelte:head>
 
-<ClassicRestaurantPage subtitle="Areas">
+{#snippet pageActions()}
+  <button class="cl-btn" type="button" onclick={addArea}>
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+    {t('Add area')}
+  </button>
+{/snippet}
+
+<ClassicRestaurantPage actions={pageActions}>
   {#snippet children(draft)}
-    <div class="cl-toolbar">
-      <p class="cl-section__note">
-        {t('Areas are the parts of the house a shift belongs to. Coverage is counted per area.')}
-      </p>
-      <span class="cl-toolbar__grow"></span>
-      <button class="cl-btn" type="button" onclick={addArea}>{t('Add area')}</button>
-    </div>
+    <p class="cl-section__note">
+      {t('Areas are the parts of the house a shift belongs to. Coverage is counted per area.')}
+    </p>
 
     <div class="cl-tablewrap">
       <table class="cl-table">

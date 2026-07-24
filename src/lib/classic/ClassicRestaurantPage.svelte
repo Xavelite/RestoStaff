@@ -14,10 +14,11 @@
    * pair so every page saves the same way.
    */
   let {
-    subtitle,
+    actions,
     children
   }: {
-    subtitle: string;
+    /** Page-specific actions (Add area, Add position…) shown before Save. */
+    actions?: Snippet;
     children: Snippet<[RestaurantDraft]>;
   } = $props();
 
@@ -48,13 +49,14 @@
   }
 </script>
 
-{#snippet actions()}
+{#snippet pageActions()}
+  {#if actions}{@render actions()}{/if}
   <button
     class="cl-btn"
     type="button"
     disabled={saving || !restaurantConfig.dirty}
     onclick={() => snapshot && restaurantConfig.reload(snapshot)}
-  >{t('Discard changes')}</button>
+  >{t('Discard')}</button>
   <button
     class="cl-btn is-primary"
     type="button"
@@ -63,7 +65,7 @@
   >{t(saving ? 'Saving…' : 'Save')}</button>
 {/snippet}
 
-<ClassicPage title="Restaurant" {subtitle} {actions}>
+<ClassicPage actions={pageActions}>
   {#if restaurantConfig.draft}
     {@render children(restaurantConfig.draft)}
   {:else}

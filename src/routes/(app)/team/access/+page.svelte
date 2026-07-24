@@ -80,7 +80,7 @@
 
 <svelte:head><title>{t('Access')} &middot; restogogo</title></svelte:head>
 
-<ClassicTeamPage subtitle="Access">
+<ClassicTeamPage>
   {#snippet children(team)}
     {@const rows = team.employees.filter((employee) => employee.active)}
 

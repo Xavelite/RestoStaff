@@ -102,8 +102,8 @@ const CLASSIC_MODULES: ClassicModule[] = [
       { href: '/restaurant/hours', label: 'Hours' },
       { href: '/restaurant/areas', label: 'Areas' },
       { href: '/restaurant/positions', label: 'Positions' },
-      { href: '/restaurant/absence-types', label: 'Absence types' },
-      { href: '/restaurant/devices', label: 'Badge devices' }
+      { href: '/restaurant/coverage', label: 'Coverage' },
+      { href: '/restaurant/absence-types', label: 'Absence types' }
     ]
   },
   {
@@ -119,23 +119,17 @@ const CLASSIC_MODULES: ClassicModule[] = [
     key: 'payroll',
     href: '/payroll',
     label: 'Payroll',
-    summary: 'Employment terms, labour cost and exports',
+    summary: 'Employment terms per employee',
     icon: 'payroll',
-    roles: OWNER,
-    subNav: [
-      { href: '/payroll', label: 'Employment terms' },
-      { href: '/payroll/costs', label: 'Costs' },
-      { href: '/payroll/exports', label: 'Exports' }
-    ]
+    roles: OWNER
   },
   {
     key: 'badge-terminal',
     href: '/badge-terminal',
     label: 'Badge terminal',
-    summary: 'Clock in and out on a shared device',
+    summary: 'Paired devices and the clock-in terminal',
     icon: 'badge',
-    roles: MANAGER,
-    fullscreen: true
+    roles: MANAGER
   },
   {
     key: 'reports',

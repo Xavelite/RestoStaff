@@ -12,14 +12,9 @@
    * name-sorted list plus the lookups all four tables need.
    */
   let {
-    title = 'Team',
-    subtitle,
     actions,
     children
   }: {
-    /** Payroll's Employment terms page reads the same roster under its own name. */
-    title?: string;
-    subtitle: string;
     actions?: Snippet;
     children: Snippet<[ClassicTeamContext]>;
   } = $props();
@@ -44,8 +39,11 @@
   });
 
   const context = $derived<ClassicTeamContext>({
+    // A row you just added has no name yet and stays pinned to the top until
+    // it does; everything else sorts active-first, then alphabetically.
     employees: [...teamDraft.employees].sort(
       (left, right) =>
+        Number(Boolean(right.displayName.trim())) - Number(Boolean(left.displayName.trim())) ||
         Number(right.active) - Number(left.active) ||
         left.displayName.localeCompare(right.displayName)
     ),
@@ -57,7 +55,7 @@
   });
 </script>
 
-<ClassicPage {title} {subtitle} {actions}>
+<ClassicPage {actions}>
   {#if team}
     {@render children(context)}
   {:else}

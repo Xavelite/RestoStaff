@@ -85,7 +85,7 @@
   function launchKiosk() {
     open = false;
     kiosk.lock();
-    void goto('/badge-terminal');
+    void goto('/badge-terminal/terminal');
   }
 
   async function savePin() {

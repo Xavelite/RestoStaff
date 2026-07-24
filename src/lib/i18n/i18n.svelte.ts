@@ -2882,6 +2882,13 @@ Object.assign(french, {
   Collapse: 'Réduire',
   Discard: 'Annuler',
   'Add shift': 'Ajouter un service',
+  'Open terminal': 'Ouvrir la pointeuse',
+  'Add requirement': 'Ajouter un besoin',
+  Default: 'Par défaut',
+  'How many people each area needs per service. Set a default, then override only the days that differ.':
+    'Combien de personnes chaque zone requiert par service. Définissez une valeur par défaut, puis ajustez uniquement les jours différents.',
+  'A blank day follows the default. Type a number to override just that day.':
+    'Un jour vide suit la valeur par défaut. Saisissez un nombre pour ce jour uniquement.',
   'Collapse menu': 'Réduire le menu',
   'Expand menu': 'Développer le menu',
   '1 person added to the team.': "1 personne ajoutée à l'équipe.",
@@ -3181,6 +3188,13 @@ Object.assign(dutch, {
   Collapse: 'Inklappen',
   Discard: 'Verwerpen',
   'Add shift': 'Dienst toevoegen',
+  'Open terminal': 'Terminal openen',
+  'Add requirement': 'Vereiste toevoegen',
+  Default: 'Standaard',
+  'How many people each area needs per service. Set a default, then override only the days that differ.':
+    'Hoeveel mensen elke zone per dienst nodig heeft. Stel een standaard in en pas alleen de afwijkende dagen aan.',
+  'A blank day follows the default. Type a number to override just that day.':
+    'Een lege dag volgt de standaard. Typ een getal om alleen die dag te overschrijven.',
   'Collapse menu': 'Menu inklappen',
   'Expand menu': 'Menu uitklappen',
   '1 person added to the team.': '1 persoon toegevoegd aan het team.',

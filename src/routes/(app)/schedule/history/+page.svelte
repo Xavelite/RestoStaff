@@ -19,7 +19,7 @@
 
 <svelte:head><title>{t('History')} &middot; restogogo</title></svelte:head>
 
-<ClassicPage title="Schedule" subtitle="History">
+<ClassicPage>
   <ClassicScheduleWeek>
     {#snippet children(week)}
       {@const items = workWeekHistoryItems(

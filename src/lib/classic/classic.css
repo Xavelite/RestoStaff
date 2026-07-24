@@ -217,13 +217,21 @@
   margin-left: auto;
 }
 
+/* Pinned to the viewport and scrolling on its own, so the collapse toggle at
+   its foot is always reachable — you never scroll the page to get at it. */
 .cl-sidebar {
   grid-area: sidebar;
+  position: sticky;
+  top: var(--cl-topbar);
+  align-self: start;
+  height: calc(100dvh - var(--cl-topbar));
   display: flex;
   flex-direction: column;
   padding: 12px 0;
   border-right: 1px solid var(--cl-line);
   background: var(--cl-surface);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .cl-sidebar__nav {
@@ -357,35 +365,31 @@
   to { opacity: 1; transform: none; }
 }
 
+/* The title lives in the topbar, so a page opens with its tabs on the left and
+   its actions on the right of one row. */
 .cl-page__head {
-  display: grid;
-  gap: 4px;
-}
-
-.cl-page__titlerow {
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
 }
 
-.cl-page__title {
+/* The page title, rendered in the topbar. */
+.cl-pagetitle {
   margin: 0;
-  font-size: 28px;
+  font-size: 19px;
   font-weight: var(--rst-fw-display);
   letter-spacing: -0.01em;
-}
-
-.cl-page__subtitle {
-  margin: 0;
-  color: var(--cl-muted);
-  font-size: 14px;
+  color: var(--cl-ink);
+  white-space: nowrap;
 }
 
 .cl-page__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  padding-bottom: 6px;
 }
 
 .cl-tabs {
@@ -905,12 +909,8 @@
 }
 
 @media (max-width: 760px) {
-  .cl-page__title {
-    font-size: 24px;
-  }
-
-  .cl-page__titlerow {
-    flex-direction: column;
+  .cl-pagetitle {
+    font-size: 17px;
   }
 
   .cl-stat {

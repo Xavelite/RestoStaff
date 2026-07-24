@@ -323,7 +323,7 @@
   {/if}
 {/snippet}
 
-<ClassicPage title="Time & attendance" subtitle="Timesheet" actions={pageActions}>
+<ClassicPage actions={pageActions}>
   <div class="weekbar">
     <ClassicPeriodNav
       label={weekLabel(activeWeek, i18n.intlLocale)}

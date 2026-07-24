@@ -37,7 +37,7 @@
 
 <!-- Employment terms are per employee, so this reads the same roster the Team
      module edits rather than loading a second copy. -->
-<ClassicTeamPage title="Payroll" subtitle="Employment terms">
+<ClassicTeamPage>
   {#snippet children(team)}
     {@const rows = team.employees.filter((employee) => employee.active)}
     {@const blocked = rows.filter((employee) => payrollGaps(employee).length).length}

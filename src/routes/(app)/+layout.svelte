@@ -51,9 +51,12 @@
 
   const modules = $derived(modulesForRole(workspace.effectiveRole));
   const activeModule = $derived(moduleForPath(page.url.pathname));
-  // The badge terminal fills the screen: no sidebar, no tabs, nothing to
-  // wander into while a shared device is on the pass.
-  const fullscreen = $derived(Boolean(activeModule?.fullscreen) || kiosk.locked);
+  // Only the terminal screen itself fills the screen — no sidebar, nothing to
+  // wander into while a shared device is on the pass. Its module page, which
+  // lists the paired devices, is an ordinary page.
+  const fullscreen = $derived(
+    page.url.pathname === '/badge-terminal/terminal' || kiosk.locked
+  );
 
   // The palette is scoped under [data-design='classic'] so that dialogs and
   // toasts, which portal to <body>, inherit it too.
@@ -75,8 +78,8 @@
   });
 
   $effect(() => {
-    if (kiosk.locked && page.url.pathname !== '/badge-terminal') {
-      goto('/badge-terminal', { replaceState: true });
+    if (kiosk.locked && page.url.pathname !== '/badge-terminal/terminal') {
+      goto('/badge-terminal/terminal', { replaceState: true });
     }
   });
 
@@ -147,8 +150,8 @@
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
         </button>
 
-        {#if workspace.active}
-          <span class="cl-workspace">{workspace.active.restaurant_name}</span>
+        {#if activeModule}
+          <h1 class="cl-pagetitle">{t(activeModule.label)}</h1>
         {/if}
 
         <span class="cl-topbar__spacer"></span>
@@ -258,11 +261,6 @@
   .cl-fullscreen {
     min-height: 100vh;
     background: var(--rst-ui-bg);
-  }
-  .cl-workspace {
-    color: var(--cl-muted);
-    font-size: 14px;
-    font-weight: var(--rst-fw-medium);
   }
   .cl-menu-toggle {
     display: none;

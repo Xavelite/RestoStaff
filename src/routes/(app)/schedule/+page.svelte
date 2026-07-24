@@ -124,7 +124,7 @@
 
 <svelte:head><title>{t('Schedule')} &middot; restogogo</title></svelte:head>
 
-<ClassicPage title="Schedule" subtitle="Planning">
+<ClassicPage>
   <ClassicScheduleWeek>
     {#snippet actions(week)}
       <button

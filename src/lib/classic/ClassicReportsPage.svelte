@@ -20,10 +20,8 @@
    * render its own table of the resulting view.
    */
   let {
-    subtitle,
     children
   }: {
-    subtitle: string;
     children: Snippet<[InsightView]>;
   } = $props();
 
@@ -85,7 +83,7 @@
   ];
 </script>
 
-<ClassicPage title="Reports" {subtitle}>
+<ClassicPage>
   <div class="cl-toolbar">
     <label class="cl-label period">
       <span>{t('Period')}</span>

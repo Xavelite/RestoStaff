@@ -16,9 +16,10 @@
   function addPosition() {
     const draft = restaurantConfig.draft;
     if (!draft) return;
+    // New rows land on top, so what you just added is the first thing you see.
     draft.jobFunctions = [
-      ...draft.jobFunctions,
-      { id: crypto.randomUUID(), name: '', code: '', active: true, estimatedHourlyCost: 0 }
+      { id: crypto.randomUUID(), name: '', code: '', active: true, estimatedHourlyCost: 0 },
+      ...draft.jobFunctions
     ];
     restaurantConfig.touch();
   }
@@ -26,15 +27,18 @@
 
 <svelte:head><title>{t('Positions')} &middot; restogogo</title></svelte:head>
 
-<ClassicRestaurantPage subtitle="Positions">
+{#snippet pageActions()}
+  <button class="cl-btn" type="button" onclick={addPosition}>
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+    {t('Add position')}
+  </button>
+{/snippet}
+
+<ClassicRestaurantPage actions={pageActions}>
   {#snippet children(draft)}
-    <div class="cl-toolbar">
-      <p class="cl-section__note">
-        {t('A position is the job someone does on a shift. Coverage requirements are set per position.')}
-      </p>
-      <span class="cl-toolbar__grow"></span>
-      <button class="cl-btn" type="button" onclick={addPosition}>{t('Add position')}</button>
-    </div>
+    <p class="cl-section__note">
+      {t('A position is the job someone does on a shift. Coverage requirements are set per position.')}
+    </p>
 
     <div class="cl-tablewrap">
       <table class="cl-table">
@@ -85,65 +89,11 @@
         </tbody>
       </table>
     </div>
-
-    <section class="cl-section">
-      <h2 class="cl-section__title">{t('Coverage requirements')}</h2>
-      <p class="cl-section__note">
-        {t('How many people each area needs per service. Gaps against these show on Schedule → Coverage.')}
-      </p>
-      <div class="cl-tablewrap">
-        <table class="cl-table">
-          <thead>
-            <tr>
-              <th>{t('Area')}</th>
-              <th>{t('Position')}</th>
-              <th>{t('Service')}</th>
-              <th class="is-num">{t('Required')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#if !draft.coverage.length}
-              <tr>
-                <td colspan="4">
-                  <div class="cl-empty">
-                    <strong>{t('No coverage requirements set')}</strong>
-                    <span>{t('Without requirements, coverage is never reported as short.')}</span>
-                  </div>
-                </td>
-              </tr>
-            {:else}
-              {#each draft.coverage as requirement (requirement.id)}
-                <tr>
-                  <td class="is-quiet">
-                    {draft.areas.find((area) => area.id === requirement.areaId)?.name ?? '—'}
-                  </td>
-                  <td class="is-quiet">
-                    {draft.jobFunctions.find((job) => job.id === requirement.jobFunctionId)?.name ?? '—'}
-                  </td>
-                  <td class="is-quiet">{t(requirement.serviceKey === 'evening' ? 'Evening' : 'Lunch')}</td>
-                  <td class="is-num">
-                    <input
-                      class="cl-field count"
-                      type="number"
-                      min="0"
-                      step="1"
-                      bind:value={requirement.requiredCount}
-                      oninput={() => restaurantConfig.touch()}
-                    />
-                  </td>
-                </tr>
-              {/each}
-            {/if}
-          </tbody>
-        </table>
-      </div>
-    </section>
   {/snippet}
 </ClassicRestaurantPage>
 
 <style>
-  .cost,
-  .count {
+  .cost {
     width: 120px;
     text-align: right;
   }

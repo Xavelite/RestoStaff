@@ -21,7 +21,7 @@
 
 <svelte:head><title>{t('People')} &middot; restogogo</title></svelte:head>
 
-<ClassicReportsPage subtitle="People">
+<ClassicReportsPage>
   {#snippet children(view)}
     {@const rows = [...view.employees].sort((left, right) => right.worked - left.worked)}
 

@@ -6,7 +6,7 @@
 
 <svelte:head><title>{t('Restaurant')} &middot; restogogo</title></svelte:head>
 
-<ClassicRestaurantPage subtitle="Identity">
+<ClassicRestaurantPage>
   {#snippet children(draft)}
     <section class="cl-card">
       <div class="cl-card__head"><h2>{t('Legal identity')}</h2></div>
