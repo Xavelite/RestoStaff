@@ -24,6 +24,7 @@
     jobName: Map<string, string>;
     contractName: Map<string, string>;
     editable: boolean;
+    owner: boolean;
   };
 
   const team = $derived(workspace.team);
@@ -35,7 +36,10 @@
   });
 
   $effect(() => {
-    if (team) teamDraft.sync(team);
+    const role = workspace.effectiveRole;
+    if (team && workspace.activeId && role && role !== 'employee') {
+      void teamDraft.prepare(team, workspace.activeId, role).catch(() => undefined);
+    }
   });
 
   const context = $derived<ClassicTeamContext>({
@@ -47,7 +51,8 @@
     contractName: new Map(
       (team?.contract_types ?? []).map((type) => [type.id, type.name])
     ),
-    editable: !workspace.isPreview
+    editable: !workspace.isPreview,
+    owner: workspace.effectiveRole === 'owner'
   });
 </script>
 

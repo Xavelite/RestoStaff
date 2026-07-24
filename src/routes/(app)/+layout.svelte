@@ -18,6 +18,7 @@
   import ClassicIcon from '$lib/classic/ClassicIcon.svelte';
   
   import { moduleForPath, modulesForRole } from '$lib/classic/classic-nav';
+  import { classicChrome } from '$lib/classic/classic-chrome.svelte';
   import { roleHome } from '$lib/workspace/workspace-selection';
   import '$lib/classic/classic.css';
 
@@ -49,7 +50,7 @@
     }
   }
 
-  const modules = $derived(modulesForRole(workspace.effectiveRole));
+  const modules = $derived(modulesForRole(workspace.effectiveRole).filter((module) => !module.homeOnly));
   const activeModule = $derived(moduleForPath(page.url.pathname));
   // Only the terminal screen itself fills the screen — no sidebar, nothing to
   // wander into while a shared device is on the pass. Its module page, which
@@ -154,7 +155,24 @@
           <h1 class="cl-pagetitle">{t(activeModule.label)}</h1>
         {/if}
 
+        {#if classicChrome.tabs.length}
+          <nav class="cl-topbar__tabs" aria-label={t('Sections')}>
+            {#each classicChrome.tabs as item (item.href)}
+              <a
+                class="cl-topbar__tab"
+                class:is-active={item.href === classicChrome.activeHref}
+                aria-current={item.href === classicChrome.activeHref ? 'page' : undefined}
+                href={item.href}
+              >{t(item.label)}</a>
+            {/each}
+          </nav>
+        {/if}
+
         <span class="cl-topbar__spacer"></span>
+
+        {#if classicChrome.actions}
+          <div class="cl-topbar__actions">{@render classicChrome.actions()}</div>
+        {/if}
 
         {#if !workspace.isPreview}
           <CommunicationCenter

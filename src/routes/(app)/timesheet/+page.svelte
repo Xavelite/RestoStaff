@@ -312,6 +312,10 @@
 <svelte:head><title>{t('Timesheet')} &middot; restogogo</title></svelte:head>
 
 {#snippet pageActions()}
+  <label class="toggle topbar-toggle">
+    <input type="checkbox" bind:checked={onlyIssues} />
+    <span class="cl-action-label">{t('Only rows needing attention')}</span>
+  </label>
   {#if weekStatus === 'open'}
     <button class="cl-btn is-primary" type="button" disabled={!editable} onclick={() => openWeekAction('approve_week')}>
       {t('Approve week')}
@@ -336,11 +340,6 @@
       <span class="weekpill__dot"></span>
       {t(weekStatus === 'open' ? 'Open' : weekStatus === 'approved' ? 'Approved' : 'Locked')}
     </span>
-    <span class="cl-toolbar__grow"></span>
-    <label class="toggle">
-      <input type="checkbox" bind:checked={onlyIssues} />
-      {t('Only rows needing attention')}
-    </label>
   </div>
 
   <div class="cl-stats">

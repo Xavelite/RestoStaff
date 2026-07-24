@@ -20,6 +20,8 @@ export type ClassicModule = {
   roles: WorkspaceRole[];
   /** Modules with no screens yet still appear, marked as coming later. */
   placeholder?: boolean;
+  /** Home-only future modules stay out of the everyday sidebar. */
+  homeOnly?: boolean;
   /** A full-screen module has no sidebar, no tabs (badge terminal). */
   fullscreen?: boolean;
   subNav?: ClassicSubNavItem[];
@@ -116,12 +118,76 @@ const CLASSIC_MODULES: ClassicModule[] = [
     placeholder: true
   },
   {
+    key: 'reservations',
+    href: '/coming-soon/reservations',
+    label: 'Reservations',
+    summary: 'Table plan, bookings, deposits and guest notes',
+    icon: 'schedule',
+    roles: MANAGER,
+    placeholder: true,
+    homeOnly: true
+  },
+  {
+    key: 'recipes',
+    href: '/coming-soon/recipes',
+    label: 'Recipes',
+    summary: 'Recipe cards, allergens, yields and preparation',
+    icon: 'restaurant',
+    roles: MANAGER,
+    placeholder: true,
+    homeOnly: true
+  },
+  {
+    key: 'purchasing',
+    href: '/coming-soon/purchasing',
+    label: 'Purchasing & suppliers',
+    summary: 'Orders, deliveries, supplier prices and invoices',
+    icon: 'inventory',
+    roles: MANAGER,
+    placeholder: true,
+    homeOnly: true
+  },
+  {
+    key: 'menu-costing',
+    href: '/coming-soon/menu-costing',
+    label: 'Menu costing',
+    summary: 'Food cost, margins and selling-price guidance',
+    icon: 'payroll',
+    roles: MANAGER,
+    placeholder: true,
+    homeOnly: true
+  },
+  {
+    key: 'tasks',
+    href: '/coming-soon/tasks',
+    label: 'Tasks & checklists',
+    summary: 'Opening, closing and recurring team checklists',
+    icon: 'reports',
+    roles: MANAGER,
+    placeholder: true,
+    homeOnly: true
+  },
+  {
+    key: 'food-safety',
+    href: '/coming-soon/food-safety',
+    label: 'Food safety',
+    summary: 'HACCP logs, temperatures and compliance records',
+    icon: 'badge',
+    roles: MANAGER,
+    placeholder: true,
+    homeOnly: true
+  },
+  {
     key: 'payroll',
     href: '/payroll',
     label: 'Payroll',
     summary: 'Employment terms per employee',
     icon: 'payroll',
-    roles: OWNER
+    roles: OWNER,
+    subNav: [
+      { href: '/payroll', label: 'Employees' },
+      { href: '/payroll/configuration', label: 'Configuration' }
+    ]
   },
   {
     key: 'badge-terminal',

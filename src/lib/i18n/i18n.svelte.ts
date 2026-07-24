@@ -3431,6 +3431,69 @@ Object.assign(dutch, {
   'Payroll export created.': 'Loonexport aangemaakt.'
 });
 
+
+Object.assign(french, {
+  'Payroll configuration': 'Configuration de la paie',
+  'A new contract version is ready. Review it, then save Team.': 'Une nouvelle version du contrat est prête. Vérifiez-la, puis enregistrez l’équipe.',
+  'Record employment and salary terms before validation.': 'Enregistrez les conditions d’emploi et de rémunération avant la validation.',
+  'Employment setup verified.': 'Configuration de l’emploi vérifiée.',
+  'Create a new contract version without rewriting the employee history.': 'Créez une nouvelle version du contrat sans réécrire l’historique de l’employé.',
+  'Relationship': 'Lien',
+  'Sex': 'Sexe',
+  'Nationality': 'Nationalité',
+  'Derived after payroll setup': 'Déduit après la configuration de la paie',
+  'Category and worker status are derived from the official function.':
+    'La catégorie et le statut du travailleur sont déduits de la fonction officielle.',
+  'Budget hourly wage': 'Salaire horaire budgétaire',
+  'Company cost formula': 'Formule du coût employeur',
+  'Unknown': 'Inconnu',
+  'No contract yet': 'Aucun contrat',
+  'Payroll details saved.': 'Données de paie enregistrées.',
+  'Group employees': 'Regrouper les employés',
+  'Group by contract': 'Regrouper par contrat',
+  'Group by position': 'Regrouper par poste',
+  'No grouping': 'Aucun regroupement',
+  'Loading payroll configuration…': 'Chargement de la configuration de paie…',
+  'Edit': 'Modifier',
+  'Set the required people for every weekday. There is no inherited default: each day is explicit.':
+    'Définissez l’effectif requis pour chaque jour. Il n’y a aucune valeur par défaut héritée : chaque jour est explicite.',
+  'Remove requirement': 'Supprimer le besoin',
+  'Employee status': 'Statut de l’employé',
+  'Undefined employees are shown first.': 'Les employés non définis sont affichés en premier.',
+  'Contract saved.': 'Contrat enregistré.'
+});
+
+Object.assign(dutch, {
+  'Payroll configuration': 'Loonconfiguratie',
+  'A new contract version is ready. Review it, then save Team.': 'Een nieuwe contractversie staat klaar. Controleer ze en sla daarna Team op.',
+  'Record employment and salary terms before validation.': 'Registreer de arbeids- en loonvoorwaarden vóór de validatie.',
+  'Employment setup verified.': 'Arbeidsinstelling geverifieerd.',
+  'Create a new contract version without rewriting the employee history.': 'Maak een nieuwe contractversie zonder de medewerkershistoriek te herschrijven.',
+  'Relationship': 'Relatie',
+  'Sex': 'Geslacht',
+  'Nationality': 'Nationaliteit',
+  'Derived after payroll setup': 'Afgeleid na de looninstelling',
+  'Category and worker status are derived from the official function.':
+    'Categorie en werknemersstatuut worden afgeleid van de officiële functie.',
+  'Budget hourly wage': 'Gebudgetteerd uurloon',
+  'Company cost formula': 'Formule voor werkgeverskost',
+  'Unknown': 'Onbekend',
+  'No contract yet': 'Nog geen contract',
+  'Payroll details saved.': 'Loongegevens opgeslagen.',
+  'Group employees': 'Medewerkers groeperen',
+  'Group by contract': 'Groeperen op contract',
+  'Group by position': 'Groeperen op functie',
+  'No grouping': 'Geen groepering',
+  'Loading payroll configuration…': 'Loonconfiguratie laden…',
+  'Edit': 'Bewerken',
+  'Set the required people for every weekday. There is no inherited default: each day is explicit.':
+    'Stel het vereiste aantal medewerkers per weekdag in. Er is geen overgenomen standaardwaarde: elke dag is expliciet.',
+  'Remove requirement': 'Bezettingsvereiste verwijderen',
+  'Employee status': 'Medewerkerstatus',
+  'Undefined employees are shown first.': 'Niet-ingedeelde medewerkers worden eerst weergegeven.',
+  'Contract saved.': 'Contract opgeslagen.'
+});
+
 const dictionaries: Record<Exclude<AppLocale, 'en'>, Record<string, string>> = {
   fr: french,
   nl: dutch

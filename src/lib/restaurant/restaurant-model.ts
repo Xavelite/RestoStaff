@@ -47,7 +47,7 @@ export type CoverageDraft = {
   areaId: string;
   jobFunctionId: string;
   serviceKey: ServiceKey;
-  coverageScope: 'default' | 'weekday';
+  coverageScope: 'weekday';
   weekday: number;
   requiredCount: number;
 };
@@ -131,17 +131,46 @@ export function restaurantDraft(snapshot: RestaurantReadModel): RestaurantDraft 
         eveningEnd: openingValue(snapshot, weekday, 'evening', 'closes_at')
       };
     }),
-    coverage: snapshot.coverage_requirements.map((row) => {
-      return {
-        id: row.id,
-        areaId: row.area_id,
-        jobFunctionId: row.job_function_id,
-        serviceKey: row.service_key === 'evening' ? 'evening' : 'lunch',
-        coverageScope: row.coverage_scope === 'weekday' ? 'weekday' : 'default',
-        weekday: row.weekday ?? 1,
-        requiredCount: row.required_count
-      };
-    })
+    coverage: (() => {
+      // The classic workspace edits coverage explicitly per weekday. Existing
+      // legacy default rows are expanded in memory so no staffing value is
+      // lost when the restaurant next saves its setup.
+      const explicit = new Map<string, CoverageDraft>();
+      const defaults = snapshot.coverage_requirements.filter(
+        (row) => row.coverage_scope !== 'weekday' || row.weekday == null
+      );
+      for (const row of snapshot.coverage_requirements) {
+        if (row.coverage_scope !== 'weekday' || row.weekday == null) continue;
+        const serviceKey = row.service_key === 'evening' ? 'evening' : 'lunch';
+        const key = `${row.area_id}|${row.job_function_id}|${serviceKey}|${row.weekday}`;
+        explicit.set(key, {
+          id: row.id,
+          areaId: row.area_id,
+          jobFunctionId: row.job_function_id,
+          serviceKey,
+          coverageScope: 'weekday',
+          weekday: row.weekday,
+          requiredCount: row.required_count
+        });
+      }
+      for (const row of defaults) {
+        const serviceKey = row.service_key === 'evening' ? 'evening' : 'lunch';
+        for (let weekday = 1; weekday <= 7; weekday += 1) {
+          const key = `${row.area_id}|${row.job_function_id}|${serviceKey}|${weekday}`;
+          if (explicit.has(key)) continue;
+          explicit.set(key, {
+            id: `${row.id}-${weekday}`,
+            areaId: row.area_id,
+            jobFunctionId: row.job_function_id,
+            serviceKey,
+            coverageScope: 'weekday',
+            weekday,
+            requiredCount: row.required_count
+          });
+        }
+      }
+      return [...explicit.values()];
+    })()
   };
 }
 
@@ -190,12 +219,12 @@ export function restaurantSavePayload(
       active: true
     },
     settings: {
-      timezone: 'Europe/Brussels',
-      locale: 'fr-BE',
-      currency_code: 'EUR',
+      timezone: snapshot.restaurant_settings.timezone || 'Europe/Brussels',
+      locale: snapshot.restaurant_settings.locale || 'fr-BE',
+      currency_code: snapshot.restaurant_settings.currency_code || 'EUR',
       active_week_start:
         snapshot.restaurant_settings.active_week_start ??
-        mondayFor(todayInTimezone('Europe/Brussels')),
+        mondayFor(todayInTimezone(snapshot.restaurant_settings.timezone || 'Europe/Brussels')),
       week_start_weekday: 1,
       settings: snapshot.restaurant_settings.settings ?? {},
       payroll_settings: snapshot.restaurant_settings.payroll_settings ?? {}
@@ -260,8 +289,8 @@ export function restaurantSavePayload(
           area_id: item.areaId,
           job_function_id: item.jobFunctionId,
           service_key: item.serviceKey,
-          coverage_scope: item.coverageScope,
-          weekday: item.coverageScope === 'weekday' ? item.weekday : null,
+          coverage_scope: 'weekday',
+          weekday: item.weekday,
           required_count: Math.max(0, Math.round(Number(item.requiredCount) || 0)),
           active: true,
           sort_order: index

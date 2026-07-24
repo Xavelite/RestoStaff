@@ -52,17 +52,21 @@
 {#snippet pageActions()}
   {#if actions}{@render actions()}{/if}
   <button
-    class="cl-btn"
+    class="cl-btn is-icon"
     type="button"
+    title={t('Discard')}
+    aria-label={t('Discard')}
     disabled={saving || !restaurantConfig.dirty}
     onclick={() => snapshot && restaurantConfig.reload(snapshot)}
-  >{t('Discard')}</button>
+  ><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6"/><path d="M4 4v4.6h4.6"/></svg></button>
   <button
-    class="cl-btn is-primary"
+    class="cl-btn is-primary is-icon"
     type="button"
+    title={t(saving ? 'Saving…' : 'Save')}
+    aria-label={t(saving ? 'Saving…' : 'Save')}
     disabled={saving || workspace.isPreview || !restaurantConfig.dirty}
     onclick={save}
-  >{t(saving ? 'Saving…' : 'Save')}</button>
+  >{#if saving}<span aria-hidden="true">…</span>{:else}<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h12l2 2v14H5z"/><path d="M8 4v6h8V4M8 20v-6h8v6"/></svg>{/if}</button>
 {/snippet}
 
 <ClassicPage actions={pageActions}>

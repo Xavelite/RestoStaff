@@ -79,16 +79,17 @@
 
 <svelte:head><title>{t('Calendar')} &middot; restogogo</title></svelte:head>
 
-<ClassicPage>
-  <div class="cl-toolbar">
-    <ClassicPeriodNav
-      label={monthLabel(activeMonth, i18n.intlLocale)}
-      onprevious={() => (monthOffset -= 1)}
-      onnext={() => (monthOffset += 1)}
-      ontoday={() => (monthOffset = 0)}
-      todayLabel="This month"
-    />
-  </div>
+{#snippet pageActions()}
+  <ClassicPeriodNav
+    label={monthLabel(activeMonth, i18n.intlLocale)}
+    onprevious={() => (monthOffset -= 1)}
+    onnext={() => (monthOffset += 1)}
+    ontoday={() => (monthOffset = 0)}
+    todayLabel="This month"
+  />
+{/snippet}
+
+<ClassicPage actions={pageActions}>
 
   <div class="cl-stats">
     <ClassicStat label="Worked hours" value={monthHours} format={formatHours} accent="var(--cl-ok)" mutedZero={false} />

@@ -83,17 +83,15 @@
   ];
 </script>
 
-<ClassicPage>
-  <div class="cl-toolbar">
-    <label class="cl-label period">
-      <span>{t('Period')}</span>
-      <select class="cl-field" bind:value={period}>
-        {#each PERIODS as option (option.value)}
-          <option value={option.value}>{t(option.label)}</option>
-        {/each}
-      </select>
-    </label>
-  </div>
+{#snippet pageActions()}
+  <select class="cl-field" aria-label={t('Period')} bind:value={period}>
+    {#each PERIODS as option (option.value)}
+      <option value={option.value}>{t(option.label)}</option>
+    {/each}
+  </select>
+{/snippet}
+
+<ClassicPage actions={pageActions}>
 
   {#if errorMessage}
     <div class="cl-card"><div class="cl-empty"><strong>{errorMessage}</strong></div></div>
@@ -114,11 +112,3 @@
     <p class="cl-section__note">{t('Refreshing…')}</p>
   {/if}
 </ClassicPage>
-
-<style>
-  .period {
-    grid-template-columns: auto auto;
-    align-items: center;
-    gap: 10px;
-  }
-</style>

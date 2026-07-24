@@ -16,19 +16,36 @@ class ClassicRestaurantDraft {
   dirty = $state(false);
 
   /** Plain, not $state: sync() must be safe to call from an $effect. */
-  #loaded = false;
+  #loadedRestaurantId = '';
+  #loadedKey = '';
 
-  sync(snapshot: RestaurantReadModel): void {
-    if (untrack(() => this.#loaded)) return;
-    this.#loaded = true;
+  sync(snapshot: RestaurantReadModel, force = false): void {
+    const restaurantId = snapshot.restaurant.id;
+    const key = JSON.stringify([
+      snapshot.restaurant,
+      snapshot.restaurant_settings,
+      snapshot.job_functions,
+      snapshot.work_areas,
+      snapshot.area_service_defaults,
+      snapshot.opening_hours,
+      snapshot.coverage_requirements
+    ]);
+    if (
+      !force &&
+      untrack(() => this.#loadedRestaurantId === restaurantId && (this.dirty || this.#loadedKey === key))
+    ) return;
+    this.#loadedRestaurantId = restaurantId;
+    this.#loadedKey = key;
     this.draft = restaurantDraft(snapshot);
     this.dirty = false;
   }
 
   /** Re-read from the server, discarding whatever was being edited. */
   reload(snapshot: RestaurantReadModel): void {
-    this.#loaded = false;
-    this.sync(snapshot);
+    this.#loadedRestaurantId = '';
+    this.#loadedKey = '';
+    this.dirty = false;
+    this.sync(snapshot, true);
   }
 
   touch(): void {
@@ -38,7 +55,8 @@ class ClassicRestaurantDraft {
   async save(restaurantId: string, snapshot: RestaurantReadModel): Promise<void> {
     if (!this.draft) return;
     await saveRestaurant(restaurantId, restaurantSavePayload(snapshot, this.draft));
-    this.#loaded = false;
+    this.#loadedRestaurantId = '';
+    this.#loadedKey = '';
     this.dirty = false;
     await workspace.loadRestaurant(true);
   }

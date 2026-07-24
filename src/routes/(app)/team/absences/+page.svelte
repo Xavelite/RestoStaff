@@ -61,7 +61,15 @@
 
 <svelte:head><title>{t('Absences')} &middot; restogogo</title></svelte:head>
 
-<ClassicTeamPage>
+{#snippet pageActions()}
+  <select class="cl-field" aria-label={t('Employee status')} bind:value={scope}>
+    <option value="pending">{t('Awaiting decision')}</option>
+    <option value="upcoming">{t('Upcoming')}</option>
+    <option value="all">{t('All')}</option>
+  </select>
+{/snippet}
+
+<ClassicTeamPage actions={pageActions}>
   {#snippet children(teamContext)}
     {@const today = new Date().toISOString().slice(0, 10)}
     {@const employeeName = new Map(teamContext.employees.map((employee) => [employee.id, employee.displayName]))}
@@ -76,15 +84,7 @@
       )
       .sort((left, right) => right.start_date.localeCompare(left.start_date))}
 
-    <div class="cl-toolbar">
-      <select class="cl-field" bind:value={scope}>
-        <option value="pending">{t('Awaiting decision')}</option>
-        <option value="upcoming">{t('Upcoming')}</option>
-        <option value="all">{t('All')}</option>
-      </select>
-      <span class="cl-toolbar__grow"></span>
-      <span class="count">{t('{count} requests', { count: rows.length })}</span>
-    </div>
+    <div class="table-meta"><span>{t('{count} requests', { count: rows.length })}</span></div>
 
     <div class="cl-tablewrap">
       <table class="cl-table">
@@ -154,10 +154,6 @@
 </ClassicTeamPage>
 
 <style>
-  .count {
-    color: var(--cl-muted);
-    font-size: 14px;
-  }
   .actions {
     display: inline-flex;
     gap: 8px;

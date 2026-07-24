@@ -41,7 +41,13 @@
     inventory: 'var(--cl-mod-inventory)',
     payroll: 'var(--cl-mod-payroll)',
     'badge-terminal': 'var(--cl-mod-badge)',
-    reports: 'var(--cl-mod-reports)'
+    reports: 'var(--cl-mod-reports)',
+    reservations: 'var(--cl-mod-schedule)',
+    recipes: 'var(--cl-mod-restaurant)',
+    purchasing: 'var(--cl-mod-inventory)',
+    'menu-costing': 'var(--cl-mod-payroll)',
+    tasks: 'var(--cl-mod-reports)',
+    'food-safety': 'var(--cl-mod-badge)'
   };
 </script>
 

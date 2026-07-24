@@ -24,11 +24,8 @@
   } = $props();
 </script>
 
-<header class={`page-hero ${heroClass}`} aria-labelledby={titleId}>
+<header class={`page-hero ${heroClass}`} aria-label={t(title)}>
   <div class="page-hero__copy">
-    {#if eyebrow}<span class="page-kicker">{t(eyebrow)}</span>{/if}
-    <h1 id={titleId}>{t(title)}</h1>
-    {#if subtitle}<p>{t(subtitle)}</p>{/if}
     {#if nav}{@render nav()}{/if}
   </div>
   {#if command}
