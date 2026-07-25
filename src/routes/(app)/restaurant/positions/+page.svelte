@@ -7,7 +7,7 @@
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
-import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
+  import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
 
   type SortKey = 'name' | 'cost' | 'employees' | 'active';
@@ -51,7 +51,8 @@ import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
     try { localStorage.setItem(COLS_KEY, JSON.stringify([...next])); } catch {}
   }
   const shown = (key: string) => !hidden.has(key);
-  const colCount = $derived(4 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length);
+  const colCount = $derived(5 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length);
+  const persistedPositionIds = $derived(new Set((workspace.restaurant?.job_functions ?? []).map((position) => position.id)));
 
   function addPosition() {
     const draft = restaurantConfig.draft;
@@ -59,6 +60,20 @@ import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
     draft.jobFunctions = [{ id: crypto.randomUUID(), name: '', code: '', active: true, estimatedHourlyCost: 0, color: defaultPositionColor(draft.jobFunctions.length) }, ...draft.jobFunctions];
     restaurantConfig.touch();
   }
+  function removeOrTogglePosition(positionId: string) {
+    const draft = restaurantConfig.draft;
+    if (!draft || workspace.isPreview) return;
+    const position = draft.jobFunctions.find((item) => item.id === positionId);
+    if (!position) return;
+    if (persistedPositionIds.has(positionId)) {
+      position.active = !position.active;
+    } else {
+      draft.jobFunctions = draft.jobFunctions.filter((item) => item.id !== positionId);
+      draft.coverage = draft.coverage.filter((item) => item.jobFunctionId !== positionId);
+    }
+    restaurantConfig.touch();
+  }
+
   function movePosition(targetId: string) {
     const draft = restaurantConfig.draft;
     if (!draft || !dragId || dragId === targetId || sort) return;
@@ -124,6 +139,7 @@ import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
               {#if shown('cost')}<th class="has-menu"><ClassicColMenu label={t('Estimated hourly cost')} sortable sortDir={sort?.key === 'cost' ? sort.dir : null} onsort={(dir) => (sort = { key: 'cost', dir })} /></th>{/if}
               {#if shown('employees')}<th class="has-menu"><ClassicColMenu label={t('Employees')} sortable sortDir={sort?.key === 'employees' ? sort.dir : null} onsort={(dir) => (sort = { key: 'employees', dir })} /></th>{/if}
               {#if shown('active')}<th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={sort?.key === 'active' ? sort.dir : null} onsort={(dir) => (sort = { key: 'active', dir })} filterKind="values" filterValues={[{ value: 'active', label: t('Active') }, { value: 'archived', label: t('Archived') }]} selected={excludedStatus} ontoggle={(value) => (excludedStatus = (() => { const next = new Set(excludedStatus); next.has(value) ? next.delete(value) : next.add(value); return next; })())} onselectall={(on) => (excludedStatus = on ? new Set() : new Set(['active', 'archived']))} /></th>{/if}
+              <th class="actions-col">{t('Actions')}</th>
               <th class="chooser-col"><ClassicColChooser columns={OPTIONAL_COLUMNS.map((column) => ({ key: column.key, label: t(column.label) }))} {hidden} ontoggle={toggleColumn} /></th>
             </tr>
           </thead>
@@ -140,6 +156,7 @@ import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
                   {#if shown('cost')}<td class="is-num"><input class="cl-field cost" type="number" disabled={workspace.isPreview} min="0" step="0.5" bind:value={position.estimatedHourlyCost} oninput={() => restaurantConfig.touch()} /></td>{/if}
                   {#if shown('employees')}<td><span class="cl-linkcount" class:is-zero={!headcount} title={t('{count} people', { count: headcount })}><span class="cl-linkcount__n">{headcount}</span></span></td>{/if}
                   {#if shown('active')}<td><label class="switch"><input type="checkbox" disabled={workspace.isPreview} bind:checked={position.active} onchange={() => restaurantConfig.touch()} /><span>{t(position.active ? 'Active' : 'Archived')}</span></label></td>{/if}
+                  <td class="row-actions"><button class="cl-text-action" type="button" disabled={workspace.isPreview} onclick={() => removeOrTogglePosition(position.id)}>{t(persistedPositionIds.has(position.id) ? (position.active ? 'Archive' : 'Restore') : 'Remove')}</button></td>
                   <td></td>
                 </tr>
               {/each}
@@ -159,6 +176,11 @@ import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
   .swatch-col { width: 34px; padding-right: 0 !important; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .chooser-col { width: 44px; }
+  .actions-col { width: 86px; }
+  .row-actions { text-align: right; }
+  .cl-text-action { border: 0; background: transparent; color: var(--cl-muted); font: inherit; font-size: 13px; cursor: pointer; }
+  .cl-text-action:hover { color: var(--cl-ink); text-decoration: underline; }
+  .cl-text-action:disabled { cursor: default; opacity: .45; text-decoration: none; }
   .cl-grip { width: 34px; text-align: center; }
   .cl-grip button { border: 0; background: transparent; color: var(--cl-muted); cursor: grab; letter-spacing: -3px; }
   .cl-grip button:disabled { cursor: default; opacity: .35; }

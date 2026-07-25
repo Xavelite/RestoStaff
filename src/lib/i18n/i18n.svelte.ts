@@ -4152,3 +4152,106 @@ Object.assign(dutch, {
   'Advanced tax, benefit and regime-evidence settings are parked until a concrete social-secretariat or estimation requirement needs them.':
     'Geavanceerde instellingen voor fiscaliteit, voordelen en regimebewijzen blijven geparkeerd tot een concrete behoefte van het sociaal secretariaat of een raming ze rechtvaardigt.'
 });
+
+// Progressive setup and dense planning workspace (V589).
+Object.assign(french, {
+  'The national registry or BIS number should contain 11 digits.':
+    'Le numéro de registre national ou BIS doit contenir 11 chiffres.',
+  'The national registry or BIS number is not valid yet.':
+    "Le numéro de registre national ou BIS n’est pas encore valide.",
+  'You can still save the employee and complete this later.':
+    'Vous pouvez tout de même enregistrer l’employé et compléter cette information plus tard.',
+  'Archive this employee?': 'Archiver cet employé ?',
+  'The employee will disappear from new planning, badge access will be disabled and historical shifts, timesheets, absences and exports will be preserved.':
+    'L’employé disparaîtra des nouveaux plannings, son accès au badge sera désactivé et les shifts, pointages, absences et exports historiques seront conservés.',
+  'Archive employee': 'Archiver l’employé',
+  'Keep active': 'Garder actif',
+  'Reactivate employee': 'Réactiver l’employé',
+  'Optional. When empty, the display name is used.':
+    'Facultatif. S’il est vide, le nom affiché est utilisé.',
+  'The Belgian company number should contain 10 digits.':
+    'Le numéro d’entreprise belge doit contenir 10 chiffres.',
+  'The Belgian company number is not valid yet.':
+    "Le numéro d’entreprise belge n’est pas encore valide.",
+  'The establishment unit number should contain 10 digits.':
+    'Le numéro d’unité d’établissement doit contenir 10 chiffres.',
+  'The joint committee code should use a format such as 302 or 302.00.':
+    'Le code de commission paritaire doit utiliser un format tel que 302 ou 302.00.',
+  'You can still save and complete this later.':
+    'Vous pouvez tout de même enregistrer et compléter cette information plus tard.',
+  'Schedule detail': 'Niveau de détail du planning',
+  Compact: 'Compact',
+  Detailed: 'Détaillé',
+  'Review & publish': 'Vérifier et publier',
+  'More actions': 'Plus d’actions',
+  'More filters': 'Plus de filtres',
+  'Clear filters': 'Effacer les filtres',
+  shift: 'shift',
+  shifts: 'shifts',
+  'No shifts': 'Aucun shift',
+  'No area': 'Aucune zone',
+  'Estimated cost': 'Coût estimé',
+  'Area colour': 'Couleur de la zone',
+  'Absence or unavailable': 'Absence ou indisponibilité',
+  'Drag a shift to another free employee/day cell. Click it for all details.':
+    'Glissez un shift vers une autre cellule employé/jour libre. Cliquez dessus pour voir tous les détails.',
+  'Pending absence': 'Absence en attente',
+  'Schedule exception': 'Exception de planning',
+  'No employees match these filters': 'Aucun employé ne correspond à ces filtres',
+  'Clear a filter to show the full planning team.':
+    'Effacez un filtre pour afficher toute l’équipe du planning.',
+  Archive: 'Archiver',
+  Restore: 'Restaurer',
+  Remove: 'Supprimer'
+});
+
+Object.assign(dutch, {
+  'The national registry or BIS number should contain 11 digits.':
+    'Het rijksregister- of BIS-nummer moet 11 cijfers bevatten.',
+  'The national registry or BIS number is not valid yet.':
+    'Het rijksregister- of BIS-nummer is nog niet geldig.',
+  'You can still save the employee and complete this later.':
+    'Je kunt de medewerker toch opslaan en dit later aanvullen.',
+  'Archive this employee?': 'Deze medewerker archiveren?',
+  'The employee will disappear from new planning, badge access will be disabled and historical shifts, timesheets, absences and exports will be preserved.':
+    'De medewerker verdwijnt uit nieuwe planningen, badge-toegang wordt uitgeschakeld en historische shifts, tijdregistraties, afwezigheden en exports blijven bewaard.',
+  'Archive employee': 'Medewerker archiveren',
+  'Keep active': 'Actief houden',
+  'Reactivate employee': 'Medewerker heractiveren',
+  'Optional. When empty, the display name is used.':
+    'Optioneel. Wanneer dit leeg is, wordt de weergavenaam gebruikt.',
+  'The Belgian company number should contain 10 digits.':
+    'Het Belgische ondernemingsnummer moet 10 cijfers bevatten.',
+  'The Belgian company number is not valid yet.':
+    'Het Belgische ondernemingsnummer is nog niet geldig.',
+  'The establishment unit number should contain 10 digits.':
+    'Het vestigingseenheidsnummer moet 10 cijfers bevatten.',
+  'The joint committee code should use a format such as 302 or 302.00.':
+    'De code van het paritair comité moet een formaat zoals 302 of 302.00 gebruiken.',
+  'You can still save and complete this later.':
+    'Je kunt toch opslaan en dit later aanvullen.',
+  'Schedule detail': 'Detailniveau planning',
+  Compact: 'Compact',
+  Detailed: 'Gedetailleerd',
+  'Review & publish': 'Controleren en publiceren',
+  'More actions': 'Meer acties',
+  'More filters': 'Meer filters',
+  'Clear filters': 'Filters wissen',
+  shift: 'shift',
+  shifts: 'shifts',
+  'No shifts': 'Geen shifts',
+  'No area': 'Geen zone',
+  'Estimated cost': 'Geschatte kost',
+  'Area colour': 'Zonekleur',
+  'Absence or unavailable': 'Afwezig of niet beschikbaar',
+  'Drag a shift to another free employee/day cell. Click it for all details.':
+    'Sleep een shift naar een andere vrije medewerker/dag-cel. Klik erop voor alle details.',
+  'Pending absence': 'Afwezigheid in afwachting',
+  'Schedule exception': 'Planningsuitzondering',
+  'No employees match these filters': 'Geen medewerkers voldoen aan deze filters',
+  'Clear a filter to show the full planning team.':
+    'Wis een filter om het volledige planningsteam te tonen.',
+  Archive: 'Archiveren',
+  Restore: 'Herstellen',
+  Remove: 'Verwijderen'
+});

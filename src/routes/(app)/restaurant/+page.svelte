@@ -6,6 +6,7 @@
   import { useClassicRestaurantContext } from '$lib/classic/classic-workspace-context';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
+  import { enterpriseNumberIssue, establishmentUnitIssue, jointCommitteeIssue } from '$lib/restaurant/belgian-identifiers';
   import {
     LOGO_ACCEPT,
     removeRestaurantLogo,
@@ -62,6 +63,9 @@
 
   const readRestaurantContext = useClassicRestaurantContext();
   const context = $derived(readRestaurantContext());
+  const companyIssue = $derived(enterpriseNumberIssue(context?.draft.companyNumber));
+  const establishmentIssue = $derived(establishmentUnitIssue(context?.draft.establishmentUnitNumber));
+  const committeeIssue = $derived(jointCommitteeIssue(context?.draft.jointCommitteeCode));
 </script>
 
 <svelte:head><title>{t('Restaurant')} &middot; restogogo</title></svelte:head>
@@ -116,11 +120,13 @@
               </label>
               <label class="cl-label">
                 <span>{t('Legal name')}</span>
-                <input class="cl-field" bind:value={draft.legalName} oninput={() => restaurantConfig.touch()} />
+                <input class="cl-field" placeholder={draft.displayName || t('Optional')} bind:value={draft.legalName} oninput={() => restaurantConfig.touch()} />
+                <small>{t('Optional. When empty, the display name is used.')}</small>
               </label>
               <label class="cl-label">
                 <span>{t('Company number')}</span>
-                <input class="cl-field" inputmode="numeric" placeholder="0123.456.789" bind:value={draft.companyNumber} oninput={() => restaurantConfig.touch()} />
+                <input class="cl-field" inputmode="numeric" placeholder="0123.456.789" aria-invalid={Boolean(companyIssue)} bind:value={draft.companyNumber} oninput={() => restaurantConfig.touch()} />
+                {#if companyIssue}<small class="field-warning">{t(companyIssue)} {t('You can still save and complete this later.')}</small>{/if}
               </label>
               <label class="cl-label">
                 <span>{t('Email')}</span>
@@ -169,11 +175,13 @@
               </label>
               <label class="cl-label">
                 <span>{t('Establishment unit number')}</span>
-                <input class="cl-field" inputmode="numeric" placeholder="10 digits" bind:value={draft.establishmentUnitNumber} oninput={() => restaurantConfig.touch()} />
+                <input class="cl-field" inputmode="numeric" placeholder="10 digits" aria-invalid={Boolean(establishmentIssue)} bind:value={draft.establishmentUnitNumber} oninput={() => restaurantConfig.touch()} />
+                {#if establishmentIssue}<small class="field-warning">{t(establishmentIssue)} {t('You can still save and complete this later.')}</small>{/if}
               </label>
               <label class="cl-label">
                 <span>{t('Joint committee')}</span>
-                <input class="cl-field" placeholder="302" bind:value={draft.jointCommitteeCode} oninput={() => restaurantConfig.touch()} />
+                <input class="cl-field" placeholder="302" aria-invalid={Boolean(committeeIssue)} bind:value={draft.jointCommitteeCode} oninput={() => restaurantConfig.touch()} />
+                {#if committeeIssue}<small class="field-warning">{t(committeeIssue)} {t('You can still save and complete this later.')}</small>{/if}
               </label>
               <label class="cl-label">
                 <span>{t('Dimona workflow')}</span>
@@ -207,6 +215,7 @@
   .form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; max-width: 820px; }
   .form__wide { grid-column: 1 / -1; }
   .cl-label small { color: var(--cl-muted); font-size: 11px; line-height: 1.35; }
+  .cl-label .field-warning { color: var(--cl-attention); }
   .logo-field { display: grid; grid-template-columns: 74px minmax(0, 1fr) auto; align-items: center; gap: 16px; max-width: 820px; padding-bottom: 20px; border-bottom: 1px solid var(--cl-line); }
   .logo-field__preview { width: 72px; height: 72px; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); background: var(--cl-surface-muted); color: var(--cl-accent); font-size: 28px; font-weight: var(--rst-fw-display); }
   .logo-field__preview img { width: 100%; height: 100%; object-fit: contain; }

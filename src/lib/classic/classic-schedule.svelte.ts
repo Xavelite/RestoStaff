@@ -12,9 +12,13 @@ import {
 export type ScheduleWeekContext = {
   weekStart: string;
   today: string;
+  label: string;
   published: boolean;
   revision: number;
   editable: boolean;
+  previous: () => void;
+  next: () => void;
+  todayAction: () => void;
 };
 
 /**

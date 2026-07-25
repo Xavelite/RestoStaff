@@ -21,10 +21,12 @@
    */
   let {
     actions,
-    children
+    children,
+    showHeader = true
   }: {
     actions?: Snippet<[ScheduleWeekContext]>;
     children: Snippet<[ScheduleWeekContext]>;
+    showHeader?: boolean;
   } = $props();
 
   const snapshot = $derived(workspace.operations);
@@ -54,12 +56,20 @@
       ? planningStatusForWeek(snapshot, weekStart)
       : { planning: 'draft' as const, actuals: 'open', revision: 0 }
   );
+  function changeWeek(action: () => void): void {
+    void unsavedChanges.runOrRequest(action);
+  }
+
   const context = $derived<ScheduleWeekContext>({
     weekStart,
     today,
+    label: weekLabel(weekStart, i18n.intlLocale),
     published: status.planning === 'published',
     revision: status.revision,
-    editable: !workspace.isPreview
+    editable: !workspace.isPreview,
+    previous: () => changeWeek(() => (scheduleDraft.weekOffset -= 1)),
+    next: () => changeWeek(() => (scheduleDraft.weekOffset += 1)),
+    todayAction: () => changeWeek(() => (scheduleDraft.weekOffset = 0))
   });
 
   async function saveBeforeLeaving(): Promise<void> {
@@ -93,10 +103,6 @@
     scheduleDraft.reset(snapshot, weekStart);
   }
 
-  function changeWeek(action: () => void): void {
-    void unsavedChanges.runOrRequest(action);
-  }
-
   onMount(() =>
     unsavedChanges.register({
       id: 'schedule-week',
@@ -108,24 +114,26 @@
   );
 </script>
 
-<div class="weekbar">
-  <ClassicPeriodNav
-    label={weekLabel(weekStart, i18n.intlLocale)}
-    onprevious={() => changeWeek(() => (scheduleDraft.weekOffset -= 1))}
-    onnext={() => changeWeek(() => (scheduleDraft.weekOffset += 1))}
-    ontoday={() => changeWeek(() => (scheduleDraft.weekOffset = 0))}
-    todayLabel="This week"
-  />
-  <span class="weekpill" class:is-published={context.published}>
-    <span class="weekpill__dot"></span>
-    {t(context.published ? 'Published' : 'Draft')}
-  </span>
-  {#if scheduleDraft.dirty}
-    <span class="weekbar__unsaved">{t('Unsaved changes')}</span>
-  {/if}
-  <span class="cl-toolbar__grow"></span>
-  {#if actions}{@render actions(context)}{/if}
-</div>
+{#if showHeader}
+  <div class="weekbar">
+    <ClassicPeriodNav
+      label={context.label}
+      onprevious={context.previous}
+      onnext={context.next}
+      ontoday={context.todayAction}
+      todayLabel="This week"
+    />
+    <span class="weekpill" class:is-published={context.published}>
+      <span class="weekpill__dot"></span>
+      {t(context.published ? 'Published' : 'Draft')}
+    </span>
+    {#if scheduleDraft.dirty}
+      <span class="weekbar__unsaved">{t('Unsaved changes')}</span>
+    {/if}
+    <span class="cl-toolbar__grow"></span>
+    {#if actions}{@render actions(context)}{/if}
+  </div>
+{/if}
 
 {#if snapshot}
   {@render children(context)}

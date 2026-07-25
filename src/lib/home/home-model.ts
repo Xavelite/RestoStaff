@@ -1,5 +1,6 @@
 import type { WorkspaceRole } from '$lib/api/workspace';
 import type { ManagerOperationsReadModel } from '$lib/api/workspace-snapshot';
+import { isValidBelgianNiss } from '../team/belgian-identifiers.ts';
 
 export type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
@@ -375,7 +376,7 @@ export function buildHomeModel(
           !Number(contract.weekly_contract_hours) ||
           !contract.contract_start ||
           !text(payroll?.payroll_employee_id) ||
-          !text(legal?.national_registry_number) ||
+          !isValidBelgianNiss(legal?.national_registry_number) ||
           !text(payroll?.iban)
         );
       })

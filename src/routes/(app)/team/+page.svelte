@@ -118,6 +118,13 @@
     freshId = '';
   }
 
+  function removeDraftEmployee(employeeId: string) {
+    if (employeeId !== freshId) return;
+    teamDraft.remove(employeeId);
+    detailId = '';
+    freshId = '';
+  }
+
   function setName(employee: EmployeeDraft, value: string) {
     const patch: Partial<EmployeeDraft> = { displayName: value };
     if (!employee.firstName.trim() && !employee.lastName.trim()) {
@@ -368,7 +375,7 @@
                     {#if shown('contract')}<td><span class="cl-badge is-neutral">{team.contractName.get(employee.contractTypeId) ?? t('Not set')}</span></td>{/if}
                     {#if shown('access')}<td><ClassicStatus label={ACCESS_LABEL[employee.accessState] ?? employee.accessState} tone={accessTone[employee.accessState] ?? 'attention'} /></td>{/if}
                     {#if shown('status')}<td><ClassicStatus label={employee.active ? 'Active' : 'Archived'} tone={employee.active ? 'ok' : 'attention'} /></td>{/if}
-                    <td class="is-num"><button class="cl-btn detail" type="button" disabled={!team.editable} onclick={() => (detailId = employee.id)}>{t('Details')}</button></td>
+                    <td class="is-num">{#if employee.id === freshId}<button class="cl-btn detail is-quiet" type="button" onclick={() => removeDraftEmployee(employee.id)}>{t('Remove')}</button>{:else}<button class="cl-btn detail" type="button" disabled={!team.editable} onclick={() => (detailId = employee.id)}>{t('Details')}</button>{/if}</td>
                     <td class="menu-cell"></td>
                   </tr>
                 {/each}
@@ -394,6 +401,7 @@
   .menu-cell { width: 44px; }
   .actions-col { width: 90px; }
   .detail { min-height: 32px; padding: 4px 12px; font-size: 13px; }
+  .detail.is-quiet { border-color: transparent; background: transparent; color: var(--cl-muted); }
   .posmenu { position: relative; }
   .posmenu summary { list-style: none; padding: 6px 10px; border: 1px solid transparent; border-radius: var(--cl-radius); color: var(--cl-ink); font-size: 14px; cursor: pointer; white-space: nowrap; }
   .posmenu summary:hover { border-color: var(--cl-line); background: var(--cl-surface-muted); }

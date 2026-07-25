@@ -192,16 +192,15 @@ class ClassicTeamDraft {
   async save(restaurantId: string, role: WorkspaceRole): Promise<void> {
     const snapshot = workspace.team;
     if (!snapshot) throw new Error('Team data is not loaded.');
-    if (role === 'owner' && this.supplementaryError) {
-      throw new Error(this.supplementaryError);
-    }
-
     const sourceDrafts = this.employees.map((employee) => ({
       ...employee,
       jobFunctionIds: [...employee.jobFunctionIds],
       recurringSlots: employee.recurringSlots.map((slot) => ({ ...slot }))
     }));
-    const termUpdates = role === 'owner'
+    // Supplementary payroll/catalogue reads must never block creating or editing
+    // the basic employee. When they are unavailable we save the Team facts and
+    // simply defer employment-term versioning until the owner opens that setup.
+    const termUpdates = role === 'owner' && !this.supplementaryError && !this.supplementaryLoading
       ? sourceDrafts.filter((employee) => this.#employmentTermsChanged(employee, snapshot))
       : [];
 

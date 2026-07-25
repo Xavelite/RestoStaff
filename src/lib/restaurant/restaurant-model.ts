@@ -221,25 +221,10 @@ function inheritedOpening(
 
 
 export function restaurantDraftValidationError(draft: RestaurantDraft): string | null {
+  // Restaurant setup stays progressive. Identity, employer identifiers,
+  // opening hours, areas, positions and coverage can all be completed later;
+  // only the workspace-facing restaurant name is structurally required.
   if (!draft.displayName.trim()) return 'Restaurant display name is required.';
-  if (!draft.legalName.trim()) return 'Legal company name is required.';
-  const companyNumber = draft.companyNumber.replace(/\D/g, '');
-  if (companyNumber && companyNumber.length !== 10) return 'The Belgian company number must contain 10 digits.';
-  const establishment = draft.establishmentUnitNumber.replace(/\D/g, '');
-  if (establishment && establishment.length !== 10) return 'The establishment unit number must contain 10 digits.';
-  if (!/^\d{3}(?:\.\d{2})?$/.test(draft.jointCommitteeCode.trim())) {
-    return 'The joint committee code must use a format such as 302 or 302.00.';
-  }
-
-  // Blank rows are how you add several at once and fill them in over time — they
-  // are dropped on save (see restaurantSavePayload), never a reason to block it.
-  // Only rows that carry a name reach the server, so integrity is checked
-  // against those.
-  const areaIds = new Set(draft.areas.filter((area) => area.name.trim()).map((area) => area.id));
-  const jobIds = new Set(draft.jobFunctions.filter((job) => job.name.trim()).map((job) => job.id));
-  if (draft.coverage.some((row) => !areaIds.has(row.areaId) || !jobIds.has(row.jobFunctionId))) {
-    return 'A coverage requirement refers to an area or position that no longer exists.';
-  }
   return null;
 }
 
@@ -261,7 +246,7 @@ export function restaurantSavePayload(
   return {
     restaurant: {
       name: draft.displayName.trim(),
-      legal_name: draft.legalName.trim(),
+      legal_name: draft.legalName.trim() || draft.displayName.trim(),
       company_number: nullable(draft.companyNumber),
       employment_settings: {
         onss_employer_number: nullable(draft.onssEmployerNumber),
@@ -347,6 +332,10 @@ export function restaurantSavePayload(
     ),
     coverageRequirements: asJsonArray(
       draft.coverage
+        .filter((item) =>
+          draft.areas.some((area) => area.id === item.areaId && area.name.trim()) &&
+          draft.jobFunctions.some((job) => job.id === item.jobFunctionId && job.name.trim())
+        )
         .map((item, index) => ({
           restaurant_id: restaurantId,
           area_id: item.areaId,

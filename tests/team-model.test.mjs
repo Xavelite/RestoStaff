@@ -49,10 +49,12 @@ test('employees can carry multiple positions with one primary position', () => {
 test('only fixed-schedule employees persist recurring schedule slots', () => {
   const weeklyEmployee = {
     ...newEmployeeDraft('weekly'),
+    displayName: 'Weekly Employee',
     recurringSlots: [{ weekday: 1, serviceKey: 'lunch' }]
   };
   const fixedEmployee = {
     ...newEmployeeDraft('fixed'),
+    displayName: 'Fixed Employee',
     workRegime: 'fixed_schedule',
     recurringSlots: [{ weekday: 2, serviceKey: 'evening' }]
   };
@@ -168,4 +170,30 @@ test('blank inline employee rows never leak related records into the save payloa
   assert.deepEqual(payload.legalProfiles, []);
   assert.deepEqual(payload.contracts, []);
   assert.deepEqual(payload.payrollProfiles, []);
+});
+
+test('an employee can be created with a full name only', () => {
+  const employee = {
+    ...newEmployeeDraft('employee-minimal'),
+    displayName: 'Minimal Employee'
+  };
+
+  const payload = teamSavePayload('restaurant-1', [employee], 'owner');
+  assert.equal(payload.employees.length, 1);
+  assert.equal(payload.employees[0].display_name, 'Minimal Employee');
+  assert.equal(payload.contracts.length, 0);
+  assert.equal(payload.contacts[0].email, null);
+  assert.equal(payload.legalProfiles[0].national_registry_number, null);
+});
+
+test('an entered draft NISS remains saveable and is validated separately', () => {
+  const employee = {
+    ...newEmployeeDraft('employee-draft-niss'),
+    displayName: 'Draft Identifier',
+    nationalRegistryNumber: '123'
+  };
+
+  const payload = teamSavePayload('restaurant-1', [employee], 'owner');
+  assert.equal(payload.employees.length, 1);
+  assert.equal(payload.legalProfiles[0].national_registry_number, '123');
 });

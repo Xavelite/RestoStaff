@@ -263,7 +263,7 @@ export function employeeDrafts(
 export function newEmployeeDraft(id: string): EmployeeDraft {
   return {
     id,
-    displayName: 'New employee',
+    displayName: '',
     firstName: '',
     lastName: '',
     jobFunctionIds: [],

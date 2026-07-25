@@ -5,7 +5,7 @@
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
-import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
+  import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { AREA_PALETTE, buildPositionColorMap, defaultAreaColor } from '$lib/ui/position-color';
@@ -46,7 +46,8 @@ import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
     try { localStorage.setItem(COLS_KEY, JSON.stringify([...next])); } catch {}
   }
   const shown = (key: string) => !hidden.has(key);
-  const colCount = $derived(4 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length);
+  const colCount = $derived(5 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length);
+  const persistedAreaIds = $derived(new Set((workspace.restaurant?.work_areas ?? []).map((area) => area.id)));
 
   const positionsByArea = $derived.by(() => {
     const draft = restaurantConfig.draft;
@@ -81,6 +82,20 @@ import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
       },
       ...draft.areas
     ];
+    restaurantConfig.touch();
+  }
+
+  function removeOrToggleArea(areaId: string) {
+    const draft = restaurantConfig.draft;
+    if (!draft || workspace.isPreview) return;
+    const area = draft.areas.find((item) => item.id === areaId);
+    if (!area) return;
+    if (persistedAreaIds.has(areaId)) {
+      area.active = !area.active;
+    } else {
+      draft.areas = draft.areas.filter((item) => item.id !== areaId);
+      draft.coverage = draft.coverage.filter((item) => item.areaId !== areaId);
+    }
     restaurantConfig.touch();
   }
 
@@ -153,6 +168,7 @@ import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
               {#if shown('positions')}<th class="has-menu"><ClassicColMenu label={t('Positions')} sortable sortDir={sort?.key === 'positions' ? sort.dir : null} onsort={(dir) => (sort = { key: 'positions', dir })} /></th>{/if}
               {#if shown('notes')}<th class="has-menu"><ClassicColMenu label={t('Notes')} sortable sortDir={sort?.key === 'notes' ? sort.dir : null} onsort={(dir) => (sort = { key: 'notes', dir })} /></th>{/if}
               {#if shown('active')}<th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={sort?.key === 'active' ? sort.dir : null} onsort={(dir) => (sort = { key: 'active', dir })} filterKind="values" filterValues={[{ value: 'active', label: t('Active') }, { value: 'archived', label: t('Archived') }]} selected={excludedStatus} ontoggle={(value) => (excludedStatus = (() => { const next = new Set(excludedStatus); next.has(value) ? next.delete(value) : next.add(value); return next; })())} onselectall={(on) => (excludedStatus = on ? new Set() : new Set(['active', 'archived']))} /></th>{/if}
+              <th class="actions-col">{t('Actions')}</th>
               <th class="chooser-col"><ClassicColChooser columns={OPTIONAL_COLUMNS.map((column) => ({ key: column.key, label: t(column.label) }))} {hidden} ontoggle={toggleColumn} /></th>
             </tr>
           </thead>
@@ -171,6 +187,7 @@ import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
                   {#if shown('positions')}<td>{#if positions.length}<span class="cl-chips">{#each positions as position (position.id)}<span class="cl-chip" style="--chip:{positionColor.get(position.id) ?? 'var(--cl-line-strong)'}"><span>{position.name}</span></span>{/each}</span>{:else}<span class="cl-chips__empty">{t('No coverage yet')}</span>{/if}</td>{/if}
                   {#if shown('notes')}<td><input class="cl-field" disabled={workspace.isPreview} bind:value={area.notes} oninput={() => restaurantConfig.touch()} /></td>{/if}
                   {#if shown('active')}<td><label class="switch"><input type="checkbox" disabled={workspace.isPreview} bind:checked={area.active} onchange={() => restaurantConfig.touch()} /><span>{t(area.active ? 'Active' : 'Archived')}</span></label></td>{/if}
+                  <td class="row-actions"><button class="cl-text-action" type="button" disabled={workspace.isPreview} onclick={() => removeOrToggleArea(area.id)}>{t(persistedAreaIds.has(area.id) ? (area.active ? 'Archive' : 'Restore') : 'Remove')}</button></td>
                   <td></td>
                 </tr>
               {/each}
@@ -192,6 +209,11 @@ import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
   .swatch-col { width: 34px; padding-right: 0 !important; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .chooser-col { width: 44px; }
+  .actions-col { width: 86px; }
+  .row-actions { text-align: right; }
+  .cl-text-action { border: 0; background: transparent; color: var(--cl-muted); font: inherit; font-size: 13px; cursor: pointer; }
+  .cl-text-action:hover { color: var(--cl-ink); text-decoration: underline; }
+  .cl-text-action:disabled { cursor: default; opacity: .45; text-decoration: none; }
   .cl-grip { width: 34px; text-align: center; }
   .cl-grip button { border: 0; background: transparent; color: var(--cl-muted); cursor: grab; letter-spacing: -3px; }
   .cl-grip button:disabled { cursor: default; opacity: .35; }

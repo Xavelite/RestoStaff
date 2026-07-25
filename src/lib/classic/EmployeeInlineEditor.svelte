@@ -7,6 +7,7 @@
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
   import { validateEmployeeEmploymentTerms } from '$lib/payroll/payroll-api';
   import type { EmployeeDraft } from '$lib/team/team-model';
+  import { belgianNissIssue } from '$lib/team/belgian-identifiers';
   import { confirmAction } from '$lib/ui/confirm.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
@@ -59,6 +60,7 @@
   );
   const localDirty = $derived(Boolean(form && baseline && JSON.stringify(form) !== baseline));
   const busy = $derived(saving || committing);
+  const nissIssue = $derived(belgianNissIssue(form?.nationalRegistryNumber));
   const today = new Date().toISOString().slice(0, 10);
 
   function clone(employee: EmployeeDraft): EmployeeDraft {
@@ -203,6 +205,25 @@
     }
   }
 
+
+  async function toggleArchive() {
+    if (!form || busy || !savedEmployee) return;
+    if (form.active) {
+      const confirmed = await confirmAction({
+        title: 'Archive this employee?',
+        body: 'The employee will disappear from new planning, badge access will be disabled and historical shifts, timesheets, absences and exports will be preserved.',
+        confirmLabel: 'Archive employee',
+        cancelLabel: 'Keep active',
+        tone: 'danger'
+      });
+      if (!confirmed) return;
+      form.active = false;
+    } else {
+      form.active = true;
+    }
+    await commit();
+  }
+
   function discardNow() {
     if (isNew) teamDraft.remove(employeeId);
     else if (original) teamDraft.update(employeeId, clone(original));
@@ -290,7 +311,7 @@
         {#if owner}
           <div class="cl-form-section">{t('Legal identity')}</div>
           <label class="cl-label"><span>{t('Birth date')}</span><input class="cl-field" type="date" bind:value={form.birthDate} /></label>
-          <label class="cl-label"><span>{t('National registry number')}</span><input class="cl-field" bind:value={form.nationalRegistryNumber} /></label>
+          <label class="cl-label"><span>{t('National registry number')}</span><input class="cl-field" aria-invalid={Boolean(nissIssue)} bind:value={form.nationalRegistryNumber} />{#if nissIssue}<small class="cl-field-warning">{t(nissIssue)} {t('You can still save the employee and complete this later.')}</small>{/if}</label>
           <label class="cl-label"><span>{t('Sex')}</span><input class="cl-field" bind:value={form.sex} /></label>
           <label class="cl-label"><span>{t('Nationality')}</span><input class="cl-field" bind:value={form.nationality} /></label>
           <label class="cl-label"><span>{t('Language')}</span><input class="cl-field" bind:value={form.language} /></label>
@@ -400,7 +421,7 @@
         <div class="cl-form-section">{t('Payroll profile')}</div>
         <label class="cl-label"><span>{t('Payroll employee ID')}</span><input class="cl-field" bind:value={form.payrollEmployeeId} /></label>
         <label class="sensitive-toggle"><input type="checkbox" bind:checked={revealSensitive} /> {t('Show sensitive fields')}</label>
-        <label class="cl-label"><span>{t('National registry number')}</span><input class="cl-field" type={revealSensitive ? 'text' : 'password'} bind:value={form.nationalRegistryNumber} /></label>
+        <label class="cl-label"><span>{t('National registry number')}</span><input class="cl-field" type={revealSensitive ? 'text' : 'password'} aria-invalid={Boolean(nissIssue)} bind:value={form.nationalRegistryNumber} />{#if nissIssue}<small class="cl-field-warning">{t(nissIssue)} {t('You can still save the employee and complete this later.')}</small>{/if}</label>
         <label class="cl-label"><span>{t('Birth date')}</span><input class="cl-field" type="date" bind:value={form.birthDate} /></label>
         <label class="cl-label"><span>IBAN</span><input class="cl-field" type={revealSensitive ? 'text' : 'password'} bind:value={form.iban} /></label>
         <label class="cl-label"><span>BIC</span><input class="cl-field" bind:value={form.bic} /></label>
@@ -418,6 +439,9 @@
   {/if}
 
   {#snippet footer()}
+    {#if savedEmployee}
+      <button class="cl-btn archive-action" class:is-restore={!form?.active} type="button" disabled={busy} onclick={() => void toggleArchive().catch((error) => toasts.show(friendlyError(error), 'danger'))}>{t(form?.active ? 'Archive employee' : 'Reactivate employee')}</button>
+    {/if}
     {#if section === 'payroll' && savedEmployee}
       <button class="cl-btn" type="button" disabled={busy || !currentEmploymentTerms} onclick={validateEmployment}>{t('Validate setup')}</button>
     {/if}
@@ -433,6 +457,8 @@
   .editor-tabs button:hover { color: var(--cl-ink); background: var(--cl-surface-muted); }
   .editor-tabs button.is-active { color: var(--cl-accent); border-color: var(--cl-line); background: var(--cl-accent-wash); }
   .editor-spacer { margin-left: auto; }
+  .archive-action { color: var(--cl-problem); }
+  .archive-action.is-restore { color: var(--cl-ok); }
   .status-toggle { min-height: 2.5rem; display: inline-flex; align-items: center; gap: .55rem; padding: .55rem .7rem; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); background: var(--cl-surface); }
   .position-field { padding: 12px; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); }
   .position-field legend { padding: 0 5px; color: var(--cl-muted); font-size: 13px; font-weight: var(--rst-fw-medium); }

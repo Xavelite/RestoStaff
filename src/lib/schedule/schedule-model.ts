@@ -376,8 +376,12 @@ export function buildPlanningWeek(input: {
     input.snapshot.job_functions.map((job) => [job.id, job.name])
   );
   const slotsByKey = new Map<string, PlanningGridSlot>();
+  const scheduledEmployeeIds = new Set(input.draft.map((shift) => shift.employeeId));
   const rows: WeekRow[] = input.snapshot.employees
-    .filter((employee) => employee.active)
+    // Archived people are excluded from new planning, but remain visible in a
+    // week that already contains their shifts so published/history data never
+    // disappears merely because the employment relationship ended.
+    .filter((employee) => employee.active || scheduledEmployeeIds.has(employee.id))
     .map((employee) => {
       let weekHours = 0;
       const cells: WeekCell[] = days.map((day) => {

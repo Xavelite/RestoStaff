@@ -3,6 +3,7 @@
   import ClassicPage from '$lib/classic/ClassicPage.svelte';
   import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
+  import { isValidBelgianNiss } from '$lib/team/belgian-identifiers';
 
   $effect(() => {
     if (!workspace.activeId || workspace.effectiveRole !== 'owner') return;
@@ -30,7 +31,7 @@
   );
   const missingContracts = $derived(activeEmployees.filter((employee) => !currentContracts.has(employee.id)).length);
   const missingNiss = $derived(
-    activeEmployees.filter((employee) => !legalProfiles.get(employee.id)?.national_registry_number).length
+    activeEmployees.filter((employee) => !isValidBelgianNiss(legalProfiles.get(employee.id)?.national_registry_number)).length
   );
   const missingPayrollMapping = $derived(
     activeEmployees.filter((employee) => !payrollProfiles.get(employee.id)?.payroll_employee_id).length

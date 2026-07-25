@@ -108,7 +108,7 @@
     owner: workspace.effectiveRole === 'owner',
     saving,
     dirty: teamDraft.dirty,
-    canSave: !workspace.isPreview && !teamDraft.supplementaryLoading && !teamDraft.supplementaryError,
+    canSave: !workspace.isPreview,
     save,
     discard,
     saveEmployee
