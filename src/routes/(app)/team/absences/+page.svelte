@@ -24,7 +24,7 @@
     return value === 'lunch' || value === 'evening' ? value : null;
   }
 
-  let scope = $state<'pending' | 'upcoming' | 'all'>('pending');
+  let excludedStatus = $state(new Set<string>(['approved', 'rejected', 'cancelled']));
   let busy = $state('');
   let search = $state('');
   let sort = $state<{ key: 'employee' | 'type' | 'from' | 'to' | 'service' | 'status'; dir: 'asc' | 'desc' } | null>(null);
@@ -73,17 +73,10 @@
 
 <ClassicTeamPage>
   {#snippet children(teamContext)}
-    {@const today = new Date().toISOString().slice(0, 10)}
     {@const employeeName = new Map(teamContext.employees.map((employee) => [employee.id, employee.displayName]))}
     {@const typeName = new Map((team?.absence_types ?? []).map((type) => [type.id, type.name]))}
     {@const rows = (team?.absences ?? [])
-      .filter((absence) =>
-        scope === 'pending'
-          ? absence.status === 'pending'
-          : scope === 'upcoming'
-            ? absence.end_date >= today && absence.status !== 'cancelled'
-            : true
-      )
+      .filter((absence) => !excludedStatus.has(absence.status))
       .filter((absence) => `${employeeName.get(absence.employee_id) ?? ''} ${typeName.get(absence.absence_type_id ?? '') ?? ''} ${absence.status}`.toLowerCase().includes(search.trim().toLowerCase()))
       .sort((left, right) => {
         if (!sort) return right.start_date.localeCompare(left.start_date);
@@ -101,13 +94,6 @@
         <span><i class="dot"></i>{t('{count} requests', { count: rows.length })}</span>
         <span><i class="dot is-orange"></i>{t('{count} pending', { count: rows.filter((absence) => absence.status === 'pending').length })}</span>
       {/snippet}
-      {#snippet actions()}
-        <select class="cl-field filter" aria-label={t('Employee status')} bind:value={scope}>
-          <option value="pending">{t('Awaiting decision')}</option>
-          <option value="upcoming">{t('Upcoming')}</option>
-          <option value="all">{t('All')}</option>
-        </select>
-      {/snippet}
       {#snippet children()}
       <div class="cl-tablewrap">
         <table class="cl-table">
@@ -118,7 +104,7 @@
               <th class="has-menu"><ClassicColMenu label={t('From')} sortable sortDir={sort?.key === 'from' ? sort.dir : null} onsort={(dir) => (sort = { key: 'from', dir })} /></th>
               <th class="has-menu"><ClassicColMenu label={t('To')} sortable sortDir={sort?.key === 'to' ? sort.dir : null} onsort={(dir) => (sort = { key: 'to', dir })} /></th>
               <th class="has-menu"><ClassicColMenu label={t('Service')} sortable sortDir={sort?.key === 'service' ? sort.dir : null} onsort={(dir) => (sort = { key: 'service', dir })} /></th>
-              <th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={sort?.key === 'status' ? sort.dir : null} onsort={(dir) => (sort = { key: 'status', dir })} groupable grouped={groupBy === 'status'} ongroup={(on) => (groupBy = on ? 'status' : 'none')} /></th>
+              <th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={sort?.key === 'status' ? sort.dir : null} onsort={(dir) => (sort = { key: 'status', dir })} groupable grouped={groupBy === 'status'} ongroup={(on) => (groupBy = on ? 'status' : 'none')} filterKind="values" filterValues={[{ value: 'pending', label: t('pending') }, { value: 'approved', label: t('approved') }, { value: 'rejected', label: t('rejected') }, { value: 'cancelled', label: t('cancelled') }]} selected={excludedStatus} ontoggle={(value) => { const next = new Set(excludedStatus); next.has(value) ? next.delete(value) : next.add(value); excludedStatus = next; }} onselectall={(on) => (excludedStatus = on ? new Set() : new Set(['pending', 'approved', 'rejected', 'cancelled']))} /></th>
               <th></th>
             </tr>
           </thead>
@@ -152,7 +138,6 @@
 
 <style>
   .actions { display: inline-flex; gap: 8px; }
-  .filter { min-width: 170px; }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-line-strong); display: inline-block; }
   .dot.is-orange { background: var(--cl-attention); }
 </style>

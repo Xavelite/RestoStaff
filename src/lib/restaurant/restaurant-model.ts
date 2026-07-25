@@ -1,6 +1,7 @@
 import { asJsonArray } from '../api/json.ts';
 import { setupItemCode, slug } from './setup-item-code.ts';
 import type { RestaurantReadModel } from '$lib/api/workspace-snapshot';
+import { defaultAreaColor, defaultPositionColor, readColorOverride, readStoredAreaColors } from '../ui/position-color.ts';
 import type { RestaurantSavePayload } from '$lib/api/mutations';
 import {
   SERVICES,
@@ -8,7 +9,7 @@ import {
   mondayFor,
   todayInTimezone,
   type ServiceKey
-} from '$lib/calendar/date';
+} from '../calendar/date.ts';
 
 export type NamedSetupItem = {
   id: string;
@@ -19,6 +20,7 @@ export type NamedSetupItem = {
 
 export type JobFunctionDraft = NamedSetupItem & {
   estimatedHourlyCost: number;
+  color: string;
 };
 
 export type AreaDraft = {
@@ -31,11 +33,13 @@ export type AreaDraft = {
   lunchEnd: string;
   eveningStart: string;
   eveningEnd: string;
+  color: string;
 };
 
 export type OpeningDraft = {
   weekday: number;
-  open: boolean;
+  lunchOpen: boolean;
+  eveningOpen: boolean;
   lunchStart: string;
   lunchEnd: string;
   eveningStart: string;
@@ -101,30 +105,37 @@ export function restaurantDraft(snapshot: RestaurantReadModel): RestaurantDraft 
     address: snapshot.restaurant.address_line1 ?? '',
     postalCode: snapshot.restaurant.postal_code ?? '',
     city: snapshot.restaurant.city ?? '',
-    jobFunctions: snapshot.job_functions.map((row) => ({
+    jobFunctions: snapshot.job_functions.map((row, index) => ({
       id: row.id,
       name: row.name,
       code: row.code,
       active: row.active,
-      estimatedHourlyCost: row.estimated_hourly_cost
+      estimatedHourlyCost: row.estimated_hourly_cost,
+      color: readColorOverride(row.metadata) ?? defaultPositionColor(index)
     })),
-    areas: snapshot.work_areas.map((row) => ({
-      id: row.id,
-      name: row.name,
-      code: row.code,
-      notes: row.notes ?? '',
-      active: row.active,
-      lunchStart: areaDefault(snapshot, row.id, 'lunch', 'start_time'),
-      lunchEnd: areaDefault(snapshot, row.id, 'lunch', 'end_time'),
-      eveningStart: areaDefault(snapshot, row.id, 'evening', 'start_time'),
-      eveningEnd: areaDefault(snapshot, row.id, 'evening', 'end_time')
-    })),
+    areas: (() => {
+      const storedColors = readStoredAreaColors(snapshot.restaurant.id);
+      return snapshot.work_areas.map((row, index) => ({
+        id: row.id,
+        name: row.name,
+        code: row.code,
+        notes: row.notes ?? '',
+        active: row.active,
+        lunchStart: areaDefault(snapshot, row.id, 'lunch', 'start_time'),
+        lunchEnd: areaDefault(snapshot, row.id, 'lunch', 'end_time'),
+        eveningStart: areaDefault(snapshot, row.id, 'evening', 'start_time'),
+        eveningEnd: areaDefault(snapshot, row.id, 'evening', 'end_time'),
+        color: storedColors[row.id] ?? defaultAreaColor(index)
+      }));
+    })(),
     opening: WEEKDAYS.map((_, index) => {
       const weekday = index + 1;
-      const rows = snapshot.opening_hours.filter((row) => row.weekday === weekday);
+      const lunch = snapshot.opening_hours.find((row) => row.weekday === weekday && row.service_key === 'lunch');
+      const evening = snapshot.opening_hours.find((row) => row.weekday === weekday && row.service_key === 'evening');
       return {
         weekday,
-        open: rows.some((row) => row.is_open),
+        lunchOpen: lunch?.is_open === true,
+        eveningOpen: evening?.is_open === true,
         lunchStart: openingValue(snapshot, weekday, 'lunch', 'opens_at'),
         lunchEnd: openingValue(snapshot, weekday, 'lunch', 'closes_at'),
         eveningStart: openingValue(snapshot, weekday, 'evening', 'opens_at'),
@@ -185,7 +196,8 @@ function inheritedOpening(
   for (const row of draft.opening) {
     const start = service === 'lunch' ? row.lunchStart : row.eveningStart;
     const end = service === 'lunch' ? row.lunchEnd : row.eveningEnd;
-    if (row.open && start && end) return { start, end };
+    const open = service === 'lunch' ? row.lunchOpen : row.eveningOpen;
+    if (open && start && end) return { start, end };
   }
   return null;
 }
@@ -218,7 +230,7 @@ export function restaurantSavePayload(
     name: item.name.trim(),
     active: item.active,
     sort_order: index,
-    metadata: {}
+    metadata: 'color' in item ? { color: item.color } : {}
   });
 
   return {
@@ -272,7 +284,7 @@ export function restaurantSavePayload(
           restaurant_id: restaurantId,
           weekday: item.weekday,
           service_key: service,
-          is_open: item.open,
+          is_open: service === 'lunch' ? item.lunchOpen : item.eveningOpen,
           opens_at: nullable(service === 'lunch' ? item.lunchStart : item.eveningStart),
           closes_at: nullable(service === 'lunch' ? item.lunchEnd : item.eveningEnd)
         }))

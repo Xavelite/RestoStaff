@@ -30,8 +30,8 @@
   let sort = $state<{ key: 'area' | 'position' | 'service'; dir: 'asc' | 'desc' } | null>(null);
   let groupBy = $state<'area' | 'position' | 'none'>('area');
 
-  const areaColor = $derived(buildAreaColorMap(workspace.restaurant?.work_areas ?? []));
-  const positionColor = $derived(buildPositionColorMap(workspace.restaurant?.job_functions ?? []));
+  const areaColor = $derived(buildAreaColorMap(restaurantConfig.draft?.areas ?? []));
+  const positionColor = $derived(buildPositionColorMap(restaurantConfig.draft?.jobFunctions ?? []));
 
   function rowKey(row: Row): string {
     return `${row.areaId}|${row.jobFunctionId}|${row.serviceKey}`;

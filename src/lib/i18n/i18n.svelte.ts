@@ -3919,3 +3919,27 @@ Object.assign(dutch, {
 
 Object.assign(french, { 'No role': 'Aucun rôle' });
 Object.assign(dutch, { 'No role': 'Geen rol' });
+
+Object.assign(french, {
+  'Choose colour': 'Choisir une couleur',
+  'Choose area colour': 'Choisir la couleur de la zone',
+  'Choose position colour': 'Choisir la couleur du poste',
+  '{count} lunch days': '{count} jours ouverts le midi',
+  '{count} evening days': '{count} jours ouverts le soir',
+  Enabled: 'Activé',
+  Expired: 'Expiré',
+  Invited: 'Invité',
+  'Not invited': 'Non invité'
+});
+
+Object.assign(dutch, {
+  'Choose colour': 'Kleur kiezen',
+  'Choose area colour': 'Zonekleur kiezen',
+  'Choose position colour': 'Functiekleur kiezen',
+  '{count} lunch days': '{count} lunchdagen open',
+  '{count} evening days': '{count} avonddagen open',
+  Enabled: 'Ingeschakeld',
+  Expired: 'Verlopen',
+  Invited: 'Uitgenodigd',
+  'Not invited': 'Niet uitgenodigd'
+});

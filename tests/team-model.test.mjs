@@ -124,3 +124,22 @@ test('employment terms submit facts and never browser-derived classifications', 
     assert.equal(Object.hasOwn(payload, derived), false, `${derived} must be server-derived`);
   }
 });
+
+test('blank inline employee rows never leak related records into the save payload', () => {
+  const blank = {
+    ...newEmployeeDraft('blank-employee'),
+    displayName: '',
+    email: 'not-yet-saved@example.test',
+    phone: '+32 000 00 00 00',
+    jobFunctionIds: ['position-1']
+  };
+
+  const payload = teamSavePayload('restaurant-1', [blank], 'owner');
+  assert.deepEqual(payload.employees, []);
+  assert.deepEqual(payload.contacts, []);
+  assert.deepEqual(payload.access, []);
+  assert.deepEqual(payload.employeeJobFunctions, []);
+  assert.deepEqual(payload.legalProfiles, []);
+  assert.deepEqual(payload.contracts, []);
+  assert.deepEqual(payload.payrollProfiles, []);
+});

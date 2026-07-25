@@ -1,21 +1,17 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
-  import { buildPositionColorMap } from '$lib/ui/position-color';
+  import { POSITION_PALETTE, defaultPositionColor } from '$lib/ui/position-color';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import ClassicRestaurantPage from '$lib/classic/ClassicRestaurantPage.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
+import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
 
   type SortKey = 'name' | 'cost' | 'employees' | 'active';
 
-  const positionColor = $derived(
-    workspace.restaurant
-      ? buildPositionColorMap(workspace.restaurant.job_functions)
-      : new Map<string, string>()
-  );
 
   $effect(() => {
     if (workspace.activeId && workspace.effectiveRole === 'owner') {
@@ -60,7 +56,7 @@
   function addPosition() {
     const draft = restaurantConfig.draft;
     if (!draft) return;
-    draft.jobFunctions = [{ id: crypto.randomUUID(), name: '', code: '', active: true, estimatedHourlyCost: 0 }, ...draft.jobFunctions];
+    draft.jobFunctions = [{ id: crypto.randomUUID(), name: '', code: '', active: true, estimatedHourlyCost: 0, color: defaultPositionColor(draft.jobFunctions.length) }, ...draft.jobFunctions];
     restaurantConfig.touch();
   }
   function movePosition(targetId: string) {
@@ -137,7 +133,7 @@
                 {@const headcount = employeesByPosition.get(position.id)?.size ?? 0}
                 <tr draggable={!sort && !workspace.isPreview} ondragstart={() => (dragId = position.id)} ondragend={() => (dragId = '')} ondragover={(event) => { if (!sort) event.preventDefault(); }} ondrop={() => movePosition(position.id)}>
                   <td class="cl-grip"><button type="button" disabled={Boolean(sort) || workspace.isPreview} title={sort ? t('Clear sorting to reorder') : t('Drag to reorder')} aria-label={t('Drag to reorder')}>⋮⋮</button></td>
-                  <td class="swatch-col"><span class="cl-swatch" style="background:{positionColor.get(position.id) ?? 'var(--cl-line-strong)'}"></span></td>
+                  <td class="swatch-col"><ClassicPalettePicker value={position.color} palette={POSITION_PALETTE} label={t('Choose position colour')} disabled={workspace.isPreview} onselect={(color) => { position.color = color; restaurantConfig.touch(); }} /></td>
                   <td><input class="cl-field" placeholder={t('Position name')} disabled={workspace.isPreview} bind:value={position.name} oninput={() => restaurantConfig.touch()} /></td>
                   {#if shown('cost')}<td class="is-num"><input class="cl-field cost" type="number" disabled={workspace.isPreview} min="0" step="0.5" bind:value={position.estimatedHourlyCost} oninput={() => restaurantConfig.touch()} /></td>{/if}
                   {#if shown('employees')}<td><span class="cl-linkcount" class:is-zero={!headcount} title={t('{count} people', { count: headcount })}><span class="cl-linkcount__n">{headcount}</span></span></td>{/if}

@@ -3,6 +3,7 @@ import type { RestaurantReadModel } from '$lib/api/workspace-snapshot';
 import { saveRestaurant } from '$lib/api/mutations';
 import { restaurantDraft, restaurantSavePayload, type RestaurantDraft } from '$lib/restaurant/restaurant-model';
 import { workspace } from '$lib/workspace/workspace.svelte';
+import { storeAreaColors } from '$lib/ui/position-color';
 
 /**
  * The restaurant configuration being edited in the classic Restaurant module.
@@ -54,6 +55,7 @@ class ClassicRestaurantDraft {
 
   async save(restaurantId: string, snapshot: RestaurantReadModel): Promise<void> {
     if (!this.draft) return;
+    storeAreaColors(restaurantId, this.draft.areas.map((area) => ({ id: area.id, color: area.color })));
     await saveRestaurant(restaurantId, restaurantSavePayload(snapshot, this.draft));
     this.#loadedRestaurantId = '';
     this.#loadedKey = '';

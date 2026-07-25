@@ -5,13 +5,13 @@
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
+import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
-  import { buildAreaColorMap, buildPositionColorMap } from '$lib/ui/position-color';
+  import { AREA_PALETTE, buildPositionColorMap, defaultAreaColor } from '$lib/ui/position-color';
 
   type SortKey = 'name' | 'lunch' | 'evening' | 'positions' | 'notes' | 'active';
-  const areaColor = $derived(buildAreaColorMap(workspace.restaurant?.work_areas ?? []));
-  const positionColor = $derived(buildPositionColorMap(workspace.restaurant?.job_functions ?? []));
+  const positionColor = $derived(buildPositionColorMap(restaurantConfig.draft?.jobFunctions ?? []));
 
   let search = $state('');
   let sort = $state<{ key: SortKey; dir: 'asc' | 'desc' } | null>(null);
@@ -76,7 +76,8 @@
         lunchStart: '',
         lunchEnd: '',
         eveningStart: '',
-        eveningEnd: ''
+        eveningEnd: '',
+        color: defaultAreaColor(draft.areas.length)
       },
       ...draft.areas
     ];
@@ -161,7 +162,7 @@
                 {@const positions = positionsByArea.get(area.id) ?? []}
                 <tr draggable={!sort && !workspace.isPreview} ondragstart={() => (dragId = area.id)} ondragend={() => (dragId = '')} ondragover={(event) => { if (!sort) event.preventDefault(); }} ondrop={() => moveArea(area.id)}>
                   <td class="cl-grip"><button type="button" disabled={Boolean(sort) || workspace.isPreview} title={sort ? t('Clear sorting to reorder') : t('Drag to reorder')} aria-label={t('Drag to reorder')}>⋮⋮</button></td>
-                  <td class="swatch-col"><span class="cl-swatch" style="background:{areaColor.get(area.id) ?? 'var(--cl-line-strong)'}"></span></td>
+                  <td class="swatch-col"><ClassicPalettePicker value={area.color} palette={AREA_PALETTE} label={t('Choose area colour')} disabled={workspace.isPreview} onselect={(color) => { area.color = color; restaurantConfig.touch(); }} /></td>
                   <td><input class="cl-field" placeholder={t('Area name')} disabled={workspace.isPreview} bind:value={area.name} oninput={() => restaurantConfig.touch()} /></td>
                   {#if shown('lunch')}<td><span class="range"><input class="cl-field time" type="time" disabled={workspace.isPreview} bind:value={area.lunchStart} oninput={() => restaurantConfig.touch()} /><i>–</i><input class="cl-field time" type="time" disabled={workspace.isPreview} bind:value={area.lunchEnd} oninput={() => restaurantConfig.touch()} /></span></td>{/if}
                   {#if shown('evening')}<td><span class="range"><input class="cl-field time" type="time" disabled={workspace.isPreview} bind:value={area.eveningStart} oninput={() => restaurantConfig.touch()} /><i>–</i><input class="cl-field time" type="time" disabled={workspace.isPreview} bind:value={area.eveningEnd} oninput={() => restaurantConfig.touch()} /></span></td>{/if}

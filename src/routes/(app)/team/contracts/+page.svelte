@@ -1,11 +1,10 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { personInitials } from '$lib/ui/person';
   import { buildEmployeeColorMap } from '$lib/ui/position-color';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { newEmployeeDraft, type EmployeeDraft } from '$lib/team/team-model';
-  import ClassicStat from '$lib/classic/ClassicStat.svelte';
   import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
   import ClassicTeamPage from '$lib/classic/ClassicTeamPage.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
@@ -83,14 +82,38 @@
     manager_only: 'Manager planned'
   };
 
-  function addEmployee() {
+  async function addEmployee() {
     if (workspace.isPreview || !workspace.team || workspace.effectiveRole !== 'owner') return;
     const draft = newEmployeeDraft(crypto.randomUUID());
     draft.displayName = '';
     teamDraft.employees = [draft, ...teamDraft.employees];
     freshId = draft.id;
-    detailId = draft.id;
     search = '';
+    excludedContract = new Set();
+    excludedPosition = new Set();
+    excludedStatus = new Set();
+    await tick();
+    document.querySelector<HTMLInputElement>(`[data-employee-id="${draft.id}"] .namefield`)?.focus();
+  }
+
+  function setName(employee: EmployeeDraft, value: string) {
+    const parts = value.trim().split(/\s+/);
+    teamDraft.update(employee.id, {
+      displayName: value,
+      firstName: employee.firstName || parts[0] || '',
+      lastName: employee.lastName || parts.slice(1).join(' ')
+    });
+  }
+
+  async function savePage(save: () => Promise<void>) {
+    await save();
+    freshId = '';
+  }
+
+  function discardPage(discard: () => void) {
+    discard();
+    freshId = '';
+    detailId = '';
   }
 
   function closeDetails() {
@@ -174,12 +197,7 @@
     {@const contractValues = [{ value: '__none__', label: t('No contract') }, ...[...team.contractName].map(([id, name]) => ({ value: id, label: name }))]}
     {@const positionValues = [{ value: '__none__', label: t('No position') }, ...[...team.jobName].map(([id, name]) => ({ value: id, label: name }))]}
 
-    <div class="cl-stats">
-      <ClassicStat label="Active employees" value={filtered.length} accent="var(--cl-mod-team)" mutedZero={false} />
-      <ClassicStat label="Incomplete contracts" value={incomplete} tone={incomplete ? 'attention' : 'ok'} />
-    </div>
-
-    <ClassicTablePanel dirty={team.dirty} saving={team.saving} canSave={team.canSave} onsave={() => void team.save().catch(() => undefined)} ondiscard={team.discard}>
+    <ClassicTablePanel dirty={team.dirty} saving={team.saving} canSave={team.canSave} onsave={() => void savePage(team.save).catch(() => undefined)} ondiscard={() => discardPage(team.discard)}>
       {#snippet meta()}
         <span><i class="dot"></i>{t('{count} employees', { count: filtered.length })}</span>
         <span><i class="dot is-orange"></i>{t('{count} incomplete', { count: incomplete })}</span>
@@ -215,8 +233,17 @@
                 {#if groupBy !== 'none'}<tr class="cl-group-row"><td colspan={colCount + 1}>{group.label}<span class="cl-group-row__count">{t('{count} people', { count: group.employees.length })}</span></td></tr>{/if}
                 {#each group.employees as employee (employee.id)}
                   {@const missing = gaps(employee)}
-                  <tr class:is-attention={missing.length > 0 || employee.id === freshId}>
-                    <td><span class="cl-table__name is-employee"><span class="cl-avatar" style="--avatar-color:{employeeColor.get(employee.id) ?? 'var(--cl-muted)'}">{personInitials(employee.displayName || '?')}</span><strong>{employee.displayName || t('New employee')}</strong></span></td>
+                  <tr data-employee-id={employee.id} class:is-attention={missing.length > 0 || employee.id === freshId}>
+                    <td>
+                      <span class="cl-table__name is-employee">
+                        <span class="cl-avatar" style="--avatar-color:{employeeColor.get(employee.id) ?? 'var(--cl-muted)'}">{personInitials(employee.displayName || '?')}</span>
+                        {#if employee.id === freshId}
+                          <input class="cl-field namefield" placeholder={t('Full name')} value={employee.displayName} disabled={!team.owner || !team.editable} oninput={(event) => setName(employee, event.currentTarget.value)} />
+                        {:else}
+                          <span class="employee-name">{employee.displayName || t('New employee')}</span>
+                        {/if}
+                      </span>
+                    </td>
                     {#if shown('position')}<td>{team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position yet')}</td>{/if}
                     {#if shown('contract')}<td><select class="cl-field cellfield" value={employee.contractTypeId} disabled={!team.owner || !team.editable} onchange={(event) => setContractType(employee, event.currentTarget.value)}><option value="">{t('Not set')}</option>{#each contractTypes as item (item.id)}<option value={item.id}>{item.name}</option>{/each}</select></td>{/if}
                     {#if shown('regime')}<td><select class="cl-field cellfield regime" value={employee.workRegime} disabled={!team.owner || !team.editable} onchange={(event) => teamDraft.update(employee.id, { workRegime: event.currentTarget.value as EmployeeDraft['workRegime'] })}>{#each Object.entries(REGIME_LABEL) as [value, label] (value)}<option value={value}>{t(label)}</option>{/each}</select></td>{/if}
@@ -244,6 +271,8 @@
 
 <style>
   .missing { display: block; color: var(--cl-muted); font-size: 12px; }
+  .namefield { min-width: 170px; height: 34px; }
+  .employee-name { font-weight: var(--rst-fw-medium); }
   .edit { min-height: 32px; padding: 4px 10px; font-size: 13px; }
   .cellfield, .datefield, .hoursfield { height: 34px; }
   .cellfield { min-width: 132px; }

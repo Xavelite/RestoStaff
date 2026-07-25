@@ -437,121 +437,6 @@
   padding: 0;
 }
 
-/* The save affordance only appears while a draft is dirty, so no page carries a
-   permanent line for it. Sticky under the top bar so Save is always reachable,
-   even a long table down. */
-.cl-savebar {
-  position: sticky;
-  top: calc(var(--cl-topbar) + 12px);
-  z-index: 60;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 7px 8px 7px 14px;
-  border: 1px solid var(--cl-accent);
-  border-radius: var(--cl-radius);
-  background: var(--cl-surface);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-  animation: cl-savebar-in var(--cl-dur) var(--cl-ease);
-}
-
-@keyframes cl-savebar-in {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: none; }
-}
-
-.cl-savebar__label {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  color: var(--cl-ink);
-  font-size: 13px;
-  font-weight: var(--rst-fw-medium);
-}
-
-.cl-savebar__dot {
-  width: 8px;
-  height: 8px;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: var(--cl-accent);
-}
-
-.cl-savebar__actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.cl-savebar .cl-btn {
-  min-height: 34px;
-  height: 34px;
-  font-size: 13px;
-}
-
-.cl-savebar .cl-btn.is-icon {
-  width: 34px;
-  padding: 0;
-}
-
-/* A data table with its own controls fused to the top edge — search and filters
-   sit in a header strip that shares the table's frame, so the controls read as
-   part of the table (like a spreadsheet), not a floating page toolbar. */
-.cl-datatable {
-  border: 1px solid var(--cl-line);
-  border-radius: var(--cl-radius-surface);
-  background: var(--cl-surface);
-  overflow: hidden;
-}
-
-.cl-datatable__tools {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 12px;
-  border-bottom: 1px solid var(--cl-line);
-  background: var(--cl-surface-muted);
-}
-
-.cl-datatable__tools .cl-grow {
-  margin-left: auto;
-}
-
-.cl-datatable__tools .cl-field,
-.cl-datatable__tools .cl-btn {
-  min-height: 34px;
-  height: 34px;
-  font-size: 13px;
-}
-
-/* The search field leads the strip; a magnifier keeps it obviously a filter. */
-.cl-datatable__search {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-}
-
-.cl-datatable__search svg {
-  position: absolute;
-  left: 10px;
-  width: 15px;
-  height: 15px;
-  color: var(--cl-muted);
-  pointer-events: none;
-}
-
-.cl-datatable__search .cl-field {
-  padding-left: 31px;
-}
-
-.cl-datatable .cl-tablewrap {
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-
 .cl-tablepanel {
   display: grid;
   gap: 12px;
@@ -635,44 +520,6 @@
   padding: 0;
 }
 
-
-/* Inline add: a permanent row at the head of a table, right under the column
-   titles. Clicking it drops a fresh blank row directly below — click again for
-   another — so adding is "one more line" and there is no separate Add button on
-   its own line. */
-.cl-addrow td {
-  padding: 0 !important;
-  background: var(--cl-surface);
-  border-bottom: 1px solid var(--cl-line);
-}
-.cl-addrow button {
-  width: 100%;
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  padding: 11px 16px;
-  border: 0;
-  background: transparent;
-  color: var(--cl-muted);
-  font: inherit;
-  font-size: 13px;
-  font-weight: var(--rst-fw-medium);
-  text-align: left;
-  cursor: pointer;
-}
-.cl-addrow button:hover:not(:disabled) {
-  background: var(--cl-accent-wash);
-  color: var(--cl-accent);
-}
-.cl-addrow button:disabled {
-  color: var(--cl-line-strong);
-  cursor: default;
-}
-.cl-addrow svg {
-  width: 16px;
-  height: 16px;
-  flex: 0 0 auto;
-}
 
 /* A colour swatch that stands for a position or an area. */
 .cl-swatch {
@@ -1760,3 +1607,214 @@
   overflow: auto;
 }
 
+
+/* -------------------------------------------------- refined directories -- */
+/* Shared polish for Team and Restaurant directories. Headers stay neutral;
+   orange is reserved for the active underline and actionable controls. */
+.cl-table th {
+  border-bottom-color: var(--cl-accent);
+  background: color-mix(in srgb, var(--cl-surface-muted) 72%, var(--cl-surface));
+  font-size: 12.5px;
+  font-weight: var(--rst-fw-bold);
+}
+
+.cl-table th:not(:last-child),
+.cl-table tbody td:not(:last-child) {
+  border-right-color: color-mix(in srgb, var(--cl-line) 76%, transparent);
+}
+
+.colhead {
+  min-height: 52px;
+  padding-inline: 14px 8px;
+}
+
+.colhead__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-block: 10px;
+  letter-spacing: -0.01em;
+}
+
+.colhead__trigger {
+  margin-left: auto;
+  opacity: 0.82;
+}
+
+.cl-table td {
+  padding: 10px 14px;
+}
+
+.cl-table__name,
+.employee-name {
+  font-weight: var(--rst-fw-medium);
+}
+
+.cl-table td .cl-field {
+  min-width: 0;
+  width: 100%;
+  font-weight: inherit;
+}
+
+.cl-group-row td {
+  background: color-mix(in srgb, var(--cl-surface-muted) 82%, var(--cl-surface)) !important;
+  color: color-mix(in srgb, var(--cl-muted) 88%, var(--cl-ink));
+  border-bottom: 1px solid var(--cl-line);
+  text-transform: uppercase;
+}
+
+.cl-status {
+  min-height: 28px;
+  gap: 6px;
+  padding: 3px 9px 3px 6px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: var(--rst-fw-medium);
+}
+
+.cl-status__symbol {
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+}
+
+.cl-status.is-ok {
+  border-color: color-mix(in srgb, var(--cl-ok) 14%, var(--cl-line));
+  background: var(--cl-ok-wash);
+  color: color-mix(in srgb, var(--cl-ok) 72%, var(--cl-ink));
+}
+
+.cl-status.is-attention {
+  border-color: color-mix(in srgb, var(--cl-attention) 18%, var(--cl-line));
+  background: var(--cl-attention-wash);
+  color: color-mix(in srgb, var(--cl-attention) 78%, var(--cl-ink));
+  font-weight: var(--rst-fw-medium);
+}
+
+.cl-status.is-problem {
+  border-color: color-mix(in srgb, var(--cl-problem) 18%, var(--cl-line));
+  background: var(--cl-problem-wash);
+  color: color-mix(in srgb, var(--cl-problem) 78%, var(--cl-ink));
+  font-weight: var(--rst-fw-medium);
+}
+
+.cl-status.is-ok .cl-status__symbol,
+.cl-status.is-attention .cl-status__symbol,
+.cl-status.is-problem .cl-status__symbol {
+  background: color-mix(in srgb, currentColor 7%, transparent);
+}
+
+.cl-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 27px;
+  padding: 2px 9px;
+  border: 1px solid var(--cl-line);
+  border-radius: 999px;
+  background: var(--cl-surface-muted);
+  color: var(--cl-muted);
+  font-size: 12px;
+  font-weight: var(--rst-fw-medium);
+  white-space: nowrap;
+}
+
+.cl-badge.is-neutral {
+  background: color-mix(in srgb, var(--cl-surface-muted) 76%, var(--cl-surface));
+}
+
+/* Curated colour picker shared by Areas and Positions. */
+.palette-picker {
+  display: inline-flex;
+  align-items: center;
+}
+
+.palette-picker__trigger {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.palette-picker__trigger:hover:not(:disabled),
+.palette-picker__trigger[aria-expanded='true'] {
+  border-color: var(--cl-line-strong);
+  background: var(--cl-surface-muted);
+}
+
+.palette-picker__trigger:disabled {
+  cursor: default;
+}
+
+.palette-picker__trigger > span,
+.palette-picker__grid button > span {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.13);
+  border-radius: 5px;
+  background: var(--picker-color);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+
+.palette-picker__menu {
+  position: fixed;
+  z-index: 420;
+  width: 210px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--cl-line-strong);
+  border-radius: 10px;
+  background: var(--cl-surface);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.16);
+}
+
+.palette-picker__menu > strong {
+  color: var(--cl-ink);
+  font-size: 12px;
+  font-weight: var(--rst-fw-bold);
+}
+
+.palette-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(5, 30px);
+  gap: 7px;
+}
+
+.palette-picker__grid button {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.palette-picker__grid button:hover,
+.palette-picker__grid button.is-selected {
+  border-color: var(--cl-accent);
+  background: var(--cl-accent-wash);
+}
+
+.palette-picker__grid button.is-selected > span {
+  box-shadow: 0 0 0 2px var(--cl-surface), 0 0 0 3px var(--cl-accent);
+}
+
+@media (max-width: 760px) {
+  .cl-tablepanel__head {
+    align-items: flex-start;
+  }
+
+  .cl-tablepanel__actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
