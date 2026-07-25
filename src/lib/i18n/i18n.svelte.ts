@@ -4265,6 +4265,7 @@ Object.assign(french, {
   'Overlapping shifts must be resolved before publishing.':
     'Les shifts qui se chevauchent doivent être corrigés avant la publication.',
   'Overlapping shifts': 'Shifts qui se chevauchent',
+  Overlap: 'Chevauchement',
   'Republish this week?': 'Republier cette semaine ?',
   'Publishing keeps the manager in control: warnings remain visible but do not silently change the planning.':
     'La publication laisse le contrôle au manager : les avertissements restent visibles sans modifier silencieusement le planning.',
@@ -4289,6 +4290,7 @@ Object.assign(dutch, {
   'Overlapping shifts must be resolved before publishing.':
     'Overlappende shifts moeten vóór publicatie worden opgelost.',
   'Overlapping shifts': 'Overlappende shifts',
+  Overlap: 'Overlap',
   'Republish this week?': 'Deze week opnieuw publiceren?',
   'Publishing keeps the manager in control: warnings remain visible but do not silently change the planning.':
     'Publiceren houdt de manager in controle: waarschuwingen blijven zichtbaar en wijzigen de planning niet stilzwijgend.',

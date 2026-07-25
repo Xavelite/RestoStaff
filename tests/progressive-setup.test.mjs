@@ -41,7 +41,7 @@ test('DEV migration makes identifiers nonblocking and archives safely', async ()
   assert.match(migration, /status = 'revoked'/);
 });
 
-test('Schedule uses one premium week header and a split lunch/evening planning canvas', async () => {
+test('Schedule uses one premium week header and one full daily card with internal service occupancy', async () => {
   const schedule = await readFile('src/routes/(app)/schedule/+page.svelte', 'utf8');
   const nav = await readFile('src/lib/classic/classic-nav.ts', 'utf8');
   assert.doesNotMatch(schedule, /<ClassicTablePanel/);
@@ -49,6 +49,14 @@ test('Schedule uses one premium week header and a split lunch/evening planning c
   assert.match(schedule, /type GroupMode = 'none' \| 'contract' \| 'position' \| 'area'/);
   assert.match(schedule, /class="service-canvas"/);
   assert.match(schedule, /class="service-zone is-\{service\} is-\{tone\}"/);
+  assert.match(schedule, /class="day-card"/);
+  assert.match(schedule, /class="day-card__surface"/);
+  assert.match(schedule, /class="day-card__fill is-lunch"/);
+  assert.match(schedule, /class="day-card__fill is-evening"/);
+  assert.match(schedule, /class="day-card__content is-single"/);
+  assert.match(schedule, /class="day-card__split-content"/);
+  assert.doesNotMatch(schedule, /class="shift-card/);
+  assert.doesNotMatch(schedule, /class="shift-layer/);
   assert.match(schedule, /quickPlan/);
   assert.match(schedule, /Republish/);
   assert.match(schedule, /planningOverlapKeys/);

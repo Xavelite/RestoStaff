@@ -130,3 +130,18 @@ Production was not changed.
 ## Deferred findings
 
 Supabase advisors still report broad pre-existing security/performance notices, primarily direct-table RLS-without-policy notices in an RPC-first architecture, SECURITY DEFINER grant review items, optional-auth hardening and missing/unused index candidates. They were not changed during this UX/persistence pass because a blanket fix could break the established RPC permission model. They should be handled in a dedicated security and query-plan audit before production expansion.
+
+## Premium daily-card refinement
+
+The Planning grid now renders one full outer card per employee/day instead of one narrow card per service.
+
+- Lunch occupancy fills the left half of the card.
+- Evening occupancy fills the right half.
+- A shift crossing the service boundary fills both halves.
+- Two separate shifts share one outer card and remain independently editable and draggable.
+- A single shift uses most of the card width for time, duration, area and position; Detailed mode also shows service and estimated cost.
+- The unused service side remains a direct quick-plan/drop target.
+- Availability, unavailability and absence remain cell-background truth behind the card.
+- The former `shift-card` layer was removed rather than kept as a second rendering path.
+
+This is a presentation-only refinement. Planning persistence, overlap validation, publish/republish semantics and DEV database schema are unchanged.
