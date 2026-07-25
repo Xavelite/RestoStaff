@@ -37,7 +37,8 @@
       'Europe/Brussels'
   );
   const today = $derived(todayInTimezone(timezone, new Date()));
-  const weekStart = $derived(addDays(mondayFor(today), scheduleDraft.weekOffset * 7));
+  const currentWeekStart = $derived(mondayFor(today));
+  const weekStart = $derived(addDays(currentWeekStart, scheduleDraft.weekOffset * 7));
 
   $effect(() => {
     if (workspace.activeId && role && role !== 'employee') {
@@ -69,7 +70,15 @@
     editable: !workspace.isPreview,
     previous: () => changeWeek(() => (scheduleDraft.weekOffset -= 1)),
     next: () => changeWeek(() => (scheduleDraft.weekOffset += 1)),
-    todayAction: () => changeWeek(() => (scheduleDraft.weekOffset = 0))
+    todayAction: () => changeWeek(() => (scheduleDraft.weekOffset = 0)),
+    selectDate: (date: string) =>
+      changeWeek(() => {
+        const selectedWeek = mondayFor(date);
+        const selected = Date.parse(`${selectedWeek}T00:00:00Z`);
+        const current = Date.parse(`${currentWeekStart}T00:00:00Z`);
+        if (!Number.isFinite(selected) || !Number.isFinite(current)) return;
+        scheduleDraft.weekOffset = Math.round((selected - current) / (7 * 86_400_000));
+      })
   });
 
   async function saveBeforeLeaving(): Promise<void> {
@@ -83,14 +92,17 @@
       await saveSchedule({
         restaurantId: workspace.activeId,
         weekStart,
-        status: 'draft',
+        status: status.planning === 'published' ? 'published' : 'draft',
         shifts: scheduleDraft.shifts,
         notes: scheduleDraft.notes,
         expectedRevision: status.revision,
         wasPublished: status.planning === 'published'
       });
       scheduleDraft.settle();
-      toasts.show(t('Schedule saved.'), 'success');
+      toasts.show(
+        t(status.planning === 'published' ? 'Schedule republished.' : 'Schedule saved.'),
+        'success'
+      );
     } catch (error) {
       throw new Error(friendlyError(error));
     } finally {

@@ -105,10 +105,6 @@
       ? availabilitySubmissionStatus(snapshot, employeeId, activeWeek)
       : 'not submitted'
   );
-  const planningPublished = $derived(
-    snapshot?.work_weeks.find((week) => week.week_start === activeWeek)?.planning_status ===
-      'published'
-  );
   const grid = $derived(
     snapshot && employeeId
       ? buildEmployeeWeek({
@@ -227,7 +223,6 @@
       policy: availabilityMode,
       mode,
       today,
-      planningPublished
     });
     if (reason) {
       feedback = reason;
@@ -675,7 +670,6 @@
       policy={availabilityMode}
       {today}
       {timezone}
-      {planningPublished}
       availabilityState={selectedSlot?.availability ?? ''}
       isTimeOffSelected={selectedSlot ? timeOffSelectedKeySet.has(selectedSlot.key) : false}
       isChangeSelected={false}

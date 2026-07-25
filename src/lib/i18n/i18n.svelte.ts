@@ -643,7 +643,6 @@ Object.assign(french, {
   'Your schedule is clear.': 'Votre planning est vide.',
   'Your published shifts are ready. Tap a scheduled shift to request time off.': 'Vos services publiés sont prêts. Touchez un service planifié pour demander une absence.',
   'Tap today or any future service to mark yourself available. Past services stay read-only.': "Touchez aujourd’hui ou un service futur pour indiquer votre disponibilité. Les services passés restent en lecture seule.",
-  'This week is published, so availability is locked. Use the menu for time off or details.': 'Cette semaine est publiée ; les disponibilités sont verrouillées. Utilisez le menu pour une absence ou les détails.',
   'Your fixed schedule is the working baseline. Tap a planned service to request time off.': 'Votre horaire fixe est la référence. Touchez un service planifié pour demander une absence.',
   'Your manager sets your schedule. Tap a service to request time off.': 'Votre responsable définit votre planning. Touchez un service pour demander une absence.',
   'Request time off': 'Demander une absence',
@@ -688,7 +687,6 @@ Object.assign(french, {
   'No planned shift.': 'Aucun service planifié.',
   'Availability is maintained by your manager.': 'Votre responsable gère vos disponibilités.',
   'Past availability is read-only.': 'Les disponibilités passées sont en lecture seule.',
-  'Availability is locked once the week is published.': 'Les disponibilités sont verrouillées une fois la semaine publiée.',
   'Worked time cannot be replaced by availability.': 'Le temps presté ne peut pas être remplacé par une disponibilité.',
   'Approved leave already covers this service.': 'Un congé approuvé couvre déjà ce service.',
   'An approved schedule change covers this service.': 'Une modification d’horaire approuvée couvre ce service.',
@@ -714,7 +712,6 @@ Object.assign(dutch, {
   'No planned shift.': 'Geen geplande dienst.',
   'Availability is maintained by your manager.': 'Je manager beheert je beschikbaarheid.',
   'Past availability is read-only.': 'Beschikbaarheid in het verleden is alleen-lezen.',
-  'Availability is locked once the week is published.': 'Beschikbaarheid wordt vergrendeld zodra de week is gepubliceerd.',
   'Worked time cannot be replaced by availability.': 'Gewerkte tijd kan niet door beschikbaarheid worden vervangen.',
   'Approved leave already covers this service.': 'Goedgekeurd verlof dekt deze dienst al.',
   'An approved schedule change covers this service.': 'Een goedgekeurde roosterwijziging dekt deze dienst.',
@@ -785,7 +782,6 @@ Object.assign(dutch, {
   'Your published week is ready.': 'Je gepubliceerde week staat klaar.', 'Your schedule is clear.': 'Je planning is leeg.',
   'Your published shifts are ready. Tap a scheduled shift to request time off.': 'Je gepubliceerde diensten staan klaar. Tik op een geplande dienst om verlof aan te vragen.',
   'Tap today or any future service to mark yourself available. Past services stay read-only.': 'Tik op vandaag of een toekomstige dienst om je beschikbaarheid aan te geven. Voorbije diensten blijven alleen-lezen.',
-  'This week is published, so availability is locked. Use the menu for time off or details.': 'Deze week is gepubliceerd, dus beschikbaarheid is vergrendeld. Gebruik het menu voor verlof of details.',
   'Your fixed schedule is the working baseline. Tap a planned service to request time off.': 'Je vaste uurrooster is de basis. Tik op een geplande dienst om verlof aan te vragen.',
   'Your manager sets your schedule. Tap a service to request time off.': 'Je manager bepaalt je planning. Tik op een dienst om verlof aan te vragen.',
   'Request time off': 'Verlof aanvragen', 'Time off': 'Verlof', 'Time off pending': 'Verlof in afwachting',
@@ -4254,4 +4250,53 @@ Object.assign(dutch, {
   Archive: 'Archiveren',
   Restore: 'Herstellen',
   Remove: 'Verwijderen'
+});
+
+// Premium schedule planning controls and split service canvas (V590).
+Object.assign(french, {
+  Republish: 'Republier',
+  'Schedule republished.': 'Planning republié.',
+  'Group by': 'Grouper par',
+  'Multiple areas': 'Plusieurs zones',
+  'Plan lunch shift': 'Planifier le shift du midi',
+  'Plan evening shift': 'Planifier le shift du soir',
+  'Your changes are private until you republish this week.':
+    'Vos modifications restent privées jusqu’à la republication de cette semaine.',
+  'Overlapping shifts must be resolved before publishing.':
+    'Les shifts qui se chevauchent doivent être corrigés avant la publication.',
+  'Overlapping shifts': 'Shifts qui se chevauchent',
+  'Republish this week?': 'Republier cette semaine ?',
+  'Publishing keeps the manager in control: warnings remain visible but do not silently change the planning.':
+    'La publication laisse le contrôle au manager : les avertissements restent visibles sans modifier silencieusement le planning.',
+  'These points do not block publication. Employees will see the schedule exactly as shown after you confirm.':
+    'Ces points ne bloquent pas la publication. Les employés verront exactement le planning affiché après confirmation.',
+  'Click a free day or evening half to plan instantly. Drag a shift between halves to move it.':
+    'Cliquez sur une moitié midi ou soir libre pour planifier immédiatement. Glissez un shift entre les moitiés pour le déplacer.',
+  'Published schedule updated and republished.': 'Planning publié mis à jour et republié.',
+  'Choose week': 'Choisir une semaine',
+  'Search employees...': 'Rechercher des employés...'
+});
+
+Object.assign(dutch, {
+  Republish: 'Opnieuw publiceren',
+  'Schedule republished.': 'Planning opnieuw gepubliceerd.',
+  'Group by': 'Groeperen op',
+  'Multiple areas': 'Meerdere zones',
+  'Plan lunch shift': 'Lunchshift plannen',
+  'Plan evening shift': 'Avondshift plannen',
+  'Your changes are private until you republish this week.':
+    'Je wijzigingen blijven privé tot je deze week opnieuw publiceert.',
+  'Overlapping shifts must be resolved before publishing.':
+    'Overlappende shifts moeten vóór publicatie worden opgelost.',
+  'Overlapping shifts': 'Overlappende shifts',
+  'Republish this week?': 'Deze week opnieuw publiceren?',
+  'Publishing keeps the manager in control: warnings remain visible but do not silently change the planning.':
+    'Publiceren houdt de manager in controle: waarschuwingen blijven zichtbaar en wijzigen de planning niet stilzwijgend.',
+  'These points do not block publication. Employees will see the schedule exactly as shown after you confirm.':
+    'Deze punten blokkeren de publicatie niet. Na bevestiging zien medewerkers de planning exact zoals weergegeven.',
+  'Click a free day or evening half to plan instantly. Drag a shift between halves to move it.':
+    'Klik op een vrije lunch- of avondhelft om meteen te plannen. Sleep een shift tussen de helften om hem te verplaatsen.',
+  'Published schedule updated and republished.': 'Gepubliceerde planning bijgewerkt en opnieuw gepubliceerd.',
+  'Choose week': 'Week kiezen',
+  'Search employees...': 'Medewerkers zoeken...'
 });

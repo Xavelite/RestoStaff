@@ -31,7 +31,6 @@
     policy,
     today,
     timezone,
-    planningPublished,
     availabilityState,
     isTimeOffSelected,
     isChangeSelected,
@@ -50,7 +49,6 @@
     policy: AvailabilityMode;
     today: string;
     timezone: string;
-    planningPublished: boolean;
     availabilityState: '' | 'available' | 'partial' | 'unavailable';
     isTimeOffSelected: boolean;
     isChangeSelected: boolean;
@@ -70,10 +68,10 @@
   const availabilityHint = $derived(availabilityUpdateHint(availabilityState));
 
   const availabilityBlocked = $derived(
-    truth ? employeeSlotActionReason({ truth, policy, mode: 'availability', today, planningPublished }) : ''
+    truth ? employeeSlotActionReason({ truth, policy, mode: 'availability', today }) : ''
   );
   const timeOffBlocked = $derived(
-    truth ? employeeSlotActionReason({ truth, policy, mode: 'time_off', today, planningPublished }) : ''
+    truth ? employeeSlotActionReason({ truth, policy, mode: 'time_off', today }) : ''
   );
   const pendingAbsence = $derived(truth?.absence?.status === 'pending' ? truth.absence : null);
   const pendingChange = $derived(

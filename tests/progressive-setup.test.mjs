@@ -41,13 +41,42 @@ test('DEV migration makes identifiers nonblocking and archives safely', async ()
   assert.match(migration, /status = 'revoked'/);
 });
 
-test('Schedule uses the shared dirty panel and a dense compact or detailed board', async () => {
+test('Schedule uses one premium week header and a split lunch/evening planning canvas', async () => {
   const schedule = await readFile('src/routes/(app)/schedule/+page.svelte', 'utf8');
-  assert.match(schedule, /<ClassicTablePanel/);
+  const nav = await readFile('src/lib/classic/classic-nav.ts', 'utf8');
+  assert.doesNotMatch(schedule, /<ClassicTablePanel/);
   assert.match(schedule, /type Density = 'compact' \| 'detailed'/);
-  assert.match(schedule, /buildAreaColorMap/);
-  assert.match(schedule, /draggable=\{week\.editable/);
-  assert.match(schedule, /Review & publish/);
-  assert.doesNotMatch(schedule, /<ClassicPage\s+actions=/);
+  assert.match(schedule, /type GroupMode = 'none' \| 'contract' \| 'position' \| 'area'/);
+  assert.match(schedule, /class="service-canvas"/);
+  assert.match(schedule, /class="service-zone is-\{service\} is-\{tone\}"/);
+  assert.match(schedule, /quickPlan/);
+  assert.match(schedule, /Republish/);
+  assert.match(schedule, /planningOverlapKeys/);
+  assert.doesNotMatch(schedule, /Review & publish/);
+  assert.doesNotMatch(nav, /\/schedule\/publish/);
   assert.doesNotMatch(schedule, /PLANNED/);
+});
+
+
+test('schedule republish migration keeps published weeks auditable and rejects overlaps', async () => {
+  const migration = await readFile(
+    'supabase/migrations/20260725211500_schedule_republish_and_overlap_guard.sql',
+    'utf8'
+  );
+  assert.match(migration, /v_current\.planning_status = ''published'' and v_status = ''published''/);
+  assert.match(migration, /Overlapping shifts must be resolved before publishing/);
+  assert.match(migration, /A republish is an audited planning publication/);
+  assert.doesNotMatch(migration, /Revert the published plan to draft before publishing it again/);
+});
+
+
+test('availability remains editable after schedule publication', async () => {
+  const migration = await readFile(
+    'supabase/migrations/20260725214500_availability_remains_editable_after_publish.sql',
+    'utf8'
+  );
+  assert.match(migration, /create or replace function public\.save_employee_availability/);
+  assert.doesNotMatch(migration, /Availability is locked once the week is published/);
+  assert.match(migration, /delete from public\.employee_availability_slots/);
+  assert.match(migration, /employee_availability_submissions/);
 });

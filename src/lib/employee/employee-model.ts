@@ -386,7 +386,6 @@ export function buildEmployeeWeek(input: {
       const editable =
         input.availabilityMode === 'weekly_availability' &&
         day.date >= input.today &&
-        !published &&
         !truth.entry &&
         baseSlot.absence !== 'approved' &&
         baseSlot.workPatternException !== 'approved';
@@ -399,9 +398,7 @@ export function buildEmployeeWeek(input: {
             : 'Availability is maintained by your manager.'
           : day.date < input.today
             ? 'Past availability is read-only.'
-            : published
-              ? 'Availability is locked once the week is published.'
-              : truth.entry
+            : truth.entry
                 ? 'Worked time cannot be replaced by availability.'
                 : baseSlot.absence === 'approved'
                   ? 'Approved leave already covers this service.'

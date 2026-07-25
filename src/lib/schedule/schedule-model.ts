@@ -4,6 +4,7 @@ import {
   SERVICES,
   WEEKDAYS,
   clockLabel,
+  clockMinutes,
   dateForWeekday,
   formatHours,
   hoursBetweenClocks,
@@ -44,6 +45,62 @@ export type SlotContext = {
 };
 
 export type PlanningRequestKind = 'absence' | 'work_pattern_exception';
+
+export type PlanningOverlap = {
+  employeeId: string;
+  weekday: number;
+  first: PlanningShiftDraft;
+  second: PlanningShiftDraft;
+};
+
+function shiftInterval(shift: Pick<PlanningShiftDraft, 'startsAt' | 'endsAt'>): [number, number] | null {
+  const start = clockMinutes(shift.startsAt);
+  const rawEnd = clockMinutes(shift.endsAt);
+  if (start === null || rawEnd === null || start === rawEnd) return null;
+  return [start, rawEnd <= start ? rawEnd + 24 * 60 : rawEnd];
+}
+
+/**
+ * Cross-service overlap is a structural planning issue. The database limits an
+ * employee to one shift per service, but lunch and evening can still overlap;
+ * this helper is the single source of truth used by the grid and publish gate.
+ */
+export function planningOverlaps(shifts: PlanningShiftDraft[]): PlanningOverlap[] {
+  const overlaps: PlanningOverlap[] = [];
+  const groups = new Map<string, PlanningShiftDraft[]>();
+  for (const shift of shifts) {
+    const key = `${shift.employeeId}|${shift.weekday}`;
+    groups.set(key, [...(groups.get(key) ?? []), shift]);
+  }
+  for (const group of groups.values()) {
+    for (let left = 0; left < group.length; left += 1) {
+      const leftInterval = shiftInterval(group[left]);
+      if (!leftInterval) continue;
+      for (let right = left + 1; right < group.length; right += 1) {
+        const rightInterval = shiftInterval(group[right]);
+        if (!rightInterval) continue;
+        if (leftInterval[0] < rightInterval[1] && rightInterval[0] < leftInterval[1]) {
+          overlaps.push({
+            employeeId: group[left].employeeId,
+            weekday: group[left].weekday,
+            first: group[left],
+            second: group[right]
+          });
+        }
+      }
+    }
+  }
+  return overlaps;
+}
+
+export function planningOverlapKeys(shifts: PlanningShiftDraft[]): Set<string> {
+  const keys = new Set<string>();
+  for (const overlap of planningOverlaps(shifts)) {
+    keys.add(draftKey(overlap.first));
+    keys.add(draftKey(overlap.second));
+  }
+  return keys;
+}
 
 export function blocksPlanningAssignment(context: SlotContext): boolean {
   return (

@@ -155,9 +155,8 @@ export function employeeSlotActionReason(input: {
   policy: WorkRegime;
   mode: EmployeeSelfServiceMode;
   today: string;
-  planningPublished: boolean;
 }): string {
-  const { truth, policy, mode, today, planningPublished } = input;
+  const { truth, policy, mode, today } = input;
   if (truth.date < today) return 'Past services are read-only.';
   if (truth.entry) return 'Worked time cannot be changed through employee self-service.';
   if (truth.absence?.status === 'approved') return 'Approved leave already covers this service.';
@@ -178,7 +177,6 @@ export function employeeSlotActionReason(input: {
   }
   if (policy === 'manager_only') return 'Availability is maintained by your manager.';
   if (policy === 'fixed_schedule') return 'Fixed-schedule employees request time off from planned shifts.';
-  if (planningPublished) return 'Availability is locked once the week is published.';
   return '';
 }
 

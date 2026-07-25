@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   defaultEmployeeTimeOffType,
   employeeSlotAction,
+  employeeSlotActionReason,
   employeeTimeOffTypes,
   groupTimeOffRanges,
   removeEmployeeSlotSelection,
@@ -164,4 +165,26 @@ test('availability override forces one effective state per slot', () => {
     ),
     []
   );
+});
+
+
+test('published planning never locks employee availability', () => {
+  const reason = employeeSlotActionReason({
+    truth: {
+      date: '2026-07-27',
+      entry: null,
+      absence: null,
+      workPatternException: null,
+      plan: {
+        id: 'published-shift',
+        startsAt: '12:00',
+        endsAt: '15:00',
+        area: 'Hall'
+      }
+    },
+    policy: 'weekly_availability',
+    mode: 'availability',
+    today: '2026-07-25'
+  });
+  assert.equal(reason, '');
 });

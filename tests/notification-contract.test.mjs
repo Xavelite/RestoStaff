@@ -242,7 +242,7 @@ test('late badge notifications match the planned shift even when planned_shift_i
   assert.ok(items.some((item) => item.key === 'late-badge-in:t1'));
 });
 
-test('manager notifications include employee submitted availability from submission truth', () => {
+test('manager notifications group availability changes that conflict with published shifts', () => {
   const items = deriveNotifications({
     restaurantId: 'r1',
     role: 'manager',
@@ -259,6 +259,33 @@ test('manager notifications include employee submitted availability from submiss
           active: true,
           is_current: true,
           work_regime: 'weekly_availability'
+        }
+      ],
+      work_weeks: [
+        {
+          week_start: '2026-06-29',
+          planning_status: 'published'
+        }
+      ],
+      planned_shifts: [
+        {
+          id: 'published-shift',
+          employee_id: 'e1',
+          week_start: '2026-06-29',
+          weekday: 1,
+          service_key: 'lunch',
+          starts_at: '12:00:00',
+          ends_at: '15:00:00',
+          updated_at: '2026-06-22T09:00:00.000Z'
+        }
+      ],
+      employee_availability_slots: [
+        {
+          employee_id: 'e1',
+          week_start: '2026-06-29',
+          weekday: 1,
+          service_key: 'lunch',
+          availability_state: 'unavailable'
         }
       ],
       employee_availability_submissions: [
@@ -278,12 +305,35 @@ test('manager notifications include employee submitted availability from submiss
   const item = items.find((candidate) => candidate.type === 'employee_availability_updated');
   assert.ok(item);
   assert.equal(item.key, 'availability-submitted:e1:2026-06-29:2026-06-23T09:00:00.000Z');
-  assert.equal(item?.title, '{name} submitted availability');
+  assert.equal(item?.title, '{name} changed availability on published shifts');
   assert.deepEqual(item?.titleParams, { name: 'Sarah' });
-  assert.equal(item?.body, 'Week of {week}');
-  assert.deepEqual(item?.bodyParams, { week: '2026-06-29' });
+  assert.equal(item?.body, '{count} published shifts now conflict');
+  assert.deepEqual(item?.bodyParams, { count: 1 });
+  assert.equal(item?.severity, 'attention');
   assert.equal(item?.source.table, 'employee_availability_submissions');
   assert.equal(item?.targetUrl, '/schedule?week=2026-06-29');
+});
+
+test('manager notifications ignore harmless one-slot availability edits', () => {
+  const items = deriveNotifications({
+    restaurantId: 'r1',
+    role: 'manager',
+    employeeId: null,
+    today: '2026-06-23',
+    now: new Date('2026-06-23T10:00:00.000Z'),
+    timezone: 'Europe/Brussels',
+    team: null,
+    operations: {
+      ...baseManager,
+      employee_contracts: [{ employee_id: 'e1', active: true, is_current: true, work_regime: 'weekly_availability' }],
+      employee_availability_slots: [{ employee_id: 'e1', week_start: '2026-06-29', weekday: 1, service_key: 'lunch', availability_state: 'available' }],
+      employee_availability_submissions: [{
+        restaurant_id: 'r1', employee_id: 'e1', week_start: '2026-06-29', status: 'submitted',
+        submitted_at: '2026-06-23T09:00:00.000Z', created_at: '2026-06-23T08:50:00.000Z', updated_at: '2026-06-23T09:00:00.000Z'
+      }]
+    }
+  });
+  assert.equal(items.some((candidate) => candidate.type === 'employee_availability_updated'), false);
 });
 
 test('manager notifications ignore stale availability submissions from fixed schedules', () => {
@@ -358,7 +408,7 @@ test('manager notifications cover unavailable shifts, open entries, absence conf
           id: 'shift-unavailable',
           employee_id: 'e1',
           week_start: '2026-06-22',
-          weekday: 3,
+          weekday: 2,
           service_key: 'lunch',
           starts_at: '10:00:00',
           ends_at: '14:00:00',
@@ -379,7 +429,7 @@ test('manager notifications cover unavailable shifts, open entries, absence conf
         {
           employee_id: 'e1',
           week_start: '2026-06-22',
-          weekday: 3,
+          weekday: 2,
           service_key: 'lunch',
           availability_state: 'unavailable'
         }

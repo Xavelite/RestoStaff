@@ -135,12 +135,6 @@
       ? resolveCalendarTruth(drawerDate, drawerService)
       : null
   );
-  const drawerPlanningPublished = $derived(
-    drawerDate
-      ? snapshot?.work_weeks.find((week) => week.week_start === mondayFor(drawerDate))
-          ?.planning_status === 'published'
-      : false
-  );
   const timeOffRanges = $derived(groupTimeOffRanges(selectedTimeOffSlots));
   const defaultTimeOffType = $derived(
     snapshot ? defaultEmployeeTimeOffType(snapshot.absence_types) : null
@@ -238,15 +232,11 @@
   }
 
   function blockReasonFor(truth: ServiceSlotTruth, date: string, mode: EmployeeSelfServiceMode): string {
-    const planningPublished =
-      snapshot?.work_weeks.find((week) => week.week_start === mondayFor(date))?.planning_status ===
-      'published';
     const reason = employeeSlotActionReason({
       truth,
       policy: availabilityMode,
       mode,
       today,
-      planningPublished
     });
     if (reason) {
       feedback = reason;
@@ -899,7 +889,6 @@
     policy={availabilityMode}
     {today}
     {timezone}
-    planningPublished={drawerPlanningPublished}
     availabilityState={drawerTruth?.availability ?? ''}
     isTimeOffSelected={drawerTruth ? timeOffSelectedKeySet.has(drawerTruth.key) : false}
     isChangeSelected={false}

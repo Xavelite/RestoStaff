@@ -154,20 +154,6 @@ function matchingApprovedAbsence(absences: Absence[], entryOrShift: TimeEntry | 
   );
 }
 
-function unavailableAvailability(
-  operations: ManagerOperationsReadModel,
-  shift: PlannedShift
-): boolean {
-  return operations.employee_availability_slots.some(
-    (slot) =>
-      slot.employee_id === shift.employee_id &&
-      slot.week_start === shift.week_start &&
-      slot.weekday === shift.weekday &&
-      slot.service_key === shift.service_key &&
-      slot.availability_state === 'unavailable'
-  );
-}
-
 function lateEntry(
   entry: TimeEntry,
   shift: PlannedShift | undefined,
@@ -234,17 +220,51 @@ function managerNotifications(input: ManagerNotificationInput): NotificationItem
       !submission.submitted_at ||
       !availabilityEmployeeIds.has(submission.employee_id)
     ) continue;
+
+    const published = operations.work_weeks.some(
+      (week) => week.week_start === submission.week_start && week.planning_status === 'published'
+    );
+    const availabilitySlots = operations.employee_availability_slots.filter(
+      (slot) =>
+        slot.employee_id === submission.employee_id &&
+        slot.week_start === submission.week_start
+    );
+    const publishedConflicts = published
+      ? operations.planned_shifts.filter(
+          (shift) =>
+            shift.employee_id === submission.employee_id &&
+            shift.week_start === submission.week_start &&
+            availabilitySlots.some(
+              (slot) =>
+                slot.weekday === shift.weekday &&
+                slot.service_key === shift.service_key &&
+                slot.availability_state === 'unavailable'
+            )
+        )
+      : [];
+
+    // Harmless one-off availability edits stay in the Schedule activity itself.
+    // The notification bell is reserved for a published conflict or a meaningful
+    // multi-slot weekly update, so managers are informed without being spammed.
+    if (!publishedConflicts.length && availabilitySlots.length < 3) continue;
+
     const name = employeeName(operations, submission.employee_id);
     const createdAt = availabilitySubmissionCreatedAt(submission);
     items.push({
       key: `availability-submitted:${submission.employee_id}:${submission.week_start}:${createdAt}`,
       type: 'employee_availability_updated',
       audience: 'manager',
-      severity: 'info',
-      title: '{name} submitted availability',
+      severity: publishedConflicts.length ? 'attention' : 'info',
+      title: publishedConflicts.length
+        ? '{name} changed availability on published shifts'
+        : '{name} updated weekly availability',
       titleParams: { name },
-      body: 'Week of {week}',
-      bodyParams: { week: submission.week_start },
+      body: publishedConflicts.length
+        ? '{count} published shifts now conflict'
+        : '{count} availability slots updated for week of {week}',
+      bodyParams: publishedConflicts.length
+        ? { count: publishedConflicts.length }
+        : { count: availabilitySlots.length, week: submission.week_start },
       createdAt,
       actionMode: 'route',
       targetUrl: routeWithWeek('/schedule', submission.week_start),
@@ -254,20 +274,21 @@ function managerNotifications(input: ManagerNotificationInput): NotificationItem
   }
 
   for (const shift of operations.planned_shifts) {
+    const week = operations.work_weeks.find((row) => row.week_start === shift.week_start);
+    if (week?.planning_status !== 'published') continue;
     const shiftDate = dateTimeForShift(shift);
     const approvedAbsence = matchingApprovedAbsence(operations.absences, shift, shiftDate);
-    const explicitlyUnavailable = unavailableAvailability(operations, shift);
-    if (!approvedAbsence && !explicitlyUnavailable) continue;
+    if (!approvedAbsence) continue;
     const name = employeeName(operations, shift.employee_id);
     items.push({
       key: `unavailable-planned:${shift.id}`,
       type: 'employee_unavailable_on_planned_shift',
       audience: 'manager',
-      severity: approvedAbsence ? 'critical' : 'attention',
+      severity: 'critical',
       title: '{name} is unavailable on a planned shift',
       titleParams: { name },
       ...shiftMessage(shift),
-      createdAt: shift.updated_at,
+      createdAt: approvedAbsence.updated_at ?? shift.updated_at,
       actionMode: 'route',
       targetUrl: routeWithWeek('/schedule', shift.week_start),
       source: { table: 'planned_shifts', id: shift.id }

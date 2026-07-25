@@ -19,6 +19,7 @@ export type ScheduleWeekContext = {
   previous: () => void;
   next: () => void;
   todayAction: () => void;
+  selectDate: (date: string) => void;
 };
 
 /**

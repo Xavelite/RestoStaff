@@ -7,7 +7,12 @@ import {
   serviceSlotStateLabel
 } from '../src/lib/calendar/service-slot.ts';
 import { buildEmployeeWeek, employeeMonth } from '../src/lib/employee/employee-model.ts';
-import { buildPlanningWeek, planningDraftForWeek } from '../src/lib/schedule/schedule-model.ts';
+import {
+  buildPlanningWeek,
+  planningDraftForWeek,
+  planningOverlapKeys,
+  planningOverlaps
+} from '../src/lib/schedule/schedule-model.ts';
 
 test('service-slot states expose product language instead of database codes', () => {
   assert.equal(serviceSlotStateLabel('missing_badge'), 'Missing badge');
@@ -15,6 +20,77 @@ test('service-slot states expose product language instead of database codes', ()
   assert.equal(serviceSlotStateLabel('work_pattern_pending'), 'Change pending');
   assert.equal(serviceSlotStateLabel('empty'), 'No activity');
 });
+
+test('planning overlap detection is shared across lunch and evening services', () => {
+  const shifts = [
+    {
+      employeeId: 'e1',
+      weekday: 1,
+      serviceKey: 'lunch',
+      areaId: 'a1',
+      jobFunctionId: 'j1',
+      startsAt: '12:00',
+      endsAt: '18:30',
+      source: 'manual'
+    },
+    {
+      employeeId: 'e1',
+      weekday: 1,
+      serviceKey: 'evening',
+      areaId: 'a1',
+      jobFunctionId: 'j1',
+      startsAt: '18:00',
+      endsAt: '23:00',
+      source: 'manual'
+    },
+    {
+      employeeId: 'e1',
+      weekday: 2,
+      serviceKey: 'lunch',
+      areaId: 'a1',
+      jobFunctionId: 'j1',
+      startsAt: '12:00',
+      endsAt: '15:00',
+      source: 'manual'
+    }
+  ];
+
+  const overlaps = planningOverlaps(shifts);
+  assert.equal(overlaps.length, 1);
+  assert.equal(overlaps[0].weekday, 1);
+  assert.deepEqual(
+    [...planningOverlapKeys(shifts)].sort(),
+    ['e1|1|evening', 'e1|1|lunch']
+  );
+});
+
+test('adjacent and overnight shifts are not treated as overlaps', () => {
+  const shifts = [
+    {
+      employeeId: 'e1',
+      weekday: 1,
+      serviceKey: 'lunch',
+      areaId: 'a1',
+      jobFunctionId: 'j1',
+      startsAt: '12:00',
+      endsAt: '18:00',
+      source: 'manual'
+    },
+    {
+      employeeId: 'e1',
+      weekday: 1,
+      serviceKey: 'evening',
+      areaId: 'a1',
+      jobFunctionId: 'j1',
+      startsAt: '18:00',
+      endsAt: '02:00',
+      source: 'manual'
+    }
+  ];
+
+  assert.deepEqual(planningOverlaps(shifts), []);
+});
+
 
 function snapshot(overrides = {}) {
   return {

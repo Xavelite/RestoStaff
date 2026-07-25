@@ -80,10 +80,10 @@ export async function saveSchedule(input: {
     allowCoverageGaps: publishing && input.allowCoverageGaps,
     allowConflicts: publishing && input.allowConflicts,
     reason: publishing
-      ? 'Weekly schedule reviewed and published.'
-      : input.wasPublished
-        ? 'Published schedule reopened for changes.'
-        : 'Draft schedule saved.'
+      ? input.wasPublished
+        ? 'Published schedule updated and republished.'
+        : 'Weekly schedule reviewed and published.'
+      : 'Draft schedule saved.'
   });
   await refreshSchedule(input.restaurantId, input.weekStart);
 }

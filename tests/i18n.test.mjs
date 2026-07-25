@@ -66,7 +66,6 @@ test('dynamic request and service-slot states are localized', () => {
     'No planned shift.',
     'Availability is maintained by your manager.',
     'Past availability is read-only.',
-    'Availability is locked once the week is published.',
     'Worked time cannot be replaced by availability.',
     'Approved leave already covers this service.',
     'An approved schedule change covers this service.',
