@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { personInitials } from '$lib/ui/person';
   import { buildEmployeeColorMap } from '$lib/ui/position-color';
@@ -7,23 +8,74 @@
   import ClassicStat from '$lib/classic/ClassicStat.svelte';
   import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
   import ClassicTeamPage from '$lib/classic/ClassicTeamPage.svelte';
+  import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
+  import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
+  import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
   import EmployeeInlineEditor from '$lib/classic/EmployeeInlineEditor.svelte';
   import { teamDraft } from '$lib/classic/classic-team.svelte';
 
   type GroupBy = 'contract' | 'position' | 'none';
   type Group = { key: string; label: string; employees: EmployeeDraft[] };
+  type SortKey = 'employee' | 'position' | 'contract' | 'regime' | 'start' | 'end' | 'hours' | 'status';
 
   let search = $state('');
   let groupBy = $state<GroupBy>('contract');
+  let sort = $state<{ key: SortKey; dir: 'asc' | 'desc' } | null>(null);
   let detailId = $state('');
   let freshId = $state('');
+  let excludedContract = $state(new Set<string>());
+  let excludedPosition = $state(new Set<string>());
+  let excludedStatus = $state(new Set<string>());
+  const contractTypes = $derived(workspace.team?.contract_types.filter((item) => item.active) ?? []);
+
+  const OPTIONAL_COLUMNS = [
+    { key: 'position', label: 'Position' },
+    { key: 'contract', label: 'Contract' },
+    { key: 'regime', label: 'Planning mode' },
+    { key: 'start', label: 'Start' },
+    { key: 'end', label: 'End' },
+    { key: 'hours', label: 'Weekly hours' },
+    { key: 'status', label: 'Status' }
+  ] as const;
+  const COLS_KEY = 'rst-team-contract-cols-v2';
+  let hidden = $state(new Set<string>());
+
+  onMount(() => {
+    try {
+      const raw = localStorage.getItem(COLS_KEY);
+      if (raw) hidden = new Set(JSON.parse(raw) as string[]);
+    } catch {
+      hidden = new Set();
+    }
+  });
+  function persistHidden(next: Set<string>) {
+    hidden = next;
+    try { localStorage.setItem(COLS_KEY, JSON.stringify([...next])); } catch {}
+  }
+  function toggleColumn(key: string) {
+    const next = new Set(hidden);
+    next.has(key) ? next.delete(key) : next.add(key);
+    const hiding = next.has(key);
+    if (hiding && sort?.key === key) sort = null;
+    if (key === 'contract' && hiding) {
+      if (groupBy === 'contract') groupBy = 'none';
+      excludedContract = new Set();
+    }
+    if (key === 'position' && hiding) {
+      if (groupBy === 'position') groupBy = 'none';
+      excludedPosition = new Set();
+    }
+    if (key === 'status' && hiding) excludedStatus = new Set();
+    persistHidden(next);
+  }
+  const shown = (key: string) => !hidden.has(key);
+  const colCount = $derived(2 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length);
 
   const employeeColor = $derived(
     workspace.team
       ? buildEmployeeColorMap(workspace.team.job_functions, workspace.team.employee_job_functions)
       : new Map<string, string>()
   );
-  const contractTypes = $derived(workspace.team?.contract_types.filter((item) => item.active) ?? []);
 
   const REGIME_LABEL: Record<string, string> = {
     weekly_availability: 'Weekly availability',
@@ -39,12 +91,18 @@
     freshId = draft.id;
     detailId = draft.id;
     search = '';
-    groupBy = 'contract';
   }
 
   function closeDetails() {
     detailId = '';
     freshId = '';
+  }
+
+
+  function toggleExcluded(set: Set<string>, value: string): Set<string> {
+    const next = new Set(set);
+    next.has(value) ? next.delete(value) : next.add(value);
+    return next;
   }
 
   function gaps(employee: EmployeeDraft): string[] {
@@ -56,34 +114,46 @@
   }
 
   function matches(employee: EmployeeDraft, contractName: Map<string, string>, jobName: Map<string, string>): boolean {
+    const positionValue = employee.jobFunctionIds[0] || '__none__';
+    if (excludedContract.has(employee.contractTypeId || '__none__')) return false;
+    if (excludedPosition.has(positionValue)) return false;
+    if (excludedStatus.has(gaps(employee).length ? 'incomplete' : 'complete')) return false;
     const term = search.trim().toLowerCase();
     if (!employee.active && employee.id !== freshId) return false;
-    if (!term) return true;
-    return `${employee.displayName} ${contractName.get(employee.contractTypeId) ?? ''} ${employee.jobFunctionIds.map((id) => jobName.get(id) ?? '').join(' ')}`
-      .toLowerCase()
-      .includes(term);
+    return !term || `${employee.displayName} ${contractName.get(employee.contractTypeId) ?? ''} ${jobName.get(positionValue) ?? ''}`.toLowerCase().includes(term);
   }
 
+  function sortValue(employee: EmployeeDraft, key: SortKey, contractName: Map<string, string>, jobName: Map<string, string>): string {
+    switch (key) {
+      case 'employee': return employee.displayName.toLowerCase();
+      case 'position': return (jobName.get(employee.jobFunctionIds[0] ?? '') ?? '~').toLowerCase();
+      case 'contract': return (contractName.get(employee.contractTypeId) ?? '~').toLowerCase();
+      case 'regime': return t(REGIME_LABEL[employee.workRegime] ?? '').toLowerCase();
+      case 'start': return employee.contractStart || '9999-99-99';
+      case 'end': return employee.contractEnd || '9999-99-99';
+      case 'hours': return `${(Number(employee.weeklyContractHours) || 0).toString().padStart(6, '0')}`;
+      case 'status': return gaps(employee).length ? '1' : '0';
+      default: return jobName.get(employee.jobFunctionIds[0] ?? '') ?? '';
+    }
+  }
+  function ordered(rows: EmployeeDraft[], contractName: Map<string, string>, jobName: Map<string, string>) {
+    if (!sort) return rows;
+    const factor = sort.dir === 'desc' ? -1 : 1;
+    return [...rows].sort((a, b) => factor * sortValue(a, sort!.key, contractName, jobName).localeCompare(sortValue(b, sort!.key, contractName, jobName)));
+  }
   function grouped(rows: EmployeeDraft[], contractName: Map<string, string>, jobName: Map<string, string>): Group[] {
     if (groupBy === 'none') return [{ key: 'all', label: '', employees: rows }];
     const map = new Map<string, Group>();
     for (const employee of rows) {
       const id = groupBy === 'contract' ? employee.contractTypeId : employee.jobFunctionIds[0] ?? '';
-      const label = id
-        ? (groupBy === 'contract' ? contractName.get(id) : jobName.get(id)) ?? t('Unknown')
-        : groupBy === 'contract' ? t('No contract yet') : t('No position yet');
+      const label = id ? (groupBy === 'contract' ? contractName.get(id) : jobName.get(id)) ?? t('Unknown') : groupBy === 'contract' ? t('No contract yet') : t('No position yet');
       const key = id || '__undefined__';
       const group = map.get(key) ?? { key, label, employees: [] };
       group.employees.push(employee);
       map.set(key, group);
     }
-    return [...map.values()].sort((left, right) => {
-      if (left.key === '__undefined__') return -1;
-      if (right.key === '__undefined__') return 1;
-      return left.label.localeCompare(right.label);
-    });
+    return [...map.values()].sort((l, r) => l.key === '__undefined__' ? -1 : r.key === '__undefined__' ? 1 : l.label.localeCompare(r.label));
   }
-
   function setContractType(employee: EmployeeDraft, contractTypeId: string) {
     const code = contractTypes.find((item) => item.id === contractTypeId)?.code;
     teamDraft.update(employee.id, {
@@ -98,75 +168,73 @@
 
 <ClassicTeamPage>
   {#snippet children(team)}
-    {@const rows = team.employees.filter((employee) => matches(employee, team.contractName, team.jobName))}
-    {@const incomplete = rows.filter((employee) => gaps(employee).length).length}
-    {@const groups = grouped(rows, team.contractName, team.jobName)}
+    {@const filtered = team.employees.filter((employee) => matches(employee, team.contractName, team.jobName))}
+    {@const incomplete = filtered.filter((employee) => gaps(employee).length).length}
+    {@const groups = grouped(ordered(filtered, team.contractName, team.jobName), team.contractName, team.jobName)}
+    {@const contractValues = [{ value: '__none__', label: t('No contract') }, ...[...team.contractName].map(([id, name]) => ({ value: id, label: name }))]}
+    {@const positionValues = [{ value: '__none__', label: t('No position') }, ...[...team.jobName].map(([id, name]) => ({ value: id, label: name }))]}
 
     <div class="cl-stats">
-      <ClassicStat label="Active employees" value={rows.length} accent="var(--cl-mod-team)" mutedZero={false} />
+      <ClassicStat label="Active employees" value={filtered.length} accent="var(--cl-mod-team)" mutedZero={false} />
       <ClassicStat label="Incomplete contracts" value={incomplete} tone={incomplete ? 'attention' : 'ok'} />
     </div>
 
-    <div class="cl-datatable">
-      <div class="cl-datatable__tools">
-        <span class="cl-datatable__search">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.2-3.2" /></svg>
-          <input class="cl-field" type="search" placeholder={t('Search employees')} bind:value={search} />
-        </span>
-        <select class="cl-field" aria-label={t('Group employees')} bind:value={groupBy}>
-          <option value="contract">{t('Group by contract')}</option>
-          <option value="position">{t('Group by position')}</option>
-          <option value="none">{t('No grouping')}</option>
-        </select>
-        <span class="cl-grow"></span>
-        <button class="cl-btn" type="button" disabled={workspace.isPreview || workspace.effectiveRole !== 'owner' || !workspace.team} onclick={addEmployee}>
+    <ClassicTablePanel dirty={team.dirty} saving={team.saving} canSave={team.canSave} onsave={() => void team.save().catch(() => undefined)} ondiscard={team.discard}>
+      {#snippet meta()}
+        <span><i class="dot"></i>{t('{count} employees', { count: filtered.length })}</span>
+        <span><i class="dot is-orange"></i>{t('{count} incomplete', { count: incomplete })}</span>
+      {/snippet}
+      {#snippet actions()}
+        <button class="cl-btn is-primary" type="button" disabled={workspace.isPreview || workspace.effectiveRole !== 'owner' || !workspace.team} onclick={addEmployee}>
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-          <span class="cl-action-label">{t('Add employee')}</span>
+          <span>{t('Add employee')}</span>
         </button>
-      </div>
-
+      {/snippet}
+      {#snippet children()}
       <div class="cl-tablewrap">
         <table class="cl-table contract-table">
-        <thead><tr><th>{t('Name')}</th><th>{t('Contract')}</th><th>{t('Work regime')}</th><th>{t('Start')}</th><th>{t('End')}</th><th class="is-num">{t('Weekly hours')}</th><th>{t('Status')}</th><th></th></tr></thead>
-        {#if !rows.length}
-          <tbody><tr><td colspan="8"><div class="cl-empty"><strong>{t('No active employees')}</strong><span>{t('Add someone to define their contract and payroll setup.')}</span></div></td></tr></tbody>
-        {:else}
-          {#each groups as group (group.key)}
-            <tbody>
-              {#if groupBy !== 'none'}<tr class="cl-group-row"><td colspan="8">{group.label}<span class="cl-group-row__count">{t('{count} people', { count: group.employees.length })}</span></td></tr>{/if}
-              {#each group.employees as employee (employee.id)}
-                {@const missing = gaps(employee)}
-                <tr class:is-attention={missing.length > 0 || employee.id === freshId}>
-                  <td><span class="cl-table__name"><span class="cl-avatar" style="--avatar-color:{employeeColor.get(employee.id) ?? 'var(--cl-muted)'}">{personInitials(employee.displayName || '?')}</span>{employee.displayName || t('New employee')}</span></td>
-                  <td>
-                    <select class="cl-field cellfield" value={employee.contractTypeId} disabled={!team.owner || !team.editable} onchange={(event) => setContractType(employee, event.currentTarget.value)}>
-                      <option value="">{t('Not set')}</option>
-                      {#each contractTypes as item (item.id)}<option value={item.id}>{item.name}</option>{/each}
-                    </select>
-                  </td>
-                  <td>
-                    <select class="cl-field cellfield regime" value={employee.workRegime} disabled={!team.owner || !team.editable} onchange={(event) => teamDraft.update(employee.id, { workRegime: event.currentTarget.value as EmployeeDraft['workRegime'] })}>
-                      {#each Object.entries(REGIME_LABEL) as [value, label] (value)}<option value={value}>{t(label)}</option>{/each}
-                    </select>
-                  </td>
-                  <td><input class="cl-field datefield" type="date" value={employee.contractStart} disabled={!team.owner || !team.editable} oninput={(event) => teamDraft.update(employee.id, { contractStart: event.currentTarget.value, employmentValidFrom: employee.employmentValidFrom || event.currentTarget.value })} /></td>
-                  <td><input class="cl-field datefield" type="date" value={employee.contractEnd} disabled={!team.owner || !team.editable || contractTypes.find((item) => item.id === employee.contractTypeId)?.code === 'CDI'} oninput={(event) => teamDraft.update(employee.id, { contractEnd: event.currentTarget.value })} /></td>
-                  <td class="is-num"><input class="cl-field hoursfield" type="number" min="0" step="0.25" value={employee.weeklyContractHours} disabled={!team.owner || !team.editable} oninput={(event) => teamDraft.update(employee.id, { weeklyContractHours: event.currentTarget.valueAsNumber || 0 })} /></td>
-                  <td>
-                    {#if missing.length}
-                      <ClassicStatus label={missing.length === 1 ? '1 detail missing' : '{count} details missing'} params={{ count: missing.length }} tone="attention" />
-                      <span class="missing">{missing.map((item) => t(item)).join(', ')}</span>
-                    {:else}<ClassicStatus label="Complete" tone="ok" />{/if}
-                  </td>
-                  <td class="is-num"><button class="cl-btn edit" type="button" disabled={!team.owner || !team.editable} onclick={() => (detailId = employee.id)}>{t('Details')}</button></td>
-                </tr>
-              {/each}
-            </tbody>
-          {/each}
-        {/if}
+          <thead>
+            <tr>
+              <th class="has-menu"><ClassicColMenu label={t('Employee')} sortable sortDir={sort?.key === 'employee' ? sort.dir : null} onsort={(dir) => (sort = { key: 'employee', dir })} filterKind="text" searchValue={search} onsearch={(value) => (search = value)} /></th>
+              {#if shown('position')}<th class="has-menu"><ClassicColMenu label={t('Position')} sortable sortDir={sort?.key === 'position' ? sort.dir : null} onsort={(dir) => (sort = { key: 'position', dir })} groupable grouped={groupBy === 'position'} ongroup={(on) => (groupBy = on ? 'position' : 'none')} filterKind="values" filterValues={positionValues} selected={excludedPosition} ontoggle={(value) => (excludedPosition = toggleExcluded(excludedPosition, value))} onselectall={(on) => (excludedPosition = on ? new Set() : new Set(positionValues.map((item) => item.value)))} /></th>{/if}
+              {#if shown('contract')}<th class="has-menu"><ClassicColMenu label={t('Contract')} sortable sortDir={sort?.key === 'contract' ? sort.dir : null} onsort={(dir) => (sort = { key: 'contract', dir })} groupable grouped={groupBy === 'contract'} ongroup={(on) => (groupBy = on ? 'contract' : 'none')} filterKind="values" filterValues={contractValues} selected={excludedContract} ontoggle={(value) => (excludedContract = toggleExcluded(excludedContract, value))} onselectall={(on) => (excludedContract = on ? new Set() : new Set(contractValues.map((item) => item.value)))} /></th>{/if}
+              {#if shown('regime')}<th class="has-menu"><ClassicColMenu label={t('Planning mode')} sortable sortDir={sort?.key === 'regime' ? sort.dir : null} onsort={(dir) => (sort = { key: 'regime', dir })} /></th>{/if}
+              {#if shown('start')}<th class="has-menu"><ClassicColMenu label={t('Start')} sortable sortDir={sort?.key === 'start' ? sort.dir : null} onsort={(dir) => (sort = { key: 'start', dir })} /></th>{/if}
+              {#if shown('end')}<th class="has-menu"><ClassicColMenu label={t('End')} sortable sortDir={sort?.key === 'end' ? sort.dir : null} onsort={(dir) => (sort = { key: 'end', dir })} /></th>{/if}
+              {#if shown('hours')}<th class="has-menu"><ClassicColMenu label={t('Weekly hours')} align="right" sortable sortDir={sort?.key === 'hours' ? sort.dir : null} onsort={(dir) => (sort = { key: 'hours', dir })} /></th>{/if}
+              {#if shown('status')}<th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={sort?.key === 'status' ? sort.dir : null} onsort={(dir) => (sort = { key: 'status', dir })} filterKind="values" filterValues={[{ value: 'complete', label: t('Complete') }, { value: 'incomplete', label: t('Incomplete') }]} selected={excludedStatus} ontoggle={(value) => (excludedStatus = toggleExcluded(excludedStatus, value))} onselectall={(on) => (excludedStatus = on ? new Set() : new Set(['complete', 'incomplete']))} /></th>{/if}
+              <th class="actions-col">{t('Actions')}</th>
+              <th class="chooser-col"><ClassicColChooser columns={OPTIONAL_COLUMNS.map((column) => ({ key: column.key, label: t(column.label) }))} {hidden} ontoggle={toggleColumn} /></th>
+            </tr>
+          </thead>
+          {#if !filtered.length}
+            <tbody><tr><td colspan={colCount + 1}><div class="cl-empty"><strong>{t('No active employees')}</strong><span>{t('Add someone to define their contract and payroll setup.')}</span></div></td></tr></tbody>
+          {:else}
+            {#each groups as group (group.key)}
+              <tbody>
+                {#if groupBy !== 'none'}<tr class="cl-group-row"><td colspan={colCount + 1}>{group.label}<span class="cl-group-row__count">{t('{count} people', { count: group.employees.length })}</span></td></tr>{/if}
+                {#each group.employees as employee (employee.id)}
+                  {@const missing = gaps(employee)}
+                  <tr class:is-attention={missing.length > 0 || employee.id === freshId}>
+                    <td><span class="cl-table__name is-employee"><span class="cl-avatar" style="--avatar-color:{employeeColor.get(employee.id) ?? 'var(--cl-muted)'}">{personInitials(employee.displayName || '?')}</span><strong>{employee.displayName || t('New employee')}</strong></span></td>
+                    {#if shown('position')}<td>{team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position yet')}</td>{/if}
+                    {#if shown('contract')}<td><select class="cl-field cellfield" value={employee.contractTypeId} disabled={!team.owner || !team.editable} onchange={(event) => setContractType(employee, event.currentTarget.value)}><option value="">{t('Not set')}</option>{#each contractTypes as item (item.id)}<option value={item.id}>{item.name}</option>{/each}</select></td>{/if}
+                    {#if shown('regime')}<td><select class="cl-field cellfield regime" value={employee.workRegime} disabled={!team.owner || !team.editable} onchange={(event) => teamDraft.update(employee.id, { workRegime: event.currentTarget.value as EmployeeDraft['workRegime'] })}>{#each Object.entries(REGIME_LABEL) as [value, label] (value)}<option value={value}>{t(label)}</option>{/each}</select></td>{/if}
+                    {#if shown('start')}<td><input class="cl-field datefield" type="date" value={employee.contractStart} disabled={!team.owner || !team.editable} oninput={(event) => teamDraft.update(employee.id, { contractStart: event.currentTarget.value, employmentValidFrom: employee.employmentValidFrom || event.currentTarget.value })} /></td>{/if}
+                    {#if shown('end')}<td><input class="cl-field datefield" type="date" value={employee.contractEnd} disabled={!team.owner || !team.editable || contractTypes.find((item) => item.id === employee.contractTypeId)?.code === 'CDI'} oninput={(event) => teamDraft.update(employee.id, { contractEnd: event.currentTarget.value })} /></td>{/if}
+                    {#if shown('hours')}<td class="is-num"><input class="cl-field hoursfield" type="number" min="0" step="0.25" value={employee.weeklyContractHours} disabled={!team.owner || !team.editable} oninput={(event) => teamDraft.update(employee.id, { weeklyContractHours: event.currentTarget.valueAsNumber || 0 })} /></td>{/if}
+                    {#if shown('status')}<td>{#if missing.length}<ClassicStatus label={missing.length === 1 ? '1 detail missing' : '{count} details missing'} params={{ count: missing.length }} tone="attention" /><span class="missing">{missing.map((item) => t(item)).join(', ')}</span>{:else}<ClassicStatus label="Complete" tone="ok" />{/if}</td>{/if}
+                    <td class="is-num"><button class="cl-btn edit" type="button" disabled={!team.owner || !team.editable} onclick={() => (detailId = employee.id)}>{t('Details')}</button></td>
+                    <td class="menu-cell"></td>
+                  </tr>
+                {/each}
+              </tbody>
+            {/each}
+          {/if}
         </table>
       </div>
-    </div>
+      {/snippet}
+    </ClassicTablePanel>
 
     {#if detailId}
       <EmployeeInlineEditor employeeId={detailId} mode="contract" saving={team.saving} isNew={detailId === freshId} onclose={closeDetails} onsave={team.saveEmployee} />
@@ -176,9 +244,12 @@
 
 <style>
   .missing { display: block; color: var(--cl-muted); font-size: 12px; }
-  .edit { min-height: 30px; padding: 4px 10px; font-size: 13px; }
-  .cellfield { min-width: 150px; height: 34px; }
+  .edit { min-height: 32px; padding: 4px 10px; font-size: 13px; }
+  .cellfield, .datefield, .hoursfield { height: 34px; }
+  .cellfield { min-width: 132px; }
   .regime { min-width: 160px; }
-  .datefield { min-width: 138px; height: 34px; }
-  .hoursfield { width: 88px; height: 34px; text-align: right; }
+  .hoursfield { width: 90px; text-align: right; }
+  .actions-col, .chooser-col, .menu-cell { width: 44px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-line-strong); display: inline-block; }
+  .dot.is-orange { background: var(--cl-attention); }
 </style>

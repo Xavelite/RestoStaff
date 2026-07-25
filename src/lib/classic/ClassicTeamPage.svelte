@@ -7,7 +7,6 @@
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import ClassicPage from './ClassicPage.svelte';
-  import ClassicSaveBar from './ClassicSaveBar.svelte';
   import { teamDraft } from './classic-team.svelte';
 
   /**
@@ -28,6 +27,8 @@
     editable: boolean;
     owner: boolean;
     saving: boolean;
+    dirty: boolean;
+    canSave: boolean;
     save: () => Promise<void>;
     discard: () => void;
     saveEmployee: (employee: EmployeeDraft) => Promise<void>;
@@ -118,6 +119,8 @@
     editable: !workspace.isPreview,
     owner: workspace.effectiveRole === 'owner',
     saving,
+    dirty: teamDraft.dirty,
+    canSave: !workspace.isPreview && !teamDraft.supplementaryLoading && !teamDraft.supplementaryError,
     save,
     discard,
     saveEmployee
@@ -125,13 +128,6 @@
 </script>
 
 <ClassicPage>
-  <ClassicSaveBar
-    dirty={Boolean(team) && teamDraft.dirty}
-    {saving}
-    canSave={!workspace.isPreview && !teamDraft.supplementaryLoading && !teamDraft.supplementaryError}
-    onsave={() => void save().catch(() => undefined)}
-    ondiscard={discard}
-  />
   {#if team}
     {@render children(context)}
   {:else}

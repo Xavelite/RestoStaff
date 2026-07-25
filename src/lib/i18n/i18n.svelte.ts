@@ -3830,3 +3830,92 @@ export const i18n = new I18nStore();
 export function t(message: string, params: TranslationParams = {}): string {
   return i18n.t(message, params);
 }
+
+
+Object.assign(french, {
+  'Choose columns': 'Choisir les colonnes',
+  Sort: 'Trier',
+  'Column options': 'Options de colonne',
+  'Sort ascending': 'Trier par ordre croissant',
+  'Sort descending': 'Trier par ordre décroissant',
+  Ungroup: 'Dégrouper',
+  'Group by this': 'Grouper par cette colonne',
+  Search: 'Rechercher',
+  'Select all': 'Tout sélectionner',
+  '{count} employees': '{count} employés',
+  '{count} ready': '{count} prêts',
+  '{count} blocked': '{count} bloqués',
+  Actions: 'Actions',
+  View: 'Voir',
+  Details: 'Détails',
+  '{count} areas': '{count} zones',
+  'No coverage yet': 'Aucune couverture pour le moment',
+  '{count} coverage lines': '{count} lignes de couverture',
+  'Choose area': 'Choisir une zone',
+  'Choose position': 'Choisir un poste',
+  'Choose service': 'Choisir un service',
+  'Add a line above to set how many people each service needs.':
+    'Ajoutez une ligne ci-dessus pour définir combien de personnes chaque service nécessite.',
+  '{count} positions': '{count} postes',
+  'No contract': 'Aucun contrat',
+  '{count} with app access': '{count} avec accès à l’app',
+  'App access': 'Accès à l’app',
+  'No email': 'Aucun e-mail',
+  '{count} pending': '{count} en attente',
+  '{count} incomplete': '{count} incomplets',
+  'Planning mode': 'Mode de planification',
+  Incomplete: 'Incomplet'
+});
+
+Object.assign(dutch, {
+  'Choose columns': 'Kolommen kiezen',
+  Sort: 'Sorteren',
+  'Column options': 'Kolomopties',
+  'Sort ascending': 'Oplopend sorteren',
+  'Sort descending': 'Aflopend sorteren',
+  Ungroup: 'Groepering opheffen',
+  'Group by this': 'Op deze kolom groeperen',
+  Search: 'Zoeken',
+  'Select all': 'Alles selecteren',
+  '{count} employees': '{count} medewerkers',
+  '{count} ready': '{count} klaar',
+  '{count} blocked': '{count} geblokkeerd',
+  Actions: 'Acties',
+  View: 'Bekijken',
+  Details: 'Details',
+  '{count} areas': '{count} zones',
+  'No coverage yet': 'Nog geen bezetting',
+  '{count} coverage lines': '{count} bezettingslijnen',
+  'Choose area': 'Zone kiezen',
+  'Choose position': 'Functie kiezen',
+  'Choose service': 'Dienst kiezen',
+  'Add a line above to set how many people each service needs.':
+    'Voeg hierboven een lijn toe om te bepalen hoeveel mensen elke dienst nodig heeft.',
+  '{count} positions': '{count} functies',
+  'No contract': 'Geen contract',
+  '{count} with app access': '{count} met app-toegang',
+  'App access': 'App-toegang',
+  'No email': 'Geen e-mail',
+  '{count} pending': '{count} in afwachting',
+  '{count} incomplete': '{count} onvolledig',
+  'Planning mode': 'Planningsmodus',
+  Incomplete: 'Onvolledig'
+});
+
+
+Object.assign(french, {
+  Reorder: 'Réorganiser',
+  'Clear sorting to reorder': 'Effacer le tri pour réorganiser',
+  'Drag to reorder': 'Faire glisser pour réorganiser',
+  '{count} signed in': '{count} connectés'
+});
+
+Object.assign(dutch, {
+  Reorder: 'Herschikken',
+  'Clear sorting to reorder': 'Wis de sortering om te herschikken',
+  'Drag to reorder': 'Slepen om te herschikken',
+  '{count} signed in': '{count} aangemeld'
+});
+
+Object.assign(french, { 'No role': 'Aucun rôle' });
+Object.assign(dutch, { 'No role': 'Geen rol' });

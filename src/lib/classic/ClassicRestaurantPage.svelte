@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, type Snippet } from 'svelte';
+  import { onMount, untrack, type Snippet } from 'svelte';
   import { friendlyError } from '$lib/api/error-messages';
   import { t } from '$lib/i18n/i18n.svelte';
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
@@ -7,7 +7,6 @@
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import ClassicPage from './ClassicPage.svelte';
-  import ClassicSaveBar from './ClassicSaveBar.svelte';
   import { restaurantConfig } from './classic-restaurant.svelte';
 
   /**
@@ -15,10 +14,19 @@
    * page owns its own controls (in the table strip); saving is the contextual
    * save bar below.
    */
+  export type ClassicRestaurantContext = {
+    draft: RestaurantDraft;
+    dirty: boolean;
+    saving: boolean;
+    canSave: boolean;
+    save: () => Promise<void>;
+    discard: () => void;
+  };
+
   let {
     children
   }: {
-    children: Snippet<[RestaurantDraft]>;
+    children: Snippet<[ClassicRestaurantContext]>;
   } = $props();
 
   let saving = $state(false);
@@ -31,7 +39,8 @@
   });
 
   $effect(() => {
-    if (snapshot) restaurantConfig.sync(snapshot);
+    const source = snapshot;
+    if (source) untrack(() => restaurantConfig.sync(source));
   });
 
   function discard(): void {
@@ -67,18 +76,21 @@
       discard
     })
   );
+
+
+  const context = $derived<ClassicRestaurantContext | null>(restaurantConfig.draft ? {
+    draft: restaurantConfig.draft,
+    dirty: restaurantConfig.dirty,
+    saving,
+    canSave: !workspace.isPreview,
+    save,
+    discard
+  } : null);
 </script>
 
 <ClassicPage>
-  <ClassicSaveBar
-    dirty={restaurantConfig.dirty}
-    {saving}
-    canSave={!workspace.isPreview}
-    onsave={() => void save().catch(() => undefined)}
-    ondiscard={discard}
-  />
-  {#if restaurantConfig.draft}
-    {@render children(restaurantConfig.draft)}
+  {#if context}
+    {@render children(context)}
   {:else}
     <div class="cl-card">
       <div class="cl-empty"><strong>{t('Loading your workspace')}</strong></div>

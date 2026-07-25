@@ -2,13 +2,21 @@
   import { WEEKDAYS } from '$lib/calendar/date';
   import { t } from '$lib/i18n/i18n.svelte';
   import ClassicRestaurantPage from '$lib/classic/ClassicRestaurantPage.svelte';
+  import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
 </script>
 
 <svelte:head><title>{t('Hours')} &middot; restogogo</title></svelte:head>
 
 <ClassicRestaurantPage>
-  {#snippet children(draft)}
+  {#snippet children(context)}
+    {@const draft = context.draft}
+    {@const openDays = draft.opening.filter((day) => day.open).length}
+    <ClassicTablePanel dirty={context.dirty} saving={context.saving} canSave={context.canSave} onsave={() => void context.save().catch(() => undefined)} ondiscard={context.discard}>
+      {#snippet meta()}
+        <span><i class="dot"></i>{t('{count}/7 days open', { count: openDays })}</span>
+      {/snippet}
+      {#snippet children()}
     <div class="cl-tablewrap">
       <table class="cl-table">
         <thead>
@@ -48,6 +56,8 @@
         </tbody>
       </table>
     </div>
+      {/snippet}
+    </ClassicTablePanel>
   {/snippet}
 </ClassicRestaurantPage>
 
@@ -75,5 +85,6 @@
   .time {
     width: 116px;
   }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-ok); display: inline-block; }
 </style>
 

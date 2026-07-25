@@ -4,6 +4,7 @@
   import { confirmAction } from '$lib/ui/confirm.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import ClassicRestaurantPage from '$lib/classic/ClassicRestaurantPage.svelte';
+  import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
   import {
     LOGO_ACCEPT,
@@ -63,7 +64,13 @@
 <svelte:head><title>{t('Restaurant')} &middot; restogogo</title></svelte:head>
 
 <ClassicRestaurantPage>
-  {#snippet children(draft)}
+  {#snippet children(context)}
+    {@const draft = context.draft}
+    <ClassicTablePanel dirty={context.dirty} saving={context.saving} canSave={context.canSave} onsave={() => void context.save().catch(() => undefined)} ondiscard={context.discard}>
+      {#snippet meta()}
+        <span>{draft.legalName || t('Restaurant identity')}</span>
+      {/snippet}
+      {#snippet children()}
     <section class="cl-card">
       <div class="cl-card__head"><h2>{t('Restaurant identity')}</h2></div>
       <div class="cl-card__body identity-layout">
@@ -97,6 +104,8 @@
         {t('Belgium')} · {snapshot?.restaurant_settings.timezone || 'Europe/Brussels'} · {snapshot?.restaurant_settings.locale || 'fr-BE'} · {snapshot?.restaurant_settings.currency_code || 'EUR'}
       </div>
     </section>
+      {/snippet}
+    </ClassicTablePanel>
   {/snippet}
 </ClassicRestaurantPage>
 

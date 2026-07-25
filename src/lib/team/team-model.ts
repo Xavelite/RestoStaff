@@ -379,24 +379,28 @@ export function teamSavePayload(
   drafts: EmployeeDraft[],
   role: WorkspaceRole
 ): TeamSavePayload {
+  const includedDrafts = drafts.filter((employee) => {
+    const displayName = employee.displayName.trim() || `${employee.firstName} ${employee.lastName}`.trim();
+    return Boolean(displayName);
+  });
+
+
   const employees = asJsonArray(
-    drafts
-      .map((employee, index) => ({
-        id: employee.id,
-        restaurant_id: restaurantId,
-        display_name:
-          employee.displayName.trim() ||
-          `${employee.firstName} ${employee.lastName}`.trim(),
-        first_name: nullable(employee.firstName),
-        last_name: nullable(employee.lastName),
-        active: employee.active,
-        sort_order: index
-      }))
-      .filter((employee) => employee.display_name)
+    includedDrafts.map((employee, index) => ({
+      id: employee.id,
+      restaurant_id: restaurantId,
+      display_name:
+        employee.displayName.trim() ||
+        `${employee.firstName} ${employee.lastName}`.trim(),
+      first_name: nullable(employee.firstName),
+      last_name: nullable(employee.lastName),
+      active: employee.active,
+      sort_order: index
+    }))
   );
 
   const contacts = asJsonArray(
-    drafts.map((employee) => ({
+    includedDrafts.map((employee) => ({
       restaurant_id: restaurantId,
       employee_id: employee.id,
       email: nullable(employee.email),
@@ -413,7 +417,7 @@ export function teamSavePayload(
   );
 
   const access = asJsonArray(
-    drafts.map((employee) => ({
+    includedDrafts.map((employee) => ({
       restaurant_id: restaurantId,
       employee_id: employee.id,
       badge_enabled: employee.active && employee.badgeEnabled
@@ -421,7 +425,7 @@ export function teamSavePayload(
   );
 
   const employeeJobFunctions = asJsonArray(
-    drafts.flatMap((employee) =>
+    includedDrafts.flatMap((employee) =>
       employee.jobFunctionIds.map((jobFunctionId, index) => ({
         restaurant_id: restaurantId,
         employee_id: employee.id,
@@ -432,7 +436,7 @@ export function teamSavePayload(
     )
   );
   const recurringScheduleSlots = asJsonArray(
-    drafts
+    includedDrafts
       .filter((employee) => employee.active && employee.workRegime === 'fixed_schedule')
       .flatMap((employee) =>
         employee.recurringSlots.map((slot) => ({
@@ -459,7 +463,7 @@ export function teamSavePayload(
   }
 
   const legalProfiles = asJsonArray(
-    drafts.map((employee) => ({
+    includedDrafts.map((employee) => ({
       restaurant_id: restaurantId,
       employee_id: employee.id,
       birth_date: nullable(employee.birthDate),
@@ -471,7 +475,7 @@ export function teamSavePayload(
   );
 
   const contracts = asJsonArray(
-    drafts
+    includedDrafts
       .filter(
         (employee) =>
           employee.contractId ||
@@ -501,7 +505,7 @@ export function teamSavePayload(
   );
 
   const payrollProfiles = asJsonArray(
-    drafts.map((employee) => ({
+    includedDrafts.map((employee) => ({
       restaurant_id: restaurantId,
       employee_id: employee.id,
       payroll_employee_id: nullable(employee.payrollEmployeeId),

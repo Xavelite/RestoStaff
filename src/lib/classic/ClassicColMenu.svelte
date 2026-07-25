@@ -1,11 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/i18n/i18n.svelte';
 
-  /**
-   * A spreadsheet-style column header: click the label to sort, or open the
-   * menu (the caret) to sort, group or filter that column. One reusable control
-   * so a table needs no separate filter toolbar — the header is the toolbar.
-   */
   type FilterValue = { value: string; label: string };
 
   let {
@@ -44,9 +39,11 @@
 
   let open = $state(false);
   let root = $state<HTMLElement | null>(null);
+  let trigger = $state<HTMLButtonElement | null>(null);
+  let menuLeft = $state(0);
+  let menuTop = $state(0);
+  let menuRight = $state(false);
 
-  // A column is "touched" (accent icon) when it drives the sort, the grouping or
-  // an active filter, so the header shows at a glance what is shaping the table.
   const filtered = $derived(Boolean(selected && selected.size > 0) || Boolean(filterKind === 'text' && searchValue));
   const active = $derived(Boolean(sortDir) || grouped || filtered);
   const allSelected = $derived(!selected || selected.size === 0);
@@ -61,6 +58,20 @@
     onsort?.(sortDir === 'asc' ? 'desc' : 'asc');
   }
 
+  function positionMenu() {
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const menuWidth = 260;
+    menuRight = rect.left + menuWidth > window.innerWidth - 12;
+    menuLeft = menuRight ? Math.max(12, rect.right - menuWidth) : Math.max(12, rect.left - 8);
+    menuTop = Math.min(window.innerHeight - 20, rect.bottom + 4);
+  }
+
+  function toggleMenu() {
+    open = !open;
+    if (open) positionMenu();
+  }
+
   $effect(() => {
     if (!open) return;
     const onDocClick = (event: MouseEvent) => {
@@ -69,23 +80,22 @@
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') open = false;
     };
+    const onReposition = () => positionMenu();
     window.addEventListener('click', onDocClick, true);
     window.addEventListener('keydown', onKey);
+    window.addEventListener('resize', onReposition);
+    window.addEventListener('scroll', onReposition, true);
     return () => {
       window.removeEventListener('click', onDocClick, true);
       window.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', onReposition);
+      window.removeEventListener('scroll', onReposition, true);
     };
   });
 </script>
 
 <div class="colhead" class:is-right={align === 'right'} bind:this={root}>
-  <button
-    class="colhead__label"
-    class:is-sortable={sortable}
-    type="button"
-    onclick={toggleSort}
-    title={sortable ? t('Sort') : undefined}
-  >
+  <button class="colhead__label" class:is-sortable={sortable} type="button" onclick={toggleSort} title={sortable ? t('Sort') : undefined}>
     <span>{label}</span>
     {#if sortDir}
       <svg class="colhead__sort" class:is-desc={sortDir === 'desc'} viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M6 11l6-6 6 6" /></svg>
@@ -93,21 +103,13 @@
   </button>
 
   {#if sortable || groupable || filterKind}
-    <button
-      class="colhead__trigger"
-      class:is-active={active}
-      type="button"
-      aria-haspopup="menu"
-      aria-expanded={open}
-      aria-label={t('Column options')}
-      onclick={() => (open = !open)}
-    >
+    <button bind:this={trigger} class="colhead__trigger" class:is-active={active} type="button" aria-haspopup="menu" aria-expanded={open} aria-label={t('Column options')} onclick={toggleMenu}>
       <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" /></svg>
     </button>
   {/if}
 
   {#if open}
-    <div class="colmenu" role="menu">
+    <div class="colmenu is-floating" class:is-right={menuRight} style={`left:${menuLeft}px;top:${menuTop}px`} role="menu">
       {#if sortable}
         <button class="colmenu__item" class:is-on={sortDir === 'asc'} type="button" role="menuitem" onclick={() => sort('asc')}>
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M6 11l6-6 6 6" /></svg>{t('Sort ascending')}
