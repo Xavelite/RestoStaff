@@ -24,14 +24,7 @@
 
 <svelte:head><title>{t('Payroll')} &middot; restogogo</title></svelte:head>
 
-{#snippet pageActions()}
-  <label class="cl-label month-field">
-    <span>{t('Payroll month')}</span>
-    <input class="cl-field" type="month" bind:value={month} />
-  </label>
-{/snippet}
-
-<ClassicPage actions={pageActions}>
+<ClassicPage>
   {#if workspace.activeId}
     <PayrollWorkspace
       restaurantId={workspace.activeId}
@@ -42,20 +35,3 @@
     />
   {/if}
 </ClassicPage>
-
-<style>
-  .month-field {
-    min-width: 190px;
-  }
-  .month-field > span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-</style>

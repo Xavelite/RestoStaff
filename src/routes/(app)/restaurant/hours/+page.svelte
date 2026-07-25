@@ -1,16 +1,18 @@
 <script lang="ts">
   import { WEEKDAYS } from '$lib/calendar/date';
   import { t } from '$lib/i18n/i18n.svelte';
-  import ClassicRestaurantPage from '$lib/classic/ClassicRestaurantPage.svelte';
+  import { useClassicRestaurantContext } from '$lib/classic/classic-workspace-context';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
+
+  const readRestaurantContext = useClassicRestaurantContext();
+  const context = $derived(readRestaurantContext());
 </script>
 
 <svelte:head><title>{t('Hours')} &middot; restogogo</title></svelte:head>
 
-<ClassicRestaurantPage>
-  {#snippet children(context)}
-    {@const draft = context.draft}
+{#if context}
+{@const draft = context.draft}
     {@const lunchDays = draft.opening.filter((day) => day.lunchOpen).length}
     {@const eveningDays = draft.opening.filter((day) => day.eveningOpen).length}
     <ClassicTablePanel dirty={context.dirty} saving={context.saving} canSave={context.canSave} onsave={() => void context.save().catch(() => undefined)} ondiscard={context.discard}>
@@ -65,8 +67,8 @@
         </div>
       {/snippet}
     </ClassicTablePanel>
-  {/snippet}
-</ClassicRestaurantPage>
+
+{/if}
 
 <style>
   .hours-table { min-width: 760px; }

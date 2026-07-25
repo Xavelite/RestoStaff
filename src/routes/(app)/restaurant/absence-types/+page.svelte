@@ -2,7 +2,6 @@
   import { onMount } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
-  import ClassicPage from '$lib/classic/ClassicPage.svelte';
   import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
@@ -21,9 +20,6 @@
   const COLS_KEY = 'rst-restaurant-absence-types-cols-v2';
   let hidden = $state(new Set<string>());
 
-  $effect(() => {
-    if (workspace.activeId && workspace.effectiveRole === 'owner') void workspace.loadRestaurant().catch(() => undefined);
-  });
 
   onMount(() => {
     try { const raw = localStorage.getItem(COLS_KEY); if (raw) hidden = new Set(JSON.parse(raw) as string[]); } catch { hidden = new Set(); }
@@ -46,7 +42,7 @@
 
 <svelte:head><title>{t('Absence types')} &middot; restogogo</title></svelte:head>
 
-<ClassicPage>
+{#if snapshot}
   {@const types = [...(snapshot?.absence_types ?? [])]
     .filter((type) => !excludedStatus.has(type.active ? 'active' : 'archived'))
     .filter((type) => `${type.name} ${type.paid_policy ?? ''}`.toLowerCase().includes(search.trim().toLowerCase()))
@@ -79,7 +75,8 @@
       </div>
     {/snippet}
   </ClassicTablePanel>
-</ClassicPage>
+
+{/if}
 
 <style>
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-line-strong); display: inline-block; }

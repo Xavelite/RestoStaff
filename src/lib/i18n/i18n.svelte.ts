@@ -3943,3 +3943,33 @@ Object.assign(dutch, {
   Invited: 'Uitgenodigd',
   'Not invited': 'Niet uitgenodigd'
 });
+
+Object.assign(french, {
+  '{count} blockers': '{count} blocages',
+  '{count} warnings': '{count} avertissements',
+  'Payroll evidence is complete': 'Les éléments de paie sont complets',
+  'Approved hours and required evidence are ready for calculation.':
+    'Les heures approuvées et les éléments requis sont prêts pour le calcul.',
+  Run: 'Exécution',
+  '{count} effective rules': '{count} règles effectives',
+  '{count} salary scale points': '{count} points de barème salarial',
+  '{count} unverified handlers': '{count} gestionnaires non vérifiés',
+  '{count} selected columns': '{count} colonnes sélectionnées',
+  '{count} official exports': '{count} exports officiels',
+  '{count} exported rows': '{count} lignes exportées'
+});
+
+Object.assign(dutch, {
+  '{count} blockers': '{count} blokkeringen',
+  '{count} warnings': '{count} waarschuwingen',
+  'Payroll evidence is complete': 'De loonbewijzen zijn volledig',
+  'Approved hours and required evidence are ready for calculation.':
+    'De goedgekeurde uren en vereiste bewijzen zijn klaar voor berekening.',
+  Run: 'Run',
+  '{count} effective rules': '{count} geldende regels',
+  '{count} salary scale points': '{count} baremapunten',
+  '{count} unverified handlers': '{count} niet-geverifieerde beheerders',
+  '{count} selected columns': '{count} geselecteerde kolommen',
+  '{count} official exports': '{count} officiële exports',
+  '{count} exported rows': '{count} geëxporteerde rijen'
+});

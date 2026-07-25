@@ -7,10 +7,10 @@
   import { buildEmployeeColorMap } from '$lib/ui/position-color';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
+  import { useClassicTeamContext } from '$lib/classic/classic-workspace-context';
   import ClassicService from '$lib/classic/ClassicService.svelte';
   import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
   import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
-  import ClassicTeamPage from '$lib/classic/ClassicTeamPage.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import type { ManagerOperationsReadModel } from '$lib/api/workspace-snapshot';
 
@@ -67,13 +67,15 @@
       busy = '';
     }
   }
+
+  const readTeamContext = useClassicTeamContext();
+  const teamContext = $derived(readTeamContext());
 </script>
 
 <svelte:head><title>{t('Absences')} &middot; restogogo</title></svelte:head>
 
-<ClassicTeamPage>
-  {#snippet children(teamContext)}
-    {@const employeeName = new Map(teamContext.employees.map((employee) => [employee.id, employee.displayName]))}
+{#if teamContext}
+{@const employeeName = new Map(teamContext.employees.map((employee) => [employee.id, employee.displayName]))}
     {@const typeName = new Map((team?.absence_types ?? []).map((type) => [type.id, type.name]))}
     {@const rows = (team?.absences ?? [])
       .filter((absence) => !excludedStatus.has(absence.status))
@@ -133,8 +135,8 @@
       </div>
       {/snippet}
     </ClassicTablePanel>
-  {/snippet}
-</ClassicTeamPage>
+
+{/if}
 
 <style>
   .actions { display: inline-flex; gap: 8px; }

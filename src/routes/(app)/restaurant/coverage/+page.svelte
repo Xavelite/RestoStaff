@@ -1,7 +1,7 @@
 <script lang="ts">
   import { WEEKDAYS, type ServiceKey } from '$lib/calendar/date';
   import { t } from '$lib/i18n/i18n.svelte';
-  import ClassicRestaurantPage from '$lib/classic/ClassicRestaurantPage.svelte';
+  import { useClassicRestaurantContext } from '$lib/classic/classic-workspace-context';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import ClassicService from '$lib/classic/ClassicService.svelte';
   import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
@@ -127,13 +127,15 @@
     });
   }
 
+
+  const readRestaurantContext = useClassicRestaurantContext();
+  const context = $derived(readRestaurantContext());
 </script>
 
 <svelte:head><title>{t('Coverage')} &middot; restogogo</title></svelte:head>
 
-<ClassicRestaurantPage>
-  {#snippet children(context)}
-    {@const draft = context.draft}
+{#if context}
+{@const draft = context.draft}
     {@const areaName = new Map(draft.areas.map((area) => [area.id, area.name]))}
     {@const jobName = new Map(draft.jobFunctions.map((job) => [job.id, job.name]))}
     {@const activeAreas = draft.areas.filter((area) => area.active && area.name.trim())}
@@ -196,8 +198,8 @@
         </div>
       {/snippet}
     </ClassicTablePanel>
-  {/snippet}
-</ClassicRestaurantPage>
+
+{/if}
 
 <style>
   .cov { min-width: 980px; }

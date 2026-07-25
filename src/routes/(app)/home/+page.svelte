@@ -1,31 +1,11 @@
 <script lang="ts">
-  import { addDays, mondayFor, todayInTimezone } from '$lib/calendar/date';
   import { t } from '$lib/i18n/i18n.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import ClassicIcon from '$lib/classic/ClassicIcon.svelte';
   import ClassicPage from '$lib/classic/ClassicPage.svelte';
   import { modulesForRole } from '$lib/classic/classic-nav';
 
-  const snapshot = $derived(workspace.operations);
   const role = $derived(workspace.effectiveRole);
-  const timezone = $derived(
-    snapshot?.restaurant_settings.timezone ||
-      workspace.bootstrap?.restaurant_settings.timezone ||
-      'Europe/Brussels'
-  );
-
-  let currentInstant = $state(new Date());
-  $effect(() => {
-    const timer = setInterval(() => (currentInstant = new Date()), 60_000);
-    return () => clearInterval(timer);
-  });
-
-  const activeWeek = $derived(mondayFor(todayInTimezone(timezone, currentInstant)));
-  $effect(() => {
-    if (workspace.activeId && role && role !== 'employee') {
-      void workspace.loadOperations(activeWeek, addDays(activeWeek, 6)).catch(() => undefined);
-    }
-  });
 
   // Home is the entry point, not the workbench: the module tiles are the whole
   // page. Anything that needs a decision is surfaced by its own module.

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
-  import ClassicStat from '$lib/classic/ClassicStat.svelte';
+  import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
@@ -188,89 +188,105 @@
 
 {#if feedback}<FeedbackBanner message={feedback} tone={feedbackTone} />{/if}
 
-<div class="cl-stats">
-  <ClassicStat label="Effective rules" value={effectiveRules.length} accent="var(--cl-mod-payroll)" mutedZero={false} />
-  <ClassicStat label="Salary scale points" value={catalogue?.salaryScales.length ?? 0} mutedZero={false} />
-  <ClassicStat label="Unverified handlers" value={draftRules.length} tone={draftRules.length ? 'attention' : 'ok'} />
-</div>
-
-<section class="cl-card" aria-label={t('Payroll configuration')}>
-  <div class="cl-card__head">
-    <div>
-      <h2>{t('Belgian payroll setup')}</h2>
-      <p>{t('Choose the effective CP 302 rule set and record the restaurant evidence used by payroll calculations.')}</p>
-    </div>
+<ClassicTablePanel
+  {dirty}
+  saving={busy}
+  canSave={Boolean(ruleSetId && validFrom)}
+  onsave={() => void save().catch(() => undefined)}
+  ondiscard={discard}
+>
+  {#snippet meta()}
     <ClassicStatus
       label={current?.status === 'verified' ? 'Verified setup' : current ? 'Draft setup' : 'Not configured'}
       tone={current?.status === 'verified' ? 'ok' : current ? 'attention' : 'problem'}
     />
-  </div>
+    <span>{t('{count} effective rules', { count: effectiveRules.length })}</span>
+    <span>{t('{count} salary scale points', { count: catalogue?.salaryScales.length ?? 0 })}</span>
+    <span>{t('{count} unverified handlers', { count: draftRules.length })}</span>
+  {/snippet}
+  {#snippet actions()}
+    <button
+      class="cl-btn"
+      type="button"
+      disabled={busy || !current || dirty}
+      onclick={() => void validateSetup().catch(() => undefined)}
+    >{t('Validate setup')}</button>
+  {/snippet}
+  {#snippet children()}
+    <section class="cl-card setup-card" aria-label={t('Payroll configuration')}>
+      <div class="setup-intro">
+        <strong>{t('Belgian payroll setup')}</strong>
+        <span>{t('Choose the effective CP 302 rule set and record the restaurant evidence used by payroll calculations.')}</span>
+      </div>
 
-  <div class="setup-grid">
-    <label class="cl-label">
-      <span>{t('Effective from')}</span>
-      <input class="cl-field" type="date" bind:value={validFrom} />
-    </label>
-    <label class="cl-label span-2">
-      <span>{t('Legal rule set')}</span>
-      <select class="cl-field" bind:value={ruleSetId}>
-        <option value="">{t('Choose a rule set')}</option>
-        {#each catalogue?.ruleSets ?? [] as item (item.id)}
-          <option value={item.id}>{item.sector_code} · {item.version} · {t(item.status)}</option>
-        {/each}
-      </select>
-    </label>
-    <label class="cl-label">
-      <span>{t('Full-time week')}</span>
-      <input class="cl-field" inputmode="decimal" bind:value={weeklyHours} />
-      <small>{t('Hours · the CP 302 reference is 38.')}</small>
-    </label>
-    <label class="cl-label">
-      <span>{t('Ordinary daily limit')}</span>
-      <input class="cl-field" inputmode="decimal" bind:value={dailyLimitHours} placeholder={t('Not configured')} />
-      <small>{t('Leave blank until the arrangement is legally verified.')}</small>
-    </label>
-    <label class="cl-label">
-      <span>{t('Reference period')}</span>
-      <input class="cl-field" type="number" min="1" max="52" bind:value={referencePeriodWeeks} />
-      <small>{t('Weeks')}</small>
-    </label>
-    <label class="cl-label">
-      <span>{t('Registered cash system')}</span>
-      <select class="cl-field" bind:value={gksStatus}>
-        <option value="unknown">{t('Not recorded')}</option>
-        <option value="yes">{t('Yes')}</option>
-        <option value="no">{t('No')}</option>
-      </select>
-    </label>
-    <label class="cl-label">
-      <span>{t('ONSS employer category')}</span>
-      <input class="cl-field" bind:value={employerCategoryCode} placeholder={t('Provider evidence required')} />
-    </label>
-    <label class="cl-label">
-      <span>{t('Professional withholding')}</span>
-      <select class="cl-field" bind:value={withholdingMode}>
-        <option value="not_configured">{t('Not configured')}</option>
-        <option value="manual_estimate">{t('Manual estimate')}</option>
-        <option value="official_formula">{t('Official formula · not implemented')}</option>
-      </select>
-    </label>
-  </div>
+      <div class="setup-grid">
+        <label class="cl-label">
+          <span>{t('Effective from')}</span>
+          <input class="cl-field" type="date" bind:value={validFrom} />
+        </label>
+        <label class="cl-label span-2">
+          <span>{t('Legal rule set')}</span>
+          <select class="cl-field" bind:value={ruleSetId}>
+            <option value="">{t('Choose a rule set')}</option>
+            {#each catalogue?.ruleSets ?? [] as item (item.id)}
+              <option value={item.id}>{item.sector_code} · {item.version} · {t(item.status)}</option>
+            {/each}
+          </select>
+        </label>
+        <label class="cl-label">
+          <span>{t('Full-time week')}</span>
+          <input class="cl-field" inputmode="decimal" bind:value={weeklyHours} />
+          <small>{t('Hours · the CP 302 reference is 38.')}</small>
+        </label>
+        <label class="cl-label">
+          <span>{t('Ordinary daily limit')}</span>
+          <input class="cl-field" inputmode="decimal" bind:value={dailyLimitHours} placeholder={t('Not configured')} />
+          <small>{t('Leave blank until the arrangement is legally verified.')}</small>
+        </label>
+        <label class="cl-label">
+          <span>{t('Reference period')}</span>
+          <input class="cl-field" type="number" min="1" max="52" bind:value={referencePeriodWeeks} />
+          <small>{t('Weeks')}</small>
+        </label>
+        <label class="cl-label">
+          <span>{t('Registered cash system')}</span>
+          <select class="cl-field" bind:value={gksStatus}>
+            <option value="unknown">{t('Not recorded')}</option>
+            <option value="yes">{t('Yes')}</option>
+            <option value="no">{t('No')}</option>
+          </select>
+        </label>
+        <label class="cl-label">
+          <span>{t('ONSS employer category')}</span>
+          <input class="cl-field" bind:value={employerCategoryCode} placeholder={t('Provider evidence required')} />
+        </label>
+        <label class="cl-label">
+          <span>{t('Professional withholding')}</span>
+          <select class="cl-field" bind:value={withholdingMode}>
+            <option value="not_configured">{t('Not configured')}</option>
+            <option value="manual_estimate">{t('Manual estimate')}</option>
+            <option value="official_formula">{t('Official formula · not implemented')}</option>
+          </select>
+        </label>
+      </div>
 
-  <div class="cl-notice is-muted">
-    {t('Net salary remains estimated until the FPS Finance formula and payroll-provider return are reconciled.')}
-  </div>
-
-  <div class="cl-card__foot">
-    {#if dirty}<span class="dirty-note">{t('Unsaved changes')}</span>{/if}
-    <span class="cl-toolbar__grow"></span>
-    <button class="cl-btn" type="button" disabled={busy || !dirty} onclick={discard}>{t('Discard')}</button>
-    <button class="cl-btn" type="button" disabled={busy || !current || dirty} onclick={() => void validateSetup().catch(() => undefined)}>{t('Validate setup')}</button>
-    <button class="cl-btn is-primary" type="button" disabled={busy || !dirty || !ruleSetId || !validFrom} onclick={() => void save().catch(() => undefined)}>{t(busy ? 'Saving…' : 'Save configuration')}</button>
-  </div>
-</section>
+      <div class="cl-notice is-muted">
+        {t('Net salary remains estimated until the FPS Finance formula and payroll-provider return are reconciled.')}
+      </div>
+    </section>
+  {/snippet}
+</ClassicTablePanel>
 
 <style>
+  .setup-card { overflow: hidden; }
+  .setup-intro {
+    display: grid;
+    gap: 4px;
+    padding: 15px 18px;
+    border-bottom: 1px solid var(--cl-grid-line);
+    background: var(--cl-thead);
+  }
+  .setup-intro span { color: var(--cl-muted); font-size: 13px; line-height: 1.45; }
   .setup-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -278,23 +294,13 @@
     padding: 18px;
   }
   .span-2 { grid-column: span 2; }
-  .cl-label small {
-    color: var(--cl-muted);
-    line-height: 1.35;
-  }
+  .cl-label small { color: var(--cl-muted); line-height: 1.35; }
   .is-muted { margin: 0 18px 18px; }
-  .dirty-note {
-    color: var(--cl-attention);
-    font-size: 13px;
-    font-weight: var(--rst-fw-bold);
-  }
   @media (max-width: 980px) {
     .setup-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   @media (max-width: 520px) {
     .setup-grid { grid-template-columns: 1fr; padding: 14px; }
     .span-2 { grid-column: auto; }
-    .cl-card__foot { align-items: stretch; }
-    .cl-card__foot .cl-btn { width: 100%; }
   }
 </style>

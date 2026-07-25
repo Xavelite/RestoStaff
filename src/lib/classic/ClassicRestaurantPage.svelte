@@ -1,27 +1,19 @@
 <script lang="ts">
-  import { onMount, untrack, type Snippet } from 'svelte';
+  import { onMount, setContext, untrack, type Snippet } from 'svelte';
   import { friendlyError } from '$lib/api/error-messages';
   import { t } from '$lib/i18n/i18n.svelte';
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
-  import { restaurantDraftValidationError, type RestaurantDraft } from '$lib/restaurant/restaurant-model';
+  import { restaurantDraftValidationError } from '$lib/restaurant/restaurant-model';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import ClassicPage from './ClassicPage.svelte';
   import { restaurantConfig } from './classic-restaurant.svelte';
+  import { CLASSIC_RESTAURANT_CONTEXT, type ClassicRestaurantContext } from './classic-workspace-context';
 
   /**
    * One shared Restaurant draft and persistence contract across every tab. Each
    * page owns its table controls while the shared panel owns save and discard.
    */
-  export type ClassicRestaurantContext = {
-    draft: RestaurantDraft;
-    dirty: boolean;
-    saving: boolean;
-    canSave: boolean;
-    save: () => Promise<void>;
-    discard: () => void;
-  };
-
   let {
     children
   }: {
@@ -86,6 +78,8 @@
     save,
     discard
   } : null);
+
+  setContext(CLASSIC_RESTAURANT_CONTEXT, () => context!);
 </script>
 
 <ClassicPage>

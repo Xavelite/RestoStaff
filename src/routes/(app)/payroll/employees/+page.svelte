@@ -6,7 +6,6 @@
   import { buildEmployeeColorMap } from '$lib/ui/position-color';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import type { EmployeeDraft } from '$lib/team/team-model';
-  import ClassicStat from '$lib/classic/ClassicStat.svelte';
   import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
   import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
@@ -186,11 +185,6 @@
       <div class="cl-notice" role="alert">{teamDraft.supplementaryError}</div>
     {/if}
 
-    <div class="cl-stats">
-      <ClassicStat label="Active employees" value={rows.length} accent="var(--cl-mod-payroll)" mutedZero={false} />
-      <ClassicStat label="Ready for payroll" value={rows.length - blocked} tone={rows.length - blocked === rows.length && rows.length ? 'ok' : undefined} accent="var(--cl-ok)" mutedZero={false} />
-      <ClassicStat label="Not ready for payroll" value={blocked} tone={blocked ? 'problem' : 'ok'} />
-    </div>
 
     <ClassicTablePanel dirty={team.dirty} saving={team.saving} canSave={team.canSave} onsave={() => void team.save().catch(() => undefined)} ondiscard={team.discard}>
       {#snippet meta()}
@@ -226,7 +220,7 @@
                   {@const missing = payrollGaps(employee)}
                   {@const terms = TERMS_STATUS[employee.employmentSourceStatus]}
                   <tr class:is-problem={missing.length > 0}>
-                    <td><span class="cl-table__name is-employee"><span class="cl-avatar" style="--avatar-color:{employeeColor.get(employee.id) ?? 'var(--cl-muted)'}">{personInitials(employee.displayName)}</span><strong>{employee.displayName}</strong></span></td>
+                    <td><span class="cl-table__name is-employee"><span class="cl-avatar" style="--avatar-color:{employeeColor.get(employee.id) ?? 'var(--cl-muted)'}">{personInitials(employee.displayName)}</span><span class="employee-name">{employee.displayName}</span></span></td>
                     {#if shown('contract')}<td>{team.contractName.get(employee.contractTypeId) ?? t('No contract yet')}</td>{/if}
                     {#if shown('position')}<td>{team.jobName.get(employee.jobFunctionIds[0] ?? '') ?? t('No position yet')}</td>{/if}
                     {#if shown('payrollId')}<td><input class="cl-field payrollid" value={employee.payrollEmployeeId} disabled={!team.owner || !team.editable} oninput={(event) => teamDraft.update(employee.id, { payrollEmployeeId: event.currentTarget.value })} /></td>{/if}
@@ -254,6 +248,7 @@
 </ClassicTeamPage>
 
 <style>
+  .employee-name { font-weight: var(--rst-fw-medium); }
   .missing { display: block; color: var(--cl-muted); font-size: 12px; }
   .edit { min-height: 32px; padding: 4px 10px; font-size: 13px; }
   .payrollid { min-width: 120px; height: 34px; }

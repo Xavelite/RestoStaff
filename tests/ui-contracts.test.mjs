@@ -206,7 +206,8 @@ test('operational core exposes planning, attendance and payroll as one classic w
   assert.match(payrollRuns, /<PayrollWorkspace/);
   assert.match(payrollExports, /createPayrollExportRun/);
   assert.match(payrollExports, /id: 'payroll-export-columns'/);
-  assert.match(payrollConfig, /class="cl-card"/);
+  assert.match(payrollConfig, /<ClassicTablePanel/);
+  assert.doesNotMatch(payrollConfig, /class="cl-stats"/);
   assert.doesNotMatch(payrollConfig, /class="payroll-setup"/);
 });
 
@@ -252,4 +253,78 @@ test('unsaved changes guard routes and context-changing account actions', async 
   assert.match(payrollSetup, /id: 'restaurant-payroll-configuration'/);
   assert.match(payrollDetails, /id: `employee-payroll-details:\$\{employeeId\}`/);
   assert.match(access, /id: 'team-invitation'/);
+});
+
+test('Team and Restaurant use one route-scoped workspace instead of mounting stale sibling pages', async () => {
+  const teamLayout = await readFile('src/routes/(app)/team/+layout.svelte', 'utf8');
+  const restaurantLayout = await readFile('src/routes/(app)/restaurant/+layout.svelte', 'utf8');
+  const teamWrapper = await readFile('src/lib/classic/ClassicTeamPage.svelte', 'utf8');
+  const restaurantWrapper = await readFile('src/lib/classic/ClassicRestaurantPage.svelte', 'utf8');
+
+  assert.match(teamLayout, /<ClassicTeamPage>[\s\S]*\{#key page\.url\.pathname\}[\s\S]*\{@render children\(\)\}/);
+  assert.match(restaurantLayout, /<ClassicRestaurantPage>[\s\S]*\{#key page\.url\.pathname\}[\s\S]*\{@render children\(\)\}/);
+  assert.match(teamWrapper, /setContext\(CLASSIC_TEAM_CONTEXT/);
+  assert.match(restaurantWrapper, /setContext\(CLASSIC_RESTAURANT_CONTEXT/);
+
+  for (const file of [
+    'src/routes/(app)/team/+page.svelte',
+    'src/routes/(app)/team/contracts/+page.svelte',
+    'src/routes/(app)/team/access/+page.svelte',
+    'src/routes/(app)/team/absences/+page.svelte'
+  ]) {
+    const source = await readFile(file, 'utf8');
+    assert.match(source, /useClassicTeamContext/);
+    assert.doesNotMatch(source, /ClassicTeamPage/);
+  }
+
+  for (const file of [
+    'src/routes/(app)/restaurant/+page.svelte',
+    'src/routes/(app)/restaurant/hours/+page.svelte',
+    'src/routes/(app)/restaurant/areas/+page.svelte',
+    'src/routes/(app)/restaurant/positions/+page.svelte',
+    'src/routes/(app)/restaurant/coverage/+page.svelte'
+  ]) {
+    const source = await readFile(file, 'utf8');
+    assert.match(source, /useClassicRestaurantContext/);
+    assert.doesNotMatch(source, /ClassicRestaurantPage/);
+  }
+});
+
+test('Coverage inherits the same explicit grid contract as every classic table', async () => {
+  const coverage = await readFile('src/routes/(app)/restaurant/coverage/+page.svelte', 'utf8');
+  const css = await readFile('src/lib/classic/classic.css', 'utf8');
+
+  assert.match(coverage, /<table class="cl-table cov">/);
+  assert.doesNotMatch(coverage, /\.cov\s+(?:th|td)\s*\{[^}]*border\s*:/s);
+  assert.match(css, /--cl-grid-line:\s*#dfdfe4/);
+  assert.match(css, /\.cl-table\s*\{[^}]*border-collapse:\s*separate;[^}]*border-spacing:\s*0;/s);
+  assert.match(css, /\.cl-table th:not\(:last-child\),\s*\.cl-table tbody td:not\(:last-child\)\s*\{\s*border-right:\s*1px solid var\(--cl-grid-line\)/s);
+  assert.match(css, /\.cl-table td\s*\{[^}]*border-bottom:\s*1px solid var\(--cl-grid-line\)/s);
+});
+
+test('Home stays a lightweight module portal and Payroll uses the shared compact panel baseline', async () => {
+  const home = await readFile('src/routes/(app)/home/+page.svelte', 'utf8');
+  assert.match(home, /modulesForRole/);
+  assert.doesNotMatch(home, /loadOperations|setInterval|activeWeek|operationsSnapshot/);
+
+  for (const file of [
+    'src/routes/(app)/payroll/+page.svelte',
+    'src/lib/payroll/PayrollWorkspace.svelte',
+    'src/routes/(app)/payroll/employees/+page.svelte',
+    'src/routes/(app)/payroll/exports/+page.svelte',
+    'src/lib/payroll/RestaurantPayrollSetup.svelte'
+  ]) {
+    const source = await readFile(file, 'utf8');
+    assert.doesNotMatch(source, /<ClassicStat\b|class="cl-stats"/);
+  }
+
+  for (const file of [
+    'src/lib/payroll/PayrollWorkspace.svelte',
+    'src/routes/(app)/payroll/employees/+page.svelte',
+    'src/routes/(app)/payroll/exports/+page.svelte',
+    'src/lib/payroll/RestaurantPayrollSetup.svelte'
+  ]) {
+    const source = await readFile(file, 'utf8');
+    assert.match(source, /<ClassicTablePanel/);
+  }
 });

@@ -3,7 +3,7 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import { POSITION_PALETTE, defaultPositionColor } from '$lib/ui/position-color';
   import { workspace } from '$lib/workspace/workspace.svelte';
-  import ClassicRestaurantPage from '$lib/classic/ClassicRestaurantPage.svelte';
+  import { useClassicRestaurantContext } from '$lib/classic/classic-workspace-context';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
@@ -94,13 +94,15 @@ import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
     return [...rows].sort((a, b) => factor * sortValue(a).localeCompare(sortValue(b)));
   }
 
+
+  const readRestaurantContext = useClassicRestaurantContext();
+  const context = $derived(readRestaurantContext());
 </script>
 
 <svelte:head><title>{t('Positions')} &middot; restogogo</title></svelte:head>
 
-<ClassicRestaurantPage>
-  {#snippet children(context)}
-    {@const draft = context.draft}
+{#if context}
+{@const draft = context.draft}
     {@const rows = [...draft.jobFunctions].filter(matches)}
     {@const ordered = orderedPositions(rows)}
     <ClassicTablePanel dirty={context.dirty} saving={context.saving} canSave={context.canSave} onsave={() => void context.save().catch(() => undefined)} ondiscard={context.discard}>
@@ -147,8 +149,8 @@ import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
       </div>
       {/snippet}
     </ClassicTablePanel>
-  {/snippet}
-</ClassicRestaurantPage>
+
+{/if}
 
 <style>
   .cost { width: 120px; text-align: right; }

@@ -5,8 +5,8 @@
   import { buildEmployeeColorMap } from '$lib/ui/position-color';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { newEmployeeDraft, type EmployeeDraft } from '$lib/team/team-model';
+  import { useClassicTeamContext } from '$lib/classic/classic-workspace-context';
   import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
-  import ClassicTeamPage from '$lib/classic/ClassicTeamPage.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
@@ -185,13 +185,15 @@
       employmentValidTo: code === 'CDI' ? '' : employee.employmentValidTo
     });
   }
+
+  const readTeamContext = useClassicTeamContext();
+  const team = $derived(readTeamContext());
 </script>
 
 <svelte:head><title>{t('Contracts')} &middot; restogogo</title></svelte:head>
 
-<ClassicTeamPage>
-  {#snippet children(team)}
-    {@const filtered = team.employees.filter((employee) => matches(employee, team.contractName, team.jobName))}
+{#if team}
+{@const filtered = team.employees.filter((employee) => matches(employee, team.contractName, team.jobName))}
     {@const incomplete = filtered.filter((employee) => gaps(employee).length).length}
     {@const groups = grouped(ordered(filtered, team.contractName, team.jobName), team.contractName, team.jobName)}
     {@const contractValues = [{ value: '__none__', label: t('No contract') }, ...[...team.contractName].map(([id, name]) => ({ value: id, label: name }))]}
@@ -266,8 +268,8 @@
     {#if detailId}
       <EmployeeInlineEditor employeeId={detailId} mode="contract" saving={team.saving} isNew={detailId === freshId} onclose={closeDetails} onsave={team.saveEmployee} />
     {/if}
-  {/snippet}
-</ClassicTeamPage>
+
+{/if}
 
 <style>
   .missing { display: block; color: var(--cl-muted); font-size: 12px; }

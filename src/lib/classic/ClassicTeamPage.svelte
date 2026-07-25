@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, untrack, type Snippet } from 'svelte';
+  import { onMount, setContext, untrack, type Snippet } from 'svelte';
   import { friendlyError } from '$lib/api/error-messages';
   import { t } from '$lib/i18n/i18n.svelte';
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
@@ -8,6 +8,7 @@
   import { workspace } from '$lib/workspace/workspace.svelte';
   import ClassicPage from './ClassicPage.svelte';
   import { teamDraft } from './classic-team.svelte';
+  import { CLASSIC_TEAM_CONTEXT, type ClassicTeamContext } from './classic-workspace-context';
 
   /**
    * Shared Team workspace: one roster draft, one save path and one route-leave
@@ -19,20 +20,6 @@
   }: {
     children: Snippet<[ClassicTeamContext]>;
   } = $props();
-
-  export type ClassicTeamContext = {
-    employees: EmployeeDraft[];
-    jobName: Map<string, string>;
-    contractName: Map<string, string>;
-    editable: boolean;
-    owner: boolean;
-    saving: boolean;
-    dirty: boolean;
-    canSave: boolean;
-    save: () => Promise<void>;
-    discard: () => void;
-    saveEmployee: (employee: EmployeeDraft) => Promise<void>;
-  };
 
   let saving = $state(false);
   const team = $derived(workspace.team);
@@ -126,6 +113,8 @@
     discard,
     saveEmployee
   });
+
+  setContext(CLASSIC_TEAM_CONTEXT, () => context);
 </script>
 
 <ClassicPage>

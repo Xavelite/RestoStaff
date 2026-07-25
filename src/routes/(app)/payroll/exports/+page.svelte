@@ -9,8 +9,7 @@
   import { friendlyError } from '$lib/api/error-messages';
   import { addDays, mondayFor, todayInTimezone } from '$lib/calendar/date';
   import ClassicPage from '$lib/classic/ClassicPage.svelte';
-  import ClassicStat from '$lib/classic/ClassicStat.svelte';
-  import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
+  import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import { downloadCsv } from '$lib/export/csv';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import {
@@ -188,134 +187,108 @@
 
 <svelte:head><title>{t('Payroll exports')} &middot; restogogo</title></svelte:head>
 
-{#snippet pageActions()}
-  <label class="range-field"><span>{t('From')}</span><input class="cl-field" type="date" bind:value={periodStart} /></label>
-  <label class="range-field"><span>{t('To')}</span><input class="cl-field" type="date" bind:value={periodEnd} /></label>
-  <span class="cl-toolbar__grow"></span>
-  <button class="cl-btn is-primary" type="button" disabled={busy || !validPeriod || !orderedColumns.length} onclick={exportPeriod}>
-    {t(busy ? 'Preparing…' : 'Export CSV')}
-  </button>
-{/snippet}
-
-<ClassicPage actions={pageActions}>
+<ClassicPage>
   {#if !validPeriod}
     <div class="cl-notice" role="alert">
       {t('Payroll exports must contain complete Monday-to-Sunday weeks.')}
     </div>
   {/if}
 
-  <div class="cl-stats">
-    <ClassicStat label="Columns" value={orderedColumns.length} accent="var(--cl-mod-payroll)" mutedZero={false} />
-    <ClassicStat label="Official exports" value={runs.length} tone={runs.length ? 'ok' : undefined} />
-    <ClassicStat label="Exported rows" value={totalRows} mutedZero={false} />
-  </div>
-
-  <section class="cl-card">
-    <div class="cl-card__head">
-      <div>
-        <h2>{t('Export columns')}</h2>
-        <p>{t('Choose the social-secretariat fields included in new files. The server validates the same allowlist.')}</p>
-      </div>
-      <div class="column-actions">
-        <button class="cl-btn" type="button" disabled={savingColumns || !columnsDirty} onclick={discardColumns}>{t('Discard')}</button>
-        <button class="cl-btn" type="button" disabled={savingColumns || !columnsDirty} onclick={saveDefaults}>
-          {t(savingColumns ? 'Saving…' : 'Save as default')}
-        </button>
-      </div>
-    </div>
-    <div class="column-builder">
-      <div class="selected-columns" aria-label={t('Selected columns')}>
-        {#each orderedColumns as key, index (key)}
-          {@const field = PAYROLL_EXPORT_FIELDS.find((item) => item.key === key)}
-          <div class="column-row">
-            <span class="column-row__index">{index + 1}</span>
-            <strong>{t(field?.label ?? key)}</strong>
-            <span class="column-row__actions">
-              <button
-                class="cl-icon-btn"
-                type="button"
-                aria-label={t('Move column up')}
-                title={t('Move column up')}
-                disabled={index === 0}
-                onclick={() => moveColumn(key, -1)}
-              >↑</button>
-              <button
-                class="cl-icon-btn"
-                type="button"
-                aria-label={t('Move column down')}
-                title={t('Move column down')}
-                disabled={index === orderedColumns.length - 1}
-                onclick={() => moveColumn(key, 1)}
-              >↓</button>
-              <button
-                class="cl-btn"
-                type="button"
-                disabled={orderedColumns.length === 1}
-                onclick={() => removeColumn(key)}
-              >{t('Remove')}</button>
-            </span>
-          </div>
-        {/each}
-      </div>
-
-      <div class="available-columns">
-        <h3>{t('Available columns')}</h3>
-        {#if availableColumns.length}
-          <div class="available-columns__grid">
-            {#each availableColumns as field (field.key)}
-              <button class="column-add" type="button" onclick={() => addColumn(field.key)}>
-                <span aria-hidden="true">+</span>{t(field.label)}
-              </button>
+  <ClassicTablePanel
+    dirty={columnsDirty}
+    saving={savingColumns}
+    canSave={orderedColumns.length > 0}
+    onsave={() => void saveDefaults()}
+    ondiscard={discardColumns}
+  >
+    {#snippet meta()}
+      <span><i class="dot"></i>{t('{count} selected columns', { count: orderedColumns.length })}</span>
+      <span>{t('Export columns')}</span>
+    {/snippet}
+    {#snippet children()}
+      <section class="cl-card column-config" aria-label={t('Export columns')}>
+        <div class="column-builder">
+          <div class="selected-columns" aria-label={t('Selected columns')}>
+            {#each orderedColumns as key, index (key)}
+              {@const field = PAYROLL_EXPORT_FIELDS.find((item) => item.key === key)}
+              <div class="column-row">
+                <span class="column-row__index">{index + 1}</span>
+                <strong>{t(field?.label ?? key)}</strong>
+                <span class="column-row__actions">
+                  <button class="cl-icon-btn" type="button" aria-label={t('Move column up')} title={t('Move column up')} disabled={index === 0} onclick={() => moveColumn(key, -1)}>↑</button>
+                  <button class="cl-icon-btn" type="button" aria-label={t('Move column down')} title={t('Move column down')} disabled={index === orderedColumns.length - 1} onclick={() => moveColumn(key, 1)}>↓</button>
+                  <button class="cl-btn" type="button" disabled={orderedColumns.length === 1} onclick={() => removeColumn(key)}>{t('Remove')}</button>
+                </span>
+              </div>
             {/each}
           </div>
-        {:else}
-          <p>{t('All available columns are in use.')}</p>
-        {/if}
-      </div>
-    </div>
-  </section>
 
-  <section class="cl-section">
-    <div class="section-heading">
-      <div>
-        <h2 class="cl-section__title">{t('Official export history')}</h2>
-        <p class="cl-section__note">{t('Approved exports are immutable and can be downloaded again with the same fingerprint.')}</p>
+          <div class="available-columns">
+            <h3>{t('Available columns')}</h3>
+            {#if availableColumns.length}
+              <div class="available-columns__grid">
+                {#each availableColumns as field (field.key)}
+                  <button class="column-add" type="button" onclick={() => addColumn(field.key)}>
+                    <span aria-hidden="true">+</span>{t(field.label)}
+                  </button>
+                {/each}
+              </div>
+            {:else}
+              <p>{t('All available columns are in use.')}</p>
+            {/if}
+          </div>
+        </div>
+      </section>
+    {/snippet}
+  </ClassicTablePanel>
+
+  <ClassicTablePanel>
+    {#snippet meta()}
+      <span><i class="dot is-green"></i>{t('{count} official exports', { count: runs.length })}</span>
+      <span>{t('{count} exported rows', { count: totalRows })}</span>
+    {/snippet}
+    {#snippet actions()}
+      <label class="range-field"><span>{t('From')}</span><input class="cl-field" type="date" bind:value={periodStart} /></label>
+      <label class="range-field"><span>{t('To')}</span><input class="cl-field" type="date" bind:value={periodEnd} /></label>
+      <button class="cl-btn is-primary" type="button" disabled={busy || !validPeriod || !orderedColumns.length} onclick={exportPeriod}>
+        {t(busy ? 'Preparing…' : 'Export CSV')}
+      </button>
+    {/snippet}
+    {#snippet children()}
+      <div class="cl-tablewrap">
+        <table class="cl-table export-table">
+          <thead>
+            <tr>
+              <th>{t('Created')}</th>
+              <th>{t('Period')}</th>
+              <th>{t('Filename')}</th>
+              <th class="is-num">{t('Rows')}</th>
+              <th class="is-num">{t('Hours')}</th>
+              <th>{t('Fingerprint')}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {#if !runs.length}
+              <tr><td colspan="7"><div class="cl-empty"><strong>{t('No official payroll exports')}</strong><span>{t('Approve the included timesheet weeks, then export this period.')}</span></div></td></tr>
+            {:else}
+              {#each runs as run (run.id)}
+                <tr>
+                  <td class="is-quiet">{stamp(run.created_at)}</td>
+                  <td>{run.period_start} → {run.period_end}</td>
+                  <td>{run.filename}</td>
+                  <td class="is-num">{run.row_count}</td>
+                  <td class="is-num">{(run.total_net_minutes / 60).toFixed(2)}h</td>
+                  <td><code>{run.payload_sha256.slice(0, 16)}</code></td>
+                  <td class="is-num"><button class="cl-btn" type="button" disabled={busy} onclick={() => downloadRun(run.id)}>{t('Download')}</button></td>
+                </tr>
+              {/each}
+            {/if}
+          </tbody>
+        </table>
       </div>
-      <ClassicStatus label={runs.length ? 'Lineage available' : 'No official export yet'} tone={runs.length ? 'ok' : 'attention'} />
-    </div>
-    <div class="cl-tablewrap">
-      <table class="cl-table export-table">
-        <thead>
-          <tr>
-            <th>{t('Created')}</th>
-            <th>{t('Period')}</th>
-            <th>{t('Filename')}</th>
-            <th class="is-num">{t('Rows')}</th>
-            <th class="is-num">{t('Hours')}</th>
-            <th>{t('Fingerprint')}</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {#if !runs.length}
-            <tr><td colspan="7"><div class="cl-empty"><strong>{t('No official payroll exports')}</strong><span>{t('Approve the included timesheet weeks, then export this period.')}</span></div></td></tr>
-          {:else}
-            {#each runs as run (run.id)}
-              <tr>
-                <td class="is-quiet">{stamp(run.created_at)}</td>
-                <td>{run.period_start} → {run.period_end}</td>
-                <td>{run.filename}</td>
-                <td class="is-num">{run.row_count}</td>
-                <td class="is-num">{(run.total_net_minutes / 60).toFixed(2)}h</td>
-                <td><code>{run.payload_sha256.slice(0, 16)}</code></td>
-                <td class="is-num"><button class="cl-btn" type="button" disabled={busy} onclick={() => downloadRun(run.id)}>{t('Download')}</button></td>
-              </tr>
-            {/each}
-          {/if}
-        </tbody>
-      </table>
-    </div>
-  </section>
+    {/snippet}
+  </ClassicTablePanel>
 </ClassicPage>
 
 <style>
@@ -326,18 +299,9 @@
     color: var(--cl-muted);
     font-size: 13px;
   }
-  .cl-card__head p {
-    margin: 5px 0 0;
-    color: var(--cl-muted);
-    font-size: 13px;
-    line-height: 1.5;
-  }
-  .column-builder {
-    border-top: 1px solid var(--cl-line);
-  }
-  .selected-columns {
-    display: grid;
-  }
+  .column-config { overflow: hidden; }
+  .column-builder { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(260px, .8fr); }
+  .selected-columns { display: grid; }
   .column-row {
     display: grid;
     grid-template-columns: 34px minmax(0, 1fr) auto;
@@ -345,91 +309,51 @@
     gap: 10px;
     min-height: 52px;
     padding: 7px 14px;
-    border-bottom: 1px solid var(--cl-line);
+    border-bottom: 1px solid var(--cl-grid-line);
   }
+  .column-row:last-child { border-bottom: 0; }
   .column-row__index {
     display: grid;
     place-items: center;
     width: 26px;
     height: 26px;
-    border: 1px solid var(--cl-line);
+    border: 1px solid var(--cl-grid-line);
     border-radius: 50%;
     color: var(--cl-muted);
     font-size: 12px;
     font-variant-numeric: tabular-nums;
   }
-  .column-row strong {
-    font-size: 13px;
-  }
-  .column-row__actions {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .available-columns {
-    padding: 14px;
-    background: var(--cl-surface-muted);
-  }
-  .available-columns h3,
-  .available-columns p {
-    margin: 0;
-  }
-  .available-columns h3 {
-    margin-bottom: 10px;
-    font-size: 12px;
-    text-transform: uppercase;
-  }
-  .available-columns p {
-    color: var(--cl-muted);
-    font-size: 13px;
-  }
-  .available-columns__grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 7px;
-  }
+  .column-row__actions { display: inline-flex; align-items: center; gap: 6px; }
+  .available-columns { padding: 16px; border-left: 1px solid var(--cl-grid-line); background: var(--cl-surface-muted); }
+  .available-columns h3 { margin: 0 0 12px; font-size: 13px; }
+  .available-columns p { margin: 0; color: var(--cl-muted); font-size: 13px; }
+  .available-columns__grid { display: grid; gap: 7px; }
   .column-add {
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 8px;
     min-height: 34px;
     padding: 6px 10px;
-    border: 1px solid var(--cl-line);
+    border: 1px solid var(--cl-grid-line);
     border-radius: var(--cl-radius);
-    color: var(--cl-ink);
     background: var(--cl-surface);
-    font: inherit;
-    font-size: 12px;
+    color: var(--cl-ink);
+    text-align: left;
     cursor: pointer;
   }
-  .column-add:hover {
-    border-color: var(--cl-line-strong);
-  }
-  .section-heading {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 16px;
-  }
-  .export-table {
-    min-width: 980px;
-  }
-  code {
-    font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
-    font-size: 12px;
+  .column-add:hover { border-color: var(--cl-accent); }
+  .column-add span { color: var(--cl-accent); font-size: 17px; }
+  .export-table { min-width: 930px; }
+  .export-table code { font-size: 12px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-line-strong); display: inline-block; }
+  .dot.is-green { background: var(--cl-ok); }
+  @media (max-width: 980px) {
+    .column-builder { grid-template-columns: 1fr; }
+    .available-columns { border-top: 1px solid var(--cl-grid-line); border-left: 0; }
   }
   @media (max-width: 760px) {
-    .section-heading {
-      align-items: stretch;
-      flex-direction: column;
-    }
-    .column-row {
-      grid-template-columns: 28px minmax(0, 1fr);
-    }
-    .column-row__actions {
-      grid-column: 2;
-      justify-content: flex-start;
-    }
+    .range-field span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .column-row { grid-template-columns: 30px minmax(0, 1fr); }
+    .column-row__actions { grid-column: 2; }
   }
-  .column-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 </style>

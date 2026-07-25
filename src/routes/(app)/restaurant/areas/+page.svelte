@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
-  import ClassicRestaurantPage from '$lib/classic/ClassicRestaurantPage.svelte';
+  import { useClassicRestaurantContext } from '$lib/classic/classic-workspace-context';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
@@ -121,13 +121,15 @@ import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
     return [...rows].sort((a, b) => factor * sortValue(a).localeCompare(sortValue(b)));
   }
 
+
+  const readRestaurantContext = useClassicRestaurantContext();
+  const context = $derived(readRestaurantContext());
 </script>
 
 <svelte:head><title>{t('Areas')} &middot; restogogo</title></svelte:head>
 
-<ClassicRestaurantPage>
-  {#snippet children(context)}
-    {@const draft = context.draft}
+{#if context}
+{@const draft = context.draft}
     {@const rows = [...draft.areas].filter(matches)}
     {@const ordered = orderedAreas(rows)}
     <ClassicTablePanel dirty={context.dirty} saving={context.saving} canSave={context.canSave} onsave={() => void context.save().catch(() => undefined)} ondiscard={context.discard}>
@@ -178,8 +180,8 @@ import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
       </div>
       {/snippet}
     </ClassicTablePanel>
-  {/snippet}
-</ClassicRestaurantPage>
+
+{/if}
 
 <style>
   .range { display: inline-flex; align-items: center; gap: 8px; }

@@ -12,8 +12,8 @@
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import type { EmployeeDraft } from '$lib/team/team-model';
+  import { useClassicTeamContext } from '$lib/classic/classic-workspace-context';
   import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
-  import ClassicTeamPage from '$lib/classic/ClassicTeamPage.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
@@ -139,13 +139,15 @@
     await run(employee.id, () => inviteEmployee({ restaurantId: workspace.activeId!, employeeId: employee.id, email: inviteEmail.trim(), role: inviteRole }), 'Invitation sent.');
     discardInvite();
   }
+
+  const readTeamContext = useClassicTeamContext();
+  const team = $derived(readTeamContext());
 </script>
 
 <svelte:head><title>{t('Access')} &middot; restogogo</title></svelte:head>
 
-<ClassicTeamPage>
-  {#snippet children(team)}
-    {@const filtered = team.employees.filter(matches)}
+{#if team}
+{@const filtered = team.employees.filter(matches)}
     {@const groups = grouped(ordered(filtered), team.jobName)}
     {@const accessValues = [...new Set(team.employees.filter((employee) => employee.active).map((employee) => employee.accessState))].map((value) => ({ value, label: t(ACCESS_LABEL[value] ?? value) }))}
     {@const signedIn = filtered.filter((employee) => employee.accessState === 'active').length}
@@ -196,8 +198,8 @@
     <Dialog open={Boolean(inviting)} title={t('Invite {name}', { name: inviting?.displayName ?? '' })} description={t('They receive an email link to set a password and sign in.')} size="small" onclose={() => void requestInviteClose()} {footer}>
       <div class="form"><label class="cl-label"><span>{t('Email')}</span><input class="cl-field" type="email" bind:value={inviteEmail} /></label><label class="cl-label"><span>{t('Role')}</span><select class="cl-field" bind:value={inviteRole}><option value="employee">{t('employee')}</option><option value="manager">{t('manager')}</option></select></label></div>
     </Dialog>
-  {/snippet}
-</ClassicTeamPage>
+
+{/if}
 
 <style>
   .actions { display: inline-flex; gap: 8px; }

@@ -3,7 +3,7 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import { confirmAction } from '$lib/ui/confirm.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
-  import ClassicRestaurantPage from '$lib/classic/ClassicRestaurantPage.svelte';
+  import { useClassicRestaurantContext } from '$lib/classic/classic-workspace-context';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
   import {
@@ -59,13 +59,15 @@
       logoBusy = false;
     }
   }
+
+  const readRestaurantContext = useClassicRestaurantContext();
+  const context = $derived(readRestaurantContext());
 </script>
 
 <svelte:head><title>{t('Restaurant')} &middot; restogogo</title></svelte:head>
 
-<ClassicRestaurantPage>
-  {#snippet children(context)}
-    {@const draft = context.draft}
+{#if context}
+{@const draft = context.draft}
     <ClassicTablePanel dirty={context.dirty} saving={context.saving} canSave={context.canSave} onsave={() => void context.save().catch(() => undefined)} ondiscard={context.discard}>
       {#snippet meta()}
         <span>{draft.legalName || t('Restaurant identity')}</span>
@@ -106,8 +108,8 @@
     </section>
       {/snippet}
     </ClassicTablePanel>
-  {/snippet}
-</ClassicRestaurantPage>
+
+{/if}
 
 <style>
   .identity-layout { display: grid; gap: 22px; }
