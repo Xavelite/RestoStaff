@@ -20,11 +20,34 @@ const POSITION_PALETTE = [
   '#3b7bdb' // sky
 ] as const;
 
+// Areas wear a deeper, calmer palette than positions so the two never read as
+// the same kind of thing on a shared surface (Coverage): a position is a vivid
+// chip, an area is a deep rail.
+const AREA_PALETTE = [
+  '#0f766e', // deep teal
+  '#7c2d12', // rust
+  '#3730a3', // deep indigo
+  '#166534', // forest
+  '#9d174d', // deep rose
+  '#1e3a8a', // navy
+  '#78350f', // umber
+  '#5b21b6', // deep violet
+  '#115e59', // pine
+  '#374151' // slate
+] as const;
+
 type JobFunctionLike = {
   id: string;
   sort_order?: number | null;
   name?: string | null;
   active?: boolean | null;
+  metadata?: unknown;
+};
+
+type AreaLike = {
+  id: string;
+  sort_order?: number | null;
+  name?: string | null;
   metadata?: unknown;
 };
 
@@ -46,6 +69,20 @@ export function buildPositionColorMap(jobFunctions: JobFunctionLike[]): Map<stri
   const map = new Map<string, string>();
   ordered.forEach((item, index) => {
     map.set(item.id, readOverride(item.metadata) ?? POSITION_PALETTE[index % POSITION_PALETTE.length]);
+  });
+  return map;
+}
+
+/** Area id → colour. Stable across sessions; overrides win over the palette. */
+export function buildAreaColorMap(areas: AreaLike[]): Map<string, string> {
+  const ordered = [...areas].sort(
+    (a, b) =>
+      (a.sort_order ?? 0) - (b.sort_order ?? 0) ||
+      (a.name ?? '').localeCompare(b.name ?? '')
+  );
+  const map = new Map<string, string>();
+  ordered.forEach((item, index) => {
+    map.set(item.id, readOverride(item.metadata) ?? AREA_PALETTE[index % AREA_PALETTE.length]);
   });
   return map;
 }

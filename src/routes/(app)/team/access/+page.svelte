@@ -128,10 +128,6 @@
   {#snippet children(team)}
     {@const rows = team.employees.filter((employee) => employee.active)}
 
-    <p class="cl-section__note">
-      {t('App access is separate from badge access: a PIN lets someone clock in, an invitation lets them sign in.')}
-    </p>
-
     <div class="cl-tablewrap">
       <table class="cl-table">
         <thead>

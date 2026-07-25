@@ -26,7 +26,15 @@
   --cl-muted: #6b6b70;
   --cl-accent: #c2410c;
   --cl-accent-wash: rgba(194, 65, 12, 0.07);
+  /* Table headers wear a warm tint with a defined accent underline — our answer
+     to a coloured header row — so a table reads as one object and columns are
+     easy to track down. A brighter orange than the burnt brand accent keeps the
+     tint clean rather than muddy. */
+  --cl-thead: #fdeade;
+  --cl-thead-line: #e8763a;
   --cl-radius: 6px;
+  /* Data surfaces (tables, cards) sit a touch squarer than the controls. */
+  --cl-radius-surface: 4px;
   --cl-row: 44px;
   --cl-sidebar: 240px;
   --cl-topbar: 64px;
@@ -492,7 +500,7 @@
    part of the table (like a spreadsheet), not a floating page toolbar. */
 .cl-datatable {
   border: 1px solid var(--cl-line);
-  border-radius: var(--cl-radius);
+  border-radius: var(--cl-radius-surface);
   background: var(--cl-surface);
   overflow: hidden;
 }
@@ -544,6 +552,119 @@
   background: transparent;
 }
 
+/* Inline add: a permanent row at the head of a table, right under the column
+   titles. Clicking it drops a fresh blank row directly below — click again for
+   another — so adding is "one more line" and there is no separate Add button on
+   its own line. */
+.cl-addrow td {
+  padding: 0 !important;
+  background: var(--cl-surface);
+  border-bottom: 1px solid var(--cl-line);
+}
+.cl-addrow button {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 16px;
+  border: 0;
+  background: transparent;
+  color: var(--cl-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: var(--rst-fw-medium);
+  text-align: left;
+  cursor: pointer;
+}
+.cl-addrow button:hover:not(:disabled) {
+  background: var(--cl-accent-wash);
+  color: var(--cl-accent);
+}
+.cl-addrow button:disabled {
+  color: var(--cl-line-strong);
+  cursor: default;
+}
+.cl-addrow svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+/* A colour swatch that stands for a position or an area. */
+.cl-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14);
+}
+
+/* Small coloured chips used to show what a row links to (positions in an area,
+   areas a position covers). Colour carries the identity; the label repeats it. */
+.cl-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.cl-chip {
+  --chip: var(--cl-line-strong);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 160px;
+  padding: 2px 9px 2px 7px;
+  border: 1px solid color-mix(in srgb, var(--chip) 40%, var(--cl-line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chip) 9%, var(--cl-surface));
+  color: color-mix(in srgb, var(--chip) 62%, var(--cl-ink));
+  font-size: 12px;
+  font-weight: var(--rst-fw-medium);
+  white-space: nowrap;
+}
+.cl-chip::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--chip);
+}
+.cl-chip > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cl-chips__empty {
+  color: var(--cl-muted);
+  font-size: 12px;
+}
+
+/* A compact count of linked people, with a soft accent disc. */
+.cl-linkcount {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--cl-ink);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.cl-linkcount__n {
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--cl-accent-wash);
+  color: var(--cl-accent);
+  font-size: 12px;
+  font-weight: var(--rst-fw-bold);
+}
+.cl-linkcount.is-zero .cl-linkcount__n {
+  background: var(--cl-surface-muted);
+  color: var(--cl-line-strong);
+}
+
 .cl-section {
   display: grid;
   gap: 12px;
@@ -565,7 +686,7 @@
 
 .cl-card {
   border: 1px solid var(--cl-line);
-  border-radius: var(--cl-radius);
+  border-radius: var(--cl-radius-surface);
   background: var(--cl-surface);
 }
 
@@ -739,7 +860,7 @@
 .cl-tablewrap {
   overflow-x: auto;
   border: 1px solid var(--cl-line);
-  border-radius: var(--cl-radius);
+  border-radius: var(--cl-radius-surface);
   background: var(--cl-surface);
 }
 
@@ -756,14 +877,300 @@
 }
 
 .cl-table th {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--cl-line);
-  background: var(--cl-surface-muted);
+  padding: 0;
+  border-bottom: 2px solid var(--cl-thead-line);
+  background: var(--cl-thead);
   color: var(--cl-ink);
   font-size: 13px;
   font-weight: var(--rst-fw-bold);
   text-align: left;
   white-space: nowrap;
+}
+
+/* Vertical column separators, header and body — a table reads as a grid, the
+   way a spreadsheet does, not as free-floating rows. */
+.cl-table th:not(:last-child),
+.cl-table tbody td:not(:last-child) {
+  border-right: 1px solid var(--cl-line);
+}
+.cl-table th:not(:last-child) {
+  border-right-color: color-mix(in srgb, var(--cl-thead-line) 35%, var(--cl-line));
+}
+/* Utility columns (drag handle, colour swatch) do not need a divider. */
+.cl-table th.cl-grip,
+.cl-table td.cl-grip,
+.cl-table th.swatch-col,
+.cl-table td.swatch-col {
+  border-right: 0;
+}
+
+/* ---- column header menu (ClassicColMenu) --------------------------------- */
+.cl-table th.has-menu {
+  padding: 0;
+}
+.colhead {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 8px 3px 14px;
+}
+.colhead.is-right {
+  justify-content: flex-end;
+  padding: 3px 14px 3px 8px;
+}
+.colhead__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  font-weight: var(--rst-fw-bold);
+  white-space: nowrap;
+  cursor: default;
+}
+.colhead__label.is-sortable {
+  cursor: pointer;
+}
+.colhead__label.is-sortable:hover {
+  color: var(--cl-accent);
+}
+.colhead__sort {
+  color: var(--cl-accent);
+  transition: transform var(--cl-dur) var(--cl-ease);
+}
+.colhead__sort.is-desc {
+  transform: rotate(180deg);
+}
+.colhead__trigger {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--cl-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--cl-dur) var(--cl-ease), color var(--cl-dur) var(--cl-ease);
+}
+.cl-table th:hover .colhead__trigger,
+.colhead__trigger[aria-expanded='true'],
+.colhead__trigger.is-active {
+  opacity: 1;
+}
+.colhead__trigger:hover {
+  background: color-mix(in srgb, var(--cl-accent) 12%, transparent);
+  color: var(--cl-accent);
+}
+.colhead__trigger.is-active {
+  color: var(--cl-accent);
+}
+
+.colmenu {
+  position: absolute;
+  z-index: var(--rst-z-popover, 120);
+  top: calc(100% + 2px);
+  left: 8px;
+  min-width: 210px;
+  max-width: 260px;
+  padding: 6px;
+  border: 1px solid var(--cl-line-strong);
+  border-radius: var(--cl-radius);
+  background: var(--cl-surface);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
+  display: grid;
+  gap: 2px;
+  text-align: left;
+}
+.colhead.is-right .colmenu {
+  left: auto;
+  right: 8px;
+}
+.colmenu__item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--cl-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: var(--rst-fw-medium);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.colmenu__item:hover {
+  background: var(--cl-surface-muted);
+}
+.colmenu__item svg {
+  color: var(--cl-muted);
+}
+.colmenu__item.is-on,
+.colmenu__item.is-on svg {
+  color: var(--cl-accent);
+}
+.colmenu__sep {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--cl-line);
+}
+.colmenu__search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+}
+.colmenu__search svg {
+  position: absolute;
+  left: 12px;
+  width: 14px;
+  height: 14px;
+  color: var(--cl-muted);
+  pointer-events: none;
+}
+.colmenu__search .cl-field {
+  width: 100%;
+  height: 34px;
+  padding-left: 32px;
+  font-size: 13px;
+}
+.colmenu__filter {
+  display: grid;
+  gap: 2px;
+  padding: 2px;
+}
+.colmenu__values {
+  display: grid;
+  gap: 1px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.colmenu__check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.colmenu__check:hover {
+  background: var(--cl-surface-muted);
+}
+.colmenu__check input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--cl-accent);
+}
+.colmenu__check--all {
+  margin-bottom: 2px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--cl-line);
+  border-radius: 0;
+  font-weight: var(--rst-fw-bold);
+}
+
+/* The column chooser lives in the last header cell — a table's own "which
+   columns" control, so there is still no page toolbar. */
+.colchooser {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+}
+.colchooser__trigger {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--cl-muted);
+  cursor: pointer;
+}
+.colchooser__trigger:hover {
+  background: color-mix(in srgb, var(--cl-accent) 12%, transparent);
+  color: var(--cl-accent);
+}
+.colchooser .colmenu {
+  left: auto;
+  right: 4px;
+}
+.colchooser__title {
+  padding: 4px 10px 6px;
+  color: var(--cl-muted);
+  font-size: 11px;
+  font-weight: var(--rst-fw-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* A plain, non-sortable header still needs the cell's own padding. */
+.cl-table th {
+  padding: 12px 16px;
+}
+
+/* A sortable header fills its cell with a button so the whole header is the
+   click target; the chevron stays faint until the column is the active sort. */
+.cl-table th.is-sortable {
+  padding: 0;
+}
+
+.cl-th {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 16px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  font-weight: var(--rst-fw-bold);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.cl-table th.is-num .cl-th {
+  justify-content: flex-end;
+}
+
+.cl-th:hover {
+  background: color-mix(in srgb, var(--cl-accent) 14%, var(--cl-surface));
+}
+
+.cl-th__arrow {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  color: var(--cl-accent);
+  opacity: 0;
+  transition: opacity var(--cl-dur) var(--cl-ease), transform var(--cl-dur) var(--cl-ease);
+}
+
+.cl-th:hover .cl-th__arrow {
+  opacity: 0.45;
+}
+
+.cl-th.is-active .cl-th__arrow {
+  opacity: 1;
+}
+
+.cl-th.is-desc .cl-th__arrow {
+  transform: rotate(180deg);
 }
 
 .cl-table td {
@@ -773,7 +1180,10 @@
   vertical-align: middle;
 }
 
-.cl-table tbody tr:last-child td {
+/* Only the very last row of the table drops its border. Scoped to the last
+   tbody so that, when the table is split into a tbody per group, the last row of
+   each group keeps its divider instead of merging into the next group's header. */
+.cl-table tbody:last-child tr:last-child td {
   border-bottom: 0;
 }
 
@@ -793,6 +1203,31 @@
 }
 .cl-table tbody tr.is-problem td:first-child {
   box-shadow: inset 3px 0 0 var(--cl-problem);
+}
+
+/* In a table, an editable field reads as plain text and only shows its edges on
+   hover or focus — the row stays calm like a spreadsheet cell, and what you can
+   edit reveals itself when you reach for it. */
+.cl-table td .cl-field {
+  border-color: transparent;
+  background: transparent;
+}
+.cl-table td .cl-field:hover:not(:disabled):not(:focus) {
+  border-color: var(--cl-line);
+  background: var(--cl-surface-muted);
+}
+.cl-table td .cl-field:focus {
+  border-color: var(--cl-accent);
+  background: var(--cl-surface);
+  outline: none;
+}
+/* A read-only value (preview, or a field this role cannot change) is just text,
+   not a greyed-out box. */
+.cl-table td .cl-field:disabled {
+  color: var(--cl-ink);
+  background: transparent;
+  border-color: transparent;
+  opacity: 1;
 }
 
 .cl-table .is-num {

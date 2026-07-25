@@ -331,10 +331,11 @@ export function newEmployeeDraft(id: string): EmployeeDraft {
 
 
 export function teamDraftValidationError(drafts: EmployeeDraft[]): string | null {
-  if (drafts.some((employee) => !employee.displayName.trim())) {
-    return 'Give every new employee a name before saving.';
-  }
+  // A blank row is how you add several people at once and fill them in — it is
+  // dropped on save (see teamSavePayload), never a reason to block it. Only rows
+  // that carry a name reach the server, so the date checks run against those.
   for (const employee of drafts) {
+    if (!employee.displayName.trim()) continue;
     if (employee.contractEnd && employee.contractStart && employee.contractEnd < employee.contractStart) {
       return 'Contract end date must be after the start date.';
     }

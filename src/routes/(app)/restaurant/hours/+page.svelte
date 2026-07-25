@@ -9,10 +9,6 @@
 
 <ClassicRestaurantPage>
   {#snippet children(draft)}
-    <p class="cl-section__note">
-      {t('Opening hours drive the default shift times and decide which services need coverage.')}
-    </p>
-
     <div class="cl-tablewrap">
       <table class="cl-table">
         <thead>

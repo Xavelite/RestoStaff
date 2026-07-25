@@ -4,15 +4,6 @@
   import { workspace } from '$lib/workspace/workspace.svelte';
   import ClassicRestaurantPage from '$lib/classic/ClassicRestaurantPage.svelte';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
-  import { dragReorder, moved } from '$lib/classic/dragReorder';
-
-  // Row order is the saved order, so dragging a position is a real edit.
-  function movePosition(from: number, to: number) {
-    const draft = restaurantConfig.draft;
-    if (!draft) return;
-    draft.jobFunctions = moved(draft.jobFunctions, from, to);
-    restaurantConfig.touch();
-  }
 
   // The colour each saved position wears on the schedule board, shown here so
   // its identity is set where the position is defined.
@@ -22,10 +13,29 @@
       : new Map<string, string>()
   );
 
+  // Who holds each role. Loaded lazily — the roster is a separate read model, so
+  // the count enriches the table once team data is in without blocking it.
+  $effect(() => {
+    if (workspace.activeId && workspace.effectiveRole === 'owner') {
+      void workspace.loadTeam().catch(() => undefined);
+    }
+  });
+  const employeesByPosition = $derived.by(() => {
+    const map = new Map<string, Set<string>>();
+    for (const link of workspace.team?.employee_job_functions ?? []) {
+      if (link.active === false) continue;
+      (map.get(link.job_function_id) ?? map.set(link.job_function_id, new Set()).get(link.job_function_id)!).add(
+        link.employee_id
+      );
+    }
+    return map;
+  });
+
   function addPosition() {
     const draft = restaurantConfig.draft;
     if (!draft) return;
-    // New rows land on top, so what you just added is the first thing you see.
+    // A fresh blank row drops in at the top, right under the add control; click
+    // again for another. Nothing is pre-filled; blank rows are dropped on save.
     draft.jobFunctions = [
       { id: crypto.randomUUID(), name: '', code: '', active: true, estimatedHourlyCost: 0 },
       ...draft.jobFunctions
@@ -36,31 +46,30 @@
 
 <svelte:head><title>{t('Positions')} &middot; restogogo</title></svelte:head>
 
-{#snippet pageActions()}
-  <button class="cl-btn" type="button" disabled={workspace.isPreview || !restaurantConfig.draft} onclick={addPosition}>
-    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-    {t('Add position')}
-  </button>
-{/snippet}
-
-<ClassicRestaurantPage actions={pageActions}>
+<ClassicRestaurantPage>
   {#snippet children(draft)}
-    <p class="cl-section__note">
-      {t('A position is the job someone does on a shift. Coverage requirements are set per position.')}
-    </p>
-
     <div class="cl-tablewrap">
       <table class="cl-table">
         <thead>
           <tr>
-            <th class="cl-grip"></th>
             <th class="swatch-col"><span class="sr-only">{t('Colour')}</span></th>
             <th>{t('Name')}</th>
             <th class="is-num">{t('Estimated hourly cost')}</th>
+            <th>{t('Employees')}</th>
             <th>{t('Active')}</th>
           </tr>
         </thead>
-        <tbody use:dragReorder={{ onmove: movePosition, enabled: !workspace.isPreview }}>
+        <tbody>
+          <tr class="cl-addrow">
+            <td colspan="5">
+              <button type="button" disabled={workspace.isPreview || !restaurantConfig.draft} onclick={addPosition}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+                {t('Add position')}
+              </button>
+            </td>
+          </tr>
+        </tbody>
+        <tbody>
           {#if !draft.jobFunctions.length}
             <tr>
               <td colspan="5">
@@ -71,13 +80,13 @@
               </td>
             </tr>
           {:else}
-            {#each draft.jobFunctions as position, index (position.id)}
-              <tr draggable={!workspace.isPreview} data-drag={index}>
-                <td class="cl-grip" aria-hidden="true">⠿</td>
+            {#each draft.jobFunctions as position (position.id)}
+              {@const headcount = employeesByPosition.get(position.id)?.size ?? 0}
+              <tr>
                 <td class="swatch-col">
-                  <span class="swatch" style="background:{positionColor.get(position.id) ?? 'var(--cl-line-strong)'}"></span>
+                  <span class="cl-swatch" style="background:{positionColor.get(position.id) ?? 'var(--cl-line-strong)'}"></span>
                 </td>
-                <td><input class="cl-field" disabled={workspace.isPreview} bind:value={position.name} oninput={() => restaurantConfig.touch()} /></td>
+                <td><input class="cl-field" placeholder={t('Position name')} disabled={workspace.isPreview} bind:value={position.name} oninput={() => restaurantConfig.touch()} /></td>
                 <td class="is-num">
                   <input
                     class="cl-field cost"
@@ -88,6 +97,11 @@
                     bind:value={position.estimatedHourlyCost}
                     oninput={() => restaurantConfig.touch()}
                   />
+                </td>
+                <td>
+                  <span class="cl-linkcount" class:is-zero={!headcount} title={t('{count} people', { count: headcount })}>
+                    <span class="cl-linkcount__n">{headcount}</span>
+                  </span>
                 </td>
                 <td>
                   <label class="switch">
@@ -123,13 +137,6 @@
   .swatch-col {
     width: 34px;
     padding-right: 0 !important;
-  }
-  .swatch {
-    display: block;
-    width: 14px;
-    height: 14px;
-    border-radius: 4px;
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
   }
   .sr-only {
     position: absolute;

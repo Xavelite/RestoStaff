@@ -30,10 +30,6 @@
 <svelte:head><title>{t('Absence types')} &middot; restogogo</title></svelte:head>
 
 <ClassicPage>
-  <p class="cl-section__note">
-    {t('The leave types employees can choose from when they request time off.')}
-  </p>
-
   <div class="cl-tablewrap">
     <table class="cl-table">
       <thead>

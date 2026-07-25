@@ -193,11 +193,13 @@ function inheritedOpening(
 
 export function restaurantDraftValidationError(draft: RestaurantDraft): string | null {
   if (!draft.legalName.trim()) return 'Restaurant name is required.';
-  if (draft.areas.some((area) => !area.name.trim())) return 'Give every area a name before saving.';
-  if (draft.jobFunctions.some((job) => !job.name.trim())) return 'Give every position a name before saving.';
 
-  const areaIds = new Set(draft.areas.map((area) => area.id));
-  const jobIds = new Set(draft.jobFunctions.map((job) => job.id));
+  // Blank rows are how you add several at once and fill them in over time — they
+  // are dropped on save (see restaurantSavePayload), never a reason to block it.
+  // Only rows that carry a name reach the server, so integrity is checked
+  // against those.
+  const areaIds = new Set(draft.areas.filter((area) => area.name.trim()).map((area) => area.id));
+  const jobIds = new Set(draft.jobFunctions.filter((job) => job.name.trim()).map((job) => job.id));
   if (draft.coverage.some((row) => !areaIds.has(row.areaId) || !jobIds.has(row.jobFunctionId))) {
     return 'A coverage requirement refers to an area or position that no longer exists.';
   }
@@ -277,7 +279,7 @@ export function restaurantSavePayload(
       )
     ),
     areaServiceDefaults: asJsonArray(
-      draft.areas.flatMap((area) =>
+      draft.areas.filter((area) => area.name.trim()).flatMap((area) =>
         SERVICES.map((service) => {
           const inherited = inheritedOpening(draft, service);
           return {

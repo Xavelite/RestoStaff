@@ -97,16 +97,7 @@
 
 <svelte:head><title>{t('Payroll')} &middot; restogogo</title></svelte:head>
 
-{#snippet pageActions()}
-  <input class="cl-field toolbar-search" type="search" placeholder={t('Search employees')} bind:value={search} />
-  <select class="cl-field" aria-label={t('Group employees')} bind:value={groupBy}>
-    <option value="contract">{t('Group by contract')}</option>
-    <option value="position">{t('Group by position')}</option>
-    <option value="none">{t('No grouping')}</option>
-  </select>
-{/snippet}
-
-<ClassicTeamPage actions={pageActions}>
+<ClassicTeamPage>
   {#snippet children(team)}
     {@const rows = team.employees.filter((employee) => matches(employee, team.contractName, team.jobName))}
     {@const blocked = rows.filter((employee) => payrollGaps(employee).length).length}
@@ -124,8 +115,20 @@
       <ClassicStat label="Not ready for payroll" value={blocked} tone={blocked ? 'problem' : 'ok'} />
     </div>
 
-    <div class="cl-tablewrap">
-      <table class="cl-table payroll-table">
+    <div class="cl-datatable">
+      <div class="cl-datatable__tools">
+        <span class="cl-datatable__search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.2-3.2" /></svg>
+          <input class="cl-field" type="search" placeholder={t('Search employees')} bind:value={search} />
+        </span>
+        <select class="cl-field" aria-label={t('Group employees')} bind:value={groupBy}>
+          <option value="contract">{t('Group by contract')}</option>
+          <option value="position">{t('Group by position')}</option>
+          <option value="none">{t('No grouping')}</option>
+        </select>
+      </div>
+      <div class="cl-tablewrap">
+        <table class="cl-table payroll-table">
         <thead><tr><th>{t('Name')}</th><th>{t('Payroll ID')}</th><th>{t('CP 302 function')}</th><th>{t('Worker status')}</th><th>{t('Salary basis')}</th><th>{t('Rate')}</th><th>{t('Status')}</th><th></th></tr></thead>
         {#if !rows.length}
           <tbody><tr><td colspan="8"><div class="cl-empty"><strong>{t('No active employees')}</strong></div></td></tr></tbody>
@@ -166,7 +169,8 @@
             </tbody>
           {/each}
         {/if}
-      </table>
+        </table>
+      </div>
     </div>
 
     {#if detailId}
