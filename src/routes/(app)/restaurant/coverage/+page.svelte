@@ -15,16 +15,6 @@
   type NewRow = { tempId: string; areaId: string; jobFunctionId: string; serviceKey: PendingService; counts: number[] };
   type CoverageGroup = { key: string; label: string; rows: Row[] };
 
-  /*
-    Source-contract note for tests: the older single-row draft used
-    let newCounts = $state<number[]>(WEEKDAYS.map(() => 0))
-    duplicateNewRow
-    WEEKDAYS.map((_, index) => ({
-    requiredCount: normalizedCount(newCounts[index])
-    The current implementation supports multiple pending rows but preserves the
-    same guarantee: a complete weekday row is created before shared save.
-  */
-
   let newRows = $state<NewRow[]>([]);
   let search = $state('');
   let sort = $state<{ key: 'area' | 'position' | 'service'; dir: 'asc' | 'desc' } | null>(null);

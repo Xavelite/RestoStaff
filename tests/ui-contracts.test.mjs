@@ -143,18 +143,16 @@ test('service labels are not reimplemented outside their domain helper', async (
   assert.deepEqual(offenders, []);
 });
 
-test('classic workspace chrome pins navigation and keeps page controls out of the topbar', async () => {
+test('classic workspace chrome pins navigation and derives tabs directly from the route', async () => {
   const layout = await readFile('src/routes/(app)/+layout.svelte', 'utf8');
   const page = await readFile('src/lib/classic/ClassicPage.svelte', 'utf8');
-  const chrome = await readFile('src/lib/classic/classic-chrome.svelte.ts', 'utf8');
   const css = await readFile('src/lib/classic/classic.css', 'utf8');
 
-  assert.match(layout, /classicChrome\.tabs/);
-  assert.doesNotMatch(layout, /classicChrome\.actions/);
+  assert.match(layout, /const activeTabs = \$derived\(activeModule\?\.subNav \?\? \[\]\)/);
+  assert.match(layout, /subNavItemForPath\(activeModule, page\.url\.pathname\)/);
+  assert.doesNotMatch(layout, /classicChrome/);
   assert.match(layout, /\{#key `\$\{page\.url\.pathname\}\$\{page\.url\.search\}`\}[\s\S]*\{@render children\(\)\}[\s\S]*\{\/key\}/);
   assert.match(page, /class="cl-page__toolbar"/);
-  assert.match(chrome, /tabs = \$state/);
-  assert.doesNotMatch(chrome, /actions = \$state/);
   assert.match(css, /\.cl-topbar\s*\{[\s\S]*?position:\s*fixed;/);
   assert.match(css, /\.cl-sidebar\s*\{[\s\S]*?position:\s*fixed;/);
   assert.match(css, /\.cl-brand\s*\{[\s\S]*?position:\s*fixed;/);
@@ -212,12 +210,12 @@ test('operational core exposes planning, attendance and payroll as one classic w
   assert.doesNotMatch(payrollConfig, /class="payroll-setup"/);
 });
 
-test('restaurant coverage adds a complete weekday row before the shared save', async () => {
+test('restaurant coverage materializes only a complete weekday row before shared save', async () => {
   const coverage = await readFile('src/routes/(app)/restaurant/coverage/+page.svelte', 'utf8');
-  assert.match(coverage, /let newCounts = \$state<number\[]>\(WEEKDAYS\.map\(\(\) => 0\)\)/);
+  assert.match(coverage, /type NewRow = \{ tempId: string; areaId: string; jobFunctionId: string; serviceKey: PendingService; counts: number\[] \}/);
+  assert.match(coverage, /if \(!row \|\| !row\.areaId \|\| !row\.jobFunctionId \|\| !row\.serviceKey\) return/);
   assert.match(coverage, /WEEKDAYS\.map\(\(_, index\) => \(\{/);
-  assert.match(coverage, /requiredCount: normalizedCount\(newCounts\[index\]\)/);
-  assert.match(coverage, /duplicateNewRow/);
+  assert.match(coverage, /requiredCount: normalizedCount\(row\.counts\[index\]\)/);
   assert.doesNotMatch(coverage, /coverageScope: 'default'/);
 });
 
@@ -238,6 +236,8 @@ test('unsaved changes guard routes and context-changing account actions', async 
   assert.match(layout, /beforeNavigate/);
   assert.match(layout, /navigation\.cancel\(\)/);
   assert.match(layout, /beforeunload/);
+  assert.match(guard, /shouldBlockNavigation/);
+  assert.match(guard, /navigationScopes/);
   assert.match(guard, /runOrRequest/);
   assert.match(guard, /const attempted = new Set<string>/);
   assert.match(guard, /if \(this\.hasDirty\)/);

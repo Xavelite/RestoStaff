@@ -20,18 +20,18 @@
   --cl-bg: #f7f7f8;
   --cl-surface: #ffffff;
   --cl-surface-muted: #fafafa;
-  --cl-line: #e5e5e7;
-  --cl-line-strong: #d4d4d8;
+  --cl-line: #e9e9ec;
+  --cl-line-strong: #d8d8de;
+  --cl-grid-line: #ededf0;
   --cl-ink: #1a1a1a;
   --cl-muted: #6b6b70;
-  --cl-accent: #c2410c;
-  --cl-accent-wash: rgba(194, 65, 12, 0.07);
-  /* Table headers wear a warm tint with a defined accent underline — our answer
-     to a coloured header row — so a table reads as one object and columns are
-     easy to track down. A brighter orange than the burnt brand accent keeps the
-     tint clean rather than muddy. */
-  --cl-thead: #fdeade;
-  --cl-thead-line: #e8763a;
+  --cl-accent: #fc6203;
+  --cl-accent-wash: rgba(252, 98, 3, 0.07);
+  /* Table headers use a very light brand tint and a crisp logo-orange
+     underline, keeping the grid readable without turning the header into a
+     heavy coloured band. */
+  --cl-thead: #fff8f4;
+  --cl-thead-line: #fc6203;
   --cl-radius: 6px;
   /* Data surfaces (tables, cards) sit a touch squarer than the controls. */
   --cl-radius-surface: 4px;
@@ -71,7 +71,7 @@
   --rst-ui-divider-soft: var(--cl-line);
   --rst-ui-divider-strong: var(--cl-line-strong);
   --rst-ui-action: var(--cl-accent);
-  --rst-ui-action-rgb: 194, 65, 12;
+  --rst-ui-action-rgb: 252, 98, 3;
   --rst-ui-accent: var(--cl-accent);
   --rst-ui-panel-title: var(--cl-ink);
   --rst-ui-radius-sm: 4px;
@@ -439,7 +439,7 @@
 
 .cl-tablepanel {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .cl-tablepanel__head {
@@ -790,7 +790,7 @@
 
 .cl-tablewrap {
   overflow-x: auto;
-  border: 1px solid var(--cl-line);
+  border: 1px solid var(--cl-grid-line);
   border-radius: var(--cl-radius-surface);
   background: var(--cl-surface);
   box-shadow: 0 1px 0 rgba(17, 24, 39, 0.02);
@@ -810,10 +810,10 @@
 
 .cl-table th {
   padding: 0;
-  border-bottom: 2px solid var(--cl-thead-line);
-  background: color-mix(in srgb, var(--cl-thead) 90%, #fff2eb);
+  border-bottom: 1px solid color-mix(in srgb, var(--cl-accent) 68%, var(--cl-line));
+  background: var(--cl-thead);
   color: var(--cl-ink);
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: var(--rst-fw-bold);
   text-align: left;
   white-space: nowrap;
@@ -823,10 +823,7 @@
    way a spreadsheet does, not as free-floating rows. */
 .cl-table th:not(:last-child),
 .cl-table tbody td:not(:last-child) {
-  border-right: 1px solid var(--cl-line);
-}
-.cl-table th:not(:last-child) {
-  border-right-color: color-mix(in srgb, var(--cl-thead-line) 35%, var(--cl-line));
+  border-right: 1px solid var(--cl-grid-line);
 }
 /* Utility columns (drag handle, colour swatch) do not need a divider. */
 .cl-table th.cl-grip,
@@ -842,6 +839,7 @@
 }
 .colhead {
   position: relative;
+  min-height: 52px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -853,10 +851,13 @@
   padding: 3px 14px 3px 8px;
 }
 .colhead__label {
+  flex: 1 1 auto;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 9px 0;
+  padding: 10px 0;
+  letter-spacing: -0.01em;
   border: 0;
   background: transparent;
   color: inherit;
@@ -889,8 +890,9 @@
   border-radius: 5px;
   background: transparent;
   color: var(--cl-muted);
+  margin-left: auto;
   cursor: pointer;
-  opacity: 0.78;
+  opacity: 0.72;
   transition: opacity var(--cl-dur) var(--cl-ease), color var(--cl-dur) var(--cl-ease);
 }
 .cl-table th:hover .colhead__trigger,
@@ -1108,8 +1110,8 @@
 
 .cl-table td {
   height: var(--cl-row);
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--cl-line);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--cl-grid-line);
   vertical-align: middle;
 }
 
@@ -1299,7 +1301,7 @@
 }
 
 .cl-btn.is-primary:hover:not(:disabled) {
-  background: #a5360a;
+  background: #e45600;
 }
 
 /* A disabled primary is no longer a primary: it drops the accent entirely so
@@ -1471,8 +1473,9 @@
 .cl-group-row td {
   height: 34px !important;
   padding-block: 7px !important;
-  background: var(--cl-surface-muted) !important;
-  color: var(--cl-muted);
+  background: color-mix(in srgb, var(--cl-thead) 52%, var(--cl-surface-muted)) !important;
+  color: color-mix(in srgb, var(--cl-muted) 88%, var(--cl-ink));
+  border-bottom: 1px solid var(--cl-grid-line);
   font-size: 12px;
   font-weight: var(--rst-fw-bold);
   letter-spacing: .02em;
@@ -1518,11 +1521,6 @@
 
 .cl-linkcount.is-zero {
   color: var(--cl-muted);
-}
-
-.cl-group-row td {
-  background: color-mix(in srgb, var(--cl-surface-muted) 85%, #fff4ee) !important;
-  border-bottom: 1px solid var(--cl-line);
 }
 
 .cl-formgrid {
@@ -1609,41 +1607,8 @@
 
 
 /* -------------------------------------------------- refined directories -- */
-/* Shared polish for Team and Restaurant directories. Headers stay neutral;
-   orange is reserved for the active underline and actionable controls. */
-.cl-table th {
-  border-bottom-color: var(--cl-accent);
-  background: color-mix(in srgb, var(--cl-surface-muted) 72%, var(--cl-surface));
-  font-size: 12.5px;
-  font-weight: var(--rst-fw-bold);
-}
-
-.cl-table th:not(:last-child),
-.cl-table tbody td:not(:last-child) {
-  border-right-color: color-mix(in srgb, var(--cl-line) 76%, transparent);
-}
-
-.colhead {
-  min-height: 52px;
-  padding-inline: 14px 8px;
-}
-
-.colhead__label {
-  flex: 1 1 auto;
-  min-width: 0;
-  padding-block: 10px;
-  letter-spacing: -0.01em;
-}
-
-.colhead__trigger {
-  margin-left: auto;
-  opacity: 0.82;
-}
-
-.cl-table td {
-  padding: 10px 14px;
-}
-
+/* Shared polish for Team and Restaurant directories. Headers stay softly
+   warm; logo orange is reserved for active lines and actionable controls. */
 .cl-table__name,
 .employee-name {
   font-weight: var(--rst-fw-medium);
@@ -1655,12 +1620,6 @@
   font-weight: inherit;
 }
 
-.cl-group-row td {
-  background: color-mix(in srgb, var(--cl-surface-muted) 82%, var(--cl-surface)) !important;
-  color: color-mix(in srgb, var(--cl-muted) 88%, var(--cl-ink));
-  border-bottom: 1px solid var(--cl-line);
-  text-transform: uppercase;
-}
 
 .cl-status {
   min-height: 28px;

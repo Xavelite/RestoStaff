@@ -11,8 +11,7 @@
 
   /**
    * One shared Restaurant draft and persistence contract across every tab. Each
-   * page owns its own controls (in the table strip); saving is the contextual
-   * save bar below.
+   * page owns its table controls while the shared panel owns save and discard.
    */
   export type ClassicRestaurantContext = {
     draft: RestaurantDraft;
@@ -71,6 +70,7 @@
     unsavedChanges.register({
       id: 'restaurant-workspace',
       label: 'Restaurant',
+      navigationScopes: ['/restaurant'],
       isDirty: () => restaurantConfig.dirty,
       save,
       discard

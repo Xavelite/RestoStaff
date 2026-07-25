@@ -5,6 +5,8 @@ export type UnsavedChangeSource = {
   label: string;
   /** Child editors save before their parent page draft. */
   priority?: number;
+  /** Route prefixes that share this draft and may be navigated without prompting. */
+  navigationScopes?: string[];
   isDirty: () => boolean;
   save: () => void | Promise<void>;
   discard: () => void | Promise<void>;
@@ -55,6 +57,20 @@ class UnsavedChanges {
 
   get hasDirty(): boolean {
     return this.dirtySources.length > 0;
+  }
+
+
+  shouldBlockNavigation(target: URL | null): boolean {
+    if (!target) return this.hasDirty;
+    const dirty = this.dirtySources;
+    if (!dirty.length) return false;
+    return dirty.some((source) => {
+      const scopes = source.navigationScopes ?? [];
+      if (!scopes.length) return true;
+      return !scopes.some((prefix) =>
+        target.pathname === prefix || target.pathname.startsWith(`${prefix}/`)
+      );
+    });
   }
 
   /** The programmatic navigation used after a decision must pass once. */

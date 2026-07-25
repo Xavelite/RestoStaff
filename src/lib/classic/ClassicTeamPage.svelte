@@ -12,7 +12,7 @@
   /**
    * Shared Team workspace: one roster draft, one save path and one route-leave
    * guard across People, Contracts, Access and Absences. Each page owns its own
-   * filters (in the table strip); saving is the contextual save bar below.
+   * table controls and contextual save actions through the shared panel.
    */
   let {
     children
@@ -106,6 +106,7 @@
     unsavedChanges.register({
       id: 'team-workspace',
       label: 'Team',
+      navigationScopes: ['/team', '/payroll/employees'],
       isDirty: () => teamDraft.dirty,
       save,
       discard

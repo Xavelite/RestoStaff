@@ -18,8 +18,7 @@
   import { toasts } from '$lib/ui/toast.svelte';
   import ClassicIcon from '$lib/classic/ClassicIcon.svelte';
   
-  import { moduleForPath, modulesForRole } from '$lib/classic/classic-nav';
-  import { classicChrome } from '$lib/classic/classic-chrome.svelte';
+  import { moduleForPath, modulesForRole, subNavItemForPath } from '$lib/classic/classic-nav';
   import { roleHome } from '$lib/workspace/workspace-selection';
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
   import '$lib/classic/classic.css';
@@ -36,7 +35,7 @@
   let notificationSettingsRequest = $state(0);
 
   beforeNavigate((navigation) => {
-    if (unsavedChanges.consumeNavigationBypass() || !unsavedChanges.hasDirty) return;
+    if (unsavedChanges.consumeNavigationBypass() || !unsavedChanges.shouldBlockNavigation(navigation.to?.url ?? null)) return;
     // External navigation and browser close use the browser's native protection;
     // an async custom dialog cannot safely hold an unloading document open.
     if (!navigation.to || navigation.willUnload) return;
@@ -73,6 +72,8 @@
 
   const modules = $derived(modulesForRole(workspace.effectiveRole).filter((module) => !module.homeOnly));
   const activeModule = $derived(moduleForPath(page.url.pathname));
+  const activeTabs = $derived(activeModule?.subNav ?? []);
+  const activeTabHref = $derived(activeModule ? subNavItemForPath(activeModule, page.url.pathname)?.href ?? '' : '');
   // Only the terminal screen itself fills the screen — no sidebar, nothing to
   // wander into while a shared device is on the pass. Its module page, which
   // lists the paired devices, is an ordinary page.
@@ -176,13 +177,13 @@
           <h1 class="cl-pagetitle">{t(activeModule.label)}</h1>
         {/if}
 
-        {#if classicChrome.tabs.length}
+        {#if activeTabs.length}
           <nav class="cl-topbar__tabs" aria-label={t('Sections')}>
-            {#each classicChrome.tabs as item (item.href)}
+            {#each activeTabs as item (item.href)}
               <a
                 class="cl-topbar__tab"
-                class:is-active={item.href === classicChrome.activeHref}
-                aria-current={item.href === classicChrome.activeHref ? 'page' : undefined}
+                class:is-active={item.href === activeTabHref}
+                aria-current={item.href === activeTabHref ? 'page' : undefined}
                 href={item.href}
               >{t(item.label)}</a>
             {/each}
