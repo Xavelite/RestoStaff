@@ -12,6 +12,7 @@ import type {
 } from '../work-pattern-exceptions/work-pattern-exception.ts';
 
 type RestaurantSettings = Partial<Tables<'restaurant_settings'>>;
+type RestaurantEmploymentSettings = Partial<Tables<'restaurant_employment_settings'>>;
 type RestaurantOnboardingState = Partial<Tables<'restaurant_onboarding_state'>>;
 
 export type EmployeeInvitationState = {
@@ -134,6 +135,7 @@ export type TeamReadModel = WorkspaceBase & {
 };
 
 export type RestaurantReadModel = WorkspaceBase & {
+  restaurant_employment_settings: RestaurantEmploymentSettings;
   restaurant_onboarding_state: RestaurantOnboardingState;
   job_functions: Tables<'job_functions'>[];
   work_areas: WorkArea[];
@@ -292,6 +294,9 @@ export function parseRestaurantReadModel(value: Json): RestaurantReadModel {
   const data = source(value);
   return {
     ...base(data),
+    restaurant_employment_settings: isRecord(data.restaurant_employment_settings)
+      ? (data.restaurant_employment_settings as RestaurantEmploymentSettings)
+      : {},
     restaurant_onboarding_state: isRecord(data.restaurant_onboarding_state)
       ? (data.restaurant_onboarding_state as RestaurantOnboardingState)
       : {},

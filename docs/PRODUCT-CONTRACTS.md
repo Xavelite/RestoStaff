@@ -4,13 +4,13 @@
 
 | Route | Name | Roles | Purpose |
 | --- | --- | --- | --- |
-| `/home` | Home | Owner, Manager | Live operations and priority actions |
+| `/home` | Home | Owner, Manager | Core module portal and later-module roadmap |
 | `/schedule` | Schedule | Owner, Manager | Build, check, publish, and revert shifts |
 | `/timesheet` | Time & attendance | Owner, Manager | Reconcile badge truth, correct entries, monitor service, and approve weeks |
 | `/team` | Team | Owner, Manager | Employees, access, and leave; owner-only contracts and payroll readiness |
 | `/restaurant` | Restaurant | Owner | Areas, positions, services, hours, coverage, and policy |
-| `/payroll` | Payroll | Owner | Validate readiness, calculate immutable runs, manage exports, employees, and CP 302 configuration |
-| `/reports` | Reports | Owner, Manager | Workforce, attendance, coverage, and period comparisons |
+| `/payroll` | Payroll preparation | Owner | Prepare employer and employee data, estimates and approved-hours exports for the social secretariat |
+| `/reports` | Reports | Owner, Manager | Parked roadmap module until reporting contracts are redesigned |
 | `/badge-terminal` | Badge terminal | Owner, Manager | Pair devices and open the shared touch-first PIN terminal |
 | `/my-service` | My service | Employee | Weekly shifts, availability, and requests |
 | `/my-time` | My time | Employee | Monthly time, worked hours, leave, and requests |
@@ -24,7 +24,7 @@ Platform administration is not a restaurant role. It uses a separate audited
 entitlement, remains outside the restaurant shell, and can suspend a restaurant
 as a complete tenant-access boundary.
 
-Visible product language uses Schedule, Time & attendance, Payroll, Badge terminal, My service, and My time.
+Visible product language uses Schedule, Time & attendance, Payroll preparation, Badge terminal, My service, and My time.
 Persisted identifiers such as `planning_status`, `actuals_status`, and
 `planned_shifts` remain stable internal database contracts.
 
@@ -35,7 +35,7 @@ Persisted identifiers such as `planning_status`, `actuals_status`, and
   block ordinary assignment until explicitly resolved for the selected record.
   Opening a roster slot is non-destructive; removal is an explicit editor action.
 - Time & attendance preserves badge truth, corrections, cancellations, live monitoring, approval, and reopening. Calendar and Live monitor deep-link into the same entry editor.
-- Payroll starts from approved complete weeks. Readiness, immutable calculation runs, employee evidence, CP 302 configuration, and official export lineage remain separate but connected workspaces.
+- Payroll preparation starts from employer identity, current employment facts and approved complete weeks. Restogogo may provide basic estimates and immutable export lineage, while official gross-to-net calculation, declarations, settlement and payslips remain the social secretariat's responsibility.
 - Flexible employees positively mark a service Available or leave it unselected.
   Time off is a separate, mutually exclusive action whose default type is
   Holiday. Historical `unavailable` and `partial` values remain readable but
@@ -66,6 +66,6 @@ provider-neutral and complete-week only.
 
 ## Workspace presentation
 
-The authenticated product uses one classic workspace shell. Module tabs live in the fixed topbar; filters, period controls, add actions, Save, and Discard stay in the page toolbar. Planning, attendance, payroll, restaurant, and team tables use compact default columns, while complete evidence is opened through Details. Unsaved drafts are guarded before route, period, restaurant, preview, terminal, or sign-out changes.
+The authenticated product uses one classic workspace shell. Module tabs live in the fixed topbar; filters, period controls, add actions, Save, and Discard stay in the page toolbar. Planning, attendance, payroll-preparation, restaurant, and team tables use compact default columns, while complete evidence is opened through Details. Unsaved drafts are guarded before route, period, restaurant, preview, terminal, or sign-out changes.
 
-Inventory, Reservations, Recipes, Purchasing & suppliers, Menu costing, Tasks & checklists, and Food safety are Home-only Coming Soon modules. They do not appear in the everyday sidebar until their operational contracts exist.
+Reports, Inventory, Reservations, Recipes, Purchasing & suppliers, Menu costing, Tasks & checklists, and Food safety are Home-only later modules. They do not appear in the everyday sidebar until their operational contracts exist.

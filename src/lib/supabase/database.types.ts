@@ -4011,6 +4011,53 @@ export type Database = {
           },
         ]
       }
+      restaurant_employment_settings: {
+        Row: {
+          created_at: string
+          dimona_submission_mode: string
+          establishment_unit_number: string | null
+          external_employer_id: string | null
+          joint_committee_code: string
+          metadata: Json
+          onss_employer_number: string | null
+          restaurant_id: string
+          social_secretariat_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          dimona_submission_mode?: string
+          establishment_unit_number?: string | null
+          external_employer_id?: string | null
+          joint_committee_code?: string
+          metadata?: Json
+          onss_employer_number?: string | null
+          restaurant_id: string
+          social_secretariat_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          dimona_submission_mode?: string
+          establishment_unit_number?: string | null
+          external_employer_id?: string | null
+          joint_committee_code?: string
+          metadata?: Json
+          onss_employer_number?: string | null
+          restaurant_id?: string
+          social_secretariat_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_employment_settings_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: true
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       restaurant_settings: {
         Row: {
           active_week_start: string | null
@@ -4589,6 +4636,7 @@ export type Database = {
           code: string
           created_at: string
           id: string
+          metadata: Json
           name: string
           notes: string | null
           restaurant_id: string
@@ -4600,6 +4648,7 @@ export type Database = {
           code: string
           created_at?: string
           id?: string
+          metadata?: Json
           name: string
           notes?: string | null
           restaurant_id: string
@@ -4611,6 +4660,7 @@ export type Database = {
           code?: string
           created_at?: string
           id?: string
+          metadata?: Json
           name?: string
           notes?: string | null
           restaurant_id?: string
@@ -5583,6 +5633,21 @@ export type Database = {
           p_contracts?: Json
           p_employee_job_functions?: Json
           p_employees?: Json
+          p_legal_profiles?: Json
+          p_payroll_profiles?: Json
+          p_recurring_schedule_slots?: Json
+          p_restaurant_id: string
+        }
+        Returns: Json
+      }
+      save_team_workspace: {
+        Args: {
+          p_access?: Json
+          p_contacts?: Json
+          p_contracts?: Json
+          p_employee_job_functions?: Json
+          p_employees?: Json
+          p_employment_terms?: Json
           p_legal_profiles?: Json
           p_payroll_profiles?: Json
           p_recurring_schedule_slots?: Json

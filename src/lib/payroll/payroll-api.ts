@@ -15,20 +15,6 @@ export async function getEmployeeEmploymentTerms(restaurantId: string) {
   return parseEmploymentTerms(data);
 }
 
-export async function saveEmployeeEmploymentTerms(input: {
-  restaurantId: string;
-  employeeId: string;
-  terms: Json;
-}) {
-  const { data, error } = await supabase.rpc('save_employee_employment_terms', {
-    p_restaurant_id: input.restaurantId,
-    p_employee_id: input.employeeId,
-    p_terms: input.terms
-  });
-  if (error) throw toApiError(error, 'Employment terms could not be saved.');
-  return data;
-}
-
 export async function validateEmployeeEmploymentTerms(input: {
   restaurantId: string;
   employeeId: string;

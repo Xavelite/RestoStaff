@@ -125,6 +125,32 @@ test('employment terms submit facts and never browser-derived classifications', 
   }
 });
 
+
+
+test('owner atomic Team payload includes only explicitly changed employment terms', () => {
+  const unchanged = {
+    ...newEmployeeDraft('employee-1'),
+    displayName: 'Alex Morgan',
+    contractId: 'contract-1',
+    contractStart: '2026-01-01',
+    weeklyContractHours: 38
+  };
+  const changed = {
+    ...unchanged,
+    contractualHourlyRate: '19.50',
+    cp302ReferenceFunctionCode: '206B'
+  };
+
+  const payload = teamSavePayload('restaurant-1', [changed], 'owner', [changed]);
+  assert.equal(payload.employmentTerms.length, 1);
+  assert.equal(payload.employmentTerms[0].employee_id, 'employee-1');
+  assert.equal(payload.employmentTerms[0].contractual_hourly_rate, '19.50');
+  assert.equal(payload.employmentTerms[0].cp302_reference_function_code, '206B');
+
+  const managerPayload = teamSavePayload('restaurant-1', [changed], 'manager', [changed]);
+  assert.deepEqual(managerPayload.employmentTerms, []);
+});
+
 test('blank inline employee rows never leak related records into the save payload', () => {
   const blank = {
     ...newEmployeeDraft('blank-employee'),

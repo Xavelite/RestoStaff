@@ -181,15 +181,15 @@ const CLASSIC_MODULES: ClassicModule[] = [
   {
     key: 'payroll',
     href: '/payroll',
-    label: 'Payroll',
-    summary: 'Approved hours, calculations and payroll exports',
+    label: 'Payroll preparation',
+    summary: 'Employment data, cost estimates and secretariat exports',
     icon: 'payroll',
     roles: OWNER,
     subNav: [
-      { href: '/payroll', label: 'Runs' },
-      { href: '/payroll/exports', label: 'Exports' },
+      { href: '/payroll', label: 'Overview' },
       { href: '/payroll/employees', label: 'Employees' },
-      { href: '/payroll/configuration', label: 'Configuration' }
+      { href: '/payroll/exports', label: 'Exports' },
+      { href: '/payroll/configuration', label: 'Scope & settings' }
     ]
   },
   {
@@ -207,6 +207,8 @@ const CLASSIC_MODULES: ClassicModule[] = [
     summary: 'Hours, cost and operational trends',
     icon: 'reports',
     roles: MANAGER,
+    placeholder: true,
+    homeOnly: true,
     subNav: [
       { href: '/reports', label: 'Overview' },
       { href: '/reports/people', label: 'People' },

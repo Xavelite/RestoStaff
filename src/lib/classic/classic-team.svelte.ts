@@ -10,8 +10,7 @@ import {
 } from '$lib/team/team-model';
 import {
   getEmployeeEmploymentTerms,
-  getPayrollCatalogue,
-  saveEmployeeEmploymentTerms
+  getPayrollCatalogue
 } from '$lib/payroll/payroll-api';
 import type { PayrollCatalogue } from '$lib/payroll/payroll-model';
 import { parseHourlyRate } from '$lib/payroll-engine/money';
@@ -206,46 +205,12 @@ class ClassicTeamDraft {
       ? sourceDrafts.filter((employee) => this.#employmentTermsChanged(employee, snapshot))
       : [];
 
-    await saveTeam(restaurantId, teamSavePayload(restaurantId, sourceDrafts, role));
+    await saveTeam(
+      restaurantId,
+      teamSavePayload(restaurantId, sourceDrafts, role, termUpdates)
+    );
     await workspace.loadTeam(true);
-
-    if (role === 'owner' && termUpdates.length && workspace.team) {
-      try {
-        const refreshed = employeeDrafts(workspace.team, this.employmentTerms);
-        for (const edited of termUpdates) {
-          const serverEmployee = refreshed.find((employee) => employee.id === edited.id);
-          if (!serverEmployee) throw new Error(`Saved employee ${edited.displayName} could not be reloaded.`);
-          await saveEmployeeEmploymentTerms({
-            restaurantId,
-            employeeId: edited.id,
-            terms: employmentTermsPayload({
-              ...serverEmployee,
-              employmentValidFrom: edited.employmentValidFrom,
-              weeklyHoursRegime: edited.weeklyHoursRegime,
-              referencePeriodWeeks: edited.referencePeriodWeeks,
-              salaryBasis: edited.salaryBasis,
-              cp302ReferenceFunctionCode: edited.cp302ReferenceFunctionCode,
-              functionSeniorityDate: edited.functionSeniorityDate,
-              companySeniorityDate: edited.companySeniorityDate,
-              contractualHourlyRate: edited.contractualHourlyRate,
-              contractualMonthlySalary: edited.contractualMonthlySalary,
-              annualLeaveEntitlementDays: edited.annualLeaveEntitlementDays
-            })
-          });
-        }
-        await this.#loadSupplementary(restaurantId, true);
-        await workspace.loadTeam(true);
-      } catch (error) {
-        // save_team_model may already have committed the profile/contract part.
-        // Re-read server truth instead of leaving a misleading local rollback.
-        await this.#loadSupplementary(restaurantId, true);
-        await workspace.loadTeam(true);
-        if (workspace.team) this.reload(workspace.team);
-        const message = error instanceof Error ? error.message : String(error);
-        throw new Error(`The employee was saved, but the payroll employment terms were not: ${message}`);
-      }
-    }
-
+    if (role === 'owner') await this.#loadSupplementary(restaurantId, true);
     if (workspace.team) this.reload(workspace.team);
   }
 

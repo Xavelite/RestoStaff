@@ -1,4 +1,4 @@
-import type { Database } from '../supabase/database.types.ts';
+import type { Database, Json } from '../supabase/database.types.ts';
 
 type OperationalEnums = Database['public']['Enums'];
 
@@ -10,6 +10,7 @@ export type WorkArea = {
   name: string;
   code: string;
   notes: string | null;
+  metadata: Json;
   active: boolean;
   sort_order: number;
   created_at?: string;

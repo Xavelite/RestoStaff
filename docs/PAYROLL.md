@@ -1,6 +1,8 @@
 # Payroll calculation foundation
 
-Restogogo calculates CP 302 payroll from approved Timesheet evidence. It does not submit Dimona or DmfA declarations, issue payslips, or replace a Belgian social secretariat.
+> **Experimental foundation, not the active product contract.** The active module is **Payroll preparation**: employer and employee facts, approved-hours exports, provider mappings and clearly labelled estimates. The calculation/reconciliation structures below are preserved for controlled experiments and future provider integration; they must not be presented as official payroll or as a replacement for a Belgian social secretariat.
+
+Restogogo can calculate CP 302-oriented estimates from approved Timesheet evidence. It does not submit Dimona or DmfA declarations, issue payslips, settle taxes or social security, or replace a Belgian social secretariat.
 
 ## Product workflow
 

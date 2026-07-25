@@ -377,7 +377,8 @@ const nullable = (input: string) => input.trim() || null;
 export function teamSavePayload(
   restaurantId: string,
   drafts: EmployeeDraft[],
-  role: WorkspaceRole
+  role: WorkspaceRole,
+  employmentTermDrafts: EmployeeDraft[] = []
 ): TeamSavePayload {
   const includedDrafts = drafts.filter((employee) => {
     const displayName = employee.displayName.trim() || `${employee.firstName} ${employee.lastName}`.trim();
@@ -458,7 +459,8 @@ export function teamSavePayload(
       access,
       legalProfiles: [],
       contracts: [],
-      payrollProfiles: []
+      payrollProfiles: [],
+      employmentTerms: []
     };
   }
 
@@ -504,6 +506,15 @@ export function teamSavePayload(
       }))
   );
 
+  const employmentTerms = asJsonArray(
+    employmentTermDrafts
+      .filter((employee) => includedDrafts.some((included) => included.id === employee.id))
+      .map((employee) => ({
+        employee_id: employee.id,
+        ...employmentTermsPayload(employee)
+      }))
+  );
+
   const payrollProfiles = asJsonArray(
     includedDrafts.map((employee) => ({
       restaurant_id: restaurantId,
@@ -526,7 +537,8 @@ export function teamSavePayload(
     legalProfiles,
     contracts,
     payrollProfiles,
-    access
+    access,
+    employmentTerms
   };
 }
 

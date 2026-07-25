@@ -3973,3 +3973,182 @@ Object.assign(dutch, {
   '{count} official exports': '{count} officiële exports',
   '{count} exported rows': '{count} geëxporteerde rijen'
 });
+
+// Core workspace and payroll-preparation scope (V588 UI alignment).
+Object.assign(french, {
+  'Core workspace': 'Espace de travail principal',
+  'The modules being finalized first: restaurant setup, people, planning, time attendance, payroll preparation and badging.':
+    'Les modules finalisés en priorité : configuration du restaurant, équipe, planning, pointage, préparation de la paie et badgeage.',
+  'Later modules': 'Modules ultérieurs',
+  'These stay outside the daily workspace until the operational core is complete.':
+    "Ils restent en dehors de l’espace quotidien jusqu’à ce que le socle opérationnel soit terminé.",
+  'Payroll preparation': 'Préparation de la paie',
+  'Product scope': 'Périmètre du produit',
+  'Prepare reliable payroll inputs, not official payroll':
+    'Préparer des données de paie fiables, pas une paie officielle',
+  'Restogogo centralizes contracts, planned and approved hours, useful cost estimates and export mappings. Your social secretariat remains responsible for official salary calculation, declarations and payslips.':
+    'Restogogo centralise les contrats, les heures planifiées et approuvées, les estimations de coût utiles et les correspondances d’export. Votre secrétariat social reste responsable du calcul officiel des salaires, des déclarations et des fiches de paie.',
+  'Preparation & estimates': 'Préparation et estimations',
+  'Employer setup': 'Configuration employeur',
+  'Restaurant identifiers': 'Identifiants du restaurant',
+  'Company, ONSS and establishment identifiers, joint committee and the intended Dimona workflow.':
+    'Identifiants d’entreprise, ONSS et unité d’établissement, commission paritaire et flux Dimona prévu.',
+  'Employee preparation': 'Préparation des employés',
+  'active employees': 'employés actifs',
+  'Current contract, national registry data, CP 302 function, salary basis and optional provider mapping.':
+    'Contrat actuel, données du registre national, fonction CP 302, base salariale et correspondance prestataire facultative.',
+  'without current contract': 'sans contrat actuel',
+  'without NISS': 'sans NISS',
+  'without payroll ID': 'sans identifiant de paie',
+  'Secretariat export': 'Export secrétariat social',
+  'Timesheet-based payroll file': 'Fichier de paie basé sur les pointages',
+  'Prepare a configurable CSV from approved time records, with reproducible source lineage and a draft preview before approval.':
+    'Préparez un CSV configurable à partir des pointages approuvés, avec une traçabilité reproductible et un aperçu provisoire avant approbation.',
+  'Official calculation remains outside Restogogo': 'Le calcul officiel reste hors de Restogogo',
+  'Scope & settings': 'Périmètre et paramètres',
+  'Estimates and ownership': 'Estimations et responsabilités',
+  'See which data belongs to Restaurant, Team, Timesheet, Restogogo estimates and the social secretariat.':
+    'Voyez quelles données appartiennent au Restaurant, à l’Équipe, aux Pointages, aux estimations Restogogo et au secrétariat social.',
+  'No tax settlement or definitive payslips': 'Aucun règlement fiscal ni fiche de paie définitive',
+  'Experimental payroll engine': 'Moteur de paie expérimental',
+  'Experimental payroll configuration': 'Configuration de paie expérimentale',
+  'Payroll scope & settings': 'Périmètre et paramètres de paie',
+  'Data ownership': 'Responsabilité des données',
+  'Employer and establishment identifiers': 'Identifiants employeur et unité d’établissement',
+  'Company number, ONSS employer number, establishment unit, joint committee and Dimona workflow.':
+    'Numéro d’entreprise, numéro employeur ONSS, unité d’établissement, commission paritaire et flux Dimona.',
+  'Open Restaurant': 'Ouvrir Restaurant',
+  'Employment and payroll preparation': 'Emploi et préparation de la paie',
+  'Contract type and dates, weekly hours, work regime, CP 302 function, salary basis and provider mapping.':
+    'Type et dates du contrat, heures hebdomadaires, régime de travail, fonction CP 302, base salariale et correspondance prestataire.',
+  'Open Employees': 'Ouvrir Employés',
+  'Actual approved work': 'Travail réel approuvé',
+  'Badge events, corrections, breaks, worked minutes, anomalies and week approval.':
+    'Événements de badge, corrections, pauses, minutes travaillées, anomalies et approbation de la semaine.',
+  'Open Timesheet': 'Ouvrir Pointages',
+  'Prepared input file': 'Fichier d’entrée préparé',
+  'Configurable columns and approved time data for the social secretariat, with lineage and re-download history.':
+    'Colonnes configurables et données de temps approuvées pour le secrétariat social, avec traçabilité et historique de téléchargement.',
+  'Open Exports': 'Ouvrir Exports',
+  'Restogogo boundary': 'Limite de Restogogo',
+  'Keep in Restogogo': 'À conserver dans Restogogo',
+  'Operational hours, anomalies, contract facts, payroll mappings, basic cost estimates, simulations and exports.':
+    'Heures opérationnelles, anomalies, données contractuelles, correspondances de paie, estimations de coût simples, simulations et exports.',
+  'Owned by the social secretariat': 'Responsabilité du secrétariat social',
+  'Official gross-to-net calculation, taxes, social-security settlement, definitive payslips and legal corrections.':
+    'Calcul officiel brut-net, impôts, règlement des cotisations sociales, fiches de paie définitives et corrections légales.',
+  'Advanced payroll-engine structures remain parked in the code and database while the final estimation scope is being designed. They are no longer presented as the core product workflow.':
+    'Les structures avancées du moteur de paie restent mises de côté dans le code et la base de données pendant la définition du périmètre final des estimations. Elles ne sont plus présentées comme le flux principal du produit.',
+  'The operational name shown throughout the workspace and the legal company identity used in exports.':
+    'Le nom opérationnel affiché dans l’espace de travail et l’identité légale de l’entreprise utilisée dans les exports.',
+  'Used in navigation, schedules and the badge terminal.':
+    'Utilisé dans la navigation, les plannings et le terminal de badgeage.',
+  'Employer & Dimona preparation': 'Employeur et préparation Dimona',
+  'Employer identifiers used to prepare Dimona data and social-secretariat exports.':
+    'Identifiants employeur utilisés pour préparer les données Dimona et les exports vers le secrétariat social.',
+  'Preparation only': 'Préparation uniquement',
+  'Restogogo prepares operational data.': 'Restogogo prépare les données opérationnelles.',
+  'It does not replace a social secretariat and no declaration is sent from this screen.':
+    'Il ne remplace pas un secrétariat social et aucune déclaration n’est envoyée depuis cet écran.',
+  'ONSS employer number': 'Numéro employeur ONSS',
+  'Establishment unit number': 'Numéro d’unité d’établissement',
+  'Joint committee': 'Commission paritaire',
+  'Dimona workflow': 'Flux Dimona',
+  'Through social secretariat': 'Via le secrétariat social',
+  'Direct integration later': 'Intégration directe ultérieure',
+  'Social secretariat': 'Secrétariat social',
+  Optional: 'Facultatif',
+  'External employer ID': 'Identifiant employeur externe',
+  'Optional mapping': 'Correspondance facultative',
+  'Advanced tax, benefit and regime-evidence settings are parked until a concrete social-secretariat or estimation requirement needs them.':
+    'Les paramètres avancés de fiscalité, d’avantages et de justificatifs de régime restent mis de côté jusqu’à ce qu’un besoin concret du secrétariat social ou d’estimation les justifie.'
+});
+
+Object.assign(dutch, {
+  'Core workspace': 'Kernwerkruimte',
+  'The modules being finalized first: restaurant setup, people, planning, time attendance, payroll preparation and badging.':
+    'De modules die eerst worden afgewerkt: restaurantinstellingen, team, planning, tijdregistratie, loonvoorbereiding en badging.',
+  'Later modules': 'Latere modules',
+  'These stay outside the daily workspace until the operational core is complete.':
+    'Deze blijven buiten de dagelijkse werkruimte tot de operationele kern volledig is.',
+  'Payroll preparation': 'Loonvoorbereiding',
+  'Product scope': 'Productscope',
+  'Prepare reliable payroll inputs, not official payroll':
+    'Betrouwbare looninput voorbereiden, geen officiële loonverwerking',
+  'Restogogo centralizes contracts, planned and approved hours, useful cost estimates and export mappings. Your social secretariat remains responsible for official salary calculation, declarations and payslips.':
+    'Restogogo centraliseert contracten, geplande en goedgekeurde uren, bruikbare kostenramingen en exportkoppelingen. Uw sociaal secretariaat blijft verantwoordelijk voor de officiële loonberekening, aangiften en loonfiches.',
+  'Preparation & estimates': 'Voorbereiding en ramingen',
+  'Employer setup': 'Werkgeversinstellingen',
+  'Restaurant identifiers': 'Restaurantidentificatie',
+  'Company, ONSS and establishment identifiers, joint committee and the intended Dimona workflow.':
+    'Ondernemings-, RSZ- en vestigingseenheidsnummers, paritair comité en de bedoelde Dimona-werkwijze.',
+  'Employee preparation': 'Medewerkersvoorbereiding',
+  'active employees': 'actieve medewerkers',
+  'Current contract, national registry data, CP 302 function, salary basis and optional provider mapping.':
+    'Huidig contract, rijksregistergegevens, functie PC 302, loonbasis en optionele koppeling met de dienstverlener.',
+  'without current contract': 'zonder huidig contract',
+  'without NISS': 'zonder INSZ',
+  'without payroll ID': 'zonder loon-ID',
+  'Secretariat export': 'Export sociaal secretariaat',
+  'Timesheet-based payroll file': 'Loonbestand op basis van tijdregistratie',
+  'Prepare a configurable CSV from approved time records, with reproducible source lineage and a draft preview before approval.':
+    'Maak een configureerbare CSV van goedgekeurde tijdregistraties, met reproduceerbare bronherkomst en een conceptvoorbeeld vóór goedkeuring.',
+  'Official calculation remains outside Restogogo': 'De officiële berekening blijft buiten Restogogo',
+  'Scope & settings': 'Scope en instellingen',
+  'Estimates and ownership': 'Ramingen en eigenaarschap',
+  'See which data belongs to Restaurant, Team, Timesheet, Restogogo estimates and the social secretariat.':
+    'Bekijk welke gegevens bij Restaurant, Team, Tijdregistratie, Restogogo-ramingen en het sociaal secretariaat horen.',
+  'No tax settlement or definitive payslips': 'Geen fiscale afrekening of definitieve loonfiches',
+  'Experimental payroll engine': 'Experimentele loonmotor',
+  'Experimental payroll configuration': 'Experimentele loonconfiguratie',
+  'Payroll scope & settings': 'Loonbereik en instellingen',
+  'Data ownership': 'Gegevenseigenaarschap',
+  'Employer and establishment identifiers': 'Werkgevers- en vestigingsidentificatie',
+  'Company number, ONSS employer number, establishment unit, joint committee and Dimona workflow.':
+    'Ondernemingsnummer, RSZ-werkgeversnummer, vestigingseenheid, paritair comité en Dimona-werkwijze.',
+  'Open Restaurant': 'Restaurant openen',
+  'Employment and payroll preparation': 'Tewerkstelling en loonvoorbereiding',
+  'Contract type and dates, weekly hours, work regime, CP 302 function, salary basis and provider mapping.':
+    'Contracttype en datums, wekelijkse uren, werkregime, functie PC 302, loonbasis en dienstverlenerskoppeling.',
+  'Open Employees': 'Medewerkers openen',
+  'Actual approved work': 'Werkelijk goedgekeurd werk',
+  'Badge events, corrections, breaks, worked minutes, anomalies and week approval.':
+    'Badgegebeurtenissen, correcties, pauzes, gewerkte minuten, afwijkingen en weekgoedkeuring.',
+  'Open Timesheet': 'Tijdregistratie openen',
+  'Prepared input file': 'Voorbereid invoerbestand',
+  'Configurable columns and approved time data for the social secretariat, with lineage and re-download history.':
+    'Configureerbare kolommen en goedgekeurde tijdgegevens voor het sociaal secretariaat, met herkomst en downloadhistoriek.',
+  'Open Exports': 'Exports openen',
+  'Restogogo boundary': 'Grens van Restogogo',
+  'Keep in Restogogo': 'In Restogogo behouden',
+  'Operational hours, anomalies, contract facts, payroll mappings, basic cost estimates, simulations and exports.':
+    'Operationele uren, afwijkingen, contractgegevens, loonkoppelingen, eenvoudige kostenramingen, simulaties en exports.',
+  'Owned by the social secretariat': 'Eigendom van het sociaal secretariaat',
+  'Official gross-to-net calculation, taxes, social-security settlement, definitive payslips and legal corrections.':
+    'Officiële bruto-nettoberekening, belastingen, sociale bijdragen, definitieve loonfiches en wettelijke correcties.',
+  'Advanced payroll-engine structures remain parked in the code and database while the final estimation scope is being designed. They are no longer presented as the core product workflow.':
+    'Geavanceerde structuren van de loonmotor blijven geparkeerd in de code en databank terwijl de definitieve ramingsscope wordt ontworpen. Ze worden niet langer als de kernworkflow van het product voorgesteld.',
+  'The operational name shown throughout the workspace and the legal company identity used in exports.':
+    'De operationele naam die in de werkruimte wordt getoond en de wettelijke bedrijfsidentiteit voor exports.',
+  'Used in navigation, schedules and the badge terminal.':
+    'Gebruikt in navigatie, planningen en de badgeterminal.',
+  'Employer & Dimona preparation': 'Werkgever en Dimona-voorbereiding',
+  'Employer identifiers used to prepare Dimona data and social-secretariat exports.':
+    'Werkgeversidentificatie voor de voorbereiding van Dimona-gegevens en exports naar het sociaal secretariaat.',
+  'Preparation only': 'Alleen voorbereiding',
+  'Restogogo prepares operational data.': 'Restogogo bereidt operationele gegevens voor.',
+  'It does not replace a social secretariat and no declaration is sent from this screen.':
+    'Het vervangt geen sociaal secretariaat en vanuit dit scherm wordt geen aangifte verzonden.',
+  'ONSS employer number': 'RSZ-werkgeversnummer',
+  'Establishment unit number': 'Vestigingseenheidsnummer',
+  'Joint committee': 'Paritair comité',
+  'Dimona workflow': 'Dimona-werkwijze',
+  'Through social secretariat': 'Via het sociaal secretariaat',
+  'Direct integration later': 'Rechtstreekse integratie later',
+  'Social secretariat': 'Sociaal secretariaat',
+  Optional: 'Optioneel',
+  'External employer ID': 'Externe werkgevers-ID',
+  'Optional mapping': 'Optionele koppeling',
+  'Advanced tax, benefit and regime-evidence settings are parked until a concrete social-secretariat or estimation requirement needs them.':
+    'Geavanceerde instellingen voor fiscaliteit, voordelen en regimebewijzen blijven geparkeerd tot een concrete behoefte van het sociaal secretariaat of een raming ze rechtvaardigt.'
+});

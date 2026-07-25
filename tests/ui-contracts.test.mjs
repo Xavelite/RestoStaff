@@ -177,7 +177,8 @@ test('people, contracts and payroll employees share direct rows and one complete
   assert.match(editor, /<Dialog/);
   assert.match(editor, /section === 'people'/);
   assert.match(editor, /section === 'contract'/);
-  assert.match(editor, /EmployeePayrollDetails/);
+  assert.doesNotMatch(editor, /EmployeePayrollDetails/);
+  assert.match(editor, /Advanced tax, benefit and regime-evidence settings are parked/);
   assert.match(teamPage, /saveEmployee/);
   assert.match(teamPage, /unsavedChanges\.register/);
 });
@@ -189,11 +190,12 @@ test('operational core exposes planning, attendance and payroll as one classic w
   const timesheet = await readFile('src/routes/(app)/timesheet/+page.svelte', 'utf8');
   const calendar = await readFile('src/routes/(app)/timesheet/calendar/+page.svelte', 'utf8');
   const live = await readFile('src/routes/(app)/timesheet/live/+page.svelte', 'utf8');
-  const payrollRuns = await readFile('src/routes/(app)/payroll/+page.svelte', 'utf8');
+  const payrollOverview = await readFile('src/routes/(app)/payroll/+page.svelte', 'utf8');
   const payrollExports = await readFile('src/routes/(app)/payroll/exports/+page.svelte', 'utf8');
-  const payrollConfig = await readFile('src/lib/payroll/RestaurantPayrollSetup.svelte', 'utf8');
+  const payrollConfig = await readFile('src/routes/(app)/payroll/configuration/+page.svelte', 'utf8');
+  const experimentalPayroll = await readFile('src/routes/(app)/payroll/advanced/+page.svelte', 'utf8');
 
-  assert.match(nav, /\{ href: '\/payroll', label: 'Runs' \}/);
+  assert.match(nav, /\{ href: '\/payroll', label: 'Overview' \}/);
   assert.match(nav, /\{ href: '\/payroll\/exports', label: 'Exports' \}/);
   assert.match(nav, /homeOnly: true/);
   assert.match(schedule, /copyPreviousWeek/);
@@ -203,12 +205,14 @@ test('operational core exposes planning, attendance and payroll as one classic w
   assert.match(timesheet, /page\.url\.searchParams\.get\('entry'\)/);
   assert.match(calendar, /href=\{`\/timesheet\?date=\$\{day\.date\}`\}/);
   assert.match(live, /entry=\$\{encodeURIComponent\(slot\.key\)\}/);
-  assert.match(payrollRuns, /<PayrollWorkspace/);
+  assert.match(payrollOverview, /Prepare reliable payroll inputs/);
+  assert.doesNotMatch(payrollOverview, /<PayrollWorkspace/);
+  assert.match(experimentalPayroll, /<PayrollWorkspace/);
   assert.match(payrollExports, /createPayrollExportRun/);
   assert.match(payrollExports, /id: 'payroll-export-columns'/);
-  assert.match(payrollConfig, /<ClassicTablePanel/);
-  assert.doesNotMatch(payrollConfig, /class="cl-stats"/);
-  assert.doesNotMatch(payrollConfig, /class="payroll-setup"/);
+  assert.match(payrollConfig, /Restogogo boundary/);
+  assert.match(payrollConfig, /Owned by the social secretariat/);
+  assert.doesNotMatch(payrollConfig, /RestaurantPayrollSetup/);
 });
 
 test('restaurant coverage materializes only a complete weekday row before shared save', async () => {

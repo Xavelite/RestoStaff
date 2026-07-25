@@ -30,8 +30,6 @@ export const AREA_PALETTE = [
   '#374151' // slate
 ] as const;
 
-const AREA_STORAGE_PREFIX = 'rst-area-colors:';
-
 type JobFunctionLike = {
   id: string;
   sort_order?: number | null;
@@ -70,32 +68,6 @@ export function defaultAreaColor(index: number): string {
   return AREA_PALETTE[index % AREA_PALETTE.length];
 }
 
-function areaStorageKey(restaurantId: string): string {
-  return `${AREA_STORAGE_PREFIX}${restaurantId}`;
-}
-
-export function readStoredAreaColors(restaurantId: string): Record<string, string> {
-  if (!restaurantId || typeof localStorage === 'undefined') return {};
-  try {
-    const parsed = JSON.parse(localStorage.getItem(areaStorageKey(restaurantId)) ?? '{}') as Record<string, unknown>;
-    return Object.fromEntries(
-      Object.entries(parsed).filter((entry): entry is [string, string] => validWorkspaceColor(entry[1]))
-    );
-  } catch {
-    return {};
-  }
-}
-
-export function storeAreaColors(restaurantId: string, entries: Array<{ id: string; color: string }>): void {
-  if (!restaurantId || typeof localStorage === 'undefined') return;
-  const payload = Object.fromEntries(entries.filter((entry) => validWorkspaceColor(entry.color)).map((entry) => [entry.id, entry.color]));
-  try {
-    localStorage.setItem(areaStorageKey(restaurantId), JSON.stringify(payload));
-  } catch {
-    // Storage is a browser convenience until area colours are persisted by DB.
-  }
-}
-
 /** Position id → colour. Stable across sessions; metadata overrides win. */
 export function buildPositionColorMap(jobFunctions: JobFunctionLike[]): Map<string, string> {
   const ordered = [...jobFunctions].sort(
@@ -111,19 +83,17 @@ export function buildPositionColorMap(jobFunctions: JobFunctionLike[]): Map<stri
   return map;
 }
 
-/** Area id → colour. Local owner preferences bridge the current DB gap. */
+/** Area id → colour. Restaurant metadata is the persistent source of truth. */
 export function buildAreaColorMap(areas: AreaLike[]): Map<string, string> {
   const ordered = [...areas].sort(
     (a, b) =>
       (a.sort_order ?? 0) - (b.sort_order ?? 0) ||
       (a.name ?? '').localeCompare(b.name ?? '')
   );
-  const restaurantId = ordered.find((item) => item.restaurant_id)?.restaurant_id ?? '';
-  const stored = readStoredAreaColors(restaurantId);
   const map = new Map<string, string>();
   ordered.forEach((item, index) => {
     const direct = validWorkspaceColor(item.color) ? item.color : null;
-    map.set(item.id, direct ?? readColorOverride(item.metadata) ?? stored[item.id] ?? defaultAreaColor(index));
+    map.set(item.id, direct ?? readColorOverride(item.metadata) ?? defaultAreaColor(index));
   });
   return map;
 }

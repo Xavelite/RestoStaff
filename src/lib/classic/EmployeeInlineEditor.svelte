@@ -5,7 +5,6 @@
   import Dialog from '$lib/components/Dialog.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
-  import EmployeePayrollDetails from '$lib/payroll/EmployeePayrollDetails.svelte';
   import { validateEmployeeEmploymentTerms } from '$lib/payroll/payroll-api';
   import type { EmployeeDraft } from '$lib/team/team-model';
   import { confirmAction } from '$lib/ui/confirm.svelte';
@@ -61,23 +60,6 @@
   const localDirty = $derived(Boolean(form && baseline && JSON.stringify(form) !== baseline));
   const busy = $derived(saving || committing);
   const today = new Date().toISOString().slice(0, 10);
-
-  function payrollDetailSources() {
-    return unsavedChanges.dirtySources.filter(
-      (source) => source.id === `employee-payroll-details:${employeeId}`
-    );
-  }
-
-  async function savePayrollDetails(): Promise<void> {
-    for (const source of payrollDetailSources()) await source.save();
-    if (payrollDetailSources().length) {
-      throw new Error(t('Some payroll details could not be saved. Review them before closing.'));
-    }
-  }
-
-  async function discardPayrollDetails(): Promise<void> {
-    for (const source of payrollDetailSources()) await source.discard();
-  }
 
   function clone(employee: EmployeeDraft): EmployeeDraft {
     return {
@@ -212,7 +194,6 @@
     validate();
     committing = true;
     try {
-      await savePayrollDetails();
       await onsave(clone(form));
       baseline = JSON.stringify(form);
       original = clone(form);
@@ -230,8 +211,7 @@
   }
 
   async function requestClose() {
-    const payrollDirty = payrollDetailSources().length > 0;
-    if (!localDirty && !payrollDirty) {
+    if (!localDirty) {
       if (isNew) teamDraft.remove(employeeId);
       onclose();
       return;
@@ -244,7 +224,6 @@
       tone: 'danger'
     });
     if (discard) {
-      await discardPayrollDetails();
       discardNow();
     }
   }
@@ -256,14 +235,14 @@
   open
   size="large"
   title={title}
-  description={form?.displayName || 'Complete the employee profile, contract and payroll setup.'}
+  description={form?.displayName || 'Complete the employee profile, contract and payroll preparation.'}
   onclose={() => void requestClose()}
 >
   {#if form}
     <nav class="editor-tabs" aria-label={t('Employee sections')}>
       <button type="button" class:is-active={section === 'people'} onclick={() => (section = 'people')}>{t('Profile')}</button>
       <button type="button" class:is-active={section === 'contract'} onclick={() => (section = 'contract')}>{t('Contract')}</button>
-      {#if owner}<button type="button" class:is-active={section === 'payroll'} onclick={() => (section = 'payroll')}>{t('Payroll')}</button>{/if}
+      {#if owner}<button type="button" class:is-active={section === 'payroll'} onclick={() => (section = 'payroll')}>{t('Payroll preparation')}</button>{/if}
     </nav>
 
     {#if section === 'people'}
@@ -431,11 +410,8 @@
         <label class="cl-label is-wide"><span>{t('Payroll notes')}</span><textarea class="cl-field textarea" bind:value={form.payrollNotes}></textarea></label>
       </div>
 
-      {#if owner && savedEmployee && workspace.activeId}
-        <div class="payroll-evidence">
-          <EmployeePayrollDetails restaurantId={workspace.activeId} employeeId={employeeId} effectiveDate={form.employmentValidFrom || today} employmentTerms={teamDraft.employmentTerms} />
-        </div>
-      {/if}
+
+      <div class="cl-notice is-wide">{t('Advanced tax, benefit and regime-evidence settings are parked until a concrete social-secretariat or estimation requirement needs them.')}</div>
     {/if}
   {:else}
     <div class="editor-state is-error" role="alert">{t('This employee could not be opened.')}</div>
@@ -477,7 +453,6 @@
   .contract-history div { display: grid; gap: 3px; }
   .contract-history strong { font-size: 13px; }
   .contract-history span, .contract-history em { color: var(--cl-muted); font-size: 12px; font-style: normal; }
-  .payroll-evidence { margin-top: 16px; }
   .textarea { min-height: 90px; resize: vertical; }
   .editor-state { padding: 14px; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); color: var(--cl-muted); background: var(--cl-surface-muted); font-size: 13px; }
   .editor-state.is-error { color: var(--cl-problem); border-color: var(--cl-problem-line); background: var(--cl-problem-wash); }

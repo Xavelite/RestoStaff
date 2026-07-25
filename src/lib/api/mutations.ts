@@ -347,13 +347,14 @@ export type TeamSavePayload = {
   contracts: Json[];
   payrollProfiles: Json[];
   access: Json[];
+  employmentTerms: Json[];
 };
 
 export async function saveTeam(
   restaurantId: string,
   payload: TeamSavePayload
 ): Promise<MutationAck> {
-  const data = await rpcJson('save_team_model', {
+  const data = await rpcJson('save_team_workspace', {
     p_restaurant_id: restaurantId,
     p_employees: payload.employees,
     p_contacts: payload.contacts,
@@ -362,7 +363,8 @@ export async function saveTeam(
     p_payroll_profiles: payload.payrollProfiles,
     p_access: payload.access,
     p_employee_job_functions: payload.employeeJobFunctions,
-    p_recurring_schedule_slots: payload.recurringScheduleSlots
+    p_recurring_schedule_slots: payload.recurringScheduleSlots,
+    p_employment_terms: payload.employmentTerms
   });
   return mutationAck(data);
 }

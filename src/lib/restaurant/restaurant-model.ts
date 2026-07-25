@@ -1,7 +1,7 @@
 import { asJsonArray } from '../api/json.ts';
 import { setupItemCode, slug } from './setup-item-code.ts';
 import type { RestaurantReadModel } from '$lib/api/workspace-snapshot';
-import { defaultAreaColor, defaultPositionColor, readColorOverride, readStoredAreaColors } from '../ui/position-color.ts';
+import { defaultAreaColor, defaultPositionColor, readColorOverride } from '../ui/position-color.ts';
 import type { RestaurantSavePayload } from '$lib/api/mutations';
 import {
   SERVICES,
@@ -56,9 +56,18 @@ export type CoverageDraft = {
   requiredCount: number;
 };
 
+export type DimonaSubmissionMode = 'not_configured' | 'direct' | 'social_secretariat';
+
 export type RestaurantDraft = {
+  displayName: string;
   legalName: string;
   companyNumber: string;
+  onssEmployerNumber: string;
+  establishmentUnitNumber: string;
+  jointCommitteeCode: string;
+  dimonaSubmissionMode: DimonaSubmissionMode;
+  socialSecretariatName: string;
+  externalEmployerId: string;
   email: string;
   phone: string;
   address: string;
@@ -97,9 +106,20 @@ function openingValue(
 }
 
 export function restaurantDraft(snapshot: RestaurantReadModel): RestaurantDraft {
+  const employment = snapshot.restaurant_employment_settings ?? {};
   return {
+    displayName: snapshot.restaurant.name,
     legalName: snapshot.restaurant.legal_name || snapshot.restaurant.name,
     companyNumber: snapshot.restaurant.company_number ?? '',
+    onssEmployerNumber: employment.onss_employer_number ?? '',
+    establishmentUnitNumber: employment.establishment_unit_number ?? '',
+    jointCommitteeCode: employment.joint_committee_code ?? '302',
+    dimonaSubmissionMode:
+      employment.dimona_submission_mode === 'direct' || employment.dimona_submission_mode === 'social_secretariat'
+        ? employment.dimona_submission_mode
+        : 'not_configured',
+    socialSecretariatName: employment.social_secretariat_name ?? '',
+    externalEmployerId: employment.external_employer_id ?? '',
     email: snapshot.restaurant.email ?? '',
     phone: snapshot.restaurant.phone ?? '',
     address: snapshot.restaurant.address_line1 ?? '',
@@ -113,9 +133,7 @@ export function restaurantDraft(snapshot: RestaurantReadModel): RestaurantDraft 
       estimatedHourlyCost: row.estimated_hourly_cost,
       color: readColorOverride(row.metadata) ?? defaultPositionColor(index)
     })),
-    areas: (() => {
-      const storedColors = readStoredAreaColors(snapshot.restaurant.id);
-      return snapshot.work_areas.map((row, index) => ({
+    areas: snapshot.work_areas.map((row, index) => ({
         id: row.id,
         name: row.name,
         code: row.code,
@@ -125,9 +143,8 @@ export function restaurantDraft(snapshot: RestaurantReadModel): RestaurantDraft 
         lunchEnd: areaDefault(snapshot, row.id, 'lunch', 'end_time'),
         eveningStart: areaDefault(snapshot, row.id, 'evening', 'start_time'),
         eveningEnd: areaDefault(snapshot, row.id, 'evening', 'end_time'),
-        color: storedColors[row.id] ?? defaultAreaColor(index)
-      }));
-    })(),
+        color: readColorOverride(row.metadata) ?? defaultAreaColor(index)
+      })),
     opening: WEEKDAYS.map((_, index) => {
       const weekday = index + 1;
       const lunch = snapshot.opening_hours.find((row) => row.weekday === weekday && row.service_key === 'lunch');
@@ -204,7 +221,15 @@ function inheritedOpening(
 
 
 export function restaurantDraftValidationError(draft: RestaurantDraft): string | null {
-  if (!draft.legalName.trim()) return 'Restaurant name is required.';
+  if (!draft.displayName.trim()) return 'Restaurant display name is required.';
+  if (!draft.legalName.trim()) return 'Legal company name is required.';
+  const companyNumber = draft.companyNumber.replace(/\D/g, '');
+  if (companyNumber && companyNumber.length !== 10) return 'The Belgian company number must contain 10 digits.';
+  const establishment = draft.establishmentUnitNumber.replace(/\D/g, '');
+  if (establishment && establishment.length !== 10) return 'The establishment unit number must contain 10 digits.';
+  if (!/^\d{3}(?:\.\d{2})?$/.test(draft.jointCommitteeCode.trim())) {
+    return 'The joint committee code must use a format such as 302 or 302.00.';
+  }
 
   // Blank rows are how you add several at once and fill them in over time — they
   // are dropped on save (see restaurantSavePayload), never a reason to block it.
@@ -235,9 +260,18 @@ export function restaurantSavePayload(
 
   return {
     restaurant: {
-      name: draft.legalName.trim(),
+      name: draft.displayName.trim(),
       legal_name: draft.legalName.trim(),
       company_number: nullable(draft.companyNumber),
+      employment_settings: {
+        onss_employer_number: nullable(draft.onssEmployerNumber),
+        establishment_unit_number: nullable(draft.establishmentUnitNumber),
+        joint_committee_code: draft.jointCommitteeCode.trim() || '302',
+        dimona_submission_mode: draft.dimonaSubmissionMode,
+        social_secretariat_name: nullable(draft.socialSecretariatName),
+        external_employer_id: nullable(draft.externalEmployerId),
+        metadata: snapshot.restaurant_employment_settings?.metadata ?? {}
+      },
       email: nullable(draft.email),
       phone: nullable(draft.phone),
       address_line1: nullable(draft.address),
@@ -274,7 +308,8 @@ export function restaurantSavePayload(
           name: item.name.trim(),
           active: item.active,
           sort_order: index,
-          notes: nullable(item.notes)
+          notes: nullable(item.notes),
+          metadata: { color: item.color }
         }))
         .filter((item) => item.name)
     ),

@@ -32,6 +32,16 @@ test('restaurant hours preserve lunch and evening opening states independently',
       postal_code: null,
       city: null
     },
+    restaurant_employment_settings: {
+      restaurant_id: 'restaurant-1',
+      onss_employer_number: 'ONSS-42',
+      establishment_unit_number: '2123456789',
+      joint_committee_code: '302',
+      dimona_submission_mode: 'social_secretariat',
+      social_secretariat_name: 'Pilot Secretariat',
+      external_employer_id: 'EMP-42',
+      metadata: { source: 'pilot' }
+    },
     restaurant_settings: {
       timezone: 'Europe/Brussels',
       locale: 'en-BE',
@@ -52,7 +62,18 @@ test('restaurant hours preserve lunch and evening opening states independently',
         metadata: { color: '#2563eb' }
       }
     ],
-    work_areas: [],
+    work_areas: [
+      {
+        id: 'area-1',
+        restaurant_id: 'restaurant-1',
+        code: 'dining-room',
+        name: 'Dining room',
+        notes: null,
+        active: true,
+        sort_order: 0,
+        metadata: { color: '#16a34a' }
+      }
+    ],
     area_service_defaults: [],
     opening_hours: [
       { weekday: 1, service_key: 'lunch', is_open: false, opens_at: null, closes_at: null },
@@ -65,6 +86,11 @@ test('restaurant hours preserve lunch and evening opening states independently',
   assert.equal(draft.opening[0].lunchOpen, false);
   assert.equal(draft.opening[0].eveningOpen, true);
   assert.equal(draft.jobFunctions[0].color, '#2563eb');
+  assert.equal(draft.areas[0].color, '#16a34a');
+  assert.equal(draft.displayName, 'Demo');
+  assert.equal(draft.legalName, 'Demo');
+  assert.equal(draft.onssEmployerNumber, 'ONSS-42');
+  assert.equal(draft.dimonaSubmissionMode, 'social_secretariat');
 
   const payload = restaurantSavePayload(snapshot, draft);
   const mondayLunch = payload.openingHours.find((row) => row.weekday === 1 && row.service_key === 'lunch');
@@ -72,4 +98,16 @@ test('restaurant hours preserve lunch and evening opening states independently',
   assert.equal(mondayLunch.is_open, false);
   assert.equal(mondayEvening.is_open, true);
   assert.deepEqual(payload.jobFunctions[0].metadata, { color: '#2563eb' });
+  assert.deepEqual(payload.areas[0].metadata, { color: '#16a34a' });
+  assert.equal(payload.restaurant.name, 'Demo');
+  assert.equal(payload.restaurant.legal_name, 'Demo');
+  assert.deepEqual(payload.restaurant.employment_settings, {
+    onss_employer_number: 'ONSS-42',
+    establishment_unit_number: '2123456789',
+    joint_committee_code: '302',
+    dimona_submission_mode: 'social_secretariat',
+    social_secretariat_name: 'Pilot Secretariat',
+    external_employer_id: 'EMP-42',
+    metadata: { source: 'pilot' }
+  });
 });
