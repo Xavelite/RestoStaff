@@ -53,8 +53,12 @@ test('Schedule uses one premium week header and one full daily card with interna
   assert.match(schedule, /class="day-card__surface"/);
   assert.match(schedule, /class="day-card__fill is-lunch"/);
   assert.match(schedule, /class="day-card__fill is-evening"/);
-  assert.match(schedule, /class="day-card__content is-single"/);
-  assert.match(schedule, /class="day-card__split-content"/);
+  assert.match(schedule, /function dayCardView/);
+  assert.match(schedule, /class="day-card__content"/);
+  assert.match(schedule, /class="day-card__break"/);
+  assert.match(schedule, /class="day-card__service-row is-\{chip\.service\}"/);
+  assert.doesNotMatch(schedule, /class="day-card__split-content"/);
+  assert.doesNotMatch(schedule, /class="day-card__segment/);
   assert.doesNotMatch(schedule, /class="shift-card/);
   assert.doesNotMatch(schedule, /class="shift-layer/);
   assert.match(schedule, /quickPlan/);

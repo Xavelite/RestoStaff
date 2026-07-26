@@ -50,6 +50,30 @@
   type PlanningGrid = ReturnType<typeof buildPlanningWeek>;
   type PlanningRow = PlanningGrid['rows'][number];
   type RowGroup = { key: string; label: string; rows: PlanningRow[]; hours: number };
+  type DayShiftView = {
+    key: string;
+    service: ServiceKey;
+    startsAt: string;
+    endsAt: string;
+    label: string;
+    hours: string;
+    hoursValue: number;
+    area: string;
+    position: string;
+    color: string;
+    conflict: boolean;
+    overlap: boolean;
+    spansDay: boolean;
+    estimatedCost: string;
+    estimatedCostValue: number;
+  };
+  type DayCardView = {
+    timeLabel: string;
+    hours: string;
+    breakLabel: string;
+    estimatedCost: string;
+    shifts: DayShiftView[];
+  };
 
   const SERVICES: ServiceKey[] = ['lunch', 'evening'];
 
@@ -329,27 +353,64 @@
     return start < boundary && end > boundary;
   }
 
-  function dayShifts(grid: PlanningGrid, employeeId: string, date: string) {
+  function dayShifts(grid: PlanningGrid, employeeId: string, date: string): DayShiftView[] {
     const overlapKeys = planningOverlapKeys(scheduleDraft.shifts);
     return SERVICES.flatMap((service) => {
       const slot = grid.slotsByKey.get(slotKey(employeeId, date, service));
       if (!slot?.shift) return [];
       const hours = hoursBetweenClocks(slot.shift.startsAt, slot.shift.endsAt);
       const hourlyCost = employeeCost.get(employeeId) || positionCost.get(slot.shift.jobFunctionId) || 0;
+      const estimatedCostValue = hourlyCost > 0 ? hours * hourlyCost : 0;
       return [{
         key: slot.key,
         service,
+        startsAt: slot.shift.startsAt,
+        endsAt: slot.shift.endsAt,
         label: `${compact(slot.shift.startsAt)}–${compact(slot.shift.endsAt)}`,
         hours: formatHours(hours),
+        hoursValue: hours,
         area: areaName.get(slot.shift.areaId) ?? t('No area'),
         position: positionName.get(slot.shift.jobFunctionId) ?? t('Not assigned'),
         color: areaColor.get(slot.shift.areaId) ?? 'var(--cl-muted)',
         conflict: slot.truth.state === 'conflict' || overlapKeys.has(draftKey(slot.shift)),
         overlap: overlapKeys.has(draftKey(slot.shift)),
         spansDay: spansServiceBoundary(slot.shift),
-        estimatedCost: hourlyCost > 0 ? money(hours * hourlyCost) : ''
+        estimatedCost: estimatedCostValue > 0 ? money(estimatedCostValue) : '',
+        estimatedCostValue
       }];
     });
+  }
+
+  function dayCardView(shifts: DayShiftView[]): DayCardView {
+    const ordered = shifts.toSorted((left, right) =>
+      (clockMinutes(left.startsAt) ?? 0) - (clockMinutes(right.startsAt) ?? 0)
+    );
+    const first = ordered[0];
+    const last = ordered[ordered.length - 1];
+    const totalHours = ordered.reduce((sum, shift) => sum + shift.hoursValue, 0);
+    const totalCost = ordered.reduce((sum, shift) => sum + shift.estimatedCostValue, 0);
+    let breakLabel = '';
+
+    if (ordered.length > 1) {
+      const firstStart = clockMinutes(first.startsAt) ?? 0;
+      let firstEnd = clockMinutes(first.endsAt) ?? firstStart;
+      let nextStart = clockMinutes(ordered[1].startsAt) ?? firstEnd;
+      if (firstEnd <= firstStart) firstEnd += 24 * 60;
+      while (nextStart < firstStart) nextStart += 24 * 60;
+      if (nextStart > firstEnd) {
+        breakLabel = `${t('Break')} ${compact(first.endsAt)}–${compact(ordered[1].startsAt)}`;
+      }
+    }
+
+    return {
+      timeLabel: ordered.length === 1
+        ? first.label
+        : `${compact(first.startsAt)}–${compact(last.endsAt)}`,
+      hours: formatHours(totalHours),
+      breakLabel,
+      estimatedCost: totalCost > 0 ? money(totalCost) : '',
+      shifts: ordered
+    };
   }
 
   function zoneTone(slot: PlanningGridSlot | undefined): string {
@@ -688,8 +749,7 @@
                             {@const shifts = dayShifts(grid, row.id, cell.date)}
                             {@const lunchShift = shifts.find((shift) => shift.service === 'lunch') ?? null}
                             {@const eveningShift = shifts.find((shift) => shift.service === 'evening') ?? null}
-                            {@const spanningShift = shifts.find((shift) => shift.spansDay) ?? null}
-                            {@const singleShift = shifts.length === 1 ? shifts[0] : null}
+                            {@const spanningShift = shifts.length === 1 && shifts[0].spansDay ? shifts[0] : null}
                             {@const lunchColor = lunchShift?.color ?? spanningShift?.color ?? 'var(--cl-muted)'}
                             {@const eveningColor = eveningShift?.color ?? spanningShift?.color ?? 'var(--cl-muted)'}
                             {@const dayConflict = shifts.some((shift) => shift.conflict)}
@@ -719,11 +779,12 @@
                                 {/each}
 
                                 {#if shifts.length}
+                                  {@const card = dayCardView(shifts)}
                                   <div
                                     class="day-card"
-                                    class:is-single={Boolean(singleShift)}
-                                    class:is-split={!singleShift}
-                                    class:is-full-day={Boolean(singleShift?.spansDay)}
+                                    class:is-lunch-only={Boolean(lunchShift && !eveningShift && !spanningShift)}
+                                    class:is-evening-only={Boolean(eveningShift && !lunchShift && !spanningShift)}
+                                    class:is-full-day={Boolean(spanningShift)}
                                     class:is-conflict={dayConflict}
                                     class:is-published-conflict={dayConflict && week.published}
                                     style={`--lunch-color:${lunchColor};--evening-color:${eveningColor}`}
@@ -734,86 +795,64 @@
                                       <span class="day-card__divider"></span>
                                     </span>
 
-                                    {#if singleShift}
+                                    {#if spanningShift}
                                       <button
-                                        class="day-card__hit is-{singleShift.service}"
-                                        class:is-span={singleShift.spansDay}
+                                        class="day-card__hit is-span"
                                         type="button"
                                         draggable={week.editable && !past && active}
-                                        aria-label={`${singleShift.label}, ${singleShift.area}, ${singleShift.position}`}
-                                        ondragstart={() => beginDrag(singleShift.key)}
+                                        aria-label={`${spanningShift.label}, ${spanningShift.area}, ${spanningShift.position}`}
+                                        ondragstart={() => beginDrag(spanningShift.key)}
                                         ondragend={() => { draggingKey = ''; dropKey = ''; }}
-                                        onclick={() => (selectedKey = singleShift.key)}
+                                        onclick={() => (selectedKey = spanningShift.key)}
                                       ></button>
-
-                                      {#if !singleShift.spansDay}
-                                        {@const emptyService = (singleShift.service === 'lunch' ? 'evening' : 'lunch') as ServiceKey}
-                                        {@const emptyTargetKey = `${cellKey}|${emptyService}`}
-                                        <button
-                                          class="day-card__add is-{emptyService}"
-                                          type="button"
-                                          disabled={!week.editable || past || !active}
-                                          aria-label={t(emptyService === 'evening' ? 'Plan evening shift' : 'Plan lunch shift')}
-                                          ondragover={(event) => { if (canDrop(grid, row.id, cell.date, emptyService, week.today)) { event.preventDefault(); dropKey = emptyTargetKey; } }}
-                                          ondragleave={() => { if (dropKey === emptyTargetKey) dropKey = ''; }}
-                                          ondrop={(event) => { event.preventDefault(); dropShift(grid, row.id, cell.date, emptyService, week.today); }}
-                                          onclick={() => quickPlan(grid, row.id, cell.date, emptyService)}
-                                        >
-                                          <span aria-hidden="true">{emptyService === 'evening' ? '☾' : '☀'}</span>
-                                        </button>
-                                      {/if}
-
-                                      <span class="day-card__content is-single" class:is-lunch={singleShift.service === 'lunch' && !singleShift.spansDay} class:is-evening={singleShift.service === 'evening' && !singleShift.spansDay}>
-                                        <span class="day-card__service" aria-hidden="true">{singleShift.spansDay ? '↔' : singleShift.service === 'evening' ? '☾' : '☀'}</span>
-                                        <span class="day-card__top"><strong>{singleShift.label}</strong><span>{singleShift.hours}</span></span>
-                                        <span class="day-card__meta"><b>{singleShift.area}</b><span>{singleShift.position}</span></span>
-                                        {#if density === 'detailed'}
-                                          <span class="day-card__detail">
-                                            <span>{t(singleShift.spansDay ? 'Full day' : singleShift.service === 'evening' ? 'Evening' : 'Lunch')}</span>
-                                            {#if singleShift.estimatedCost}<span title={t('Estimated cost')}>~{singleShift.estimatedCost}</span>{/if}
-                                          </span>
-                                        {/if}
-                                        {#if singleShift.conflict}<span class="day-card__warning" aria-label={t(singleShift.overlap ? 'Overlapping shifts' : 'Conflict')} title={t(singleShift.overlap ? 'Overlapping shifts' : 'Conflict')}>!</span>{/if}
-                                      </span>
                                     {:else}
-                                      <div class="day-card__split-content">
-                                        {#each SERVICES as service (service)}
-                                          {@const chip = service === 'lunch' ? lunchShift : eveningShift}
-                                          {#if chip}
-                                            <button
-                                              class="day-card__segment is-{service}"
-                                              type="button"
-                                              draggable={week.editable && !past && active}
-                                              aria-label={`${chip.label}, ${chip.area}, ${chip.position}`}
-                                              ondragstart={() => beginDrag(chip.key)}
-                                              ondragend={() => { draggingKey = ''; dropKey = ''; }}
-                                              onclick={() => (selectedKey = chip.key)}
-                                            >
-                                              <span class="day-card__service" aria-hidden="true">{service === 'evening' ? '☾' : '☀'}</span>
-                                              <span class="day-card__segment-time"><strong>{chip.label}</strong><span>{chip.hours}</span></span>
-                                              <span class="day-card__segment-area">{chip.area}</span>
-                                              {#if density === 'detailed'}
-                                                <span class="day-card__segment-detail"><span>{chip.position}</span>{#if chip.estimatedCost}<span title={t('Estimated cost')}>~{chip.estimatedCost}</span>{/if}</span>
-                                              {/if}
-                                              {#if chip.conflict}<span class="day-card__warning" aria-label={t(chip.overlap ? 'Overlapping shifts' : 'Conflict')} title={t(chip.overlap ? 'Overlapping shifts' : 'Conflict')}>!</span>{/if}
-                                            </button>
-                                          {:else}
-                                            {@const emptyTargetKey = `${cellKey}|${service}`}
-                                            <button
-                                              class="day-card__add is-{service}"
-                                              type="button"
-                                              disabled={!week.editable || past || !active}
-                                              aria-label={t(service === 'evening' ? 'Plan evening shift' : 'Plan lunch shift')}
-                                              ondragover={(event) => { if (canDrop(grid, row.id, cell.date, service, week.today)) { event.preventDefault(); dropKey = emptyTargetKey; } }}
-                                              ondragleave={() => { if (dropKey === emptyTargetKey) dropKey = ''; }}
-                                              ondrop={(event) => { event.preventDefault(); dropShift(grid, row.id, cell.date, service, week.today); }}
-                                              onclick={() => quickPlan(grid, row.id, cell.date, service)}
-                                            ><span aria-hidden="true">{service === 'evening' ? '☾' : '☀'}</span></button>
-                                          {/if}
-                                        {/each}
-                                      </div>
+                                      {#each SERVICES as service (service)}
+                                        {@const chip = service === 'lunch' ? lunchShift : eveningShift}
+                                        {@const targetKey = `${cellKey}|${service}`}
+                                        {#if chip}
+                                          <button
+                                            class="day-card__hit is-{service}"
+                                            type="button"
+                                            draggable={week.editable && !past && active}
+                                            aria-label={`${chip.label}, ${chip.area}, ${chip.position}`}
+                                            ondragstart={() => beginDrag(chip.key)}
+                                            ondragend={() => { draggingKey = ''; dropKey = ''; }}
+                                            onclick={() => (selectedKey = chip.key)}
+                                          ></button>
+                                        {:else}
+                                          <button
+                                            class="day-card__add is-{service}"
+                                            type="button"
+                                            disabled={!week.editable || past || !active}
+                                            aria-label={t(service === 'evening' ? 'Plan evening shift' : 'Plan lunch shift')}
+                                            ondragover={(event) => { if (canDrop(grid, row.id, cell.date, service, week.today)) { event.preventDefault(); dropKey = targetKey; } }}
+                                            ondragleave={() => { if (dropKey === targetKey) dropKey = ''; }}
+                                            ondrop={(event) => { event.preventDefault(); dropShift(grid, row.id, cell.date, service, week.today); }}
+                                            onclick={() => quickPlan(grid, row.id, cell.date, service)}
+                                          ><span>+ {t(service === 'evening' ? 'Evening' : 'Lunch')}</span></button>
+                                        {/if}
+                                      {/each}
                                     {/if}
 
+                                    <span class="day-card__content">
+                                      <span class="day-card__top">
+                                        <strong>{card.timeLabel}</strong>
+                                        <span>{card.hours}{#if density === 'detailed' && card.estimatedCost} · ~{card.estimatedCost}{/if}</span>
+                                      </span>
+                                      {#if card.breakLabel}<span class="day-card__break">{card.breakLabel}</span>{/if}
+                                      <span class="day-card__services">
+                                        {#each card.shifts as chip (chip.key)}
+                                          <span class="day-card__service-row is-{chip.service}">
+                                            <span class="day-card__service-icon" aria-hidden="true">{chip.spansDay ? '↔' : chip.service === 'evening' ? '☾' : '☀'}</span>
+                                            <b>{chip.area}</b>
+                                            <span>{chip.position}</span>
+                                            <em>{chip.hours}{#if density === 'detailed' && chip.estimatedCost} · ~{chip.estimatedCost}{/if}</em>
+                                          </span>
+                                        {/each}
+                                      </span>
+                                    </span>
+
+                                    {#if dayConflict}<span class="day-card__warning" aria-label={t(dayOverlap ? 'Overlapping shifts' : 'Conflict')} title={t(dayOverlap ? 'Overlapping shifts' : 'Conflict')}>!</span>{/if}
                                     {#if dayOverlap && shifts.length > 1}
                                       <span class="day-card__overlap-label">{t('Overlap')}</span>
                                     {/if}
@@ -1030,64 +1069,60 @@
   .service-zone__state { position: absolute; left: 6px; right: 6px; bottom: 6px; overflow: hidden; color: var(--cl-muted); font-size: 9px; font-weight: var(--rst-fw-medium); text-align: center; text-overflow: ellipsis; white-space: nowrap; }
   .service-canvas.has-card > .service-zone { pointer-events: none; }
 
-  /* One premium card per employee/day. The outer card always uses the full cell;
-     lunch/evening occupancy is expressed by the two internal colour fills. */
-  .day-card { --lunch-color: var(--cl-muted); --evening-color: var(--cl-muted); position: absolute; z-index: 3; inset: 7px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: hidden; border: 1px solid var(--cl-line-strong); border-radius: 7px; background: color-mix(in srgb, var(--cl-surface) 97%, transparent); box-shadow: 0 2px 7px rgb(0 0 0 / .055); isolation: isolate; transition: border-color var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease), transform var(--cl-dur) var(--cl-ease); }
+  /* One premium card per employee/day. Lunch/evening occupy the background,
+     while one full-width content hierarchy summarizes the complete day. */
+  .day-card { --lunch-color: var(--cl-muted); --evening-color: var(--cl-muted); position: absolute; z-index: 3; inset: 7px; overflow: hidden; border: 1px solid var(--cl-line-strong); border-radius: 7px; background: var(--cl-surface); box-shadow: 0 2px 7px rgb(0 0 0 / .055); isolation: isolate; transition: border-color var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease), transform var(--cl-dur) var(--cl-ease); }
   .day-card:hover { border-color: color-mix(in srgb, var(--cl-ink) 20%, var(--cl-line)); box-shadow: 0 5px 13px rgb(0 0 0 / .09); transform: translateY(-1px); }
   .day-card__surface { position: absolute; z-index: 0; inset: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); pointer-events: none; }
-  .day-card__fill { opacity: 0; transition: opacity var(--cl-dur) var(--cl-ease); }
-  .day-card__fill.is-active { opacity: 1; }
-  .day-card__fill.is-lunch { background: color-mix(in srgb, var(--lunch-color) 13%, var(--cl-surface)); box-shadow: inset 3px 0 0 var(--lunch-color); }
-  .day-card__fill.is-evening { background: color-mix(in srgb, var(--evening-color) 13%, var(--cl-surface)); box-shadow: inset -3px 0 0 var(--evening-color); }
-  .day-card__divider { position: absolute; top: 7px; bottom: 7px; left: 50%; width: 1px; background: color-mix(in srgb, var(--cl-line-strong) 72%, transparent); }
-  .day-card.is-full-day .day-card__divider { opacity: .35; }
+  .day-card__fill { opacity: 1; background: color-mix(in srgb, var(--cl-surface-muted) 58%, var(--cl-surface)); transition: background var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease); }
+  .day-card__fill.is-lunch.is-active { background: linear-gradient(90deg, color-mix(in srgb, var(--lunch-color) 16%, var(--cl-surface)), color-mix(in srgb, var(--lunch-color) 10%, var(--cl-surface))); box-shadow: inset 3px 0 0 var(--lunch-color); }
+  .day-card__fill.is-evening.is-active { background: linear-gradient(90deg, color-mix(in srgb, var(--evening-color) 10%, var(--cl-surface)), color-mix(in srgb, var(--evening-color) 16%, var(--cl-surface))); box-shadow: inset -3px 0 0 var(--evening-color); }
+  .day-card.is-lunch-only .day-card__fill.is-evening { background: linear-gradient(90deg, color-mix(in srgb, var(--lunch-color) 6%, var(--cl-surface)), color-mix(in srgb, var(--lunch-color) 1.5%, var(--cl-surface))); }
+  .day-card.is-evening-only .day-card__fill.is-lunch { background: linear-gradient(90deg, color-mix(in srgb, var(--evening-color) 1.5%, var(--cl-surface)), color-mix(in srgb, var(--evening-color) 6%, var(--cl-surface))); }
+  .day-card.is-full-day .day-card__fill { background: color-mix(in srgb, var(--lunch-color) 14%, var(--cl-surface)); }
+  .day-card.is-full-day .day-card__fill.is-lunch { box-shadow: inset 3px 0 0 var(--lunch-color); }
+  .day-card.is-full-day .day-card__fill.is-evening { box-shadow: inset -3px 0 0 var(--evening-color); }
+  .day-card__divider { position: absolute; top: 7px; bottom: 7px; left: 50%; width: 1px; background: color-mix(in srgb, var(--cl-line-strong) 48%, transparent); }
+  .day-card.is-full-day .day-card__divider { opacity: .22; }
 
-  .day-card__hit { position: absolute; z-index: 4; top: 0; bottom: 0; width: 66%; padding: 0; border: 0; background: transparent; cursor: pointer; }
+  .day-card__hit { position: absolute; z-index: 4; top: 0; bottom: 0; width: 50%; padding: 0; border: 0; background: transparent; cursor: pointer; }
   .day-card__hit.is-lunch { left: 0; }
   .day-card__hit.is-evening { right: 0; }
   .day-card__hit.is-span { left: 0; width: 100%; }
   .day-card__hit[draggable='true'] { cursor: grab; }
-  .day-card__hit:focus-visible, .day-card__segment:focus-visible, .day-card__add:focus-visible { outline: 2px solid var(--cl-accent); outline-offset: -3px; }
+  .day-card__hit:hover { background: color-mix(in srgb, var(--cl-surface) 10%, transparent); }
+  .day-card__hit:focus-visible, .day-card__add:focus-visible { outline: 2px solid var(--cl-accent); outline-offset: -3px; }
 
-  .day-card__add { position: absolute; z-index: 5; top: 0; bottom: 0; display: grid; place-items: center; width: 34%; padding: 0; border: 0; background: transparent; color: transparent; font: inherit; cursor: pointer; transition: color var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease); }
+  .day-card__add { position: absolute; z-index: 5; top: 0; bottom: 0; display: flex; align-items: flex-end; justify-content: center; width: 50%; padding: 0 5px 6px; border: 0; background: transparent; color: transparent; font: inherit; cursor: pointer; transition: color var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease); }
   .day-card__add.is-lunch { left: 0; }
   .day-card__add.is-evening { right: 0; }
-  .day-card__add:not(:disabled):hover, .day-card__add:not(:disabled):focus-visible { color: color-mix(in srgb, var(--cl-accent) 80%, var(--cl-muted)); background: color-mix(in srgb, var(--cl-accent) 5%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cl-accent) 36%, transparent); }
-  .day-card__add span { display: grid; place-items: center; width: 25px; height: 25px; border-radius: 50%; background: color-mix(in srgb, var(--cl-surface) 90%, transparent); font-size: 13px; box-shadow: 0 1px 4px rgb(0 0 0 / .08); }
+  .day-card__add:not(:disabled):hover, .day-card__add:not(:disabled):focus-visible { color: color-mix(in srgb, var(--cl-accent) 82%, var(--cl-muted)); background: linear-gradient(180deg, transparent 28%, color-mix(in srgb, var(--cl-accent) 7%, var(--cl-surface)) 100%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cl-accent) 34%, transparent); }
+  .day-card__add span { opacity: 0; max-width: 100%; overflow: hidden; padding: 2px 6px; border-radius: 999px; background: color-mix(in srgb, var(--cl-surface) 90%, transparent); font-size: 8px; font-weight: var(--rst-fw-bold); text-overflow: ellipsis; white-space: nowrap; transform: translateY(2px); transition: opacity var(--cl-dur) var(--cl-ease), transform var(--cl-dur) var(--cl-ease); }
+  .day-card__add:not(:disabled):hover span, .day-card__add:not(:disabled):focus-visible span { opacity: 1; transform: translateY(0); }
   .day-card__add:disabled { cursor: default; }
 
-  .day-card__content { position: absolute; z-index: 2; top: 0; bottom: 0; display: grid; align-content: center; gap: 4px; min-width: 0; padding: 9px 12px; pointer-events: none; }
-  .day-card__content.is-single { left: 0; right: 0; }
-  .day-card__content.is-single.is-lunch { right: 29%; }
-  .day-card__content.is-single.is-evening { left: 29%; }
-  .day-card__service { color: color-mix(in srgb, var(--cl-muted) 78%, var(--cl-ink)); font-size: 10px; line-height: 1; }
-  .day-card__top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; }
+  .day-card__content { position: absolute; z-index: 2; inset: 0; display: grid; align-content: center; gap: 3px; min-width: 0; padding: 7px 9px 6px; pointer-events: none; }
+  .day-card__top { display: flex; align-items: baseline; justify-content: space-between; gap: 7px; min-width: 0; }
   .day-card__top strong { overflow: hidden; color: var(--cl-ink); font-size: 12px; font-weight: var(--rst-fw-bold); font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
-  .day-card__top > span { flex: 0 0 auto; color: var(--cl-muted); font-size: 10px; }
-  .day-card__meta { display: flex; align-items: center; gap: 6px; min-width: 0; }
-  .day-card__meta b, .day-card__meta span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .day-card__meta b { color: color-mix(in srgb, var(--lunch-color) 54%, var(--cl-ink)); font-size: 10px; font-weight: var(--rst-fw-bold); }
-  .day-card__content.is-evening .day-card__meta b { color: color-mix(in srgb, var(--evening-color) 54%, var(--cl-ink)); }
-  .day-card__meta span { color: var(--cl-muted); font-size: 9px; }
-  .day-card__detail { display: flex; align-items: center; justify-content: space-between; gap: 7px; min-width: 0; color: var(--cl-muted); font-size: 9px; }
-  .day-card__detail span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-  .day-card__split-content { position: absolute; z-index: 3; inset: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .day-card__segment { position: relative; display: grid; align-content: center; gap: 3px; min-width: 0; padding: 8px 7px; border: 0; background: transparent; color: var(--cl-ink); font: inherit; text-align: left; cursor: pointer; }
-  .day-card__segment + .day-card__segment { border-left: 1px solid color-mix(in srgb, var(--cl-line-strong) 72%, transparent); }
-  .day-card__segment:hover { background: color-mix(in srgb, var(--cl-surface) 22%, transparent); }
-  .day-card__segment[draggable='true'] { cursor: grab; }
-  .day-card__segment .day-card__service { font-size: 9px; }
-  .day-card__segment-time { display: grid; gap: 1px; min-width: 0; }
-  .day-card__segment-time strong { overflow: hidden; font-size: 10px; font-weight: var(--rst-fw-bold); font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
-  .day-card__segment-time span { color: var(--cl-muted); font-size: 9px; }
-  .day-card__segment-area, .day-card__segment-detail { overflow: hidden; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
-  .day-card__segment-area { color: var(--cl-ink); font-weight: var(--rst-fw-medium); }
-  .day-card__segment-detail { display: flex; justify-content: space-between; gap: 4px; color: var(--cl-muted); }
-  .day-card__segment-detail span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .day-card__top > span { flex: 0 0 auto; color: var(--cl-muted); font-size: 9px; font-variant-numeric: tabular-nums; }
+  .day-card__break { overflow: hidden; color: color-mix(in srgb, var(--cl-attention) 72%, var(--cl-ink)); font-size: 8px; font-weight: var(--rst-fw-medium); line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; }
+  .day-card__services { display: grid; gap: 2px; min-width: 0; }
+  .day-card__service-row { display: grid; grid-template-columns: 11px minmax(0, auto) minmax(0, 1fr) auto; align-items: center; gap: 4px; min-width: 0; line-height: 1.15; }
+  .day-card__service-icon { color: color-mix(in srgb, var(--cl-muted) 76%, var(--cl-ink)); font-size: 9px; text-align: center; }
+  .day-card__service-row b, .day-card__service-row > span:not(.day-card__service-icon), .day-card__service-row em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .day-card__service-row b { color: var(--cl-ink); font-size: 9px; font-weight: var(--rst-fw-bold); }
+  .day-card__service-row > span:not(.day-card__service-icon) { color: var(--cl-muted); font-size: 8px; }
+  .day-card__service-row em { color: var(--cl-muted); font-size: 8px; font-style: normal; font-variant-numeric: tabular-nums; }
+  .is-detailed .day-card__content { gap: 5px; padding: 10px 11px 9px; }
+  .is-detailed .day-card__top strong { font-size: 13px; }
+  .is-detailed .day-card__top > span { font-size: 10px; }
+  .is-detailed .day-card__break { font-size: 9px; }
+  .is-detailed .day-card__services { gap: 4px; }
+  .is-detailed .day-card__service-row { grid-template-columns: 12px minmax(0, auto) minmax(0, 1fr) auto; gap: 5px; }
+  .is-detailed .day-card__service-icon, .is-detailed .day-card__service-row b { font-size: 10px; }
+  .is-detailed .day-card__service-row > span:not(.day-card__service-icon), .is-detailed .day-card__service-row em { font-size: 9px; }
 
   .day-card__warning { position: absolute; z-index: 8; top: 5px; right: 5px; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: var(--cl-problem); color: white; font-size: 9px; font-weight: var(--rst-fw-bold); box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
-  .day-card__segment.is-evening .day-card__warning { right: 5px; }
   .day-card__overlap-label { position: absolute; z-index: 9; right: 5px; bottom: 4px; padding: 2px 5px; border-radius: 999px; background: var(--cl-problem); color: white; font-size: 8px; font-weight: var(--rst-fw-bold); text-transform: uppercase; letter-spacing: .02em; pointer-events: none; }
   .day-card.is-conflict { border-color: var(--cl-problem-line); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cl-problem) 28%, transparent), 0 2px 7px rgb(0 0 0 / .055); }
   .day-card.is-published-conflict { box-shadow: inset 0 0 0 1px var(--cl-problem), 0 0 0 2px color-mix(in srgb, var(--cl-problem) 10%, transparent), 0 3px 9px rgb(0 0 0 / .07); }
