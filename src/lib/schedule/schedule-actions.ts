@@ -55,8 +55,13 @@ export async function saveSchedule(input: {
   wasPublished: boolean;
   allowCoverageGaps?: boolean;
   allowConflicts?: boolean;
+  operationalWarningCount?: number;
 }): Promise<void> {
   const publishing = input.status === 'published';
+  const operationalWarningSuffix =
+    publishing && input.operationalWarningCount
+      ? ` Confirmed ${input.operationalWarningCount} operational warning${input.operationalWarningCount === 1 ? '' : 's'}.`
+      : '';
   await savePlanning({
     restaurantId: input.restaurantId,
     weekStart: input.weekStart,
@@ -81,8 +86,8 @@ export async function saveSchedule(input: {
     allowConflicts: publishing && input.allowConflicts,
     reason: publishing
       ? input.wasPublished
-        ? 'Published schedule updated and republished.'
-        : 'Weekly schedule reviewed and published.'
+        ? `Published schedule updated and republished.${operationalWarningSuffix}`
+        : `Weekly schedule reviewed and published.${operationalWarningSuffix}`
       : 'Draft schedule saved.'
   });
   await refreshSchedule(input.restaurantId, input.weekStart);

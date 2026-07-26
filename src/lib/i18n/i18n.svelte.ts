@@ -4855,3 +4855,23 @@ Object.assign(dutch, {
   'Open Tables': 'Tafels openen',
   'Edit tables': 'Tafels bewerken'
 });
+
+Object.assign(french, {
+  'Missing area': 'Zone manquante',
+  'Archived area': 'Zone archivÃ©e',
+  'Missing position': 'Poste manquant',
+  'Archived position': 'Poste archivÃ©',
+  'Position not assigned to employee': 'Poste non attribuÃ© Ã  lâ€™employÃ©',
+  'Closed service': 'Service fermÃ©',
+  'Setup warnings': 'Alertes de configuration'
+});
+
+Object.assign(dutch, {
+  'Missing area': 'Ontbrekende zone',
+  'Archived area': 'Gearchiveerde zone',
+  'Missing position': 'Ontbrekende functie',
+  'Archived position': 'Gearchiveerde functie',
+  'Position not assigned to employee': 'Functie niet aan medewerker toegewezen',
+  'Closed service': 'Gesloten service',
+  'Setup warnings': 'Configuratiewaarschuwingen'
+});

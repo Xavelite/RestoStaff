@@ -35,9 +35,11 @@
     planningDraftForWeek,
     planningContractOverages,
     planningNotesForWeek,
+    planningOperationalWarnings,
     planningOverlapKeys,
     planningOverlaps,
     type PlanningGridSlot,
+    type PlanningOperationalWarningKind,
     type PlanningShiftDraft
   } from '$lib/schedule/schedule-model';
   import { buildAreaColorMap, buildEmployeeColorMap } from '$lib/ui/position-color';
@@ -729,11 +731,31 @@
     ).length;
   }
 
+  function operationalWarningLabel(kind: PlanningOperationalWarningKind): string {
+    if (kind === 'missing_area') return t('Missing area');
+    if (kind === 'inactive_area') return t('Archived area');
+    if (kind === 'missing_position') return t('Missing position');
+    if (kind === 'inactive_position') return t('Archived position');
+    if (kind === 'unassigned_position') return t('Position not assigned to employee');
+    return t('Closed service');
+  }
+
+  function operationalWarningCounts(
+    warnings: ReturnType<typeof planningOperationalWarnings>
+  ): Array<[PlanningOperationalWarningKind, number]> {
+    const counts = new Map<PlanningOperationalWarningKind, number>();
+    for (const warning of warnings) {
+      counts.set(warning.kind, (counts.get(warning.kind) ?? 0) + 1);
+    }
+    return [...counts];
+  }
+
   async function publishWeek(
     weekStart: string,
     revision: number,
     wasPublished: boolean,
-    conflictCount: number
+    conflictCount: number,
+    operationalWarningCount: number
   ): Promise<void> {
     if (!workspace.activeId || publishing || scheduleDraft.saving) return;
     publishing = true;
@@ -748,7 +770,8 @@
         expectedRevision: revision,
         wasPublished,
         allowCoverageGaps: true,
-        allowConflicts: conflictCount > 0
+        allowConflicts: conflictCount > 0,
+        operationalWarningCount
       });
       scheduleDraft.settle();
       showPublishConfirm = false;
@@ -776,12 +799,21 @@
     }
     const gaps = snapshot ? coverageIssues(snapshot, scheduleDraft.shifts, weekStart) : [];
     const conflicts = snapshot ? planningConflicts(snapshot, scheduleDraft.shifts, weekStart) : [];
+    const operationalWarnings = snapshot
+      ? planningOperationalWarnings(snapshot, scheduleDraft.shifts)
+      : [];
     const pending = pendingRequestCount(grid);
-    if (gaps.length || conflicts.length || pending || contractOverages(scheduleDraft.shifts).length) {
+    if (
+      gaps.length ||
+      conflicts.length ||
+      operationalWarnings.length ||
+      pending ||
+      contractOverages(scheduleDraft.shifts).length
+    ) {
       showPublishConfirm = true;
       return;
     }
-    void publishWeek(weekStart, revision, wasPublished, conflicts.length);
+    void publishWeek(weekStart, revision, wasPublished, conflicts.length, 0);
   }
 
   function openWeekPicker(): void {
@@ -816,6 +848,8 @@
         {@const weekCost = shiftsCost(weekEntries)}
         {@const publishGaps = snapshot ? coverageIssues(snapshot, scheduleDraft.shifts, week.weekStart) : []}
         {@const publishConflicts = snapshot ? planningConflicts(snapshot, scheduleDraft.shifts, week.weekStart) : []}
+        {@const publishOperationalWarnings = snapshot ? planningOperationalWarnings(snapshot, scheduleDraft.shifts) : []}
+        {@const publishOperationalGroups = operationalWarningCounts(publishOperationalWarnings)}
         {@const publishPending = pendingRequestCount(grid)}
         {@const publishContractOverages = contractOverages(scheduleDraft.shifts)}
         <section class="schedule-panel" class:is-compact={compactCards}>
@@ -1204,11 +1238,19 @@
               <span><b>{publishGaps.length}</b>{t('Coverage gaps')}</span>
               <span><b>{publishPending}</b>{t('Pending requests')}</span>
               <span><b>{publishContractOverages.length}</b>{t('Contract overages')}</span>
+              <span><b>{publishOperationalWarnings.length}</b>{t('Setup warnings')}</span>
             </div>
+            {#if publishOperationalWarnings.length}
+              <div class="publish-review__warnings">
+                {#each publishOperationalGroups as [kind, count]}
+                  <span><b>{count}</b>{operationalWarningLabel(kind)}</span>
+                {/each}
+              </div>
+            {/if}
             <p>{t('These points do not block publication. Employees will see the schedule exactly as shown after you confirm.')}</p>
             <div class="publish-review__actions">
               <button class="cl-btn" type="button" onclick={() => (showPublishConfirm = false)}>{t('Cancel')}</button>
-              <button class="publish-btn" type="button" disabled={publishing} onclick={() => void publishWeek(week.weekStart, week.revision, week.published, publishConflicts.length)}>{t(publishing ? 'Publishing…' : week.published ? 'Republish' : 'Publish')}</button>
+              <button class="publish-btn" type="button" disabled={publishing} onclick={() => void publishWeek(week.weekStart, week.revision, week.published, publishConflicts.length, publishOperationalWarnings.length)}>{t(publishing ? 'Publishing…' : week.published ? 'Republish' : 'Publish')}</button>
             </div>
           </div>
         </Dialog>
@@ -1486,9 +1528,12 @@
   .draft-save > span i { width: 6px; height: 6px; border-radius: 50%; background: var(--cl-attention); }
 
   .publish-review { display: grid; gap: 16px; padding: 16px; }
-  .publish-review__stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .publish-review__stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
   .publish-review__stats span { display: grid; gap: 4px; padding: 12px; border: 1px solid var(--cl-line); border-radius: 6px; background: var(--cl-surface-muted); color: var(--cl-muted); font-size: 11px; }
   .publish-review__stats b { color: var(--cl-ink); font-size: 20px; }
+  .publish-review__warnings { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px; border: 1px solid color-mix(in srgb, var(--cl-attention) 28%, var(--cl-line)); border-radius: 6px; background: color-mix(in srgb, var(--cl-attention) 6%, var(--cl-surface)); }
+  .publish-review__warnings span { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border: 1px solid color-mix(in srgb, var(--cl-attention) 25%, var(--cl-line)); border-radius: 999px; background: var(--cl-surface); color: var(--cl-muted); font-size: 11px; }
+  .publish-review__warnings b { color: var(--cl-attention); }
   .publish-review p { margin: 0; color: var(--cl-muted); font-size: 13px; line-height: 1.55; }
   .publish-review__actions { display: flex; justify-content: flex-end; gap: 8px; }
   .shift-dialog__hint { margin-right: auto; align-self: center; color: var(--cl-muted); font-size: 11px; }

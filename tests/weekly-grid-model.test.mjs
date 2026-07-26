@@ -11,6 +11,7 @@ import {
   buildPlanningWeek,
   planningContractOverages,
   planningDraftForWeek,
+  planningOperationalWarnings,
   planningOverlapKeys,
   planningOverlaps
 } from '../src/lib/schedule/schedule-model.ts';
@@ -129,6 +130,30 @@ test('contract-hour overages ignore undefined regimes and report the exact exces
   assert.deepEqual(
     planningContractOverages(shifts, new Map([['e1', 16], ['unrestricted', 0]])),
     [{ employeeId: 'e1', planned: 19, target: 16, excess: 3 }]
+  );
+});
+
+test('operational setup concerns remain explicit publish warnings', () => {
+  const modelSnapshot = snapshot({
+    work_areas: [{ id: 'a1', name: 'Hall', active: false }],
+    job_functions: [{ id: 'j1', name: 'Server', active: true }],
+    employee_job_functions: [],
+    opening_hours: [{ weekday: 1, service_key: 'lunch', is_open: true }]
+  });
+  const shifts = [{
+    employeeId: 'e1',
+    weekday: 1,
+    serviceKey: 'lunch',
+    areaId: 'a1',
+    jobFunctionId: 'j1',
+    startsAt: '12:00',
+    endsAt: '15:00',
+    source: 'manual'
+  }];
+
+  assert.deepEqual(
+    planningOperationalWarnings(modelSnapshot, shifts).map((warning) => warning.kind),
+    ['inactive_area', 'unassigned_position']
   );
 });
 

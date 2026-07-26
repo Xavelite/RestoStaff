@@ -130,6 +130,39 @@ test('schedule republish migration keeps published weeks auditable and rejects o
   assert.doesNotMatch(migration, /Revert the published plan to draft before publishing it again/);
 });
 
+test('planning operational setup concerns are confirmable warnings, not publication blockers', async () => {
+  const migration = await readFile(
+    'supabase/migrations/20260726230144_planning_operational_warning_contract.sql',
+    'utf8'
+  );
+  assert.match(migration, /Planning operational warning guard contract drifted/);
+  assert.match(migration, /Published shifts require valid start and end times/);
+  assert.match(migration, /replace\(v_definition, v_old_guard, v_new_guard\)/);
+  assert.match(
+    migration,
+    /save_manager_planning\(uuid,date,text,jsonb,jsonb,bigint,text,boolean,boolean\)/
+  );
+});
+
+test('venue saves preserve one stable reservation room per work area', async () => {
+  const migration = await readFile(
+    'supabase/migrations/20260726230651_restore_venue_room_identity.sql',
+    'utf8'
+  );
+  const editor = await readFile(
+    'src/lib/reservations/ReservationFloorPlansWorkspace.svelte',
+    'utf8'
+  );
+  assert.match(migration, /and area\.active/);
+  assert.match(migration, /on conflict \(restaurant_id, work_area_id\) do update/);
+  assert.match(migration, /Reservation floor-plan room upsert contract drifted/);
+  assert.match(editor, /const activeAreaIds = new Set/);
+  assert.match(
+    editor,
+    /mode === 'venue' && activeAreaIds\.has\(room\.work_area_id\) \? true : room\.active/
+  );
+});
+
 
 test('availability remains editable after schedule publication', async () => {
   const migration = await readFile(

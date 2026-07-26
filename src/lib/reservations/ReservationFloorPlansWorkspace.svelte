@@ -138,6 +138,9 @@
   }
 
   function toDraft(value: ReservationFloorPlans): ReservationFloorPlansDraft {
+    const activeAreaIds = new Set(
+      value.areas.filter((area) => area.active).map((area) => area.id)
+    );
     const rooms = value.rooms.map((room) => ({
       id: room.id,
       work_area_id: room.work_area_id,
@@ -146,7 +149,9 @@
       position_y: Number(room.position_y),
       width: Number(room.width),
       height: Number(room.height),
-      active: room.active,
+      // A room is the stable spatial identity of an active work area. Revive
+      // archived legacy rooms in Venue rather than generating a duplicate ID.
+      active: mode === 'venue' && activeAreaIds.has(room.work_area_id) ? true : room.active,
       sort_order: room.sort_order
     }));
     if (mode === 'venue') {

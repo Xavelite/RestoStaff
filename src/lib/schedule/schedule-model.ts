@@ -60,6 +60,23 @@ export type PlanningContractOverage = {
   excess: number;
 };
 
+export type PlanningOperationalWarningKind =
+  | 'missing_area'
+  | 'inactive_area'
+  | 'missing_position'
+  | 'inactive_position'
+  | 'unassigned_position'
+  | 'closed_service';
+
+export type PlanningOperationalWarning = {
+  kind: PlanningOperationalWarningKind;
+  employeeId: string;
+  weekday: number;
+  serviceKey: ServiceKey;
+  areaId: string;
+  jobFunctionId: string;
+};
+
 /**
  * Contracted weekly hours are a soft planning guardrail. A missing or zero
  * target is intentionally unrestricted; positive targets report only the
@@ -83,6 +100,60 @@ export function planningContractOverages(
     if (target <= 0 || planned <= target) return [];
     return [{ employeeId, planned, target, excess: planned - target }];
   });
+}
+
+/**
+ * Operational setup never makes a shift structurally impossible. These
+ * warnings explain unusual choices before publication while leaving the
+ * manager in control. Invalid people, services, times and overlaps remain
+ * hard server guards.
+ */
+export function planningOperationalWarnings(
+  snapshot: ManagerOperationsReadModel,
+  shifts: PlanningShiftDraft[]
+): PlanningOperationalWarning[] {
+  const areas = new Map(snapshot.work_areas.map((area) => [area.id, area]));
+  const positions = new Map(snapshot.job_functions.map((position) => [position.id, position]));
+  const assignments = new Set(
+    snapshot.employee_job_functions
+      .filter((assignment) => assignment.active)
+      .map((assignment) => `${assignment.employee_id}|${assignment.job_function_id}`)
+  );
+  const openServices = new Set(
+    snapshot.opening_hours
+      .filter((hours) => hours.is_open)
+      .map((hours) => `${hours.weekday}|${hours.service_key}`)
+  );
+  const warnings: PlanningOperationalWarning[] = [];
+
+  for (const shift of shifts) {
+    const base = {
+      employeeId: shift.employeeId,
+      weekday: shift.weekday,
+      serviceKey: shift.serviceKey,
+      areaId: shift.areaId,
+      jobFunctionId: shift.jobFunctionId
+    };
+    const area = areas.get(shift.areaId);
+    const position = positions.get(shift.jobFunctionId);
+
+    if (!area) warnings.push({ ...base, kind: 'missing_area' });
+    else if (!area.active) warnings.push({ ...base, kind: 'inactive_area' });
+
+    if (!position) warnings.push({ ...base, kind: 'missing_position' });
+    else {
+      if (!position.active) warnings.push({ ...base, kind: 'inactive_position' });
+      if (!assignments.has(`${shift.employeeId}|${shift.jobFunctionId}`)) {
+        warnings.push({ ...base, kind: 'unassigned_position' });
+      }
+    }
+
+    if (!openServices.has(`${shift.weekday}|${shift.serviceKey}`)) {
+      warnings.push({ ...base, kind: 'closed_service' });
+    }
+  }
+
+  return warnings;
 }
 
 function shiftInterval(shift: Pick<PlanningShiftDraft, 'startsAt' | 'endsAt'>): [number, number] | null {

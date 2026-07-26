@@ -15,6 +15,8 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"check:dead-code": "knip --no-progress",
 		"check:edge": "deno check supabase/functions/send-employee-invitation/index.ts supabase/functions/upload-badge-proof/index.ts supabase/functions/get-badge-proof/index.ts supabase/functions/dispatch-push/index.ts supabase/seed/create-role-fixtures.ts",
+		"check:migrations": "node scripts/verify-migration-integrity.mjs",
+		"migrations:record": "node scripts/verify-migration-integrity.mjs --write",
 		"verify:database:linked": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-linked-database.ps1",
 		"verify:hosted": "node scripts/verify-hosted-acceptance.mjs",
 		"verify:hosted:disposable": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-hosted-acceptance.ps1",
@@ -28,7 +30,7 @@
 		"provision:platform-admin": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/provision-platform-admin.ps1",
 		"promote:pilot-tenant": "node scripts/promote-pilot-tenant.mjs",
 		"test": "node --experimental-strip-types --test tests/*.test.mjs",
-		"validate": "npm run test && npm run check && npm run check:edge && npm run check:dead-code && npm run build"
+		"validate": "npm run check:migrations && npm run test && npm run check && npm run check:edge && npm run check:dead-code && npm run build"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-static": "^3.0.10",
