@@ -4819,3 +4819,39 @@ Object.assign(dutch, {
   'Colour inherited from primary area': 'Kleur overgenomen van de primaire zone',
   'Across areas': 'Meerdere zones'
 });
+
+
+// Pilot UX terminology and small-screen editing guard (Phase 3).
+Object.assign(french, {
+  Venue: 'Lieu',
+  'Venue areas': 'Zones du lieu',
+  'Dining areas': 'Zones de salle',
+  'View only on small screens': 'Consultation uniquement sur petit écran',
+  'Use a tablet or desktop to move, resize or add venue elements.': 'Utilisez une tablette ou un ordinateur pour déplacer, redimensionner ou ajouter des éléments du lieu.',
+  'Build the venue in Restaurant → Venue before adding tables.': 'Créez le lieu dans Restaurant → Lieu avant d’ajouter des tables.',
+  'Open Restaurant Venue': 'Ouvrir Restaurant → Lieu',
+  'Venue saved.': 'Lieu enregistré.',
+  'Tables saved.': 'Tables enregistrées.',
+  'Venue and tables are managed visually': 'Le lieu et les tables sont gérés visuellement',
+  'Build the venue and add tables before using the live floor view.': 'Créez le lieu et ajoutez les tables avant d’utiliser la vue en direct.',
+  'Build the venue in Restaurant → Venue, then add tables in Reservations → Tables.': 'Créez le lieu dans Restaurant → Lieu, puis ajoutez les tables dans Réservations → Tables.',
+  'Open Tables': 'Ouvrir Tables',
+  'Edit tables': 'Modifier les tables'
+});
+
+Object.assign(dutch, {
+  Venue: 'Zaak',
+  'Venue areas': 'Zones van de zaak',
+  'Dining areas': 'Zaalzones',
+  'View only on small screens': 'Alleen bekijken op kleine schermen',
+  'Use a tablet or desktop to move, resize or add venue elements.': 'Gebruik een tablet of computer om elementen te verplaatsen, te schalen of toe te voegen.',
+  'Build the venue in Restaurant → Venue before adding tables.': 'Bouw de zaak in Restaurant → Zaak voordat je tafels toevoegt.',
+  'Open Restaurant Venue': 'Restaurant → Zaak openen',
+  'Venue saved.': 'Zaak opgeslagen.',
+  'Tables saved.': 'Tafels opgeslagen.',
+  'Venue and tables are managed visually': 'De zaak en tafels worden visueel beheerd',
+  'Build the venue and add tables before using the live floor view.': 'Bouw de zaak en voeg tafels toe voordat je de live zaalweergave gebruikt.',
+  'Build the venue in Restaurant → Venue, then add tables in Reservations → Tables.': 'Bouw de zaak in Restaurant → Zaak en voeg daarna tafels toe in Reservaties → Tafels.',
+  'Open Tables': 'Tafels openen',
+  'Edit tables': 'Tafels bewerken'
+});

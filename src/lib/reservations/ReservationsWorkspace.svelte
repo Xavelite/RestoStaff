@@ -459,7 +459,7 @@
               ).length ?? 0}</small>
             </button>
           {/each}
-          <a href="/reservations/floor-plans">{t('Edit floor plans')}</a>
+          <a href="/reservations/floor-plans">{t('Edit tables')}</a>
         </div>
         {#if liveFloor}
           <div class="live-floor__workspace">
@@ -470,7 +470,7 @@
               roomName={liveFloor.name}
               floorWidth={liveFloor.canvas_width}
               floorHeight={liveFloor.canvas_height}
-              emptyMessage="Place Restaurant areas and tables in Floor plans."
+              emptyMessage="Build the venue and add tables before using the live floor view."
               onselect={selectFloorTable}
             />
             <aside class="arrival-rail">
@@ -509,8 +509,8 @@
         {:else}
           <div class="cl-empty">
             <strong>{t('No reservable room yet')}</strong>
-            <span>{t('Create the venue in Restaurant Areas, then add tables in Floor plans.')}</span>
-            <a class="cl-btn is-primary" href="/reservations/floor-plans">{t('Open floor plans')}</a>
+            <span>{t('Build the venue in Restaurant → Venue, then add tables in Reservations → Tables.')}</span>
+            <a class="cl-btn is-primary" href="/reservations/floor-plans">{t('Open Tables')}</a>
           </div>
         {/if}
       </section>

@@ -2,8 +2,8 @@ import type { WorkspaceRole } from '$lib/api/workspace';
 
 /**
  * The classic navigation model: one entry per module, each with its own
- * sub-navigation. The shell renders whatever is listed here, including modules
- * that are not built yet (Inventory), so adding a module is a data change.
+ * sub-navigation. Pilot surfaces show only completed modules; future modules can
+ * stay registered here without leaking into Home or the everyday sidebar.
  */
 export type ClassicSubNavItem = {
   href: string;
@@ -18,9 +18,9 @@ export type ClassicModule = {
   summary: string;
   icon: ClassicIcon;
   roles: WorkspaceRole[];
-  /** Modules with no screens yet still appear, marked as coming later. */
+  /** Marks a module as unfinished so pilot surfaces can exclude it. */
   placeholder?: boolean;
-  /** Home-only future modules stay out of the everyday sidebar. */
+  /** Future modules stay out of the everyday sidebar and pilot Home. */
   homeOnly?: boolean;
   /** A full-screen module has no sidebar, no tabs (badge terminal). */
   fullscreen?: boolean;
@@ -95,13 +95,13 @@ const CLASSIC_MODULES: ClassicModule[] = [
     key: 'restaurant',
     href: '/restaurant',
     label: 'Restaurant',
-    summary: 'Identity, opening hours, areas and positions',
+    summary: 'Identity, opening hours, venue and positions',
     icon: 'restaurant',
     roles: MANAGER,
     subNav: [
       { href: '/restaurant', label: 'Identity' },
       { href: '/restaurant/hours', label: 'Hours' },
-      { href: '/restaurant/areas', label: 'Areas' },
+      { href: '/restaurant/areas', label: 'Venue' },
       { href: '/restaurant/positions', label: 'Positions' },
       { href: '/restaurant/coverage', label: 'Coverage' },
       { href: '/restaurant/absence-types', label: 'Absence types' }
@@ -127,7 +127,7 @@ const CLASSIC_MODULES: ClassicModule[] = [
     subNav: [
       { href: '/reservations', label: 'Live' },
       { href: '/reservations/bookings', label: 'Bookings' },
-      { href: '/reservations/floor-plans', label: 'Floor plans' },
+      { href: '/reservations/floor-plans', label: 'Tables' },
       { href: '/reservations/setup', label: 'Settings' }
     ]
   },
@@ -210,8 +210,6 @@ const CLASSIC_MODULES: ClassicModule[] = [
     summary: 'Hours, cost and operational trends',
     icon: 'reports',
     roles: MANAGER,
-    placeholder: true,
-    homeOnly: true,
     subNav: [
       { href: '/reports', label: 'Overview' },
       { href: '/reports/people', label: 'People' },

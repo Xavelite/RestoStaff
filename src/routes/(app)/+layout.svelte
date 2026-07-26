@@ -284,9 +284,7 @@
             </div>
           </section>
         {:else}
-          {#key `${page.url.pathname}${page.url.search}`}
-            {@render children()}
-          {/key}
+          {@render children()}
         {/if}
       </main>
     </div>

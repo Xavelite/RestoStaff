@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { friendlyError } from '$lib/api/error-messages';
   import Dialog from '$lib/components/Dialog.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
@@ -41,8 +42,18 @@
   let selectedRoomId = $state('');
   let selectedTableId = $state('');
   let tableToArchive = $state<ReservationTableDraft | null>(null);
+  let compactViewport = $state(false);
   const ROOM_GRID = 20;
   const TABLE_GRID = 10;
+  const editorReadOnly = $derived(compactViewport || workspace.isPreview);
+
+  onMount(() => {
+    const media = window.matchMedia('(max-width: 760px)');
+    const update = () => (compactViewport = media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  });
 
   const selectedFloor = $derived(
     draft?.floors.find((floor) => floor.id === selectedFloorId && floor.active) ?? null
@@ -564,7 +575,7 @@
         await saveReservationFloorPlans(workspace.activeId, draft, source?.revision ?? 0);
       }
       await load(workspace.activeId);
-      toasts.show(t('Floor plans saved.'), 'success');
+      toasts.show(t(mode === 'venue' ? 'Venue saved.' : 'Tables saved.'), 'success');
     } catch (cause) {
       error = friendlyError(cause);
       toasts.show(error, 'danger');
@@ -584,14 +595,14 @@
   }
 </script>
 
-<svelte:head><title>{t('Floor plans')} &middot; restogogo</title></svelte:head>
+<svelte:head><title>{t(mode === 'venue' ? 'Venue' : 'Tables')} &middot; restogogo</title></svelte:head>
 
 {#if error}<div class="floor-error" role="alert">{error}</div>{/if}
 
 <ClassicTablePanel
     dirty={dirty || Boolean(restaurantContext?.dirty)}
     saving={saving || Boolean(restaurantContext?.saving)}
-    canSave={canSave() && (restaurantContext?.canSave ?? true)}
+    canSave={!editorReadOnly && canSave() && (restaurantContext?.canSave ?? true)}
     onsave={() => void save()}
     ondiscard={discard}
   >
@@ -609,7 +620,7 @@
             <section class="cl-card">
               <div class="cl-card__head">
                 <div><h2>{t('Floors')}</h2><p>{t('One canvas per physical level of the restaurant.')}</p></div>
-                {#if mode === 'venue'}<button class="cl-btn is-icon" type="button" aria-label={t('Add floor')} onclick={addFloor}>+</button>{/if}
+                {#if mode === 'venue'}<button class="cl-btn is-icon" type="button" aria-label={t('Add floor')} disabled={editorReadOnly} onclick={addFloor}>+</button>{/if}
               </div>
               <div class="floor-list">
                 {#each draft.floors.filter((floor) => floor.active) as floor (floor.id)}
@@ -627,8 +638,8 @@
 
             <section class="cl-card">
               <div class="cl-card__head">
-                <div><h2>{t('Restaurant areas')}</h2><p>{mode === 'venue' ? t('Place each operational area on its physical floor.') : t('Select an area, then add and arrange its tables.')}</p></div>
-                {#if mode === 'venue'}<button class="cl-btn is-icon" type="button" aria-label={t('Add area')} disabled={!selectedFloor || workspace.isPreview} onclick={addArea}>+</button>{/if}
+                <div><h2>{t(mode === 'venue' ? 'Venue areas' : 'Dining areas')}</h2><p>{mode === 'venue' ? t('Place each operational area on its physical floor.') : t('Select an area, then add and arrange its tables.')}</p></div>
+                {#if mode === 'venue'}<button class="cl-btn is-icon" type="button" aria-label={t('Add area')} disabled={!selectedFloor || editorReadOnly} onclick={addArea}>+</button>{/if}
               </div>
               <div class="area-list">
                 {#each mergedRooms as room (room.id)}
@@ -663,7 +674,7 @@
               <div class="cl-card__head plan-head">
                 <div class="floor-title">
                   {#if mode === 'venue'}
-                    <input class="floor-name" aria-label={t('Floor name')} bind:value={selectedFloor.name} oninput={touch} />
+                    <input class="floor-name" aria-label={t('Floor name')} readonly={editorReadOnly} bind:value={selectedFloor.name} oninput={touch} />
                   {:else}
                     <h2>{selectedFloor.name}</h2>
                   {/if}
@@ -673,11 +684,11 @@
 
               {#if selectedRoomDraft && selectedRoom && selectedAreaDraft && mode === 'venue'}
                 <div class="selection-bar room-selection is-above">
-                  <label class="area-name"><span>{t('Area name')}</span><input class="cl-field" bind:value={selectedAreaDraft.name} oninput={() => restaurantConfig.touch()} /></label>
-                  <label class="area-code"><span>{t('Code')}</span><input class="cl-field" placeholder={t('Optional')} bind:value={selectedAreaDraft.code} oninput={() => restaurantConfig.touch()} /></label>
-                  <div class="area-colour"><span>{t('Colour')}</span><ClassicPalettePicker value={selectedAreaDraft.color} palette={AREA_PALETTE} label={t('Choose area colour')} disabled={workspace.isPreview} onselect={(color) => { selectedAreaDraft.color = color; restaurantConfig.touch(); }} /></div>
+                  <label class="area-name"><span>{t('Area name')}</span><input class="cl-field" disabled={editorReadOnly} bind:value={selectedAreaDraft.name} oninput={() => restaurantConfig.touch()} /></label>
+                  <label class="area-code"><span>{t('Code')}</span><input class="cl-field" disabled={editorReadOnly} placeholder={t('Optional')} bind:value={selectedAreaDraft.code} oninput={() => restaurantConfig.touch()} /></label>
+                  <div class="area-colour"><span>{t('Colour')}</span><ClassicPalettePicker value={selectedAreaDraft.color} palette={AREA_PALETTE} label={t('Choose area colour')} disabled={editorReadOnly} onselect={(color) => { selectedAreaDraft.color = color; restaurantConfig.touch(); }} /></div>
                   <span class="resize-note">{t('Snaps to the grid and nearby areas.')}</span>
-                  <button class="cl-btn is-problem" type="button" onclick={archiveArea}>{t('Archive')}</button>
+                  <button class="cl-btn is-problem" type="button" disabled={editorReadOnly} onclick={archiveArea}>{t('Archive')}</button>
                 </div>
               {:else if mode === 'venue'}
                 <div class="selection-hint is-above">{t('Select an area to move it or resize from any edge or corner.')}</div>
@@ -685,26 +696,33 @@
 
               {#if mode === 'tables' && selectedTable}
                 <div class="selection-bar table-selection is-above">
-                  <label><span>{t('Table')}</span><input class="cl-field" bind:value={selectedTable.label} oninput={touch} /></label>
-                  <label><span>{t('Minimum')}</span><input class="cl-field" type="number" min="1" max="100" bind:value={selectedTable.minimum_capacity} oninput={touch} /></label>
-                  <label><span>{t('Maximum')}</span><input class="cl-field" type="number" min="1" max="500" bind:value={selectedTable.maximum_capacity} oninput={touch} /></label>
-                  <label><span>{t('Shape')}</span><select class="cl-field" bind:value={selectedTable.shape} onchange={touch}><option value="round">{t('Round')}</option><option value="square">{t('Square')}</option><option value="rectangle">{t('Rectangle')}</option></select></label>
-                  <button class="cl-btn" type="button" onclick={() => {
+                  <label><span>{t('Table')}</span><input class="cl-field" disabled={editorReadOnly} bind:value={selectedTable.label} oninput={touch} /></label>
+                  <label><span>{t('Minimum')}</span><input class="cl-field" disabled={editorReadOnly} type="number" min="1" max="100" bind:value={selectedTable.minimum_capacity} oninput={touch} /></label>
+                  <label><span>{t('Maximum')}</span><input class="cl-field" disabled={editorReadOnly} type="number" min="1" max="500" bind:value={selectedTable.maximum_capacity} oninput={touch} /></label>
+                  <label><span>{t('Shape')}</span><select class="cl-field" disabled={editorReadOnly} bind:value={selectedTable.shape} onchange={touch}><option value="round">{t('Round')}</option><option value="square">{t('Square')}</option><option value="rectangle">{t('Rectangle')}</option></select></label>
+                  <button class="cl-btn" type="button" disabled={editorReadOnly} onclick={() => {
                     selectedTable.rotation_degrees = (Number(selectedTable.rotation_degrees) + 15) % 360;
                     touch();
                   }}>{t('Rotate 15°')}</button>
-                  <button class="cl-btn" type="button" onclick={() => duplicateTable(selectedTable)}>{t('Duplicate')}</button>
-                  <button class="cl-btn is-problem" type="button" onclick={() => (tableToArchive = selectedTable)}>{t('Archive')}</button>
+                  <button class="cl-btn" type="button" disabled={editorReadOnly} onclick={() => duplicateTable(selectedTable)}>{t('Duplicate')}</button>
+                  <button class="cl-btn is-problem" type="button" disabled={editorReadOnly} onclick={() => (tableToArchive = selectedTable)}>{t('Archive')}</button>
                 </div>
               {:else if selectedRoomDraft && selectedRoom && mode === 'tables'}
                 <div class="selection-bar room-selection is-above">
                   <div><span>{t('Selected area')}</span><strong>{selectedRoom.name}</strong></div>
                   <span class="resize-note">{t('Tables snap into a clean alignment as you drag.')}</span>
-                  <button class="cl-btn" type="button" onclick={() => arrangeTables()}>{t('Arrange tables')}</button>
-                  <button class="cl-btn is-primary" type="button" onclick={addTable}>+ {t('Add table')}</button>
+                  <button class="cl-btn" type="button" disabled={editorReadOnly} onclick={() => arrangeTables()}>{t('Arrange tables')}</button>
+                  <button class="cl-btn is-primary" type="button" disabled={editorReadOnly} onclick={addTable}>+ {t('Add table')}</button>
                 </div>
               {:else if mode === 'tables'}
                 <div class="selection-hint is-above">{t('Select an area to add tables, then drag each table into place.')}</div>
+              {/if}
+
+              {#if compactViewport}
+                <div class="compact-notice" role="status">
+                  <strong>{t('View only on small screens')}</strong>
+                  <span>{t('Use a tablet or desktop to move, resize or add venue elements.')}</span>
+                </div>
               {/if}
 
               <div class="venue-canvas">
@@ -714,11 +732,11 @@
                   roomName={selectedFloor.name}
                   floorWidth={selectedFloor.canvas_width}
                   floorHeight={selectedFloor.canvas_height}
-                  editable
+                  editable={!editorReadOnly}
                   showHeader={false}
-                  floorEditable={mode === 'venue'}
-                  roomsEditable={mode === 'venue'}
-                  tablesEditable={mode === 'tables'}
+                  floorEditable={mode === 'venue' && !editorReadOnly}
+                  roomsEditable={mode === 'venue' && !editorReadOnly}
+                  tablesEditable={mode === 'tables' && !editorReadOnly}
                   {selectedRoomId}
                   {selectedTableId}
                   emptyMessage="Place an area on this floor, then add its tables."
@@ -740,11 +758,11 @@
             {:else}
               <div class="cl-empty">
                 <strong>{t('Create your first floor')}</strong>
-                <span>{mode === 'venue' ? t('Create the physical levels of the restaurant, then place areas.') : t('Create floors and areas in Restaurant before adding tables.')}</span>
+                <span>{mode === 'venue' ? t('Create the physical levels of the restaurant, then place areas.') : t('Build the venue in Restaurant → Venue before adding tables.')}</span>
                 {#if mode === 'venue'}
-                  <button class="cl-btn is-primary" type="button" onclick={addFloor}>{t('Add floor')}</button>
+                  <button class="cl-btn is-primary" type="button" disabled={editorReadOnly} onclick={addFloor}>{t('Add floor')}</button>
                 {:else}
-                  <a class="cl-btn is-primary" href="/restaurant/areas">{t('Open Restaurant Areas')}</a>
+                  <a class="cl-btn is-primary" href="/restaurant/areas">{t('Open Restaurant Venue')}</a>
                 {/if}
               </div>
             {/if}
@@ -763,6 +781,9 @@
 </Dialog>
 
 <style>
+  .compact-notice { display: grid; gap: 2px; padding: 10px 12px; border-top: 1px solid var(--cl-line); border-bottom: 1px solid var(--cl-line); background: var(--cl-attention-wash); color: var(--cl-ink); font-size: 11px; }
+  .compact-notice strong { font-size: 11.5px; }
+  .compact-notice span { color: var(--cl-muted); line-height: 1.4; }
   .floor-error { padding: 10px 12px; border: 1px solid var(--cl-problem-line); border-left: 3px solid var(--cl-problem); border-radius: var(--cl-radius); background: var(--cl-problem-wash); color: var(--cl-problem); font-size: 12px; }
   .floor-loading { display: grid; gap: 16px; padding: 24px; }
   .venue-editor { display: grid; grid-template-columns: 232px minmax(640px, 1fr); gap: 16px; align-items: start; }

@@ -151,7 +151,8 @@ test('classic workspace chrome pins navigation and derives tabs directly from th
   assert.match(layout, /const activeTabs = \$derived\(activeModule\?\.subNav \?\? \[\]\)/);
   assert.match(layout, /subNavItemForPath\(activeModule, page\.url\.pathname\)/);
   assert.doesNotMatch(layout, /classicChrome/);
-  assert.match(layout, /\{#key `\$\{page\.url\.pathname\}\$\{page\.url\.search\}`\}[\s\S]*\{@render children\(\)\}[\s\S]*\{\/key\}/);
+  assert.match(layout, /\{@render children\(\)\}/);
+  assert.doesNotMatch(layout, /#key `\$\{page\.url\.pathname\}\$\{page\.url\.search\}`/);
   assert.match(page, /class="cl-page__toolbar"/);
   assert.match(css, /\.cl-topbar\s*\{[\s\S]*?position:\s*fixed;/);
   assert.match(css, /\.cl-sidebar\s*\{[\s\S]*?position:\s*fixed;/);
@@ -400,4 +401,23 @@ test('Restaurant Areas is the direct-manipulation venue canvas instead of a dupl
   assert.match(canvas, /class="floor-resize is-\{edge\}"/);
   assert.match(canvas, /class="snap-guide is-vertical"/);
   assert.doesNotMatch(canvas, /Floor plan zoom|zoom-value/);
+});
+
+test('pilot UX exposes only active modules and separates Venue from Tables', async () => {
+  const home = await readFile('src/routes/(app)/home/+page.svelte', 'utf8');
+  const nav = await readFile('src/lib/classic/classic-nav.ts', 'utf8');
+  const layout = await readFile('src/routes/(app)/+layout.svelte', 'utf8');
+  const venue = await readFile('src/lib/reservations/ReservationFloorPlansWorkspace.svelte', 'utf8');
+
+  assert.match(home, /!module\.placeholder && !module\.homeOnly/);
+  assert.doesNotMatch(home, /Core workspace|Upcoming|laterModules|workspaceTiles/);
+  assert.match(nav, /\/restaurant\/areas', label: 'Venue'/);
+  assert.match(nav, /\/reservations\/floor-plans', label: 'Tables'/);
+  const reportsBlock = nav.match(/key: 'reports'[\s\S]*?  \},/)?.[0] ?? '';
+  assert.match(reportsBlock, /subNav:/);
+  assert.doesNotMatch(reportsBlock, /placeholder|homeOnly/);
+  assert.doesNotMatch(layout, /#key `\$\{page\.url\.pathname\}\$\{page\.url\.search\}`/);
+  assert.match(venue, /editorReadOnly = \$derived\(compactViewport \|\| workspace\.isPreview\)/);
+  assert.match(venue, /editable=\{!editorReadOnly\}/);
+  assert.match(venue, /View only on small screens/);
 });
