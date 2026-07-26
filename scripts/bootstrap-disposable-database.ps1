@@ -126,9 +126,10 @@ try {
     'focused_read_models_contract.sql',
     'payroll_export_contract.sql',
     'model_integrity_contract.sql',
-    'notification_payroll_contract.sql',
-    'push_notification_contract.sql'
-  )
+      'notification_payroll_contract.sql',
+      'push_notification_contract.sql',
+      'reservation_contract.sql'
+    )
 
   Write-Host 'Executing rollback-contained security and workflow contracts...'
   foreach ($contract in $contracts) {

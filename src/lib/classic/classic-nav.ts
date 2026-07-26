@@ -33,6 +33,7 @@ export type ClassicIcon =
   | 'time'
   | 'team'
   | 'restaurant'
+  | 'reservations'
   | 'inventory'
   | 'payroll'
   | 'badge'
@@ -118,13 +119,17 @@ const CLASSIC_MODULES: ClassicModule[] = [
   },
   {
     key: 'reservations',
-    href: '/coming-soon/reservations',
+    href: '/reservations',
     label: 'Reservations',
-    summary: 'Table plan, bookings, deposits and guest notes',
-    icon: 'schedule',
+    summary: 'Bookings, covers, tables and service demand',
+    icon: 'reservations',
     roles: MANAGER,
-    placeholder: true,
-    homeOnly: true
+    subNav: [
+      { href: '/reservations', label: 'Live' },
+      { href: '/reservations/bookings', label: 'Bookings' },
+      { href: '/reservations/floor-plans', label: 'Floor plans' },
+      { href: '/reservations/setup', label: 'Settings' }
+    ]
   },
   {
     key: 'recipes',

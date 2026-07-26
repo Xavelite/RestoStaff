@@ -35,6 +35,9 @@
     <path d="M4 9h16l-1.2-4H5.2z" />
     <path d="M5 9v10h14V9" />
     <path d="M9.5 19v-5h5v5" />
+  {:else if name === 'reservations'}
+    <path d="M4 19h16M6 19v-7a6 6 0 0 1 12 0v7" />
+    <path d="M12 4v2M9 4h6M4 15h16" />
   {:else if name === 'inventory'}
     <path d="m12 3 8 4.2v9.6L12 21l-8-4.2V7.2z" />
     <path d="m4 7.2 8 4.3 8-4.3M12 11.5V21" />

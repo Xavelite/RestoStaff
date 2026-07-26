@@ -3781,6 +3781,813 @@ export type Database = {
           },
         ]
       }
+      reservation_events: {
+        Row: {
+          actor_profile_id: string | null
+          details: Json
+          event_type: string
+          from_status: string | null
+          id: string
+          occurred_at: string
+          reservation_id: string
+          restaurant_id: string
+          to_status: string | null
+        }
+        Insert: {
+          actor_profile_id?: string | null
+          details?: Json
+          event_type: string
+          from_status?: string | null
+          id?: string
+          occurred_at?: string
+          reservation_id: string
+          restaurant_id: string
+          to_status?: string | null
+        }
+        Update: {
+          actor_profile_id?: string | null
+          details?: Json
+          event_type?: string
+          from_status?: string | null
+          id?: string
+          occurred_at?: string
+          reservation_id?: string
+          restaurant_id?: string
+          to_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_events_actor_profile_id_fkey"
+            columns: ["actor_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_events_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_events_restaurant_id_reservation_id_fkey"
+            columns: ["restaurant_id", "reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+        ]
+      }
+      reservation_floors: {
+        Row: {
+          active: boolean
+          canvas_height: number
+          canvas_width: number
+          created_at: string
+          id: string
+          level: number
+          metadata: Json
+          name: string
+          restaurant_id: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          canvas_height?: number
+          canvas_width?: number
+          created_at?: string
+          id?: string
+          level?: number
+          metadata?: Json
+          name: string
+          restaurant_id: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          canvas_height?: number
+          canvas_width?: number
+          created_at?: string
+          id?: string
+          level?: number
+          metadata?: Json
+          name?: string
+          restaurant_id?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_floors_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reservation_guests: {
+        Row: {
+          allergies: string | null
+          anonymized_at: string | null
+          created_at: string
+          display_name: string
+          email: string | null
+          id: string
+          internal_notes: string | null
+          language_code: string
+          marketing_email_consent: boolean
+          marketing_sms_consent: boolean
+          metadata: Json
+          normalized_email: string | null
+          normalized_phone: string | null
+          phone: string | null
+          preferences: string | null
+          preferred_room_id: string | null
+          preferred_table_id: string | null
+          restaurant_id: string
+          updated_at: string
+        }
+        Insert: {
+          allergies?: string | null
+          anonymized_at?: string | null
+          created_at?: string
+          display_name: string
+          email?: string | null
+          id?: string
+          internal_notes?: string | null
+          language_code?: string
+          marketing_email_consent?: boolean
+          marketing_sms_consent?: boolean
+          metadata?: Json
+          normalized_email?: string | null
+          normalized_phone?: string | null
+          phone?: string | null
+          preferences?: string | null
+          preferred_room_id?: string | null
+          preferred_table_id?: string | null
+          restaurant_id: string
+          updated_at?: string
+        }
+        Update: {
+          allergies?: string | null
+          anonymized_at?: string | null
+          created_at?: string
+          display_name?: string
+          email?: string | null
+          id?: string
+          internal_notes?: string | null
+          language_code?: string
+          marketing_email_consent?: boolean
+          marketing_sms_consent?: boolean
+          metadata?: Json
+          normalized_email?: string | null
+          normalized_phone?: string | null
+          phone?: string | null
+          preferences?: string | null
+          preferred_room_id?: string | null
+          preferred_table_id?: string | null
+          restaurant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_guests_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_guests_restaurant_id_preferred_room_id_fkey"
+            columns: ["restaurant_id", "preferred_room_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_rooms"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+          {
+            foreignKeyName: "reservation_guests_restaurant_id_preferred_table_id_fkey"
+            columns: ["restaurant_id", "preferred_table_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_tables"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+        ]
+      }
+      reservation_rooms: {
+        Row: {
+          active: boolean
+          created_at: string
+          floor_id: string | null
+          height: number
+          id: string
+          metadata: Json
+          position_x: number
+          position_y: number
+          restaurant_id: string
+          sort_order: number
+          updated_at: string
+          width: number
+          work_area_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          floor_id?: string | null
+          height?: number
+          id?: string
+          metadata?: Json
+          position_x?: number
+          position_y?: number
+          restaurant_id: string
+          sort_order?: number
+          updated_at?: string
+          width?: number
+          work_area_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          floor_id?: string | null
+          height?: number
+          id?: string
+          metadata?: Json
+          position_x?: number
+          position_y?: number
+          restaurant_id?: string
+          sort_order?: number
+          updated_at?: string
+          width?: number
+          work_area_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_rooms_floor_fk"
+            columns: ["restaurant_id", "floor_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_floors"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+          {
+            foreignKeyName: "reservation_rooms_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_rooms_restaurant_id_work_area_id_fkey"
+            columns: ["restaurant_id", "work_area_id"]
+            isOneToOne: true
+            referencedRelation: "work_areas"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+        ]
+      }
+      reservation_service_exceptions: {
+        Row: {
+          availability: string
+          business_date: string
+          closes_at: string | null
+          created_at: string
+          created_by_profile_id: string | null
+          id: string
+          opens_at: string | null
+          reason: string | null
+          restaurant_id: string
+          service_key: string
+          updated_at: string
+        }
+        Insert: {
+          availability: string
+          business_date: string
+          closes_at?: string | null
+          created_at?: string
+          created_by_profile_id?: string | null
+          id?: string
+          opens_at?: string | null
+          reason?: string | null
+          restaurant_id: string
+          service_key: string
+          updated_at?: string
+        }
+        Update: {
+          availability?: string
+          business_date?: string
+          closes_at?: string | null
+          created_at?: string
+          created_by_profile_id?: string | null
+          id?: string
+          opens_at?: string | null
+          reason?: string | null
+          restaurant_id?: string
+          service_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_service_exceptions_created_by_profile_id_fkey"
+            columns: ["created_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_service_exceptions_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_service_exceptions_restaurant_id_service_key_fkey"
+            columns: ["restaurant_id", "service_key"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["restaurant_id", "service_key"]
+          },
+        ]
+      }
+      reservation_service_settings: {
+        Row: {
+          advance_booking_days: number
+          automatic_confirmation: boolean
+          booking_cutoff_minutes: number
+          booking_enabled: boolean
+          created_at: string
+          default_duration_minutes: number
+          maximum_covers: number | null
+          maximum_party_size: number
+          metadata: Json
+          minimum_party_size: number
+          restaurant_id: string
+          service_key: string
+          slot_interval_minutes: number
+          turn_time_minutes: number
+          updated_at: string
+        }
+        Insert: {
+          advance_booking_days?: number
+          automatic_confirmation?: boolean
+          booking_cutoff_minutes?: number
+          booking_enabled?: boolean
+          created_at?: string
+          default_duration_minutes?: number
+          maximum_covers?: number | null
+          maximum_party_size?: number
+          metadata?: Json
+          minimum_party_size?: number
+          restaurant_id: string
+          service_key: string
+          slot_interval_minutes?: number
+          turn_time_minutes?: number
+          updated_at?: string
+        }
+        Update: {
+          advance_booking_days?: number
+          automatic_confirmation?: boolean
+          booking_cutoff_minutes?: number
+          booking_enabled?: boolean
+          created_at?: string
+          default_duration_minutes?: number
+          maximum_covers?: number | null
+          maximum_party_size?: number
+          metadata?: Json
+          minimum_party_size?: number
+          restaurant_id?: string
+          service_key?: string
+          slot_interval_minutes?: number
+          turn_time_minutes?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_service_settings_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_service_settings_restaurant_id_service_key_fkey"
+            columns: ["restaurant_id", "service_key"]
+            isOneToOne: true
+            referencedRelation: "services"
+            referencedColumns: ["restaurant_id", "service_key"]
+          },
+        ]
+      }
+      reservation_table_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by_profile_id: string | null
+          assignment_group_id: string
+          explanation: string | null
+          id: string
+          metadata: Json
+          reservation_id: string
+          restaurant_id: string
+          table_id: string
+          unassigned_at: string | null
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by_profile_id?: string | null
+          assignment_group_id?: string
+          explanation?: string | null
+          id?: string
+          metadata?: Json
+          reservation_id: string
+          restaurant_id: string
+          table_id: string
+          unassigned_at?: string | null
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by_profile_id?: string | null
+          assignment_group_id?: string
+          explanation?: string | null
+          id?: string
+          metadata?: Json
+          reservation_id?: string
+          restaurant_id?: string
+          table_id?: string
+          unassigned_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_table_assignments_assigned_by_profile_id_fkey"
+            columns: ["assigned_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_table_assignments_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_table_assignments_restaurant_id_reservation_id_fkey"
+            columns: ["restaurant_id", "reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+          {
+            foreignKeyName: "reservation_table_assignments_restaurant_id_table_id_fkey"
+            columns: ["restaurant_id", "table_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_tables"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+        ]
+      }
+      reservation_table_combination_members: {
+        Row: {
+          combination_id: string
+          created_at: string
+          restaurant_id: string
+          sort_order: number
+          table_id: string
+        }
+        Insert: {
+          combination_id: string
+          created_at?: string
+          restaurant_id: string
+          sort_order?: number
+          table_id: string
+        }
+        Update: {
+          combination_id?: string
+          created_at?: string
+          restaurant_id?: string
+          sort_order?: number
+          table_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_table_combination_membe_restaurant_id_table_id_fkey"
+            columns: ["restaurant_id", "table_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_tables"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+          {
+            foreignKeyName: "reservation_table_combination_members_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_table_combination_restaurant_id_combination_id_fkey"
+            columns: ["restaurant_id", "combination_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_table_combinations"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+        ]
+      }
+      reservation_table_combinations: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          maximum_capacity: number
+          metadata: Json
+          minimum_capacity: number
+          name: string
+          restaurant_id: string
+          room_id: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          maximum_capacity: number
+          metadata?: Json
+          minimum_capacity: number
+          name: string
+          restaurant_id: string
+          room_id: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          maximum_capacity?: number
+          metadata?: Json
+          minimum_capacity?: number
+          name?: string
+          restaurant_id?: string
+          room_id?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_table_combinations_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_table_combinations_restaurant_id_room_id_fkey"
+            columns: ["restaurant_id", "room_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_rooms"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+        ]
+      }
+      reservation_tables: {
+        Row: {
+          active: boolean
+          blocked: boolean
+          created_at: string
+          height: number
+          id: string
+          label: string
+          maximum_capacity: number
+          metadata: Json
+          minimum_capacity: number
+          position_x: number
+          position_y: number
+          restaurant_id: string
+          room_id: string
+          rotation_degrees: number
+          shape: string
+          sort_order: number
+          updated_at: string
+          width: number
+        }
+        Insert: {
+          active?: boolean
+          blocked?: boolean
+          created_at?: string
+          height?: number
+          id?: string
+          label: string
+          maximum_capacity?: number
+          metadata?: Json
+          minimum_capacity?: number
+          position_x?: number
+          position_y?: number
+          restaurant_id: string
+          room_id: string
+          rotation_degrees?: number
+          shape?: string
+          sort_order?: number
+          updated_at?: string
+          width?: number
+        }
+        Update: {
+          active?: boolean
+          blocked?: boolean
+          created_at?: string
+          height?: number
+          id?: string
+          label?: string
+          maximum_capacity?: number
+          metadata?: Json
+          minimum_capacity?: number
+          position_x?: number
+          position_y?: number
+          restaurant_id?: string
+          room_id?: string
+          rotation_degrees?: number
+          shape?: string
+          sort_order?: number
+          updated_at?: string
+          width?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_tables_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_tables_restaurant_id_room_id_fkey"
+            columns: ["restaurant_id", "room_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_rooms"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+        ]
+      }
+      reservations: {
+        Row: {
+          assignment_locked: boolean
+          business_date: string
+          created_at: string
+          created_by_profile_id: string | null
+          ends_at: string
+          guest_comment: string | null
+          guest_id: string
+          id: string
+          internal_notes: string | null
+          metadata: Json
+          party_size: number
+          restaurant_id: string
+          revision: number
+          room_preference_id: string | null
+          service_key: string
+          source: string
+          starts_at: string
+          status: string
+          updated_at: string
+          updated_by_profile_id: string | null
+        }
+        Insert: {
+          assignment_locked?: boolean
+          business_date: string
+          created_at?: string
+          created_by_profile_id?: string | null
+          ends_at: string
+          guest_comment?: string | null
+          guest_id: string
+          id?: string
+          internal_notes?: string | null
+          metadata?: Json
+          party_size: number
+          restaurant_id: string
+          revision?: number
+          room_preference_id?: string | null
+          service_key: string
+          source?: string
+          starts_at: string
+          status?: string
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Update: {
+          assignment_locked?: boolean
+          business_date?: string
+          created_at?: string
+          created_by_profile_id?: string | null
+          ends_at?: string
+          guest_comment?: string | null
+          guest_id?: string
+          id?: string
+          internal_notes?: string | null
+          metadata?: Json
+          party_size?: number
+          restaurant_id?: string
+          revision?: number
+          room_preference_id?: string | null
+          service_key?: string
+          source?: string
+          starts_at?: string
+          status?: string
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservations_created_by_profile_id_fkey"
+            columns: ["created_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservations_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservations_restaurant_id_guest_id_fkey"
+            columns: ["restaurant_id", "guest_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_guests"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+          {
+            foreignKeyName: "reservations_restaurant_id_room_preference_id_fkey"
+            columns: ["restaurant_id", "room_preference_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_rooms"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+          {
+            foreignKeyName: "reservations_restaurant_id_service_key_fkey"
+            columns: ["restaurant_id", "service_key"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["restaurant_id", "service_key"]
+          },
+          {
+            foreignKeyName: "reservations_updated_by_profile_id_fkey"
+            columns: ["updated_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      restaurant_employment_settings: {
+        Row: {
+          created_at: string
+          dimona_submission_mode: string
+          establishment_unit_number: string | null
+          external_employer_id: string | null
+          joint_committee_code: string
+          metadata: Json
+          onss_employer_number: string | null
+          restaurant_id: string
+          social_secretariat_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          dimona_submission_mode?: string
+          establishment_unit_number?: string | null
+          external_employer_id?: string | null
+          joint_committee_code?: string
+          metadata?: Json
+          onss_employer_number?: string | null
+          restaurant_id: string
+          social_secretariat_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          dimona_submission_mode?: string
+          establishment_unit_number?: string | null
+          external_employer_id?: string | null
+          joint_committee_code?: string
+          metadata?: Json
+          onss_employer_number?: string | null
+          restaurant_id?: string
+          social_secretariat_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_employment_settings_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: true
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       restaurant_memberships: {
         Row: {
           created_at: string
@@ -4007,53 +4814,6 @@ export type Database = {
             columns: ["rule_set_id"]
             isOneToOne: false
             referencedRelation: "payroll_rule_sets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      restaurant_employment_settings: {
-        Row: {
-          created_at: string
-          dimona_submission_mode: string
-          establishment_unit_number: string | null
-          external_employer_id: string | null
-          joint_committee_code: string
-          metadata: Json
-          onss_employer_number: string | null
-          restaurant_id: string
-          social_secretariat_name: string | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          dimona_submission_mode?: string
-          establishment_unit_number?: string | null
-          external_employer_id?: string | null
-          joint_committee_code?: string
-          metadata?: Json
-          onss_employer_number?: string | null
-          restaurant_id: string
-          social_secretariat_name?: string | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          dimona_submission_mode?: string
-          establishment_unit_number?: string | null
-          external_employer_id?: string | null
-          joint_committee_code?: string
-          metadata?: Json
-          onss_employer_number?: string | null
-          restaurant_id?: string
-          social_secretariat_name?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "restaurant_employment_settings_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: true
-            referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
         ]
@@ -5177,6 +5937,18 @@ export type Database = {
         }
         Returns: Json
       }
+      check_reservation_availability: {
+        Args: {
+          p_business_date: string
+          p_exclude_reservation_id?: string
+          p_local_time: string
+          p_party_size: number
+          p_restaurant_id: string
+          p_room_id?: string
+          p_service_key: string
+        }
+        Returns: Json
+      }
       clear_owner_onboarding_draft: { Args: never; Returns: Json }
       create_payroll_export_run: {
         Args: {
@@ -5311,6 +6083,33 @@ export type Database = {
         }
         Returns: Json
       }
+      get_reservation_demand: {
+        Args: {
+          p_from_date: string
+          p_restaurant_id: string
+          p_to_date: string
+        }
+        Returns: {
+          business_date: string
+          expected_covers: number
+          first_arrival: string
+          last_arrival: string
+          reservation_count: number
+          service_key: string
+        }[]
+      }
+      get_reservation_floor_plans: {
+        Args: { p_restaurant_id: string }
+        Returns: Json
+      }
+      get_reservation_setup: {
+        Args: { p_restaurant_id: string }
+        Returns: Json
+      }
+      get_reservation_workspace: {
+        Args: { p_business_date: string; p_restaurant_id: string }
+        Returns: Json
+      }
       get_restaurant_read_model: {
         Args: { p_restaurant_id: string }
         Returns: Json
@@ -5352,6 +6151,7 @@ export type Database = {
         Args: { target_restaurant_id: string }
         Returns: boolean
       }
+      is_valid_belgian_niss: { Args: { value: string }; Returns: boolean }
       is_work_week_draft: {
         Args: { p_restaurant_id: string; p_week_start: string }
         Returns: boolean
@@ -5508,6 +6308,37 @@ export type Database = {
           profile_id: string
         }[]
       }
+      reservation_assignment_candidate: {
+        Args: {
+          p_ends_at: string
+          p_exclude_reservation_id?: string
+          p_party_size: number
+          p_restaurant_id: string
+          p_room_id?: string
+          p_starts_at: string
+        }
+        Returns: Json
+      }
+      reservation_availability_internal: {
+        Args: {
+          p_business_date: string
+          p_exclude_reservation_id?: string
+          p_local_time: string
+          p_party_size: number
+          p_restaurant_id: string
+          p_room_id?: string
+          p_service_key: string
+        }
+        Returns: Json
+      }
+      reservation_local_timestamp: {
+        Args: {
+          p_business_date: string
+          p_local_time: string
+          p_restaurant_id: string
+        }
+        Returns: string
+      }
       resolve_payroll_reconciliation: {
         Args: {
           p_explanation: string
@@ -5609,6 +6440,31 @@ export type Database = {
         }
         Returns: Json
       }
+      save_reservation: {
+        Args: { p_reservation: Json; p_restaurant_id: string }
+        Returns: Json
+      }
+      save_reservation_floor_plans: {
+        Args: {
+          p_combinations?: Json
+          p_floors: Json
+          p_restaurant_id: string
+          p_rooms: Json
+          p_tables: Json
+        }
+        Returns: Json
+      }
+      save_reservation_setup: {
+        Args: {
+          p_combinations?: Json
+          p_exceptions?: Json
+          p_restaurant_id: string
+          p_rooms: Json
+          p_services: Json
+          p_tables: Json
+        }
+        Returns: Json
+      }
       save_restaurant_model: {
         Args: {
           p_area_service_defaults?: Json
@@ -5706,6 +6562,15 @@ export type Database = {
       set_payroll_run_status: {
         Args: {
           p_payroll_run_id: string
+          p_restaurant_id: string
+          p_status: string
+        }
+        Returns: Json
+      }
+      set_reservation_status: {
+        Args: {
+          p_comment?: string
+          p_reservation_id: string
           p_restaurant_id: string
           p_status: string
         }

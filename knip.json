@@ -1,8 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "entry": [
-    "src/hooks.client.ts",
-    "src/service-worker.ts",
     "src/routes/**/+*.{ts,svelte}",
     "scripts/*.mjs",
     "supabase/functions/*/index.ts",
@@ -12,8 +10,6 @@
   "ignore": [
     "src/lib/supabase/database.types.ts",
     "src/lib/tour/**",
-    "src/lib/payroll/PayrollWorkspace.svelte",
-    "src/lib/payroll/RestaurantPayrollSetup.svelte",
     "src/lib/payroll/EmployeePayrollDetails.svelte",
     "src/lib/payroll/payroll-export.ts",
     "src/lib/payroll/payroll-export-columns.ts",

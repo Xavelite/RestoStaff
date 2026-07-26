@@ -9,6 +9,7 @@
 | `/timesheet` | Time & attendance | Owner, Manager | Reconcile badge truth, correct entries, monitor service, and approve weeks |
 | `/team` | Team | Owner, Manager | Employees, access, and leave; owner-only contracts and payroll readiness |
 | `/restaurant` | Restaurant | Owner | Areas, positions, services, hours, coverage, and policy |
+| `/reservations` | Reservations | Owner, Manager | Configure booking rules and floor plans; manage bookings, tables, covers, guests, and service status |
 | `/payroll` | Payroll preparation | Owner | Prepare employer and employee data, estimates and approved-hours exports for the social secretariat |
 | `/reports` | Reports | Owner, Manager | Parked roadmap module until reporting contracts are redesigned |
 | `/badge-terminal` | Badge terminal | Owner, Manager | Pair devices and open the shared touch-first PIN terminal |
@@ -46,6 +47,10 @@ Persisted identifiers such as `planning_status`, `actuals_status`, and
   only and never signs a user into the application.
 - Notifications are derived from operational truth. Only personal preferences
   and receipts are directly writable, under owner-row RLS.
+- Reservations reuse Restaurant services, opening hours, and work areas.
+  Availability and table assignment are decided transactionally on the server,
+  every lifecycle change appends immutable history, and Planning consumes only
+  the restaurant-scoped demand aggregate.
 - Managers can send concise operational messages to all active employees or a
   selected group. Read and acknowledgement receipts are per recipient and phone
   delivery follows each recipient's notification preferences.
@@ -68,4 +73,4 @@ provider-neutral and complete-week only.
 
 The authenticated product uses one classic workspace shell. Module tabs live in the fixed topbar; filters, period controls, add actions, Save, and Discard stay in the page toolbar. Planning, attendance, payroll-preparation, restaurant, and team tables use compact default columns, while complete evidence is opened through Details. Unsaved drafts are guarded before route, period, restaurant, preview, terminal, or sign-out changes.
 
-Reports, Inventory, Reservations, Recipes, Purchasing & suppliers, Menu costing, Tasks & checklists, and Food safety are Home-only later modules. They do not appear in the everyday sidebar until their operational contracts exist.
+Reports, Inventory, Recipes, Purchasing & suppliers, Menu costing, Tasks & checklists, and Food safety are Home-only later modules. They do not appear in the everyday sidebar until their operational contracts exist.

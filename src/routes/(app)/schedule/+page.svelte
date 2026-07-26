@@ -6,6 +6,8 @@
     clockMinutes,
     formatHours,
     hoursBetweenClocks,
+    mondayFor,
+    todayInTimezone,
     weekLabel,
     type ServiceKey
   } from '$lib/calendar/date';
@@ -52,6 +54,8 @@
   import { downloadCsv } from '$lib/export/csv';
   import { planningCsv } from '$lib/schedule/schedule-export';
   import { DEFAULT_PLANNING_EXPORT_COLUMNS } from '$lib/schedule/schedule-export-columns';
+  import { getReservationDemand } from '$lib/reservations/reservation-api';
+  import type { ReservationDemand } from '$lib/reservations/reservation-types';
 
   type GroupMode = 'none' | 'contract' | 'position' | 'area';
   type PlanningGrid = ReturnType<typeof buildPlanningWeek>;
@@ -171,6 +175,8 @@
   let dropKey = $state('');
   let weekPicker = $state<HTMLInputElement | null>(null);
   let compactCards = $state(false);
+  let reservationDemand = $state<ReservationDemand[]>([]);
+  let demandRequestId = 0;
 
   onMount(() => {
     try {
@@ -188,6 +194,45 @@
 
   $effect(() => {
     if (weatherLocation?.city) void restaurantWeather.load(weatherLocation);
+  });
+
+  const planningTimezone = $derived(
+    snapshot?.restaurant_settings.timezone ||
+      workspace.bootstrap?.restaurant_settings.timezone ||
+      'Europe/Brussels'
+  );
+  const demandWeekStart = $derived(
+    addDays(
+      mondayFor(todayInTimezone(planningTimezone)),
+      scheduleDraft.weekOffset * 7
+    )
+  );
+  const reservationDemandByDay = $derived.by(() => {
+    const map = new Map<string, number>();
+    for (const row of reservationDemand) {
+      map.set(
+        row.business_date,
+        (map.get(row.business_date) ?? 0) + Number(row.expected_covers)
+      );
+    }
+    return map;
+  });
+
+  $effect(() => {
+    const restaurantId = workspace.activeId;
+    const from = demandWeekStart;
+    if (!restaurantId || !from || workspace.isPreview) {
+      reservationDemand = [];
+      return;
+    }
+    const current = ++demandRequestId;
+    void getReservationDemand(restaurantId, from, addDays(from, 6))
+      .then((rows) => {
+        if (current === demandRequestId) reservationDemand = rows;
+      })
+      .catch(() => {
+        if (current === demandRequestId) reservationDemand = [];
+      });
   });
 
   function setGroupMode(next: GroupMode): void {
@@ -880,6 +925,7 @@
                     {@const dayEmployees = new Set(dayEntries.map((shift) => shift.employeeId)).size}
                     {@const total = dayEntries.reduce((sum, shift) => sum + hoursBetweenClocks(shift.startsAt, shift.endsAt), 0)}
                     {@const totalCost = shiftsCost(dayEntries)}
+                    {@const dayCovers = reservationDemandByDay.get(day.date) ?? 0}
                     {@const weather = restaurantWeather.dailyFor(day.date)}
                     <th class="board__day" class:is-today={day.today} class:is-weekend={day.weekday >= 6}>
                       <div class="board__day-date"><b>{t(day.label)}</b> {Number(day.date.slice(-2))}</div>
@@ -887,7 +933,12 @@
                         <div class="board__day-stat board__day-operations">
                           <span class="board__day-signal">
                             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.5 19c.4-3.2 2.2-5 5.5-5s5.1 1.8 5.5 5M16 5.5a3 3 0 0 1 0 5.8M16 14c2.8.2 4.2 1.8 4.5 4.5"/></svg>
-                            {dayEmployees} {t(dayEmployees === 1 ? 'employee' : 'employees')}
+                            {dayEmployees}
+                            {#if dayCovers}
+                              <i class="board__day-separator"></i>
+                              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 17h14M7 17v-5a5 5 0 0 1 10 0v5M12 5v2M9.5 5h5"/></svg>
+                              {dayCovers}
+                            {/if}
                           </span>
                           <b class="board__day-metric">
                             {formatHours(total)}
@@ -1291,6 +1342,7 @@
   .board__day-stat { min-width: 0; display: grid; grid-template-rows: 23px 11px; place-items: center; color: var(--cl-muted); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
   .board__day-signal { min-width: 0; max-width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 3px; overflow: hidden; text-overflow: ellipsis; }
   .board__day-signal > svg { flex: 0 0 auto; }
+  .board__day-separator { width: 1px; height: 9px; margin-inline: 1px; background: var(--cl-line-strong); }
   .board__day-metric { min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 3px; overflow: hidden; color: color-mix(in srgb, var(--cl-ink) 78%, var(--cl-muted)); font-size: 8.5px; font-weight: var(--rst-fw-bold); text-overflow: ellipsis; }
   .board__day-metric i { margin: 0 1px; color: var(--cl-line-strong); font-style: normal; }
   .board__weather-metric svg { color: #3287b8; }
