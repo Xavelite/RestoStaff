@@ -3,13 +3,13 @@
   import type { Snippet } from 'svelte';
   import ClassicTeamPage from '$lib/classic/ClassicTeamPage.svelte';
 
-  let { children }: { children: Snippet } = $props();
+  let { children: routeChildren }: { children: Snippet } = $props();
 </script>
 
 <ClassicTeamPage>
   {#snippet children(_context)}
     {#key page.url.pathname}
-      {@render children()}
+      {@render routeChildren()}
     {/key}
   {/snippet}
 </ClassicTeamPage>

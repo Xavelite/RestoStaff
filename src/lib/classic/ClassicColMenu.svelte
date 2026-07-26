@@ -7,6 +7,7 @@
   let {
     label,
     meta = '',
+    metaParts = [],
     align = 'left',
     sortable = false,
     sortDir = null,
@@ -23,6 +24,7 @@
   }: {
     label: string;
     meta?: string;
+    metaParts?: string[];
     align?: 'left' | 'right';
     sortable?: boolean;
     sortDir?: 'asc' | 'desc' | null;
@@ -106,7 +108,13 @@
   <button class="colhead__label" class:is-sortable={sortable} type="button" onclick={toggleSort} title={sortable ? t('Sort') : undefined}>
     <span class="colhead__copy">
       <span>{label}</span>
-      {#if meta}<small>{meta}</small>{/if}
+      {#if metaParts.length}
+        <small class="colhead__meta">
+          {#each metaParts as part}
+            <span>{part}</span>
+          {/each}
+        </small>
+      {:else if meta}<small>{meta}</small>{/if}
     </span>
     {#if sortDir}
       <svg class="colhead__sort" class:is-desc={sortDir === 'desc'} viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M6 11l6-6 6 6" /></svg>

@@ -9,6 +9,7 @@
   let {
     label,
     meta = '',
+    metaParts = [],
     align = 'left',
     sortable = false,
     sortDir = null,
@@ -29,6 +30,7 @@
   }: {
     label: string;
     meta?: string;
+    metaParts?: string[];
     align?: 'left' | 'right';
     sortable?: boolean;
     sortDir?: 'asc' | 'desc' | null;
@@ -54,6 +56,7 @@
     <ClassicColMenu
       {label}
       {meta}
+      {metaParts}
       {align}
       {sortable}
       {sortDir}
@@ -72,6 +75,7 @@
     <ClassicColMenu
       {label}
       {meta}
+      {metaParts}
       {align}
       {sortable}
       {sortDir}

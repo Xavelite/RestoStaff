@@ -196,13 +196,14 @@
 {#if feedback}<FeedbackBanner message={feedback} tone={feedbackTone} />{/if}
 
 {#if payroll}
+  {@const payrollView = payroll}
   <ClassicTablePanel>
     {#snippet meta()}
       <ClassicStatus
-        label={payroll.readiness.ready ? 'Evidence complete' : 'Needs attention'}
-        tone={payroll.readiness.ready ? 'ok' : 'problem'}
+        label={payrollView.readiness.ready ? 'Evidence complete' : 'Needs attention'}
+        tone={payrollView.readiness.ready ? 'ok' : 'problem'}
       />
-      <span>{t('{count} blockers', { count: payroll.readiness.blockers.length })}</span>
+      <span>{t('{count} blockers', { count: payrollView.readiness.blockers.length })}</span>
       <span>{t('{count} warnings', { count: openWarnings.length })}</span>
     {/snippet}
     {#snippet actions()}
@@ -213,7 +214,7 @@
       <button
         class="cl-btn is-primary"
         type="button"
-        disabled={busy || !payroll.readiness.ready}
+        disabled={busy || !payrollView.readiness.ready}
         onclick={calculate}
       >{t(busy ? 'Working…' : latestRun ? 'Recalculate' : 'Calculate payroll')}</button>
     {/snippet}

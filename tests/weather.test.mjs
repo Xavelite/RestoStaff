@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import {
   parseOpenMeteoForecast,
@@ -70,4 +71,14 @@ test('weather cache identity follows restaurant location rather than display cas
     weatherLocationKey({ city: ' Brussels ', postalCode: '1000', countryCode: 'BE' }),
     '1000|brussels|be'
   );
+});
+
+test('planning weather requests a useful scheduling window and stays optional', async () => {
+  const loader = await readFile('src/lib/weather/restaurant-weather.svelte.ts', 'utf8');
+
+  assert.match(loader, /searchParams\.set\('forecast_days', '16'\)/);
+  assert.match(loader, /searchParams\.set\('past_days', '7'\)/);
+  assert.match(loader, /const FORECAST_TTL = 20 \* 60 \* 1000/);
+  assert.match(loader, /dailyFor\(date: string\): DailyWeather \| null/);
+  assert.match(loader, /Weather is optional when browser storage is unavailable/);
 });

@@ -39,6 +39,8 @@
   } from '$lib/schedule/schedule-model';
   import { buildAreaColorMap, buildEmployeeColorMap } from '$lib/ui/position-color';
   import { personInitials } from '$lib/ui/person';
+  import { restaurantWeather } from '$lib/weather/restaurant-weather.svelte';
+  import { weatherCondition, weatherSymbol } from '$lib/weather/weather';
   import ClassicPage from '$lib/classic/ClassicPage.svelte';
   import ClassicScheduleWeek from '$lib/classic/ClassicScheduleWeek.svelte';
   import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
@@ -74,15 +76,25 @@
     timeLabel: string;
     hours: string;
     breakLabel: string;
+    breakValue: string;
     hasBreak: boolean;
     estimatedCost: string;
-    areaLabel: string;
     shifts: DayShiftView[];
   };
 
   const SERVICES: ServiceKey[] = ['lunch', 'evening'];
 
   const snapshot = $derived(workspace.operations);
+  const weatherLocation = $derived(
+    snapshot
+      ? {
+          city: snapshot.restaurant.city ?? '',
+          postalCode: snapshot.restaurant.postal_code ?? '',
+          countryCode: snapshot.restaurant.country_code,
+          timezone: snapshot.restaurant_settings.timezone ?? undefined
+        }
+      : null
+  );
   const employeeColor = $derived(
     snapshot
       ? buildEmployeeColorMap(snapshot.job_functions, snapshot.employee_job_functions)
@@ -154,6 +166,10 @@
       groupMode = 'none';
       compactCards = false;
     }
+  });
+
+  $effect(() => {
+    if (weatherLocation?.city) void restaurantWeather.load(weatherLocation);
   });
 
   function setGroupMode(next: GroupMode): void {
@@ -441,6 +457,7 @@
     const totalHours = ordered.reduce((sum, shift) => sum + shift.hoursValue, 0);
     const totalCost = ordered.reduce((sum, shift) => sum + shift.estimatedCostValue, 0);
     let breakLabel = t('No break');
+    let breakValue = '—';
     let hasBreak = false;
 
     if (ordered.length > 1) {
@@ -450,7 +467,8 @@
       if (firstEnd <= firstStart) firstEnd += 24 * 60;
       while (nextStart < firstStart) nextStart += 24 * 60;
       if (nextStart > firstEnd) {
-        breakLabel = t('{hours} break', { hours: formatHours((nextStart - firstEnd) / 60) });
+        breakValue = formatHours((nextStart - firstEnd) / 60);
+        breakLabel = t('{hours} break', { hours: breakValue });
         hasBreak = true;
       }
     }
@@ -461,9 +479,9 @@
         : `${clockLabel(first.startsAt)}–${clockLabel(last.endsAt)}`,
       hours: formatHours(totalHours),
       breakLabel,
+      breakValue,
       hasBreak,
       estimatedCost: totalCost > 0 ? money(totalCost) : '',
-      areaLabel: [...new Set(ordered.map((shift) => shift.area))].join(' → '),
       shifts: ordered
     };
   }
@@ -646,8 +664,9 @@
 
   function openWeekPicker(): void {
     if (!weekPicker) return;
-    if ('showPicker' in weekPicker) weekPicker.showPicker();
-    else weekPicker.click();
+    const picker = weekPicker as HTMLInputElement & { showPicker?: () => void };
+    if (typeof picker.showPicker === 'function') picker.showPicker();
+    else picker.click();
   }
 </script>
 
@@ -752,7 +771,7 @@
                   <th class="board__staff has-menu">
                     <ClassicPrimaryColMenu
                       label={`${t('Employee')} (${plannedEmployeeIds.size}/${totalEmployeeIds.size})`}
-                      meta={`${formatHours(weekHours)} · ${weekCost > 0 ? `~${money(weekCost)}` : '—'}`}
+                      metaParts={[formatHours(weekHours), weekCost > 0 ? `~${money(weekCost)}` : '—']}
                       sortable
                       sortDir={employeeSort}
                       onsort={(dir) => (employeeSort = dir)}
@@ -780,9 +799,26 @@
                     {@const dayEmployees = new Set(dayEntries.map((shift) => shift.employeeId)).size}
                     {@const total = dayEntries.reduce((sum, shift) => sum + hoursBetweenClocks(shift.startsAt, shift.endsAt), 0)}
                     {@const totalCost = shiftsCost(dayEntries)}
+                    {@const weather = restaurantWeather.dailyFor(day.date)}
                     <th class="board__day" class:is-today={day.today} class:is-weekend={day.weekday >= 6}>
-                      <span><b>{t(day.label)}</b> {Number(day.date.slice(-2))}</span>
-                      <small>{total ? `${dayEmployees} ${t(dayEmployees === 1 ? 'employee' : 'employees')} · ${formatHours(total)} · ${totalCost > 0 ? money(totalCost) : '—'}` : t('No shifts')}</small>
+                      <span class="board__day-main">
+                        <span><b>{t(day.label)}</b> {Number(day.date.slice(-2))}</span>
+                        {#if weather}
+                          <span
+                            class="board__weather"
+                            title={`${t(weatherCondition(weather.code))} · ${Math.round(weather.lowC)}–${Math.round(weather.highC)}°C · ${t('{chance}% rain', { chance: Math.round(weather.rainChance) })}`}
+                          >
+                            <span aria-hidden="true">{weatherSymbol(weather.code)}</span>
+                            <b>{Math.round(weather.highC)}°</b>
+                            <i>☂ {Math.round(weather.rainChance)}%</i>
+                          </span>
+                        {/if}
+                      </span>
+                      <small class="board__day-metrics">
+                        <span>{dayEmployees} {t(dayEmployees === 1 ? 'employee' : 'employees')}</span>
+                        <span>{formatHours(total)}</span>
+                        <span>{totalCost > 0 ? money(totalCost) : '—'}</span>
+                      </small>
                     </th>
                   {/each}
                 </tr>
@@ -915,7 +951,9 @@
                                     <span class="day-card__content">
                                       <span class="day-card__top">
                                         <strong>{card.timeLabel}</strong>
-                                        {#if !compactCards}
+                                        {#if compactCards}
+                                          <b class="day-card__compact-hours" title={t('Planned hours')}>{card.hours}</b>
+                                        {:else}
                                           <span class="day-card__metrics">
                                             <b title={t('Planned hours')}>{card.hours}</b>
                                             <b title={t('Estimated cost')}>{card.estimatedCost || '—'}</b>
@@ -928,13 +966,19 @@
                                           role="img"
                                           aria-label={t(dayOverlap ? 'Overlapping shifts' : 'Conflict')}
                                           title={t(dayOverlap ? 'Overlapping shifts' : 'Conflict')}
-                                        >!</span>
+                                        ></span>
                                       {/if}
                                       {#if compactCards}
                                         <span class="day-card__compact-meta">
-                                          <span title={t('Planned hours')}><i aria-hidden="true">◷</i>{card.hours}</span>
-                                          <span title={t('Break')} class:is-empty={!card.hasBreak}><i aria-hidden="true">☕</i>{card.breakLabel}</span>
-                                          <span class="day-card__compact-area" title={card.areaLabel}><i aria-hidden="true">⌖</i>{card.areaLabel}</span>
+                                          <span class="day-card__compact-break" title={card.breakLabel} class:is-empty={!card.hasBreak}><i aria-hidden="true">☕</i>{card.breakValue}</span>
+                                          <span class="day-card__compact-areas">
+                                            {#each card.shifts as chip (chip.key)}
+                                              <span class="is-{chip.service}" title={`${t(chip.service === 'evening' ? 'Evening' : 'Lunch')} · ${chip.area}`}>
+                                                <i aria-hidden="true">{chip.spansDay ? '↔' : chip.service === 'evening' ? '☾' : '☀'}</i>
+                                                <b>{chip.area}</b>
+                                              </span>
+                                            {/each}
+                                          </span>
                                         </span>
                                       {:else}
                                         <span class="day-card__break" class:is-empty={!card.hasBreak}>
@@ -957,8 +1001,7 @@
                                               <span class="day-card__service-row is-{service} is-empty">
                                                 <span class="day-card__service-icon" aria-hidden="true">{service === 'evening' ? '☾' : '☀'}</span>
                                                 <span class="day-card__service-name">
-                                                  <b>{t(service === 'evening' ? 'Evening' : 'Lunch')}</b>
-                                                  <small>{t('No shifts')}</small>
+                                                  <b>{t('No shift')}</b>
                                                 </span>
                                                 <em>—</em>
                                               </span>
@@ -1120,15 +1163,23 @@
   .schedule-wrap { max-height: calc(100vh - 188px); overflow: auto; border: 1px solid color-mix(in srgb, var(--cl-ink) 12%, var(--cl-line-strong)); border-radius: 5px; background: var(--cl-surface); box-shadow: 0 1px 2px rgb(0 0 0 / .035); }
   .board { width: 100%; min-width: 1270px; border-spacing: 0; table-layout: fixed; border-collapse: separate; color: var(--cl-ink); font-size: 13px; }
   .board thead { position: sticky; top: 0; z-index: 8; }
-  .board th { height: 54px; padding: 6px 10px; border-bottom: 1px solid color-mix(in srgb, var(--cl-accent) 65%, var(--cl-line)); background: var(--cl-thead); text-align: left; }
+  .board th { height: 56px; padding: 6px 10px; border-bottom: 1px solid color-mix(in srgb, var(--cl-accent) 65%, var(--cl-line)); background: var(--cl-thead); text-align: left; }
   .board th.has-menu { padding: 0; }
+  thead .board__staff .colhead { min-height: 56px; }
   .board td { height: 90px; padding: 0; border-bottom: 1px solid color-mix(in srgb, var(--cl-ink) 14%, var(--cl-grid-line)); background: var(--cl-surface); background-clip: padding-box; vertical-align: middle; }
   .board__staff { position: sticky; left: 0; z-index: 4; width: 230px; border-right: 1px solid var(--cl-grid-line); background: var(--cl-surface) !important; }
   thead .board__staff { z-index: 10; background: var(--cl-thead) !important; }
   .board__day { border-left: 1px solid var(--cl-grid-line); text-align: center !important; }
-  .board__day > span { display: block; font-size: 13px; }
-  .board__day > span b { font-weight: var(--rst-fw-bold); }
-  .board__day small { display: block; margin-top: 3px; color: var(--cl-muted); font-size: 8.5px; font-weight: var(--rst-fw-medium); font-variant-numeric: tabular-nums; line-height: 1.1; text-transform: none; letter-spacing: 0; white-space: nowrap; }
+  .board__day-main { display: flex; align-items: center; justify-content: space-between; gap: 5px; min-width: 0; font-size: 13px; }
+  .board__day-main > span:first-child { min-width: 0; white-space: nowrap; }
+  .board__day-main b { font-weight: var(--rst-fw-bold); }
+  .board__weather { display: inline-flex; align-items: center; justify-content: flex-end; gap: 3px; min-width: 0; color: color-mix(in srgb, var(--cl-ink) 72%, var(--cl-muted)); font-size: 9px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .board__weather > span { font-size: 12px; line-height: 1; }
+  .board__weather b { font-size: 9px; }
+  .board__weather i { color: color-mix(in srgb, var(--cl-info) 72%, var(--cl-muted)); font-size: 8px; font-style: normal; font-weight: var(--rst-fw-medium); }
+  .board__day small { margin-top: 3px; color: var(--cl-muted); font-size: 8.5px; font-weight: var(--rst-fw-medium); font-variant-numeric: tabular-nums; line-height: 1.1; text-transform: none; letter-spacing: 0; white-space: nowrap; }
+  .board__day-metrics { display: grid; grid-template-columns: minmax(0, 1fr) 28px 40px; align-items: center; gap: 4px; text-align: right; }
+  .board__day-metrics > span:first-child { overflow: hidden; text-align: left; text-overflow: ellipsis; }
   .board__day.is-today { color: var(--cl-accent); background: var(--cl-accent-wash); }
   .board__day.is-weekend:not(.is-today) { background: color-mix(in srgb, var(--cl-surface-muted) 58%, var(--cl-thead)); }
   .board__cell { position: relative; border-left: 1px solid var(--cl-grid-line); }
@@ -1201,16 +1252,16 @@
   .day-card__add:disabled { cursor: default; }
 
   .day-card__content { position: absolute; z-index: 2; inset: 0; display: grid; align-content: center; gap: 3px; min-width: 0; padding: 6px; pointer-events: none; }
-  .day-card__top { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 3px; min-width: 0; }
+  .day-card__top { display: grid; grid-template-columns: minmax(65px, 1fr) 51px; align-items: center; gap: 3px; min-width: 0; }
   .day-card__top strong { overflow: hidden; color: color-mix(in srgb, var(--cl-ink) 86%, #475569); font-size: 10.5px; font-weight: var(--rst-fw-bold); font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
   .day-card__metrics { display: grid; grid-template-columns: 19px 30px; align-items: center; justify-content: end; gap: 2px; min-width: 51px; color: color-mix(in srgb, var(--cl-ink) 67%, var(--cl-muted)); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1; text-align: right; white-space: nowrap; }
-  .day-card.is-conflict .day-card__metrics { margin-right: 5px; }
   .day-card__metrics b { font-weight: var(--rst-fw-bold); }
+  .day-card__compact-hours { color: color-mix(in srgb, var(--cl-ink) 70%, var(--cl-muted)); font-size: 9px; font-variant-numeric: tabular-nums; text-align: right; }
   .day-card__break { display: inline-flex; align-items: center; gap: 3px; min-width: 0; overflow: hidden; color: var(--break-tone); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
   .day-card__break b { overflow: hidden; font-weight: var(--rst-fw-medium); text-overflow: ellipsis; }
   .day-card__break.is-empty { color: color-mix(in srgb, var(--break-tone) 42%, var(--cl-muted)); }
   .day-card__coffee { font-size: 8px; line-height: 1; }
-  .day-card__conflict-dot { position: absolute; z-index: 3; top: 4px; right: 4px; width: 10px; height: 10px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--cl-problem) 72%, white); border-radius: 50%; background: var(--cl-problem); color: white; font-size: 6px; font-weight: var(--rst-fw-bold); line-height: 1; box-shadow: 0 1px 3px color-mix(in srgb, var(--cl-problem) 28%, transparent); pointer-events: none; }
+  .day-card__conflict-dot { position: absolute; z-index: 3; top: 3px; right: 3px; width: 7px; height: 7px; border: 1px solid color-mix(in srgb, var(--cl-problem) 76%, white); border-radius: 50%; background: var(--cl-problem); box-shadow: 0 0 0 2px color-mix(in srgb, var(--cl-surface) 86%, transparent), 0 1px 3px color-mix(in srgb, var(--cl-problem) 28%, transparent); pointer-events: none; }
   .day-card__services { display: grid; gap: 2px; min-width: 0; }
   .day-card__service-row { display: grid; grid-template-columns: 11px minmax(0, 1fr) 54px; align-items: center; gap: 4px; min-width: 0; color: var(--cl-muted); line-height: 1.15; }
   .day-card__service-icon { font-size: 9px; text-align: center; }
@@ -1226,16 +1277,19 @@
   .day-card__service-row.is-empty em { color: color-mix(in srgb, var(--cl-muted) 78%, var(--cl-line-strong)); font-weight: var(--rst-fw-regular); }
   .day-card__service-row.is-empty .day-card__service-icon { opacity: .48; }
 
-  .day-card__compact-meta { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: 7px; min-width: 0; color: color-mix(in srgb, var(--cl-ink) 62%, var(--cl-muted)); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .day-card__compact-meta { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; min-width: 0; color: color-mix(in srgb, var(--cl-ink) 62%, var(--cl-muted)); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1.1; }
   .day-card__compact-meta > span { display: inline-flex; align-items: center; gap: 3px; min-width: 0; white-space: nowrap; }
   .day-card__compact-meta i { color: var(--cl-muted); font-size: 9px; font-style: normal; }
-  .day-card__compact-meta > span:nth-child(2) { color: var(--break-tone); }
-  .day-card__compact-meta > span:nth-child(2).is-empty { color: var(--cl-muted); }
-  .day-card__compact-area { overflow: hidden; justify-content: flex-end; color: color-mix(in srgb, var(--lunch-color) 70%, var(--cl-ink)); text-overflow: ellipsis; }
-  .day-card__compact-area i { color: currentColor; }
+  .day-card__compact-break { color: var(--break-tone); }
+  .day-card__compact-break.is-empty { color: var(--cl-muted); }
+  .day-card__compact-areas { display: flex !important; justify-content: flex-end; gap: 7px !important; overflow: hidden; }
+  .day-card__compact-areas > span { display: inline-flex; align-items: center; gap: 2px; min-width: 0; overflow: hidden; }
+  .day-card__compact-areas > span.is-lunch { color: var(--day-tone); }
+  .day-card__compact-areas > span.is-evening { color: var(--night-tone); }
+  .day-card__compact-areas i { flex: 0 0 auto; color: currentColor; }
+  .day-card__compact-areas b { overflow: hidden; font-size: 8px; font-weight: var(--rst-fw-bold); text-overflow: ellipsis; }
   .schedule-panel.is-compact .day-card__content { gap: 6px; padding: 7px 8px; }
   .schedule-panel.is-compact .day-card__top strong { font-size: 11px; }
-  .schedule-panel.is-compact .day-card.is-conflict .day-card__top { padding-right: 11px; }
 
   .day-card.is-conflict { border-color: color-mix(in srgb, var(--cl-problem) 76%, var(--cl-line-strong)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--cl-problem) 18%, transparent), 0 4px 10px color-mix(in srgb, var(--cl-problem) 10%, transparent); }
   .day-card.is-published-conflict { border-color: var(--cl-problem); box-shadow: 0 0 0 1px color-mix(in srgb, var(--cl-problem) 22%, transparent), 0 4px 12px color-mix(in srgb, var(--cl-problem) 13%, transparent); }

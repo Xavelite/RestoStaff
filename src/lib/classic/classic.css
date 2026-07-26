@@ -937,6 +937,7 @@
   cursor: default;
 }
 .colhead__copy {
+  width: 100%;
   min-width: 0;
   display: grid;
   gap: 1px;
@@ -945,6 +946,21 @@
 .colhead__copy > span {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.colhead__meta {
+  width: 100%;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+.colhead__meta > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.colhead__meta > span:last-child {
+  text-align: right;
 }
 .colhead__copy small {
   overflow: hidden;
@@ -1359,6 +1375,7 @@
   padding: 2px 8px 2px 5px;
   border: 1px solid transparent;
   border-radius: 5px;
+  box-shadow: 0 1px 1px rgb(15 23 42 / 0.025);
   color: var(--cl-ink);
   font-size: 11.5px;
   font-weight: var(--rst-fw-bold);
@@ -1378,27 +1395,27 @@
 }
 
 .cl-status.is-ok {
-  border-color: color-mix(in srgb, var(--cl-ok) 14%, var(--cl-line));
-  background: var(--cl-ok-wash);
+  border-color: color-mix(in srgb, var(--cl-ok) 23%, var(--cl-line));
+  background: color-mix(in srgb, var(--cl-ok) 9%, var(--cl-surface));
   color: color-mix(in srgb, var(--cl-ok) 72%, var(--cl-ink));
 }
 
 .cl-status.is-attention {
-  border-color: color-mix(in srgb, var(--cl-attention) 18%, var(--cl-line));
-  background: var(--cl-attention-wash);
+  border-color: color-mix(in srgb, var(--cl-attention) 25%, var(--cl-line));
+  background: color-mix(in srgb, var(--cl-attention) 9%, var(--cl-surface));
   color: color-mix(in srgb, var(--cl-attention) 78%, var(--cl-ink));
 }
 
 .cl-status.is-problem {
-  border-color: color-mix(in srgb, var(--cl-problem) 18%, var(--cl-line));
-  background: var(--cl-problem-wash);
+  border-color: color-mix(in srgb, var(--cl-problem) 25%, var(--cl-line));
+  background: color-mix(in srgb, var(--cl-problem) 8%, var(--cl-surface));
   color: color-mix(in srgb, var(--cl-problem) 78%, var(--cl-ink));
 }
 
 .cl-status.is-ok .cl-status__symbol,
 .cl-status.is-attention .cl-status__symbol,
 .cl-status.is-problem .cl-status__symbol {
-  background: color-mix(in srgb, currentColor 7%, transparent);
+  background: color-mix(in srgb, currentColor 11%, transparent);
 }
 
 /* -------------------------------------------------- controls ------------- */

@@ -265,8 +265,8 @@ test('Team and Restaurant use one route-scoped workspace instead of mounting sta
   const teamWrapper = await readFile('src/lib/classic/ClassicTeamPage.svelte', 'utf8');
   const restaurantWrapper = await readFile('src/lib/classic/ClassicRestaurantPage.svelte', 'utf8');
 
-  assert.match(teamLayout, /<ClassicTeamPage>[\s\S]*\{#key page\.url\.pathname\}[\s\S]*\{@render children\(\)\}/);
-  assert.match(restaurantLayout, /<ClassicRestaurantPage>[\s\S]*\{#key page\.url\.pathname\}[\s\S]*\{@render children\(\)\}/);
+  assert.match(teamLayout, /children: routeChildren[\s\S]*<ClassicTeamPage>[\s\S]*\{#key page\.url\.pathname\}[\s\S]*\{@render routeChildren\(\)\}/);
+  assert.match(restaurantLayout, /children: routeChildren[\s\S]*<ClassicRestaurantPage>[\s\S]*\{#key page\.url\.pathname\}[\s\S]*\{@render routeChildren\(\)\}/);
   assert.match(teamWrapper, /setContext\(CLASSIC_TEAM_CONTEXT/);
   assert.match(restaurantWrapper, /setContext\(CLASSIC_RESTAURANT_CONTEXT/);
 
