@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { ManagerOperationsReadModel } from '$lib/api/workspace-snapshot';
-  import ActionButton from '$lib/components/ActionButton.svelte';
-  import { t } from '$lib/i18n/i18n.svelte';
+  import { formatHours, hoursBetweenClocks, serviceLabel } from '$lib/calendar/date';
+  import ClassicServiceIcon from '$lib/classic/ClassicServiceIcon.svelte';
+  import { i18n, t } from '$lib/i18n/i18n.svelte';
   import {
     blocksPlanningAssignment,
     defaultPlanningShift,
@@ -115,6 +116,30 @@
       (item) => item.weekday === slot.weekday && item.serviceKey === slot.serviceKey
     )?.note ?? ''
   );
+  const shiftHours = $derived(
+    slot.shift ? hoursBetweenClocks(slot.shift.startsAt, slot.shift.endsAt) : 0
+  );
+  const hourlyCost = $derived(
+    Number(
+      snapshot.employee_payroll_profiles.find((item) => item.employee_id === slot.employeeId)
+        ?.estimated_hourly_cost
+    ) ||
+      Number(
+        snapshot.job_functions.find((item) => item.id === slot.shift?.jobFunctionId)
+          ?.estimated_hourly_cost
+      ) ||
+      0
+  );
+  const estimatedCost = $derived(shiftHours * hourlyCost);
+
+  function money(value: number): string {
+    return new Intl.NumberFormat(i18n.intlLocale, {
+      style: 'currency',
+      currency: snapshot.restaurant_settings.currency_code || 'EUR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(value);
+  }
 
   function insertShift() {
     if (!editable || slot.shift) return;
@@ -208,170 +233,191 @@
 </script>
 
 <div class="editor">
-    <div class="context-chips">
-      <div class={`context-chip is-${slot.context.availability}`}>
-        <span>{t('Availability')}</span>
-        <strong>{t(slot.context.availability)}</strong>
-      </div>
-      <div class={`context-chip is-${slot.context.absence || 'none'}`}>
-        <span>{t('Leave')}</span>
-        <strong>{t(slot.context.absence || 'none')}</strong>
-      </div>
-      <div class={`context-chip is-${slot.context.workPatternException || 'none'}`}>
-        <span>{t('Schedule change')}</span>
-        <strong>{t(slot.context.workPatternException || 'none')}</strong>
-      </div>
+  <section class="context-strip" aria-label={t('Schedule details')}>
+    <div class="context-item is-{slot.context.availability}">
+      <i></i>
+      <span>{t('Availability')}</span>
+      <strong>{t(slot.context.availability)}</strong>
     </div>
-    {#if slot.context.absence === 'pending'}
-      <div class="context-actions">
-        <ActionButton
-          label={resolvingLeave ? t('Approving…') : t('Approve leave')}
-          disabled={resolvingLeave}
-          onclick={() => resolveLeave('approve')}
-        />
-        <ActionButton
-          label={t('Reject leave')}
-          tone="danger"
-          disabled={resolvingLeave}
-          onclick={() => resolveLeave('reject')}
-        />
-      </div>
-    {/if}
-    {#if slot.context.workPatternException === 'pending'}
-      <div class="context-actions">
-        <ActionButton
-          label={t('Approve exception')}
-          disabled={resolvingException}
-          onclick={() => resolveException('approve')}
-        />
-        <ActionButton
-          label={t('Reject exception')}
-          tone="danger"
-          disabled={resolvingException}
-          onclick={() => resolveException('reject')}
-        />
-      </div>
-    {/if}
+    <div class="context-item is-{slot.context.absence || 'none'}">
+      <i></i>
+      <span>{t('Leave')}</span>
+      <strong>{t(slot.context.absence || 'none')}</strong>
+    </div>
+    <div class="context-item is-{slot.context.workPatternException || 'none'}">
+      <i></i>
+      <span>{t('Schedule change')}</span>
+      <strong>{t(slot.context.workPatternException || 'none')}</strong>
+    </div>
+  </section>
 
-    {#if slot.shift}
+  {#if slot.context.absence === 'pending'}
+    <div class="context-actions">
+      <button class="editor-btn" type="button" disabled={resolvingLeave} onclick={() => resolveLeave('approve')}>
+        {t(resolvingLeave ? 'Approving…' : 'Approve leave')}
+      </button>
+      <button class="editor-btn is-danger" type="button" disabled={resolvingLeave} onclick={() => resolveLeave('reject')}>
+        {t('Reject leave')}
+      </button>
+    </div>
+  {/if}
+  {#if slot.context.workPatternException === 'pending'}
+    <div class="context-actions">
+      <button class="editor-btn" type="button" disabled={resolvingException} onclick={() => resolveException('approve')}>
+        {t('Approve exception')}
+      </button>
+      <button class="editor-btn is-danger" type="button" disabled={resolvingException} onclick={() => resolveException('reject')}>
+        {t('Reject exception')}
+      </button>
+    </div>
+  {/if}
+
+  {#if slot.shift}
+    <section class="shift-editor">
+      <header class="shift-summary">
+        <span class="shift-summary__icon is-{slot.serviceKey}">
+          <ClassicServiceIcon service={slot.serviceKey} size={18} />
+        </span>
+        <span class="shift-summary__range">
+          <small>{t(serviceLabel(slot.serviceKey))}</small>
+          <strong>{slot.shift.startsAt}–{slot.shift.endsAt}</strong>
+        </span>
+        <span class="shift-summary__metric">
+          <small>{t('Planned hours')}</small>
+          <strong>{formatHours(shiftHours)}</strong>
+        </span>
+        <span class="shift-summary__metric">
+          <small>{t('Estimated cost')}</small>
+          <strong>{estimatedCost > 0 ? `~${money(estimatedCost)}` : '—'}</strong>
+        </span>
+      </header>
+
       <div class="fields">
-        <label>{t('Area')}<select disabled={!editable} value={slot.shift.areaId} onchange={(event) => updateShift('areaId', event.currentTarget.value)}><option value="">{t('No area')}</option>{#each areas as area (area.id)}<option value={area.id}>{area.name}</option>{/each}</select></label>
-        <label>{t('Job function')}<select disabled={!editable} value={slot.shift.jobFunctionId} onchange={(event) => updateShift('jobFunctionId', event.currentTarget.value)}><option value="">{t('Not assigned')}</option>{#each jobFunctions as job (job.id)}<option value={job.id}>{job.name}</option>{/each}</select></label>
-        <label>{t('Starts')}<input type="time" disabled={!editable} value={slot.shift.startsAt} onchange={(event) => updateShift('startsAt', event.currentTarget.value)} /></label>
-        <label>{t('Ends')}<input type="time" disabled={!editable} value={slot.shift.endsAt} onchange={(event) => updateShift('endsAt', event.currentTarget.value)} /></label>
+        <label>
+          <span>{t('Area')}</span>
+          <select disabled={!editable} value={slot.shift.areaId} onchange={(event) => updateShift('areaId', event.currentTarget.value)}>
+            <option value="">{t('No area')}</option>
+            {#each areas as area (area.id)}<option value={area.id}>{area.name}</option>{/each}
+          </select>
+        </label>
+        <label>
+          <span>{t('Job function')}</span>
+          <select disabled={!editable} value={slot.shift.jobFunctionId} onchange={(event) => updateShift('jobFunctionId', event.currentTarget.value)}>
+            <option value="">{t('Not assigned')}</option>
+            {#each jobFunctions as job (job.id)}<option value={job.id}>{job.name}</option>{/each}
+          </select>
+        </label>
+        <label>
+          <span>{t('Starts')}</span>
+          <input type="time" disabled={!editable} value={slot.shift.startsAt} onchange={(event) => updateShift('startsAt', event.currentTarget.value)} />
+        </label>
+        <label>
+          <span>{t('Ends')}</span>
+          <input type="time" disabled={!editable} value={slot.shift.endsAt} onchange={(event) => updateShift('endsAt', event.currentTarget.value)} />
+        </label>
       </div>
-      <div class="actions"><ActionButton label={t('Remove shift')} tone="danger" disabled={!editable} onclick={removeShift} /></div>
-    {:else}
-      <div class="empty">
-        <p>{emptySlotCopy}</p>
-        {#if hasLeaveBlocker}
-          <div class="decision-card is-leave">
-            <span>{leaveStateLabel}</span>
-            <strong>{t('Leave stays unless you cancel it for scheduling.')}</strong>
-            <p>
-              {t('Cancelling records an audited scheduling decision before the shift is added, so Schedule never silently overlaps requested or approved time off.')}
-            </p>
-            <div class="decision-actions">
-              <ActionButton
-                label={resolvingLeave ? t('Cancelling...') : t('Cancel leave and plan')}
-                tone="danger"
-                disabled={!editable || resolvingLeave}
-                onclick={cancelLeaveAndPlan}
-              />
-            </div>
-          </div>
-        {:else if hasExceptionBlocker}
-          <div class="decision-card is-exception">
-            <span>{exceptionStateLabel}</span>
-            <strong>{t('Schedule change stays unless you cancel it for scheduling.')}</strong>
-            <p>
-              {t('Cancelling records an audited scheduling decision before the shift is added, so Schedule never silently overlaps a schedule-change request.')}
-            </p>
-            <div class="decision-actions">
-              <ActionButton
-                label={resolvingException ? t('Cancelling...') : t('Cancel change and plan')}
-                tone="danger"
-                disabled={!editable || resolvingException}
-                onclick={() => resolveException('cancel_for_planning')}
-              />
-            </div>
-          </div>
-        {:else}
-          <ActionButton label={addShiftLabel} tone="primary" disabled={!editable || !assignmentPairs.length} onclick={addShift} />
-        {/if}
-      </div>
-    {/if}
 
-    <label class="note">{t('Service note')}<input disabled={!editable} value={note} oninput={(event) => updateNote(event.currentTarget.value)} placeholder={t('Optional note for this service')} /></label>
+      <label class="note">
+        <span>{t('Service note')}</span>
+        <input disabled={!editable} value={note} oninput={(event) => updateNote(event.currentTarget.value)} placeholder={t('Optional note for this service')} />
+      </label>
+
+      <div class="editor-actions">
+        <button class="editor-btn is-danger is-quiet" type="button" disabled={!editable} onclick={removeShift}>{t('Remove shift')}</button>
+      </div>
+    </section>
+  {:else}
+    <section class="empty">
+      <p>{emptySlotCopy}</p>
+      {#if hasLeaveBlocker}
+        <div class="decision-card is-leave">
+          <span>{leaveStateLabel}</span>
+          <strong>{t('Leave stays unless you cancel it for scheduling.')}</strong>
+          <p>{t('Cancelling records an audited scheduling decision before the shift is added, so Schedule never silently overlaps requested or approved time off.')}</p>
+          <button class="editor-btn is-danger" type="button" disabled={!editable || resolvingLeave} onclick={cancelLeaveAndPlan}>
+            {t(resolvingLeave ? 'Cancelling...' : 'Cancel leave and plan')}
+          </button>
+        </div>
+      {:else if hasExceptionBlocker}
+        <div class="decision-card is-exception">
+          <span>{exceptionStateLabel}</span>
+          <strong>{t('Schedule change stays unless you cancel it for scheduling.')}</strong>
+          <p>{t('Cancelling records an audited scheduling decision before the shift is added, so Schedule never silently overlaps a schedule-change request.')}</p>
+          <button class="editor-btn is-danger" type="button" disabled={!editable || resolvingException} onclick={() => resolveException('cancel_for_planning')}>
+            {t(resolvingException ? 'Cancelling...' : 'Cancel change and plan')}
+          </button>
+        </div>
+      {:else}
+        <button class="editor-btn is-primary" type="button" disabled={!editable || !assignmentPairs.length} onclick={addShift}>{addShiftLabel}</button>
+      {/if}
+      <label class="note">
+        <span>{t('Service note')}</span>
+        <input disabled={!editable} value={note} oninput={(event) => updateNote(event.currentTarget.value)} placeholder={t('Optional note for this service')} />
+      </label>
+    </section>
+  {/if}
 </div>
 
 <style>
-  .editor { display: grid; gap: 14px; padding: 14px; }
-  .context-chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-  .context-chip {
-    display: grid;
-    gap: 3px;
-    padding: 10px;
-    border: 1px solid var(--rst-ui-line);
-    border-radius: var(--rst-ui-radius-lg);
-    background: var(--rst-ui-surface-field);
-    animation: rst-fade-up .3s var(--rst-ease-out) backwards;
+  .editor { display: grid; color: var(--cl-ink); background: var(--cl-surface); }
+  .context-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-bottom: 1px solid var(--cl-line); background: var(--cl-thead); }
+  .context-item { --context-tone: var(--cl-muted); min-width: 0; display: grid; grid-template-columns: 8px minmax(0, 1fr); align-items: center; gap: 2px 6px; padding: 9px 12px; border-right: 1px solid var(--cl-line); }
+  .context-item:last-child { border-right: 0; }
+  .context-item i { grid-row: 1 / 3; width: 7px; height: 7px; border-radius: 50%; background: var(--context-tone); box-shadow: 0 0 0 3px color-mix(in srgb, var(--context-tone) 12%, transparent); }
+  .context-item span { overflow: hidden; color: var(--cl-muted); font-size: 8.5px; font-weight: var(--rst-fw-bold); text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+  .context-item strong { overflow: hidden; color: var(--context-tone); font-size: 11px; font-weight: var(--rst-fw-bold); text-overflow: ellipsis; text-transform: capitalize; white-space: nowrap; }
+  .context-item.is-available,
+  .context-item.is-none { --context-tone: var(--cl-ok); }
+  .context-item.is-partial,
+  .context-item.is-pending { --context-tone: var(--cl-attention); }
+  .context-item.is-unavailable,
+  .context-item.is-approved,
+  .context-item.is-missing { --context-tone: var(--cl-problem); }
+  .context-actions { display: flex; justify-content: flex-end; gap: 7px; padding: 9px 14px; border-bottom: 1px solid var(--cl-line); background: color-mix(in srgb, var(--cl-attention) 6%, var(--cl-surface)); }
+
+  .shift-editor { display: grid; gap: 15px; padding: 15px 16px 14px; }
+  .shift-summary { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--cl-line); border-radius: 5px; background: var(--cl-surface-muted); }
+  .shift-summary__icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; }
+  .shift-summary__icon.is-lunch { color: var(--cl-lunch); background: var(--cl-lunch-wash); }
+  .shift-summary__icon.is-evening { color: var(--cl-evening); background: var(--cl-evening-wash); }
+  .shift-summary__range,
+  .shift-summary__metric { display: grid; gap: 2px; }
+  .shift-summary small { color: var(--cl-muted); font-size: 8.5px; font-weight: var(--rst-fw-bold); text-transform: uppercase; }
+  .shift-summary strong { color: var(--cl-ink); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .shift-summary__metric { min-width: 72px; padding-left: 12px; border-left: 1px solid var(--cl-line); }
+  .shift-summary__metric strong { text-align: right; }
+
+  .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px 12px; }
+  label { min-width: 0; display: grid; gap: 5px; color: var(--cl-muted); font-size: 9.5px; font-weight: var(--rst-fw-bold); text-transform: uppercase; }
+  input, select { min-width: 0; min-height: 37px; padding: 7px 9px; border: 1px solid var(--cl-line-strong); border-radius: 4px; color: var(--cl-ink); background: var(--cl-surface); font: inherit; font-size: 12px; transition: border-color var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease); }
+  input:focus-visible, select:focus-visible { border-color: var(--cl-accent); outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--cl-accent) 13%, transparent); }
+  input:disabled, select:disabled { color: var(--cl-muted); background: var(--cl-surface-muted); }
+  .note { padding-top: 2px; }
+  .editor-actions { display: flex; justify-content: flex-start; padding-top: 2px; border-top: 1px solid var(--cl-line); }
+
+  .editor-btn { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; justify-self: start; padding: 7px 12px; border: 1px solid var(--cl-line-strong); border-radius: 5px; color: var(--cl-ink); background: var(--cl-surface); font: inherit; font-size: 11.5px; font-weight: var(--rst-fw-bold); cursor: pointer; }
+  .editor-btn:hover:not(:disabled) { border-color: var(--cl-ink); background: var(--cl-surface-muted); }
+  .editor-btn.is-primary { border-color: var(--cl-accent); color: white; background: var(--cl-accent); }
+  .editor-btn.is-danger { border-color: color-mix(in srgb, var(--cl-problem) 31%, var(--cl-line)); color: var(--cl-problem); background: var(--cl-problem-wash); }
+  .editor-btn.is-quiet { border-color: transparent; background: transparent; }
+  .editor-btn:disabled { opacity: .48; cursor: default; }
+
+  .empty { display: grid; gap: 13px; padding: 16px; }
+  .empty > p { margin: 0; color: var(--cl-muted); font-size: 12px; line-height: 1.5; }
+  .decision-card { display: grid; gap: 7px; padding: 12px; border: 1px solid var(--cl-attention-line); border-radius: 5px; background: var(--cl-attention-wash); }
+  .decision-card.is-leave { border-color: var(--cl-problem-line); background: var(--cl-problem-wash); }
+  .decision-card > span { color: var(--cl-muted); font-size: 9px; font-weight: var(--rst-fw-bold); text-transform: uppercase; }
+  .decision-card strong { font-size: 12px; }
+  .decision-card p { margin: 0; color: var(--cl-muted); font-size: 11.5px; line-height: 1.45; }
+  .decision-card .editor-btn { justify-self: end; margin-top: 2px; }
+
+  @media (max-width: 520px) {
+    .context-strip { grid-template-columns: 1fr; }
+    .context-item { border-right: 0; border-bottom: 1px solid var(--cl-line); }
+    .context-item:last-child { border-bottom: 0; }
+    .shift-summary { grid-template-columns: 34px minmax(0, 1fr); }
+    .shift-summary__metric { padding-left: 0; border-left: 0; }
+    .shift-summary__metric strong { text-align: left; }
+    .fields { grid-template-columns: 1fr; }
   }
-  .context-chip span { color: var(--rst-ui-muted); font-size: 9px; font-weight: var(--rst-fw-bold); letter-spacing: 0; text-transform: uppercase; }
-  .context-chip strong { font-size: 13px; text-transform: capitalize; }
-  .context-chip.is-available,
-  .context-chip.is-none {
-    border-color: rgba(var(--rst-state-success-rgb), .28);
-    background: linear-gradient(135deg, rgba(var(--rst-state-success-rgb), .12), transparent 60%), var(--rst-ui-surface-field);
-  }
-  .context-chip.is-available strong, .context-chip.is-none strong { color: var(--rst-state-success-text); }
-  .context-chip.is-partial,
-  .context-chip.is-pending {
-    border-color: rgba(var(--rst-state-warning-rgb), .28);
-    background: linear-gradient(135deg, rgba(var(--rst-state-warning-rgb), .12), transparent 60%), var(--rst-ui-surface-field);
-  }
-  .context-chip.is-partial strong, .context-chip.is-pending strong { color: var(--rst-state-warning-text); }
-  .context-chip.is-unavailable,
-  .context-chip.is-approved {
-    border-color: rgba(var(--rst-state-danger-rgb), .28);
-    background: linear-gradient(135deg, rgba(var(--rst-state-danger-rgb), .12), transparent 60%), var(--rst-ui-surface-field);
-  }
-  .context-chip.is-unavailable strong, .context-chip.is-approved strong { color: var(--rst-state-danger-text); }
-  .context-actions { display: flex; justify-content: flex-end; gap: 6px; }
-  .fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-  label { display: grid; gap: 5px; color: var(--rst-ui-muted); font-size: 10px; font-weight: var(--rst-fw-bold); text-transform: uppercase; }
-  input, select { min-width: 0; min-height: 36px; padding: 6px 2px; border: 0; border-bottom: 1.5px solid var(--rst-ui-line); border-radius: 0; color: var(--rst-ui-text); background: transparent; font: inherit; font-size: 12px; transition: border-color .15s ease, box-shadow .15s ease; }
-  input:focus-visible, select:focus-visible { border-bottom-color: var(--rst-ui-action); outline: none; box-shadow: 0 1.5px 0 0 var(--rst-ui-action); }
-  .actions { display: flex; justify-content: flex-end; }
-  .empty { display: grid; gap: 12px; padding: 12px; border: 1px dashed var(--rst-ui-line); border-radius: var(--rst-ui-radius-md); }
-  .empty p { margin: 0; color: var(--rst-ui-muted); }
-  .empty > :global(button) { justify-self: end; }
-  .decision-card {
-    display: grid;
-    gap: 8px;
-    padding: 12px;
-    border: 1px solid rgba(var(--rst-state-warning-rgb), .28);
-    border-radius: var(--rst-ui-radius-lg);
-    background:
-      radial-gradient(circle at 100% 0%, rgba(var(--rst-state-warning-rgb), .16), transparent 42%),
-      var(--rst-ui-surface-field);
-  }
-  .decision-card.is-leave {
-    border-color: rgba(var(--rst-state-danger-rgb), .28);
-    background:
-      radial-gradient(circle at 100% 0%, rgba(var(--rst-state-danger-rgb), .14), transparent 42%),
-      var(--rst-ui-surface-field);
-  }
-  .decision-card span {
-    color: var(--rst-ui-muted);
-    font-size: 10px;
-    font-weight: var(--rst-fw-bold);
-    letter-spacing: 0;
-    text-transform: uppercase;
-  }
-  .decision-card strong { color: var(--rst-ui-text); font-size: 13px; }
-  .decision-card p { color: var(--rst-ui-muted); font-size: 12px; line-height: 1.5; }
-  .decision-actions { display: flex; justify-content: flex-end; }
-  @media (max-width: 980px) { .fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  @media (max-width: 520px) { .fields { grid-template-columns: 1fr; } .context-chips { grid-template-columns: 1fr; } }
 </style>

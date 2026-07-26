@@ -40,11 +40,13 @@
   import { buildAreaColorMap, buildEmployeeColorMap } from '$lib/ui/position-color';
   import { personInitials } from '$lib/ui/person';
   import { restaurantWeather } from '$lib/weather/restaurant-weather.svelte';
-  import { weatherCondition, weatherSymbol } from '$lib/weather/weather';
+  import { weatherCondition } from '$lib/weather/weather';
+  import WeatherIcon from '$lib/weather/WeatherIcon.svelte';
   import ClassicPage from '$lib/classic/ClassicPage.svelte';
   import ClassicScheduleWeek from '$lib/classic/ClassicScheduleWeek.svelte';
   import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
   import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
+  import ClassicServiceIcon from '$lib/classic/ClassicServiceIcon.svelte';
   import { scheduleDraft } from '$lib/classic/classic-schedule.svelte';
   import { downloadCsv } from '$lib/export/csv';
   import { planningCsv } from '$lib/schedule/schedule-export';
@@ -700,14 +702,14 @@
             <div class="schedule-head__left">
               <button
                 class="density-toggle"
-                class:is-active={compactCards}
+                class:is-active={!compactCards}
                 type="button"
-                aria-pressed={compactCards}
+                aria-pressed={!compactCards}
                 title={t(compactCards ? 'Show detailed cards' : 'Show compact cards')}
                 onclick={toggleCardDensity}
               >
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg>
-                <span>{t('Compact')}</span>
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 6h14v12H5z"/><path d="M8 10h8M8 14h5"/></svg>
+                <span>{t('Details')}</span>
               </button>
             </div>
 
@@ -771,7 +773,9 @@
                   <th class="board__staff has-menu">
                     <ClassicPrimaryColMenu
                       label={`${t('Employee')} (${plannedEmployeeIds.size}/${totalEmployeeIds.size})`}
-                      metaParts={[formatHours(weekHours), weekCost > 0 ? `~${money(weekCost)}` : '—']}
+                      metaParts={compactCards
+                        ? [formatHours(weekHours)]
+                        : [formatHours(weekHours), weekCost > 0 ? `~${money(weekCost)}` : '—']}
                       sortable
                       sortDir={employeeSort}
                       onsort={(dir) => (employeeSort = dir)}
@@ -801,24 +805,25 @@
                     {@const totalCost = shiftsCost(dayEntries)}
                     {@const weather = restaurantWeather.dailyFor(day.date)}
                     <th class="board__day" class:is-today={day.today} class:is-weekend={day.weekday >= 6}>
-                      <span class="board__day-main">
-                        <span><b>{t(day.label)}</b> {Number(day.date.slice(-2))}</span>
+                      <div class="board__day-date"><b>{t(day.label)}</b> {Number(day.date.slice(-2))}</div>
+                      <div class="board__day-lower">
+                        <div class="board__day-operations">
+                          <span>{dayEmployees} {t(dayEmployees === 1 ? 'employee' : 'employees')}</span>
+                          <b>
+                            {formatHours(total)}
+                            {#if !compactCards}<i>·</i>{totalCost > 0 ? `~${money(totalCost)}` : '—'}{/if}
+                          </b>
+                        </div>
                         {#if weather}
-                          <span
+                          <div
                             class="board__weather"
                             title={`${t(weatherCondition(weather.code))} · ${Math.round(weather.lowC)}–${Math.round(weather.highC)}°C · ${t('{chance}% rain', { chance: Math.round(weather.rainChance) })}`}
                           >
-                            <span aria-hidden="true">{weatherSymbol(weather.code)}</span>
-                            <b>{Math.round(weather.highC)}°</b>
-                            <i>☂ {Math.round(weather.rainChance)}%</i>
-                          </span>
+                            <WeatherIcon code={weather.code} size={23} />
+                            <span><b>{Math.round(weather.highC)}°</b><i>·</i>{Math.round(weather.rainChance)}%</span>
+                          </div>
                         {/if}
-                      </span>
-                      <small class="board__day-metrics">
-                        <span>{dayEmployees} {t(dayEmployees === 1 ? 'employee' : 'employees')}</span>
-                        <span>{formatHours(total)}</span>
-                        <span>{totalCost > 0 ? money(totalCost) : '—'}</span>
-                      </small>
+                      </div>
                     </th>
                   {/each}
                 </tr>
@@ -852,7 +857,7 @@
                                 <span class="staff__name"><strong>{row.name}</strong>{#if !active}<em>{t('Archived')}</em>{/if}</span>
                                 <span class="staff__hours">
                                   <span><b>{formatHours(planned)}</b>{#if target} / {formatHours(target)}{/if}</span>
-                                  <em>{plannedCost > 0 ? `~${money(plannedCost)}` : '—'}</em>
+                                  {#if !compactCards}<em>{plannedCost > 0 ? `~${money(plannedCost)}` : '—'}</em>{/if}
                                 </span>
                                 {#if target}<span class="staff__meter"><i style={`width:${progress}%`}></i></span>{/if}
                               </span>
@@ -886,7 +891,7 @@
                                     ondrop={(event) => { event.preventDefault(); dropShift(grid, row.id, cell.date, service, week.today); }}
                                     onclick={() => quickPlan(grid, row.id, cell.date, service)}
                                   >
-                                    <span class="service-zone__cue" aria-hidden="true">{service === 'evening' ? '☾' : '☀'}</span>
+                                    <span class="service-zone__cue"><ClassicServiceIcon {service} size={14} /></span>
                                     {#if label}<span class="service-zone__state">{label}</span>{/if}
                                   </button>
                                 {/each}
@@ -956,7 +961,8 @@
                                         {:else}
                                           <span class="day-card__metrics">
                                             <b title={t('Planned hours')}>{card.hours}</b>
-                                            <b title={t('Estimated cost')}>{card.estimatedCost || '—'}</b>
+                                            <i>·</i>
+                                            <b title={t('Estimated cost')}>{card.estimatedCost ? `~${card.estimatedCost}` : '—'}</b>
                                           </span>
                                         {/if}
                                       </span>
@@ -970,11 +976,11 @@
                                       {/if}
                                       {#if compactCards}
                                         <span class="day-card__compact-meta">
-                                          <span class="day-card__compact-break" title={card.breakLabel} class:is-empty={!card.hasBreak}><i aria-hidden="true">☕</i>{card.breakValue}</span>
+                                          <span class="day-card__compact-break" title={card.breakLabel} class:is-empty={!card.hasBreak}><i><ClassicServiceIcon name="break" size={13} /></i>{card.breakValue}</span>
                                           <span class="day-card__compact-areas">
                                             {#each card.shifts as chip (chip.key)}
                                               <span class="is-{chip.service}" title={`${t(chip.service === 'evening' ? 'Evening' : 'Lunch')} · ${chip.area}`}>
-                                                <i aria-hidden="true">{chip.spansDay ? '↔' : chip.service === 'evening' ? '☾' : '☀'}</i>
+                                                <i>{#if chip.spansDay}<ClassicServiceIcon name="span" size={12} />{:else}<ClassicServiceIcon service={chip.service} size={12} />{/if}</i>
                                                 <b>{chip.area}</b>
                                               </span>
                                             {/each}
@@ -982,7 +988,7 @@
                                         </span>
                                       {:else}
                                         <span class="day-card__break" class:is-empty={!card.hasBreak}>
-                                          <span class="day-card__coffee" aria-hidden="true">☕</span>
+                                          <span class="day-card__coffee"><ClassicServiceIcon name="break" size={12} /></span>
                                           <b>{card.breakLabel}</b>
                                         </span>
                                         <span class="day-card__services">
@@ -990,7 +996,7 @@
                                             {@const chip = card.shifts.find((shift) => shift.service === service)}
                                             {#if chip}
                                               <span class="day-card__service-row is-{chip.service}">
-                                                <span class="day-card__service-icon" aria-hidden="true">{chip.spansDay ? '↔' : chip.service === 'evening' ? '☾' : '☀'}</span>
+                                                <span class="day-card__service-icon">{#if chip.spansDay}<ClassicServiceIcon name="span" size={11} />{:else}<ClassicServiceIcon service={chip.service} size={11} />{/if}</span>
                                                 <span class="day-card__service-name">
                                                   <b>{chip.area}</b>
                                                   {#if chip.showPosition}<small>· {chip.position}</small>{/if}
@@ -999,7 +1005,7 @@
                                               </span>
                                             {:else}
                                               <span class="day-card__service-row is-{service} is-empty">
-                                                <span class="day-card__service-icon" aria-hidden="true">{service === 'evening' ? '☾' : '☀'}</span>
+                                                <span class="day-card__service-icon"><ClassicServiceIcon {service} size={11} /></span>
                                                 <span class="day-card__service-name">
                                                   <b>{t('No shift')}</b>
                                                 </span>
@@ -1070,6 +1076,7 @@
         description={selectedSlot
           ? `${new Intl.DateTimeFormat(i18n.intlLocale, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${selectedSlot.date}T00:00:00Z`))} · ${t(selectedSlot.serviceKey === 'evening' ? 'Evening' : 'Lunch')}`
           : ''}
+        flush
         onclose={() => (selectedKey = '')}
       >
         {#if selectedSlot && snapshot && workspace.activeId}
@@ -1126,6 +1133,10 @@
             }}
           />
         {/if}
+        {#snippet footer()}
+          <span class="shift-dialog__hint">{t('Draft editing')}</span>
+          <button class="cl-btn is-primary" type="button" onclick={() => (selectedKey = '')}>{t('Done')}</button>
+        {/snippet}
       </Dialog>
     {/snippet}
   </ClassicScheduleWeek>
@@ -1137,17 +1148,17 @@
   .schedule-head__left { justify-self: start; display: flex; align-items: center; }
   .schedule-head__right { justify-self: end; display: flex; align-items: center; gap: 7px; }
 
-  .week-nav { position: relative; display: flex; align-items: center; justify-content: center; gap: 0; }
-  .week-nav__date { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 176px; min-height: 32px; padding: 4px 8px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: var(--cl-ink); font: inherit; font-size: 14px; font-weight: var(--rst-fw-bold); cursor: pointer; }
-  .week-nav__date:hover { border-color: var(--cl-line); background: var(--cl-surface-muted); }
+  .week-nav { position: relative; display: flex; align-items: stretch; justify-content: center; gap: 0; overflow: hidden; border: 1px solid var(--cl-line-strong); border-radius: 6px; background: var(--cl-surface); box-shadow: 0 1px 2px rgb(15 23 42 / .035); }
+  .week-nav__date { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 176px; min-height: 34px; padding: 4px 12px; border: 0; border-right: 1px solid var(--cl-line); border-left: 1px solid var(--cl-line); border-radius: 0; background: var(--cl-surface); color: var(--cl-ink); font: inherit; font-size: 13px; font-weight: var(--rst-fw-bold); cursor: pointer; }
+  .week-nav__date:hover { background: var(--cl-surface-muted); }
   .week-nav__date svg { color: var(--cl-muted); }
   .week-nav__picker { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 
   .icon-btn { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid var(--cl-line); border-radius: 6px; background: var(--cl-surface); color: var(--cl-muted); cursor: pointer; transition: border-color var(--cl-dur) var(--cl-ease), color var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease); }
   .icon-btn:hover:not(:disabled) { border-color: var(--cl-line-strong); color: var(--cl-ink); background: var(--cl-surface-muted); }
   .icon-btn:disabled { opacity: .42; cursor: default; }
-  .week-nav > .icon-btn { width: 27px; height: 30px; border-color: transparent; border-radius: 4px; background: transparent; }
-  .week-nav > .icon-btn:hover:not(:disabled) { border-color: transparent; color: var(--cl-ink); background: color-mix(in srgb, var(--cl-line) 55%, transparent); }
+  .week-nav > .icon-btn { width: 34px; height: 34px; border: 0; border-radius: 0; background: var(--cl-surface); }
+  .week-nav > .icon-btn:hover:not(:disabled) { border-color: transparent; color: var(--cl-ink); background: var(--cl-surface-muted); }
   .density-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 4px 9px; border: 1px solid var(--cl-line); border-radius: 5px; background: transparent; color: var(--cl-muted); font: inherit; font-size: 11px; font-weight: var(--rst-fw-medium); cursor: pointer; transition: border-color var(--cl-dur) var(--cl-ease), color var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease); }
   .density-toggle:hover { border-color: var(--cl-line-strong); color: var(--cl-ink); background: var(--cl-surface-muted); }
   .density-toggle.is-active { border-color: color-mix(in srgb, var(--cl-accent) 34%, var(--cl-line)); color: var(--cl-accent); background: var(--cl-accent-wash); }
@@ -1163,23 +1174,24 @@
   .schedule-wrap { max-height: calc(100vh - 188px); overflow: auto; border: 1px solid color-mix(in srgb, var(--cl-ink) 12%, var(--cl-line-strong)); border-radius: 5px; background: var(--cl-surface); box-shadow: 0 1px 2px rgb(0 0 0 / .035); }
   .board { width: 100%; min-width: 1270px; border-spacing: 0; table-layout: fixed; border-collapse: separate; color: var(--cl-ink); font-size: 13px; }
   .board thead { position: sticky; top: 0; z-index: 8; }
-  .board th { height: 56px; padding: 6px 10px; border-bottom: 1px solid color-mix(in srgb, var(--cl-accent) 65%, var(--cl-line)); background: var(--cl-thead); text-align: left; }
+  .board th { height: 66px; padding: 5px 9px; border-bottom: 1px solid color-mix(in srgb, var(--cl-accent) 65%, var(--cl-line)); background: var(--cl-thead); text-align: left; }
   .board th.has-menu { padding: 0; }
-  thead .board__staff .colhead { min-height: 56px; }
+  thead .board__staff .colhead { min-height: 66px; }
   .board td { height: 90px; padding: 0; border-bottom: 1px solid color-mix(in srgb, var(--cl-ink) 14%, var(--cl-grid-line)); background: var(--cl-surface); background-clip: padding-box; vertical-align: middle; }
   .board__staff { position: sticky; left: 0; z-index: 4; width: 230px; border-right: 1px solid var(--cl-grid-line); background: var(--cl-surface) !important; }
   thead .board__staff { z-index: 10; background: var(--cl-thead) !important; }
   .board__day { border-left: 1px solid var(--cl-grid-line); text-align: center !important; }
-  .board__day-main { display: flex; align-items: center; justify-content: space-between; gap: 5px; min-width: 0; font-size: 13px; }
-  .board__day-main > span:first-child { min-width: 0; white-space: nowrap; }
-  .board__day-main b { font-weight: var(--rst-fw-bold); }
-  .board__weather { display: inline-flex; align-items: center; justify-content: flex-end; gap: 3px; min-width: 0; color: color-mix(in srgb, var(--cl-ink) 72%, var(--cl-muted)); font-size: 9px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .board__weather > span { font-size: 12px; line-height: 1; }
-  .board__weather b { font-size: 9px; }
-  .board__weather i { color: color-mix(in srgb, var(--cl-info) 72%, var(--cl-muted)); font-size: 8px; font-style: normal; font-weight: var(--rst-fw-medium); }
-  .board__day small { margin-top: 3px; color: var(--cl-muted); font-size: 8.5px; font-weight: var(--rst-fw-medium); font-variant-numeric: tabular-nums; line-height: 1.1; text-transform: none; letter-spacing: 0; white-space: nowrap; }
-  .board__day-metrics { display: grid; grid-template-columns: minmax(0, 1fr) 28px 40px; align-items: center; gap: 4px; text-align: right; }
-  .board__day-metrics > span:first-child { overflow: hidden; text-align: left; text-overflow: ellipsis; }
+  .board__day-date { color: var(--cl-ink); font-size: 12px; line-height: 1.05; text-align: center; white-space: nowrap; }
+  .board__day-date b { font-weight: var(--rst-fw-bold); }
+  .board__day-lower { min-height: 38px; display: grid; grid-template-columns: minmax(0, 1fr) 43px; align-items: center; gap: 4px; margin-top: 2px; }
+  .board__day-operations { min-width: 0; display: grid; justify-items: center; gap: 3px; color: var(--cl-muted); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
+  .board__day-operations > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .board__day-operations b { color: color-mix(in srgb, var(--cl-ink) 72%, var(--cl-muted)); font-size: 8.5px; font-weight: var(--rst-fw-bold); }
+  .board__day-operations i,
+  .board__weather i { margin: 0 3px; color: var(--cl-line-strong); font-style: normal; }
+  .board__weather { min-width: 0; display: grid; justify-items: center; gap: 0; color: color-mix(in srgb, var(--cl-ink) 69%, var(--cl-muted)); font-size: 8.5px; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
+  .board__weather > span { display: flex; align-items: center; }
+  .board__weather b { color: color-mix(in srgb, var(--cl-ink) 80%, var(--cl-muted)); font-size: 8.5px; }
   .board__day.is-today { color: var(--cl-accent); background: var(--cl-accent-wash); }
   .board__day.is-weekend:not(.is-today) { background: color-mix(in srgb, var(--cl-surface-muted) 58%, var(--cl-thead)); }
   .board__cell { position: relative; border-left: 1px solid var(--cl-grid-line); }
@@ -1252,19 +1264,20 @@
   .day-card__add:disabled { cursor: default; }
 
   .day-card__content { position: absolute; z-index: 2; inset: 0; display: grid; align-content: center; gap: 3px; min-width: 0; padding: 6px; pointer-events: none; }
-  .day-card__top { display: grid; grid-template-columns: minmax(65px, 1fr) 51px; align-items: center; gap: 3px; min-width: 0; }
+  .day-card__top { display: grid; grid-template-columns: minmax(65px, 1fr) auto; align-items: center; gap: 4px; min-width: 0; }
   .day-card__top strong { overflow: hidden; color: color-mix(in srgb, var(--cl-ink) 86%, #475569); font-size: 10.5px; font-weight: var(--rst-fw-bold); font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
-  .day-card__metrics { display: grid; grid-template-columns: 19px 30px; align-items: center; justify-content: end; gap: 2px; min-width: 51px; color: color-mix(in srgb, var(--cl-ink) 67%, var(--cl-muted)); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1; text-align: right; white-space: nowrap; }
+  .day-card__metrics { display: inline-flex; align-items: center; justify-content: flex-end; gap: 3px; color: color-mix(in srgb, var(--cl-ink) 67%, var(--cl-muted)); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1; text-align: right; white-space: nowrap; }
   .day-card__metrics b { font-weight: var(--rst-fw-bold); }
+  .day-card__metrics i { color: color-mix(in srgb, var(--cl-muted) 70%, var(--cl-line-strong)); font-style: normal; }
   .day-card__compact-hours { color: color-mix(in srgb, var(--cl-ink) 70%, var(--cl-muted)); font-size: 9px; font-variant-numeric: tabular-nums; text-align: right; }
   .day-card__break { display: inline-flex; align-items: center; gap: 3px; min-width: 0; overflow: hidden; color: var(--break-tone); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
   .day-card__break b { overflow: hidden; font-weight: var(--rst-fw-medium); text-overflow: ellipsis; }
   .day-card__break.is-empty { color: color-mix(in srgb, var(--break-tone) 42%, var(--cl-muted)); }
-  .day-card__coffee { font-size: 8px; line-height: 1; }
+  .day-card__coffee { display: inline-flex; color: currentColor; line-height: 1; }
   .day-card__conflict-dot { position: absolute; z-index: 3; top: 3px; right: 3px; width: 7px; height: 7px; border: 1px solid color-mix(in srgb, var(--cl-problem) 76%, white); border-radius: 50%; background: var(--cl-problem); box-shadow: 0 0 0 2px color-mix(in srgb, var(--cl-surface) 86%, transparent), 0 1px 3px color-mix(in srgb, var(--cl-problem) 28%, transparent); pointer-events: none; }
   .day-card__services { display: grid; gap: 2px; min-width: 0; }
   .day-card__service-row { display: grid; grid-template-columns: 11px minmax(0, 1fr) 54px; align-items: center; gap: 4px; min-width: 0; color: var(--cl-muted); line-height: 1.15; }
-  .day-card__service-icon { font-size: 9px; text-align: center; }
+  .day-card__service-icon { display: grid; place-items: center; text-align: center; }
   .day-card__service-row.is-lunch { color: var(--day-tone); }
   .day-card__service-row.is-evening { color: var(--night-tone); }
   .day-card__service-name { display: flex; align-items: baseline; gap: 3px; min-width: 0; overflow: hidden; white-space: nowrap; }
@@ -1279,8 +1292,8 @@
 
   .day-card__compact-meta { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; min-width: 0; color: color-mix(in srgb, var(--cl-ink) 62%, var(--cl-muted)); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1.1; }
   .day-card__compact-meta > span { display: inline-flex; align-items: center; gap: 3px; min-width: 0; white-space: nowrap; }
-  .day-card__compact-meta i { color: var(--cl-muted); font-size: 9px; font-style: normal; }
-  .day-card__compact-break { color: var(--break-tone); }
+  .day-card__compact-meta i { display: inline-flex; color: currentColor; font-style: normal; }
+  .day-card__compact-break { color: color-mix(in srgb, var(--break-tone) 88%, var(--cl-ink)); font-weight: var(--rst-fw-bold); }
   .day-card__compact-break.is-empty { color: var(--cl-muted); }
   .day-card__compact-areas { display: flex !important; justify-content: flex-end; gap: 7px !important; overflow: hidden; }
   .day-card__compact-areas > span { display: inline-flex; align-items: center; gap: 2px; min-width: 0; overflow: hidden; }
@@ -1314,6 +1327,7 @@
   .publish-review__stats b { color: var(--cl-ink); font-size: 20px; }
   .publish-review p { margin: 0; color: var(--cl-muted); font-size: 13px; line-height: 1.55; }
   .publish-review__actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .shift-dialog__hint { margin-right: auto; align-self: center; color: var(--cl-muted); font-size: 11px; }
 
   @media (max-width: 980px) {
     .schedule-head { grid-template-columns: 1fr auto; }

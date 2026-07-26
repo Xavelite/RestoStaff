@@ -1,6 +1,7 @@
 <script lang="ts">
   import { serviceLabel, type ServiceKey } from '$lib/calendar/date';
   import { t } from '$lib/i18n/i18n.svelte';
+  import ClassicServiceIcon from './ClassicServiceIcon.svelte';
 
   let {
     service,
@@ -11,13 +12,10 @@
     variant?: 'chip' | 'text';
   } = $props();
 
-  // Lunch is daytime gold (☀), evening is indigo (☾). The colour is the
-  // service's identity throughout the workspace.
-  const glyph = $derived(service === 'evening' ? '☾' : '☀');
 </script>
 
 <span class="svc is-{service} is-{variant}">
-  <span class="svc__glyph" aria-hidden="true">{glyph}</span>
+  <span class="svc__glyph"><ClassicServiceIcon {service} size={13} /></span>
   {t(serviceLabel(service))}
 </span>
 

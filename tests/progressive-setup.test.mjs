@@ -43,6 +43,8 @@ test('DEV migration makes identifiers nonblocking and archives safely', async ()
 
 test('Schedule uses one premium week header and one full daily card with internal service occupancy', async () => {
   const schedule = await readFile('src/routes/(app)/schedule/+page.svelte', 'utf8');
+  const editor = await readFile('src/lib/schedule/ScheduleSlotEditor.svelte', 'utf8');
+  const dialog = await readFile('src/lib/components/Dialog.svelte', 'utf8');
   const nav = await readFile('src/lib/classic/classic-nav.ts', 'utf8');
   assert.doesNotMatch(schedule, /<ClassicTablePanel/);
   assert.doesNotMatch(schedule, /type Density|rst-schedule-density|is-detailed/);
@@ -73,8 +75,11 @@ test('Schedule uses one premium week header and one full daily card with interna
   assert.match(schedule, /const totalCost = shiftsCost\(dayEntries\)/);
   assert.match(schedule, /const plannedCost = shiftsCost/);
   assert.match(schedule, /restaurantWeather\.dailyFor\(day\.date\)/);
-  assert.match(schedule, /weatherSymbol\(weather\.code\)/);
-  assert.match(schedule, /metaParts=\{\[formatHours\(weekHours\)/);
+  assert.match(schedule, /<WeatherIcon code=\{weather\.code\}/);
+  assert.match(schedule, /metaParts=\{compactCards[\s\S]*\[formatHours\(weekHours\)\]/);
+  assert.match(schedule, /aria-pressed=\{!compactCards\}/);
+  assert.match(schedule, /<span>\{t\('Details'\)\}<\/span>/);
+  assert.match(schedule, /\{#if !compactCards\}<em>\{plannedCost/);
   assert.match(schedule, /label=\{`\$\{t\('Employee'\)\} \(\$\{plannedEmployeeIds\.size\}\/\$\{totalEmployeeIds\.size\}\)`\}/);
   assert.match(schedule, /const dayEmployees = new Set/);
   assert.match(schedule, /await confirmAction\(\{/);
@@ -82,10 +87,16 @@ test('Schedule uses one premium week header and one full daily card with interna
   assert.match(schedule, /scheduleDraft\.replace\(\[\.\.\.scheduleDraft\.shifts, \.\.\.additions\]\)/);
   assert.doesNotMatch(schedule, /class="today-link"/);
   assert.match(schedule, /\.board__day \{ border-left: 1px solid var\(--cl-grid-line\)/);
-  assert.match(schedule, /\.board th \{ height: 56px/);
+  assert.match(schedule, /\.board th \{ height: 66px/);
   assert.match(schedule, /\.board th\.has-menu \{ padding: 0; \}/);
   assert.match(schedule, /\.day-card \{[^}]*border-radius: 3px/s);
   assert.match(schedule, /editable=\{week\.editable && selectedSlot\.date >= week\.today\}/);
+  assert.match(schedule, /flush[\s\S]*<ScheduleSlotEditor/);
+  assert.match(editor, /class="context-strip"/);
+  assert.match(editor, /class="shift-summary"/);
+  assert.match(editor, /estimatedCost > 0 \? `~\$\{money\(estimatedCost\)\}`/);
+  assert.doesNotMatch(editor, /linear-gradient|radial-gradient/);
+  assert.match(dialog, /class:is-flush=\{flush\}/);
   assert.doesNotMatch(schedule, /box-shadow: inset 3px 0 0|box-shadow: inset -3px 0 0/);
   assert.doesNotMatch(schedule, /day-card__warning|day-card__overlap-label/);
   assert.doesNotMatch(schedule, /class="day-card__split-content"/);

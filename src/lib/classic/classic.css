@@ -949,18 +949,18 @@
 }
 .colhead__meta {
   width: 100%;
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
+  display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
 }
 .colhead__meta > span {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.colhead__meta > span:last-child {
-  text-align: right;
+.colhead__meta > span + span::before {
+  content: '·';
+  margin-right: 5px;
+  color: var(--cl-line-strong);
 }
 .colhead__copy small {
   overflow: hidden;
@@ -1368,15 +1368,19 @@
 /* Compact status pill shared by every directory and payroll table. Meaning is
    carried by both a symbol and a label, never by colour alone. */
 .cl-status {
+  --status-color: var(--cl-muted);
+  --status-wash: var(--cl-surface-muted);
+  --status-line: var(--cl-line);
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  min-height: 24px;
-  padding: 2px 8px 2px 5px;
-  border: 1px solid transparent;
-  border-radius: 5px;
-  box-shadow: 0 1px 1px rgb(15 23 42 / 0.025);
-  color: var(--cl-ink);
+  gap: 6px;
+  min-height: 25px;
+  padding: 3px 9px 3px 5px;
+  border: 1px solid var(--status-line);
+  border-radius: 999px;
+  background: var(--status-wash);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.045), inset 0 1px rgb(255 255 255 / .42);
+  color: var(--status-color);
   font-size: 11.5px;
   font-weight: var(--rst-fw-bold);
   white-space: nowrap;
@@ -1385,37 +1389,34 @@
 .cl-status__symbol {
   display: grid;
   place-items: center;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   flex: 0 0 auto;
   border-radius: 50%;
+  background: var(--status-color);
+  color: white;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--status-color) 12%, transparent);
   font-size: 9px;
   font-weight: var(--rst-fw-bold);
   line-height: 1;
 }
 
 .cl-status.is-ok {
-  border-color: color-mix(in srgb, var(--cl-ok) 23%, var(--cl-line));
-  background: color-mix(in srgb, var(--cl-ok) 9%, var(--cl-surface));
-  color: color-mix(in srgb, var(--cl-ok) 72%, var(--cl-ink));
+  --status-color: color-mix(in srgb, var(--cl-ok) 78%, #123b2d);
+  --status-wash: color-mix(in srgb, var(--cl-ok) 14%, var(--cl-surface));
+  --status-line: color-mix(in srgb, var(--cl-ok) 31%, var(--cl-line));
 }
 
 .cl-status.is-attention {
-  border-color: color-mix(in srgb, var(--cl-attention) 25%, var(--cl-line));
-  background: color-mix(in srgb, var(--cl-attention) 9%, var(--cl-surface));
-  color: color-mix(in srgb, var(--cl-attention) 78%, var(--cl-ink));
+  --status-color: color-mix(in srgb, var(--cl-attention) 84%, #5f3500);
+  --status-wash: color-mix(in srgb, var(--cl-attention) 14%, var(--cl-surface));
+  --status-line: color-mix(in srgb, var(--cl-attention) 32%, var(--cl-line));
 }
 
 .cl-status.is-problem {
-  border-color: color-mix(in srgb, var(--cl-problem) 25%, var(--cl-line));
-  background: color-mix(in srgb, var(--cl-problem) 8%, var(--cl-surface));
-  color: color-mix(in srgb, var(--cl-problem) 78%, var(--cl-ink));
-}
-
-.cl-status.is-ok .cl-status__symbol,
-.cl-status.is-attention .cl-status__symbol,
-.cl-status.is-problem .cl-status__symbol {
-  background: color-mix(in srgb, currentColor 11%, transparent);
+  --status-color: color-mix(in srgb, var(--cl-problem) 82%, #5e1e1e);
+  --status-wash: color-mix(in srgb, var(--cl-problem) 12%, var(--cl-surface));
+  --status-line: color-mix(in srgb, var(--cl-problem) 31%, var(--cl-line));
 }
 
 /* -------------------------------------------------- controls ------------- */
@@ -1770,17 +1771,18 @@
   align-items: center;
   min-height: 24px;
   padding: 2px 8px;
-  border: 1px solid var(--cl-line);
-  border-radius: 5px;
-  background: var(--cl-surface-muted);
-  color: var(--cl-muted);
+  border: 1px solid color-mix(in srgb, var(--cl-ink) 11%, var(--cl-line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cl-ink) 5%, var(--cl-surface));
+  box-shadow: inset 0 1px rgb(255 255 255 / .5);
+  color: color-mix(in srgb, var(--cl-ink) 68%, var(--cl-muted));
   font-size: 11.5px;
   font-weight: var(--rst-fw-bold);
   white-space: nowrap;
 }
 
 .cl-badge.is-neutral {
-  background: color-mix(in srgb, var(--cl-surface-muted) 76%, var(--cl-surface));
+  background: color-mix(in srgb, var(--cl-ink) 4%, var(--cl-surface));
 }
 
 /* Curated colour picker shared by Areas and Positions. */

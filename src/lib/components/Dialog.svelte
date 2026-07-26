@@ -9,6 +9,7 @@
     title,
     description = '',
     size = 'medium',
+    flush = false,
     onclose,
     children,
     footer
@@ -17,6 +18,8 @@
     title: string;
     description?: string;
     size?: 'small' | 'medium' | 'large';
+    /** Lets structured workplace editors own their internal section spacing. */
+    flush?: boolean;
     onclose: () => void;
     children: Snippet;
     footer?: Snippet;
@@ -52,17 +55,25 @@
   $effect(() => {
     if (!open) return;
     let cancelled = false;
+    let focusFrame = 0;
     returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    void tick().then(() => {
+    void tick().then(async () => {
+      await tick();
       if (cancelled) return;
-      dialogElement
-        ?.querySelector<HTMLElement>(
-          'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), a[href]'
-        )
-        ?.focus();
+      focusFrame = requestAnimationFrame(() => {
+        focusFrame = requestAnimationFrame(() => {
+          if (cancelled) return;
+          dialogElement
+            ?.querySelector<HTMLElement>(
+              '.body input:not([disabled]), .body select:not([disabled]), .body textarea:not([disabled]), footer button:not([disabled]), header button:not([disabled]), .body button:not([disabled]), a[href]'
+            )
+            ?.focus();
+        });
+      });
     });
     return () => {
       cancelled = true;
+      cancelAnimationFrame(focusFrame);
       returnFocus?.focus();
       returnFocus = null;
     };
@@ -73,7 +84,7 @@
 
 {#if open}
   <div class="backdrop" use:portal role="presentation" onclick={(event) => event.target === event.currentTarget && onclose()}>
-    <dialog bind:this={dialogElement} class="dialog is-{size}" open aria-modal="true" aria-labelledby="dialog-title">
+    <dialog bind:this={dialogElement} class="dialog is-{size}" class:is-flush={flush} open aria-modal="true" aria-labelledby="dialog-title">
       <header>
         <div>
           <h2 id="dialog-title">{t(title)}</h2>
@@ -96,7 +107,8 @@
     place-items: center;
     padding: 20px;
     background: var(--rst-overlay-bg);
-    backdrop-filter: blur(5px);
+    background: color-mix(in srgb, var(--rst-overlay-bg) 92%, transparent);
+    backdrop-filter: blur(2px);
   }
   .dialog {
     position: static;
@@ -105,9 +117,10 @@
     width: min(100%, 620px);
     max-height: min(88vh, 900px);
     overflow: auto;
-    border: 1px solid var(--rst-ui-line-strong);
-    border-radius: var(--rst-ui-radius-xl);
-    background: var(--rst-ui-surface-panel);
+    border: 1px solid var(--cl-line-strong, var(--rst-ui-line-strong));
+    border-radius: 7px;
+    background: var(--cl-surface, var(--rst-ui-surface-panel));
+    box-shadow: 0 24px 70px rgb(15 23 42 / .24), 0 2px 8px rgb(15 23 42 / .1);
   }
   .dialog.is-small { width: min(100%, 440px); }
   .dialog.is-large { width: min(100%, 1040px); }
@@ -115,31 +128,37 @@
     position: sticky;
     top: 0;
     z-index: 1;
-    min-height: 64px;
+    min-height: 58px;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 20px;
-    padding: 14px 16px;
-    border-bottom: 1px solid var(--rst-ui-divider-soft);
-    background: var(--rst-ui-surface-panel-head);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--cl-line, var(--rst-ui-divider-soft));
+    background: var(--cl-thead, var(--rst-ui-surface-panel-head));
   }
   h2, p { margin: 0; }
-  h2 { font-size: 18px; }
-  p { margin-top: 4px; color: var(--rst-ui-muted); font-size: 12px; }
+  h2 { color: var(--cl-ink, var(--rst-ui-text)); font-size: 17px; line-height: 1.2; }
+  p { margin-top: 3px; color: var(--cl-muted, var(--rst-ui-muted)); font-size: 11.5px; }
   header button {
-    width: 34px;
-    height: 34px;
+    width: 30px;
+    height: 30px;
     flex: 0 0 auto;
-    border: 1px solid var(--rst-ui-line);
-    border-radius: var(--rst-ui-radius-md);
-    color: var(--rst-ui-text);
-    background: transparent;
+    border: 1px solid var(--cl-line, var(--rst-ui-line));
+    border-radius: 5px;
+    color: var(--cl-muted, var(--rst-ui-text));
+    background: var(--cl-surface, transparent);
     font: inherit;
-    font-size: 22px;
+    font-size: 19px;
     cursor: pointer;
   }
+  header button:focus-visible {
+    border-color: var(--cl-accent, var(--rst-ui-action));
+    outline: 2px solid color-mix(in srgb, var(--cl-accent, var(--rst-ui-action)) 18%, transparent);
+    outline-offset: 1px;
+  }
   .body { padding: 16px; }
+  .dialog.is-flush .body { padding: 0; }
   footer {
     position: sticky;
     bottom: 0;
@@ -147,7 +166,7 @@
     justify-content: flex-end;
     gap: 8px;
     padding: 12px 16px;
-    border-top: 1px solid var(--rst-ui-divider-soft);
-    background: var(--rst-ui-surface-panel-head);
+    border-top: 1px solid var(--cl-line, var(--rst-ui-divider-soft));
+    background: var(--cl-thead, var(--rst-ui-surface-panel-head));
   }
 </style>
