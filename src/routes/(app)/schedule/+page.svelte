@@ -47,7 +47,6 @@
   import { planningCsv } from '$lib/schedule/schedule-export';
   import { DEFAULT_PLANNING_EXPORT_COLUMNS } from '$lib/schedule/schedule-export-columns';
 
-  type Density = 'compact' | 'detailed';
   type GroupMode = 'none' | 'contract' | 'position' | 'area';
   type PlanningGrid = ReturnType<typeof buildPlanningWeek>;
   type PlanningRow = PlanningGrid['rows'][number];
@@ -73,6 +72,7 @@
     timeLabel: string;
     hours: string;
     breakLabel: string;
+    hasBreak: boolean;
     estimatedCost: string;
     shifts: DayShiftView[];
   };
@@ -131,7 +131,6 @@
   let search = $state('');
   let positionId = $state('');
   let onlyConflicts = $state(false);
-  let density = $state<Density>('compact');
   let groupMode = $state<GroupMode>('none');
   let employeeSort = $state<'asc' | 'desc' | null>(null);
   let collapsedGroups = $state<string[]>([]);
@@ -141,26 +140,15 @@
 
   onMount(() => {
     try {
-      density = localStorage.getItem('rst-schedule-density') === 'detailed' ? 'detailed' : 'compact';
       const storedGroup = localStorage.getItem('rst-schedule-group');
       groupMode =
         storedGroup === 'contract' || storedGroup === 'position' || storedGroup === 'area'
           ? storedGroup
           : 'none';
     } catch {
-      density = 'compact';
       groupMode = 'none';
     }
   });
-
-  function setDensity(next: Density): void {
-    density = next;
-    try {
-      localStorage.setItem('rst-schedule-density', next);
-    } catch {
-      // Session-only preference on devices without storage.
-    }
-  }
 
   function setGroupMode(next: GroupMode): void {
     groupMode = next;
@@ -191,12 +179,6 @@
     }
     return current;
   });
-
-  function compact(value: string): string {
-    const label = clockLabel(value);
-    if (!label) return '';
-    return label.endsWith(':00') ? label.slice(0, 2).replace(/^0/, '') : label;
-  }
 
   function money(value: number): string {
     const currency = snapshot?.restaurant_settings.currency_code || 'EUR';
@@ -372,7 +354,7 @@
         service,
         startsAt: slot.shift.startsAt,
         endsAt: slot.shift.endsAt,
-        label: `${compact(slot.shift.startsAt)}–${compact(slot.shift.endsAt)}`,
+        label: `${clockLabel(slot.shift.startsAt)}–${clockLabel(slot.shift.endsAt)}`,
         hours: formatHours(hours),
         hoursValue: hours,
         area: areaName.get(slot.shift.areaId) ?? t('No area'),
@@ -395,7 +377,8 @@
     const last = ordered[ordered.length - 1];
     const totalHours = ordered.reduce((sum, shift) => sum + shift.hoursValue, 0);
     const totalCost = ordered.reduce((sum, shift) => sum + shift.estimatedCostValue, 0);
-    let breakLabel = '';
+    let breakLabel = t('No break');
+    let hasBreak = false;
 
     if (ordered.length > 1) {
       const firstStart = clockMinutes(first.startsAt) ?? 0;
@@ -404,16 +387,18 @@
       if (firstEnd <= firstStart) firstEnd += 24 * 60;
       while (nextStart < firstStart) nextStart += 24 * 60;
       if (nextStart > firstEnd) {
-        breakLabel = `${t('Break')} ${compact(first.endsAt)}–${compact(ordered[1].startsAt)}`;
+        breakLabel = `${t('Break')} ${clockLabel(first.endsAt)}–${clockLabel(ordered[1].startsAt)}`;
+        hasBreak = true;
       }
     }
 
     return {
       timeLabel: ordered.length === 1
         ? first.label
-        : `${compact(first.startsAt)}–${compact(last.endsAt)}`,
+        : `${clockLabel(first.startsAt)}–${clockLabel(last.endsAt)}`,
       hours: formatHours(totalHours),
       breakLabel,
+      hasBreak,
       estimatedCost: totalCost > 0 ? money(totalCost) : '',
       shifts: ordered
     };
@@ -624,12 +609,7 @@
         {@const publishPending = pendingRequestCount(grid)}
         <section class="schedule-panel">
           <header class="schedule-head">
-            <div class="schedule-head__left">
-              <div class="density" role="group" aria-label={t('Schedule detail')}>
-                <button type="button" class:is-active={density === 'compact'} onclick={() => setDensity('compact')}>{t('Compact')}</button>
-                <button type="button" class:is-active={density === 'detailed'} onclick={() => setDensity('detailed')}>{t('Detailed')}</button>
-              </div>
-            </div>
+            <div class="schedule-head__left"></div>
 
             <div class="week-nav" aria-label={t('Week')}>
               <button class="icon-btn" type="button" aria-label={t('Previous')} onclick={week.previous}>
@@ -687,7 +667,7 @@
             <div class="republish-note">{t('Your changes are private until you republish this week.')}</div>
           {/if}
 
-          <div class="schedule-wrap" class:is-detailed={density === 'detailed'}>
+          <div class="schedule-wrap">
             <table class="board">
               <thead>
                 <tr>
@@ -848,18 +828,27 @@
 
                                     <span class="day-card__content">
                                       <span class="day-card__top">
-                                        <strong>{card.timeLabel}</strong>
-                                        <span>{card.hours}{#if density === 'detailed' && card.estimatedCost} · ~{card.estimatedCost}{/if}</span>
+                                        <strong title={`${card.hours} · ${t('Estimated cost')} ${card.estimatedCost || '—'}`}>{card.timeLabel}</strong>
                                       </span>
-                                      {#if card.breakLabel}<span class="day-card__break">{card.breakLabel}</span>{/if}
+                                      <span class="day-card__break" class:is-empty={!card.hasBreak}>{card.breakLabel}</span>
                                       <span class="day-card__services">
-                                        {#each card.shifts as chip (chip.key)}
-                                          <span class="day-card__service-row is-{chip.service}">
-                                            <span class="day-card__service-icon" aria-hidden="true">{chip.spansDay ? '↔' : chip.service === 'evening' ? '☾' : '☀'}</span>
-                                            <b>{chip.area}</b>
-                                            <span>{chip.position}</span>
-                                            <em>{chip.hours}{#if density === 'detailed' && chip.estimatedCost} · ~{chip.estimatedCost}{/if}</em>
-                                          </span>
+                                        {#each SERVICES as service (service)}
+                                          {@const chip = card.shifts.find((shift) => shift.service === service)}
+                                          {#if chip}
+                                            <span class="day-card__service-row is-{chip.service}">
+                                              <span class="day-card__service-icon" aria-hidden="true">{chip.spansDay ? '↔' : chip.service === 'evening' ? '☾' : '☀'}</span>
+                                              <b>{chip.area}</b>
+                                              <span>{chip.position}</span>
+                                              <em>{chip.hours}{#if chip.estimatedCost} · ~{chip.estimatedCost}{/if}</em>
+                                            </span>
+                                          {:else}
+                                            <span class="day-card__service-row is-empty">
+                                              <span class="day-card__service-icon" aria-hidden="true">{service === 'evening' ? '☾' : '☀'}</span>
+                                              <b>{t(service === 'evening' ? 'Evening' : 'Lunch')}</b>
+                                              <span>{t('No shifts')}</span>
+                                              <em>—</em>
+                                            </span>
+                                          {/if}
                                         {/each}
                                       </span>
                                     </span>
@@ -991,12 +980,9 @@
 
 <style>
   .schedule-panel { position: relative; display: grid; gap: 0; }
-  .schedule-head { position: relative; display: grid; grid-template-columns: minmax(180px, 1fr) auto minmax(250px, 1fr); align-items: center; gap: 18px; min-height: 58px; padding: 8px 0 10px; }
+  .schedule-head { position: relative; display: grid; grid-template-columns: minmax(180px, 1fr) auto minmax(250px, 1fr); align-items: center; gap: 18px; min-height: 50px; padding: 4px 0 6px; }
   .schedule-head__left { justify-self: start; }
   .schedule-head__right { justify-self: end; display: flex; align-items: center; gap: 7px; }
-  .density { display: inline-flex; padding: 2px; border: 1px solid var(--cl-line); border-radius: 6px; background: var(--cl-surface-muted); }
-  .density button { min-height: 30px; padding: 4px 10px; border: 0; border-radius: 4px; background: transparent; color: var(--cl-muted); font: inherit; font-size: 12px; font-weight: var(--rst-fw-medium); cursor: pointer; }
-  .density button.is-active { background: var(--cl-surface); color: var(--cl-ink); box-shadow: 0 1px 3px rgb(0 0 0 / .07); }
 
   .week-nav { position: relative; display: flex; align-items: center; justify-content: center; gap: 4px; }
   .week-nav__date { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 188px; min-height: 34px; padding: 5px 12px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--cl-ink); font: inherit; font-size: 14px; font-weight: var(--rst-fw-bold); cursor: pointer; }
@@ -1020,18 +1006,17 @@
   .schedule-wrap { max-height: calc(100vh - 188px); overflow: auto; border: 1px solid var(--cl-line); border-radius: 7px; background: var(--cl-surface); }
   .board { width: 100%; min-width: 1270px; border-spacing: 0; table-layout: fixed; border-collapse: separate; color: var(--cl-ink); font-size: 13px; }
   .board thead { position: sticky; top: 0; z-index: 8; }
-  .board th { height: 66px; padding: 10px 12px; border-bottom: 1px solid color-mix(in srgb, var(--cl-accent) 65%, var(--cl-line)); background: var(--cl-thead); text-align: left; }
+  .board th { height: 54px; padding: 6px 10px; border-bottom: 1px solid color-mix(in srgb, var(--cl-accent) 65%, var(--cl-line)); background: var(--cl-thead); text-align: left; }
+  .board th.has-menu { padding: 0; }
   .board td { height: 90px; padding: 0; border-bottom: 1px solid var(--cl-grid-line); background: var(--cl-surface); vertical-align: middle; }
   .board__staff { position: sticky; left: 0; z-index: 4; width: 230px; border-right: 1px solid var(--cl-grid-line); background: var(--cl-surface) !important; }
   thead .board__staff { z-index: 10; background: var(--cl-thead) !important; }
-  .board__day { border-left: 0; text-align: center !important; }
+  .board__day { border-left: 1px solid var(--cl-grid-line); text-align: center !important; }
   .board__day > span { display: block; font-size: 13px; }
   .board__day > span b { font-weight: var(--rst-fw-bold); }
-  .board__day small { display: block; margin-top: 4px; color: var(--cl-muted); font-size: 10px; font-weight: var(--rst-fw-medium); text-transform: none; letter-spacing: 0; }
+  .board__day small { display: block; margin-top: 2px; color: var(--cl-muted); font-size: 9px; font-weight: var(--rst-fw-medium); line-height: 1.1; text-transform: none; letter-spacing: 0; }
   .board__day.is-today { color: var(--cl-accent); background: var(--cl-accent-wash); }
   .board__cell { position: relative; border-left: 1px solid var(--cl-grid-line); }
-  .is-detailed .board { min-width: 1450px; }
-  .is-detailed .board td { height: 120px; }
   .board__cell.is-past { background: color-mix(in srgb, var(--cl-surface-muted) 68%, var(--cl-surface)); }
   .board__cell.is-drop-target { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--cl-ok) 62%, transparent); }
   tr.is-archived { opacity: .72; }
@@ -1049,7 +1034,6 @@
   .staff__meter i { display: block; height: 100%; border-radius: inherit; background: var(--cl-accent); }
 
   .service-canvas { position: relative; min-height: 89px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: hidden; }
-  .is-detailed .service-canvas { min-height: 119px; }
   .service-zone { position: relative; min-width: 0; min-height: inherit; padding: 0; border: 0; background: transparent; color: var(--cl-muted); cursor: pointer; transition: box-shadow var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease); }
   .service-zone + .service-zone { border-left: 1px dashed color-mix(in srgb, var(--cl-grid-line) 82%, transparent); }
   .service-zone:disabled { cursor: default; }
@@ -1064,21 +1048,19 @@
   .service-zone__state { position: absolute; left: 6px; right: 6px; bottom: 6px; overflow: hidden; color: var(--cl-muted); font-size: 9px; font-weight: var(--rst-fw-medium); text-align: center; text-overflow: ellipsis; white-space: nowrap; }
   .service-canvas.has-card > .service-zone { pointer-events: none; }
 
-  /* One premium card per employee/day. Lunch/evening occupy the background,
-     while one full-width content hierarchy summarizes the complete day. */
-  .day-card { --lunch-color: var(--cl-muted); --evening-color: var(--cl-muted); position: absolute; z-index: 3; inset: 7px; overflow: hidden; border: 1px solid var(--cl-line-strong); border-radius: 7px; background: var(--cl-surface); box-shadow: 0 2px 7px rgb(0 0 0 / .055); isolation: isolate; transition: border-color var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease), transform var(--cl-dur) var(--cl-ease); }
-  .day-card:hover { border-color: color-mix(in srgb, var(--cl-ink) 20%, var(--cl-line)); box-shadow: 0 5px 13px rgb(0 0 0 / .09); transform: translateY(-1px); }
+  /* One fixed compact card per employee/day. Colour remains a quiet service
+     tint; the card itself uses one crisp neutral outline on every side. */
+  .day-card { --lunch-color: var(--cl-muted); --evening-color: var(--cl-muted); position: absolute; z-index: 3; inset: 6px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--cl-ink) 18%, var(--cl-line-strong)); border-radius: 4px; background: var(--cl-surface); box-shadow: 0 1px 2px rgb(0 0 0 / .045); isolation: isolate; transition: border-color var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease), transform var(--cl-dur) var(--cl-ease); }
+  .day-card:hover { border-color: color-mix(in srgb, var(--cl-ink) 32%, var(--cl-line-strong)); box-shadow: 0 3px 8px rgb(0 0 0 / .08); transform: translateY(-1px); }
   .day-card__surface { position: absolute; z-index: 0; inset: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); pointer-events: none; }
-  .day-card__fill { opacity: 1; background: color-mix(in srgb, var(--cl-surface-muted) 58%, var(--cl-surface)); transition: background var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease); }
-  .day-card__fill.is-lunch.is-active { background: linear-gradient(90deg, color-mix(in srgb, var(--lunch-color) 16%, var(--cl-surface)), color-mix(in srgb, var(--lunch-color) 10%, var(--cl-surface))); box-shadow: inset 3px 0 0 var(--lunch-color); }
-  .day-card__fill.is-evening.is-active { background: linear-gradient(90deg, color-mix(in srgb, var(--evening-color) 10%, var(--cl-surface)), color-mix(in srgb, var(--evening-color) 16%, var(--cl-surface))); box-shadow: inset -3px 0 0 var(--evening-color); }
-  .day-card.is-lunch-only .day-card__fill.is-evening { background: linear-gradient(90deg, color-mix(in srgb, var(--lunch-color) 6%, var(--cl-surface)), color-mix(in srgb, var(--lunch-color) 1.5%, var(--cl-surface))); }
-  .day-card.is-evening-only .day-card__fill.is-lunch { background: linear-gradient(90deg, color-mix(in srgb, var(--evening-color) 1.5%, var(--cl-surface)), color-mix(in srgb, var(--evening-color) 6%, var(--cl-surface))); }
-  .day-card.is-full-day .day-card__fill { background: color-mix(in srgb, var(--lunch-color) 14%, var(--cl-surface)); }
-  .day-card.is-full-day .day-card__fill.is-lunch { box-shadow: inset 3px 0 0 var(--lunch-color); }
-  .day-card.is-full-day .day-card__fill.is-evening { box-shadow: inset -3px 0 0 var(--evening-color); }
-  .day-card__divider { position: absolute; top: 7px; bottom: 7px; left: 50%; width: 1px; background: color-mix(in srgb, var(--cl-line-strong) 48%, transparent); }
-  .day-card.is-full-day .day-card__divider { opacity: .22; }
+  .day-card__fill { opacity: 1; background: color-mix(in srgb, var(--cl-surface-muted) 62%, var(--cl-surface)); transition: background var(--cl-dur) var(--cl-ease); }
+  .day-card__fill.is-lunch.is-active { background: color-mix(in srgb, var(--lunch-color) 8%, var(--cl-surface)); }
+  .day-card__fill.is-evening.is-active { background: color-mix(in srgb, var(--evening-color) 8%, var(--cl-surface)); }
+  .day-card.is-lunch-only .day-card__fill.is-evening { background: color-mix(in srgb, var(--lunch-color) 2%, var(--cl-surface)); }
+  .day-card.is-evening-only .day-card__fill.is-lunch { background: color-mix(in srgb, var(--evening-color) 2%, var(--cl-surface)); }
+  .day-card.is-full-day .day-card__fill { background: color-mix(in srgb, var(--lunch-color) 7%, var(--cl-surface)); }
+  .day-card__divider { position: absolute; top: 6px; bottom: 6px; left: 50%; width: 1px; background: color-mix(in srgb, var(--cl-line-strong) 58%, transparent); }
+  .day-card.is-full-day .day-card__divider { opacity: .3; }
 
   .day-card__hit { position: absolute; z-index: 4; top: 0; bottom: 0; width: 50%; padding: 0; border: 0; background: transparent; cursor: pointer; }
   .day-card__hit.is-lunch { left: 0; }
@@ -1096,11 +1078,12 @@
   .day-card__add:not(:disabled):hover span, .day-card__add:not(:disabled):focus-visible span { opacity: 1; transform: translateY(0); }
   .day-card__add:disabled { cursor: default; }
 
-  .day-card__content { position: absolute; z-index: 2; inset: 0; display: grid; align-content: center; gap: 3px; min-width: 0; padding: 7px 9px 6px; pointer-events: none; }
+  .day-card__content { position: absolute; z-index: 2; inset: 0; display: grid; align-content: center; gap: 2px; min-width: 0; padding: 6px 8px; pointer-events: none; }
   .day-card__top { display: flex; align-items: baseline; justify-content: space-between; gap: 7px; min-width: 0; }
   .day-card__top strong { overflow: hidden; color: var(--cl-ink); font-size: 12px; font-weight: var(--rst-fw-bold); font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
   .day-card__top > span { flex: 0 0 auto; color: var(--cl-muted); font-size: 9px; font-variant-numeric: tabular-nums; }
   .day-card__break { overflow: hidden; color: color-mix(in srgb, var(--cl-attention) 72%, var(--cl-ink)); font-size: 8px; font-weight: var(--rst-fw-medium); line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; }
+  .day-card__break.is-empty { color: var(--cl-muted); }
   .day-card__services { display: grid; gap: 2px; min-width: 0; }
   .day-card__service-row { display: grid; grid-template-columns: 11px minmax(0, auto) minmax(0, 1fr) auto; align-items: center; gap: 4px; min-width: 0; line-height: 1.15; }
   .day-card__service-icon { color: color-mix(in srgb, var(--cl-muted) 76%, var(--cl-ink)); font-size: 9px; text-align: center; }
@@ -1108,14 +1091,9 @@
   .day-card__service-row b { color: var(--cl-ink); font-size: 9px; font-weight: var(--rst-fw-bold); }
   .day-card__service-row > span:not(.day-card__service-icon) { color: var(--cl-muted); font-size: 8px; }
   .day-card__service-row em { color: var(--cl-muted); font-size: 8px; font-style: normal; font-variant-numeric: tabular-nums; }
-  .is-detailed .day-card__content { gap: 5px; padding: 10px 11px 9px; }
-  .is-detailed .day-card__top strong { font-size: 13px; }
-  .is-detailed .day-card__top > span { font-size: 10px; }
-  .is-detailed .day-card__break { font-size: 9px; }
-  .is-detailed .day-card__services { gap: 4px; }
-  .is-detailed .day-card__service-row { grid-template-columns: 12px minmax(0, auto) minmax(0, 1fr) auto; gap: 5px; }
-  .is-detailed .day-card__service-icon, .is-detailed .day-card__service-row b { font-size: 10px; }
-  .is-detailed .day-card__service-row > span:not(.day-card__service-icon), .is-detailed .day-card__service-row em { font-size: 9px; }
+  .day-card__service-row.is-empty b,
+  .day-card__service-row.is-empty span,
+  .day-card__service-row.is-empty em { color: color-mix(in srgb, var(--cl-muted) 78%, var(--cl-line-strong)); font-weight: var(--rst-fw-regular); }
 
   .day-card__warning { position: absolute; z-index: 8; top: 5px; right: 5px; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: var(--cl-problem); color: white; font-size: 9px; font-weight: var(--rst-fw-bold); box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
   .day-card__overlap-label { position: absolute; z-index: 9; right: 5px; bottom: 4px; padding: 2px 5px; border-radius: 999px; background: var(--cl-problem); color: white; font-size: 8px; font-weight: var(--rst-fw-bold); text-transform: uppercase; letter-spacing: .02em; pointer-events: none; }
