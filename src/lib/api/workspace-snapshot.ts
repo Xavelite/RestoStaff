@@ -2,6 +2,7 @@ import type { Json, Tables } from '../supabase/database.types.ts';
 import type {
   AreaServiceDefault,
   EmployeeJobFunction,
+  JobFunctionArea,
   RecurringScheduleSlot,
   WorkArea
 } from '../domain/operations.ts';
@@ -138,6 +139,7 @@ export type RestaurantReadModel = WorkspaceBase & {
   restaurant_employment_settings: RestaurantEmploymentSettings;
   restaurant_onboarding_state: RestaurantOnboardingState;
   job_functions: Tables<'job_functions'>[];
+  job_function_areas: JobFunctionArea[];
   work_areas: WorkArea[];
   services: Tables<'services'>[];
   area_service_defaults: AreaServiceDefault[];
@@ -301,6 +303,7 @@ export function parseRestaurantReadModel(value: Json): RestaurantReadModel {
       ? (data.restaurant_onboarding_state as RestaurantOnboardingState)
       : {},
     job_functions: rows(data, 'job_functions'),
+    job_function_areas: rows(data, 'job_function_areas'),
     work_areas: rows(data, 'work_areas'),
     services: rows(data, 'services'),
     area_service_defaults: rows(data, 'area_service_defaults'),

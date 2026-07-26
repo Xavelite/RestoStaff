@@ -1822,13 +1822,60 @@ export type Database = {
           },
         ]
       }
+      job_function_areas: {
+        Row: {
+          active: boolean
+          area_id: string
+          created_at: string
+          is_primary: boolean
+          job_function_id: string
+          restaurant_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          area_id: string
+          created_at?: string
+          is_primary?: boolean
+          job_function_id: string
+          restaurant_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          area_id?: string
+          created_at?: string
+          is_primary?: boolean
+          job_function_id?: string
+          restaurant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_function_areas_area_fk"
+            columns: ["restaurant_id", "area_id"]
+            isOneToOne: false
+            referencedRelation: "work_areas"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+          {
+            foreignKeyName: "job_function_areas_job_function_fk"
+            columns: ["restaurant_id", "job_function_id"]
+            isOneToOne: false
+            referencedRelation: "job_functions"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+        ]
+      }
       job_functions: {
         Row: {
           active: boolean
+          catalogue_key: string | null
           code: string
           created_at: string
           estimated_hourly_cost: number
           id: string
+          icon_key: string | null
           metadata: Json
           name: string
           restaurant_id: string
@@ -1837,10 +1884,12 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          catalogue_key?: string | null
           code: string
           created_at?: string
           estimated_hourly_cost?: number
           id?: string
+          icon_key?: string | null
           metadata?: Json
           name: string
           restaurant_id: string
@@ -1849,10 +1898,12 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          catalogue_key?: string | null
           code?: string
           created_at?: string
           estimated_hourly_cost?: number
           id?: string
+          icon_key?: string | null
           metadata?: Json
           name?: string
           restaurant_id?: string
@@ -5422,9 +5473,12 @@ export type Database = {
       work_areas: {
         Row: {
           active: boolean
+          catalogue_key: string | null
           code: string
+          color: string | null
           created_at: string
           id: string
+          icon_key: string | null
           metadata: Json
           name: string
           notes: string | null
@@ -5434,9 +5488,12 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          catalogue_key?: string | null
           code: string
+          color?: string | null
           created_at?: string
           id?: string
+          icon_key?: string | null
           metadata?: Json
           name: string
           notes?: string | null
@@ -5446,9 +5503,12 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          catalogue_key?: string | null
           code?: string
+          color?: string | null
           created_at?: string
           id?: string
+          icon_key?: string | null
           metadata?: Json
           name?: string
           notes?: string | null

@@ -121,6 +121,8 @@
     "20260726153249_upsert_reservation_rooms_from_venue_editor.sql": "c5641381d747c172642f8999588bcbc1ef7cbb5bed4150e19dee10ca573ef1f9",
     "20260726214338_reservation_integrity_and_atomic_venue.sql": "39e9d10590880ffe03f11f6e1e3217f744b407d01a4858a7bd3f673c7626176c",
     "20260726230144_planning_operational_warning_contract.sql": "ac2f3e4e5bdf71c785f2ca8ec4c9e3e29ec02d0776880b303ca765660fbce8c5",
-    "20260726230651_restore_venue_room_identity.sql": "84cfccb052b27c77cbcee22617f4f869a8f7f24678c8c50c6926ad67383035b0"
+    "20260726230651_restore_venue_room_identity.sql": "84cfccb052b27c77cbcee22617f4f869a8f7f24678c8c50c6926ad67383035b0",
+    "20260726232311_workspace_area_position_catalogue.sql": "4a9699a75abcb6addcf2c091386aa621d518548f7ed9187273904abc0f384615",
+    "20260726232707_workspace_catalogue_uniqueness.sql": "0d614d7f2991eb7f5da5c0810173f24a2ddb81ea4010d2c039d2877689975b6b"
   }
 }

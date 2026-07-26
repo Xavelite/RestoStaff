@@ -23,6 +23,10 @@
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { AREA_PALETTE, defaultAreaColor } from '$lib/ui/position-color';
+  import {
+    WORKSPACE_AREA_CATALOGUE,
+    workspaceAreaByKey
+  } from '$lib/restaurant/workspace-catalogue';
 
   let {
     mode = 'tables',
@@ -42,10 +46,29 @@
   let selectedRoomId = $state('');
   let selectedTableId = $state('');
   let tableToArchive = $state<ReservationTableDraft | null>(null);
+  let areaPickerOpen = $state(false);
+  let areaCatalogueSearch = $state('');
+  let customAreaName = $state('');
   let compactViewport = $state(false);
   const ROOM_GRID = 20;
   const TABLE_GRID = 10;
   const editorReadOnly = $derived(compactViewport || workspace.isPreview);
+  const availableCatalogueAreas = $derived.by(() => {
+    const usedKeys = new Set(
+      (restaurantContext?.draft.areas ?? [])
+        .filter((area) => area.active)
+        .map((area) => area.catalogueKey)
+        .filter(Boolean)
+    );
+    const term = areaCatalogueSearch.trim().toLowerCase();
+    return WORKSPACE_AREA_CATALOGUE.filter(
+      (area) =>
+        !usedKeys.has(area.key) &&
+        (!term ||
+          area.label.toLowerCase().includes(term) ||
+          area.category.toLowerCase().includes(term))
+    );
+  });
 
   onMount(() => {
     const media = window.matchMedia('(max-width: 760px)');
@@ -76,6 +99,7 @@
           area_color:
             draftArea?.color ??
             persisted?.area_color ??
+            area?.color ??
             (area?.metadata && typeof area.metadata === 'object' && !Array.isArray(area.metadata) && typeof area.metadata.color === 'string'
               ? area.metadata.color
               : null),
@@ -266,13 +290,17 @@
     touch();
   }
 
-  function addArea() {
+  function addArea(catalogueKey = '', customName = '') {
     if (!draft || !selectedFloor || !restaurantContext || workspace.isPreview) return;
     const areas = restaurantContext.draft.areas;
+    const catalogue = workspaceAreaByKey.get(catalogueKey);
     const id = crypto.randomUUID();
     const area = {
       id,
-      name: t('Area {number}', { number: areas.length + 1 }),
+      name:
+        catalogue?.label ??
+        customName.trim() ??
+        t('Area {number}', { number: areas.length + 1 }),
       code: '',
       notes: '',
       active: true,
@@ -280,7 +308,9 @@
       lunchEnd: '',
       eveningStart: '',
       eveningEnd: '',
-      color: defaultAreaColor(areas.length)
+      color: catalogue?.color ?? defaultAreaColor(areas.length),
+      catalogueKey: catalogue?.key ?? '',
+      iconKey: catalogue?.icon ?? ''
     };
     areas.push(area);
     const geometry = nextAreaGeometry(selectedFloor, floorRooms.length);
@@ -306,6 +336,14 @@
     selectedTableId = '';
     restaurantConfig.touch();
     touch();
+    areaPickerOpen = false;
+    areaCatalogueSearch = '';
+    customAreaName = '';
+  }
+
+  function addCustomArea() {
+    if (!customAreaName.trim()) return;
+    addArea('', customAreaName);
   }
 
   function archiveArea() {
@@ -644,7 +682,7 @@
             <section class="cl-card">
               <div class="cl-card__head">
                 <div><h2>{t(mode === 'venue' ? 'Venue areas' : 'Dining areas')}</h2><p>{mode === 'venue' ? t('Place each operational area on its physical floor.') : t('Select an area, then add and arrange its tables.')}</p></div>
-                {#if mode === 'venue'}<button class="cl-btn is-icon" type="button" aria-label={t('Add area')} disabled={!selectedFloor || editorReadOnly} onclick={addArea}>+</button>{/if}
+                {#if mode === 'venue'}<button class="cl-btn is-icon" type="button" aria-label={t('Add area')} disabled={!selectedFloor || editorReadOnly} onclick={() => (areaPickerOpen = true)}>+</button>{/if}
               </div>
               <div class="area-list">
                 {#each mergedRooms as room (room.id)}
@@ -777,6 +815,48 @@
     {/snippet}
 </ClassicTablePanel>
 
+<Dialog
+  open={areaPickerOpen}
+  title="Add an area"
+  description="Choose a standard restaurant area. Its colour becomes the shared identity used by positions, Planning and Reservations."
+  size="large"
+  onclose={() => (areaPickerOpen = false)}
+>
+  {#snippet children()}
+    <div class="catalogue-picker">
+      <label class="catalogue-search">
+        <span>{t('Search areas')}</span>
+        <input
+          class="cl-field"
+          type="search"
+          placeholder={t('Search by name or category')}
+          bind:value={areaCatalogueSearch}
+        />
+      </label>
+      <div class="catalogue-grid">
+        {#each availableCatalogueAreas as item (item.key)}
+          <button type="button" style={`--catalogue-color:${item.color}`} onclick={() => addArea(item.key)}>
+            <i aria-hidden="true"></i>
+            <span><strong>{item.label}</strong><small>{item.category}</small></span>
+          </button>
+        {:else}
+          <p class="catalogue-empty">{t('No unused catalogue area matches this search.')}</p>
+        {/each}
+      </div>
+      <div class="custom-area">
+        <div>
+          <strong>{t('Need a special area?')}</strong>
+          <span>{t('Custom areas remain available, but standard areas keep reporting consistent.')}</span>
+        </div>
+        <input class="cl-field" placeholder={t('Custom area name')} bind:value={customAreaName} />
+        <button class="cl-btn" type="button" disabled={!customAreaName.trim()} onclick={addCustomArea}>
+          {t('Add custom')}
+        </button>
+      </div>
+    </div>
+  {/snippet}
+</Dialog>
+
 <Dialog open={Boolean(tableToArchive)} title="Archive table" description="Past reservations keep their table history." size="small" onclose={() => (tableToArchive = null)}>
   {#snippet children()}<p class="dialog-copy">{t('Archive table {label}?', { label: tableToArchive?.label ?? '' })}</p>{/snippet}
   {#snippet footer()}
@@ -878,6 +958,20 @@
   .selection-hint.is-above { border-bottom: 1px solid var(--cl-line); background: color-mix(in srgb, var(--cl-surface) 92%, var(--cl-surface-muted)); }
   .table-selection .cl-btn:nth-last-child(3) { margin-left: auto; }
   .dialog-copy { margin: 0; color: var(--cl-muted); font-size: 12px; }
+  .catalogue-picker { display: grid; gap: 16px; }
+  .catalogue-search { display: grid; gap: 6px; color: var(--cl-muted); font-size: 11px; font-weight: 700; }
+  .catalogue-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; max-height: 390px; overflow: auto; padding: 2px; }
+  .catalogue-grid > button { display: grid; grid-template-columns: 8px minmax(0, 1fr); align-items: center; gap: 10px; min-height: 58px; padding: 9px 11px; border: 1px solid var(--cl-line); border-radius: 5px; background: var(--cl-surface); color: var(--cl-ink); text-align: left; cursor: pointer; }
+  .catalogue-grid > button:hover { border-color: var(--catalogue-color); background: color-mix(in srgb, var(--catalogue-color) 7%, var(--cl-surface)); }
+  .catalogue-grid i { width: 8px; height: 34px; border-radius: 3px; background: var(--catalogue-color); }
+  .catalogue-grid strong, .catalogue-grid small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .catalogue-grid strong { font-size: 12px; }
+  .catalogue-grid small { margin-top: 2px; color: var(--cl-muted); font-size: 10px; text-transform: capitalize; }
+  .catalogue-empty { grid-column: 1 / -1; margin: 0; padding: 24px; color: var(--cl-muted); text-align: center; }
+  .custom-area { display: grid; grid-template-columns: minmax(0, 1fr) minmax(180px, 240px) auto; align-items: end; gap: 12px; padding-top: 14px; border-top: 1px solid var(--cl-line); }
+  .custom-area > div { display: grid; gap: 3px; }
+  .custom-area strong { font-size: 12px; }
+  .custom-area span { color: var(--cl-muted); font-size: 10.5px; }
   .cl-btn.is-problem { border-color: var(--cl-problem-line); background: var(--cl-problem-wash); color: var(--cl-problem); }
   @media (max-width: 980px) {
     .venue-editor { grid-template-columns: minmax(0, 1fr); }
@@ -886,5 +980,7 @@
   @media (max-width: 760px) {
     .venue-sidebar { grid-template-columns: minmax(0, 1fr); }
     .plan-head, .selection-bar { align-items: stretch; flex-wrap: wrap; }
+    .catalogue-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .custom-area { grid-template-columns: 1fr; align-items: stretch; }
   }
 </style>

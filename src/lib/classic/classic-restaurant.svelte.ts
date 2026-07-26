@@ -28,6 +28,7 @@ class ClassicRestaurantDraft {
       snapshot.restaurant_settings,
       snapshot.restaurant_employment_settings,
       snapshot.job_functions,
+      snapshot.job_function_areas,
       snapshot.work_areas,
       snapshot.area_service_defaults,
       snapshot.opening_hours,

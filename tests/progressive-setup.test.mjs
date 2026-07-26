@@ -163,6 +163,48 @@ test('venue saves preserve one stable reservation room per work area', async () 
   );
 });
 
+test('workspace catalogue normalizes position links and preserves multi-restaurant ownership', async () => {
+  const catalogueMigration = await readFile(
+    'supabase/migrations/20260726232311_workspace_area_position_catalogue.sql',
+    'utf8'
+  );
+  const uniquenessMigration = await readFile(
+    'supabase/migrations/20260726232707_workspace_catalogue_uniqueness.sql',
+    'utf8'
+  );
+  assert.match(catalogueMigration, /create table public\.job_function_areas/);
+  assert.match(catalogueMigration, /job_function_areas_job_function_fk/);
+  assert.match(catalogueMigration, /job_function_areas_area_fk/);
+  assert.match(catalogueMigration, /alter table public\.job_function_areas enable row level security/);
+  assert.match(catalogueMigration, /add column catalogue_key text/);
+  assert.match(catalogueMigration, /insert into public\.restaurant_memberships/);
+  assert.doesNotMatch(catalogueMigration, /v_owner_employee_id/);
+  assert.doesNotMatch(catalogueMigration, /insert into public\.coverage_requirements/);
+  assert.match(uniquenessMigration, /create index if not exists restaurants_owner_profile_id_idx/);
+  assert.doesNotMatch(
+    uniquenessMigration,
+    /create unique index if not exists restaurants_owner_profile_id_idx/
+  );
+  assert.match(
+    uniquenessMigration,
+    /work_areas_restaurant_catalogue_key_idx[\s\S]*where catalogue_key is not null/
+  );
+  assert.match(
+    uniquenessMigration,
+    /job_functions_restaurant_catalogue_key_idx[\s\S]*where catalogue_key is not null/
+  );
+});
+
+test('owners can launch another restaurant and switch directly to it', async () => {
+  const onboarding = await readFile('src/routes/onboarding/+page.svelte', 'utf8');
+  const accountMenu = await readFile('src/lib/app-shell/AccountMenu.svelte', 'utf8');
+  assert.match(onboarding, /page\.url\.searchParams\.get\('new'\) === '1'/);
+  assert.match(onboarding, /workspace\.memberships\.some\(\s*\(membership\) => membership\.role === 'owner'/);
+  assert.match(onboarding, /await workspace\.select\(createdRestaurantId\)/);
+  assert.match(accountMenu, /goto\('\/onboarding\?new=1'\)/);
+  assert.match(accountMenu, /membership\.status === 'active' && membership\.role === 'owner'/);
+});
+
 
 test('availability remains editable after schedule publication', async () => {
   const migration = await readFile(

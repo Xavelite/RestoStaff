@@ -57,6 +57,9 @@ export type ReservationArea = {
   id: string;
   name: string;
   code: string;
+  catalogue_key: string | null;
+  color: string | null;
+  icon_key: string | null;
   active: boolean;
   sort_order: number;
   metadata: Json;

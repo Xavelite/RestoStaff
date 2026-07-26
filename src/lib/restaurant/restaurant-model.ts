@@ -2,6 +2,7 @@ import { asJsonArray } from '../api/json.ts';
 import { setupItemCode, slug } from './setup-item-code.ts';
 import type { RestaurantReadModel } from '$lib/api/workspace-snapshot';
 import { defaultAreaColor, readColorOverride } from '../ui/position-color.ts';
+import { catalogueAreaColor } from './workspace-catalogue.ts';
 import type { RestaurantSavePayload } from '$lib/api/mutations';
 import {
   SERVICES,
@@ -21,6 +22,9 @@ export type NamedSetupItem = {
 export type JobFunctionDraft = NamedSetupItem & {
   estimatedHourlyCost: number;
   primaryAreaId: string;
+  areaIds: string[];
+  catalogueKey: string;
+  iconKey: string;
 };
 
 export type AreaDraft = {
@@ -34,6 +38,8 @@ export type AreaDraft = {
   eveningStart: string;
   eveningEnd: string;
   color: string;
+  catalogueKey: string;
+  iconKey: string;
 };
 
 export type OpeningDraft = {
@@ -143,20 +149,39 @@ export function restaurantDraft(snapshot: RestaurantReadModel): RestaurantDraft 
     address: snapshot.restaurant.address_line1 ?? '',
     postalCode: snapshot.restaurant.postal_code ?? '',
     city: snapshot.restaurant.city ?? '',
-    jobFunctions: snapshot.job_functions.map((row) => ({
-      id: row.id,
-      name: row.name,
-      code: row.code,
-      active: row.active,
-      estimatedHourlyCost: row.estimated_hourly_cost,
-      primaryAreaId:
+    jobFunctions: snapshot.job_functions.map((row) => {
+      const relations = (snapshot.job_function_areas ?? [])
+        .filter((relation) => relation.job_function_id === row.id && relation.active)
+        .sort((a, b) => Number(b.is_primary) - Number(a.is_primary));
+      const relationAreaIds = relations.map((relation) => relation.area_id);
+      const legacyAreaId =
         row.metadata &&
         typeof row.metadata === 'object' &&
         'area_id' in row.metadata &&
         typeof row.metadata.area_id === 'string'
           ? row.metadata.area_id
-          : inferredPrimaryAreaId(row.name, snapshot.work_areas)
-    })),
+          : '';
+      const areaIds = relationAreaIds.length
+        ? relationAreaIds
+        : legacyAreaId
+          ? [legacyAreaId]
+          : [];
+      const primaryAreaId =
+        relations.find((relation) => relation.is_primary)?.area_id ??
+        areaIds[0] ??
+        inferredPrimaryAreaId(row.name, snapshot.work_areas);
+      return {
+        id: row.id,
+        name: row.name,
+        code: row.code,
+        active: row.active,
+        estimatedHourlyCost: row.estimated_hourly_cost,
+        primaryAreaId,
+        areaIds,
+        catalogueKey: row.catalogue_key ?? '',
+        iconKey: row.icon_key ?? ''
+      };
+    }),
     areas: snapshot.work_areas.map((row, index) => ({
         id: row.id,
         name: row.name,
@@ -167,7 +192,13 @@ export function restaurantDraft(snapshot: RestaurantReadModel): RestaurantDraft 
         lunchEnd: areaDefault(snapshot, row.id, 'lunch', 'end_time'),
         eveningStart: areaDefault(snapshot, row.id, 'evening', 'start_time'),
         eveningEnd: areaDefault(snapshot, row.id, 'evening', 'end_time'),
-        color: readColorOverride(row.metadata) ?? defaultAreaColor(index)
+        color:
+          row.color ??
+          readColorOverride(row.metadata) ??
+          catalogueAreaColor(row.catalogue_key) ??
+          defaultAreaColor(index),
+        catalogueKey: row.catalogue_key ?? '',
+        iconKey: row.icon_key ?? ''
       })),
     opening: WEEKDAYS.map((_, index) => {
       const weekday = index + 1;
@@ -304,7 +335,14 @@ export function restaurantSavePayload(
       draft.jobFunctions
         .map((item, index) => ({
           ...itemRow(item, index),
-          metadata: { area_id: nullable(item.primaryAreaId) },
+          catalogue_key: nullable(item.catalogueKey),
+          icon_key: nullable(item.iconKey),
+          metadata: {
+            area_id: nullable(item.primaryAreaId),
+            area_ids: [...new Set([item.primaryAreaId, ...item.areaIds])]
+              .filter(Boolean)
+              .filter((areaId) => draft.areas.some((area) => area.id === areaId))
+          },
           estimated_hourly_cost: Math.max(0, Number(item.estimatedHourlyCost) || 0)
         }))
         .filter((item) => item.name)
@@ -319,7 +357,10 @@ export function restaurantSavePayload(
           active: item.active,
           sort_order: index,
           notes: nullable(item.notes),
-          metadata: { color: item.color }
+          catalogue_key: nullable(item.catalogueKey),
+          color: item.color,
+          icon_key: nullable(item.iconKey),
+          metadata: {}
         }))
         .filter((item) => item.name)
     ),

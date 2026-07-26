@@ -554,7 +554,7 @@ export type OwnerWorkspaceSetup = {
   city: string;
   openingHours: Json[];
   areas: Json[];
-  jobFunctions: string[];
+  jobFunctions: Json[];
   coverage: Json[];
   employees: Json[];
 };

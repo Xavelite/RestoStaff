@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { page } from '$app/state';
   import { onMount } from 'svelte';
   import {
     clearOwnerOnboardingDraft,
@@ -12,9 +13,17 @@
   import type { Json } from '$lib/supabase/database.types';
   import ActionButton from '$lib/components/ActionButton.svelte';
   import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
+  import {
+    WORKSPACE_AREA_CATALOGUE,
+    WORKSPACE_POSITION_CATALOGUE,
+    starterWorkspaceAreas,
+    starterWorkspacePositions,
+    workspaceAreaByKey,
+    workspacePositionByKey
+  } from '$lib/restaurant/workspace-catalogue';
   import { workspace } from '$lib/workspace/workspace.svelte';
 
-  type SetupItem = { id: string; name: string };
+  type SetupItem = { id: string; name: string; catalogueKey: string };
   type AssignmentInput = { areaId: string; jobFunctionId: string };
   type EmployeeInput = {
     firstName: string;
@@ -71,7 +80,7 @@
       eyebrow: 'Services',
       title: 'Set the weekly service rhythm.',
       description:
-        'Lunch and evening defaults seed Schedule, Timesheet and Coverage.'
+        'Lunch and evening defaults seed Planning, Timesheet and service demand.'
     },
     {
       key: 'map',
@@ -83,11 +92,11 @@
     },
     {
       key: 'coverage',
-      label: 'Coverage',
-      eyebrow: 'Staffing rules',
+      label: 'Position map',
+      eyebrow: 'Capabilities',
       title: 'Pair positions with work areas.',
       description:
-        'Tap a cell to say a position works an area. Minimums stay editable later.'
+        'Tap a cell to say where each position can work. Staffing minimums stay separate.'
     },
     {
       key: 'team',
@@ -107,6 +116,8 @@
     }
   ];
 
+  const initialAreas = starterWorkspaceAreas();
+  const initialPositions = starterWorkspacePositions(initialAreas.map((area) => area.key));
   const initial: Draft = {
     step: 0,
     firstName: '',
@@ -118,22 +129,24 @@
     eveningStart: '18:00',
     eveningEnd: '23:00',
     openDays: [true, true, true, true, true, true, false],
-    areas: [
-      { id: 'area-salle', name: 'Salle' },
-      { id: 'area-cuisine', name: 'Cuisine' },
-      { id: 'area-bar', name: 'Bar' }
-    ],
-    functions: [
-      { id: 'position-server', name: 'Server' },
-      { id: 'position-cook', name: 'Cook' },
-      { id: 'position-dishwasher', name: 'Dishwasher' }
-    ],
-    assignments: [
-      { areaId: 'area-salle', jobFunctionId: 'position-server' },
-      { areaId: 'area-cuisine', jobFunctionId: 'position-cook' },
-      { areaId: 'area-cuisine', jobFunctionId: 'position-dishwasher' },
-      { areaId: 'area-bar', jobFunctionId: 'position-server' }
-    ],
+    areas: initialAreas.map((area) => ({
+      id: `area-${area.key}`,
+      name: area.label,
+      catalogueKey: area.key
+    })),
+    functions: initialPositions.map((position) => ({
+      id: `position-${position.key}`,
+      name: position.label,
+      catalogueKey: position.key
+    })),
+    assignments: initialPositions.flatMap((position) =>
+      position.areaKeys
+        .filter((areaKey) => initialAreas.some((area) => area.key === areaKey))
+        .map((areaKey) => ({
+          areaId: `area-${areaKey}`,
+          jobFunctionId: `position-${position.key}`
+        }))
+    ),
     employees: []
   };
 
@@ -145,8 +158,11 @@
   let saving = $state(false);
   let hydrated = $state(false);
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
+  let selectedAreaCatalogueKey = $state('');
+  let selectedPositionCatalogueKey = $state('');
 
   const email = $derived(auth.user?.email ?? '');
+  const creatingAdditionalRestaurant = $derived(page.url.searchParams.get('new') === '1');
   const currentStep = $derived(steps[draft.step] ?? steps[0]);
   const progress = $derived(Math.round(((draft.step + 1) / steps.length) * 100));
   const areaItems = $derived(
@@ -172,10 +188,23 @@
   );
   const openDayCount = $derived(draft.openDays.filter(Boolean).length);
   const serviceCount = $derived(openDayCount * 2);
+  const availableAreaCatalogue = $derived(
+    WORKSPACE_AREA_CATALOGUE.filter(
+      (item) => !draft.areas.some((area) => area.catalogueKey === item.key)
+    )
+  );
+  const availablePositionCatalogue = $derived.by(() => {
+    const areaKeys = new Set(draft.areas.map((area) => area.catalogueKey).filter(Boolean));
+    return WORKSPACE_POSITION_CATALOGUE.filter(
+      (item) =>
+        !draft.functions.some((position) => position.catalogueKey === item.key) &&
+        (item.areaKeys.length === 0 || item.areaKeys.some((areaKey) => areaKeys.has(areaKey)))
+    );
+  });
   const launchStats = $derived([
     { label: 'Areas', value: String(areaItems.length), ready: areaItems.length > 0 },
     { label: 'Positions', value: String(functionItems.length), ready: functionItems.length > 0 },
-    { label: 'Rules', value: String(validAssignments.length), ready: validAssignments.length > 0 },
+    { label: 'Links', value: String(validAssignments.length), ready: validAssignments.length > 0 },
     { label: 'Staff', value: String(starterEmployees.length), ready: starterEmployees.length > 0 }
   ]);
   const readyCount = $derived([
@@ -211,7 +240,16 @@
       }
 
       if (!active) return;
-      draft = normalizeDraft(Object.keys(serverDraft).length ? serverDraft : localDraft);
+      const savedDraft = Object.keys(serverDraft).length ? serverDraft : localDraft;
+      const nextDraft = normalizeDraft(savedDraft);
+      if (creatingAdditionalRestaurant) {
+        nextDraft.firstName ||= String(auth.user?.user_metadata?.first_name ?? '');
+        nextDraft.lastName ||= String(auth.user?.user_metadata?.last_name ?? '');
+        if (!Object.keys(savedDraft).length && nextDraft.firstName && nextDraft.lastName) {
+          nextDraft.step = 1;
+        }
+      }
+      draft = nextDraft;
       hydrated = true;
     })();
     return () => {
@@ -244,10 +282,21 @@
   });
 
   $effect(() => {
-    if (workspace.active) {
+    if (workspace.active && !creatingAdditionalRestaurant) {
       goto(workspace.active.role === 'employee' ? '/my-service' : '/home', {
         replaceState: true
       });
+    }
+  });
+
+  $effect(() => {
+    if (
+      creatingAdditionalRestaurant &&
+      workspace.loaded &&
+      workspace.active &&
+      !workspace.memberships.some((membership) => membership.role === 'owner')
+    ) {
+      goto('/home', { replaceState: true });
     }
   });
 
@@ -278,7 +327,8 @@
         const record = item as Partial<SetupItem>;
         return {
           id: String(record.id || crypto.randomUUID?.() || `item-${index}`),
-          name: String(record.name ?? '')
+          name: String(record.name ?? ''),
+          catalogueKey: String(record.catalogueKey ?? '')
         };
       })
       .filter((item) => item.id);
@@ -349,7 +399,30 @@
   }
 
   function addArea() {
-    draft.areas = [...draft.areas, { id: id('area'), name: '' }];
+    draft.areas = [...draft.areas, { id: id('area'), name: '', catalogueKey: '' }];
+  }
+
+  function addCatalogueArea() {
+    const item = workspaceAreaByKey.get(selectedAreaCatalogueKey);
+    if (!item || draft.areas.some((area) => area.catalogueKey === item.key)) return;
+    const areaId = `area-${item.key}`;
+    draft.areas = [
+      ...draft.areas,
+      { id: areaId, name: item.label, catalogueKey: item.key }
+    ];
+    for (const position of draft.functions) {
+      const catalogue = workspacePositionByKey.get(position.catalogueKey);
+      if (
+        catalogue?.areaKeys.includes(item.key) &&
+        !hasAssignment(areaId, position.id)
+      ) {
+        draft.assignments = [
+          ...draft.assignments,
+          { areaId, jobFunctionId: position.id }
+        ];
+      }
+    }
+    selectedAreaCatalogueKey = '';
   }
 
   function removeArea(areaId: string) {
@@ -358,7 +431,22 @@
   }
 
   function addPosition() {
-    draft.functions = [...draft.functions, { id: id('position'), name: '' }];
+    draft.functions = [...draft.functions, { id: id('position'), name: '', catalogueKey: '' }];
+  }
+
+  function addCataloguePosition() {
+    const item = workspacePositionByKey.get(selectedPositionCatalogueKey);
+    if (!item || draft.functions.some((position) => position.catalogueKey === item.key)) return;
+    const jobFunctionId = `position-${item.key}`;
+    draft.functions = [
+      ...draft.functions,
+      { id: jobFunctionId, name: item.label, catalogueKey: item.key }
+    ];
+    const links = draft.areas
+      .filter((area) => item.areaKeys.includes(area.catalogueKey))
+      .map((area) => ({ areaId: area.id, jobFunctionId }));
+    draft.assignments = [...draft.assignments, ...links];
+    selectedPositionCatalogueKey = '';
   }
 
   function removePosition(jobFunctionId: string) {
@@ -371,7 +459,7 @@
     );
   }
 
-  // Coverage is a visual matrix now: one tap flips whether a position works an
+  // The position map is a visual matrix: one tap flips whether a position works an
   // area, instead of building select→select→remove rows. Same draft.assignments
   // shape underneath, so the launch payload is unchanged.
   function hasAssignment(areaId: string, jobFunctionId: string) {
@@ -412,7 +500,13 @@
   }
 
   function resetDraft() {
-    draft = structuredClone(initial);
+    const nextDraft = structuredClone(initial);
+    if (creatingAdditionalRestaurant) {
+      nextDraft.firstName = String(auth.user?.user_metadata?.first_name ?? '');
+      nextDraft.lastName = String(auth.user?.user_metadata?.last_name ?? '');
+      if (nextDraft.firstName && nextDraft.lastName) nextDraft.step = 1;
+    }
+    draft = nextDraft;
     feedback = 'Draft reset to the recommended restaurant starter.';
     feedbackTone = 'info';
   }
@@ -441,17 +535,25 @@
       ).flat();
       const areas = areaItems.map((area) => ({
         name: area.name,
+        catalogue_key: area.catalogueKey || null,
+        color: workspaceAreaByKey.get(area.catalogueKey)?.color ?? null,
+        icon_key: workspaceAreaByKey.get(area.catalogueKey)?.icon ?? null,
         lunch_start: draft.lunchStart,
         lunch_end: draft.lunchEnd,
         evening_start: draft.eveningStart,
         evening_end: draft.eveningEnd
       }));
-      const coverage = validAssignments.map((assignment) => ({
+      const positionAreas = validAssignments.map((assignment) => ({
         area: areaItems.find((area) => area.id === assignment.areaId)?.name ?? '',
+        area_key:
+          areaItems.find((area) => area.id === assignment.areaId)?.catalogueKey ?? '',
         job_function:
-          functionItems.find((position) => position.id === assignment.jobFunctionId)?.name ?? ''
+          functionItems.find((position) => position.id === assignment.jobFunctionId)?.name ?? '',
+        job_function_key:
+          functionItems.find((position) => position.id === assignment.jobFunctionId)
+            ?.catalogueKey ?? ''
       }));
-      await setupOwnerWorkspace({
+      const result = await setupOwnerWorkspace({
         ownerFirstName: draft.firstName.trim(),
         ownerLastName: draft.lastName.trim(),
         ownerEmail: email,
@@ -459,8 +561,13 @@
         city: draft.city.trim(),
         openingHours,
         areas,
-        jobFunctions: functionNames,
-        coverage,
+        jobFunctions: functionItems.map((position, index) => ({
+          name: position.name,
+          catalogue_key: position.catalogueKey || null,
+          icon_key: null,
+          sort_order: index
+        })),
+        coverage: positionAreas,
         employees: draft.employees
           .filter((employee) => employee.firstName.trim() || employee.lastName.trim())
           .map((employee) => ({
@@ -471,9 +578,23 @@
             phone: employee.phone.trim() || null,
             job_function:
               functionItems.find((position) => position.id === employee.jobFunctionId)?.name ??
-              functionNames[0]
+              functionNames[0],
+            job_function_key:
+              functionItems.find((position) => position.id === employee.jobFunctionId)
+                ?.catalogueKey ?? ''
           }))
       });
+      const createdRestaurantId =
+        result && typeof result === 'object' && !Array.isArray(result)
+          ? String((result as Record<string, Json>).restaurant_id ?? '')
+          : '';
+      await supabase.auth.updateUser({
+        data: {
+          ...auth.user?.user_metadata,
+          first_name: draft.firstName.trim(),
+          last_name: draft.lastName.trim()
+        }
+      }).catch(() => undefined);
       if (!auth.user?.email_confirmed_at) {
         await supabase.auth
           .resend({
@@ -487,6 +608,14 @@
       await clearOwnerOnboardingDraft().catch(() => undefined);
       workspace.reset();
       await workspace.load();
+      if (
+        createdRestaurantId &&
+        workspace.memberships.some(
+          (membership) => membership.restaurant_id === createdRestaurantId
+        )
+      ) {
+        await workspace.select(createdRestaurantId);
+      }
       await goto('/home');
     } catch (error) {
       feedback = error instanceof Error ? error.message : String(error);
@@ -501,7 +630,7 @@
   <title>Launch restaurant · restogogo</title>
   <meta
     name="description"
-    content="Create a restogogo restaurant workspace with services, areas, coverage and starter staff."
+    content="Create a restogogo restaurant workspace with services, areas, position links and starter staff."
   />
 </svelte:head>
 
@@ -620,6 +749,15 @@
               <section>
                 <div class="build-head"><strong>Areas</strong><span>{areaItems.length} named</span></div>
                 <p class="stage-hint">The rooms and stations work happens in.</p>
+                <div class="catalogue-add">
+                  <select aria-label="Standard area" bind:value={selectedAreaCatalogueKey}>
+                    <option value="">Choose a standard area</option>
+                    {#each availableAreaCatalogue as item (item.key)}
+                      <option value={item.key}>{item.label}</option>
+                    {/each}
+                  </select>
+                  <button type="button" disabled={!selectedAreaCatalogueKey} onclick={addCatalogueArea}>Add</button>
+                </div>
                 <div class="build-grid">
                   {#each draft.areas as area, index (area.id)}
                     <div class="build-card rst-stagger-in" style={`--rst-i:${index}`}>
@@ -629,13 +767,22 @@
                   {/each}
                   <button type="button" class="ghost-card" onclick={addArea}>
                     <span class="ghost-icon">+</span>
-                    <strong>Add area</strong>
+                    <strong>Custom area</strong>
                   </button>
                 </div>
               </section>
               <section>
                 <div class="build-head"><strong>Positions</strong><span>{functionItems.length} named</span></div>
                 <p class="stage-hint">The roles people can be assigned to.</p>
+                <div class="catalogue-add">
+                  <select aria-label="Standard position" bind:value={selectedPositionCatalogueKey}>
+                    <option value="">Choose a standard position</option>
+                    {#each availablePositionCatalogue as item (item.key)}
+                      <option value={item.key}>{item.label}</option>
+                    {/each}
+                  </select>
+                  <button type="button" disabled={!selectedPositionCatalogueKey} onclick={addCataloguePosition}>Add</button>
+                </div>
                 <div class="build-grid">
                   {#each draft.functions as position, index (position.id)}
                     <div class="build-card rst-stagger-in" style={`--rst-i:${index}`}>
@@ -645,7 +792,7 @@
                   {/each}
                   <button type="button" class="ghost-card" onclick={addPosition}>
                     <span class="ghost-icon">+</span>
-                    <strong>Add position</strong>
+                    <strong>Custom position</strong>
                   </button>
                 </div>
               </section>
@@ -660,7 +807,7 @@
                   {#each areaItems as area (area.id)}
                     <div class="matrix__row-head">
                       <strong>{area.name}</strong>
-                      <small>{areaRuleCount(area.id)} rule{areaRuleCount(area.id) === 1 ? '' : 's'}</small>
+                      <small>{areaRuleCount(area.id)} position{areaRuleCount(area.id) === 1 ? '' : 's'}</small>
                     </div>
                     {#each functionItems as position (position.id)}
                       {@const on = hasAssignment(area.id, position.id)}
@@ -677,7 +824,7 @@
                     {/each}
                   {/each}
                 </div>
-                <p class="stage-hint">{validAssignments.length} staffing pairing{validAssignments.length === 1 ? '' : 's'} · tap a cell to toggle.</p>
+                <p class="stage-hint">{validAssignments.length} position–area link{validAssignments.length === 1 ? '' : 's'} · tap a cell to toggle.</p>
               {:else}
                 <p class="stage-empty">Add at least one area and one position first.</p>
               {/if}
@@ -725,7 +872,7 @@
                 <article class="glow-card glow-card--green">
                   <span class="glow-card__kicker">Foundation</span>
                   <strong>{areaItems.length} areas · {functionItems.length} positions</strong>
-                  <p>{validAssignments.length} coverage pairings · {starterEmployees.length} starter staff</p>
+                  <p>{validAssignments.length} position links · {starterEmployees.length} starter staff</p>
                 </article>
               </div>
             {/if}
@@ -1251,6 +1398,42 @@
     font-size: 11px;
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
+  }
+
+  .catalogue-add {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 7px;
+    margin-top: 10px;
+  }
+
+  .catalogue-add select,
+  .catalogue-add button {
+    min-height: 38px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: var(--rst-ui-radius-md);
+    background: #fff;
+    color: var(--rst-ui-text);
+    font: inherit;
+    font-size: 12px;
+  }
+
+  .catalogue-add select {
+    min-width: 0;
+    padding: 0 10px;
+  }
+
+  .catalogue-add button {
+    padding: 0 14px;
+    border-color: color-mix(in srgb, var(--rst-ui-accent) 55%, var(--rst-ui-line));
+    color: var(--rst-ui-accent);
+    font-weight: var(--rst-fw-bold);
+    cursor: pointer;
+  }
+
+  .catalogue-add button:disabled {
+    cursor: default;
+    opacity: 0.45;
   }
 
   .build-grid {

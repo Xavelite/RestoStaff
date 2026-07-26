@@ -64,6 +64,12 @@
           (membership.role === 'owner' || membership.role === 'manager')
       )
   );
+  const canCreateRestaurant = $derived(
+    !workspace.isPreview &&
+      workspace.memberships.some(
+        (membership) => membership.status === 'active' && membership.role === 'owner'
+      )
+  );
 
   async function selectWorkspace(restaurantId: string) {
     const membership = workspace.memberships.find((item) => item.restaurant_id === restaurantId);
@@ -80,6 +86,15 @@
     } catch (error) {
       toasts.show(error instanceof Error ? error.message : String(error), 'danger');
     }
+  }
+
+  function createRestaurant() {
+    open = false;
+    void unsavedChanges
+      .runOrRequest(() => goto('/onboarding?new=1'))
+      .catch((error) =>
+        toasts.show(error instanceof Error ? error.message : String(error), 'danger')
+      );
   }
 
   function launchKiosk() {
@@ -115,8 +130,10 @@
 
   function openAccount() {
     const employee = workspace.bootstrap?.current_employee;
-    accountFirstName = employee?.first_name ?? '';
-    accountLastName = employee?.last_name ?? '';
+    accountFirstName =
+      employee?.first_name ?? String(auth.user?.user_metadata?.first_name ?? '');
+    accountLastName =
+      employee?.last_name ?? String(auth.user?.user_metadata?.last_name ?? '');
     accountPassword = '';
     accountPasswordConfirm = '';
     accountLanguage = normalizeLocale(auth.user?.user_metadata?.[ACCOUNT_LOCALE_METADATA_KEY]);
@@ -281,6 +298,9 @@
               </button>
             {/each}
           </div>
+        {/if}
+        {#if canCreateRestaurant}
+          <button type="button" onclick={createRestaurant}>{t('Add restaurant')}</button>
         {/if}
         <button type="button" onclick={openAccount}>{t('Account settings')}</button>
         {#if !appInstall.installed}

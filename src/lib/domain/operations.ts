@@ -11,8 +11,21 @@ export type WorkArea = {
   code: string;
   notes: string | null;
   metadata: Json;
+  catalogue_key: string | null;
+  color: string | null;
+  icon_key: string | null;
   active: boolean;
   sort_order: number;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type JobFunctionArea = {
+  restaurant_id: string;
+  job_function_id: string;
+  area_id: string;
+  is_primary: boolean;
+  active: boolean;
   created_at?: string;
   updated_at?: string;
 };

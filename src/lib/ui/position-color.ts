@@ -4,6 +4,8 @@
 // Areas use a deeper palette because they are structural locations. Defaults are
 // deterministic; owner-selected overrides take precedence.
 
+import { catalogueAreaColor } from '../restaurant/workspace-catalogue.ts';
+
 export const POSITION_PALETTE = [
   '#2563eb', // blue
   '#ea580c', // orange
@@ -38,6 +40,8 @@ type JobFunctionLike = {
   metadata?: unknown;
   color?: string | null;
   primaryAreaId?: string | null;
+  areaIds?: readonly string[] | null;
+  catalogueKey?: string | null;
 };
 
 type AreaLike = {
@@ -47,6 +51,8 @@ type AreaLike = {
   name?: string | null;
   metadata?: unknown;
   color?: string | null;
+  catalogue_key?: string | null;
+  catalogueKey?: string | null;
 };
 
 export function validWorkspaceColor(value: unknown): value is string {
@@ -76,6 +82,20 @@ function readPrimaryAreaId(item: JobFunctionLike): string | null {
     return typeof value === 'string' && value ? value : null;
   }
   return null;
+}
+
+function readAreaIds(item: JobFunctionLike): string[] {
+  if (Array.isArray(item.areaIds)) {
+    return item.areaIds.filter((value): value is string => typeof value === 'string' && Boolean(value));
+  }
+  if (item.metadata && typeof item.metadata === 'object' && 'area_ids' in item.metadata) {
+    const value = (item.metadata as { area_ids?: unknown }).area_ids;
+    if (Array.isArray(value)) {
+      return value.filter((entry): entry is string => typeof entry === 'string' && Boolean(entry));
+    }
+  }
+  const primary = readPrimaryAreaId(item);
+  return primary ? [primary] : [];
 }
 
 function inferredAreaId(item: JobFunctionLike, areas: AreaLike[]): string | null {
@@ -119,7 +139,14 @@ export function buildPositionColorMap(
   const positionIndexByArea = new Map<string, number>();
   const map = new Map<string, string>();
   ordered.forEach((item, index) => {
-    const areaId = readPrimaryAreaId(item) ?? inferredAreaId(item, areas);
+    const linkedAreaIds = readAreaIds(item);
+    const primaryAreaId = readPrimaryAreaId(item);
+    const areaId =
+      primaryAreaId && linkedAreaIds.includes(primaryAreaId)
+        ? primaryAreaId
+        : linkedAreaIds.length === 1
+        ? linkedAreaIds[0]
+        : inferredAreaId(item, areas);
     const areaColor = areaId ? areaColors.get(areaId) : null;
     if (areaId && areaColor) {
       const siblingIndex = positionIndexByArea.get(areaId) ?? 0;
@@ -149,7 +176,14 @@ export function buildAreaColorMap(areas: AreaLike[]): Map<string, string> {
   const map = new Map<string, string>();
   ordered.forEach((item, index) => {
     const direct = validWorkspaceColor(item.color) ? item.color : null;
-    map.set(item.id, direct ?? readColorOverride(item.metadata) ?? defaultAreaColor(index));
+    const catalogueKey = item.catalogueKey ?? item.catalogue_key;
+    map.set(
+      item.id,
+      direct ??
+        readColorOverride(item.metadata) ??
+        catalogueAreaColor(catalogueKey) ??
+        defaultAreaColor(index)
+    );
   });
   return map;
 }

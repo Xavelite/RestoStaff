@@ -387,7 +387,7 @@ test('Restaurant Areas is the direct-manipulation venue canvas instead of a dupl
   assert.match(page, /<ReservationFloorPlansWorkspace mode="venue"/);
   assert.doesNotMatch(page, /<ClassicTablePanel|<table/);
   assert.match(workspace, /function addFloor\(\)/);
-  assert.match(workspace, /function addArea\(\)/);
+  assert.match(workspace, /function addArea\(/);
   assert.match(workspace, /onroomresize=/);
   assert.match(workspace, /onfloorresize=/);
   assert.match(workspace, /ROOM_GRID = 20/);
