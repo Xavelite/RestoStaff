@@ -117,7 +117,7 @@ test('reservation status transitions are forward-only and terminal states are im
 
 test('phase 1 and 2 migration exposes revision and integrity guards', async () => {
   const migration = await readFile(
-    'supabase/migrations/20260726223000_reservation_integrity_and_atomic_venue.sql',
+    'supabase/migrations/20260726214338_reservation_integrity_and_atomic_venue.sql',
     'utf8'
   );
   assert.match(migration, /reservation_configuration_revisions/);
