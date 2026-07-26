@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
 
   type FilterValue = { value: string; label: string };
@@ -9,25 +10,21 @@
     sortable = false,
     sortDir = null,
     onsort,
-    groupable = false,
-    grouped = false,
-    ongroup,
     filterKind = null,
     searchValue = '',
     onsearch,
     filterValues = [],
     selected = null,
     ontoggle,
-    onselectall
+    onselectall,
+    extra,
+    extraActive = false
   }: {
     label: string;
     align?: 'left' | 'right';
     sortable?: boolean;
     sortDir?: 'asc' | 'desc' | null;
     onsort?: (dir: 'asc' | 'desc') => void;
-    groupable?: boolean;
-    grouped?: boolean;
-    ongroup?: (on: boolean) => void;
     filterKind?: 'text' | 'values' | null;
     searchValue?: string;
     onsearch?: (value: string) => void;
@@ -35,6 +32,8 @@
     selected?: Set<string> | null;
     ontoggle?: (value: string) => void;
     onselectall?: (on: boolean) => void;
+    extra?: Snippet;
+    extraActive?: boolean;
   } = $props();
 
   let open = $state(false);
@@ -43,10 +42,14 @@
   let menuLeft = $state(0);
   let menuTop = $state(0);
   let menuRight = $state(false);
+  let filterSearch = $state('');
 
   const filtered = $derived(Boolean(selected && selected.size > 0) || Boolean(filterKind === 'text' && searchValue));
-  const active = $derived(Boolean(sortDir) || grouped || filtered);
+  const active = $derived(Boolean(sortDir) || filtered || extraActive);
   const allSelected = $derived(!selected || selected.size === 0);
+  const visibleFilterValues = $derived(
+    filterValues.filter((item) => item.label.toLowerCase().includes(filterSearch.trim().toLowerCase()))
+  );
 
   function sort(dir: 'asc' | 'desc') {
     onsort?.(dir);
@@ -69,7 +72,10 @@
 
   function toggleMenu() {
     open = !open;
-    if (open) positionMenu();
+    if (open) {
+      filterSearch = '';
+      positionMenu();
+    }
   }
 
   $effect(() => {
@@ -102,7 +108,7 @@
     {/if}
   </button>
 
-  {#if sortable || groupable || filterKind}
+  {#if sortable || filterKind || extra}
     <button bind:this={trigger} class="colhead__trigger" class:is-active={active} type="button" aria-haspopup="menu" aria-expanded={open} aria-label={t('Column options')} onclick={toggleMenu}>
       <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" /></svg>
     </button>
@@ -119,12 +125,6 @@
         </button>
       {/if}
 
-      {#if groupable}
-        {#if sortable}<div class="colmenu__sep"></div>{/if}
-        <button class="colmenu__item" class:is-on={grouped} type="button" role="menuitem" onclick={() => { ongroup?.(!grouped); open = false; }}>
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" /></svg>{grouped ? t('Ungroup') : t('Group by this')}
-        </button>
-      {/if}
 
       {#if filterKind === 'text'}
         <div class="colmenu__sep"></div>
@@ -134,20 +134,30 @@
         </div>
       {:else if filterKind === 'values'}
         <div class="colmenu__sep"></div>
+        <div class="colmenu__search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.2-3.2" /></svg>
+          <input class="cl-field" type="search" placeholder={t('Search')} bind:value={filterSearch} />
+        </div>
         <div class="colmenu__filter">
           <label class="colmenu__check colmenu__check--all">
             <input type="checkbox" checked={allSelected} onchange={(event) => onselectall?.(event.currentTarget.checked)} />
             <span>{t('Select all')}</span>
           </label>
           <div class="colmenu__values">
-            {#each filterValues as item (item.value)}
+            {#each visibleFilterValues as item (item.value)}
               <label class="colmenu__check">
                 <input type="checkbox" checked={!selected?.has(item.value)} onchange={() => ontoggle?.(item.value)} />
                 <span>{item.label}</span>
               </label>
             {/each}
+            {#if !visibleFilterValues.length}<div class="colmenu__empty">{t('No matches')}</div>{/if}
           </div>
         </div>
+      {/if}
+
+      {#if extra}
+        <div class="colmenu__sep"></div>
+        <div class="colmenu__extra">{@render extra()}</div>
       {/if}
     </div>
   {/if}

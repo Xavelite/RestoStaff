@@ -16,6 +16,8 @@
   import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
+  import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
+  import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
 
   type GroupBy = 'status' | 'role' | 'none';
@@ -31,6 +33,10 @@
   let groupBy = $state<GroupBy>('status');
   let sort = $state<{ key: SortKey; dir: 'asc' | 'desc' } | null>(null);
   let excludedStatus = $state(new Set<string>());
+  let excludedRole = $state(new Set<string>());
+  let excludedPin = $state(new Set<string>());
+  let emailSearch = $state('');
+  let collapsedGroups = $state<string[]>([]);
 
   const OPTIONAL_COLUMNS = [
     { key: 'email', label: 'Email' },
@@ -48,6 +54,17 @@
     active: 'Signed in', disabled: 'Disabled', invited: 'Invitation sent', expired: 'Invitation expired', revoked: 'Invitation revoked', not_invited: 'No invitation'
   };
 
+  function setGroupBy(next: GroupBy): void {
+    groupBy = next;
+    collapsedGroups = [];
+  }
+
+  function toggleGroup(key: string): void {
+    collapsedGroups = collapsedGroups.includes(key)
+      ? collapsedGroups.filter((item) => item !== key)
+      : [...collapsedGroups, key];
+  }
+
   onMount(() => {
     try { const raw = localStorage.getItem(COLS_KEY); if (raw) hidden = new Set(JSON.parse(raw) as string[]); } catch { hidden = new Set(); }
     return unsavedChanges.register({ id: 'team-invitation', label: 'Employee invitation', priority: 10, isDirty: () => inviteDirty, save: sendInvite, discard: discardInvite });
@@ -62,7 +79,12 @@
       if (groupBy === 'status') groupBy = 'none';
       excludedStatus = new Set();
     }
-    if (key === 'role' && hiding && groupBy === 'role') groupBy = 'none';
+    if (key === 'role' && hiding) {
+      if (groupBy === 'role') groupBy = 'none';
+      excludedRole = new Set();
+    }
+    if (key === 'email' && hiding) emailSearch = '';
+    if (key === 'pin' && hiding) excludedPin = new Set();
     hidden = next;
     try { localStorage.setItem(COLS_KEY, JSON.stringify([...next])); } catch {}
   }
@@ -81,6 +103,9 @@
   }
   function matches(employee: EmployeeDraft) {
     if (!employee.active || excludedStatus.has(employee.accessState)) return false;
+    if (excludedRole.has(employee.accessRole || '__none__')) return false;
+    if (excludedPin.has(employee.pinStatus || '__none__')) return false;
+    if (emailSearch.trim() && !employee.email.toLowerCase().includes(emailSearch.trim().toLowerCase())) return false;
     const term = search.trim().toLowerCase();
     return !term || `${employee.displayName} ${employee.email} ${employee.accessRole} ${employee.accessState}`.toLowerCase().includes(term);
   }
@@ -150,6 +175,8 @@
 {@const filtered = team.employees.filter(matches)}
     {@const groups = grouped(ordered(filtered), team.jobName)}
     {@const accessValues = [...new Set(team.employees.filter((employee) => employee.active).map((employee) => employee.accessState))].map((value) => ({ value, label: t(ACCESS_LABEL[value] ?? value) }))}
+    {@const roleValues = [{ value: '__none__', label: t('No role') }, { value: 'manager', label: t('manager') }, { value: 'employee', label: t('employee') }]}
+    {@const pinValues = [...new Set(team.employees.filter((employee) => employee.active).map((employee) => employee.pinStatus || '__none__'))].map((value) => ({ value, label: value === '__none__' ? t('Not set') : t(value) }))}
     {@const signedIn = filtered.filter((employee) => employee.accessState === 'active').length}
 
     <ClassicTablePanel>
@@ -161,11 +188,11 @@
         <div class="cl-tablewrap">
           <table class="cl-table">
             <thead><tr>
-              <th class="has-menu"><ClassicColMenu label={t('Name')} sortable sortDir={sort?.key === 'name' ? sort.dir : null} onsort={(dir) => (sort = { key: 'name', dir })} filterKind="text" searchValue={search} onsearch={(value) => (search = value)} /></th>
-              {#if shown('email')}<th class="has-menu"><ClassicColMenu label={t('Email')} sortable sortDir={sort?.key === 'email' ? sort.dir : null} onsort={(dir) => (sort = { key: 'email', dir })} /></th>{/if}
-              {#if shown('role')}<th class="has-menu"><ClassicColMenu label={t('Role')} sortable sortDir={sort?.key === 'role' ? sort.dir : null} onsort={(dir) => (sort = { key: 'role', dir })} groupable grouped={groupBy === 'role'} ongroup={(on) => (groupBy = on ? 'role' : 'none')} /></th>{/if}
-              {#if shown('pin')}<th class="has-menu"><ClassicColMenu label={t('Badge PIN')} sortable sortDir={sort?.key === 'pin' ? sort.dir : null} onsort={(dir) => (sort = { key: 'pin', dir })} /></th>{/if}
-              {#if shown('status')}<th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={sort?.key === 'status' ? sort.dir : null} onsort={(dir) => (sort = { key: 'status', dir })} groupable grouped={groupBy === 'status'} ongroup={(on) => (groupBy = on ? 'status' : 'none')} filterKind="values" filterValues={accessValues} selected={excludedStatus} ontoggle={toggleExcluded} onselectall={(on) => (excludedStatus = on ? new Set() : new Set(accessValues.map((item) => item.value)))} /></th>{/if}
+              <th class="has-menu"><ClassicPrimaryColMenu label={t('Name')} sortable sortDir={sort?.key === 'name' ? sort.dir : null} onsort={(dir) => (sort = { key: 'name', dir })} filterKind="text" searchValue={search} onsearch={(value) => (search = value)} groupValue={groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'status', label: t('Status') }, { value: 'role', label: t('Role') }]} ongroupchange={(value) => setGroupBy(value as GroupBy)} /></th>
+              {#if shown('email')}<th class="has-menu"><ClassicColMenu label={t('Email')} sortable sortDir={sort?.key === 'email' ? sort.dir : null} onsort={(dir) => (sort = { key: 'email', dir })} filterKind="text" searchValue={emailSearch} onsearch={(value) => (emailSearch = value)} /></th>{/if}
+              {#if shown('role')}<th class="has-menu"><ClassicColMenu label={t('Role')} sortable sortDir={sort?.key === 'role' ? sort.dir : null} onsort={(dir) => (sort = { key: 'role', dir })} filterKind="values" filterValues={roleValues} selected={excludedRole} ontoggle={(value) => { const next = new Set(excludedRole); next.has(value) ? next.delete(value) : next.add(value); excludedRole = next; }} onselectall={(on) => (excludedRole = on ? new Set() : new Set(roleValues.map((item) => item.value)))} /></th>{/if}
+              {#if shown('pin')}<th class="has-menu"><ClassicColMenu label={t('Badge PIN')} sortable sortDir={sort?.key === 'pin' ? sort.dir : null} onsort={(dir) => (sort = { key: 'pin', dir })} filterKind="values" filterValues={pinValues} selected={excludedPin} ontoggle={(value) => { const next = new Set(excludedPin); next.has(value) ? next.delete(value) : next.add(value); excludedPin = next; }} onselectall={(on) => (excludedPin = on ? new Set() : new Set(pinValues.map((item) => item.value)))} /></th>{/if}
+              {#if shown('status')}<th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={sort?.key === 'status' ? sort.dir : null} onsort={(dir) => (sort = { key: 'status', dir })} filterKind="values" filterValues={accessValues} selected={excludedStatus} ontoggle={toggleExcluded} onselectall={(on) => (excludedStatus = on ? new Set() : new Set(accessValues.map((item) => item.value)))} /></th>{/if}
               <th class="actions-col">{t('Actions')}</th>
               <th class="chooser-col"><ClassicColChooser columns={OPTIONAL_COLUMNS.map((column) => ({ key: column.key, label: t(column.label) }))} {hidden} ontoggle={toggleColumn} /></th>
             </tr></thead>
@@ -174,7 +201,8 @@
             {:else}
               {#each groups as group (group.key)}
                 <tbody>
-                  {#if groupBy !== 'none'}<tr class="cl-group-row"><td colspan={colCount}>{group.label}<span class="cl-group-row__count">{t('{count} people', { count: group.employees.length })}</span></td></tr>{/if}
+                  {#if groupBy !== 'none'}<ClassicGroupRow colspan={colCount} label={group.label} meta={t('{count} people', { count: group.employees.length })} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />{/if}
+                  {#if !collapsedGroups.includes(group.key)}
                   {#each group.employees as employee (employee.id)}
                     <tr>
                       <td><span class="cl-table__name"><span class="cl-avatar" style="--avatar-color:{employeeColor.get(employee.id) ?? 'var(--cl-muted)'}">{personInitials(employee.displayName)}</span>{employee.displayName}</span></td>
@@ -186,6 +214,7 @@
                       <td></td>
                     </tr>
                   {/each}
+                  {/if}
                 </tbody>
               {/each}
             {/if}

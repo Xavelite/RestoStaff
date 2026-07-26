@@ -26,7 +26,7 @@
 
   $effect(() => {
     if (workspace.activeId && workspace.effectiveRole !== 'employee') {
-      void workspace.loadTeam().catch(() => undefined);
+      void Promise.all([workspace.loadTeam(), workspace.loadRestaurant()]).catch(() => undefined);
     }
   });
 

@@ -40,6 +40,8 @@
   import { personInitials } from '$lib/ui/person';
   import ClassicPage from '$lib/classic/ClassicPage.svelte';
   import ClassicScheduleWeek from '$lib/classic/ClassicScheduleWeek.svelte';
+  import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
+  import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
   import { scheduleDraft } from '$lib/classic/classic-schedule.svelte';
   import { downloadCsv } from '$lib/export/csv';
   import { planningCsv } from '$lib/schedule/schedule-export';
@@ -131,6 +133,7 @@
   let onlyConflicts = $state(false);
   let density = $state<Density>('compact');
   let groupMode = $state<GroupMode>('none');
+  let employeeSort = $state<'asc' | 'desc' | null>(null);
   let collapsedGroups = $state<string[]>([]);
   let draggingKey = $state('');
   let dropKey = $state('');
@@ -230,7 +233,7 @@
 
   function visibleRows(grid: PlanningGrid): PlanningRow[] {
     const needle = search.trim().toLocaleLowerCase(i18n.intlLocale);
-    return grid.rows.filter((row) => {
+    const rows = grid.rows.filter((row) => {
       if (needle && !`${row.name} ${row.meta}`.toLocaleLowerCase(i18n.intlLocale).includes(needle)) {
         return false;
       }
@@ -238,6 +241,9 @@
       if (onlyConflicts && !hasEmployeeConflict(grid, row.id)) return false;
       return true;
     });
+    if (!employeeSort) return rows;
+    const factor = employeeSort === 'desc' ? -1 : 1;
+    return [...rows].sort((left, right) => factor * left.name.localeCompare(right.name, i18n.intlLocale));
   }
 
   function employeeAreaLabel(employeeId: string): string {
@@ -685,22 +691,30 @@
             <table class="board">
               <thead>
                 <tr>
-                  <th class="board__staff">
-                    <details class="employee-menu">
-                      <summary class:is-active={Boolean(search || positionId || onlyConflicts || groupMode !== 'none')}>
-                        <span>{t('Employee')}</span>
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 10 4 4 4-4" /></svg>
-                      </summary>
-                      <div class="employee-menu__body">
-                        <label><span>{t('Search')}</span><input class="cl-field" value={search} placeholder={t('Search employees...')} oninput={(event) => (search = event.currentTarget.value)} /></label>
-                        <label><span>{t('Group by')}</span><select class="cl-field" value={groupMode} onchange={(event) => setGroupMode(event.currentTarget.value as GroupMode)}><option value="none">{t('No grouping')}</option><option value="contract">{t('Contract type')}</option><option value="position">{t('Position')}</option><option value="area">{t('Area')}</option></select></label>
+                  <th class="board__staff has-menu">
+                    <ClassicPrimaryColMenu
+                      label={t('Employee')}
+                      sortable
+                      sortDir={employeeSort}
+                      onsort={(dir) => (employeeSort = dir)}
+                      filterKind="text"
+                      searchValue={search}
+                      onsearch={(value) => (search = value)}
+                      extraActive={Boolean(positionId || onlyConflicts)}
+                      groupValue={groupMode}
+                      groupOptions={[
+                        { value: 'none', label: t('No grouping') },
+                        { value: 'contract', label: t('Contract type') },
+                        { value: 'position', label: t('Position') },
+                        { value: 'area', label: t('Area') }
+                      ]}
+                      ongroupchange={(value) => setGroupMode(value as GroupMode)}
+                    >
+                      {#snippet extra()}
                         <label><span>{t('Position')}</span><select class="cl-field" bind:value={positionId}><option value="">{t('All positions')}</option>{#each snapshot?.job_functions.filter((item) => item.active).toSorted((a, b) => a.name.localeCompare(b.name)) ?? [] as item (item.id)}<option value={item.id}>{item.name}</option>{/each}</select></label>
                         <label class="check"><input type="checkbox" bind:checked={onlyConflicts} />{t('Only conflicts')}</label>
-                        {#if search || positionId || onlyConflicts || groupMode !== 'none'}
-                          <button type="button" onclick={() => { search = ''; positionId = ''; onlyConflicts = false; setGroupMode('none'); }}>{t('Clear filters')}</button>
-                        {/if}
-                      </div>
-                    </details>
+                      {/snippet}
+                    </ClassicPrimaryColMenu>
                   </th>
                   {#each grid.days as day (day.date)}
                     {@const total = scheduleDraft.shifts.filter((shift) => shift.weekday === day.weekday).reduce((sum, shift) => sum + hoursBetweenClocks(shift.startsAt, shift.endsAt), 0)}
@@ -718,15 +732,13 @@
                 {:else}
                   {#each groups as group (group.key)}
                     {#if groupMode !== 'none'}
-                      <tr class="group-row">
-                        <td colspan={grid.days.length + 1}>
-                          <button type="button" onclick={() => toggleGroup(group.key)}>
-                            <svg class:is-collapsed={collapsedGroups.includes(group.key)} viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
-                            <strong>{group.label}</strong>
-                            <span>{group.rows.length} · {formatHours(group.hours)}</span>
-                          </button>
-                        </td>
-                      </tr>
+                      <ClassicGroupRow
+                        colspan={grid.days.length + 1}
+                        label={group.label}
+                        meta={`${t('{count} employees', { count: group.rows.length })} · ${formatHours(group.hours)}`}
+                        collapsed={collapsedGroups.includes(group.key)}
+                        ontoggle={() => toggleGroup(group.key)}
+                      />
                     {/if}
                     {#if !collapsedGroups.includes(group.key)}
                       {#each group.rows as row (row.id)}
@@ -1024,24 +1036,7 @@
   .board__cell.is-drop-target { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--cl-ok) 62%, transparent); }
   tr.is-archived { opacity: .72; }
 
-  .employee-menu { position: relative; }
-  .employee-menu > summary { display: inline-flex; align-items: center; gap: 7px; min-height: 30px; padding: 4px 6px; border-radius: 5px; list-style: none; font-weight: var(--rst-fw-bold); cursor: pointer; }
-  .employee-menu > summary::-webkit-details-marker { display: none; }
-  .employee-menu > summary:hover, .employee-menu > summary.is-active { color: var(--cl-accent); background: var(--cl-accent-wash); }
-  .employee-menu__body { position: absolute; z-index: 180; top: calc(100% + 7px); left: 0; display: grid; gap: 8px; min-width: 285px; padding: 11px; border: 1px solid var(--cl-line-strong); border-radius: 7px; background: var(--cl-surface); box-shadow: 0 12px 32px rgb(0 0 0 / .15); }
-  .employee-menu__body label { display: grid; gap: 5px; color: var(--cl-muted); font-size: 11px; font-weight: var(--rst-fw-medium); }
-  .employee-menu__body label.check { display: flex; align-items: center; gap: 8px; padding: 6px 2px; color: var(--cl-ink); }
-  .employee-menu__body input[type='checkbox'] { width: 15px; height: 15px; accent-color: var(--cl-accent); }
-  .employee-menu__body > button { min-height: 32px; padding: 5px 7px; border: 0; border-radius: 4px; background: transparent; color: var(--cl-muted); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
-  .employee-menu__body > button:hover { color: var(--cl-ink); background: var(--cl-surface-muted); }
 
-  .group-row td { position: sticky; left: 0; z-index: 3; height: 35px; padding: 0; border-bottom: 1px solid var(--cl-line); background: var(--cl-surface-muted); }
-  .group-row button { width: 100%; display: flex; align-items: center; gap: 8px; min-height: 35px; padding: 5px 12px; border: 0; background: transparent; color: var(--cl-ink); font: inherit; text-align: left; cursor: pointer; }
-  .group-row button:hover { background: color-mix(in srgb, var(--cl-accent) 4%, var(--cl-surface-muted)); }
-  .group-row svg { transition: transform var(--cl-dur) var(--cl-ease); transform: rotate(90deg); }
-  .group-row svg.is-collapsed { transform: rotate(0deg); }
-  .group-row strong { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
-  .group-row span { color: var(--cl-muted); font-size: 11px; }
 
   .staff { display: flex; align-items: center; gap: 10px; padding: 10px 14px; }
   .staff__id { display: grid; gap: 3px; min-width: 0; flex: 1; }

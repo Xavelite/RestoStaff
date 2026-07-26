@@ -8,13 +8,15 @@
   import type { EmployeeDraft } from '$lib/team/team-model';
   import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
   import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
+  import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
+  import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
   import ClassicTeamPage from '$lib/classic/ClassicTeamPage.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import EmployeeInlineEditor from '$lib/classic/EmployeeInlineEditor.svelte';
   import { teamDraft } from '$lib/classic/classic-team.svelte';
 
-  type GroupBy = 'contract' | 'position' | 'none';
+  type GroupBy = 'contract' | 'position' | 'worker' | 'status' | 'none';
   type Group = { key: string; label: string; employees: EmployeeDraft[] };
   type SortKey = 'employee' | 'contract' | 'position' | 'payrollId' | 'function' | 'worker' | 'basis' | 'rate' | 'status';
 
@@ -26,6 +28,12 @@
   let excludedStatus = $state(new Set<string>());
   let excludedContract = $state(new Set<string>());
   let excludedPosition = $state(new Set<string>());
+  let excludedWorker = $state(new Set<string>());
+  let excludedBasis = $state(new Set<string>());
+  let payrollIdSearch = $state('');
+  let functionSearch = $state('');
+  let rateSearch = $state('');
+  let collapsedGroups = $state<string[]>([]);
 
   const OPTIONAL_COLUMNS = [
     { key: 'contract', label: 'Contract' },
@@ -78,27 +86,62 @@
 
   function matches(employee: EmployeeDraft, contractName: Map<string, string>, jobName: Map<string, string>): boolean {
     const term = search.trim().toLowerCase();
+    const rate = employee.salaryBasis === 'monthly'
+      ? employee.contractualMonthlySalary
+      : employee.contractualHourlyRate;
     if (!employee.active) return false;
     if (excludedContract.has(employee.contractTypeId || '__none__')) return false;
     if (excludedPosition.has(employee.jobFunctionIds[0] || '__none__')) return false;
+    if (excludedWorker.has(employee.workerStatus || '__none__')) return false;
+    if (excludedBasis.has(employee.salaryBasis || '__none__')) return false;
     if (excludedStatus.has(payrollGaps(employee).length ? 'not_ready' : 'ready')) return false;
+    if (payrollIdSearch.trim() && !employee.payrollEmployeeId.toLowerCase().includes(payrollIdSearch.trim().toLowerCase())) return false;
+    if (functionSearch.trim() && !employee.cp302ReferenceFunctionCode.toLowerCase().includes(functionSearch.trim().toLowerCase())) return false;
+    if (rateSearch.trim() && !rate.toLowerCase().includes(rateSearch.trim().toLowerCase())) return false;
     return !term || `${employee.displayName} ${employee.payrollEmployeeId} ${contractName.get(employee.contractTypeId) ?? ''} ${employee.jobFunctionIds.map((id) => jobName.get(id) ?? '').join(' ')}`.toLowerCase().includes(term);
+  }
+
+  function setGroupBy(next: GroupBy): void {
+    groupBy = next;
+    collapsedGroups = [];
+  }
+
+  function toggleGroup(key: string): void {
+    collapsedGroups = collapsedGroups.includes(key)
+      ? collapsedGroups.filter((item) => item !== key)
+      : [...collapsedGroups, key];
   }
 
   function grouped(rows: EmployeeDraft[], contractName: Map<string, string>, jobName: Map<string, string>): Group[] {
     if (groupBy === 'none') return [{ key: 'all', label: '', employees: rows }];
     const map = new Map<string, Group>();
     for (const employee of rows) {
-      const id = groupBy === 'contract' ? employee.contractTypeId : employee.jobFunctionIds[0] ?? '';
-      const label = id
-        ? (groupBy === 'contract' ? contractName.get(id) : jobName.get(id)) ?? t('Unknown')
-        : groupBy === 'contract' ? t('No contract yet') : t('No position yet');
-      const key = id || '__undefined__';
+      let key = '';
+      let label = '';
+      if (groupBy === 'contract') {
+        key = employee.contractTypeId || '__none__';
+        label = employee.contractTypeId ? contractName.get(employee.contractTypeId) ?? t('Unknown') : t('No contract yet');
+      } else if (groupBy === 'position') {
+        key = employee.jobFunctionIds[0] || '__none__';
+        label = employee.jobFunctionIds[0] ? jobName.get(employee.jobFunctionIds[0]) ?? t('Unknown') : t('No position yet');
+      } else if (groupBy === 'worker') {
+        key = employee.workerStatus || '__none__';
+        label = employee.workerStatus
+          ? t(employee.workerStatus === 'blue_collar' ? 'Blue-collar worker' : 'White-collar employee')
+          : t('Not set');
+      } else {
+        key = payrollGaps(employee).length ? 'not_ready' : 'ready';
+        label = t(key === 'ready' ? 'Ready for payroll' : 'Not ready for payroll');
+      }
       const group = map.get(key) ?? { key, label, employees: [] };
       group.employees.push(employee);
       map.set(key, group);
     }
-    return [...map.values()].sort((left, right) => left.key === '__undefined__' ? -1 : right.key === '__undefined__' ? 1 : left.label.localeCompare(right.label));
+    return [...map.values()].sort((left, right) => {
+      if (left.key === '__none__') return -1;
+      if (right.key === '__none__') return 1;
+      return left.label.localeCompare(right.label);
+    });
   }
 
   function setReferenceFunction(employee: EmployeeDraft, code: string) {
@@ -153,7 +196,18 @@
       if (groupBy === 'position') groupBy = 'none';
       excludedPosition = new Set();
     }
-    if (key === 'status' && hiding) excludedStatus = new Set();
+    if (key === 'worker' && hiding) {
+      if (groupBy === 'worker') groupBy = 'none';
+      excludedWorker = new Set();
+    }
+    if (key === 'basis' && hiding) excludedBasis = new Set();
+    if (key === 'status' && hiding) {
+      if (groupBy === 'status') groupBy = 'none';
+      excludedStatus = new Set();
+    }
+    if (key === 'payrollId' && hiding) payrollIdSearch = '';
+    if (key === 'function' && hiding) functionSearch = '';
+    if (key === 'rate' && hiding) rateSearch = '';
     persistHidden(next);
   }
   const shown = (key: string) => !hidden.has(key);
@@ -178,6 +232,8 @@
     {@const groups = grouped(ordered(rows), team.contractName, team.jobName)}
     {@const contractValues = [{ value: '__none__', label: t('No contract') }, ...[...team.contractName].map(([id, name]) => ({ value: id, label: name }))]}
     {@const positionValues = [{ value: '__none__', label: t('No position') }, ...[...team.jobName].map(([id, name]) => ({ value: id, label: name }))]}
+    {@const workerValues = [{ value: '__none__', label: t('Not set') }, { value: 'blue_collar', label: t('Blue-collar worker') }, { value: 'white_collar', label: t('White-collar employee') }]}
+    {@const basisValues = [{ value: '__none__', label: t('Not set') }, { value: 'hourly', label: t('Hourly') }, { value: 'monthly', label: t('Monthly') }]}
 
     {#if teamDraft.supplementaryLoading}
       <div class="cl-notice" role="status">{t('Loading payroll configuration…')}</div>
@@ -197,14 +253,14 @@
         <table class="cl-table payroll-table">
           <thead>
             <tr>
-              <th class="has-menu"><ClassicColMenu label={t('Employee')} sortable sortDir={sort?.key === 'employee' ? sort.dir : null} onsort={(dir) => (sort = { key: 'employee', dir })} filterKind="text" searchValue={search} onsearch={(value) => (search = value)} /></th>
-              {#if shown('contract')}<th class="has-menu"><ClassicColMenu label={t('Contract')} sortable sortDir={sort?.key === 'contract' ? sort.dir : null} onsort={(dir) => (sort = { key: 'contract', dir })} groupable grouped={groupBy === 'contract'} ongroup={(on) => (groupBy = on ? 'contract' : 'none')} filterKind="values" filterValues={contractValues} selected={excludedContract} ontoggle={(value) => (excludedContract = toggleExcluded(excludedContract, value))} onselectall={(on) => (excludedContract = on ? new Set() : new Set(contractValues.map((item) => item.value)))} /></th>{/if}
-              {#if shown('position')}<th class="has-menu"><ClassicColMenu label={t('Position')} sortable sortDir={sort?.key === 'position' ? sort.dir : null} onsort={(dir) => (sort = { key: 'position', dir })} groupable grouped={groupBy === 'position'} ongroup={(on) => (groupBy = on ? 'position' : 'none')} filterKind="values" filterValues={positionValues} selected={excludedPosition} ontoggle={(value) => (excludedPosition = toggleExcluded(excludedPosition, value))} onselectall={(on) => (excludedPosition = on ? new Set() : new Set(positionValues.map((item) => item.value)))} /></th>{/if}
-              {#if shown('payrollId')}<th class="has-menu"><ClassicColMenu label={t('Payroll ID')} sortable sortDir={sort?.key === 'payrollId' ? sort.dir : null} onsort={(dir) => (sort = { key: 'payrollId', dir })} /></th>{/if}
-              {#if shown('function')}<th class="has-menu"><ClassicColMenu label={t('CP 302 function')} sortable sortDir={sort?.key === 'function' ? sort.dir : null} onsort={(dir) => (sort = { key: 'function', dir })} /></th>{/if}
-              {#if shown('worker')}<th class="has-menu"><ClassicColMenu label={t('Worker status')} sortable sortDir={sort?.key === 'worker' ? sort.dir : null} onsort={(dir) => (sort = { key: 'worker', dir })} /></th>{/if}
-              {#if shown('basis')}<th class="has-menu"><ClassicColMenu label={t('Salary basis')} sortable sortDir={sort?.key === 'basis' ? sort.dir : null} onsort={(dir) => (sort = { key: 'basis', dir })} /></th>{/if}
-              {#if shown('rate')}<th class="has-menu"><ClassicColMenu label={t('Rate')} sortable sortDir={sort?.key === 'rate' ? sort.dir : null} onsort={(dir) => (sort = { key: 'rate', dir })} /></th>{/if}
+              <th class="has-menu"><ClassicPrimaryColMenu label={t('Employee')} sortable sortDir={sort?.key === 'employee' ? sort.dir : null} onsort={(dir) => (sort = { key: 'employee', dir })} filterKind="text" searchValue={search} onsearch={(value) => (search = value)} groupValue={groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'contract', label: t('Contract type') }, { value: 'position', label: t('Position') }, { value: 'worker', label: t('Worker status') }, { value: 'status', label: t('Status') }]} ongroupchange={(value) => setGroupBy(value as GroupBy)} /></th>
+              {#if shown('contract')}<th class="has-menu"><ClassicColMenu label={t('Contract')} sortable sortDir={sort?.key === 'contract' ? sort.dir : null} onsort={(dir) => (sort = { key: 'contract', dir })} filterKind="values" filterValues={contractValues} selected={excludedContract} ontoggle={(value) => (excludedContract = toggleExcluded(excludedContract, value))} onselectall={(on) => (excludedContract = on ? new Set() : new Set(contractValues.map((item) => item.value)))} /></th>{/if}
+              {#if shown('position')}<th class="has-menu"><ClassicColMenu label={t('Position')} sortable sortDir={sort?.key === 'position' ? sort.dir : null} onsort={(dir) => (sort = { key: 'position', dir })} filterKind="values" filterValues={positionValues} selected={excludedPosition} ontoggle={(value) => (excludedPosition = toggleExcluded(excludedPosition, value))} onselectall={(on) => (excludedPosition = on ? new Set() : new Set(positionValues.map((item) => item.value)))} /></th>{/if}
+              {#if shown('payrollId')}<th class="has-menu"><ClassicColMenu label={t('Payroll ID')} sortable sortDir={sort?.key === 'payrollId' ? sort.dir : null} onsort={(dir) => (sort = { key: 'payrollId', dir })} filterKind="text" searchValue={payrollIdSearch} onsearch={(value) => (payrollIdSearch = value)} /></th>{/if}
+              {#if shown('function')}<th class="has-menu"><ClassicColMenu label={t('CP 302 function')} sortable sortDir={sort?.key === 'function' ? sort.dir : null} onsort={(dir) => (sort = { key: 'function', dir })} filterKind="text" searchValue={functionSearch} onsearch={(value) => (functionSearch = value)} /></th>{/if}
+              {#if shown('worker')}<th class="has-menu"><ClassicColMenu label={t('Worker status')} sortable sortDir={sort?.key === 'worker' ? sort.dir : null} onsort={(dir) => (sort = { key: 'worker', dir })} filterKind="values" filterValues={workerValues} selected={excludedWorker} ontoggle={(value) => (excludedWorker = toggleExcluded(excludedWorker, value))} onselectall={(on) => (excludedWorker = on ? new Set() : new Set(workerValues.map((item) => item.value)))} /></th>{/if}
+              {#if shown('basis')}<th class="has-menu"><ClassicColMenu label={t('Salary basis')} sortable sortDir={sort?.key === 'basis' ? sort.dir : null} onsort={(dir) => (sort = { key: 'basis', dir })} filterKind="values" filterValues={basisValues} selected={excludedBasis} ontoggle={(value) => (excludedBasis = toggleExcluded(excludedBasis, value))} onselectall={(on) => (excludedBasis = on ? new Set() : new Set(basisValues.map((item) => item.value)))} /></th>{/if}
+              {#if shown('rate')}<th class="has-menu"><ClassicColMenu label={t('Rate')} sortable sortDir={sort?.key === 'rate' ? sort.dir : null} onsort={(dir) => (sort = { key: 'rate', dir })} filterKind="text" searchValue={rateSearch} onsearch={(value) => (rateSearch = value)} /></th>{/if}
               {#if shown('status')}<th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={sort?.key === 'status' ? sort.dir : null} onsort={(dir) => (sort = { key: 'status', dir })} filterKind="values" filterValues={[{ value: 'ready', label: t('Ready for payroll') }, { value: 'not_ready', label: t('Not ready for payroll') }]} selected={excludedStatus} ontoggle={(value) => (excludedStatus = toggleExcluded(excludedStatus, value))} onselectall={(on) => (excludedStatus = on ? new Set() : new Set(['ready', 'not_ready']))} /></th>{/if}
               <th class="actions-col">{t('Actions')}</th>
               <th class="chooser-col"><ClassicColChooser columns={OPTIONAL_COLUMNS.map((column) => ({ key: column.key, label: t(column.label) }))} {hidden} ontoggle={toggleColumn} /></th>
@@ -215,7 +271,8 @@
           {:else}
             {#each groups as group (group.key)}
               <tbody>
-                {#if groupBy !== 'none'}<tr class="cl-group-row"><td colspan={colCount + 1}>{group.label}<span class="cl-group-row__count">{t('{count} people', { count: group.employees.length })}</span></td></tr>{/if}
+                {#if groupBy !== 'none'}<ClassicGroupRow colspan={colCount + 1} label={group.label} meta={t('{count} people', { count: group.employees.length })} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />{/if}
+                {#if !collapsedGroups.includes(group.key)}
                 {#each group.employees as employee (employee.id)}
                   {@const missing = payrollGaps(employee)}
                   {@const terms = TERMS_STATUS[employee.employmentSourceStatus]}
@@ -233,6 +290,7 @@
                     <td class="menu-cell"></td>
                   </tr>
                 {/each}
+                {/if}
               </tbody>
             {/each}
           {/if}

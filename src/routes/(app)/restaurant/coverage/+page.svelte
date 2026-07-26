@@ -5,6 +5,8 @@
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import ClassicService from '$lib/classic/ClassicService.svelte';
   import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
+  import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
+  import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
   import type { CoverageDraft } from '$lib/restaurant/restaurant-model';
   import { workspace } from '$lib/workspace/workspace.svelte';
@@ -18,7 +20,11 @@
   let newRows = $state<NewRow[]>([]);
   let search = $state('');
   let sort = $state<{ key: 'area' | 'position' | 'service'; dir: 'asc' | 'desc' } | null>(null);
-  let groupBy = $state<'area' | 'position' | 'none'>('area');
+  let groupBy = $state<'area' | 'position' | 'service' | 'none'>('area');
+  let excludedArea = $state(new Set<string>());
+  let excludedPosition = $state(new Set<string>());
+  let excludedService = $state(new Set<string>());
+  let collapsedGroups = $state<string[]>([]);
 
   const areaColor = $derived(buildAreaColorMap(restaurantConfig.draft?.areas ?? []));
   const positionColor = $derived(buildPositionColorMap(restaurantConfig.draft?.jobFunctions ?? []));
@@ -100,14 +106,31 @@
     if (groupBy === 'none') return [{ key: 'all', label: '', rows }];
     const map = new Map<string, CoverageGroup>();
     for (const row of rows) {
-      const key = groupBy === 'area' ? row.areaId : row.jobFunctionId;
-      const label = (groupBy === 'area' ? areaName.get(key) : jobName.get(key)) ?? t('Unknown');
+      const key = groupBy === 'area' ? row.areaId : groupBy === 'position' ? row.jobFunctionId : row.serviceKey;
+      const label = groupBy === 'area' ? areaName.get(key) ?? t('Unknown') : groupBy === 'position' ? jobName.get(key) ?? t('Unknown') : t(row.serviceKey === 'evening' ? 'Evening' : 'Lunch');
       const group = map.get(key) ?? { key, label, rows: [] };
       group.rows.push(row);
       map.set(key, group);
     }
     return [...map.values()].sort((a, b) => a.label.localeCompare(b.label));
   }
+  function setGroupBy(next: 'area' | 'position' | 'service' | 'none'): void {
+    groupBy = next;
+    collapsedGroups = [];
+  }
+
+  function toggleGroup(key: string): void {
+    collapsedGroups = collapsedGroups.includes(key)
+      ? collapsedGroups.filter((item) => item !== key)
+      : [...collapsedGroups, key];
+  }
+
+  function toggleExcluded(set: Set<string>, value: string): Set<string> {
+    const next = new Set(set);
+    next.has(value) ? next.delete(value) : next.add(value);
+    return next;
+  }
+
   function orderedCoverageRows(rows: Row[], areaName: Map<string, string>, jobName: Map<string, string>): Row[] {
     const activeSort = sort;
     if (!activeSort) return rows;
@@ -140,9 +163,16 @@
     {@const jobName = new Map(draft.jobFunctions.map((job) => [job.id, job.name]))}
     {@const activeAreas = draft.areas.filter((area) => area.active && area.name.trim())}
     {@const activePositions = draft.jobFunctions.filter((job) => job.active && job.name.trim())}
-    {@const rows = [...new Map(draft.coverage.map((item) => [`${item.areaId}|${item.jobFunctionId}|${item.serviceKey}`, { areaId: item.areaId, jobFunctionId: item.jobFunctionId, serviceKey: item.serviceKey }])).values()].filter((row) => `${areaName.get(row.areaId) ?? ''} ${jobName.get(row.jobFunctionId) ?? ''} ${row.serviceKey}`.toLowerCase().includes(search.trim().toLowerCase()))}
+    {@const rows = [...new Map(draft.coverage.map((item) => [`${item.areaId}|${item.jobFunctionId}|${item.serviceKey}`, { areaId: item.areaId, jobFunctionId: item.jobFunctionId, serviceKey: item.serviceKey }])).values()]
+      .filter((row) => !excludedArea.has(row.areaId))
+      .filter((row) => !excludedPosition.has(row.jobFunctionId))
+      .filter((row) => !excludedService.has(row.serviceKey))
+      .filter((row) => `${areaName.get(row.areaId) ?? ''} ${jobName.get(row.jobFunctionId) ?? ''} ${row.serviceKey}`.toLowerCase().includes(search.trim().toLowerCase()))}
     {@const ordered = orderedCoverageRows(rows, areaName, jobName)}
     {@const groups = groupRows(ordered, areaName, jobName)}
+    {@const areaValues = activeAreas.map((area) => ({ value: area.id, label: area.name }))}
+    {@const positionValues = activePositions.map((job) => ({ value: job.id, label: job.name }))}
+    {@const serviceValues = [{ value: 'lunch', label: t('Lunch') }, { value: 'evening', label: t('Evening') }]}
 
     <ClassicTablePanel dirty={context.dirty} saving={context.saving} canSave={context.canSave} onsave={() => void context.save().catch(() => undefined)} ondiscard={context.discard}>
       {#snippet meta()}<span><i class="dot"></i>{t('{count} coverage lines', { count: rows.length })}</span>{/snippet}
@@ -152,9 +182,9 @@
           <table class="cl-table cov">
             <thead>
               <tr>
-                <th class="has-menu"><ClassicColMenu label={t('Area')} sortable sortDir={sort?.key === 'area' ? sort.dir : null} onsort={(dir) => (sort = { key: 'area', dir })} groupable grouped={groupBy === 'area'} ongroup={(on) => (groupBy = on ? 'area' : 'none')} filterKind="text" searchValue={search} onsearch={(value) => (search = value)} /></th>
-                <th class="has-menu"><ClassicColMenu label={t('Position')} sortable sortDir={sort?.key === 'position' ? sort.dir : null} onsort={(dir) => (sort = { key: 'position', dir })} groupable grouped={groupBy === 'position'} ongroup={(on) => (groupBy = on ? 'position' : 'none')} /></th>
-                <th class="has-menu"><ClassicColMenu label={t('Service')} sortable sortDir={sort?.key === 'service' ? sort.dir : null} onsort={(dir) => (sort = { key: 'service', dir })} /></th>
+                <th class="has-menu"><ClassicPrimaryColMenu label={t('Area')} sortable sortDir={sort?.key === 'area' ? sort.dir : null} onsort={(dir) => (sort = { key: 'area', dir })} filterKind="values" filterValues={areaValues} selected={excludedArea} ontoggle={(value) => (excludedArea = toggleExcluded(excludedArea, value))} onselectall={(on) => (excludedArea = on ? new Set() : new Set(areaValues.map((item) => item.value)))} groupValue={groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'area', label: t('Area') }, { value: 'position', label: t('Position') }, { value: 'service', label: t('Service') }]} ongroupchange={(value) => setGroupBy(value as 'area' | 'position' | 'service' | 'none')} /></th>
+                <th class="has-menu"><ClassicColMenu label={t('Position')} sortable sortDir={sort?.key === 'position' ? sort.dir : null} onsort={(dir) => (sort = { key: 'position', dir })} filterKind="values" filterValues={positionValues} selected={excludedPosition} ontoggle={(value) => (excludedPosition = toggleExcluded(excludedPosition, value))} onselectall={(on) => (excludedPosition = on ? new Set() : new Set(positionValues.map((item) => item.value)))} /></th>
+                <th class="has-menu"><ClassicColMenu label={t('Service')} sortable sortDir={sort?.key === 'service' ? sort.dir : null} onsort={(dir) => (sort = { key: 'service', dir })} filterKind="values" filterValues={serviceValues} selected={excludedService} ontoggle={(value) => (excludedService = toggleExcluded(excludedService, value))} onselectall={(on) => (excludedService = on ? new Set() : new Set(serviceValues.map((item) => item.value)))} /></th>
                 {#each WEEKDAYS as day (day)}<th class="cov__day">{t(day)}</th>{/each}
                 <th></th>
               </tr>
@@ -178,7 +208,8 @@
             {:else}
               {#each groups as group (group.key)}
                 <tbody>
-                  {#if groupBy !== 'none'}<tr class="cl-group-row"><td colspan={WEEKDAYS.length + 4}>{group.label}<span class="cl-group-row__count">{t('{count} coverage lines', { count: group.rows.length })}</span></td></tr>{/if}
+                  {#if groupBy !== 'none'}<ClassicGroupRow colspan={WEEKDAYS.length + 4} label={group.label} meta={t('{count} coverage lines', { count: group.rows.length })} color={groupBy === 'area' ? areaColor.get(group.key) : groupBy === 'position' ? positionColor.get(group.key) : ''} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />{/if}
+                  {#if !collapsedGroups.includes(group.key)}
                   {#each group.rows as row (rowKey(row))}
                     <tr>
                       <td><span class="cl-chip" style="--chip:{areaColor.get(row.areaId) ?? 'var(--cl-line-strong)'}"><span>{areaName.get(row.areaId) ?? '—'}</span></span></td>
@@ -191,6 +222,7 @@
                       <td class="is-num"><button class="cl-btn is-icon remove" type="button" disabled={workspace.isPreview} title={t('Remove requirement')} aria-label={t('Remove requirement')} onclick={() => removeRow(row)}>×</button></td>
                     </tr>
                   {/each}
+                  {/if}
                 </tbody>
               {/each}
             {/if}

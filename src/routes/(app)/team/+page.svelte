@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
-  import { buildEmployeeColorMap } from '$lib/ui/position-color';
+  import { buildAreaColorMap, buildEmployeeColorMap } from '$lib/ui/position-color';
   import { personInitials } from '$lib/ui/person';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import type { EmployeeDraft } from '$lib/team/team-model';
@@ -10,17 +10,21 @@
   import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
+  import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
+  import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
   import EmployeeInlineEditor from '$lib/classic/EmployeeInlineEditor.svelte';
   import { teamDraft } from '$lib/classic/classic-team.svelte';
 
   type SortKey = 'employee' | 'position' | 'email' | 'phone' | 'contract' | 'access' | 'status';
-  type GroupBy = 'position' | 'contract' | 'none';
+  type GroupBy = 'position' | 'contract' | 'area' | 'status' | 'none';
   type EmployeeGroup = { key: string; label: string; color?: string; employees: EmployeeDraft[] };
 
   let sort = $state<{ key: SortKey; dir: 'asc' | 'desc' } | null>(null);
   let groupBy = $state<GroupBy>('position');
   let search = $state('');
+  let emailSearch = $state('');
+  let phoneSearch = $state('');
   let excludedPosition = $state(new Set<string>());
   let excludedContract = $state(new Set<string>());
   let excludedAccess = $state(new Set<string>());
@@ -29,6 +33,7 @@
   let detailId = $state('');
   let dragEmployeeId = $state('');
   let dropGroupKey = $state('');
+  let collapsedGroups = $state<string[]>([]);
 
   const OPTIONAL_COLUMNS = [
     { key: 'position', label: 'Position' },
@@ -87,6 +92,39 @@
       : new Map<string, string>()
   );
 
+  const restaurantAreaName = $derived(
+    new Map((workspace.restaurant?.work_areas ?? []).map((area) => [area.id, area.name]))
+  );
+  const restaurantAreaColor = $derived(buildAreaColorMap(workspace.restaurant?.work_areas ?? []));
+
+  function setGroupBy(next: GroupBy): void {
+    groupBy = next;
+    collapsedGroups = [];
+  }
+
+  function toggleGroup(key: string): void {
+    collapsedGroups = collapsedGroups.includes(key)
+      ? collapsedGroups.filter((item) => item !== key)
+      : [...collapsedGroups, key];
+  }
+
+  function employeeArea(employee: EmployeeDraft): { key: string; label: string; color?: string } {
+    const positionId = employee.jobFunctionIds[0] ?? '';
+    const areaIds = [...new Set(
+      (workspace.restaurant?.coverage_requirements ?? [])
+        .filter((requirement) => requirement.active && requirement.job_function_id === positionId)
+        .map((requirement) => requirement.area_id)
+    )];
+    if (!areaIds.length) return { key: '__no_area__', label: t('No area') };
+    if (areaIds.length > 1) return { key: '__multiple_areas__', label: t('Multiple areas') };
+    const areaId = areaIds[0];
+    return {
+      key: areaId,
+      label: restaurantAreaName.get(areaId) ?? t('Unknown'),
+      color: restaurantAreaColor.get(areaId)
+    };
+  }
+
   async function addEmployee() {
     if (workspace.isPreview || !workspace.team) return;
     const draft = newEmployeeDraft(crypto.randomUUID());
@@ -94,6 +132,8 @@
     teamDraft.employees = [draft, ...teamDraft.employees];
     freshId = draft.id;
     search = '';
+    emailSearch = '';
+    phoneSearch = '';
     excludedPosition = new Set();
     excludedContract = new Set();
     excludedAccess = new Set();
@@ -166,6 +206,8 @@
     if (excludedContract.has(employee.contractTypeId || '__none__')) return false;
     if (excludedAccess.has(employee.accessState)) return false;
     if (excludedStatus.has(employee.active ? 'active' : 'archived')) return false;
+    if (emailSearch.trim() && !employee.email.toLowerCase().includes(emailSearch.trim().toLowerCase())) return false;
+    if (phoneSearch.trim() && !employee.phone.toLowerCase().includes(phoneSearch.trim().toLowerCase())) return false;
     const term = search.trim().toLowerCase();
     return !term || searchBlob(employee, jobName, contractName).includes(term);
   }
@@ -201,22 +243,33 @@
     if (groupBy === 'none') return [{ key: 'all', label: '', employees: rows }];
     const groups = new Map<string, EmployeeGroup>();
     for (const employee of rows) {
-      const id = groupBy === 'position' ? employee.jobFunctionIds[0] ?? '' : employee.contractTypeId;
-      const label = id
-        ? (groupBy === 'position' ? jobName.get(id) : contractName.get(id)) ?? t('Unknown')
-        : groupBy === 'position'
-          ? t('No position yet')
-          : t('No contract yet');
-      const key = id || '__undefined__';
-      const color = groupBy === 'position' && id ? employeeColor.get(employee.id) : undefined;
+      let key = '';
+      let label = '';
+      let color: string | undefined;
+      if (groupBy === 'position') {
+        key = employee.jobFunctionIds[0] ?? '__undefined__';
+        label = key === '__undefined__' ? t('No position yet') : jobName.get(key) ?? t('Unknown');
+        color = key === '__undefined__' ? undefined : employeeColor.get(employee.id);
+      } else if (groupBy === 'contract') {
+        key = employee.contractTypeId || '__undefined__';
+        label = key === '__undefined__' ? t('No contract yet') : contractName.get(key) ?? t('Unknown');
+      } else if (groupBy === 'area') {
+        const area = employeeArea(employee);
+        key = area.key;
+        label = area.label;
+        color = area.color;
+      } else {
+        key = employee.active ? 'active' : 'archived';
+        label = t(employee.active ? 'Active' : 'Archived');
+      }
       const group = groups.get(key) ?? { key, label, color, employees: [] };
       group.employees.push(employee);
       if (!group.color && color) group.color = color;
       groups.set(key, group);
     }
     return [...groups.values()].sort((left, right) => {
-      if (left.key === '__undefined__') return -1;
-      if (right.key === '__undefined__') return 1;
+      if (left.key.startsWith('__')) return -1;
+      if (right.key.startsWith('__')) return 1;
       return left.label.localeCompare(right.label);
     });
   }
@@ -290,24 +343,38 @@
           <thead>
             <tr>
               <th class="has-menu">
-                <ClassicColMenu label={t('Employee')} sortable sortDir={sort?.key === 'employee' ? sort.dir : null} onsort={(dir) => (sort = { key: 'employee', dir })}
-                  filterKind="text" searchValue={search} onsearch={(value) => (search = value)} />
+                <ClassicPrimaryColMenu
+                  label={t('Employee')}
+                  sortable
+                  sortDir={sort?.key === 'employee' ? sort.dir : null}
+                  onsort={(dir) => (sort = { key: 'employee', dir })}
+                  filterKind="text"
+                  searchValue={search}
+                  onsearch={(value) => (search = value)}
+                  groupValue={groupBy}
+                  groupOptions={[
+                    { value: 'none', label: t('No grouping') },
+                    { value: 'contract', label: t('Contract type') },
+                    { value: 'position', label: t('Position') },
+                    { value: 'area', label: t('Area') },
+                    { value: 'status', label: t('Status') }
+                  ]}
+                  ongroupchange={(value) => setGroupBy(value as GroupBy)}
+                />
               </th>
               {#if shown('position')}
                 <th class="has-menu">
                   <ClassicColMenu label={t('Position')} sortable sortDir={sort?.key === 'position' ? sort.dir : null} onsort={(dir) => (sort = { key: 'position', dir })}
-                    groupable grouped={groupBy === 'position'} ongroup={(on) => (groupBy = on ? 'position' : 'none')}
                     filterKind="values" filterValues={positionValues} selected={excludedPosition}
                     ontoggle={(value) => (excludedPosition = toggleExcluded(excludedPosition, value))}
                     onselectall={(on) => (excludedPosition = on ? new Set() : new Set(positionValues.map((item) => item.value)))} />
                 </th>
               {/if}
-              {#if shown('email')}<th class="has-menu"><ClassicColMenu label={t('Email')} sortable sortDir={sort?.key === 'email' ? sort.dir : null} onsort={(dir) => (sort = { key: 'email', dir })} /></th>{/if}
-              {#if shown('phone')}<th class="has-menu"><ClassicColMenu label={t('Phone')} sortable sortDir={sort?.key === 'phone' ? sort.dir : null} onsort={(dir) => (sort = { key: 'phone', dir })} /></th>{/if}
+              {#if shown('email')}<th class="has-menu"><ClassicColMenu label={t('Email')} sortable sortDir={sort?.key === 'email' ? sort.dir : null} onsort={(dir) => (sort = { key: 'email', dir })} filterKind="text" searchValue={emailSearch} onsearch={(value) => (emailSearch = value)} /></th>{/if}
+              {#if shown('phone')}<th class="has-menu"><ClassicColMenu label={t('Phone')} sortable sortDir={sort?.key === 'phone' ? sort.dir : null} onsort={(dir) => (sort = { key: 'phone', dir })} filterKind="text" searchValue={phoneSearch} onsearch={(value) => (phoneSearch = value)} /></th>{/if}
               {#if shown('contract')}
                 <th class="has-menu">
                   <ClassicColMenu label={t('Contract')} sortable sortDir={sort?.key === 'contract' ? sort.dir : null} onsort={(dir) => (sort = { key: 'contract', dir })}
-                    groupable grouped={groupBy === 'contract'} ongroup={(on) => (groupBy = on ? 'contract' : 'none')}
                     filterKind="values" filterValues={contractValues} selected={excludedContract}
                     ontoggle={(value) => (excludedContract = toggleExcluded(excludedContract, value))}
                     onselectall={(on) => (excludedContract = on ? new Set() : new Set(contractValues.map((item) => item.value)))} />
@@ -339,13 +406,20 @@
             {#each rows as group (group.key)}
               <tbody>
                 {#if groupBy !== 'none'}
-                  <tr class="cl-group-row dropzone" class:is-drop-target={dropGroupKey === group.key} ondragover={(event) => { if (groupBy === 'position') { event.preventDefault(); dropGroupKey = group.key; } }} ondragleave={() => (dropGroupKey = '')} ondrop={() => dropIntoPosition(group.key)}>
-                    <td colspan={colCount + 1}>
-                      <span class="groupbadge">{#if group.color}<i class="groupbadge__dot" style={`--group:${group.color}`}></i>{/if}{group.label}</span>
-                      <span class="cl-group-row__count">{t('{count} people', { count: group.employees.length })}</span>
-                    </td>
-                  </tr>
+                  <ClassicGroupRow
+                    colspan={colCount + 1}
+                    label={group.label}
+                    meta={t('{count} people', { count: group.employees.length })}
+                    color={group.color}
+                    collapsed={collapsedGroups.includes(group.key)}
+                    dropTarget={dropGroupKey === group.key}
+                    ontoggle={() => toggleGroup(group.key)}
+                    ondragover={(event) => { if (groupBy === 'position') { event.preventDefault(); dropGroupKey = group.key; } }}
+                    ondragleave={() => (dropGroupKey = '')}
+                    ondrop={() => dropIntoPosition(group.key)}
+                  />
                 {/if}
+                {#if !collapsedGroups.includes(group.key)}
                 {#each group.employees as employee (employee.id)}
                   <tr data-employee-id={employee.id} class:is-attention={employee.id === freshId} draggable={groupBy === 'position'} ondragstart={() => startDrag(employee.id)} ondragend={() => { dragEmployeeId = ''; dropGroupKey = ''; }}>
                     <td>
@@ -379,6 +453,7 @@
                     <td class="menu-cell"></td>
                   </tr>
                 {/each}
+                {/if}
               </tbody>
             {/each}
           {/if}
@@ -414,8 +489,5 @@
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-line-strong); display: inline-block; }
   .dot.is-green { background: var(--cl-ok); }
   .dot.is-blue { background: var(--cl-info); }
-  .groupbadge { display: inline-flex; align-items: center; gap: 8px; }
-  .groupbadge__dot { width: 9px; height: 9px; border-radius: 50%; background: var(--group, var(--cl-accent)); display: inline-block; }
-  .dropzone.is-drop-target td { background: color-mix(in srgb, var(--cl-accent) 9%, var(--cl-surface-muted)) !important; }
   .is-employee { align-items: flex-start; }
 </style>

@@ -4,6 +4,8 @@
   import { useClassicRestaurantContext } from '$lib/classic/classic-workspace-context';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
+  import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
+  import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
   import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
@@ -11,11 +13,18 @@
   import { AREA_PALETTE, buildPositionColorMap, defaultAreaColor } from '$lib/ui/position-color';
 
   type SortKey = 'name' | 'lunch' | 'evening' | 'positions' | 'notes' | 'active';
+  type GroupBy = 'status' | 'service' | 'none';
   const positionColor = $derived(buildPositionColorMap(restaurantConfig.draft?.jobFunctions ?? []));
 
   let search = $state('');
   let sort = $state<{ key: SortKey; dir: 'asc' | 'desc' } | null>(null);
   let excludedStatus = $state(new Set<string>());
+  let excludedLunch = $state(new Set<string>());
+  let excludedEvening = $state(new Set<string>());
+  let positionsSearch = $state('');
+  let notesSearch = $state('');
+  let groupBy = $state<GroupBy>('none');
+  let collapsedGroups = $state<string[]>([]);
   let dragId = $state('');
 
   const OPTIONAL_COLUMNS = [
@@ -41,6 +50,10 @@
     next.has(key) ? next.delete(key) : next.add(key);
     const hiding = next.has(key);
     if (hiding && sort?.key === key) sort = null;
+    if (key === 'lunch' && hiding) excludedLunch = new Set();
+    if (key === 'evening' && hiding) excludedEvening = new Set();
+    if (key === 'positions' && hiding) positionsSearch = '';
+    if (key === 'notes' && hiding) notesSearch = '';
     if (key === 'active' && hiding) excludedStatus = new Set();
     hidden = next;
     try { localStorage.setItem(COLS_KEY, JSON.stringify([...next])); } catch {}
@@ -63,6 +76,33 @@
     }
     return map;
   });
+
+  function setGroupBy(next: GroupBy): void {
+    groupBy = next;
+    collapsedGroups = [];
+  }
+
+  function toggleGroup(key: string): void {
+    collapsedGroups = collapsedGroups.includes(key)
+      ? collapsedGroups.filter((item) => item !== key)
+      : [...collapsedGroups, key];
+  }
+
+  function serviceState(area: { lunchStart: string; lunchEnd: string; eveningStart: string; eveningEnd: string }): string {
+    const lunch = Boolean(area.lunchStart && area.lunchEnd);
+    const evening = Boolean(area.eveningStart && area.eveningEnd);
+    if (lunch && evening) return 'both';
+    if (lunch) return 'lunch';
+    if (evening) return 'evening';
+    return 'none';
+  }
+
+  function serviceStateLabel(value: string): string {
+    if (value === 'both') return t('Lunch and evening');
+    if (value === 'lunch') return t('Lunch only');
+    if (value === 'evening') return t('Evening only');
+    return t('No service hours');
+  }
 
   function addArea() {
     const draft = restaurantConfig.draft;
@@ -101,7 +141,7 @@
 
   function moveArea(targetId: string) {
     const draft = restaurantConfig.draft;
-    if (!draft || !dragId || dragId === targetId || sort) return;
+    if (!draft || !dragId || dragId === targetId || sort || groupBy !== 'none') return;
     const from = draft.areas.findIndex((item) => item.id === dragId);
     const to = draft.areas.findIndex((item) => item.id === targetId);
     if (from < 0 || to < 0) return;
@@ -113,9 +153,13 @@
     restaurantConfig.touch();
   }
 
-  function matches(area: { name: string; notes: string; active: boolean }) {
+  function matches(area: { id: string; name: string; notes: string; active: boolean; lunchStart: string; lunchEnd: string; eveningStart: string; eveningEnd: string }) {
     const term = search.trim().toLowerCase();
     if (excludedStatus.has(area.active ? 'active' : 'archived')) return false;
+    if (excludedLunch.has(area.lunchStart && area.lunchEnd ? 'configured' : 'not_configured')) return false;
+    if (excludedEvening.has(area.eveningStart && area.eveningEnd ? 'configured' : 'not_configured')) return false;
+    if (positionsSearch.trim() && !String(positionsByArea.get(area.id)?.length ?? 0).includes(positionsSearch.trim())) return false;
+    if (notesSearch.trim() && !area.notes.toLowerCase().includes(notesSearch.trim().toLowerCase())) return false;
     return !term || `${area.name} ${area.notes}`.toLowerCase().includes(term);
   }
   function sortValue(area: { name: string; lunchStart: string; lunchEnd: string; eveningStart: string; eveningEnd: string; notes: string; active: boolean; id: string }) {
@@ -136,6 +180,19 @@
     return [...rows].sort((a, b) => factor * sortValue(a).localeCompare(sortValue(b)));
   }
 
+  function groupedAreas<T extends { id: string; active: boolean; lunchStart: string; lunchEnd: string; eveningStart: string; eveningEnd: string }>(rows: T[]): { key: string; label: string; rows: T[] }[] {
+    if (groupBy === 'none') return [{ key: 'all', label: '', rows }];
+    const groups = new Map<string, { key: string; label: string; rows: T[] }>();
+    for (const area of rows) {
+      const key = groupBy === 'status' ? (area.active ? 'active' : 'archived') : serviceState(area);
+      const label = groupBy === 'status' ? t(area.active ? 'Active' : 'Archived') : serviceStateLabel(key);
+      const group = groups.get(key) ?? { key, label, rows: [] };
+      group.rows.push(area);
+      groups.set(key, group);
+    }
+    return [...groups.values()].sort((left, right) => left.label.localeCompare(right.label));
+  }
+
 
   const readRestaurantContext = useClassicRestaurantContext();
   const context = $derived(readRestaurantContext());
@@ -147,6 +204,8 @@
 {@const draft = context.draft}
     {@const rows = [...draft.areas].filter(matches)}
     {@const ordered = orderedAreas(rows)}
+    {@const groups = groupedAreas(ordered)}
+    {@const configuredValues = [{ value: 'configured', label: t('Configured') }, { value: 'not_configured', label: t('Not configured') }]}
     <ClassicTablePanel dirty={context.dirty} saving={context.saving} canSave={context.canSave} onsave={() => void context.save().catch(() => undefined)} ondiscard={context.discard}>
       {#snippet meta()}
         <span><i class="dot"></i>{t('{count} areas', { count: rows.length })}</span>
@@ -162,24 +221,27 @@
             <tr>
               <th class="cl-grip"><span class="sr-only">{t('Reorder')}</span></th>
               <th class="swatch-col"><span class="sr-only">{t('Colour')}</span></th>
-              <th class="has-menu"><ClassicColMenu label={t('Name')} sortable sortDir={sort?.key === 'name' ? sort.dir : null} onsort={(dir) => (sort = { key: 'name', dir })} filterKind="text" searchValue={search} onsearch={(value) => (search = value)} /></th>
-              {#if shown('lunch')}<th class="has-menu"><ClassicColMenu label={t('Lunch')} sortable sortDir={sort?.key === 'lunch' ? sort.dir : null} onsort={(dir) => (sort = { key: 'lunch', dir })} /></th>{/if}
-              {#if shown('evening')}<th class="has-menu"><ClassicColMenu label={t('Evening')} sortable sortDir={sort?.key === 'evening' ? sort.dir : null} onsort={(dir) => (sort = { key: 'evening', dir })} /></th>{/if}
-              {#if shown('positions')}<th class="has-menu"><ClassicColMenu label={t('Positions')} sortable sortDir={sort?.key === 'positions' ? sort.dir : null} onsort={(dir) => (sort = { key: 'positions', dir })} /></th>{/if}
-              {#if shown('notes')}<th class="has-menu"><ClassicColMenu label={t('Notes')} sortable sortDir={sort?.key === 'notes' ? sort.dir : null} onsort={(dir) => (sort = { key: 'notes', dir })} /></th>{/if}
+              <th class="has-menu"><ClassicPrimaryColMenu label={t('Name')} sortable sortDir={sort?.key === 'name' ? sort.dir : null} onsort={(dir) => (sort = { key: 'name', dir })} filterKind="text" searchValue={search} onsearch={(value) => (search = value)} groupValue={groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'status', label: t('Status') }, { value: 'service', label: t('Service hours') }]} ongroupchange={(value) => setGroupBy(value as GroupBy)} /></th>
+              {#if shown('lunch')}<th class="has-menu"><ClassicColMenu label={t('Lunch')} sortable sortDir={sort?.key === 'lunch' ? sort.dir : null} onsort={(dir) => (sort = { key: 'lunch', dir })} filterKind="values" filterValues={configuredValues} selected={excludedLunch} ontoggle={(value) => { const next = new Set(excludedLunch); next.has(value) ? next.delete(value) : next.add(value); excludedLunch = next; }} onselectall={(on) => (excludedLunch = on ? new Set() : new Set(configuredValues.map((item) => item.value)))} /></th>{/if}
+              {#if shown('evening')}<th class="has-menu"><ClassicColMenu label={t('Evening')} sortable sortDir={sort?.key === 'evening' ? sort.dir : null} onsort={(dir) => (sort = { key: 'evening', dir })} filterKind="values" filterValues={configuredValues} selected={excludedEvening} ontoggle={(value) => { const next = new Set(excludedEvening); next.has(value) ? next.delete(value) : next.add(value); excludedEvening = next; }} onselectall={(on) => (excludedEvening = on ? new Set() : new Set(configuredValues.map((item) => item.value)))} /></th>{/if}
+              {#if shown('positions')}<th class="has-menu"><ClassicColMenu label={t('Positions')} sortable sortDir={sort?.key === 'positions' ? sort.dir : null} onsort={(dir) => (sort = { key: 'positions', dir })} filterKind="text" searchValue={positionsSearch} onsearch={(value) => (positionsSearch = value)} /></th>{/if}
+              {#if shown('notes')}<th class="has-menu"><ClassicColMenu label={t('Notes')} sortable sortDir={sort?.key === 'notes' ? sort.dir : null} onsort={(dir) => (sort = { key: 'notes', dir })} filterKind="text" searchValue={notesSearch} onsearch={(value) => (notesSearch = value)} /></th>{/if}
               {#if shown('active')}<th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={sort?.key === 'active' ? sort.dir : null} onsort={(dir) => (sort = { key: 'active', dir })} filterKind="values" filterValues={[{ value: 'active', label: t('Active') }, { value: 'archived', label: t('Archived') }]} selected={excludedStatus} ontoggle={(value) => (excludedStatus = (() => { const next = new Set(excludedStatus); next.has(value) ? next.delete(value) : next.add(value); return next; })())} onselectall={(on) => (excludedStatus = on ? new Set() : new Set(['active', 'archived']))} /></th>{/if}
               <th class="actions-col">{t('Actions')}</th>
               <th class="chooser-col"><ClassicColChooser columns={OPTIONAL_COLUMNS.map((column) => ({ key: column.key, label: t(column.label) }))} {hidden} ontoggle={toggleColumn} /></th>
             </tr>
           </thead>
-          <tbody>
-            {#if !ordered.length}
-              <tr><td colspan={colCount}><div class="cl-empty"><strong>{t('No areas yet')}</strong><span>{t('Add the parts of the house you plan for, such as Hall, Bar or Kitchen.')}</span></div></td></tr>
-            {:else}
-              {#each ordered as area (area.id)}
+          {#if !ordered.length}
+            <tbody><tr><td colspan={colCount}><div class="cl-empty"><strong>{t('No areas yet')}</strong><span>{t('Add the parts of the house you plan for, such as Hall, Bar or Kitchen.')}</span></div></td></tr></tbody>
+          {:else}
+            {#each groups as group (group.key)}
+              <tbody>
+                {#if groupBy !== 'none'}<ClassicGroupRow colspan={colCount} label={group.label} meta={t('{count} areas', { count: group.rows.length })} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />{/if}
+                {#if !collapsedGroups.includes(group.key)}
+              {#each group.rows as area (area.id)}
                 {@const positions = positionsByArea.get(area.id) ?? []}
-                <tr draggable={!sort && !workspace.isPreview} ondragstart={() => (dragId = area.id)} ondragend={() => (dragId = '')} ondragover={(event) => { if (!sort) event.preventDefault(); }} ondrop={() => moveArea(area.id)}>
-                  <td class="cl-grip"><button type="button" disabled={Boolean(sort) || workspace.isPreview} title={sort ? t('Clear sorting to reorder') : t('Drag to reorder')} aria-label={t('Drag to reorder')}>⋮⋮</button></td>
+                <tr draggable={!sort && groupBy === 'none' && !workspace.isPreview} ondragstart={() => (dragId = area.id)} ondragend={() => (dragId = '')} ondragover={(event) => { if (!sort && groupBy === 'none') event.preventDefault(); }} ondrop={() => moveArea(area.id)}>
+                  <td class="cl-grip"><button type="button" disabled={Boolean(sort) || groupBy !== 'none' || workspace.isPreview} title={sort ? t('Clear sorting to reorder') : groupBy !== 'none' ? t('Clear grouping to reorder') : t('Drag to reorder')} aria-label={t('Drag to reorder')}>⋮⋮</button></td>
                   <td class="swatch-col"><ClassicPalettePicker value={area.color} palette={AREA_PALETTE} label={t('Choose area colour')} disabled={workspace.isPreview} onselect={(color) => { area.color = color; restaurantConfig.touch(); }} /></td>
                   <td><input class="cl-field" placeholder={t('Area name')} disabled={workspace.isPreview} bind:value={area.name} oninput={() => restaurantConfig.touch()} /></td>
                   {#if shown('lunch')}<td><span class="range"><input class="cl-field time" type="time" disabled={workspace.isPreview} bind:value={area.lunchStart} oninput={() => restaurantConfig.touch()} /><i>–</i><input class="cl-field time" type="time" disabled={workspace.isPreview} bind:value={area.lunchEnd} oninput={() => restaurantConfig.touch()} /></span></td>{/if}
@@ -191,8 +253,10 @@
                   <td></td>
                 </tr>
               {/each}
-            {/if}
-          </tbody>
+                {/if}
+              </tbody>
+            {/each}
+          {/if}
         </table>
       </div>
       {/snippet}

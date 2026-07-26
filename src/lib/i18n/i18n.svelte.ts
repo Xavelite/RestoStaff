@@ -4302,3 +4302,36 @@ Object.assign(dutch, {
   'Choose week': 'Week kiezen',
   'Search employees...': 'Medewerkers zoeken...'
 });
+
+// Shared workspace grid controls and grouping alignment (V592).
+Object.assign(french, {
+  'Group rows': 'Regrouper les lignes',
+  'No matches': 'Aucun résultat',
+  'Approval required': 'Approbation requise',
+  'No approval required': 'Aucune approbation requise',
+  'Lunch only': 'Midi uniquement',
+  'Evening only': 'Soir uniquement',
+  'No service hours': 'Aucun horaire de service',
+  Configured: 'Configuré',
+  'Service hours': 'Horaires de service',
+  'Clear grouping to reorder': 'Supprimez le regroupement pour réordonner',
+  Staffing: 'Effectif',
+  'Clear grouping and sorting to reorder': 'Supprimez le regroupement et le tri pour réordonner',
+  'No type': 'Aucun type'
+});
+
+Object.assign(dutch, {
+  'Group rows': 'Rijen groeperen',
+  'No matches': 'Geen resultaten',
+  'Approval required': 'Goedkeuring vereist',
+  'No approval required': 'Geen goedkeuring vereist',
+  'Lunch only': 'Alleen lunch',
+  'Evening only': 'Alleen avond',
+  'No service hours': 'Geen service-uren',
+  Configured: 'Geconfigureerd',
+  'Service hours': 'Service-uren',
+  'Clear grouping to reorder': 'Groepering wissen om te herordenen',
+  Staffing: 'Bezetting',
+  'Clear grouping and sorting to reorder': 'Groepering en sortering wissen om te herordenen',
+  'No type': 'Geen type'
+});

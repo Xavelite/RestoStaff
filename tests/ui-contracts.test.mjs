@@ -332,3 +332,48 @@ test('Home stays a lightweight module portal and Payroll uses the shared compact
     assert.match(source, /<ClassicTablePanel/);
   }
 });
+
+test('workspace grids share one sticky, searchable grouping and filtering contract', async () => {
+  const css = await readFile('src/lib/classic/classic.css', 'utf8');
+  const primary = await readFile('src/lib/classic/ClassicPrimaryColMenu.svelte', 'utf8');
+  const groupMenu = await readFile('src/lib/classic/ClassicGroupMenu.svelte', 'utf8');
+  const columnMenu = await readFile('src/lib/classic/ClassicColMenu.svelte', 'utf8');
+  const groupRow = await readFile('src/lib/classic/ClassicGroupRow.svelte', 'utf8');
+
+  assert.match(primary, /<ClassicGroupMenu/);
+  assert.match(groupMenu, /class="colhead__trigger groupmenu__trigger"/);
+  assert.match(groupMenu, /type="search"/);
+  assert.match(columnMenu, /filterKind === 'text'/);
+  assert.match(columnMenu, /filterKind === 'values'/);
+  assert.match(columnMenu, /type="search"/);
+  assert.match(groupRow, /class="cl-group-row__button"/);
+  assert.match(css, /\.cl-tablewrap\s*\{[\s\S]*?overflow:\s*auto;/);
+  assert.match(css, /\.cl-table thead th\s*\{[\s\S]*?position:\s*sticky;[\s\S]*?top:\s*var\(--cl-grid-sticky-top, 0px\);/);
+  assert.match(css, /\.cl-group-row td\s*\{[\s\S]*?height:\s*32px !important;/);
+});
+
+test('Planning, Team, Restaurant and Payroll use the same first-column grouping control', async () => {
+  const groupedPages = [
+    'src/routes/(app)/schedule/+page.svelte',
+    'src/routes/(app)/team/+page.svelte',
+    'src/routes/(app)/team/contracts/+page.svelte',
+    'src/routes/(app)/team/access/+page.svelte',
+    'src/routes/(app)/team/absences/+page.svelte',
+    'src/routes/(app)/restaurant/areas/+page.svelte',
+    'src/routes/(app)/restaurant/positions/+page.svelte',
+    'src/routes/(app)/restaurant/absence-types/+page.svelte',
+    'src/routes/(app)/restaurant/coverage/+page.svelte',
+    'src/routes/(app)/payroll/employees/+page.svelte'
+  ];
+
+  for (const file of groupedPages) {
+    const source = await readFile(file, 'utf8');
+    assert.match(source, /<ClassicPrimaryColMenu/);
+    assert.match(source, /groupOptions=/);
+    assert.match(source, /<ClassicGroupRow/);
+    assert.doesNotMatch(source, /groupable|ongroup=|<tr class="cl-group-row">/);
+  }
+
+  const schedule = await readFile('src/routes/(app)/schedule/+page.svelte', 'utf8');
+  assert.match(schedule, /t\('\{count\} employees', \{ count: group\.rows\.length \}\).*formatHours\(group\.hours\)/s);
+});

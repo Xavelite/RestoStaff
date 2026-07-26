@@ -6,31 +6,49 @@
   import { useClassicRestaurantContext } from '$lib/classic/classic-workspace-context';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
+  import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
+  import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
   import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
 
   type SortKey = 'name' | 'cost' | 'employees' | 'active';
-
+  type GroupBy = 'status' | 'staffing' | 'none';
+  type PositionRow = {
+    id: string;
+    name: string;
+    estimatedHourlyCost: number;
+    active: boolean;
+    color: string;
+  };
+  type PositionGroup = { key: string; label: string; rows: PositionRow[] };
 
   $effect(() => {
     if (workspace.activeId && workspace.effectiveRole === 'owner') {
       void workspace.loadTeam().catch(() => undefined);
     }
   });
+
   const employeesByPosition = $derived.by(() => {
     const map = new Map<string, Set<string>>();
     for (const link of workspace.team?.employee_job_functions ?? []) {
       if (link.active === false) continue;
-      (map.get(link.job_function_id) ?? map.set(link.job_function_id, new Set()).get(link.job_function_id)!).add(link.employee_id);
+      const employees = map.get(link.job_function_id) ?? new Set<string>();
+      employees.add(link.employee_id);
+      map.set(link.job_function_id, employees);
     }
     return map;
   });
 
   let search = $state('');
+  let costSearch = $state('');
+  let employeeSearch = $state('');
   let sort = $state<{ key: SortKey; dir: 'asc' | 'desc' } | null>(null);
   let excludedStatus = $state(new Set<string>());
+  let groupBy = $state<GroupBy>('none');
+  let collapsedGroups = $state<string[]>([]);
   let dragId = $state('');
+
   const OPTIONAL_COLUMNS = [
     { key: 'cost', label: 'Estimated hourly cost' },
     { key: 'employees', label: 'Employees' },
@@ -38,18 +56,39 @@
   ] as const;
   const COLS_KEY = 'rst-restaurant-positions-cols-v2';
   let hidden = $state(new Set<string>());
+
   onMount(() => {
-    try { const raw = localStorage.getItem(COLS_KEY); if (raw) hidden = new Set(JSON.parse(raw) as string[]); } catch { hidden = new Set(); }
+    try {
+      const raw = localStorage.getItem(COLS_KEY);
+      if (raw) hidden = new Set(JSON.parse(raw) as string[]);
+    } catch {
+      hidden = new Set();
+    }
   });
+
+  function setGroupBy(next: GroupBy): void {
+    groupBy = next;
+    collapsedGroups = [];
+  }
+
+  function toggleGroup(key: string): void {
+    collapsedGroups = collapsedGroups.includes(key)
+      ? collapsedGroups.filter((item) => item !== key)
+      : [...collapsedGroups, key];
+  }
+
   function toggleColumn(key: string) {
     const next = new Set(hidden);
     next.has(key) ? next.delete(key) : next.add(key);
     const hiding = next.has(key);
     if (hiding && sort?.key === key) sort = null;
+    if (key === 'cost' && hiding) costSearch = '';
+    if (key === 'employees' && hiding) employeeSearch = '';
     if (key === 'active' && hiding) excludedStatus = new Set();
     hidden = next;
     try { localStorage.setItem(COLS_KEY, JSON.stringify([...next])); } catch {}
   }
+
   const shown = (key: string) => !hidden.has(key);
   const colCount = $derived(5 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length);
   const persistedPositionIds = $derived(new Set((workspace.restaurant?.job_functions ?? []).map((position) => position.id)));
@@ -57,9 +96,17 @@
   function addPosition() {
     const draft = restaurantConfig.draft;
     if (!draft) return;
-    draft.jobFunctions = [{ id: crypto.randomUUID(), name: '', code: '', active: true, estimatedHourlyCost: 0, color: defaultPositionColor(draft.jobFunctions.length) }, ...draft.jobFunctions];
+    draft.jobFunctions = [{
+      id: crypto.randomUUID(),
+      name: '',
+      code: '',
+      active: true,
+      estimatedHourlyCost: 0,
+      color: defaultPositionColor(draft.jobFunctions.length)
+    }, ...draft.jobFunctions];
     restaurantConfig.touch();
   }
+
   function removeOrTogglePosition(positionId: string) {
     const draft = restaurantConfig.draft;
     if (!draft || workspace.isPreview) return;
@@ -76,7 +123,7 @@
 
   function movePosition(targetId: string) {
     const draft = restaurantConfig.draft;
-    if (!draft || !dragId || dragId === targetId || sort) return;
+    if (!draft || !dragId || dragId === targetId || sort || groupBy !== 'none') return;
     const from = draft.jobFunctions.findIndex((item) => item.id === dragId);
     const to = draft.jobFunctions.findIndex((item) => item.id === targetId);
     if (from < 0 || to < 0) return;
@@ -88,12 +135,16 @@
     restaurantConfig.touch();
   }
 
-  function matches(position: { name: string; active: boolean }) {
+  function matches(position: PositionRow) {
     const term = search.trim().toLowerCase();
+    const headcount = employeesByPosition.get(position.id)?.size ?? 0;
     if (excludedStatus.has(position.active ? 'active' : 'archived')) return false;
+    if (costSearch.trim() && !`${position.estimatedHourlyCost}`.includes(costSearch.trim())) return false;
+    if (employeeSearch.trim() && !`${headcount}`.includes(employeeSearch.trim())) return false;
     return !term || position.name.toLowerCase().includes(term);
   }
-  function sortValue(position: { name: string; estimatedHourlyCost: number; active: boolean; id: string }) {
+
+  function sortValue(position: PositionRow) {
     switch (sort?.key) {
       case 'name': return position.name.toLowerCase();
       case 'cost': return `${position.estimatedHourlyCost}`.padStart(8, '0');
@@ -102,13 +153,30 @@
       default: return position.name.toLowerCase();
     }
   }
-  function orderedPositions<T extends { name: string; estimatedHourlyCost: number; active: boolean; id: string }>(rows: T[]): T[] {
-    const activeSort = sort;
-    if (!activeSort) return rows;
-    const factor = activeSort.dir === 'desc' ? -1 : 1;
+
+  function orderedPositions(rows: PositionRow[]): PositionRow[] {
+    if (!sort) return rows;
+    const factor = sort.dir === 'desc' ? -1 : 1;
     return [...rows].sort((a, b) => factor * sortValue(a).localeCompare(sortValue(b)));
   }
 
+  function groupedPositions(rows: PositionRow[]): PositionGroup[] {
+    if (groupBy === 'none') return [{ key: 'all', label: '', rows }];
+    const groups = new Map<string, PositionGroup>();
+    for (const position of rows) {
+      const headcount = employeesByPosition.get(position.id)?.size ?? 0;
+      const key = groupBy === 'status'
+        ? (position.active ? 'active' : 'archived')
+        : (headcount ? 'staffed' : 'unstaffed');
+      const label = groupBy === 'status'
+        ? t(position.active ? 'Active' : 'Archived')
+        : t(headcount ? 'Staffed' : 'No staff assigned');
+      const group = groups.get(key) ?? { key, label, rows: [] };
+      group.rows.push(position);
+      groups.set(key, group);
+    }
+    return [...groups.values()].sort((left, right) => left.label.localeCompare(right.label));
+  }
 
   const readRestaurantContext = useClassicRestaurantContext();
   const context = $derived(readRestaurantContext());
@@ -117,56 +185,79 @@
 <svelte:head><title>{t('Positions')} &middot; restogogo</title></svelte:head>
 
 {#if context}
-{@const draft = context.draft}
-    {@const rows = [...draft.jobFunctions].filter(matches)}
-    {@const ordered = orderedPositions(rows)}
-    <ClassicTablePanel dirty={context.dirty} saving={context.saving} canSave={context.canSave} onsave={() => void context.save().catch(() => undefined)} ondiscard={context.discard}>
-      {#snippet meta()}
-        <span><i class="dot"></i>{t('{count} positions', { count: rows.length })}</span>
-        <span><i class="dot is-green"></i>{t('{count} active', { count: rows.filter((position) => position.active).length })}</span>
-      {/snippet}
-      {#snippet actions()}
-        <button class="cl-btn is-primary" type="button" disabled={workspace.isPreview || !restaurantConfig.draft} onclick={addPosition}><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>{t('Add position')}</button>
-      {/snippet}
-      {#snippet children()}
+  {@const draft = context.draft}
+  {@const rows = [...draft.jobFunctions].filter(matches)}
+  {@const ordered = orderedPositions(rows)}
+  {@const groups = groupedPositions(ordered)}
+
+  <ClassicTablePanel dirty={context.dirty} saving={context.saving} canSave={context.canSave} onsave={() => void context.save().catch(() => undefined)} ondiscard={context.discard}>
+    {#snippet meta()}
+      <span><i class="dot"></i>{t('{count} positions', { count: rows.length })}</span>
+      <span><i class="dot is-green"></i>{t('{count} active', { count: rows.filter((position) => position.active).length })}</span>
+    {/snippet}
+    {#snippet actions()}
+      <button class="cl-btn is-primary" type="button" disabled={workspace.isPreview || !restaurantConfig.draft} onclick={addPosition}><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>{t('Add position')}</button>
+    {/snippet}
+    {#snippet children()}
       <div class="cl-tablewrap">
         <table class="cl-table">
           <thead>
             <tr>
               <th class="cl-grip"><span class="sr-only">{t('Reorder')}</span></th>
               <th class="swatch-col"><span class="sr-only">{t('Colour')}</span></th>
-              <th class="has-menu"><ClassicColMenu label={t('Name')} sortable sortDir={sort?.key === 'name' ? sort.dir : null} onsort={(dir) => (sort = { key: 'name', dir })} filterKind="text" searchValue={search} onsearch={(value) => (search = value)} /></th>
-              {#if shown('cost')}<th class="has-menu"><ClassicColMenu label={t('Estimated hourly cost')} sortable sortDir={sort?.key === 'cost' ? sort.dir : null} onsort={(dir) => (sort = { key: 'cost', dir })} /></th>{/if}
-              {#if shown('employees')}<th class="has-menu"><ClassicColMenu label={t('Employees')} sortable sortDir={sort?.key === 'employees' ? sort.dir : null} onsort={(dir) => (sort = { key: 'employees', dir })} /></th>{/if}
-              {#if shown('active')}<th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={sort?.key === 'active' ? sort.dir : null} onsort={(dir) => (sort = { key: 'active', dir })} filterKind="values" filterValues={[{ value: 'active', label: t('Active') }, { value: 'archived', label: t('Archived') }]} selected={excludedStatus} ontoggle={(value) => (excludedStatus = (() => { const next = new Set(excludedStatus); next.has(value) ? next.delete(value) : next.add(value); return next; })())} onselectall={(on) => (excludedStatus = on ? new Set() : new Set(['active', 'archived']))} /></th>{/if}
+              <th class="has-menu">
+                <ClassicPrimaryColMenu
+                  label={t('Name')}
+                  sortable
+                  sortDir={sort?.key === 'name' ? sort.dir : null}
+                  onsort={(dir) => (sort = { key: 'name', dir })}
+                  filterKind="text"
+                  searchValue={search}
+                  onsearch={(value) => (search = value)}
+                  groupValue={groupBy}
+                  groupOptions={[
+                    { value: 'none', label: t('No grouping') },
+                    { value: 'status', label: t('Status') },
+                    { value: 'staffing', label: t('Staffing') }
+                  ]}
+                  ongroupchange={(value) => setGroupBy(value as GroupBy)}
+                />
+              </th>
+              {#if shown('cost')}<th class="has-menu"><ClassicColMenu label={t('Estimated hourly cost')} sortable sortDir={sort?.key === 'cost' ? sort.dir : null} onsort={(dir) => (sort = { key: 'cost', dir })} filterKind="text" searchValue={costSearch} onsearch={(value) => (costSearch = value)} /></th>{/if}
+              {#if shown('employees')}<th class="has-menu"><ClassicColMenu label={t('Employees')} sortable sortDir={sort?.key === 'employees' ? sort.dir : null} onsort={(dir) => (sort = { key: 'employees', dir })} filterKind="text" searchValue={employeeSearch} onsearch={(value) => (employeeSearch = value)} /></th>{/if}
+              {#if shown('active')}<th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={sort?.key === 'active' ? sort.dir : null} onsort={(dir) => (sort = { key: 'active', dir })} filterKind="values" filterValues={[{ value: 'active', label: t('Active') }, { value: 'archived', label: t('Archived') }]} selected={excludedStatus} ontoggle={(value) => { const next = new Set(excludedStatus); next.has(value) ? next.delete(value) : next.add(value); excludedStatus = next; }} onselectall={(on) => (excludedStatus = on ? new Set() : new Set(['active', 'archived']))} /></th>{/if}
               <th class="actions-col">{t('Actions')}</th>
               <th class="chooser-col"><ClassicColChooser columns={OPTIONAL_COLUMNS.map((column) => ({ key: column.key, label: t(column.label) }))} {hidden} ontoggle={toggleColumn} /></th>
             </tr>
           </thead>
-          <tbody>
-            {#if !ordered.length}
-              <tr><td colspan={colCount}><div class="cl-empty"><strong>{t('No positions yet')}</strong><span>{t('Add the jobs people do on a shift, such as Server, Cook or Bartender.')}</span></div></td></tr>
-            {:else}
-              {#each ordered as position (position.id)}
-                {@const headcount = employeesByPosition.get(position.id)?.size ?? 0}
-                <tr draggable={!sort && !workspace.isPreview} ondragstart={() => (dragId = position.id)} ondragend={() => (dragId = '')} ondragover={(event) => { if (!sort) event.preventDefault(); }} ondrop={() => movePosition(position.id)}>
-                  <td class="cl-grip"><button type="button" disabled={Boolean(sort) || workspace.isPreview} title={sort ? t('Clear sorting to reorder') : t('Drag to reorder')} aria-label={t('Drag to reorder')}>⋮⋮</button></td>
-                  <td class="swatch-col"><ClassicPalettePicker value={position.color} palette={POSITION_PALETTE} label={t('Choose position colour')} disabled={workspace.isPreview} onselect={(color) => { position.color = color; restaurantConfig.touch(); }} /></td>
-                  <td><input class="cl-field" placeholder={t('Position name')} disabled={workspace.isPreview} bind:value={position.name} oninput={() => restaurantConfig.touch()} /></td>
-                  {#if shown('cost')}<td class="is-num"><input class="cl-field cost" type="number" disabled={workspace.isPreview} min="0" step="0.5" bind:value={position.estimatedHourlyCost} oninput={() => restaurantConfig.touch()} /></td>{/if}
-                  {#if shown('employees')}<td><span class="cl-linkcount" class:is-zero={!headcount} title={t('{count} people', { count: headcount })}><span class="cl-linkcount__n">{headcount}</span></span></td>{/if}
-                  {#if shown('active')}<td><label class="switch"><input type="checkbox" disabled={workspace.isPreview} bind:checked={position.active} onchange={() => restaurantConfig.touch()} /><span>{t(position.active ? 'Active' : 'Archived')}</span></label></td>{/if}
-                  <td class="row-actions"><button class="cl-text-action" type="button" disabled={workspace.isPreview} onclick={() => removeOrTogglePosition(position.id)}>{t(persistedPositionIds.has(position.id) ? (position.active ? 'Archive' : 'Restore') : 'Remove')}</button></td>
-                  <td></td>
-                </tr>
-              {/each}
-            {/if}
-          </tbody>
+          {#if !ordered.length}
+            <tbody><tr><td colspan={colCount}><div class="cl-empty"><strong>{t('No positions yet')}</strong><span>{t('Add the jobs people do on a shift, such as Server, Cook or Bartender.')}</span></div></td></tr></tbody>
+          {:else}
+            {#each groups as group (group.key)}
+              <tbody>
+                {#if groupBy !== 'none'}<ClassicGroupRow colspan={colCount} label={group.label} meta={t('{count} positions', { count: group.rows.length })} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />{/if}
+                {#if !collapsedGroups.includes(group.key)}
+                  {#each group.rows as position (position.id)}
+                    {@const headcount = employeesByPosition.get(position.id)?.size ?? 0}
+                    <tr draggable={!sort && groupBy === 'none' && !workspace.isPreview} ondragstart={() => (dragId = position.id)} ondragend={() => (dragId = '')} ondragover={(event) => { if (!sort && groupBy === 'none') event.preventDefault(); }} ondrop={() => movePosition(position.id)}>
+                      <td class="cl-grip"><button type="button" disabled={Boolean(sort) || groupBy !== 'none' || workspace.isPreview} title={sort || groupBy !== 'none' ? t('Clear grouping and sorting to reorder') : t('Drag to reorder')} aria-label={t('Drag to reorder')}>⋮⋮</button></td>
+                      <td class="swatch-col"><ClassicPalettePicker value={position.color} palette={POSITION_PALETTE} label={t('Choose position colour')} disabled={workspace.isPreview} onselect={(color) => { position.color = color; restaurantConfig.touch(); }} /></td>
+                      <td><input class="cl-field" placeholder={t('Position name')} disabled={workspace.isPreview} bind:value={position.name} oninput={() => restaurantConfig.touch()} /></td>
+                      {#if shown('cost')}<td class="is-num"><input class="cl-field cost" type="number" disabled={workspace.isPreview} min="0" step="0.5" bind:value={position.estimatedHourlyCost} oninput={() => restaurantConfig.touch()} /></td>{/if}
+                      {#if shown('employees')}<td><span class="cl-linkcount" class:is-zero={!headcount} title={t('{count} people', { count: headcount })}><span class="cl-linkcount__n">{headcount}</span></span></td>{/if}
+                      {#if shown('active')}<td><label class="switch"><input type="checkbox" disabled={workspace.isPreview} bind:checked={position.active} onchange={() => restaurantConfig.touch()} /><span>{t(position.active ? 'Active' : 'Archived')}</span></label></td>{/if}
+                      <td class="row-actions"><button class="cl-text-action" type="button" disabled={workspace.isPreview} onclick={() => removeOrTogglePosition(position.id)}>{t(persistedPositionIds.has(position.id) ? (position.active ? 'Archive' : 'Restore') : 'Remove')}</button></td>
+                      <td></td>
+                    </tr>
+                  {/each}
+                {/if}
+              </tbody>
+            {/each}
+          {/if}
         </table>
       </div>
-      {/snippet}
-    </ClassicTablePanel>
-
+    {/snippet}
+  </ClassicTablePanel>
 {/if}
 
 <style>
