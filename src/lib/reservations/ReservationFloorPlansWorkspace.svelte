@@ -2,8 +2,10 @@
   import { onMount } from 'svelte';
   import { friendlyError } from '$lib/api/error-messages';
   import Dialog from '$lib/components/Dialog.svelte';
-  import ClassicPage from '$lib/classic/ClassicPage.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
+  import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
+  import type { ClassicRestaurantContext } from '$lib/classic/classic-workspace-context';
+  import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import {
     getReservationFloorPlans,
@@ -20,8 +22,15 @@
   } from './reservation-types';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
+  import { AREA_PALETTE, defaultAreaColor } from '$lib/ui/position-color';
 
-  let { mode = 'tables' }: { mode?: 'venue' | 'tables' } = $props();
+  let {
+    mode = 'tables',
+    restaurantContext = null
+  }: {
+    mode?: 'venue' | 'tables';
+    restaurantContext?: ClassicRestaurantContext | null;
+  } = $props();
 
   let source = $state<ReservationFloorPlans | null>(null);
   let draft = $state<ReservationFloorPlansDraft | null>(null);
@@ -32,9 +41,6 @@
   let selectedFloorId = $state('');
   let selectedRoomId = $state('');
   let selectedTableId = $state('');
-  let floorDialogOpen = $state(false);
-  let newFloorName = $state('');
-  let newFloorLevel = $state(0);
   let tableToArchive = $state<ReservationTableDraft | null>(null);
 
   const selectedFloor = $derived(
@@ -46,15 +52,17 @@
       .filter((room) => room.active)
       .map((room) => {
         const persisted = source!.rooms.find((item) => item.id === room.id);
+        const draftArea = restaurantContext?.draft.areas.find((item) => item.id === room.work_area_id);
         const area = source!.areas.find((item) => item.id === room.work_area_id);
         return {
           id: room.id,
           restaurant_id: source!.restaurantId,
           work_area_id: room.work_area_id,
           floor_id: room.floor_id,
-          name: persisted?.name ?? area?.name ?? t('Area'),
-          area_code: persisted?.area_code ?? area?.code ?? '',
+          name: draftArea?.name ?? persisted?.name ?? area?.name ?? t('Area'),
+          area_code: draftArea?.code ?? persisted?.area_code ?? area?.code ?? '',
           area_color:
+            draftArea?.color ??
             persisted?.area_color ??
             (area?.metadata && typeof area.metadata === 'object' && !Array.isArray(area.metadata) && typeof area.metadata.color === 'string'
               ? area.metadata.color
@@ -85,6 +93,9 @@
   const selectedRoomDraft = $derived(
     draft?.rooms.find((room) => room.id === selectedRoomId) ?? null
   );
+  const selectedAreaDraft = $derived(
+    restaurantContext?.draft.areas.find((area) => area.id === selectedRoom?.work_area_id) ?? null
+  );
   const selectedTable = $derived(
     draft?.tables.find((table) => table.id === selectedTableId) ?? null
   );
@@ -105,7 +116,7 @@
       const next = await getReservationFloorPlans(restaurantId);
       source = next;
       draft = toDraft(next);
-      dirty = false;
+      dirty = mode === 'venue' && !next.floors.some((floor) => floor.active);
       if (!selectedFloorId || !draft.floors.some((floor) => floor.id === selectedFloorId && floor.active)) {
         selectedFloorId = draft.floors.find((floor) => floor.active)?.id ?? '';
       }
@@ -146,12 +157,25 @@
         });
       }
     }
-    return {
-      floors: value.floors.map((floor) => ({
+    const floors = value.floors.map((floor) => ({
         ...floor,
         canvas_width: Number(floor.canvas_width),
         canvas_height: Number(floor.canvas_height)
-      })),
+      }));
+    if (mode === 'venue' && !floors.some((floor) => floor.active)) {
+      floors.push({
+        id: crypto.randomUUID(),
+        restaurant_id: value.restaurantId,
+        name: t('Ground floor'),
+        level: 0,
+        canvas_width: 1000,
+        canvas_height: 600,
+        active: true,
+        sort_order: 0
+      });
+    }
+    return {
+      floors,
       rooms,
       tables: value.tables.map(({ restaurant_id: _, ...table }) => ({
         ...table,
@@ -171,19 +195,22 @@
     dirty = true;
   }
 
-  function openFloorDialog() {
-    newFloorName = '';
-    newFloorLevel = (draft?.floors.reduce((highest, floor) => Math.max(highest, floor.level), -1) ?? -1) + 1;
-    floorDialogOpen = true;
+  function floorName(level: number): string {
+    if (level === 0) return t('Ground floor');
+    if (level === 1) return t('First floor');
+    if (level === 2) return t('Second floor');
+    if (level === 3) return t('Third floor');
+    return t('Floor {level}', { level });
   }
 
   function addFloor() {
-    if (!draft || !source || !newFloorName.trim()) return;
+    if (!draft || !source) return;
+    const level = draft.floors.reduce((highest, floor) => Math.max(highest, floor.level), -1) + 1;
     const floor: ReservationFloor = {
       id: crypto.randomUUID(),
       restaurant_id: source.restaurantId,
-      name: newFloorName.trim(),
-      level: newFloorLevel,
+      name: floorName(level),
+      level,
       canvas_width: 1000,
       canvas_height: 600,
       active: true,
@@ -193,7 +220,66 @@
     selectedFloorId = floor.id;
     selectedRoomId = '';
     selectedTableId = '';
-    floorDialogOpen = false;
+    touch();
+  }
+
+  function addArea() {
+    if (!draft || !selectedFloor || !restaurantContext || workspace.isPreview) return;
+    const areas = restaurantContext.draft.areas;
+    const id = crypto.randomUUID();
+    const area = {
+      id,
+      name: t('Area {number}', { number: areas.length + 1 }),
+      code: '',
+      notes: '',
+      active: true,
+      lunchStart: '',
+      lunchEnd: '',
+      eveningStart: '',
+      eveningEnd: '',
+      color: defaultAreaColor(areas.length)
+    };
+    areas.push(area);
+    const index = floorRooms.length;
+    const room: ReservationRoomDraft = {
+      id: crypto.randomUUID(),
+      work_area_id: id,
+      floor_id: selectedFloor.id,
+      position_x: 30 + (index % 2) * (selectedFloor.canvas_width / 2),
+      position_y: 30 + Math.floor(index / 2) * 260,
+      width: Math.max(220, selectedFloor.canvas_width / 2 - 45),
+      height: 230,
+      active: true,
+      sort_order: draft.rooms.length
+    };
+    draft.rooms = [...draft.rooms, room];
+    selectedRoomId = room.id;
+    selectedTableId = '';
+    restaurantConfig.touch();
+    touch();
+  }
+
+  function archiveArea() {
+    if (!draft || !selectedRoomDraft || !selectedAreaDraft || !restaurantContext || workspace.isPreview) return;
+    const persisted = (workspace.restaurant?.work_areas ?? []).some((area) => area.id === selectedAreaDraft.id);
+    if (persisted) {
+      selectedAreaDraft.active = false;
+      selectedRoomDraft.active = false;
+      draft.tables
+        .filter((table) => table.room_id === selectedRoomDraft.id)
+        .forEach((table) => (table.active = false));
+    } else {
+      restaurantContext.draft.areas = restaurantContext.draft.areas.filter(
+        (area) => area.id !== selectedAreaDraft.id
+      );
+      restaurantContext.draft.coverage = restaurantContext.draft.coverage.filter(
+        (item) => item.areaId !== selectedAreaDraft.id
+      );
+      draft.rooms = draft.rooms.filter((room) => room.id !== selectedRoomDraft.id);
+      draft.tables = draft.tables.filter((table) => table.room_id !== selectedRoomDraft.id);
+    }
+    restaurantConfig.touch();
+    selectedRoomId = '';
     touch();
   }
 
@@ -229,16 +315,33 @@
     touch();
   }
 
-  function resizeSelectedRoom(widthDelta: number, heightDelta: number) {
-    if (!selectedFloor || !selectedRoomDraft) return;
-    selectedRoomDraft.width = Math.max(
+  function resizeRoom(room: ReservationRoom, width: number, height: number) {
+    if (!selectedFloor || !draft) return;
+    const target = draft.rooms.find((item) => item.id === room.id);
+    if (!target) return;
+    target.width = Math.max(
       160,
-      Math.min(selectedFloor.canvas_width - Number(selectedRoomDraft.position_x), Number(selectedRoomDraft.width) + widthDelta)
+      Math.min(selectedFloor.canvas_width - Number(target.position_x), width)
     );
-    selectedRoomDraft.height = Math.max(
+    target.height = Math.max(
       120,
-      Math.min(selectedFloor.canvas_height - Number(selectedRoomDraft.position_y), Number(selectedRoomDraft.height) + heightDelta)
+      Math.min(selectedFloor.canvas_height - Number(target.position_y), height)
     );
+    touch();
+  }
+
+  function resizeFloor(width: number, height: number) {
+    if (!selectedFloor || !draft) return;
+    const minimumWidth = Math.max(
+      400,
+      ...floorRooms.map((room) => Number(room.position_x) + Number(room.width) + 24)
+    );
+    const minimumHeight = Math.max(
+      300,
+      ...floorRooms.map((room) => Number(room.position_y) + Number(room.height) + 24)
+    );
+    selectedFloor.canvas_width = Math.max(minimumWidth, Math.min(1800, width));
+    selectedFloor.canvas_height = Math.max(minimumHeight, Math.min(1200, height));
     touch();
   }
 
@@ -262,24 +365,6 @@
         y
       )
     );
-    touch();
-  }
-
-  function arrangeRooms() {
-    if (!draft || !selectedFloor) return;
-    const columns = floorRooms.length > 1 ? 2 : 1;
-    const gap = 24;
-    const width = (selectedFloor.canvas_width - gap * (columns + 1)) / columns;
-    const rows = Math.max(1, Math.ceil(floorRooms.length / columns));
-    const height = (selectedFloor.canvas_height - gap * (rows + 1)) / rows;
-    floorRooms.forEach((room, index) => {
-      const target = draft!.rooms.find((item) => item.id === room.id)!;
-      target.position_x = gap + (index % columns) * (width + gap);
-      target.position_y = gap + Math.floor(index / columns) * (height + gap);
-      target.width = width;
-      target.height = height;
-    });
-    floorRooms.forEach((room) => arrangeTables(room.id));
     touch();
   }
 
@@ -372,11 +457,12 @@
   }
 
   async function save() {
-    if (!workspace.activeId || !draft || !dirty || saving || !canSave()) return;
+    if (!workspace.activeId || !draft || (!dirty && !restaurantContext?.dirty) || saving || !canSave()) return;
     saving = true;
     error = '';
     try {
-      await saveReservationFloorPlans(workspace.activeId, draft);
+      if (restaurantContext?.dirty) await restaurantContext.save();
+      if (dirty) await saveReservationFloorPlans(workspace.activeId, draft);
       await load(workspace.activeId);
       toasts.show(t('Floor plans saved.'), 'success');
     } catch (cause) {
@@ -390,19 +476,22 @@
   function discard() {
     if (!source) return;
     draft = toDraft(source);
-    dirty = false;
+    dirty = mode === 'venue' && !source.floors.some((floor) => floor.active);
+    selectedFloorId = draft.floors.find((floor) => floor.active)?.id ?? '';
+    selectedRoomId = '';
+    selectedTableId = '';
+    restaurantContext?.discard();
   }
 </script>
 
 <svelte:head><title>{t('Floor plans')} &middot; restogogo</title></svelte:head>
 
-<ClassicPage>
-  {#if error}<div class="floor-error" role="alert">{error}</div>{/if}
+{#if error}<div class="floor-error" role="alert">{error}</div>{/if}
 
-  <ClassicTablePanel
-    {dirty}
-    {saving}
-    canSave={canSave()}
+<ClassicTablePanel
+    dirty={dirty || Boolean(restaurantContext?.dirty)}
+    saving={saving || Boolean(restaurantContext?.saving)}
+    canSave={canSave() && (restaurantContext?.canSave ?? true)}
     onsave={() => void save()}
     ondiscard={discard}
   >
@@ -420,7 +509,7 @@
             <section class="cl-card">
               <div class="cl-card__head">
                 <div><h2>{t('Floors')}</h2><p>{t('One canvas per physical level of the restaurant.')}</p></div>
-                {#if mode === 'venue'}<button class="cl-btn is-icon" type="button" aria-label={t('Add floor')} onclick={openFloorDialog}>+</button>{/if}
+                {#if mode === 'venue'}<button class="cl-btn is-icon" type="button" aria-label={t('Add floor')} onclick={addFloor}>+</button>{/if}
               </div>
               <div class="floor-list">
                 {#each draft.floors.filter((floor) => floor.active) as floor (floor.id)}
@@ -429,7 +518,6 @@
                     selectedRoomId = '';
                     selectedTableId = '';
                   }}>
-                    <span>{floor.level === 0 ? t('Ground floor') : t('Level {level}', { level: floor.level })}</span>
                     <strong>{floor.name}</strong>
                     <small>{mergedRooms.filter((room) => room.floor_id === floor.id).length} {t('areas')}</small>
                   </button>
@@ -440,6 +528,7 @@
             <section class="cl-card">
               <div class="cl-card__head">
                 <div><h2>{t('Restaurant areas')}</h2><p>{mode === 'venue' ? t('Place each operational area on its physical floor.') : t('Select an area, then add and arrange its tables.')}</p></div>
+                {#if mode === 'venue'}<button class="cl-btn is-icon" type="button" aria-label={t('Add area')} disabled={!selectedFloor || workspace.isPreview} onclick={addArea}>+</button>{/if}
               </div>
               <div class="area-list">
                 {#each mergedRooms as room (room.id)}
@@ -461,8 +550,7 @@
                 {#if !mergedRooms.length}
                   <div class="area-empty">
                     <strong>{t('No reservable areas')}</strong>
-                    <span>{t('Create an active area in Restaurant first.')}</span>
-                    <a href="/restaurant/areas">{t('Open Restaurant Areas')}</a>
+                    <span>{mode === 'venue' ? t('Add the first area directly to the selected floor.') : t('Create an active area in Restaurant first.')}</span>
                   </div>
                 {/if}
               </div>
@@ -472,18 +560,30 @@
           <section class="cl-card plan-card">
             {#if selectedFloor}
               <div class="cl-card__head plan-head">
-                <div>
-                  <h2>{selectedFloor.name}</h2>
+                <div class="floor-title">
+                  {#if mode === 'venue'}
+                    <input class="floor-name" aria-label={t('Floor name')} bind:value={selectedFloor.name} oninput={touch} />
+                  {:else}
+                    <h2>{selectedFloor.name}</h2>
+                  {/if}
                   <p>{mode === 'venue' ? t('Drag and resize areas to match the real venue.') : t('Add real tables inside the areas defined by Restaurant.')}</p>
                 </div>
                 <div class="plan-actions">
-                  {#if mode === 'venue'}
-                    <button class="cl-btn" type="button" disabled={!floorRooms.length} onclick={arrangeRooms}>{t('Auto layout')}</button>
-                  {:else}
+                  {#if mode === 'tables'}
                     <button class="cl-btn is-primary" type="button" disabled={!selectedRoom} onclick={addTable}>+ {t('Table')}</button>
                   {/if}
                 </div>
               </div>
+
+              {#if selectedRoomDraft && selectedRoom && selectedAreaDraft && mode === 'venue'}
+                <div class="selection-bar room-selection is-above">
+                  <label class="area-name"><span>{t('Area name')}</span><input class="cl-field" bind:value={selectedAreaDraft.name} oninput={() => restaurantConfig.touch()} /></label>
+                  <label class="area-code"><span>{t('Code')}</span><input class="cl-field" placeholder={t('Optional')} bind:value={selectedAreaDraft.code} oninput={() => restaurantConfig.touch()} /></label>
+                  <div class="area-colour"><span>{t('Colour')}</span><ClassicPalettePicker value={selectedAreaDraft.color} palette={AREA_PALETTE} label={t('Choose area colour')} disabled={workspace.isPreview} onselect={(color) => { selectedAreaDraft.color = color; restaurantConfig.touch(); }} /></div>
+                  <span class="resize-note">{t('Drag the area or pull a visible edge handle.')}</span>
+                  <button class="cl-btn is-problem" type="button" onclick={archiveArea}>{t('Archive')}</button>
+                </div>
+              {/if}
 
               <div class="venue-canvas">
                 <ReservationFloorPlan
@@ -493,6 +593,8 @@
                   floorWidth={selectedFloor.canvas_width}
                   floorHeight={selectedFloor.canvas_height}
                   editable
+                  showHeader={false}
+                  floorEditable={mode === 'venue'}
                   roomsEditable={mode === 'venue'}
                   tablesEditable={mode === 'tables'}
                   {selectedRoomId}
@@ -503,6 +605,8 @@
                     selectedTableId = '';
                   }}
                   onroommove={mode === 'venue' ? moveRoom : () => {}}
+                  onroomresize={mode === 'venue' ? resizeRoom : () => {}}
+                  onfloorresize={mode === 'venue' ? resizeFloor : () => {}}
                   onselect={(table) => {
                     selectedTableId = table.id;
                     selectedRoomId = table.room_id;
@@ -524,31 +628,21 @@
                   <button class="cl-btn" type="button" onclick={() => duplicateTable(selectedTable)}>{t('Duplicate')}</button>
                   <button class="cl-btn is-problem" type="button" onclick={() => (tableToArchive = selectedTable)}>{t('Archive')}</button>
                 </div>
-              {:else if selectedRoomDraft && selectedRoom && mode === 'venue'}
-                <div class="selection-bar room-selection">
-                  <div><span>{t('Selected area')}</span><strong>{selectedRoom.name}</strong></div>
-                  <button class="cl-btn" type="button" onclick={() => resizeSelectedRoom(-40, 0)}>{t('Narrower')}</button>
-                  <button class="cl-btn" type="button" onclick={() => resizeSelectedRoom(40, 0)}>{t('Wider')}</button>
-                  <button class="cl-btn" type="button" onclick={() => resizeSelectedRoom(0, -40)}>{t('Shallower')}</button>
-                  <button class="cl-btn" type="button" onclick={() => resizeSelectedRoom(0, 40)}>{t('Deeper')}</button>
-                </div>
               {:else if selectedRoomDraft && selectedRoom && mode === 'tables'}
                 <div class="selection-bar room-selection">
                   <div><span>{t('Selected area')}</span><strong>{selectedRoom.name}</strong></div>
                   <button class="cl-btn" type="button" onclick={() => arrangeTables()}>{t('Arrange tables')}</button>
                   <button class="cl-btn is-primary" type="button" onclick={addTable}>+ {t('Add table')}</button>
                 </div>
-              {:else}
-                <div class="selection-hint">{mode === 'venue'
-                  ? t('Select an area to resize it, or drag it directly on the plan.')
-                  : t('Select an area to add tables, then drag each table into place.')}</div>
+              {:else if mode === 'tables'}
+                <div class="selection-hint">{t('Select an area to add tables, then drag each table into place.')}</div>
               {/if}
             {:else}
               <div class="cl-empty">
                 <strong>{t('Create your first floor')}</strong>
                 <span>{mode === 'venue' ? t('Create the physical levels of the restaurant, then place areas.') : t('Create floors and areas in Restaurant before adding tables.')}</span>
                 {#if mode === 'venue'}
-                  <button class="cl-btn is-primary" type="button" onclick={openFloorDialog}>{t('Add floor')}</button>
+                  <button class="cl-btn is-primary" type="button" onclick={addFloor}>{t('Add floor')}</button>
                 {:else}
                   <a class="cl-btn is-primary" href="/restaurant/areas">{t('Open Restaurant Areas')}</a>
                 {/if}
@@ -558,21 +652,7 @@
         </div>
       {/if}
     {/snippet}
-  </ClassicTablePanel>
-</ClassicPage>
-
-<Dialog open={floorDialogOpen} title="Add floor" description="Create one canvas for each physical restaurant level." size="small" onclose={() => (floorDialogOpen = false)}>
-  {#snippet children()}
-    <div class="floor-form">
-      <label class="cl-label"><span>{t('Floor name')}</span><input class="cl-field" placeholder={t('Ground floor')} bind:value={newFloorName} /></label>
-      <label class="cl-label"><span>{t('Level')}</span><input class="cl-field" type="number" min="-20" max="200" bind:value={newFloorLevel} /></label>
-    </div>
-  {/snippet}
-  {#snippet footer()}
-    <button class="cl-btn" type="button" onclick={() => (floorDialogOpen = false)}>{t('Cancel')}</button>
-    <button class="cl-btn is-primary" type="button" disabled={!newFloorName.trim()} onclick={addFloor}>{t('Add floor')}</button>
-  {/snippet}
-</Dialog>
+</ClassicTablePanel>
 
 <Dialog open={Boolean(tableToArchive)} title="Archive table" description="Past reservations keep their table history." size="small" onclose={() => (tableToArchive = null)}>
   {#snippet children()}<p class="dialog-copy">{t('Archive table {label}?', { label: tableToArchive?.label ?? '' })}</p>{/snippet}
@@ -605,7 +685,6 @@
   }
   .floor-list > button:hover, .area-list > button:hover { background: var(--cl-surface-muted); }
   .floor-list > button.is-active { border-color: var(--cl-accent-line); background: var(--cl-accent-wash); }
-  .floor-list span { color: var(--cl-muted); font-size: 9px; font-weight: var(--rst-fw-bold); text-transform: uppercase; }
   .floor-list strong { grid-column: 1; font-size: 12px; }
   .floor-list small { grid-column: 2; grid-row: 1 / 3; align-self: center; color: var(--cl-muted); font-size: 9.5px; }
   .area-list > button {
@@ -630,10 +709,22 @@
   .area-list em { width: 21px; height: 21px; display: grid; place-items: center; border: 1px solid var(--cl-line); border-radius: 4px; color: var(--cl-accent); font-style: normal; font-weight: var(--rst-fw-bold); }
   .area-empty { display: grid; gap: 4px; padding: 14px 8px; color: var(--cl-muted); font-size: 10.5px; }
   .area-empty strong { color: var(--cl-text); font-size: 11.5px; }
-  .area-empty a { margin-top: 3px; color: var(--cl-accent); font-weight: var(--rst-fw-bold); text-decoration: none; }
   .plan-card { min-width: 0; }
   .plan-head { gap: 16px; }
   .cl-card__head > .plan-actions { display: flex; align-items: end; gap: 6px; }
+  .floor-title { min-width: 0; flex: 1; }
+  .floor-name {
+    width: min(280px, 100%);
+    padding: 1px 3px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--cl-ink);
+    font: inherit;
+    font-size: 13px;
+    font-weight: var(--rst-fw-bold);
+  }
+  .floor-name:hover, .floor-name:focus { border-color: var(--cl-line); background: var(--cl-surface); outline: none; }
   .venue-canvas { padding: 10px; border-top: 1px solid var(--cl-line); background: var(--cl-surface-muted); }
   .selection-bar {
     min-height: 58px;
@@ -650,10 +741,14 @@
   .selection-bar label:first-child input { width: 100px; }
   .selection-bar select { min-width: 100px; }
   .selection-bar .cl-btn:nth-last-child(3) { margin-left: auto; }
-  .room-selection > div { min-width: 140px; display: grid; gap: 2px; align-self: center; margin-right: auto; }
-  .room-selection > div strong { font-size: 12px; }
+  .room-selection > div:not(.area-colour) { min-width: 140px; display: grid; gap: 2px; align-self: center; margin-right: auto; }
+  .room-selection > div:not(.area-colour) strong { font-size: 12px; }
+  .room-selection .area-name input { width: 160px; }
+  .room-selection .area-code input { width: 90px; }
+  .area-colour { min-width: 50px; display: grid; gap: 4px; align-self: center; }
+  .area-colour > span { color: var(--cl-muted); font-size: 8.5px; font-weight: var(--rst-fw-bold); }
+  .resize-note { margin-left: auto; align-self: center; color: var(--cl-muted); font-size: 9.5px; }
   .selection-hint { padding: 12px; border-top: 1px solid var(--cl-line); color: var(--cl-muted); font-size: 10.5px; text-align: center; }
-  .floor-form { display: grid; gap: 12px; }
   .dialog-copy { margin: 0; color: var(--cl-muted); font-size: 12px; }
   .cl-btn.is-problem { border-color: var(--cl-problem-line); background: var(--cl-problem-wash); color: var(--cl-problem); }
   @media (max-width: 980px) {

@@ -360,7 +360,6 @@ test('Planning, Team, Restaurant and Payroll use the same first-column grouping 
     'src/routes/(app)/team/contracts/+page.svelte',
     'src/routes/(app)/team/access/+page.svelte',
     'src/routes/(app)/team/absences/+page.svelte',
-    'src/routes/(app)/restaurant/areas/+page.svelte',
     'src/routes/(app)/restaurant/positions/+page.svelte',
     'src/routes/(app)/restaurant/absence-types/+page.svelte',
     'src/routes/(app)/restaurant/coverage/+page.svelte',
@@ -377,4 +376,21 @@ test('Planning, Team, Restaurant and Payroll use the same first-column grouping 
 
   const schedule = await readFile('src/routes/(app)/schedule/+page.svelte', 'utf8');
   assert.match(schedule, /t\('\{count\} employees', \{ count: group\.rows\.length \}\).*formatHours\(group\.hours\)/s);
+});
+
+test('Restaurant Areas is the direct-manipulation venue canvas instead of a duplicate data grid', async () => {
+  const page = await readFile('src/routes/(app)/restaurant/areas/+page.svelte', 'utf8');
+  const workspace = await readFile('src/lib/reservations/ReservationFloorPlansWorkspace.svelte', 'utf8');
+  const canvas = await readFile('src/lib/reservations/ReservationFloorPlan.svelte', 'utf8');
+
+  assert.match(page, /<ReservationFloorPlansWorkspace mode="venue"/);
+  assert.doesNotMatch(page, /<ClassicTablePanel|<table/);
+  assert.match(workspace, /function addFloor\(\)/);
+  assert.match(workspace, /function addArea\(\)/);
+  assert.match(workspace, /onroomresize=/);
+  assert.match(workspace, /onfloorresize=/);
+  assert.doesNotMatch(workspace, /Auto layout|Narrower|Wider|Shallower|Deeper/);
+  assert.match(canvas, /class="resize-handle is-corner"/);
+  assert.match(canvas, /class="floor-resize is-corner"/);
+  assert.doesNotMatch(canvas, /Floor plan zoom|zoom-value/);
 });

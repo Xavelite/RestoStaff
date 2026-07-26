@@ -38,8 +38,12 @@
     type ActualSlot
   } from '$lib/timesheet/timesheet-model';
   import ClassicPage from '$lib/classic/ClassicPage.svelte';
-  import ClassicPeriodNav from '$lib/classic/ClassicPeriodNav.svelte';
-  import { isTimesheetRow, needsAttention, slotLabel } from '$lib/classic/classic-time';
+  import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
+  import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
+  import TimesheetDayCard from '$lib/timesheet/TimesheetDayCard.svelte';
+  import { isTimesheetRow, needsAttention } from '$lib/classic/classic-time';
+
+  type GroupMode = 'none' | 'contract' | 'position' | 'status';
 
   const snapshot = $derived(workspace.operations);
   const role = $derived(workspace.effectiveRole);
@@ -68,11 +72,15 @@
   let onlyIssues = $state(false);
   let search = $state('');
   let positionId = $state('');
+  let employeeSort = $state<'asc' | 'desc'>('asc');
+  let groupMode = $state<GroupMode>('none');
+  let collapsedGroups = $state<string[]>([]);
   let selectedKey = $state('');
   let saving = $state(false);
   let weekDialogOpen = $state(false);
   let weekAction = $state<'approve_week' | 'reopen_week'>('approve_week');
   let weekReason = $state('');
+  let weekPicker = $state<HTMLInputElement>();
 
   const weekDates = $derived(
     Array.from({ length: 7 }, (_, index) => dateForWeekday(activeWeek, index + 1))
@@ -138,6 +146,22 @@
   const dayIssues = $derived(
     weekDates.map((date) => slots.filter((slot) => slot.date === date && needsAttention(slot)).length)
   );
+  const dayEmployees = $derived(
+    weekDates.map(
+      (date) =>
+        new Set(
+          slots
+            .filter((slot) => slot.date === date && isTimesheetRow(slot))
+            .map((slot) => slot.employeeId)
+        ).size
+    )
+  );
+  const areaName = $derived(
+    new Map((snapshot?.work_areas ?? []).map((area) => [area.id, area.name]))
+  );
+  const positionName = $derived(
+    new Map((snapshot?.job_functions ?? []).map((position) => [position.id, position.name]))
+  );
 
   const employeePosition = $derived.by(() => {
     const values = new Map<string, string>();
@@ -173,17 +197,42 @@
 
   // The employees to show: everyone with any planned or recorded time this week,
   // narrowed to those with an issue when the filter is on.
+  type GridRow = {
+    id: string;
+    name: string;
+    worked: number;
+    planned: number;
+    attention: boolean;
+    positionId: string;
+    position: string;
+    contract: string;
+  };
+
   const gridRows = $derived.by(() => {
-    const byId = new Map<string, { id: string; name: string; worked: number; attention: boolean }>();
+    const byId = new Map<string, GridRow>();
+    const contractTypeName = new Map(
+      (snapshot?.contract_types ?? []).map((contract) => [contract.id, contract.name])
+    );
     for (const slot of slots) {
       if (!isTimesheetRow(slot)) continue;
+      const primaryPositionId = employeePosition.get(slot.employeeId) ?? '';
+      const contract = (snapshot?.employee_contracts ?? []).find(
+        (item) => item.employee_id === slot.employeeId && item.active && item.is_current
+      );
       const row = byId.get(slot.employeeId) ?? {
         id: slot.employeeId,
         name: slot.employeeName,
         worked: 0,
-        attention: false
+        planned: 0,
+        attention: false,
+        positionId: primaryPositionId,
+        position: positionName.get(primaryPositionId) ?? t('No position'),
+        contract: contractTypeName.get(contract?.contract_type_id ?? '') ?? t('No contract')
       };
       row.worked += slot.actualHours;
+      if (slot.truth.plan) {
+        row.planned += hoursBetweenClocks(slot.truth.plan.startsAt, slot.truth.plan.endsAt);
+      }
       if (needsAttention(slot)) row.attention = true;
       byId.set(slot.employeeId, row);
     }
@@ -191,54 +240,52 @@
     return [...byId.values()]
       .filter((row) => !onlyIssues || row.attention)
       .filter((row) => !needle || row.name.toLocaleLowerCase(i18n.intlLocale).includes(needle))
-      .filter((row) => !positionId || employeePosition.get(row.id) === positionId)
-      .sort((left, right) => left.name.localeCompare(right.name));
+      .filter((row) => !positionId || row.positionId === positionId)
+      .sort((left, right) => {
+        const compared = left.name.localeCompare(right.name);
+        return employeeSort === 'desc' ? -compared : compared;
+      });
   });
 
-  const SERVICES: ServiceKey[] = ['lunch', 'evening'];
+  function cellSlots(employeeId: string, date: string): ActualSlot[] {
+    return (['lunch', 'evening'] as ServiceKey[])
+      .map((service) => slotByKey.get(`${employeeId}|${date}|${service}`))
+      .filter((slot): slot is ActualSlot => Boolean(slot && isTimesheetRow(slot)));
+  }
 
-  type CellChip = { key: string; kind: string; text: string; sub: string; live: boolean };
+  function groupedRows(rows: GridRow[]): { key: string; label: string; rows: GridRow[] }[] {
+    if (groupMode === 'none') return [{ key: 'all', label: '', rows }];
+    const grouped = new Map<string, { key: string; label: string; rows: GridRow[] }>();
+    for (const row of rows) {
+      const label =
+        groupMode === 'contract'
+          ? row.contract
+          : groupMode === 'position'
+            ? row.position
+            : row.attention
+              ? t('Needs review')
+              : t('Ready');
+      const key = `${groupMode}:${label}`;
+      const group = grouped.get(key) ?? { key, label, rows: [] };
+      group.rows.push(row);
+      grouped.set(key, group);
+    }
+    return [...grouped.values()].sort((left, right) => left.label.localeCompare(right.label));
+  }
 
-  // What a timesheet cell shows: worked time in green, an issue in red/amber, a
-  // day off in violet, an as-yet-unworked planned shift in neutral. Colour here
-  // is the badge status, not the service.
-  function cellChips(employeeId: string, date: string): CellChip[] {
-    return SERVICES.flatMap((service) => {
-      const slot = slotByKey.get(`${employeeId}|${date}|${service}`);
-      if (!slot || !isTimesheetRow(slot)) return [];
-      const kind =
-        slot.status === 'recorded' || slot.status === 'adjusted' || slot.status === 'live'
-          ? 'worked'
-          : slot.status === 'missing' || slot.status === 'conflict'
-            ? 'issue'
-            : slot.status === 'pending'
-              ? 'pending'
-              : slot.status === 'absence'
-                ? 'off'
-                : slot.status === 'unavailable'
-                  ? 'muted'
-                  : 'planned';
-      const worked = slot.actualRange || '';
-      const text =
-        kind === 'worked' && worked
-          ? worked
-          : kind === 'issue' && slot.status === 'missing'
-            ? t('Missing badge')
-            : kind === 'issue' && slot.status === 'conflict'
-              ? t('Conflict')
-            : kind === 'off'
-              ? t('Off')
-              : kind === 'pending'
-                ? t('Pending request')
-                : slot.plannedRange || t(slotLabel(slot.status));
-      const sub =
-        kind === 'worked' && slot.actualHours
-          ? formatHours(slot.actualHours)
-          : kind === 'issue' && slot.plannedRange
-            ? slot.plannedRange
-            : '';
-      return [{ key: slot.key, kind, text, sub, live: slot.status === 'live' }];
-    });
+  function setGroupMode(value: GroupMode): void {
+    groupMode = value;
+    collapsedGroups = [];
+  }
+
+  function toggleGroup(key: string): void {
+    collapsedGroups = collapsedGroups.includes(key)
+      ? collapsedGroups.filter((item) => item !== key)
+      : [...collapsedGroups, key];
+  }
+
+  function openWeekPicker(): void {
+    weekPicker?.showPicker?.();
   }
 
   // A live clock-in is the only hard server-side block; everything else is a
@@ -371,115 +418,155 @@
 
 <svelte:head><title>{t('Timesheet')} &middot; restogogo</title></svelte:head>
 
-{#snippet pageActions()}
-  <label class="cl-search">
-    <span class="sr-only">{t('Search employees')}</span>
-    <input class="cl-field" type="search" placeholder={t('Search employees…')} bind:value={search} />
-  </label>
-  <label class="toolbar-select">
-    <span class="sr-only">{t('Position')}</span>
-    <select class="cl-field" bind:value={positionId}>
-      <option value="">{t('All positions')}</option>
-      {#each snapshot?.job_functions.filter((item) => item.active).toSorted((left, right) => left.name.localeCompare(right.name)) ?? [] as position (position.id)}
-        <option value={position.id}>{position.name}</option>
-      {/each}
-    </select>
-  </label>
-  <label class="toggle toolbar-toggle">
-    <input type="checkbox" bind:checked={onlyIssues} />
-    <span class="cl-action-label">{t('Only rows needing attention')}</span>
-  </label>
-  {#if weekStatus === 'open'}
-    <button class="cl-btn is-primary" type="button" disabled={!editable} onclick={() => openWeekAction('approve_week')}>
-      {t('Approve week')}
-    </button>
-  {:else}
-    <button class="cl-btn" type="button" disabled={workspace.isPreview} onclick={() => openWeekAction('reopen_week')}>
-      {t('Reopen week')}
-    </button>
-  {/if}
-{/snippet}
+<ClassicPage>
+  <section class="timesheet-panel">
+    <header class="timesheet-head">
+      <div class="timesheet-head__left">
+        <label class="review-switch" title={t('Only rows needing attention')}>
+          <span>{t('Review')}</span>
+          <input type="checkbox" role="switch" bind:checked={onlyIssues} />
+          <i aria-hidden="true"><b></b></i>
+          {#if totals.missing + totals.conflicts}<em>{totals.missing + totals.conflicts}</em>{/if}
+        </label>
+      </div>
 
-<ClassicPage actions={pageActions}>
-  <div class="weekbar">
-    <ClassicPeriodNav
-      label={weekLabel(activeWeek, i18n.intlLocale)}
-      onprevious={() => (weekOffset -= 1)}
-      onnext={() => (weekOffset += 1)}
-      ontoday={() => (weekOffset = 0)}
-      todayLabel="This week"
-    />
-    <span class="weekpill is-{weekStatus}">
-      <span class="weekpill__dot"></span>
-      {t(weekStatus === 'open' ? 'Open' : weekStatus === 'approved' ? 'Approved' : 'Locked')}
-    </span>
-    <span class="weekmetric"><b>{formatHours(totals.plannedHours)}</b> {t('planned')}</span>
-    <span class="weekmetric is-worked"><b>{formatHours(totals.actualHours)}</b> {t('worked')}</span>
-    {#if totals.missing}<span class="weekmetric is-problem"><b>{totals.missing}</b> {t('missing')}</span>{/if}
-    {#if totals.conflicts}<span class="weekmetric is-problem"><b>{totals.conflicts}</b> {t('conflicts')}</span>{/if}
-  </div>
+      <div class="week-nav" aria-label={t('Week')}>
+        <button class="icon-btn" type="button" aria-label={t('Previous')} onclick={() => (weekOffset -= 1)}>
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6" /></svg>
+        </button>
+        <button class="week-nav__date" type="button" onclick={openWeekPicker}>
+          <span>{weekLabel(activeWeek, i18n.intlLocale)}</span>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2v3M18 2v3M3 9h18"/><rect x="3" y="4" width="18" height="17" rx="2"/></svg>
+        </button>
+        <input
+          class="week-nav__picker"
+          bind:this={weekPicker}
+          type="date"
+          value={activeWeek}
+          aria-label={t('Choose week')}
+          onchange={(event) => {
+            const requestedWeek = mondayFor(event.currentTarget.value);
+            const currentWeek = mondayFor(today);
+            weekOffset = Math.round(
+              (Date.parse(`${requestedWeek}T00:00:00Z`) - Date.parse(`${currentWeek}T00:00:00Z`)) /
+                (7 * 86_400_000)
+            );
+          }}
+        />
+        <button class="icon-btn" type="button" aria-label={t('Next')} onclick={() => (weekOffset += 1)}>
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
+        </button>
+      </div>
 
-  <div class="cl-tablewrap timesheet-grid">
-    <table class="cl-table board">
-      <thead>
-        <tr>
-          <th class="board__staff board__staff-head">
-            <span class="staff-count">
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0M16.5 7a2.5 2.5 0 0 1 0 5M18 14a4.5 4.5 0 0 1 3 4.2"/></svg>
-              <b>{gridRows.length}</b>
-            </span>
-            <span>{formatHours(totals.plannedHours)} → <b>{formatHours(totals.actualHours)}</b></span>
-          </th>
-          {#each days as day, index (day.date)}
-            <th class="board__day" class:is-today={day.today}>
-              <span><b>{t(day.label)}</b> {Number(day.date.slice(-2))}</span>
-              <span>{formatHours(dayPlanned[index])} → <b>{formatHours(dayWorked[index])}</b></span>
-              <small class:is-problem={dayIssues[index] > 0}>{dayIssues[index] ? t('{count} issues', { count: dayIssues[index] }) : t('Ready')}</small>
-            </th>
-          {/each}
-        </tr>
-      </thead>
-      <tbody>
-        {#if !gridRows.length}
-          <tr>
-            <td colspan={days.length + 1}>
-              <div class="cl-empty">
-                <strong>{t(search || positionId ? 'No employees match these filters' : onlyIssues ? 'Nothing to review' : 'No recorded time this week')}</strong>
-                <span>{t('Badge entries and planned shifts appear here as the week runs.')}</span>
-              </div>
-            </td>
-          </tr>
+      <div class="timesheet-head__right">
+        <span class="weekpill is-{weekStatus}">
+          <span class="weekpill__dot"></span>
+          {t(weekStatus === 'open' ? 'Open' : weekStatus === 'approved' ? 'Approved' : 'Locked')}
+        </span>
+        {#if weekStatus === 'open'}
+          <button class="approve-btn" type="button" disabled={!editable} onclick={() => openWeekAction('approve_week')}>
+            {t('Approve week')}
+          </button>
         {:else}
-          {#each gridRows as row (row.id)}
-            {@const target = contractHours.get(row.id) ?? 0}
-            <tr>
-              <td class="board__staff">
-                <span class="staff">
-                  <span class="cl-avatar" style="--avatar-color:{employeeColor.get(row.id) ?? 'var(--cl-muted)'}">{personInitials(row.name)}</span>
-                  <span class="staff__id">
-                    <strong>{row.name}</strong>
-                    <span class="staff__hours"><b>{formatHours(row.worked)}</b>{#if target}<span class="staff__target"> / {formatHours(target)}</span>{/if}</span>
+          <button class="approve-btn is-reopen" type="button" disabled={workspace.isPreview} onclick={() => openWeekAction('reopen_week')}>
+            {t('Reopen week')}
+          </button>
+        {/if}
+      </div>
+    </header>
+
+    <div class="timesheet-wrap">
+      <table class="board">
+        <thead>
+          <tr>
+            <th class="board__staff has-menu">
+              <ClassicPrimaryColMenu
+                label={`${gridRows.length}`}
+                labelIcon="people"
+                meta={`${formatHours(totals.plannedHours)} → ${formatHours(totals.actualHours)}`}
+                align="center"
+                sortable
+                sortDir={employeeSort}
+                onsort={(dir) => (employeeSort = dir)}
+                filterKind="text"
+                searchValue={search}
+                onsearch={(value) => (search = value)}
+                extraActive={Boolean(positionId)}
+                groupValue={groupMode}
+                groupOptions={[
+                  { value: 'none', label: t('No grouping') },
+                  { value: 'contract', label: t('Contract type') },
+                  { value: 'position', label: t('Position') },
+                  { value: 'status', label: t('Review status') }
+                ]}
+                ongroupchange={(value) => setGroupMode(value as GroupMode)}
+              >
+                {#snippet extra()}
+                  <label>
+                    <span>{t('Position')}</span>
+                    <select class="cl-field" bind:value={positionId}>
+                      <option value="">{t('All positions')}</option>
+                      {#each snapshot?.job_functions.filter((item) => item.active).toSorted((left, right) => left.name.localeCompare(right.name)) ?? [] as position (position.id)}
+                        <option value={position.id}>{position.name}</option>
+                      {/each}
+                    </select>
+                  </label>
+                {/snippet}
+              </ClassicPrimaryColMenu>
+            </th>
+            {#each days as day, index (day.date)}
+              <th class="board__day" class:is-today={day.today} class:is-weekend={index >= 5}>
+                <div class="board__day-date"><b>{t(day.label)}</b> {Number(day.date.slice(-2))}</div>
+                <div class="board__day-lower">
+                  <span class="board__day-people">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.5 19c.4-3.2 2.2-5 5.5-5s5.1 1.8 5.5 5M16 5.5a3 3 0 0 1 0 5.8M16 14c2.8.2 4.2 1.8 4.5 4.5"/></svg>
+                    {dayEmployees[index]}
                   </span>
-                </span>
-              </td>
-              {#each days as day (day.date)}
-                <td class="board__cell" class:is-past={day.past}>
-                  {#each cellChips(row.id, day.date) as chip (chip.key)}
-                    <button class="chip is-{chip.kind}" type="button" onclick={() => selectEntry(chip.key)}>
-                      <span class="chip__time">
-                        {#if chip.live}<span class="chip__live" aria-hidden="true"></span>{/if}{chip.text}
+                  <b class="board__day-hours">{formatHours(dayPlanned[index])} → <em>{formatHours(dayWorked[index])}</em></b>
+                  <small class:is-problem={dayIssues[index] > 0}>{dayIssues[index] ? t('{count} issues', { count: dayIssues[index] }) : t('Ready')}</small>
+                </div>
+              </th>
+            {/each}
+          </tr>
+        </thead>
+        {#if !gridRows.length}
+          <tbody><tr><td colspan={days.length + 1}><div class="cl-empty"><strong>{t(search || positionId ? 'No employees match these filters' : onlyIssues ? 'Nothing to review' : 'No recorded time this week')}</strong><span>{t('Badge entries and planned shifts appear here as the week runs.')}</span></div></td></tr></tbody>
+        {:else}
+          {#each groupedRows(gridRows) as group (group.key)}
+            <tbody>
+              {#if groupMode !== 'none'}
+                <ClassicGroupRow colspan={days.length + 1} label={group.label} meta={`${group.rows.length} · ${formatHours(group.rows.reduce((sum, row) => sum + row.worked, 0))}`} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />
+              {/if}
+              {#if !collapsedGroups.includes(group.key)}
+                {#each group.rows as row (row.id)}
+                  {@const target = contractHours.get(row.id) ?? 0}
+                  {@const completion = row.planned ? Math.min(100, (row.worked / row.planned) * 100) : 0}
+                  <tr class:is-hours-over={row.planned > 0 && row.worked > row.planned + 0.01}>
+                    <td class="board__staff">
+                      <span class="staff">
+                        <span class="cl-avatar" style="--avatar-color:{employeeColor.get(row.id) ?? 'var(--cl-muted)'}">{personInitials(row.name)}</span>
+                        <span class="staff__id">
+                          <span class="staff__name"><strong>{row.name}</strong>{#if row.attention}<em>{t('Review')}</em>{/if}</span>
+                          <span class="staff__hours"><span>{formatHours(row.planned)}</span><i>→</i><b>{formatHours(row.worked)}</b>{#if target}<em>{formatHours(target)} {t('contract')}</em>{/if}</span>
+                          {#if row.planned}<span class="staff__meter" class:is-complete={row.worked >= row.planned - 0.01} class:is-over={row.worked > row.planned + 0.01}><i style={`width:${completion}%`}></i></span>{/if}
+                        </span>
                       </span>
-                      {#if chip.sub}<span class="chip__hours">{chip.sub}</span>{/if}
-                    </button>
-                  {/each}
-                </td>
-              {/each}
-            </tr>
+                    </td>
+                    {#each days as day (day.date)}
+                      {@const daySlots = cellSlots(row.id, day.date)}
+                      <td class="board__cell" class:is-past={day.past}>
+                        {#if daySlots.length}<TimesheetDayCard slots={daySlots} {areaName} {positionName} onopen={selectEntry} />{/if}
+                      </td>
+                    {/each}
+                  </tr>
+                {/each}
+              {/if}
+            </tbody>
           {/each}
         {/if}
-      </tbody>
-    </table>
-  </div>
+      </table>
+    </div>
+  </section>
 </ClassicPage>
 
 <Dialog
@@ -587,23 +674,6 @@
   .weekpill.is-open .weekpill__dot { background: var(--cl-attention); }
   .weekpill.is-approved, .weekpill.is-locked { color: var(--cl-ok); border-color: var(--cl-ok-line); background: var(--cl-ok-wash); }
   .weekpill.is-approved .weekpill__dot, .weekpill.is-locked .weekpill__dot { background: var(--cl-ok); }
-  .weekmetric { padding-left: 10px; border-left: 1px solid var(--cl-line); color: var(--cl-muted); font-size: 10.5px; }
-  .weekmetric b { color: var(--cl-ink); font-variant-numeric: tabular-nums; }
-  .weekmetric.is-worked b { color: var(--cl-ok); }
-  .weekmetric.is-problem, .weekmetric.is-problem b { color: var(--cl-problem); }
-  .toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--cl-muted);
-    font-size: 14px;
-  }
-  .toggle input {
-    width: 16px;
-    height: 16px;
-    accent-color: var(--cl-accent);
-  }
-
   /* --- week grid (shared shape with the Schedule board) ------------------ */
   .timesheet-grid { max-height: calc(100vh - 228px); border: 1px solid var(--cl-line); border-radius: var(--cl-radius-surface); }
   .board { min-width: 1220px; table-layout: fixed; border-collapse: separate; border-spacing: 0; }
@@ -617,21 +687,12 @@
     background: var(--cl-surface);
   }
   th.board__staff { z-index: 4; background: var(--cl-thead); }
-  .board__staff-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--cl-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
-  .board__staff-head > span:last-child b { color: var(--cl-ok); }
-  .staff-count { display: inline-flex; align-items: center; gap: 5px; color: var(--cl-ink); font-size: 12px; }
   .staff { display: flex; align-items: center; gap: 10px; }
   .staff__id { display: grid; gap: 1px; min-width: 0; }
   .staff__id strong { font-weight: var(--rst-fw-medium); }
   .staff__hours { font-size: 12px; color: var(--cl-muted); font-variant-numeric: tabular-nums; }
   .staff__hours b { color: var(--cl-ink); font-weight: var(--rst-fw-bold); }
   .board__day { display: table-cell; padding: 7px 6px; text-align: center; border-left: 1px solid var(--cl-line); }
-  .board__day > span, .board__day > small { display: block; line-height: 1.35; }
-  .board__day > span:first-child { color: var(--cl-ink); font-size: 11.5px; }
-  .board__day > span:nth-child(2) { margin-top: 2px; color: var(--cl-muted); font-size: 9.5px; font-variant-numeric: tabular-nums; }
-  .board__day > span:nth-child(2) b { color: var(--cl-ok); }
-  .board__day > small { margin-top: 2px; color: var(--cl-ok); font-size: 8.5px; }
-  .board__day > small.is-problem { color: var(--cl-problem); }
   .board__day.is-today { color: var(--cl-accent); }
   .board__cell {
     padding: 6px;
@@ -697,11 +758,6 @@
     line-height: 1.6;
   }
 
-  .cl-search { min-width: min(250px, 100%); }
-  .cl-search .cl-field { width: 100%; }
-  .toolbar-select { min-width: 170px; }
-  .toolbar-select .cl-field { width: 100%; }
-  .toolbar-toggle { white-space: nowrap; }
   .sr-only {
     position: absolute;
     width: 1px;
@@ -712,5 +768,216 @@
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border: 0;
+  }
+
+  /* Shared workplace shell: the same weekly hierarchy used by Planning. */
+  .timesheet-panel { position: relative; display: grid; gap: 0; }
+  .timesheet-head {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) auto minmax(250px, 1fr);
+    align-items: center;
+    gap: 18px;
+    min-height: 50px;
+    padding: 4px 0 6px;
+  }
+  .timesheet-head__left { justify-self: start; display: flex; align-items: center; }
+  .timesheet-head__right { justify-self: end; display: flex; align-items: center; gap: 7px; }
+  .week-nav {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    gap: 0;
+    overflow: hidden;
+    border: 1px solid var(--cl-line-strong);
+    border-radius: 6px;
+    background: var(--cl-surface);
+    box-shadow: 0 1px 2px rgb(15 23 42 / .035);
+  }
+  .week-nav__date {
+    min-width: 176px;
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 4px 12px;
+    border: 0;
+    border-right: 1px solid var(--cl-line);
+    border-left: 1px solid var(--cl-line);
+    background: var(--cl-surface);
+    color: var(--cl-ink);
+    font: inherit;
+    font-size: 13px;
+    font-weight: var(--rst-fw-bold);
+    cursor: pointer;
+  }
+  .week-nav__date:hover { background: var(--cl-surface-muted); }
+  .week-nav__date svg { color: var(--cl-muted); }
+  .week-nav__picker { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  .icon-btn {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    background: var(--cl-surface);
+    color: var(--cl-muted);
+    cursor: pointer;
+  }
+  .icon-btn:hover { color: var(--cl-ink); background: var(--cl-surface-muted); }
+  .review-switch {
+    min-height: 30px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--cl-muted);
+    font-size: 11.5px;
+    font-weight: var(--rst-fw-bold);
+    cursor: pointer;
+    user-select: none;
+  }
+  .review-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  .review-switch > i {
+    width: 32px;
+    height: 18px;
+    position: relative;
+    flex: 0 0 auto;
+    border: 1px solid var(--cl-line-strong);
+    border-radius: 999px;
+    background: var(--cl-surface-muted);
+  }
+  .review-switch > i b {
+    width: 12px;
+    height: 12px;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    border-radius: 50%;
+    background: var(--cl-muted);
+    box-shadow: 0 1px 2px rgb(15 23 42 / .2);
+    transition: transform var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease);
+  }
+  .review-switch input:checked + i { border-color: var(--cl-problem-line); background: var(--cl-problem-wash); }
+  .review-switch input:checked + i b { background: var(--cl-problem); transform: translateX(14px); }
+  .review-switch em {
+    min-width: 18px;
+    height: 18px;
+    display: grid;
+    place-items: center;
+    padding: 0 5px;
+    border: 1px solid var(--cl-problem-line);
+    border-radius: 999px;
+    background: var(--cl-problem-wash);
+    color: var(--cl-problem);
+    font-size: 9px;
+    font-style: normal;
+  }
+  .approve-btn {
+    min-height: 36px;
+    padding: 7px 15px;
+    border: 1px solid var(--cl-accent);
+    border-radius: 6px;
+    background: var(--cl-accent);
+    color: white;
+    font: inherit;
+    font-size: 13px;
+    font-weight: var(--rst-fw-bold);
+    cursor: pointer;
+  }
+  .approve-btn.is-reopen { border-color: var(--cl-line-strong); background: var(--cl-surface); color: var(--cl-ink); }
+  .approve-btn:disabled { opacity: .45; cursor: default; }
+  .weekpill { min-height: 30px; padding: 4px 10px; font-size: 10.5px; }
+
+  .timesheet-wrap {
+    max-height: calc(100vh - 188px);
+    overflow: auto;
+    border: 1px solid color-mix(in srgb, var(--cl-ink) 12%, var(--cl-line-strong));
+    border-radius: 5px;
+    background: var(--cl-surface);
+    box-shadow: 0 1px 2px rgb(0 0 0 / .035);
+  }
+  .timesheet-wrap .board {
+    width: 100%;
+    min-width: 1270px;
+    border-spacing: 0;
+    table-layout: fixed;
+    border-collapse: separate;
+    color: var(--cl-ink);
+    font-size: 13px;
+  }
+  .timesheet-wrap .board thead { position: sticky; top: 0; z-index: 8; }
+  .timesheet-wrap .board th {
+    height: 66px;
+    padding: 5px 9px;
+    border-bottom: 1px solid color-mix(in srgb, var(--cl-accent) 65%, var(--cl-line));
+    background: var(--cl-thead);
+  }
+  .timesheet-wrap .board th.has-menu { padding: 0; }
+  .timesheet-wrap .board td {
+    height: 90px;
+    padding: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--cl-ink) 14%, var(--cl-grid-line));
+    background: var(--cl-surface);
+    vertical-align: middle;
+  }
+  .timesheet-wrap .board__staff {
+    width: 230px;
+    position: sticky;
+    left: 0;
+    z-index: 4;
+    border-right: 1px solid var(--cl-grid-line);
+    background: var(--cl-surface) !important;
+  }
+  .timesheet-wrap thead .board__staff { z-index: 10; background: var(--cl-thead) !important; }
+  .timesheet-wrap thead .board__staff :global(.cl-primary-head) { position: relative; }
+  .timesheet-wrap thead .board__staff :global(.cl-primary-head > .colhead) { width: 100%; padding-inline: 0; }
+  .timesheet-wrap thead .board__staff :global(.colhead__label) { justify-content: center; padding-inline: 0; }
+  .timesheet-wrap thead .board__staff :global(.colhead__copy) { width: auto; justify-items: center; }
+  .timesheet-wrap thead .board__staff :global(.colhead__meta) { width: auto; justify-content: center; }
+  .timesheet-wrap thead .board__staff :global(.colhead__trigger) { position: absolute; top: 50%; right: 31px; transform: translateY(-50%); }
+  .timesheet-wrap thead .board__staff :global(.groupmenu) { position: absolute; top: 0; right: 0; bottom: 0; padding-right: 6px; }
+  .timesheet-wrap .board__day { border-left: 1px solid var(--cl-grid-line); text-align: center; }
+  .board__day-date { color: var(--cl-ink); font-size: 12px; line-height: 1.05; white-space: nowrap; }
+  .board__day-lower {
+    min-height: 38px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 22px 12px;
+    align-items: center;
+    margin-top: 2px;
+    color: var(--cl-muted);
+    font-size: 8.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .board__day-people { display: inline-flex; align-items: center; justify-content: center; gap: 3px; }
+  .board__day-hours { color: color-mix(in srgb, var(--cl-ink) 74%, var(--cl-muted)); font-size: 8.5px; }
+  .board__day-hours em { color: var(--cl-ok); font-style: normal; }
+  .board__day-lower small { grid-column: 1 / -1; color: var(--cl-ok); font-size: 8px; }
+  .board__day-lower small.is-problem { color: var(--cl-problem); }
+  .timesheet-wrap .board__day.is-today { color: var(--cl-accent); background: var(--cl-accent-wash); }
+  .timesheet-wrap .board__day.is-weekend:not(.is-today) { background: color-mix(in srgb, var(--cl-surface-muted) 58%, var(--cl-thead)); }
+  .timesheet-wrap .board__cell { position: relative; border-left: 1px solid var(--cl-grid-line); vertical-align: top; }
+  .timesheet-wrap .board__cell.is-past { background: color-mix(in srgb, var(--cl-surface-muted) 68%, var(--cl-surface)); }
+  .timesheet-wrap .staff { display: flex; align-items: center; gap: 10px; padding: 10px 14px; }
+  .timesheet-wrap .staff__id { min-width: 0; flex: 1; display: grid; gap: 3px; }
+  .staff__name { min-width: 0; display: flex; align-items: center; gap: 7px; }
+  .staff__name strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+  .staff__name em { padding: 2px 5px; border: 1px solid var(--cl-problem-line); border-radius: 999px; color: var(--cl-problem); background: var(--cl-problem-wash); font-size: 8px; font-style: normal; text-transform: uppercase; }
+  .timesheet-wrap .staff__hours { display: flex; align-items: baseline; gap: 5px; color: var(--cl-muted); font-size: 10.5px; }
+  .timesheet-wrap .staff__hours i { color: var(--cl-line-strong); font-style: normal; }
+  .timesheet-wrap .staff__hours b { color: var(--cl-ok); }
+  .timesheet-wrap .staff__hours em { margin-left: auto; color: var(--cl-muted); font-size: 8.5px; font-style: normal; }
+  .staff__meter { width: 100%; height: 4px; overflow: hidden; border-radius: 999px; background: var(--cl-line); }
+  .staff__meter > i { display: block; height: 100%; border-radius: inherit; background: var(--cl-info); }
+  .staff__meter.is-complete > i { background: var(--cl-ok); }
+  .staff__meter.is-over > i { background: var(--cl-problem); }
+  .timesheet-wrap tr.is-hours-over > td.board__staff { background: color-mix(in srgb, var(--cl-problem) 3%, var(--cl-surface)) !important; }
+  @media (max-width: 980px) {
+    .timesheet-head { grid-template-columns: 1fr auto; }
+    .week-nav { grid-column: 1 / -1; grid-row: 1; }
+    .timesheet-head__left, .timesheet-head__right { grid-row: 2; }
   }
 </style>

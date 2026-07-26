@@ -18,6 +18,8 @@
     floorWidth = 1000,
     floorHeight = 600,
     editable = false,
+    showHeader = true,
+    floorEditable = false,
     roomsEditable = editable,
     tablesEditable = editable,
     selectedTableId = '',
@@ -26,7 +28,9 @@
     onselect = () => {},
     onmove = () => {},
     onroomselect = () => {},
-    onroommove = () => {}
+    onroommove = () => {},
+    onroomresize = () => {},
+    onfloorresize = () => {}
   }: {
     tables: FloorTable[];
     rooms?: ReservationRoom[];
@@ -36,6 +40,8 @@
     floorWidth?: number;
     floorHeight?: number;
     editable?: boolean;
+    showHeader?: boolean;
+    floorEditable?: boolean;
     roomsEditable?: boolean;
     tablesEditable?: boolean;
     selectedTableId?: string;
@@ -45,15 +51,23 @@
     onmove?: (table: FloorTable, positionX: number, positionY: number) => void;
     onroomselect?: (room: ReservationRoom) => void;
     onroommove?: (room: ReservationRoom, positionX: number, positionY: number) => void;
+    onroomresize?: (room: ReservationRoom, width: number, height: number) => void;
+    onfloorresize?: (width: number, height: number) => void;
   } = $props();
 
-  let zoom = $state(1);
   let dragging = $state<{
-    kind: 'table' | 'room';
+    kind: 'table' | 'room' | 'room-resize' | 'floor-resize';
     id: string;
     offsetX: number;
     offsetY: number;
     pointerId: number;
+    edge?: 'right' | 'bottom' | 'corner';
+    startClientX?: number;
+    startClientY?: number;
+    startWidth?: number;
+    startHeight?: number;
+    stageWidth?: number;
+    stageHeight?: number;
   } | null>(null);
 
   const activeReservations = $derived(
@@ -138,11 +152,110 @@
     event.preventDefault();
   }
 
+  function startRoomResize(
+    event: PointerEvent,
+    room: ReservationRoom,
+    edge: 'right' | 'bottom' | 'corner'
+  ) {
+    onroomselect(room);
+    if (!roomsEditable) return;
+    const stage = event.currentTarget instanceof HTMLElement
+      ? event.currentTarget.closest<HTMLElement>('.floor__stage')
+      : null;
+    if (!stage) return;
+    const rect = stage.getBoundingClientRect();
+    dragging = {
+      kind: 'room-resize',
+      id: room.id,
+      pointerId: event.pointerId,
+      edge,
+      offsetX: 0,
+      offsetY: 0,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startWidth: Number(room.width),
+      startHeight: Number(room.height),
+      stageWidth: rect.width,
+      stageHeight: rect.height
+    };
+    stage.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function startFloorResize(event: PointerEvent, edge: 'right' | 'bottom' | 'corner') {
+    if (!floorEditable) return;
+    const stage = event.currentTarget instanceof HTMLElement
+      ? event.currentTarget.closest<HTMLElement>('.floor__stage')
+      : null;
+    if (!stage) return;
+    const rect = stage.getBoundingClientRect();
+    dragging = {
+      kind: 'floor-resize',
+      id: 'floor',
+      pointerId: event.pointerId,
+      edge,
+      offsetX: 0,
+      offsetY: 0,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startWidth: floorWidth,
+      startHeight: floorHeight,
+      stageWidth: rect.width,
+      stageHeight: rect.height
+    };
+    stage.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
   function moveDrag(event: PointerEvent) {
     if (!dragging) return;
     const stage = event.currentTarget;
     if (!(stage instanceof HTMLElement)) return;
     const rect = stage.getBoundingClientRect();
+    if (dragging.kind === 'room-resize') {
+      const room = rooms.find((item) => item.id === dragging?.id);
+      if (!room) return;
+      const dx =
+        ((event.clientX - Number(dragging.startClientX)) /
+          Math.max(1, Number(dragging.stageWidth))) *
+        floorWidth;
+      const dy =
+        ((event.clientY - Number(dragging.startClientY)) /
+          Math.max(1, Number(dragging.stageHeight))) *
+        floorHeight;
+      const width =
+        dragging.edge === 'bottom'
+          ? Number(dragging.startWidth)
+          : Number(dragging.startWidth) + dx;
+      const height =
+        dragging.edge === 'right'
+          ? Number(dragging.startHeight)
+          : Number(dragging.startHeight) + dy;
+      onroomresize(room, Math.round(width), Math.round(height));
+      return;
+    }
+    if (dragging.kind === 'floor-resize') {
+      const dx =
+        ((event.clientX - Number(dragging.startClientX)) /
+          Math.max(1, Number(dragging.stageWidth))) *
+        Number(dragging.startWidth);
+      const dy =
+        ((event.clientY - Number(dragging.startClientY)) /
+          Math.max(1, Number(dragging.stageHeight))) *
+        Number(dragging.startHeight);
+      const width =
+        dragging.edge === 'bottom'
+          ? Number(dragging.startWidth)
+          : Number(dragging.startWidth) + dx;
+      const height =
+        dragging.edge === 'right'
+          ? Number(dragging.startHeight)
+          : Number(dragging.startHeight) + dy;
+      onfloorresize(Math.round(width), Math.round(height));
+      return;
+    }
     if (dragging.kind === 'room') {
       const room = rooms.find((item) => item.id === dragging?.id);
       if (!room) return;
@@ -198,23 +311,21 @@
 </script>
 
 <section class="floor" aria-label={t('{name} floor plan', { name: roomName })}>
-  <div class="floor__toolbar">
-    <div>
-      <strong>{roomName}</strong>
-      <span>{roomsEditable ? t('Drag areas to shape the venue.') : tablesEditable ? t('Drag tables into place.') : t('Live table availability')}</span>
+  {#if showHeader}
+    <div class="floor__toolbar">
+      <div>
+        <strong>{roomName}</strong>
+        <span>{roomsEditable ? t('Drag areas; pull an edge or corner to resize.') : tablesEditable ? t('Drag tables into place.') : t('Live table availability')}</span>
+      </div>
     </div>
-    <div class="floor__controls" aria-label={t('Floor plan zoom')}>
-      <button type="button" aria-label={t('Zoom out')} disabled={zoom <= 0.8} onclick={() => (zoom = Math.max(0.8, zoom - 0.2))}>−</button>
-      <button class="zoom-value" type="button" onclick={() => (zoom = 1)}>{Math.round(zoom * 100)}%</button>
-      <button type="button" aria-label={t('Zoom in')} disabled={zoom >= 1.4} onclick={() => (zoom = Math.min(1.4, zoom + 0.2))}>+</button>
-    </div>
-  </div>
+  {/if}
 
   <div class="floor__viewport">
     <div
       class="floor__stage"
       class:is-editable={editable}
-      style={`--zoom:${zoom};--floor-aspect:${floorWidth / floorHeight}`}
+      class:is-floor-editable={floorEditable}
+      style={`--floor-aspect:${floorWidth / floorHeight}`}
       role="group"
       aria-label={t('{name} tables', { name: roomName })}
       onpointermove={moveDrag}
@@ -234,6 +345,11 @@
         >
           <span>{room.name}</span>
           <small>{tables.filter((table) => table.room_id === room.id).length} {t('tables')}</small>
+          {#if roomsEditable && room.id === selectedRoomId}
+            <i class="resize-handle is-right" aria-hidden="true" onpointerdown={(event) => startRoomResize(event, room, 'right')}></i>
+            <i class="resize-handle is-bottom" aria-hidden="true" onpointerdown={(event) => startRoomResize(event, room, 'bottom')}></i>
+            <i class="resize-handle is-corner" aria-hidden="true" onpointerdown={(event) => startRoomResize(event, room, 'corner')}></i>
+          {/if}
         </button>
       {/each}
       {#if !tables.length && !rooms.length}
@@ -271,6 +387,11 @@
           </button>
         {/each}
       {/if}
+      {#if floorEditable}
+        <i class="floor-resize is-right" aria-hidden="true" onpointerdown={(event) => startFloorResize(event, 'right')}></i>
+        <i class="floor-resize is-bottom" aria-hidden="true" onpointerdown={(event) => startFloorResize(event, 'bottom')}></i>
+        <i class="floor-resize is-corner" aria-hidden="true" onpointerdown={(event) => startFloorResize(event, 'corner')}></i>
+      {/if}
     </div>
   </div>
 
@@ -304,30 +425,12 @@
   .floor__toolbar > div:first-child { min-width: 0; display: grid; gap: 1px; }
   .floor__toolbar strong { overflow: hidden; font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
   .floor__toolbar span { color: var(--cl-muted); font-size: 10.5px; }
-  .floor__controls { display: inline-flex; border: 1px solid var(--cl-line); border-radius: 5px; background: var(--cl-surface-muted); }
-  .floor__controls button {
-    min-width: 29px;
-    height: 27px;
-    padding: 0 8px;
-    border: 0;
-    border-right: 1px solid var(--cl-line);
-    background: transparent;
-    color: var(--cl-muted);
-    font: inherit;
-    font-weight: var(--rst-fw-bold);
-    cursor: pointer;
-  }
-  .floor__controls button:last-child { border-right: 0; }
-  .floor__controls button:hover:not(:disabled) { background: var(--cl-surface); color: var(--cl-text); }
-  .floor__controls button:disabled { opacity: .35; cursor: default; }
-  .floor__controls .zoom-value { min-width: 50px; font-size: 10px; font-variant-numeric: tabular-nums; }
-  .floor__viewport { overflow: auto; padding: 10px; background: var(--cl-surface-muted); }
+  .floor__viewport { overflow: hidden; padding: 12px; background: var(--cl-surface-muted); }
   .floor__stage {
-    width: calc(100% * var(--zoom));
-    min-width: 580px;
+    width: 100%;
     aspect-ratio: var(--floor-aspect);
     position: relative;
-    overflow: hidden;
+    overflow: visible;
     border: 1px solid var(--cl-line-strong);
     border-radius: 5px;
     background-color: #fbfaf7;
@@ -337,6 +440,7 @@
     background-size: 24px 24px;
     touch-action: none;
   }
+  .floor__stage.is-floor-editable { box-shadow: 0 0 0 3px color-mix(in srgb, var(--cl-accent) 5%, transparent); }
   .floor__stage::after {
     content: '';
     position: absolute;
@@ -369,15 +473,51 @@
     gap: 10px;
     padding: 7px 9px;
     overflow: hidden;
-    border: 1px dashed color-mix(in srgb, var(--room-color) 58%, var(--cl-line));
+    border: 1px solid color-mix(in srgb, var(--room-color) 52%, var(--cl-line));
     border-radius: 7px;
-    background: color-mix(in srgb, var(--room-color) 4%, transparent);
+    background: color-mix(in srgb, var(--room-color) 7%, transparent);
     color: color-mix(in srgb, var(--room-color) 72%, var(--cl-text));
     font: inherit;
     text-align: left;
     cursor: pointer;
+    touch-action: none;
   }
   .is-editable .floor-zone { cursor: grab; }
+  .resize-handle, .floor-resize {
+    position: absolute;
+    z-index: 8;
+    display: block;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    touch-action: none;
+  }
+  .resize-handle.is-right { width: 9px; top: 12px; right: -5px; bottom: 12px; cursor: ew-resize; }
+  .resize-handle.is-bottom { height: 9px; right: 12px; bottom: -5px; left: 12px; cursor: ns-resize; }
+  .resize-handle.is-corner {
+    width: 12px;
+    height: 12px;
+    right: -6px;
+    bottom: -6px;
+    border: 2px solid var(--cl-surface);
+    border-radius: 3px;
+    background: var(--room-color);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--room-color) 78%, var(--cl-line-strong));
+    cursor: nwse-resize;
+  }
+  .floor-resize.is-right { width: 10px; top: 18px; right: -6px; bottom: 18px; cursor: ew-resize; }
+  .floor-resize.is-bottom { height: 10px; right: 18px; bottom: -6px; left: 18px; cursor: ns-resize; }
+  .floor-resize.is-corner {
+    width: 15px;
+    height: 15px;
+    right: -8px;
+    bottom: -8px;
+    border: 2px solid var(--cl-surface);
+    border-radius: 4px;
+    background: var(--cl-accent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--cl-accent) 72%, var(--cl-line-strong));
+    cursor: nwse-resize;
+  }
   .floor-zone.is-dragging { z-index: 4; cursor: grabbing; box-shadow: 0 8px 18px rgb(28 35 44 / 12%); }
   .floor-zone.is-selected { border-style: solid; outline: 3px solid color-mix(in srgb, var(--room-color) 16%, transparent); outline-offset: 1px; }
   .floor-zone span {
