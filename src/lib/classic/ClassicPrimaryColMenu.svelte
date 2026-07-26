@@ -8,6 +8,7 @@
 
   let {
     label,
+    labelIcon,
     meta = '',
     metaParts = [],
     align = 'left',
@@ -29,6 +30,7 @@
     groupLabel = 'Group rows'
   }: {
     label: string;
+    labelIcon?: 'people';
     meta?: string;
     metaParts?: string[];
     align?: 'left' | 'center' | 'right';
@@ -55,6 +57,7 @@
   {#if extra}
     <ClassicColMenu
       {label}
+      {labelIcon}
       {meta}
       {metaParts}
       {align}
@@ -74,6 +77,7 @@
   {:else}
     <ClassicColMenu
       {label}
+      {labelIcon}
       {meta}
       {metaParts}
       {align}

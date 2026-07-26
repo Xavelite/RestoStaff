@@ -48,7 +48,7 @@
   let hidden = $state(new Set<string>());
 
   const inviteDirty = $derived(Boolean(inviting && inviteBaseline && JSON.stringify([inviteEmail, inviteRole]) !== inviteBaseline));
-  const employeeColor = $derived(workspace.team ? buildEmployeeColorMap(workspace.team.job_functions, workspace.team.employee_job_functions) : new Map<string, string>());
+  const employeeColor = $derived(workspace.team ? buildEmployeeColorMap(workspace.team.job_functions, workspace.team.employee_job_functions, workspace.operations?.work_areas ?? []) : new Map<string, string>());
 
   const ACCESS_LABEL: Record<string, string> = {
     active: 'Signed in', disabled: 'Disabled', invited: 'Invitation sent', expired: 'Invitation expired', revoked: 'Invitation revoked', not_invited: 'No invitation'

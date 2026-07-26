@@ -21,7 +21,7 @@
 
   const employeeColor = $derived(
     workspace.operations
-      ? buildEmployeeColorMap(workspace.operations.job_functions, workspace.operations.employee_job_functions)
+      ? buildEmployeeColorMap(workspace.operations.job_functions, workspace.operations.employee_job_functions, workspace.operations.work_areas)
       : new Map<string, string>()
   );
 
@@ -208,4 +208,3 @@
     50% { opacity: 0.7; box-shadow: 0 0 0 4px rgba(var(--cl-ok-rgb), 0); }
   }
 </style>
-

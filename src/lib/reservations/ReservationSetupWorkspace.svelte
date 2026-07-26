@@ -5,11 +5,7 @@
   import ClassicPage from '$lib/classic/ClassicPage.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import { getReservationSetup, saveReservationSetup } from '$lib/reservations/reservation-api';
-  import type {
-    ReservationRoomDraft,
-    ReservationSetup,
-    ReservationSetupDraft
-  } from '$lib/reservations/reservation-types';
+  import type { ReservationSetup, ReservationSetupDraft } from '$lib/reservations/reservation-types';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
 
@@ -19,25 +15,9 @@
   let saving = $state(false);
   let dirty = $state(false);
   let error = $state('');
-  let selectedRoom = $state('');
 
   const enabledServices = $derived(
     draft?.services.filter((service) => service.booking_enabled).length ?? 0
-  );
-  const activeRooms = $derived(draft?.rooms.filter((room) => room.active) ?? []);
-  const activeTables = $derived(draft?.tables.filter((table) => table.active) ?? []);
-  const roomColor = $derived(
-    new Map(
-      (source?.areas ?? []).map((area) => [
-        area.id,
-        typeof area.metadata === 'object' &&
-        area.metadata !== null &&
-        !Array.isArray(area.metadata) &&
-        typeof area.metadata.color === 'string'
-          ? area.metadata.color
-          : 'var(--cl-info)'
-      ])
-    )
   );
 
   onMount(() => {
@@ -58,9 +38,6 @@
       source = next;
       draft = setupDraft(next);
       dirty = false;
-      if (!selectedRoom || !draft.rooms.some((room) => room.id === selectedRoom && room.active)) {
-        selectedRoom = draft.rooms.find((room) => room.active)?.id ?? '';
-      }
     } catch (cause) {
       error = friendlyError(cause);
     } finally {
@@ -116,38 +93,6 @@
 
   function serviceName(serviceKey: string): string {
     return source?.services.find((service) => service.service_key === serviceKey)?.name ?? serviceKey;
-  }
-
-  function roomForArea(areaId: string): ReservationRoomDraft | null {
-    return draft?.rooms.find((room) => room.work_area_id === areaId) ?? null;
-  }
-
-  function toggleRoom(areaId: string) {
-    if (!draft) return;
-    const existing = roomForArea(areaId);
-    if (existing) {
-      existing.active = !existing.active;
-      if (!existing.active && selectedRoom === existing.id) {
-        selectedRoom = draft.rooms.find((room) => room.active && room.id !== existing.id)?.id ?? '';
-      } else if (existing.active) {
-        selectedRoom = existing.id;
-      }
-    } else {
-      const room: ReservationRoomDraft = {
-        id: crypto.randomUUID(),
-        work_area_id: areaId,
-        floor_id: null,
-        position_x: 24,
-        position_y: 24,
-        width: 952,
-        height: 552,
-        active: true,
-        sort_order: draft.rooms.length
-      };
-      draft.rooms = [...draft.rooms, room];
-      selectedRoom = room.id;
-    }
-    touch();
   }
 
   function canSave(): boolean {
@@ -206,8 +151,7 @@
   >
     {#snippet meta()}
       <span><i class="dot is-green"></i>{t('{count} services open', { count: enabledServices })}</span>
-      <span><i class="dot"></i>{t('{count} reservable rooms', { count: activeRooms.length })}</span>
-      <span>{t('{count} tables', { count: activeTables.length })}</span>
+      <span><i class="dot"></i>{t('Floors, areas and tables are managed visually')}</span>
     {/snippet}
     {#snippet children()}
       {#if loading && !draft}
@@ -272,68 +216,6 @@
               </table>
             </div>
           </section>
-
-          <section class="room-layout">
-            <div class="cl-card rooms-card">
-              <div class="cl-card__head">
-                <div>
-                  <h2>{t('Reservable rooms')}</h2>
-                  <p>{t('Rooms are linked to Restaurant areas, so planning and reservations speak the same language.')}</p>
-                </div>
-              </div>
-              <div class="room-list">
-                {#each source?.areas ?? [] as area (area.id)}
-                  {@const room = roomForArea(area.id)}
-                  <button
-                    class="room-option"
-                    class:is-active={room?.active}
-                    class:is-selected={room?.active && room.id === selectedRoom}
-                    type="button"
-                    onclick={() => {
-                      if (room?.active) {
-                        selectedRoom = room.id;
-                      } else {
-                        toggleRoom(area.id);
-                      }
-                    }}
-                  >
-                    <i style={`--room-color:${roomColor.get(area.id)}`}></i>
-                    <span>
-                      <strong>{area.name}</strong>
-                      <small>
-                        {room?.active
-                          ? t('{count} tables', {
-                              count: draft?.tables.filter((table) => table.room_id === room.id && table.active).length ?? 0
-                            })
-                          : t('Not reservable')}
-                      </small>
-                    </span>
-                    {#if room?.active}
-                      <span
-                        class="room-option__toggle"
-                        role="button"
-                        tabindex="0"
-                        aria-label={t('Disable {name}', { name: area.name })}
-                        onclick={(event) => {
-                          event.stopPropagation();
-                          toggleRoom(area.id);
-                        }}
-                        onkeydown={(event) => {
-                          if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault();
-                            toggleRoom(area.id);
-                          }
-                        }}
-                      >×</span>
-                    {:else}
-                      <span class="room-option__add">+</span>
-                    {/if}
-                  </button>
-                {/each}
-              </div>
-            </div>
-
-          </section>
         </div>
       {/if}
     {/snippet}
@@ -371,40 +253,5 @@
   .range-field { display: inline-flex; align-items: center; gap: 4px; }
   .range-field i { color: var(--cl-muted); font-style: normal; }
   .compact-select { min-width: 104px; }
-  .room-layout { width: min(100%, 420px); }
-  .room-list { display: grid; padding: 8px; }
-  .room-option {
-    width: 100%;
-    display: grid;
-    grid-template-columns: 8px minmax(0, 1fr) 26px;
-    align-items: center;
-    gap: 10px;
-    padding: 9px 8px;
-    border: 1px solid transparent;
-    border-radius: 5px;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-  }
-  .room-option:hover { background: var(--cl-surface-muted); }
-  .room-option.is-selected { border-color: var(--cl-accent-line); background: var(--cl-accent-wash); }
-  .room-option > i { width: 8px; height: 30px; border-radius: 3px; background: var(--cl-line-strong); }
-  .room-option.is-active > i { background: var(--room-color); }
-  .room-option > span:nth-child(2) { min-width: 0; display: grid; gap: 2px; }
-  .room-option strong { overflow: hidden; font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
-  .room-option small { color: var(--cl-muted); font-size: 10.5px; }
-  .room-option__toggle, .room-option__add {
-    width: 24px;
-    height: 24px;
-    display: grid;
-    place-items: center;
-    border: 1px solid var(--cl-line);
-    border-radius: 4px;
-    background: var(--cl-surface);
-    color: var(--cl-muted);
-  }
-  .room-option__add { color: var(--cl-accent); font-weight: var(--rst-fw-bold); }
   .cl-switch { white-space: nowrap; }
 </style>

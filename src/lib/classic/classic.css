@@ -950,6 +950,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.colhead__leading {
+  flex: 0 0 auto;
+  margin-right: 4px;
+  vertical-align: -2px;
+}
 .colhead__meta {
   width: 100%;
   display: flex;

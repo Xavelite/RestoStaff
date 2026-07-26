@@ -6,6 +6,7 @@
 
   let {
     label,
+    labelIcon,
     meta = '',
     metaParts = [],
     align = 'left',
@@ -23,6 +24,7 @@
     extraActive = false
   }: {
     label: string;
+    labelIcon?: 'people';
     meta?: string;
     metaParts?: string[];
     align?: 'left' | 'center' | 'right';
@@ -107,7 +109,12 @@
 <div class="colhead" class:is-center={align === 'center'} class:is-right={align === 'right'} bind:this={root}>
   <button class="colhead__label" class:is-sortable={sortable} type="button" onclick={toggleSort} title={sortable ? t('Sort') : undefined}>
     <span class="colhead__copy">
-      <span>{label}</span>
+      <span>
+        {#if labelIcon === 'people'}
+          <svg class="colhead__leading" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0M16.5 7a2.5 2.5 0 0 1 0 5M18 14a4.5 4.5 0 0 1 3 4.2"/></svg>
+        {/if}
+        {label}
+      </span>
       {#if metaParts.length}
         <small class="colhead__meta">
           {#each metaParts as part}

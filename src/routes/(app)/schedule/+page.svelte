@@ -111,7 +111,7 @@
   );
   const employeeColor = $derived(
     snapshot
-      ? buildEmployeeColorMap(snapshot.job_functions, snapshot.employee_job_functions)
+      ? buildEmployeeColorMap(snapshot.job_functions, snapshot.employee_job_functions, snapshot.work_areas)
       : new Map<string, string>()
   );
   const areaColor = $derived(
@@ -893,7 +893,8 @@
                 <tr>
                   <th class="board__staff has-menu">
                     <ClassicPrimaryColMenu
-                      label={`${t('Employee')} (${plannedEmployeeIds.size}/${totalEmployeeIds.size})`}
+                      label={`${plannedEmployeeIds.size}/${totalEmployeeIds.size}`}
+                      labelIcon="people"
                       metaParts={compactCards
                         ? [formatHours(weekHours)]
                         : [formatHours(weekHours), weekCost > 0 ? `~${money(weekCost)}` : '—']}

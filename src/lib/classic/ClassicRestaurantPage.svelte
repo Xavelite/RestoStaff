@@ -24,7 +24,7 @@
   const snapshot = $derived(workspace.restaurant);
 
   $effect(() => {
-    if (workspace.activeId && workspace.effectiveRole === 'owner') {
+    if (workspace.activeId && ['owner', 'manager'].includes(workspace.effectiveRole ?? '')) {
       void workspace.loadRestaurant().catch(() => undefined);
     }
   });

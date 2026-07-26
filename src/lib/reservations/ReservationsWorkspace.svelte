@@ -420,24 +420,10 @@
     </section>
   {:else}
     <section class="reservation-summary" aria-label={t('Reservation summary')}>
-      <div>
-        <span>{t('Bookings')}</span>
-        <strong>{activeReservations.length}</strong>
-      </div>
-      <div>
-        <span>{t('Expected covers')}</span>
-        <strong>{covers}{capacity ? ` / ${capacity}` : ''}</strong>
-      </div>
-      <div>
-        <span>{t('Tables available')}</span>
-        <strong>{data?.tables.length ? availableTables : '—'}</strong>
-      </div>
-      <div class="reservation-summary__service">
-        <span>{t('Service readiness')}</span>
-        <strong class:is-ready={serviceReadiness === 'Accepting bookings'}>
-          {t(serviceReadiness)}
-        </strong>
-      </div>
+      <span><b>{activeReservations.length}</b> {t('bookings')}</span>
+      <span><b>{covers}{capacity ? ` / ${capacity}` : ''}</b> {t('covers')}</span>
+      <span><b>{data?.tables.length ? availableTables : '—'}</b> {t('tables available')}</span>
+      <span class:is-ready={serviceReadiness === 'Accepting bookings'}><i></i>{t(serviceReadiness)}</span>
     </section>
 
     {#if !loading && !activeService?.setting?.booking_enabled}
@@ -516,7 +502,7 @@
         {:else}
           <div class="cl-empty">
             <strong>{t('No reservable room yet')}</strong>
-            <span>{t('Link a Restaurant area in Settings, then place it on a floor.')}</span>
+            <span>{t('Create the venue in Restaurant Areas, then add tables in Floor plans.')}</span>
             <a class="cl-btn is-primary" href="/reservations/floor-plans">{t('Open floor plans')}</a>
           </div>
         {/if}
@@ -738,24 +724,29 @@
   .date-field { width: 142px; }
   .toolbar-search { min-width: 230px; }
   .reservation-summary {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0;
+    padding: 0 10px;
     border: 1px solid var(--cl-line);
     border-radius: var(--cl-radius-surface);
-    background: var(--cl-surface);
+    background: var(--cl-surface-muted);
   }
-  .reservation-summary > div {
-    min-width: 0;
-    display: grid;
-    gap: 3px;
-    padding: 13px 16px;
+  .reservation-summary > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 10px;
     border-right: 1px solid var(--cl-line);
+    color: var(--cl-muted);
+    font-size: 10.5px;
   }
-  .reservation-summary > div:last-child { border-right: 0; }
-  .reservation-summary span { color: var(--cl-muted); font-size: 11px; font-weight: var(--rst-fw-medium); }
-  .reservation-summary strong { font-size: 19px; font-weight: var(--rst-fw-display); font-variant-numeric: tabular-nums; }
-  .reservation-summary__service strong { font-size: 13px; color: var(--cl-attention); }
-  .reservation-summary__service strong.is-ready { color: var(--cl-ok); }
+  .reservation-summary > span:last-child { margin-left: auto; border-right: 0; color: var(--cl-attention); }
+  .reservation-summary > span.is-ready { color: var(--cl-ok); }
+  .reservation-summary b { color: var(--cl-ink); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .reservation-summary i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
   .setup-callout {
     display: flex;
     align-items: center;
@@ -994,9 +985,7 @@
   .form-error { margin: 0; color: var(--cl-problem); font-size: 12px; }
   @media (max-width: 760px) {
     .live-floor__workspace { grid-template-columns: minmax(0, 1fr); }
-    .reservation-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .reservation-summary > div:nth-child(2) { border-right: 0; }
-    .reservation-summary > div:nth-child(-n + 2) { border-bottom: 1px solid var(--cl-line); }
+    .reservation-summary > span:last-child { width: 100%; margin-left: 0; padding-top: 5px; padding-bottom: 5px; border-top: 1px solid var(--cl-line); }
     .notes-col { display: none; }
   }
   @media (max-width: 520px) {

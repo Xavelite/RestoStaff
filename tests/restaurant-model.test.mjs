@@ -85,7 +85,7 @@ test('restaurant hours preserve lunch and evening opening states independently',
   const draft = restaurantDraft(snapshot);
   assert.equal(draft.opening[0].lunchOpen, false);
   assert.equal(draft.opening[0].eveningOpen, true);
-  assert.equal(draft.jobFunctions[0].color, '#2563eb');
+  assert.equal(draft.jobFunctions[0].primaryAreaId, 'area-1');
   assert.equal(draft.areas[0].color, '#16a34a');
   assert.equal(draft.displayName, 'Demo');
   assert.equal(draft.legalName, 'Demo');
@@ -97,7 +97,7 @@ test('restaurant hours preserve lunch and evening opening states independently',
   const mondayEvening = payload.openingHours.find((row) => row.weekday === 1 && row.service_key === 'evening');
   assert.equal(mondayLunch.is_open, false);
   assert.equal(mondayEvening.is_open, true);
-  assert.deepEqual(payload.jobFunctions[0].metadata, { color: '#2563eb' });
+  assert.deepEqual(payload.jobFunctions[0].metadata, { area_id: 'area-1' });
   assert.deepEqual(payload.areas[0].metadata, { color: '#16a34a' });
   assert.equal(payload.restaurant.name, 'Demo');
   assert.equal(payload.restaurant.legal_name, 'Demo');

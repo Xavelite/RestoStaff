@@ -9,12 +9,18 @@
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
   import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
+  import ReservationFloorPlansWorkspace from '$lib/reservations/ReservationFloorPlansWorkspace.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { AREA_PALETTE, buildPositionColorMap, defaultAreaColor } from '$lib/ui/position-color';
 
   type SortKey = 'name' | 'lunch' | 'evening' | 'positions' | 'notes' | 'active';
   type GroupBy = 'status' | 'service' | 'none';
-  const positionColor = $derived(buildPositionColorMap(restaurantConfig.draft?.jobFunctions ?? []));
+  const positionColor = $derived(
+    buildPositionColorMap(
+      restaurantConfig.draft?.jobFunctions ?? [],
+      restaurantConfig.draft?.areas ?? []
+    )
+  );
 
   let search = $state('');
   let sort = $state<{ key: SortKey; dir: 'asc' | 'desc' } | null>(null);
@@ -201,12 +207,14 @@
 <svelte:head><title>{t('Areas')} &middot; restogogo</title></svelte:head>
 
 {#if context}
-{@const draft = context.draft}
+  {@const draft = context.draft}
     {@const rows = [...draft.areas].filter(matches)}
     {@const ordered = orderedAreas(rows)}
     {@const groups = groupedAreas(ordered)}
     {@const configuredValues = [{ value: 'configured', label: t('Configured') }, { value: 'not_configured', label: t('Not configured') }]}
-    <ClassicTablePanel dirty={context.dirty} saving={context.saving} canSave={context.canSave} onsave={() => void context.save().catch(() => undefined)} ondiscard={context.discard}>
+  <ReservationFloorPlansWorkspace mode="venue" />
+
+  <ClassicTablePanel dirty={context.dirty} saving={context.saving} canSave={context.canSave} onsave={() => void context.save().catch(() => undefined)} ondiscard={context.discard}>
       {#snippet meta()}
         <span><i class="dot"></i>{t('{count} areas', { count: rows.length })}</span>
         <span><i class="dot is-green"></i>{t('{count} active', { count: rows.filter((area) => area.active).length })}</span>

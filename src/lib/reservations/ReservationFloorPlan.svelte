@@ -18,6 +18,8 @@
     floorWidth = 1000,
     floorHeight = 600,
     editable = false,
+    roomsEditable = editable,
+    tablesEditable = editable,
     selectedTableId = '',
     selectedRoomId = '',
     emptyMessage = 'Add a table to start this floor plan.',
@@ -34,6 +36,8 @@
     floorWidth?: number;
     floorHeight?: number;
     editable?: boolean;
+    roomsEditable?: boolean;
+    tablesEditable?: boolean;
     selectedTableId?: string;
     selectedRoomId?: string;
     emptyMessage?: string;
@@ -98,7 +102,7 @@
 
   function startDrag(event: PointerEvent, table: FloorTable) {
     onselect(table, reservationFor(table.id));
-    if (!editable || table.blocked) return;
+    if (!tablesEditable || table.blocked) return;
     const stage = event.currentTarget instanceof HTMLElement
       ? event.currentTarget.parentElement
       : null;
@@ -117,7 +121,7 @@
 
   function startRoomDrag(event: PointerEvent, room: ReservationRoom) {
     onroomselect(room);
-    if (!editable) return;
+    if (!roomsEditable) return;
     const stage = event.currentTarget instanceof HTMLElement
       ? event.currentTarget.parentElement
       : null;
@@ -197,7 +201,7 @@
   <div class="floor__toolbar">
     <div>
       <strong>{roomName}</strong>
-      <span>{editable ? t('Drag tables to match the room.') : t('Live table availability')}</span>
+      <span>{roomsEditable ? t('Drag areas to shape the venue.') : tablesEditable ? t('Drag tables into place.') : t('Live table availability')}</span>
     </div>
     <div class="floor__controls" aria-label={t('Floor plan zoom')}>
       <button type="button" aria-label={t('Zoom out')} disabled={zoom <= 0.8} onclick={() => (zoom = Math.max(0.8, zoom - 0.2))}>−</button>

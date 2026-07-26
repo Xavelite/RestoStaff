@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
-  import { POSITION_PALETTE, defaultPositionColor } from '$lib/ui/position-color';
+  import { buildPositionColorMap } from '$lib/ui/position-color';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { useClassicRestaurantContext } from '$lib/classic/classic-workspace-context';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
@@ -9,7 +9,6 @@
   import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
   import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
-  import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
 
   type SortKey = 'name' | 'cost' | 'employees' | 'active';
@@ -19,7 +18,7 @@
     name: string;
     estimatedHourlyCost: number;
     active: boolean;
-    color: string;
+    primaryAreaId: string;
   };
   type PositionGroup = { key: string; label: string; rows: PositionRow[] };
 
@@ -39,6 +38,12 @@
     }
     return map;
   });
+  const positionColor = $derived(
+    buildPositionColorMap(
+      restaurantConfig.draft?.jobFunctions ?? [],
+      restaurantConfig.draft?.areas ?? []
+    )
+  );
 
   let search = $state('');
   let costSearch = $state('');
@@ -90,7 +95,7 @@
   }
 
   const shown = (key: string) => !hidden.has(key);
-  const colCount = $derived(5 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length);
+  const colCount = $derived(6 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length);
   const persistedPositionIds = $derived(new Set((workspace.restaurant?.job_functions ?? []).map((position) => position.id)));
 
   function addPosition() {
@@ -102,7 +107,7 @@
       code: '',
       active: true,
       estimatedHourlyCost: 0,
-      color: defaultPositionColor(draft.jobFunctions.length)
+      primaryAreaId: draft.areas.find((area) => area.active)?.id ?? ''
     }, ...draft.jobFunctions];
     restaurantConfig.touch();
   }
@@ -223,6 +228,7 @@
                   ongroupchange={(value) => setGroupBy(value as GroupBy)}
                 />
               </th>
+              <th>{t('Primary area')}</th>
               {#if shown('cost')}<th class="has-menu"><ClassicColMenu label={t('Estimated hourly cost')} sortable sortDir={sort?.key === 'cost' ? sort.dir : null} onsort={(dir) => (sort = { key: 'cost', dir })} filterKind="text" searchValue={costSearch} onsearch={(value) => (costSearch = value)} /></th>{/if}
               {#if shown('employees')}<th class="has-menu"><ClassicColMenu label={t('Employees')} sortable sortDir={sort?.key === 'employees' ? sort.dir : null} onsort={(dir) => (sort = { key: 'employees', dir })} filterKind="text" searchValue={employeeSearch} onsearch={(value) => (employeeSearch = value)} /></th>{/if}
               {#if shown('active')}<th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={sort?.key === 'active' ? sort.dir : null} onsort={(dir) => (sort = { key: 'active', dir })} filterKind="values" filterValues={[{ value: 'active', label: t('Active') }, { value: 'archived', label: t('Archived') }]} selected={excludedStatus} ontoggle={(value) => { const next = new Set(excludedStatus); next.has(value) ? next.delete(value) : next.add(value); excludedStatus = next; }} onselectall={(on) => (excludedStatus = on ? new Set() : new Set(['active', 'archived']))} /></th>{/if}
@@ -241,8 +247,18 @@
                     {@const headcount = employeesByPosition.get(position.id)?.size ?? 0}
                     <tr draggable={!sort && groupBy === 'none' && !workspace.isPreview} ondragstart={() => (dragId = position.id)} ondragend={() => (dragId = '')} ondragover={(event) => { if (!sort && groupBy === 'none') event.preventDefault(); }} ondrop={() => movePosition(position.id)}>
                       <td class="cl-grip"><button type="button" disabled={Boolean(sort) || groupBy !== 'none' || workspace.isPreview} title={sort || groupBy !== 'none' ? t('Clear grouping and sorting to reorder') : t('Drag to reorder')} aria-label={t('Drag to reorder')}>⋮⋮</button></td>
-                      <td class="swatch-col"><ClassicPalettePicker value={position.color} palette={POSITION_PALETTE} label={t('Choose position colour')} disabled={workspace.isPreview} onselect={(color) => { position.color = color; restaurantConfig.touch(); }} /></td>
+                      <td class="swatch-col">
+                        <span class="derived-swatch" style={`--position-color:${positionColor.get(position.id) ?? 'var(--cl-line-strong)'}`} title={t('Colour inherited from primary area')}></span>
+                      </td>
                       <td><input class="cl-field" placeholder={t('Position name')} disabled={workspace.isPreview} bind:value={position.name} oninput={() => restaurantConfig.touch()} /></td>
+                      <td>
+                        <select class="cl-field area-select" disabled={workspace.isPreview} bind:value={position.primaryAreaId} onchange={() => restaurantConfig.touch()}>
+                          <option value="">{t('Across areas')}</option>
+                          {#each draft.areas.filter((area) => area.active) as area (area.id)}
+                            <option value={area.id}>{area.name}</option>
+                          {/each}
+                        </select>
+                      </td>
                       {#if shown('cost')}<td class="is-num"><input class="cl-field cost" type="number" disabled={workspace.isPreview} min="0" step="0.5" bind:value={position.estimatedHourlyCost} oninput={() => restaurantConfig.touch()} /></td>{/if}
                       {#if shown('employees')}<td><span class="cl-linkcount" class:is-zero={!headcount} title={t('{count} people', { count: headcount })}><span class="cl-linkcount__n">{headcount}</span></span></td>{/if}
                       {#if shown('active')}<td><label class="switch"><input type="checkbox" disabled={workspace.isPreview} bind:checked={position.active} onchange={() => restaurantConfig.touch()} /><span>{t(position.active ? 'Active' : 'Archived')}</span></label></td>{/if}
@@ -265,6 +281,8 @@
   .switch { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; }
   .switch input { width: 16px; height: 16px; accent-color: var(--cl-accent); }
   .swatch-col { width: 34px; padding-right: 0 !important; }
+  .derived-swatch { width: 14px; height: 28px; display: block; border: 1px solid color-mix(in srgb, var(--position-color) 72%, #111827); border-radius: 3px; background: color-mix(in srgb, var(--position-color) 88%, white); }
+  .area-select { min-width: 150px; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .chooser-col { width: 44px; }
   .actions-col { width: 86px; }

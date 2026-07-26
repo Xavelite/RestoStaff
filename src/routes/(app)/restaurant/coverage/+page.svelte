@@ -27,7 +27,12 @@
   let collapsedGroups = $state<string[]>([]);
 
   const areaColor = $derived(buildAreaColorMap(restaurantConfig.draft?.areas ?? []));
-  const positionColor = $derived(buildPositionColorMap(restaurantConfig.draft?.jobFunctions ?? []));
+  const positionColor = $derived(
+    buildPositionColorMap(
+      restaurantConfig.draft?.jobFunctions ?? [],
+      restaurantConfig.draft?.areas ?? []
+    )
+  );
 
   function rowKey(row: Row): string {
     return `${row.areaId}|${row.jobFunctionId}|${row.serviceKey}`;

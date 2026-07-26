@@ -80,7 +80,8 @@ test('Schedule uses one premium week header and one full daily card with interna
   assert.match(schedule, /role="switch"[\s\S]*checked=\{!compactCards\}/);
   assert.match(schedule, /<span>\{t\('Details'\)\}<\/span>/);
   assert.match(schedule, /\{#if !compactCards\}<em>\{plannedCost/);
-  assert.match(schedule, /label=\{`\$\{t\('Employee'\)\} \(\$\{plannedEmployeeIds\.size\}\/\$\{totalEmployeeIds\.size\}\)`\}/);
+  assert.match(schedule, /label=\{`\$\{plannedEmployeeIds\.size\}\/\$\{totalEmployeeIds\.size\}`\}/);
+  assert.match(schedule, /labelIcon="people"/);
   assert.match(schedule, /const dayEmployees = new Set/);
   assert.match(schedule, /await confirmAction\(\{/);
   assert.match(schedule, /empty slots will be filled/);

@@ -97,7 +97,7 @@ const CLASSIC_MODULES: ClassicModule[] = [
     label: 'Restaurant',
     summary: 'Identity, opening hours, areas and positions',
     icon: 'restaurant',
-    roles: OWNER,
+    roles: MANAGER,
     subNav: [
       { href: '/restaurant', label: 'Identity' },
       { href: '/restaurant/hours', label: 'Hours' },

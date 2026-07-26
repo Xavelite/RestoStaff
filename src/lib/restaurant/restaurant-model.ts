@@ -1,7 +1,7 @@
 import { asJsonArray } from '../api/json.ts';
 import { setupItemCode, slug } from './setup-item-code.ts';
 import type { RestaurantReadModel } from '$lib/api/workspace-snapshot';
-import { defaultAreaColor, defaultPositionColor, readColorOverride } from '../ui/position-color.ts';
+import { defaultAreaColor, readColorOverride } from '../ui/position-color.ts';
 import type { RestaurantSavePayload } from '$lib/api/mutations';
 import {
   SERVICES,
@@ -20,7 +20,7 @@ export type NamedSetupItem = {
 
 export type JobFunctionDraft = NamedSetupItem & {
   estimatedHourlyCost: number;
-  color: string;
+  primaryAreaId: string;
 };
 
 export type AreaDraft = {
@@ -105,6 +105,24 @@ function openingValue(
   ).slice(0, 5);
 }
 
+function inferredPrimaryAreaId(
+  positionName: string,
+  areas: RestaurantReadModel['work_areas']
+): string {
+  const normalized = positionName.toLowerCase();
+  const exact = areas.find((area) => normalized.includes(area.name.toLowerCase()));
+  if (exact) return exact.id;
+  const hint =
+    /cook|chef|kitchen|dish/.test(normalized)
+      ? /kitchen|cuisine/
+      : /bar|bartend/.test(normalized)
+        ? /bar/
+        : /wait|server|host|runner/.test(normalized)
+          ? /hall|room|salle/
+          : null;
+  return hint ? areas.find((area) => hint.test(area.name.toLowerCase()))?.id ?? '' : '';
+}
+
 export function restaurantDraft(snapshot: RestaurantReadModel): RestaurantDraft {
   const employment = snapshot.restaurant_employment_settings ?? {};
   return {
@@ -125,13 +143,19 @@ export function restaurantDraft(snapshot: RestaurantReadModel): RestaurantDraft 
     address: snapshot.restaurant.address_line1 ?? '',
     postalCode: snapshot.restaurant.postal_code ?? '',
     city: snapshot.restaurant.city ?? '',
-    jobFunctions: snapshot.job_functions.map((row, index) => ({
+    jobFunctions: snapshot.job_functions.map((row) => ({
       id: row.id,
       name: row.name,
       code: row.code,
       active: row.active,
       estimatedHourlyCost: row.estimated_hourly_cost,
-      color: readColorOverride(row.metadata) ?? defaultPositionColor(index)
+      primaryAreaId:
+        row.metadata &&
+        typeof row.metadata === 'object' &&
+        'area_id' in row.metadata &&
+        typeof row.metadata.area_id === 'string'
+          ? row.metadata.area_id
+          : inferredPrimaryAreaId(row.name, snapshot.work_areas)
     })),
     areas: snapshot.work_areas.map((row, index) => ({
         id: row.id,
@@ -240,7 +264,7 @@ export function restaurantSavePayload(
     name: item.name.trim(),
     active: item.active,
     sort_order: index,
-    metadata: 'color' in item ? { color: item.color } : {}
+    metadata: {}
   });
 
   return {
@@ -280,6 +304,7 @@ export function restaurantSavePayload(
       draft.jobFunctions
         .map((item, index) => ({
           ...itemRow(item, index),
+          metadata: { area_id: nullable(item.primaryAreaId) },
           estimated_hourly_cost: Math.max(0, Number(item.estimatedHourlyCost) || 0)
         }))
         .filter((item) => item.name)

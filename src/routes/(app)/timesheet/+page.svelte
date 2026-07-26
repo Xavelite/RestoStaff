@@ -4,6 +4,7 @@
     addDays,
     dateForWeekday,
     formatHours,
+    hoursBetweenClocks,
     mondayFor,
     serviceLabel,
     todayInTimezone,
@@ -38,7 +39,6 @@
   } from '$lib/timesheet/timesheet-model';
   import ClassicPage from '$lib/classic/ClassicPage.svelte';
   import ClassicPeriodNav from '$lib/classic/ClassicPeriodNav.svelte';
-  import ClassicStat from '$lib/classic/ClassicStat.svelte';
   import { isTimesheetRow, needsAttention, slotLabel } from '$lib/classic/classic-time';
 
   const snapshot = $derived(workspace.operations);
@@ -97,7 +97,7 @@
   // --- week grid (employees × days), mirroring the Schedule board ----------
   const employeeColor = $derived(
     snapshot
-      ? buildEmployeeColorMap(snapshot.job_functions, snapshot.employee_job_functions)
+      ? buildEmployeeColorMap(snapshot.job_functions, snapshot.employee_job_functions, snapshot.work_areas)
       : new Map<string, string>()
   );
   const contractHours = $derived(
@@ -120,6 +120,23 @@
     weekDates.map((date) =>
       slots.filter((slot) => slot.date === date).reduce((sum, slot) => sum + slot.actualHours, 0)
     )
+  );
+  const dayPlanned = $derived(
+    weekDates.map((date) =>
+      slots
+        .filter((slot) => slot.date === date)
+        .reduce(
+          (sum, slot) =>
+            sum +
+            (slot.truth.plan
+              ? hoursBetweenClocks(slot.truth.plan.startsAt, slot.truth.plan.endsAt)
+              : 0),
+          0
+        )
+    )
+  );
+  const dayIssues = $derived(
+    weekDates.map((date) => slots.filter((slot) => slot.date === date && needsAttention(slot)).length)
   );
 
   const employeePosition = $derived.by(() => {
@@ -207,6 +224,8 @@
           ? worked
           : kind === 'issue' && slot.status === 'missing'
             ? t('Missing badge')
+            : kind === 'issue' && slot.status === 'conflict'
+              ? t('Conflict')
             : kind === 'off'
               ? t('Off')
               : kind === 'pending'
@@ -394,31 +413,29 @@
       <span class="weekpill__dot"></span>
       {t(weekStatus === 'open' ? 'Open' : weekStatus === 'approved' ? 'Approved' : 'Locked')}
     </span>
+    <span class="weekmetric"><b>{formatHours(totals.plannedHours)}</b> {t('planned')}</span>
+    <span class="weekmetric is-worked"><b>{formatHours(totals.actualHours)}</b> {t('worked')}</span>
+    {#if totals.missing}<span class="weekmetric is-problem"><b>{totals.missing}</b> {t('missing')}</span>{/if}
+    {#if totals.conflicts}<span class="weekmetric is-problem"><b>{totals.conflicts}</b> {t('conflicts')}</span>{/if}
   </div>
 
-  <div class="cl-stats">
-    <ClassicStat label="Planned hours" value={totals.plannedHours} format={formatHours} accent="var(--cl-info)" mutedZero={false} />
-    <ClassicStat label="Worked hours" value={totals.actualHours} format={formatHours} accent="var(--cl-ok)" mutedZero={false} />
-    <ClassicStat label="Missing badge" value={totals.missing} tone={totals.missing ? 'problem' : undefined} />
-    <ClassicStat label="Conflict" value={totals.conflicts} tone={totals.conflicts ? 'problem' : undefined} />
-  </div>
-
-  <div class="cl-tablewrap">
+  <div class="cl-tablewrap timesheet-grid">
     <table class="cl-table board">
       <thead>
         <tr>
-          <th class="board__staff">{t('Employee')}</th>
-          {#each days as day (day.date)}
-            <th class="board__day" class:is-today={day.today}>
-              <span class="board__dow">{t(day.label)}</span>
-              <span class="board__num">{Number(day.date.slice(-2))}</span>
-            </th>
-          {/each}
-        </tr>
-        <tr class="board__summary">
-          <th>{t('Worked')}</th>
+          <th class="board__staff board__staff-head">
+            <span class="staff-count">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0M16.5 7a2.5 2.5 0 0 1 0 5M18 14a4.5 4.5 0 0 1 3 4.2"/></svg>
+              <b>{gridRows.length}</b>
+            </span>
+            <span>{formatHours(totals.plannedHours)} → <b>{formatHours(totals.actualHours)}</b></span>
+          </th>
           {#each days as day, index (day.date)}
-            <th class:is-empty={!dayWorked[index]}>{dayWorked[index] ? formatHours(dayWorked[index]) : '—'}</th>
+            <th class="board__day" class:is-today={day.today}>
+              <span><b>{t(day.label)}</b> {Number(day.date.slice(-2))}</span>
+              <span>{formatHours(dayPlanned[index])} → <b>{formatHours(dayWorked[index])}</b></span>
+              <small class:is-problem={dayIssues[index] > 0}>{dayIssues[index] ? t('{count} issues', { count: dayIssues[index] }) : t('Ready')}</small>
+            </th>
           {/each}
         </tr>
       </thead>
@@ -539,10 +556,15 @@
 
 <style>
   .weekbar {
+    min-height: 40px;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 10px;
+    padding: 5px 7px;
+    border: 1px solid var(--cl-line);
+    border-radius: var(--cl-radius-surface);
+    background: var(--cl-surface);
   }
   .weekpill {
     display: inline-flex;
@@ -565,6 +587,10 @@
   .weekpill.is-open .weekpill__dot { background: var(--cl-attention); }
   .weekpill.is-approved, .weekpill.is-locked { color: var(--cl-ok); border-color: var(--cl-ok-line); background: var(--cl-ok-wash); }
   .weekpill.is-approved .weekpill__dot, .weekpill.is-locked .weekpill__dot { background: var(--cl-ok); }
+  .weekmetric { padding-left: 10px; border-left: 1px solid var(--cl-line); color: var(--cl-muted); font-size: 10.5px; }
+  .weekmetric b { color: var(--cl-ink); font-variant-numeric: tabular-nums; }
+  .weekmetric.is-worked b { color: var(--cl-ok); }
+  .weekmetric.is-problem, .weekmetric.is-problem b { color: var(--cl-problem); }
   .toggle {
     display: inline-flex;
     align-items: center;
@@ -579,36 +605,34 @@
   }
 
   /* --- week grid (shared shape with the Schedule board) ------------------ */
-  .board { min-width: 940px; table-layout: fixed; }
+  .timesheet-grid { max-height: calc(100vh - 228px); border: 1px solid var(--cl-line); border-radius: var(--cl-radius-surface); }
+  .board { min-width: 1220px; table-layout: fixed; border-collapse: separate; border-spacing: 0; }
+  .board thead th { position: sticky; top: 0; z-index: 3; height: 66px; border-bottom: 1px solid var(--cl-line-strong); background: var(--cl-thead); }
+  .board tbody tr { height: 90px; }
   .board__staff {
-    width: 210px;
+    width: 234px;
     position: sticky;
     left: 0;
     z-index: 1;
     background: var(--cl-surface);
   }
-  th.board__staff { background: var(--cl-surface-muted); }
+  th.board__staff { z-index: 4; background: var(--cl-thead); }
+  .board__staff-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--cl-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+  .board__staff-head > span:last-child b { color: var(--cl-ok); }
+  .staff-count { display: inline-flex; align-items: center; gap: 5px; color: var(--cl-ink); font-size: 12px; }
   .staff { display: flex; align-items: center; gap: 10px; }
   .staff__id { display: grid; gap: 1px; min-width: 0; }
   .staff__id strong { font-weight: var(--rst-fw-medium); }
   .staff__hours { font-size: 12px; color: var(--cl-muted); font-variant-numeric: tabular-nums; }
   .staff__hours b { color: var(--cl-ink); font-weight: var(--rst-fw-bold); }
-  .board__day { text-align: center; border-left: 1px solid var(--cl-line); }
-  .board__dow { font-weight: var(--rst-fw-bold); }
-  .board__num { margin-left: 5px; color: var(--cl-muted); font-variant-numeric: tabular-nums; }
+  .board__day { display: table-cell; padding: 7px 6px; text-align: center; border-left: 1px solid var(--cl-line); }
+  .board__day > span, .board__day > small { display: block; line-height: 1.35; }
+  .board__day > span:first-child { color: var(--cl-ink); font-size: 11.5px; }
+  .board__day > span:nth-child(2) { margin-top: 2px; color: var(--cl-muted); font-size: 9.5px; font-variant-numeric: tabular-nums; }
+  .board__day > span:nth-child(2) b { color: var(--cl-ok); }
+  .board__day > small { margin-top: 2px; color: var(--cl-ok); font-size: 8.5px; }
+  .board__day > small.is-problem { color: var(--cl-problem); }
   .board__day.is-today { color: var(--cl-accent); }
-  .board__summary th {
-    padding-top: 5px;
-    padding-bottom: 8px;
-    border-left: 1px solid var(--cl-line);
-    color: var(--cl-muted);
-    font-size: 12px;
-    font-weight: var(--rst-fw-bold);
-    text-align: center;
-    font-variant-numeric: tabular-nums;
-  }
-  .board__summary th:first-child { border-left: 0; text-align: left; text-transform: uppercase; letter-spacing: 0.02em; }
-  .board__summary th.is-empty { color: var(--cl-line-strong); }
   .board__cell {
     padding: 6px;
     border-left: 1px solid var(--cl-line);
@@ -626,14 +650,14 @@
     margin-bottom: 4px;
     padding: 6px 9px;
     border: 1px solid transparent;
-    border-radius: var(--cl-radius);
+    border-radius: 3px;
     font: inherit;
     font-variant-numeric: tabular-nums;
     text-align: left;
     cursor: pointer;
     transition: border-color var(--cl-dur) var(--cl-ease);
   }
-  .chip:hover { border-color: currentColor; }
+  .chip:hover { border-color: currentColor; box-shadow: 0 1px 4px color-mix(in srgb, currentColor 16%, transparent); }
   .chip__time { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: var(--rst-fw-bold); }
   .chip__hours { font-size: 12px; opacity: 0.75; }
   .chip.is-worked { color: var(--cl-ok); background: var(--cl-ok-wash); border-color: var(--cl-ok-line); }
