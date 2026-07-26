@@ -62,10 +62,9 @@
       {selected}
       {ontoggle}
       {onselectall}
+      {extra}
       {extraActive}
-    >
-      {#snippet extra()}{@render extra()}{/snippet}
-    </ClassicColMenu>
+    />
   {:else}
     <ClassicColMenu
       {label}
