@@ -4,6 +4,7 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
   import { restaurantDraftValidationError } from '$lib/restaurant/restaurant-model';
+  import type { ReservationFloorPlansDraft } from '$lib/reservations/reservation-types';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import ClassicPage from './ClassicPage.svelte';
@@ -58,6 +59,33 @@
     }
   }
 
+  async function saveVenue(
+    floorPlans: ReservationFloorPlansDraft,
+    expectedRevision: number
+  ): Promise<void> {
+    if (!workspace.activeId || !snapshot || !restaurantConfig.draft || saving) return;
+    const validationError = restaurantDraftValidationError(restaurantConfig.draft);
+    if (validationError) {
+      const error = new Error(t(validationError));
+      toasts.show(error.message, 'warning');
+      throw error;
+    }
+    saving = true;
+    try {
+      await restaurantConfig.saveVenue(
+        workspace.activeId,
+        snapshot,
+        floorPlans,
+        expectedRevision
+      );
+    } catch (error) {
+      toasts.show(friendlyError(error), 'danger');
+      throw error;
+    } finally {
+      saving = false;
+    }
+  }
+
   onMount(() =>
     unsavedChanges.register({
       id: 'restaurant-workspace',
@@ -76,6 +104,7 @@
     saving,
     canSave: !workspace.isPreview,
     save,
+    saveVenue,
     discard
   } : null);
 

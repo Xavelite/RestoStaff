@@ -1,6 +1,7 @@
 import { getContext } from 'svelte';
 import type { RestaurantDraft } from '$lib/restaurant/restaurant-model';
 import type { EmployeeDraft } from '$lib/team/team-model';
+import type { ReservationFloorPlansDraft } from '$lib/reservations/reservation-types';
 
 export type ClassicTeamContext = {
   employees: EmployeeDraft[];
@@ -22,6 +23,7 @@ export type ClassicRestaurantContext = {
   saving: boolean;
   canSave: boolean;
   save: () => Promise<void>;
+  saveVenue: (floorPlans: ReservationFloorPlansDraft, expectedRevision: number) => Promise<void>;
   discard: () => void;
 };
 

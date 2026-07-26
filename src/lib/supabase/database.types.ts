@@ -3781,6 +3781,35 @@ export type Database = {
           },
         ]
       }
+      reservation_configuration_revisions: {
+        Row: {
+          restaurant_id: string
+          setup_revision: number
+          updated_at: string
+          venue_revision: number
+        }
+        Insert: {
+          restaurant_id: string
+          setup_revision?: number
+          updated_at?: string
+          venue_revision?: number
+        }
+        Update: {
+          restaurant_id?: string
+          setup_revision?: number
+          updated_at?: string
+          venue_revision?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_configuration_revisions_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: true
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reservation_events: {
         Row: {
           actor_profile_id: string | null
@@ -6447,6 +6476,7 @@ export type Database = {
       save_reservation_floor_plans: {
         Args: {
           p_combinations?: Json
+          p_expected_revision?: number
           p_floors: Json
           p_restaurant_id: string
           p_rooms: Json
@@ -6458,9 +6488,28 @@ export type Database = {
         Args: {
           p_combinations?: Json
           p_exceptions?: Json
+          p_expected_revision?: number
           p_restaurant_id: string
           p_rooms: Json
           p_services: Json
+          p_tables: Json
+        }
+        Returns: Json
+      }
+      save_venue_model: {
+        Args: {
+          p_area_service_defaults: Json
+          p_areas: Json
+          p_combinations?: Json
+          p_coverage_requirements: Json
+          p_expected_revision?: number
+          p_floors: Json
+          p_job_functions: Json
+          p_opening_hours: Json
+          p_restaurant: Json
+          p_restaurant_id: string
+          p_rooms: Json
+          p_settings: Json
           p_tables: Json
         }
         Returns: Json
@@ -6570,6 +6619,7 @@ export type Database = {
       set_reservation_status: {
         Args: {
           p_comment?: string
+          p_expected_revision?: number
           p_reservation_id: string
           p_restaurant_id: string
           p_status: string

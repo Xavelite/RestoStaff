@@ -31,3 +31,23 @@ export const RESERVATION_STATUS: Record<ReservationStatus, ReservationStatusMeta
 export function reservationStatusMeta(status: ReservationStatus): ReservationStatusMeta {
   return RESERVATION_STATUS[status];
 }
+
+
+const RESERVATION_NEXT_STATUS: Record<ReservationStatus, ReservationStatus[]> = {
+  pending: ['confirmed', 'arrived', 'waiting', 'seated', 'cancelled', 'no_show'],
+  confirmed: ['arrived', 'waiting', 'seated', 'cancelled', 'no_show'],
+  arrived: ['waiting', 'seated', 'cancelled', 'no_show'],
+  waiting: ['seated', 'cancelled', 'no_show'],
+  seated: ['finished'],
+  finished: [],
+  cancelled: [],
+  no_show: []
+};
+
+export function reservationNextStatuses(status: ReservationStatus): ReservationStatus[] {
+  return [status, ...RESERVATION_NEXT_STATUS[status]];
+}
+
+export function reservationIsTerminal(status: ReservationStatus): boolean {
+  return RESERVATION_NEXT_STATUS[status].length === 0;
+}

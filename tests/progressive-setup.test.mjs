@@ -30,7 +30,7 @@ test('Belgian identifiers are optional drafts and valid official values are reco
 });
 
 test('DEV migration makes identifiers nonblocking and archives safely', async () => {
-  const migration = await readFile('supabase/migrations/20260725193000_progressive_setup_and_employee_archive.sql', 'utf8');
+  const migration = await readFile('supabase/migrations/20260725184052_progressive_setup_and_employee_archive.sql', 'utf8');
   assert.match(migration, /drop trigger if exists employee_legal_profiles_niss_change_guard/);
   assert.match(migration, /drop constraint if exists employee_legal_profiles_niss_length/);
   assert.match(migration, /drop constraint if exists restaurants_company_number_format/);
@@ -121,7 +121,7 @@ test('Schedule uses one premium week header and one full daily card with interna
 
 test('schedule republish migration keeps published weeks auditable and rejects overlaps', async () => {
   const migration = await readFile(
-    'supabase/migrations/20260725211500_schedule_republish_and_overlap_guard.sql',
+    'supabase/migrations/20260725204425_schedule_republish_and_overlap_guard.sql',
     'utf8'
   );
   assert.match(migration, /v_current\.planning_status = ''published'' and v_status = ''published''/);
@@ -133,7 +133,7 @@ test('schedule republish migration keeps published weeks auditable and rejects o
 
 test('availability remains editable after schedule publication', async () => {
   const migration = await readFile(
-    'supabase/migrations/20260725214500_availability_remains_editable_after_publish.sql',
+    'supabase/migrations/20260725204824_availability_remains_editable_after_publish.sql',
     'utf8'
   );
   assert.match(migration, /create or replace function public\.save_employee_availability/);

@@ -8,6 +8,7 @@ declare
   v_rpc text;
 begin
   foreach v_table in array array[
+    'reservation_configuration_revisions',
     'reservation_service_settings',
     'reservation_floors',
     'reservation_rooms',
@@ -37,11 +38,12 @@ begin
     'get_reservation_workspace(uuid,date)',
     'get_reservation_setup(uuid)',
     'get_reservation_floor_plans(uuid)',
-    'save_reservation_setup(uuid,jsonb,jsonb,jsonb,jsonb,jsonb)',
-    'save_reservation_floor_plans(uuid,jsonb,jsonb,jsonb,jsonb)',
+    'save_reservation_setup(uuid,jsonb,jsonb,jsonb,jsonb,jsonb,integer)',
+    'save_reservation_floor_plans(uuid,jsonb,jsonb,jsonb,jsonb,integer)',
     'check_reservation_availability(uuid,date,text,time without time zone,integer,uuid,uuid)',
     'save_reservation(uuid,jsonb)',
-    'set_reservation_status(uuid,uuid,text,text)',
+    'set_reservation_status(uuid,uuid,text,text,integer)',
+    'save_venue_model(uuid,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,integer)',
     'get_reservation_demand(uuid,date,date)'
   ]
   loop
@@ -74,15 +76,23 @@ declare
   v_profile_id uuid;
   v_restaurant_id uuid := gen_random_uuid();
   v_area_id uuid := gen_random_uuid();
+  v_area_two_id uuid := gen_random_uuid();
   v_floor_id uuid := gen_random_uuid();
   v_room_id uuid := gen_random_uuid();
+  v_room_two_id uuid := gen_random_uuid();
   v_table_id uuid := gen_random_uuid();
+  v_table_two_id uuid := gen_random_uuid();
+  v_table_other_room_id uuid := gen_random_uuid();
+  v_combination_id uuid := gen_random_uuid();
   v_business_date date;
   v_weekday integer;
   v_result jsonb;
   v_reservation_id uuid;
   v_availability jsonb;
   v_event_id uuid;
+  v_revision integer;
+  v_assignment_count integer;
+  v_assignment_group_count integer;
   v_rejected boolean := false;
 begin
   v_business_date := current_date + ((8 - extract(isodow from current_date)::integer) % 7) + 7;
@@ -116,7 +126,9 @@ begin
   )
   values (v_restaurant_id, v_weekday, 'lunch', true, '12:00', '15:00');
   insert into public.work_areas (id, restaurant_id, code, name, active)
-  values (v_area_id, v_restaurant_id, 'hall', 'Hall', true);
+  values
+    (v_area_id, v_restaurant_id, 'hall', 'Hall', true),
+    (v_area_two_id, v_restaurant_id, 'terrace', 'Terrace', true);
   insert into public.reservation_floors (
     id, restaurant_id, name, level, canvas_width, canvas_height
   )
@@ -130,11 +142,43 @@ begin
   insert into public.reservation_rooms (
     id, restaurant_id, work_area_id, floor_id, active
   )
-  values (v_room_id, v_restaurant_id, v_area_id, v_floor_id, true);
+  values
+    (v_room_id, v_restaurant_id, v_area_id, v_floor_id, true),
+    (v_room_two_id, v_restaurant_id, v_area_two_id, v_floor_id, true);
   insert into public.reservation_tables (
     id, restaurant_id, room_id, label, minimum_capacity, maximum_capacity
   )
-  values (v_table_id, v_restaurant_id, v_room_id, '1', 1, 2);
+  values
+    (v_table_id, v_restaurant_id, v_room_id, '1', 1, 2),
+    (v_table_two_id, v_restaurant_id, v_room_id, '2', 1, 2),
+    (v_table_other_room_id, v_restaurant_id, v_room_two_id, 'T1', 1, 2);
+  insert into public.reservation_table_combinations (
+    id, restaurant_id, room_id, name, minimum_capacity, maximum_capacity
+  )
+  values (v_combination_id, v_restaurant_id, v_room_id, '1 + 2', 3, 4);
+  insert into public.reservation_table_combination_members (
+    restaurant_id, combination_id, table_id, sort_order
+  )
+  values
+    (v_restaurant_id, v_combination_id, v_table_id, 0),
+    (v_restaurant_id, v_combination_id, v_table_two_id, 1);
+
+  begin
+    insert into public.reservation_table_combination_members (
+      restaurant_id, combination_id, table_id, sort_order
+    ) values (v_restaurant_id, v_combination_id, v_table_other_room_id, 2);
+  exception
+    when others then
+      if position('combination room' in lower(sqlerrm)) > 0 then
+        v_rejected := true;
+      else
+        raise;
+      end if;
+  end;
+  if not v_rejected then
+    raise exception 'A cross-room table was accepted into a combination.';
+  end if;
+  v_rejected := false;
 
   perform set_config(
     'request.jwt.claims',
@@ -151,7 +195,7 @@ begin
       'business_date', v_business_date,
       'service_key', 'lunch',
       'local_time', '12:00',
-      'party_size', 2,
+      'party_size', 4,
       'room_preference_id', v_room_id,
       'source', 'phone',
       'guest_comment', '',
@@ -161,25 +205,65 @@ begin
   );
   v_reservation_id := (v_result->>'reservation_id')::uuid;
 
+  select count(*), count(distinct assignment.assignment_group_id)
+  into v_assignment_count, v_assignment_group_count
+  from public.reservation_table_assignments assignment
+  where assignment.restaurant_id = v_restaurant_id
+    and assignment.reservation_id = v_reservation_id
+    and assignment.unassigned_at is null;
+
   if v_result->>'status' <> 'confirmed'
-    or not exists (
-      select 1
-      from public.reservation_table_assignments assignment
-      where assignment.restaurant_id = v_restaurant_id
-        and assignment.reservation_id = v_reservation_id
-        and assignment.table_id = v_table_id
-        and assignment.unassigned_at is null
-    )
+    or v_assignment_count <> 2
+    or v_assignment_group_count <> 1
   then
-    raise exception 'Automatic confirmation or smallest-table assignment failed.';
+    raise exception 'Automatic confirmation or grouped combination assignment failed.';
   end if;
+
+  select reservation.revision
+  into v_revision
+  from public.reservations reservation
+  where reservation.restaurant_id = v_restaurant_id
+    and reservation.id = v_reservation_id;
+
+  begin
+    perform public.save_reservation(
+      v_restaurant_id,
+      jsonb_build_object(
+        'id', v_reservation_id,
+        'expected_revision', 0,
+        'guest_name', 'First guest',
+        'guest_phone', '+32000000001',
+        'guest_email', '',
+        'business_date', v_business_date,
+        'service_key', 'lunch',
+        'local_time', '12:00',
+        'party_size', 4,
+        'room_preference_id', v_room_id,
+        'source', 'phone',
+        'guest_comment', '',
+        'internal_notes', '',
+        'language_code', 'fr'
+      )
+    );
+  exception
+    when others then
+      if position('conflict:' in lower(sqlerrm)) > 0 then
+        v_rejected := true;
+      else
+        raise;
+      end if;
+  end;
+  if not v_rejected then
+    raise exception 'A stale reservation revision was accepted.';
+  end if;
+  v_rejected := false;
 
   v_availability := public.check_reservation_availability(
     v_restaurant_id,
     v_business_date,
     'lunch',
     '12:00',
-    2,
+    4,
     v_room_id,
     null
   );
@@ -199,7 +283,7 @@ begin
     where demand.business_date = v_business_date
       and demand.service_key = 'lunch'
       and demand.reservation_count = 1
-      and demand.expected_covers = 2
+      and demand.expected_covers = 4
   ) then
     raise exception 'Planning reservation demand aggregate is incorrect.';
   end if;
@@ -233,20 +317,116 @@ begin
   perform public.set_reservation_status(
     v_restaurant_id,
     v_reservation_id,
-    'finished',
-    'Contract release check'
+    'seated',
+    'Contract transition check',
+    v_revision
   );
+  select reservation.revision
+  into v_revision
+  from public.reservations reservation
+  where reservation.restaurant_id = v_restaurant_id
+    and reservation.id = v_reservation_id;
+
+  begin
+    perform public.set_reservation_status(
+      v_restaurant_id,
+      v_reservation_id,
+      'confirmed',
+      'Invalid backwards transition',
+      v_revision
+    );
+  exception
+    when others then
+      if position('cannot move' in lower(sqlerrm)) > 0 then
+        v_rejected := true;
+      else
+        raise;
+      end if;
+  end;
+  if not v_rejected then
+    raise exception 'A backwards reservation status transition was accepted.';
+  end if;
+  v_rejected := false;
+
+  perform public.set_reservation_status(
+    v_restaurant_id,
+    v_reservation_id,
+    'finished',
+    'Contract release check',
+    v_revision
+  );
+  select reservation.revision
+  into v_revision
+  from public.reservations reservation
+  where reservation.restaurant_id = v_restaurant_id
+    and reservation.id = v_reservation_id;
+
+  begin
+    perform public.save_reservation(
+      v_restaurant_id,
+      jsonb_build_object(
+        'id', v_reservation_id,
+        'expected_revision', v_revision,
+        'guest_name', 'First guest',
+        'guest_phone', '+32000000001',
+        'guest_email', '',
+        'business_date', v_business_date,
+        'service_key', 'lunch',
+        'local_time', '12:00',
+        'party_size', 4,
+        'room_preference_id', v_room_id,
+        'source', 'phone',
+        'guest_comment', '',
+        'internal_notes', '',
+        'language_code', 'fr'
+      )
+    );
+  exception
+    when others then
+      if position('cannot be edited' in lower(sqlerrm)) > 0 then
+        v_rejected := true;
+      else
+        raise;
+      end if;
+  end;
+  if not v_rejected then
+    raise exception 'A terminal reservation was editable.';
+  end if;
+  v_rejected := false;
   v_availability := public.check_reservation_availability(
     v_restaurant_id,
     v_business_date,
     'lunch',
     '12:00',
-    2,
+    4,
     v_room_id,
     null
   );
   if coalesce((v_availability->>'available')::boolean, false) is not true then
     raise exception 'Finished reservation did not release its table: %', v_availability;
+  end if;
+
+  update public.opening_hours
+  set opens_at = '18:00', closes_at = '02:00'
+  where restaurant_id = v_restaurant_id
+    and weekday = v_weekday
+    and service_key = 'lunch';
+  update public.reservation_service_settings
+  set default_duration_minutes = 60, turn_time_minutes = 0
+  where restaurant_id = v_restaurant_id
+    and service_key = 'lunch';
+
+  v_availability := public.check_reservation_availability(
+    v_restaurant_id,
+    v_business_date,
+    'lunch',
+    '00:30',
+    4,
+    v_room_id,
+    null
+  );
+  if coalesce((v_availability->>'available')::boolean, false) is not true then
+    raise exception 'Overnight service booking was rejected: %', v_availability;
   end if;
 end
 $reservation_workflow$;

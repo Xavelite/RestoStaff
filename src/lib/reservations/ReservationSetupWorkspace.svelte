@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { friendlyError } from '$lib/api/error-messages';
   import { t } from '$lib/i18n/i18n.svelte';
   import ClassicPage from '$lib/classic/ClassicPage.svelte';
@@ -19,10 +18,6 @@
   const enabledServices = $derived(
     draft?.services.filter((service) => service.booking_enabled).length ?? 0
   );
-
-  onMount(() => {
-    if (workspace.activeId) void loadSetup(workspace.activeId);
-  });
 
   $effect(() => {
     const restaurantId = workspace.activeId;
@@ -117,7 +112,7 @@
     saving = true;
     error = '';
     try {
-      await saveReservationSetup(workspace.activeId, draft);
+      await saveReservationSetup(workspace.activeId, draft, source?.revision ?? 0);
       await loadSetup(workspace.activeId);
       toasts.show(t('Reservation setup saved.'), 'success');
     } catch (cause) {

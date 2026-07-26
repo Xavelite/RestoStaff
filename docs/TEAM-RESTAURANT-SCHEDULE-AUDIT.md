@@ -109,7 +109,7 @@ Belgian enterprise number, establishment unit and joint-committee formatting is 
 
 ## Database migration
 
-`20260725193000_progressive_setup_and_employee_archive.sql` was applied to DEV only.
+`20260725184052_progressive_setup_and_employee_archive.sql` was applied to DEV only.
 
 It:
 

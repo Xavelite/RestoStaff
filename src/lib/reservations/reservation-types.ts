@@ -174,6 +174,7 @@ export type ReservationWorkspace = {
 
 export type ReservationSetup = {
   restaurantId: string;
+  revision: number;
   services: ReservationService[];
   areas: ReservationArea[];
   rooms: ReservationRoom[];
@@ -184,6 +185,7 @@ export type ReservationSetup = {
 
 export type ReservationFloorPlans = {
   restaurantId: string;
+  revision: number;
   floors: ReservationFloor[];
   areas: ReservationArea[];
   rooms: ReservationRoom[];
@@ -203,6 +205,7 @@ export type ReservationDemand = {
 export type ReservationDraft = {
   id?: string;
   guest_id?: string;
+  expected_revision?: number;
   guest_name: string;
   guest_email: string;
   guest_phone: string;
@@ -288,6 +291,7 @@ export function parseReservationSetup(value: Json): ReservationSetup {
   const data = record(value);
   return {
     restaurantId: String(data.restaurant_id ?? ''),
+    revision: Number(data.revision ?? 0),
     services: rows(data, 'services'),
     areas: rows(data, 'areas'),
     rooms: rows(data, 'rooms'),
@@ -301,6 +305,7 @@ export function parseReservationFloorPlans(value: Json): ReservationFloorPlans {
   const data = record(value);
   return {
     restaurantId: String(data.restaurant_id ?? ''),
+    revision: Number(data.revision ?? 0),
     floors: rows(data, 'floors'),
     areas: rows(data, 'areas'),
     rooms: rows(data, 'rooms'),

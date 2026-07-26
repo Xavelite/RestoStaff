@@ -17,6 +17,8 @@
   } from '$lib/reservations/reservation-api';
   import {
     RESERVATION_STATUSES,
+    reservationNextStatuses,
+    reservationIsTerminal,
     reservationStatusMeta
   } from '$lib/reservations/reservation-status';
   import type {
@@ -48,6 +50,7 @@
   let editorOpen = $state(false);
   let editorSaving = $state(false);
   let editorError = $state('');
+  let editorReadOnly = $state(false);
   let availability = $state<AvailabilityResult | null>(null);
   let availabilityLoading = $state(false);
   let availabilityTimer: ReturnType<typeof setTimeout> | null = null;
@@ -150,7 +153,7 @@
   });
 
   $effect(() => {
-    if (!editorOpen || !workspace.activeId) {
+    if (!editorOpen || !workspace.activeId || editorReadOnly) {
       availability = null;
       return;
     }
@@ -160,7 +163,8 @@
       draft.local_time,
       draft.party_size,
       draft.room_preference_id,
-      draft.id
+      draft.id,
+      draft.expected_revision
     ]);
     void input;
     if (availabilityTimer) clearTimeout(availabilityTimer);
@@ -264,6 +268,7 @@
     draft.room_preference_id = roomId;
     availability = null;
     editorError = '';
+    editorReadOnly = false;
     editorOpen = true;
   }
 
@@ -285,6 +290,7 @@
     draft = {
       id: reservation.id,
       guest_id: reservation.guest_id,
+      expected_revision: reservation.revision,
       guest_name: reservation.guest.display_name,
       guest_email: reservation.guest.email ?? '',
       guest_phone: reservation.guest.phone ?? '',
@@ -300,11 +306,12 @@
     };
     availability = null;
     editorError = '';
+    editorReadOnly = reservationIsTerminal(reservation.status);
     editorOpen = true;
   }
 
   async function submitReservation() {
-    if (!workspace.activeId || editorSaving) return;
+    if (!workspace.activeId || editorSaving || editorReadOnly) return;
     if (!draft.guest_name.trim()) {
       editorError = t('Guest name is required.');
       return;
@@ -326,7 +333,7 @@
   async function changeStatus(reservation: Reservation, status: ReservationStatus) {
     if (!workspace.activeId || status === reservation.status) return;
     try {
-      await setReservationStatus(workspace.activeId, reservation.id, status);
+      await setReservationStatus(workspace.activeId, reservation.id, status, reservation.revision);
       await loadWorkspace(workspace.activeId, selectedDate);
       toasts.show(t('Reservation status updated.'), 'success');
     } catch (error) {
@@ -584,7 +591,7 @@
                         event.currentTarget.value as ReservationStatus
                       )}
                     >
-                      {#each RESERVATION_STATUSES as status}
+                      {#each reservationNextStatuses(reservation.status) as status}
                         <option value={status}>{t(reservationStatusMeta(status).label)}</option>
                       {/each}
                     </select>
@@ -706,6 +713,9 @@
           </small>
         </div>
       </div>
+      {#if editorReadOnly}
+        <p class="form-error" role="status">{t('Finished, cancelled and no-show reservations are read-only.')}</p>
+      {/if}
       {#if editorError}<p class="form-error" role="alert">{editorError}</p>{/if}
     </div>
   {/snippet}
@@ -714,7 +724,7 @@
     <button
       class="cl-btn is-primary"
       type="button"
-      disabled={editorSaving || availabilityLoading || !availability?.available}
+      disabled={editorReadOnly || editorSaving || availabilityLoading || !availability?.available}
       onclick={() => void submitReservation()}
     >{t(editorSaving ? 'Saving…' : draft.id ? 'Save changes' : 'Add reservation')}</button>
   {/snippet}

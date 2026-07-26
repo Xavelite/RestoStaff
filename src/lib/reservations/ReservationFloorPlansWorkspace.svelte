@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { friendlyError } from '$lib/api/error-messages';
   import Dialog from '$lib/components/Dialog.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
@@ -101,10 +100,6 @@
   const selectedTable = $derived(
     draft?.tables.find((table) => table.id === selectedTableId) ?? null
   );
-  onMount(() => {
-    if (workspace.activeId) void load(workspace.activeId);
-  });
-
   $effect(() => {
     const restaurantId = workspace.activeId;
     if (!restaurantId || source?.restaurantId === restaurantId) return;
@@ -118,7 +113,7 @@
       const next = await getReservationFloorPlans(restaurantId);
       source = next;
       draft = toDraft(next);
-      dirty = mode === 'venue' && !next.floors.some((floor) => floor.active);
+      dirty = false;
       if (!selectedFloorId || !draft.floors.some((floor) => floor.id === selectedFloorId && floor.active)) {
         selectedFloorId = draft.floors.find((floor) => floor.active)?.id ?? '';
       }
@@ -563,8 +558,11 @@
     saving = true;
     error = '';
     try {
-      if (restaurantContext?.dirty) await restaurantContext.save();
-      if (dirty) await saveReservationFloorPlans(workspace.activeId, draft);
+      if (restaurantContext) {
+        await restaurantContext.saveVenue(draft, source?.revision ?? 0);
+      } else if (dirty) {
+        await saveReservationFloorPlans(workspace.activeId, draft, source?.revision ?? 0);
+      }
       await load(workspace.activeId);
       toasts.show(t('Floor plans saved.'), 'success');
     } catch (cause) {
@@ -578,7 +576,7 @@
   function discard() {
     if (!source) return;
     draft = toDraft(source);
-    dirty = mode === 'venue' && !source.floors.some((floor) => floor.active);
+    dirty = false;
     selectedFloorId = draft.floors.find((floor) => floor.active)?.id ?? '';
     selectedRoomId = '';
     selectedTableId = '';

@@ -1,6 +1,8 @@
 import { untrack } from 'svelte';
 import type { RestaurantReadModel } from '$lib/api/workspace-snapshot';
 import { saveRestaurant } from '$lib/api/mutations';
+import { saveVenueModel } from '$lib/reservations/reservation-api';
+import type { ReservationFloorPlansDraft } from '$lib/reservations/reservation-types';
 import { restaurantDraft, restaurantSavePayload, type RestaurantDraft } from '$lib/restaurant/restaurant-model';
 import { workspace } from '$lib/workspace/workspace.svelte';
 
@@ -56,6 +58,25 @@ class ClassicRestaurantDraft {
   async save(restaurantId: string, snapshot: RestaurantReadModel): Promise<void> {
     if (!this.draft) return;
     await saveRestaurant(restaurantId, restaurantSavePayload(snapshot, this.draft));
+    this.#loadedRestaurantId = '';
+    this.#loadedKey = '';
+    this.dirty = false;
+    await workspace.loadRestaurant(true);
+  }
+
+  async saveVenue(
+    restaurantId: string,
+    snapshot: RestaurantReadModel,
+    floorPlans: ReservationFloorPlansDraft,
+    expectedRevision: number
+  ): Promise<void> {
+    if (!this.draft) return;
+    await saveVenueModel(
+      restaurantId,
+      restaurantSavePayload(snapshot, this.draft),
+      floorPlans,
+      expectedRevision
+    );
     this.#loadedRestaurantId = '';
     this.#loadedKey = '';
     this.dirty = false;
