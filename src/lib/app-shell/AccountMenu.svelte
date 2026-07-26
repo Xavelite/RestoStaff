@@ -437,11 +437,11 @@
 <style>
   .menu-wrap {
     position: relative;
-    --account-text: var(--rst-ui-text);
-    --account-muted: var(--rst-ui-muted);
+    --account-text: var(--rst-topbar-text, var(--rst-ui-text));
+    --account-muted: var(--rst-topbar-muted, var(--rst-ui-muted));
     --account-bg: transparent;
-    --account-line: var(--rst-ui-line-strong);
-    --account-hover: var(--rst-ui-hover-bg);
+    --account-line: var(--rst-topbar-line, var(--rst-ui-line-strong));
+    --account-hover: var(--rst-topbar-control-hover, var(--rst-ui-hover-bg));
   }
   .account-button {
     min-height: 38px;

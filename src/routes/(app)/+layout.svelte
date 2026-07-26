@@ -159,7 +159,7 @@
     <div class="cl-app" class:is-rail={sidebarCollapsed}>
       <a class="cl-brand" href="/home" aria-label="Restogogo">
         <img src="/brand/restogogo-mark.png" alt="" width="26" height="26" />
-        <span>Restogogo</span>
+        <span class="cl-brand__word" aria-hidden="true"><i>esto</i><i>gogo</i></span>
       </a>
 
       <header class="cl-topbar">
@@ -303,6 +303,14 @@
   }
   .cl-menu-toggle {
     display: none;
+    border-color: var(--cl-shell-line);
+    background: transparent;
+    color: var(--cl-shell-text);
+  }
+  .cl-menu-toggle:hover {
+    border-color: var(--cl-shell-muted);
+    background: var(--cl-shell-hover);
+    color: var(--cl-shell-text);
   }
   .cl-notice {
     display: flex;
@@ -372,8 +380,8 @@
       width: min(280px, 84vw);
       padding-top: 12px;
       overflow-y: auto;
-      border-right: 1px solid var(--cl-line);
-      background: var(--cl-surface);
+      border-right: 1px solid var(--cl-shell-line);
+      background: var(--cl-shell);
     }
   }
 </style>

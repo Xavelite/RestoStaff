@@ -615,12 +615,12 @@
     justify-content: center;
     border: 0;
     border-radius: 50%;
-    color: var(--rst-ui-muted);
+    color: var(--rst-topbar-muted, var(--rst-ui-muted));
     background: transparent;
     font: inherit;
     cursor: pointer;
   }
-  .notification-button:hover { background: var(--rst-ui-surface-field-strong); transform: translateY(-1px); }
+  .notification-button:hover { background: var(--rst-topbar-control-hover, var(--rst-ui-surface-field-strong)); transform: translateY(-1px); }
   .notification-button.has-alerts { color: var(--rst-state-warning-text); }
   .notification-button > span {
     display: inline-block;

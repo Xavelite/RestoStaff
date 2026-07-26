@@ -61,6 +61,7 @@
     hoursValue: number;
     area: string;
     position: string;
+    showPosition: boolean;
     color: string;
     conflict: boolean;
     overlap: boolean;
@@ -368,6 +369,8 @@
         hoursValue: hours,
         area: areaName.get(slot.shift.areaId) ?? t('No area'),
         position: positionName.get(slot.shift.jobFunctionId) ?? t('Not assigned'),
+        showPosition: Boolean(slot.shift.jobFunctionId) &&
+          slot.shift.jobFunctionId !== employeePosition.get(employeeId),
         color: areaColor.get(slot.shift.areaId) ?? 'var(--cl-muted)',
         conflict: slot.truth.state === 'conflict' || overlapKeys.has(draftKey(slot.shift)),
         overlap: overlapKeys.has(draftKey(slot.shift)),
@@ -857,14 +860,6 @@
                                           <span class="day-card__coffee" aria-hidden="true">☕</span>
                                           <b>{card.breakLabel}</b>
                                         </span>
-                                        {#if dayConflict}
-                                          <span
-                                            class="day-card__conflict-dot"
-                                            role="img"
-                                            aria-label={t(dayOverlap ? 'Overlapping shifts' : 'Conflict')}
-                                            title={t(dayOverlap ? 'Overlapping shifts' : 'Conflict')}
-                                          ></span>
-                                        {/if}
                                       </span>
                                       <span class="day-card__services">
                                         {#each SERVICES as service (service)}
@@ -872,21 +867,33 @@
                                           {#if chip}
                                             <span class="day-card__service-row is-{chip.service}">
                                               <span class="day-card__service-icon" aria-hidden="true">{chip.spansDay ? '↔' : chip.service === 'evening' ? '☾' : '☀'}</span>
-                                              <b>{chip.area}</b>
-                                              <span>· {chip.position}</span>
+                                              <span class="day-card__service-name">
+                                                <b>{chip.area}</b>
+                                                {#if chip.showPosition}<small>· {chip.position}</small>{/if}
+                                              </span>
                                               <em>{chip.hours}{#if chip.estimatedCost} · ~{chip.estimatedCost}{/if}</em>
                                             </span>
                                           {:else}
                                             <span class="day-card__service-row is-empty">
                                               <span class="day-card__service-icon" aria-hidden="true">{service === 'evening' ? '☾' : '☀'}</span>
-                                              <b>{t(service === 'evening' ? 'Evening' : 'Lunch')}</b>
-                                              <span>{t('No shifts')}</span>
+                                              <span class="day-card__service-name">
+                                                <b>{t(service === 'evening' ? 'Evening' : 'Lunch')}</b>
+                                                <small>{t('No shifts')}</small>
+                                              </span>
                                               <em>—</em>
                                             </span>
                                           {/if}
                                         {/each}
                                       </span>
                                     </span>
+                                    {#if dayConflict}
+                                      <span
+                                        class="day-card__conflict-dot"
+                                        role="img"
+                                        aria-label={t(dayOverlap ? 'Overlapping shifts' : 'Conflict')}
+                                        title={t(dayOverlap ? 'Overlapping shifts' : 'Conflict')}
+                                      >!</span>
+                                    {/if}
                                   </div>
                                 {/if}
                               </div>
@@ -1038,7 +1045,7 @@
   .board thead { position: sticky; top: 0; z-index: 8; }
   .board th { height: 54px; padding: 6px 10px; border-bottom: 1px solid color-mix(in srgb, var(--cl-accent) 65%, var(--cl-line)); background: var(--cl-thead); text-align: left; }
   .board th.has-menu { padding: 0; }
-  .board td { height: 90px; padding: 0; border-bottom: 1px solid var(--cl-grid-line); background: var(--cl-surface); vertical-align: middle; }
+  .board td { height: 90px; padding: 0; border-bottom: 1px solid color-mix(in srgb, var(--cl-ink) 14%, var(--cl-grid-line)); background: var(--cl-surface); background-clip: padding-box; vertical-align: middle; }
   .board__staff { position: sticky; left: 0; z-index: 4; width: 230px; border-right: 1px solid var(--cl-grid-line); background: var(--cl-surface) !important; }
   thead .board__staff { z-index: 10; background: var(--cl-thead) !important; }
   .board__day { border-left: 1px solid var(--cl-grid-line); text-align: center !important; }
@@ -1112,26 +1119,28 @@
   .day-card__content { position: absolute; z-index: 2; inset: 0; display: grid; align-content: center; gap: 3px; min-width: 0; padding: 6px 8px; pointer-events: none; }
   .day-card__top { display: flex; align-items: baseline; justify-content: space-between; gap: 7px; min-width: 0; }
   .day-card__top strong { overflow: hidden; color: var(--cl-ink); font-size: 12px; font-weight: var(--rst-fw-bold); font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
-  .day-card__metrics { display: flex; align-items: center; gap: 4px; min-width: 0; color: var(--cl-muted); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1; }
-  .day-card__metrics > span:not(.day-card__conflict-dot) { display: inline-flex; align-items: center; gap: 2px; min-width: 0; white-space: nowrap; }
+  .day-card.is-conflict .day-card__top { padding-right: 17px; }
+  .day-card__metrics { display: flex; align-items: center; gap: 5px; min-width: 0; color: var(--cl-muted); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1; }
+  .day-card__metrics > span { display: inline-flex; align-items: center; gap: 2px; min-width: 0; white-space: nowrap; }
   .day-card__metrics > span:nth-child(3) { flex: 1 1 auto; overflow: hidden; }
   .day-card__metrics > span:nth-child(3) b { overflow: hidden; text-overflow: ellipsis; }
-  .day-card__metrics b { color: color-mix(in srgb, var(--cl-ink) 72%, var(--cl-muted)); font-weight: var(--rst-fw-medium); }
+  .day-card__metrics b { color: color-mix(in srgb, var(--cl-ink) 78%, var(--cl-muted)); font-weight: var(--rst-fw-bold); }
   .day-card__metrics svg { width: 9px; height: 9px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   .day-card__metrics .is-empty b { color: var(--cl-muted); font-weight: var(--rst-fw-regular); }
   .day-card__coffee { font-size: 8px; line-height: 1; filter: grayscale(1); }
-  .day-card__conflict-dot { width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; background: var(--cl-problem); box-shadow: 0 0 0 2px color-mix(in srgb, var(--cl-problem) 13%, transparent); }
+  .day-card__conflict-dot { position: absolute; z-index: 6; top: 5px; right: 5px; width: 14px; height: 14px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--cl-problem) 74%, white); border-radius: 4px; background: var(--cl-problem); color: white; font-size: 9px; font-weight: var(--rst-fw-bold); line-height: 1; box-shadow: 0 1px 4px color-mix(in srgb, var(--cl-problem) 28%, transparent); pointer-events: none; }
   .day-card__services { display: grid; gap: 2px; min-width: 0; }
-  .day-card__service-row { display: grid; grid-template-columns: 11px minmax(0, auto) minmax(0, 1fr) auto; align-items: center; gap: 4px; min-width: 0; line-height: 1.15; }
+  .day-card__service-row { display: grid; grid-template-columns: 11px minmax(0, 1fr) auto; align-items: center; gap: 4px; min-width: 0; line-height: 1.15; }
   .day-card__service-icon { color: color-mix(in srgb, var(--cl-muted) 76%, var(--cl-ink)); font-size: 9px; text-align: center; }
   .day-card__service-row.is-lunch .day-card__service-icon { color: color-mix(in srgb, var(--lunch-color) 72%, var(--cl-ink)); }
   .day-card__service-row.is-evening .day-card__service-icon { color: color-mix(in srgb, var(--evening-color) 72%, var(--cl-ink)); }
-  .day-card__service-row b, .day-card__service-row > span:not(.day-card__service-icon), .day-card__service-row em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .day-card__service-name { display: flex; align-items: baseline; gap: 3px; min-width: 0; overflow: hidden; white-space: nowrap; }
+  .day-card__service-row b, .day-card__service-row small, .day-card__service-row em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .day-card__service-row b { color: var(--cl-ink); font-size: 9px; font-weight: var(--rst-fw-bold); }
-  .day-card__service-row > span:not(.day-card__service-icon) { color: var(--cl-muted); font-size: 8px; }
+  .day-card__service-row small { color: var(--cl-muted); font-size: 8px; font-weight: var(--rst-fw-medium); }
   .day-card__service-row em { color: var(--cl-muted); font-size: 8px; font-style: normal; font-variant-numeric: tabular-nums; }
   .day-card__service-row.is-empty b,
-  .day-card__service-row.is-empty span,
+  .day-card__service-row.is-empty small,
   .day-card__service-row.is-empty em { color: color-mix(in srgb, var(--cl-muted) 78%, var(--cl-line-strong)); font-weight: var(--rst-fw-regular); }
 
   .day-card.is-conflict { border-color: color-mix(in srgb, var(--cl-problem) 76%, var(--cl-line-strong)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--cl-problem) 18%, transparent), 0 4px 10px color-mix(in srgb, var(--cl-problem) 10%, transparent); }

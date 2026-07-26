@@ -4,8 +4,9 @@
    A calm, table-first workspace for the complete application.
 
    Rules this file exists to enforce:
-     - The page chrome stays neutral: white surfaces on light grey, ink text.
-     - Orange is the primary action and the active nav item. Nowhere else.
+     - The workplace shell stays dark and neutral; data surfaces remain white
+       on light grey so operational content carries the visual weight.
+     - Orange is the primary action, brand signature and active nav accent.
      - Colour is allowed, but it must carry meaning — it goes on status, data
        and module identity, never on a surface as decoration. A calm page that
        is still scannable at a glance, not a monochrome one.
@@ -27,6 +28,12 @@
   --cl-muted: #6b6b70;
   --cl-accent: #fc6203;
   --cl-accent-wash: rgba(252, 98, 3, 0.07);
+  --cl-shell: #181b20;
+  --cl-shell-raised: #1d2127;
+  --cl-shell-hover: #252a32;
+  --cl-shell-line: #353a43;
+  --cl-shell-text: #f7f5f2;
+  --cl-shell-muted: #aeb4bd;
   /* Table headers use a very light brand tint and a crisp logo-orange
      underline, keeping the grid readable without turning the header into a
      heavy coloured band. */
@@ -102,6 +109,13 @@
   --rst-atmosphere-image: none;
   --rst-atmosphere-fade: none;
   --rst-atmosphere-tint: none;
+  --rst-topbar-bg: var(--cl-shell);
+  --rst-topbar-line: var(--cl-shell-line);
+  --rst-topbar-text: var(--cl-shell-text);
+  --rst-topbar-muted: var(--cl-shell-muted);
+  --rst-topbar-control-hover: var(--cl-shell-hover);
+  --rst-topbar-active-bg: rgba(252, 98, 3, 0.12);
+  --rst-topbar-active-border: rgba(252, 98, 3, 0.52);
 
   /* ---- meaning colours -------------------------------------------------
      Three operational tones. Each has an ink (for the glyph and emphasis),
@@ -201,10 +215,10 @@
   align-items: center;
   gap: 10px;
   padding: 0 20px;
-  border-right: 1px solid var(--cl-line);
-  border-bottom: 1px solid var(--cl-line);
-  background: var(--cl-surface);
-  color: var(--cl-ink);
+  border-right: 1px solid var(--cl-shell-line);
+  border-bottom: 1px solid var(--cl-shell-line);
+  background: var(--cl-shell);
+  color: var(--cl-shell-text);
   font-size: 18px;
   font-weight: var(--rst-fw-display);
   text-decoration: none;
@@ -214,6 +228,21 @@
   width: 26px;
   height: 26px;
   display: block;
+}
+
+.cl-brand__word {
+  display: inline-flex;
+  align-items: baseline;
+  letter-spacing: -0.045em;
+}
+
+.cl-brand__word i {
+  color: var(--cl-accent);
+  font-style: normal;
+}
+
+.cl-brand__word i + i {
+  color: var(--cl-shell-text);
 }
 
 .cl-topbar {
@@ -228,8 +257,9 @@
   align-items: center;
   gap: 12px;
   padding: 0 var(--cl-gutter);
-  border-bottom: 1px solid var(--cl-line);
-  background: var(--cl-surface);
+  border-bottom: 1px solid var(--cl-shell-line);
+  background: var(--cl-shell);
+  color: var(--cl-shell-text);
 }
 
 .cl-topbar__spacer {
@@ -249,8 +279,8 @@
   display: flex;
   flex-direction: column;
   padding: 12px 0;
-  border-right: 1px solid var(--cl-line);
-  background: var(--cl-surface);
+  border-right: 1px solid var(--cl-shell-line);
+  background: var(--cl-shell-raised);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -271,8 +301,8 @@
   gap: 14px;
   padding: 10px 20px;
   border: 0;
-  border-top: 1px solid var(--cl-line);
-  color: var(--cl-muted);
+  border-top: 1px solid var(--cl-shell-line);
+  color: var(--cl-shell-muted);
   background: transparent;
   font: inherit;
   font-size: 13px;
@@ -284,8 +314,8 @@
   transition: transform var(--cl-dur-slow) var(--cl-ease);
 }
 .cl-rail-toggle:hover {
-  color: var(--cl-ink);
-  background: var(--cl-surface-muted);
+  color: var(--cl-shell-text);
+  background: var(--cl-shell-hover);
 }
 
 /* ---- collapsed rail --------------------------------------------------- */
@@ -329,7 +359,7 @@
   align-items: center;
   gap: 14px;
   padding: 10px 20px;
-  color: var(--cl-ink);
+  color: var(--cl-shell-muted);
   font-size: 14px;
   font-weight: var(--rst-fw-medium);
   text-decoration: none;
@@ -338,20 +368,26 @@
 .cl-sidebar__link svg {
   width: 20px;
   height: 20px;
-  color: var(--cl-muted);
+  color: var(--cl-shell-muted);
 }
 
 .cl-sidebar__link:hover {
-  background: var(--cl-surface-muted);
+  color: var(--cl-shell-text);
+  background: var(--cl-shell-hover);
 }
 
 .cl-sidebar__link.is-active,
 .cl-sidebar__link.is-active svg {
-  color: var(--cl-accent);
+  color: var(--cl-shell-text);
 }
 
 .cl-sidebar__link.is-active {
   font-weight: var(--rst-fw-bold);
+  background: color-mix(in srgb, var(--cl-accent) 12%, var(--cl-shell-raised));
+}
+
+.cl-sidebar__link.is-active svg {
+  color: var(--cl-accent);
 }
 
 .cl-sidebar__link.is-active::before {
@@ -394,7 +430,7 @@
   font-size: 19px;
   font-weight: var(--rst-fw-display);
   letter-spacing: -0.01em;
-  color: var(--cl-ink);
+  color: var(--cl-shell-text);
   white-space: nowrap;
 }
 
@@ -542,21 +578,22 @@
   --chip: var(--cl-line-strong);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   max-width: 160px;
-  padding: 2px 9px 2px 7px;
-  border: 1px solid color-mix(in srgb, var(--chip) 40%, var(--cl-line));
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--chip) 9%, var(--cl-surface));
-  color: color-mix(in srgb, var(--chip) 62%, var(--cl-ink));
-  font-size: 12px;
-  font-weight: var(--rst-fw-medium);
+  min-height: 24px;
+  padding: 2px 8px 2px 6px;
+  border: 1px solid color-mix(in srgb, var(--chip) 34%, var(--cl-line));
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--chip) 8%, var(--cl-surface));
+  color: color-mix(in srgb, var(--chip) 68%, var(--cl-ink));
+  font-size: 11.5px;
+  font-weight: var(--rst-fw-bold);
   white-space: nowrap;
 }
 .cl-chip::before {
   content: '';
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   flex: 0 0 auto;
   border-radius: 50%;
   background: var(--chip);
@@ -837,7 +874,7 @@
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  font-size: 14px;
+  font-size: 13.5px;
 }
 
 .cl-table th {
@@ -1198,7 +1235,7 @@
 }
 
 .cl-table tbody tr:hover td {
-  background: var(--cl-surface-muted);
+  background: color-mix(in srgb, var(--cl-accent) 2.5%, var(--cl-surface-muted));
 }
 
 /* A row that needs a look wears a coloured rail on its first cell — scannable
@@ -1298,25 +1335,25 @@
 .cl-status {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 28px;
-  padding: 3px 9px 3px 6px;
+  gap: 5px;
+  min-height: 24px;
+  padding: 2px 8px 2px 5px;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: 5px;
   color: var(--cl-ink);
-  font-size: 12px;
-  font-weight: var(--rst-fw-medium);
+  font-size: 11.5px;
+  font-weight: var(--rst-fw-bold);
   white-space: nowrap;
 }
 
 .cl-status__symbol {
   display: grid;
   place-items: center;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   flex: 0 0 auto;
   border-radius: 50%;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: var(--rst-fw-bold);
   line-height: 1;
 }
@@ -1526,15 +1563,15 @@
   display: inline-flex;
   align-items: center;
   padding: 0 10px;
-  color: var(--cl-muted);
+  color: var(--cl-shell-muted);
   font-size: 13px;
   font-weight: var(--rst-fw-medium);
   white-space: nowrap;
   text-decoration: none;
 }
-.cl-topbar__tab:hover { color: var(--cl-ink); }
+.cl-topbar__tab:hover { color: var(--cl-shell-text); }
 .cl-topbar__tab.is-active {
-  color: var(--cl-ink);
+  color: var(--cl-shell-text);
   font-weight: var(--rst-fw-bold);
 }
 .cl-topbar__tab.is-active::after {
@@ -1695,14 +1732,14 @@
 .cl-badge {
   display: inline-flex;
   align-items: center;
-  min-height: 27px;
-  padding: 2px 9px;
+  min-height: 24px;
+  padding: 2px 8px;
   border: 1px solid var(--cl-line);
-  border-radius: 999px;
+  border-radius: 5px;
   background: var(--cl-surface-muted);
   color: var(--cl-muted);
-  font-size: 12px;
-  font-weight: var(--rst-fw-medium);
+  font-size: 11.5px;
+  font-weight: var(--rst-fw-bold);
   white-space: nowrap;
 }
 
