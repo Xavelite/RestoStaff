@@ -69,7 +69,8 @@ test('Schedule uses one premium week header and one full daily card with interna
   assert.match(schedule, /\.board__day \{ border-left: 1px solid var\(--cl-grid-line\)/);
   assert.match(schedule, /\.board th \{ height: 54px/);
   assert.match(schedule, /\.board th\.has-menu \{ padding: 0; \}/);
-  assert.match(schedule, /border-radius: 4px/);
+  assert.match(schedule, /\.day-card \{[^}]*border-radius: 3px/s);
+  assert.match(schedule, /editable=\{week\.editable && selectedSlot\.date >= week\.today\}/);
   assert.doesNotMatch(schedule, /box-shadow: inset 3px 0 0|box-shadow: inset -3px 0 0/);
   assert.doesNotMatch(schedule, /day-card__warning|day-card__overlap-label/);
   assert.doesNotMatch(schedule, /class="day-card__split-content"/);

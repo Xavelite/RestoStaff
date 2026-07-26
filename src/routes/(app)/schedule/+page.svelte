@@ -616,6 +616,10 @@
 
       {#if grid}
         {@const groups = groupedRows(grid)}
+        {@const visibleEmployeeIds = new Set(groups.flatMap((group) => group.rows.map((row) => row.id)))}
+        {@const visibleWeekEntries = scheduleDraft.shifts.filter((shift) => visibleEmployeeIds.has(shift.employeeId))}
+        {@const visibleWeekHours = visibleWeekEntries.reduce((sum, shift) => sum + hoursBetweenClocks(shift.startsAt, shift.endsAt), 0)}
+        {@const visibleWeekCost = shiftsCost(visibleWeekEntries)}
         {@const publishGaps = snapshot ? coverageIssues(snapshot, scheduleDraft.shifts, week.weekStart) : []}
         {@const publishConflicts = snapshot ? planningConflicts(snapshot, scheduleDraft.shifts, week.weekStart) : []}
         {@const publishPending = pendingRequestCount(grid)}
@@ -686,6 +690,7 @@
                   <th class="board__staff has-menu">
                     <ClassicPrimaryColMenu
                       label={t('Employee')}
+                      meta={`${t('{count} employees', { count: visibleEmployeeIds.size })} · ${formatHours(visibleWeekHours)} · ${visibleWeekCost > 0 ? `~${money(visibleWeekCost)}` : '—'}`}
                       sortable
                       sortDir={employeeSort}
                       onsort={(dir) => (employeeSort = dir)}
@@ -796,6 +801,7 @@
                                     class:is-full-day={Boolean(spanningShift)}
                                     class:is-conflict={dayConflict}
                                     class:is-published-conflict={dayConflict && week.published}
+                                    class:is-readonly={past || !week.editable || !active}
                                     style={`--lunch-color:${lunchColor};--evening-color:${eveningColor}`}
                                   >
                                     <span class="day-card__surface" aria-hidden="true">
@@ -846,20 +852,24 @@
                                     <span class="day-card__content">
                                       <span class="day-card__top">
                                         <strong>{card.timeLabel}</strong>
+                                        <span class="day-card__metrics">
+                                          <b title={t('Planned hours')}>{card.hours}</b>
+                                          <b title={t('Estimated cost')}>{card.estimatedCost || '—'}</b>
+                                        </span>
+                                        {#if dayConflict}
+                                          <span
+                                            class="day-card__conflict-dot"
+                                            role="img"
+                                            aria-label={t(dayOverlap ? 'Overlapping shifts' : 'Conflict')}
+                                            title={t(dayOverlap ? 'Overlapping shifts' : 'Conflict')}
+                                          >!</span>
+                                        {:else}
+                                          <span class="day-card__status-slot" aria-hidden="true"></span>
+                                        {/if}
                                       </span>
-                                      <span class="day-card__metrics">
-                                        <span title={t('Planned hours')}>
-                                          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg>
-                                          <b>{card.hours}</b>
-                                        </span>
-                                        <span title={t('Estimated cost')}>
-                                          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="6" width="16" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>
-                                          <b>{card.estimatedCost || '—'}</b>
-                                        </span>
-                                        <span class:is-empty={!card.hasBreak}>
-                                          <span class="day-card__coffee" aria-hidden="true">☕</span>
-                                          <b>{card.breakLabel}</b>
-                                        </span>
+                                      <span class="day-card__break" class:is-empty={!card.hasBreak}>
+                                        <span class="day-card__coffee" aria-hidden="true">☕</span>
+                                        <b>{card.breakLabel}</b>
                                       </span>
                                       <span class="day-card__services">
                                         {#each SERVICES as service (service)}
@@ -886,14 +896,6 @@
                                         {/each}
                                       </span>
                                     </span>
-                                    {#if dayConflict}
-                                      <span
-                                        class="day-card__conflict-dot"
-                                        role="img"
-                                        aria-label={t(dayOverlap ? 'Overlapping shifts' : 'Conflict')}
-                                        title={t(dayOverlap ? 'Overlapping shifts' : 'Conflict')}
-                                      >!</span>
-                                    {/if}
                                   </div>
                                 {/if}
                               </div>
@@ -962,7 +964,7 @@
             slot={selectedSlot}
             draft={scheduleDraft.shifts}
             notes={scheduleDraft.notes}
-            editable={week.editable}
+            editable={week.editable && selectedSlot.date >= week.today}
             onchange={(next) => scheduleDraft.replace(next)}
             onnotes={(next) => scheduleDraft.replaceNotes(next)}
             oncancelleave={async () => {
@@ -1040,7 +1042,7 @@
   .publish-btn__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-ok); }
   .republish-note { justify-self: end; margin: -5px 2px 8px 0; color: var(--cl-attention); font-size: 11px; font-weight: var(--rst-fw-medium); }
 
-  .schedule-wrap { max-height: calc(100vh - 188px); overflow: auto; border: 1px solid var(--cl-line); border-radius: 7px; background: var(--cl-surface); }
+  .schedule-wrap { max-height: calc(100vh - 188px); overflow: auto; border: 1px solid color-mix(in srgb, var(--cl-ink) 12%, var(--cl-line-strong)); border-radius: 5px; background: var(--cl-surface); box-shadow: 0 1px 2px rgb(0 0 0 / .035); }
   .board { width: 100%; min-width: 1270px; border-spacing: 0; table-layout: fixed; border-collapse: separate; color: var(--cl-ink); font-size: 13px; }
   .board thead { position: sticky; top: 0; z-index: 8; }
   .board th { height: 54px; padding: 6px 10px; border-bottom: 1px solid color-mix(in srgb, var(--cl-accent) 65%, var(--cl-line)); background: var(--cl-thead); text-align: left; }
@@ -1088,16 +1090,17 @@
 
   /* One fixed compact card per employee/day. Colour remains a quiet service
      tint; the card itself uses one crisp neutral outline on every side. */
-  .day-card { --lunch-color: var(--cl-muted); --evening-color: var(--cl-muted); position: absolute; z-index: 3; inset: 6px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--cl-ink) 20%, var(--cl-line-strong)); border-radius: 4px; background: var(--cl-surface); box-shadow: 0 1px 2px rgb(0 0 0 / .04), 0 3px 9px rgb(0 0 0 / .025); isolation: isolate; transition: border-color var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease), transform var(--cl-dur) var(--cl-ease); }
-  .day-card:hover { border-color: color-mix(in srgb, var(--cl-ink) 36%, var(--cl-line-strong)); box-shadow: 0 2px 4px rgb(0 0 0 / .06), 0 6px 14px rgb(0 0 0 / .07); transform: translateY(-1px); }
+  .day-card { --lunch-color: var(--cl-muted); --evening-color: var(--cl-muted); position: absolute; z-index: 3; inset: 6px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--cl-ink) 30%, var(--cl-line-strong)); border-radius: 3px; background: var(--cl-surface); box-shadow: 0 1px 2px rgb(0 0 0 / .05); isolation: isolate; transition: border-color var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease); }
+  .day-card:hover { border-color: color-mix(in srgb, var(--cl-ink) 46%, var(--cl-line-strong)); box-shadow: 0 2px 7px rgb(0 0 0 / .09); }
+  .day-card.is-readonly { box-shadow: none; }
   .day-card__surface { position: absolute; z-index: 0; inset: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); pointer-events: none; }
   .day-card__fill { opacity: 1; background: color-mix(in srgb, var(--cl-surface-muted) 62%, var(--cl-surface)); transition: background var(--cl-dur) var(--cl-ease); }
-  .day-card__fill.is-lunch.is-active { background: linear-gradient(180deg, color-mix(in srgb, var(--lunch-color) 7%, var(--cl-surface)), color-mix(in srgb, var(--lunch-color) 4%, var(--cl-surface))); }
-  .day-card__fill.is-evening.is-active { background: linear-gradient(180deg, color-mix(in srgb, var(--evening-color) 7%, var(--cl-surface)), color-mix(in srgb, var(--evening-color) 4%, var(--cl-surface))); }
-  .day-card.is-lunch-only .day-card__fill.is-evening { background: color-mix(in srgb, var(--lunch-color) 2%, var(--cl-surface)); }
-  .day-card.is-evening-only .day-card__fill.is-lunch { background: color-mix(in srgb, var(--evening-color) 2%, var(--cl-surface)); }
-  .day-card.is-full-day .day-card__fill { background: color-mix(in srgb, var(--lunch-color) 7%, var(--cl-surface)); }
-  .day-card__divider { position: absolute; top: 6px; bottom: 6px; left: 50%; width: 1px; background: color-mix(in srgb, var(--cl-line-strong) 58%, transparent); }
+  .day-card__fill.is-lunch.is-active { background: linear-gradient(180deg, color-mix(in srgb, var(--lunch-color) 12%, var(--cl-surface)), color-mix(in srgb, var(--lunch-color) 7%, var(--cl-surface))); }
+  .day-card__fill.is-evening.is-active { background: linear-gradient(180deg, color-mix(in srgb, var(--evening-color) 12%, var(--cl-surface)), color-mix(in srgb, var(--evening-color) 7%, var(--cl-surface))); }
+  .day-card.is-lunch-only .day-card__fill.is-evening { background: color-mix(in srgb, var(--lunch-color) 3%, var(--cl-surface)); }
+  .day-card.is-evening-only .day-card__fill.is-lunch { background: color-mix(in srgb, var(--evening-color) 3%, var(--cl-surface)); }
+  .day-card.is-full-day .day-card__fill { background: color-mix(in srgb, var(--lunch-color) 11%, var(--cl-surface)); }
+  .day-card__divider { position: absolute; top: 5px; bottom: 5px; left: 50%; width: 1px; background: color-mix(in srgb, var(--cl-line-strong) 72%, transparent); }
   .day-card.is-full-day .day-card__divider { opacity: .3; }
 
   .day-card__hit { position: absolute; z-index: 4; top: 0; bottom: 0; width: 50%; padding: 0; border: 0; background: transparent; cursor: pointer; }
@@ -1116,27 +1119,27 @@
   .day-card__add:not(:disabled):hover span, .day-card__add:not(:disabled):focus-visible span { opacity: 1; transform: translateY(0); }
   .day-card__add:disabled { cursor: default; }
 
-  .day-card__content { position: absolute; z-index: 2; inset: 0; display: grid; align-content: center; gap: 3px; min-width: 0; padding: 6px 8px; pointer-events: none; }
-  .day-card__top { display: flex; align-items: baseline; justify-content: space-between; gap: 7px; min-width: 0; }
-  .day-card__top strong { overflow: hidden; color: var(--cl-ink); font-size: 12px; font-weight: var(--rst-fw-bold); font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
-  .day-card.is-conflict .day-card__top { padding-right: 17px; }
-  .day-card__metrics { display: flex; align-items: center; gap: 5px; min-width: 0; color: var(--cl-muted); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1; }
-  .day-card__metrics > span { display: inline-flex; align-items: center; gap: 2px; min-width: 0; white-space: nowrap; }
-  .day-card__metrics > span:nth-child(3) { flex: 1 1 auto; overflow: hidden; }
-  .day-card__metrics > span:nth-child(3) b { overflow: hidden; text-overflow: ellipsis; }
-  .day-card__metrics b { color: color-mix(in srgb, var(--cl-ink) 78%, var(--cl-muted)); font-weight: var(--rst-fw-bold); }
-  .day-card__metrics svg { width: 9px; height: 9px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-  .day-card__metrics .is-empty b { color: var(--cl-muted); font-weight: var(--rst-fw-regular); }
+  .day-card__content { position: absolute; z-index: 2; inset: 0; display: grid; align-content: center; gap: 2px; min-width: 0; padding: 5px 7px; pointer-events: none; }
+  .day-card__top { display: grid; grid-template-columns: minmax(0, 1fr) auto 13px; align-items: center; gap: 4px; min-width: 0; }
+  .day-card__top strong { overflow: hidden; color: color-mix(in srgb, var(--cl-ink) 86%, #475569); font-size: 11px; font-weight: var(--rst-fw-bold); font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+  .day-card__metrics { display: inline-flex; align-items: center; gap: 4px; min-width: 0; color: color-mix(in srgb, var(--cl-ink) 64%, var(--cl-muted)); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
+  .day-card__metrics b { font-weight: var(--rst-fw-bold); }
+  .day-card__break { display: inline-flex; align-items: center; gap: 3px; min-width: 0; overflow: hidden; color: color-mix(in srgb, var(--cl-ink) 58%, var(--cl-muted)); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
+  .day-card__break b { overflow: hidden; font-weight: var(--rst-fw-medium); text-overflow: ellipsis; }
+  .day-card__break.is-empty { color: var(--cl-muted); }
   .day-card__coffee { font-size: 8px; line-height: 1; filter: grayscale(1); }
-  .day-card__conflict-dot { position: absolute; z-index: 6; top: 5px; right: 5px; width: 14px; height: 14px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--cl-problem) 74%, white); border-radius: 4px; background: var(--cl-problem); color: white; font-size: 9px; font-weight: var(--rst-fw-bold); line-height: 1; box-shadow: 0 1px 4px color-mix(in srgb, var(--cl-problem) 28%, transparent); pointer-events: none; }
-  .day-card__services { display: grid; gap: 2px; min-width: 0; }
+  .day-card__status-slot { width: 13px; height: 13px; }
+  .day-card__conflict-dot { width: 13px; height: 13px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--cl-problem) 76%, white); border-radius: 3px; background: var(--cl-problem); color: white; font-size: 8px; font-weight: var(--rst-fw-bold); line-height: 1; box-shadow: 0 1px 3px color-mix(in srgb, var(--cl-problem) 26%, transparent); pointer-events: none; }
+  .day-card__services { display: grid; gap: 1px; min-width: 0; }
   .day-card__service-row { display: grid; grid-template-columns: 11px minmax(0, 1fr) auto; align-items: center; gap: 4px; min-width: 0; line-height: 1.15; }
   .day-card__service-icon { color: color-mix(in srgb, var(--cl-muted) 76%, var(--cl-ink)); font-size: 9px; text-align: center; }
-  .day-card__service-row.is-lunch .day-card__service-icon { color: color-mix(in srgb, var(--lunch-color) 72%, var(--cl-ink)); }
-  .day-card__service-row.is-evening .day-card__service-icon { color: color-mix(in srgb, var(--evening-color) 72%, var(--cl-ink)); }
+  .day-card__service-row.is-lunch .day-card__service-icon,
+  .day-card__service-row.is-lunch b { color: color-mix(in srgb, var(--lunch-color) 76%, var(--cl-ink)); }
+  .day-card__service-row.is-evening .day-card__service-icon,
+  .day-card__service-row.is-evening b { color: color-mix(in srgb, var(--evening-color) 76%, var(--cl-ink)); }
   .day-card__service-name { display: flex; align-items: baseline; gap: 3px; min-width: 0; overflow: hidden; white-space: nowrap; }
   .day-card__service-row b, .day-card__service-row small, .day-card__service-row em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .day-card__service-row b { color: var(--cl-ink); font-size: 9px; font-weight: var(--rst-fw-bold); }
+  .day-card__service-row b { color: color-mix(in srgb, var(--cl-ink) 82%, #475569); font-size: 9px; font-weight: var(--rst-fw-bold); }
   .day-card__service-row small { color: var(--cl-muted); font-size: 8px; font-weight: var(--rst-fw-medium); }
   .day-card__service-row em { color: var(--cl-muted); font-size: 8px; font-style: normal; font-variant-numeric: tabular-nums; }
   .day-card__service-row.is-empty b,

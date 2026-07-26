@@ -346,10 +346,11 @@ test('workspace grids share one sticky, searchable grouping and filtering contra
   assert.match(columnMenu, /filterKind === 'text'/);
   assert.match(columnMenu, /filterKind === 'values'/);
   assert.match(columnMenu, /type="search"/);
+  assert.match(columnMenu, /class="colhead__copy"/);
   assert.match(groupRow, /class="cl-group-row__button"/);
   assert.match(css, /\.cl-tablewrap\s*\{[\s\S]*?overflow:\s*auto;/);
   assert.match(css, /\.cl-table thead th\s*\{[\s\S]*?position:\s*sticky;[\s\S]*?top:\s*var\(--cl-grid-sticky-top, 0px\);/);
-  assert.match(css, /\.cl-group-row td\s*\{[\s\S]*?height:\s*32px !important;/);
+  assert.match(css, /\.cl-group-row td\s*\{[\s\S]*?height:\s*34px !important;/);
 });
 
 test('Planning, Team, Restaurant and Payroll use the same first-column grouping control', async () => {

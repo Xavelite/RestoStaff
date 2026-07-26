@@ -8,6 +8,7 @@
 
   let {
     label,
+    meta = '',
     align = 'left',
     sortable = false,
     sortDir = null,
@@ -27,6 +28,7 @@
     groupLabel = 'Group rows'
   }: {
     label: string;
+    meta?: string;
     align?: 'left' | 'right';
     sortable?: boolean;
     sortDir?: 'asc' | 'desc' | null;
@@ -51,6 +53,7 @@
   {#if extra}
     <ClassicColMenu
       {label}
+      {meta}
       {align}
       {sortable}
       {sortDir}
@@ -68,6 +71,7 @@
   {:else}
     <ClassicColMenu
       {label}
+      {meta}
       {align}
       {sortable}
       {sortDir}
