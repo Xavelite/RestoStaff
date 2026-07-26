@@ -6,12 +6,13 @@
     clockMinutes,
     formatHours,
     hoursBetweenClocks,
-    mondayFor,
+    weekLabel,
     type ServiceKey
   } from '$lib/calendar/date';
   import Dialog from '$lib/components/Dialog.svelte';
   import { friendlyError } from '$lib/api/error-messages';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
+  import { confirmAction } from '$lib/ui/confirm.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import ScheduleSlotEditor from '$lib/schedule/ScheduleSlotEditor.svelte';
@@ -75,6 +76,7 @@
     breakLabel: string;
     hasBreak: boolean;
     estimatedCost: string;
+    areaLabel: string;
     shifts: DayShiftView[];
   };
 
@@ -138,6 +140,7 @@
   let draggingKey = $state('');
   let dropKey = $state('');
   let weekPicker = $state<HTMLInputElement | null>(null);
+  let compactCards = $state(false);
 
   onMount(() => {
     try {
@@ -146,8 +149,10 @@
         storedGroup === 'contract' || storedGroup === 'position' || storedGroup === 'area'
           ? storedGroup
           : 'none';
+      compactCards = localStorage.getItem('rst-schedule-card-density') === 'compact';
     } catch {
       groupMode = 'none';
+      compactCards = false;
     }
   });
 
@@ -156,6 +161,15 @@
     collapsedGroups = [];
     try {
       localStorage.setItem('rst-schedule-group', next);
+    } catch {
+      // Session-only preference on devices without storage.
+    }
+  }
+
+  function toggleCardDensity(): void {
+    compactCards = !compactCards;
+    try {
+      localStorage.setItem('rst-schedule-card-density', compactCards ? 'compact' : 'detailed');
     } catch {
       // Session-only preference on devices without storage.
     }
@@ -289,7 +303,7 @@
       : [...collapsedGroups, key];
   }
 
-  function copyPreviousWeek(weekStart: string): void {
+  async function copyPreviousWeek(weekStart: string): Promise<void> {
     if (!snapshot) return;
     const previousWeek = addDays(weekStart, -7);
     const employeeIds = new Set(snapshot.employees.filter((item) => item.active).map((item) => item.id));
@@ -303,13 +317,50 @@
           (!shift.jobFunctionId || positionIds.has(shift.jobFunctionId))
       )
       .map((shift) => ({ ...shift, source: 'copied' as const }));
-    scheduleDraft.replace(copied);
-    scheduleDraft.replaceNotes(planningNotesForWeek(snapshot, previousWeek));
+
+    if (!copied.length) {
+      toasts.show(t('The previous week has no shifts to copy.'), 'warning');
+      return;
+    }
+
+    const occupied = new Set(scheduleDraft.shifts.map(draftKey));
+    const additions = copied.filter((shift) => !occupied.has(draftKey(shift)));
+    const noteKeys = new Set(scheduleDraft.notes.map((note) => `${note.weekday}|${note.serviceKey}`));
+    const copiedNotes = planningNotesForWeek(snapshot, previousWeek)
+      .filter((note) => !noteKeys.has(`${note.weekday}|${note.serviceKey}`));
+    const existingCount = scheduleDraft.shifts.length;
+    const confirmed = await confirmAction({
+      title: t('Copy previous week?'),
+      body: existingCount
+        ? t(additions.length === 1
+          ? '{source} has {count} shifts. {added} empty slot will be filled in {target}; your {existing} existing shifts will stay unchanged.'
+          : '{source} has {count} shifts. {added} empty slots will be filled in {target}; your {existing} existing shifts will stay unchanged.', {
+            source: weekLabel(previousWeek, i18n.intlLocale),
+            count: copied.length,
+            added: additions.length,
+            target: weekLabel(weekStart, i18n.intlLocale),
+            existing: existingCount
+          })
+        : t('{count} shifts from {source} will be added to {target} as a private draft.', {
+            count: copied.length,
+            source: weekLabel(previousWeek, i18n.intlLocale),
+            target: weekLabel(weekStart, i18n.intlLocale)
+          }),
+      confirmLabel: t('Copy shifts'),
+      cancelLabel: t('Cancel'),
+      tone: 'primary'
+    });
+    if (!confirmed) return;
+
+    if (additions.length) scheduleDraft.replace([...scheduleDraft.shifts, ...additions]);
+    if (copiedNotes.length) scheduleDraft.replaceNotes([...scheduleDraft.notes, ...copiedNotes]);
     toasts.show(
-      copied.length
-        ? t('{count} shifts copied from the previous week.', { count: copied.length })
-        : t('The previous week has no shifts to copy.'),
-      copied.length ? 'success' : 'warning'
+      additions.length
+        ? t('{count} shifts copied from the previous week.', { count: additions.length })
+        : copiedNotes.length
+          ? t('Weekly notes copied; all matching shift slots were already filled.')
+          : t('All matching slots already contain shifts. Nothing was changed.'),
+      additions.length || copiedNotes.length ? 'success' : 'warning'
     );
   }
 
@@ -412,6 +463,7 @@
       breakLabel,
       hasBreak,
       estimatedCost: totalCost > 0 ? money(totalCost) : '',
+      areaLabel: [...new Set(ordered.map((shift) => shift.area))].join(' → '),
       shifts: ordered
     };
   }
@@ -616,16 +668,29 @@
 
       {#if grid}
         {@const groups = groupedRows(grid)}
-        {@const visibleEmployeeIds = new Set(groups.flatMap((group) => group.rows.map((row) => row.id)))}
-        {@const visibleWeekEntries = scheduleDraft.shifts.filter((shift) => visibleEmployeeIds.has(shift.employeeId))}
-        {@const visibleWeekHours = visibleWeekEntries.reduce((sum, shift) => sum + hoursBetweenClocks(shift.startsAt, shift.endsAt), 0)}
-        {@const visibleWeekCost = shiftsCost(visibleWeekEntries)}
+        {@const totalEmployeeIds = new Set(grid.rows.filter((row) => employeeActive.get(row.id) !== false).map((row) => row.id))}
+        {@const weekEntries = scheduleDraft.shifts.filter((shift) => totalEmployeeIds.has(shift.employeeId))}
+        {@const plannedEmployeeIds = new Set(weekEntries.map((shift) => shift.employeeId))}
+        {@const weekHours = weekEntries.reduce((sum, shift) => sum + hoursBetweenClocks(shift.startsAt, shift.endsAt), 0)}
+        {@const weekCost = shiftsCost(weekEntries)}
         {@const publishGaps = snapshot ? coverageIssues(snapshot, scheduleDraft.shifts, week.weekStart) : []}
         {@const publishConflicts = snapshot ? planningConflicts(snapshot, scheduleDraft.shifts, week.weekStart) : []}
         {@const publishPending = pendingRequestCount(grid)}
-        <section class="schedule-panel">
+        <section class="schedule-panel" class:is-compact={compactCards}>
           <header class="schedule-head">
-            <div class="schedule-head__left"></div>
+            <div class="schedule-head__left">
+              <button
+                class="density-toggle"
+                class:is-active={compactCards}
+                type="button"
+                aria-pressed={compactCards}
+                title={t(compactCards ? 'Show detailed cards' : 'Show compact cards')}
+                onclick={toggleCardDensity}
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg>
+                <span>{t('Compact')}</span>
+              </button>
+            </div>
 
             <div class="week-nav" aria-label={t('Week')}>
               <button class="icon-btn" type="button" aria-label={t('Previous')} onclick={week.previous}>
@@ -646,13 +711,10 @@
               <button class="icon-btn" type="button" aria-label={t('Next')} onclick={week.next}>
                 <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
               </button>
-              {#if week.weekStart !== mondayFor(week.today)}
-                <button class="today-link" type="button" onclick={week.todayAction}>{t('Today')}</button>
-              {/if}
             </div>
 
             <div class="schedule-head__right">
-              <button class="icon-btn" type="button" disabled={saving || !week.editable} aria-label={t('Copy previous week')} title={t('Copy previous week')} onclick={() => copyPreviousWeek(week.weekStart)}>
+              <button class="icon-btn" type="button" disabled={saving || !week.editable} aria-label={t('Copy previous week')} title={t('Copy previous week')} onclick={() => void copyPreviousWeek(week.weekStart)}>
                 <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
               </button>
               <button class="icon-btn" type="button" disabled={!snapshot} aria-label={t('Export CSV')} title={t('Export CSV')} onclick={() => exportWeek(week.weekStart)}>
@@ -689,8 +751,8 @@
                 <tr>
                   <th class="board__staff has-menu">
                     <ClassicPrimaryColMenu
-                      label={t('Employee')}
-                      meta={`${t('{count} employees', { count: visibleEmployeeIds.size })} · ${formatHours(visibleWeekHours)} · ${visibleWeekCost > 0 ? `~${money(visibleWeekCost)}` : '—'}`}
+                      label={`${t('Employee')} (${plannedEmployeeIds.size}/${totalEmployeeIds.size})`}
+                      meta={`${formatHours(weekHours)} · ${weekCost > 0 ? `~${money(weekCost)}` : '—'}`}
                       sortable
                       sortDir={employeeSort}
                       onsort={(dir) => (employeeSort = dir)}
@@ -715,11 +777,12 @@
                   </th>
                   {#each grid.days as day (day.date)}
                     {@const dayEntries = scheduleDraft.shifts.filter((shift) => shift.weekday === day.weekday)}
+                    {@const dayEmployees = new Set(dayEntries.map((shift) => shift.employeeId)).size}
                     {@const total = dayEntries.reduce((sum, shift) => sum + hoursBetweenClocks(shift.startsAt, shift.endsAt), 0)}
                     {@const totalCost = shiftsCost(dayEntries)}
-                    <th class="board__day" class:is-today={day.today}>
+                    <th class="board__day" class:is-today={day.today} class:is-weekend={day.weekday >= 6}>
                       <span><b>{t(day.label)}</b> {Number(day.date.slice(-2))}</span>
-                      <small>{total ? `${formatHours(total)} · ${totalCost > 0 ? money(totalCost) : '—'}` : t('No shifts')}</small>
+                      <small>{total ? `${dayEmployees} ${t(dayEmployees === 1 ? 'employee' : 'employees')} · ${formatHours(total)} · ${totalCost > 0 ? money(totalCost) : '—'}` : t('No shifts')}</small>
                     </th>
                   {/each}
                 </tr>
@@ -852,49 +915,57 @@
                                     <span class="day-card__content">
                                       <span class="day-card__top">
                                         <strong>{card.timeLabel}</strong>
-                                        <span class="day-card__metrics">
-                                          <b title={t('Planned hours')}>{card.hours}</b>
-                                          <b title={t('Estimated cost')}>{card.estimatedCost || '—'}</b>
-                                        </span>
-                                        {#if dayConflict}
-                                          <span
-                                            class="day-card__conflict-dot"
-                                            role="img"
-                                            aria-label={t(dayOverlap ? 'Overlapping shifts' : 'Conflict')}
-                                            title={t(dayOverlap ? 'Overlapping shifts' : 'Conflict')}
-                                          >!</span>
-                                        {:else}
-                                          <span class="day-card__status-slot" aria-hidden="true"></span>
+                                        {#if !compactCards}
+                                          <span class="day-card__metrics">
+                                            <b title={t('Planned hours')}>{card.hours}</b>
+                                            <b title={t('Estimated cost')}>{card.estimatedCost || '—'}</b>
+                                          </span>
                                         {/if}
                                       </span>
-                                      <span class="day-card__break" class:is-empty={!card.hasBreak}>
-                                        <span class="day-card__coffee" aria-hidden="true">☕</span>
-                                        <b>{card.breakLabel}</b>
-                                      </span>
-                                      <span class="day-card__services">
-                                        {#each SERVICES as service (service)}
-                                          {@const chip = card.shifts.find((shift) => shift.service === service)}
-                                          {#if chip}
-                                            <span class="day-card__service-row is-{chip.service}">
-                                              <span class="day-card__service-icon" aria-hidden="true">{chip.spansDay ? '↔' : chip.service === 'evening' ? '☾' : '☀'}</span>
-                                              <span class="day-card__service-name">
-                                                <b>{chip.area}</b>
-                                                {#if chip.showPosition}<small>· {chip.position}</small>{/if}
+                                      {#if dayConflict}
+                                        <span
+                                          class="day-card__conflict-dot"
+                                          role="img"
+                                          aria-label={t(dayOverlap ? 'Overlapping shifts' : 'Conflict')}
+                                          title={t(dayOverlap ? 'Overlapping shifts' : 'Conflict')}
+                                        >!</span>
+                                      {/if}
+                                      {#if compactCards}
+                                        <span class="day-card__compact-meta">
+                                          <span title={t('Planned hours')}><i aria-hidden="true">◷</i>{card.hours}</span>
+                                          <span title={t('Break')} class:is-empty={!card.hasBreak}><i aria-hidden="true">☕</i>{card.breakLabel}</span>
+                                          <span class="day-card__compact-area" title={card.areaLabel}><i aria-hidden="true">⌖</i>{card.areaLabel}</span>
+                                        </span>
+                                      {:else}
+                                        <span class="day-card__break" class:is-empty={!card.hasBreak}>
+                                          <span class="day-card__coffee" aria-hidden="true">☕</span>
+                                          <b>{card.breakLabel}</b>
+                                        </span>
+                                        <span class="day-card__services">
+                                          {#each SERVICES as service (service)}
+                                            {@const chip = card.shifts.find((shift) => shift.service === service)}
+                                            {#if chip}
+                                              <span class="day-card__service-row is-{chip.service}">
+                                                <span class="day-card__service-icon" aria-hidden="true">{chip.spansDay ? '↔' : chip.service === 'evening' ? '☾' : '☀'}</span>
+                                                <span class="day-card__service-name">
+                                                  <b>{chip.area}</b>
+                                                  {#if chip.showPosition}<small>· {chip.position}</small>{/if}
+                                                </span>
+                                                <em>{chip.hours}{#if chip.estimatedCost} · ~{chip.estimatedCost}{/if}</em>
                                               </span>
-                                              <em>{chip.hours}{#if chip.estimatedCost} · ~{chip.estimatedCost}{/if}</em>
-                                            </span>
-                                          {:else}
-                                            <span class="day-card__service-row is-empty">
-                                              <span class="day-card__service-icon" aria-hidden="true">{service === 'evening' ? '☾' : '☀'}</span>
-                                              <span class="day-card__service-name">
-                                                <b>{t(service === 'evening' ? 'Evening' : 'Lunch')}</b>
-                                                <small>{t('No shifts')}</small>
+                                            {:else}
+                                              <span class="day-card__service-row is-{service} is-empty">
+                                                <span class="day-card__service-icon" aria-hidden="true">{service === 'evening' ? '☾' : '☀'}</span>
+                                                <span class="day-card__service-name">
+                                                  <b>{t(service === 'evening' ? 'Evening' : 'Lunch')}</b>
+                                                  <small>{t('No shifts')}</small>
+                                                </span>
+                                                <em>—</em>
                                               </span>
-                                              <em>—</em>
-                                            </span>
-                                          {/if}
-                                        {/each}
-                                      </span>
+                                            {/if}
+                                          {/each}
+                                        </span>
+                                      {/if}
                                     </span>
                                   </div>
                                 {/if}
@@ -1020,19 +1091,23 @@
 <style>
   .schedule-panel { position: relative; display: grid; gap: 0; }
   .schedule-head { position: relative; display: grid; grid-template-columns: minmax(180px, 1fr) auto minmax(250px, 1fr); align-items: center; gap: 18px; min-height: 50px; padding: 4px 0 6px; }
-  .schedule-head__left { justify-self: start; }
+  .schedule-head__left { justify-self: start; display: flex; align-items: center; }
   .schedule-head__right { justify-self: end; display: flex; align-items: center; gap: 7px; }
 
-  .week-nav { position: relative; display: flex; align-items: center; justify-content: center; gap: 4px; }
-  .week-nav__date { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 188px; min-height: 34px; padding: 5px 12px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--cl-ink); font: inherit; font-size: 14px; font-weight: var(--rst-fw-bold); cursor: pointer; }
+  .week-nav { position: relative; display: flex; align-items: center; justify-content: center; gap: 0; }
+  .week-nav__date { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 176px; min-height: 32px; padding: 4px 8px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: var(--cl-ink); font: inherit; font-size: 14px; font-weight: var(--rst-fw-bold); cursor: pointer; }
   .week-nav__date:hover { border-color: var(--cl-line); background: var(--cl-surface-muted); }
   .week-nav__date svg { color: var(--cl-muted); }
   .week-nav__picker { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-  .today-link { min-height: 28px; margin-left: 4px; padding: 3px 7px; border: 0; background: transparent; color: var(--cl-accent); font: inherit; font-size: 11px; font-weight: var(--rst-fw-bold); cursor: pointer; }
 
   .icon-btn { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid var(--cl-line); border-radius: 6px; background: var(--cl-surface); color: var(--cl-muted); cursor: pointer; transition: border-color var(--cl-dur) var(--cl-ease), color var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease); }
   .icon-btn:hover:not(:disabled) { border-color: var(--cl-line-strong); color: var(--cl-ink); background: var(--cl-surface-muted); }
   .icon-btn:disabled { opacity: .42; cursor: default; }
+  .week-nav > .icon-btn { width: 27px; height: 30px; border-color: transparent; border-radius: 4px; background: transparent; }
+  .week-nav > .icon-btn:hover:not(:disabled) { border-color: transparent; color: var(--cl-ink); background: color-mix(in srgb, var(--cl-line) 55%, transparent); }
+  .density-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 4px 9px; border: 1px solid var(--cl-line); border-radius: 5px; background: transparent; color: var(--cl-muted); font: inherit; font-size: 11px; font-weight: var(--rst-fw-medium); cursor: pointer; transition: border-color var(--cl-dur) var(--cl-ease), color var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease); }
+  .density-toggle:hover { border-color: var(--cl-line-strong); color: var(--cl-ink); background: var(--cl-surface-muted); }
+  .density-toggle.is-active { border-color: color-mix(in srgb, var(--cl-accent) 34%, var(--cl-line)); color: var(--cl-accent); background: var(--cl-accent-wash); }
   .publish-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; padding: 7px 15px; border: 1px solid var(--cl-accent); border-radius: 6px; background: var(--cl-accent); color: white; font: inherit; font-size: 13px; font-weight: var(--rst-fw-bold); cursor: pointer; }
   .publish-btn:hover:not(:disabled) { filter: brightness(.97); box-shadow: 0 4px 12px color-mix(in srgb, var(--cl-accent) 22%, transparent); }
   .publish-btn:disabled { cursor: default; }
@@ -1053,8 +1128,9 @@
   .board__day { border-left: 1px solid var(--cl-grid-line); text-align: center !important; }
   .board__day > span { display: block; font-size: 13px; }
   .board__day > span b { font-weight: var(--rst-fw-bold); }
-  .board__day small { display: block; margin-top: 2px; color: var(--cl-muted); font-size: 9px; font-weight: var(--rst-fw-medium); line-height: 1.1; text-transform: none; letter-spacing: 0; }
+  .board__day small { display: block; margin-top: 3px; color: var(--cl-muted); font-size: 8.5px; font-weight: var(--rst-fw-medium); font-variant-numeric: tabular-nums; line-height: 1.1; text-transform: none; letter-spacing: 0; white-space: nowrap; }
   .board__day.is-today { color: var(--cl-accent); background: var(--cl-accent-wash); }
+  .board__day.is-weekend:not(.is-today) { background: color-mix(in srgb, var(--cl-surface-muted) 58%, var(--cl-thead)); }
   .board__cell { position: relative; border-left: 1px solid var(--cl-grid-line); }
   .board__cell.is-past { background: color-mix(in srgb, var(--cl-surface-muted) 68%, var(--cl-surface)); }
   .board__cell.is-drop-target { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--cl-ok) 62%, transparent); }
@@ -1074,6 +1150,8 @@
   .staff__meter i { display: block; height: 100%; border-radius: inherit; background: var(--cl-accent); }
 
   .service-canvas { position: relative; min-height: 89px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: hidden; }
+  .schedule-panel.is-compact .board td { height: 66px; }
+  .schedule-panel.is-compact .service-canvas { min-height: 65px; }
   .service-zone { position: relative; min-width: 0; min-height: inherit; padding: 0; border: 0; background: transparent; color: var(--cl-muted); cursor: pointer; transition: box-shadow var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease); }
   .service-zone + .service-zone { border-left: 1px dashed color-mix(in srgb, var(--cl-grid-line) 82%, transparent); }
   .service-zone:disabled { cursor: default; }
@@ -1088,15 +1166,18 @@
   .service-zone__state { position: absolute; left: 6px; right: 6px; bottom: 6px; overflow: hidden; color: var(--cl-muted); font-size: 9px; font-weight: var(--rst-fw-medium); text-align: center; text-overflow: ellipsis; white-space: nowrap; }
   .service-canvas.has-card > .service-zone { pointer-events: none; }
 
-  /* One fixed compact card per employee/day. Colour remains a quiet service
-     tint; the card itself uses one crisp neutral outline on every side. */
-  .day-card { --lunch-color: var(--cl-muted); --evening-color: var(--cl-muted); position: absolute; z-index: 3; inset: 6px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--cl-ink) 30%, var(--cl-line-strong)); border-radius: 3px; background: var(--cl-surface); box-shadow: 0 1px 2px rgb(0 0 0 / .05); isolation: isolate; transition: border-color var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease); }
-  .day-card:hover { border-color: color-mix(in srgb, var(--cl-ink) 46%, var(--cl-line-strong)); box-shadow: 0 2px 7px rgb(0 0 0 / .09); }
+  /* Area colour owns the card surface and border. Service colour is semantic:
+     warm for lunch, cool for evening, orange for breaks. */
+  .day-card { --lunch-color: var(--cl-muted); --evening-color: var(--cl-muted); --day-tone: #a85d08; --night-tone: #4f46a8; --break-tone: #c65a18; position: absolute; z-index: 3; inset: 4px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--lunch-color) 48%, var(--evening-color)); border-radius: 3px; background: var(--cl-surface); box-shadow: 0 1px 3px rgb(15 23 42 / .08), inset 0 0 0 1px rgb(255 255 255 / .45); isolation: isolate; transition: border-color var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease); }
+  .day-card.is-lunch-only { border-color: color-mix(in srgb, var(--lunch-color) 62%, var(--cl-line-strong)); }
+  .day-card.is-evening-only { border-color: color-mix(in srgb, var(--evening-color) 62%, var(--cl-line-strong)); }
+  .day-card.is-full-day { border-color: color-mix(in srgb, var(--lunch-color) 62%, var(--cl-line-strong)); }
+  .day-card:hover { border-color: color-mix(in srgb, var(--lunch-color) 66%, var(--evening-color)); box-shadow: 0 3px 9px rgb(15 23 42 / .13), inset 0 0 0 1px rgb(255 255 255 / .52); }
   .day-card.is-readonly { box-shadow: none; }
   .day-card__surface { position: absolute; z-index: 0; inset: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); pointer-events: none; }
   .day-card__fill { opacity: 1; background: color-mix(in srgb, var(--cl-surface-muted) 62%, var(--cl-surface)); transition: background var(--cl-dur) var(--cl-ease); }
-  .day-card__fill.is-lunch.is-active { background: linear-gradient(180deg, color-mix(in srgb, var(--lunch-color) 12%, var(--cl-surface)), color-mix(in srgb, var(--lunch-color) 7%, var(--cl-surface))); }
-  .day-card__fill.is-evening.is-active { background: linear-gradient(180deg, color-mix(in srgb, var(--evening-color) 12%, var(--cl-surface)), color-mix(in srgb, var(--evening-color) 7%, var(--cl-surface))); }
+  .day-card__fill.is-lunch.is-active { background: linear-gradient(180deg, color-mix(in srgb, var(--lunch-color) 15%, var(--cl-surface)), color-mix(in srgb, var(--lunch-color) 9%, var(--cl-surface))); }
+  .day-card__fill.is-evening.is-active { background: linear-gradient(180deg, color-mix(in srgb, var(--evening-color) 15%, var(--cl-surface)), color-mix(in srgb, var(--evening-color) 9%, var(--cl-surface))); }
   .day-card.is-lunch-only .day-card__fill.is-evening { background: color-mix(in srgb, var(--lunch-color) 3%, var(--cl-surface)); }
   .day-card.is-evening-only .day-card__fill.is-lunch { background: color-mix(in srgb, var(--evening-color) 3%, var(--cl-surface)); }
   .day-card.is-full-day .day-card__fill { background: color-mix(in srgb, var(--lunch-color) 11%, var(--cl-surface)); }
@@ -1119,32 +1200,42 @@
   .day-card__add:not(:disabled):hover span, .day-card__add:not(:disabled):focus-visible span { opacity: 1; transform: translateY(0); }
   .day-card__add:disabled { cursor: default; }
 
-  .day-card__content { position: absolute; z-index: 2; inset: 0; display: grid; align-content: center; gap: 2px; min-width: 0; padding: 5px 7px; pointer-events: none; }
-  .day-card__top { display: grid; grid-template-columns: minmax(0, 1fr) auto 13px; align-items: center; gap: 4px; min-width: 0; }
-  .day-card__top strong { overflow: hidden; color: color-mix(in srgb, var(--cl-ink) 86%, #475569); font-size: 11px; font-weight: var(--rst-fw-bold); font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
-  .day-card__metrics { display: inline-flex; align-items: center; gap: 4px; min-width: 0; color: color-mix(in srgb, var(--cl-ink) 64%, var(--cl-muted)); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
+  .day-card__content { position: absolute; z-index: 2; inset: 0; display: grid; align-content: center; gap: 3px; min-width: 0; padding: 6px; pointer-events: none; }
+  .day-card__top { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 3px; min-width: 0; }
+  .day-card__top strong { overflow: hidden; color: color-mix(in srgb, var(--cl-ink) 86%, #475569); font-size: 10.5px; font-weight: var(--rst-fw-bold); font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+  .day-card__metrics { display: grid; grid-template-columns: 19px 30px; align-items: center; justify-content: end; gap: 2px; min-width: 51px; color: color-mix(in srgb, var(--cl-ink) 67%, var(--cl-muted)); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1; text-align: right; white-space: nowrap; }
+  .day-card.is-conflict .day-card__metrics { margin-right: 5px; }
   .day-card__metrics b { font-weight: var(--rst-fw-bold); }
-  .day-card__break { display: inline-flex; align-items: center; gap: 3px; min-width: 0; overflow: hidden; color: color-mix(in srgb, var(--cl-ink) 58%, var(--cl-muted)); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
+  .day-card__break { display: inline-flex; align-items: center; gap: 3px; min-width: 0; overflow: hidden; color: var(--break-tone); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
   .day-card__break b { overflow: hidden; font-weight: var(--rst-fw-medium); text-overflow: ellipsis; }
-  .day-card__break.is-empty { color: var(--cl-muted); }
-  .day-card__coffee { font-size: 8px; line-height: 1; filter: grayscale(1); }
-  .day-card__status-slot { width: 13px; height: 13px; }
-  .day-card__conflict-dot { width: 13px; height: 13px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--cl-problem) 76%, white); border-radius: 3px; background: var(--cl-problem); color: white; font-size: 8px; font-weight: var(--rst-fw-bold); line-height: 1; box-shadow: 0 1px 3px color-mix(in srgb, var(--cl-problem) 26%, transparent); pointer-events: none; }
-  .day-card__services { display: grid; gap: 1px; min-width: 0; }
-  .day-card__service-row { display: grid; grid-template-columns: 11px minmax(0, 1fr) auto; align-items: center; gap: 4px; min-width: 0; line-height: 1.15; }
-  .day-card__service-icon { color: color-mix(in srgb, var(--cl-muted) 76%, var(--cl-ink)); font-size: 9px; text-align: center; }
-  .day-card__service-row.is-lunch .day-card__service-icon,
-  .day-card__service-row.is-lunch b { color: color-mix(in srgb, var(--lunch-color) 76%, var(--cl-ink)); }
-  .day-card__service-row.is-evening .day-card__service-icon,
-  .day-card__service-row.is-evening b { color: color-mix(in srgb, var(--evening-color) 76%, var(--cl-ink)); }
+  .day-card__break.is-empty { color: color-mix(in srgb, var(--break-tone) 42%, var(--cl-muted)); }
+  .day-card__coffee { font-size: 8px; line-height: 1; }
+  .day-card__conflict-dot { position: absolute; z-index: 3; top: 4px; right: 4px; width: 10px; height: 10px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--cl-problem) 72%, white); border-radius: 50%; background: var(--cl-problem); color: white; font-size: 6px; font-weight: var(--rst-fw-bold); line-height: 1; box-shadow: 0 1px 3px color-mix(in srgb, var(--cl-problem) 28%, transparent); pointer-events: none; }
+  .day-card__services { display: grid; gap: 2px; min-width: 0; }
+  .day-card__service-row { display: grid; grid-template-columns: 11px minmax(0, 1fr) 54px; align-items: center; gap: 4px; min-width: 0; color: var(--cl-muted); line-height: 1.15; }
+  .day-card__service-icon { font-size: 9px; text-align: center; }
+  .day-card__service-row.is-lunch { color: var(--day-tone); }
+  .day-card__service-row.is-evening { color: var(--night-tone); }
   .day-card__service-name { display: flex; align-items: baseline; gap: 3px; min-width: 0; overflow: hidden; white-space: nowrap; }
   .day-card__service-row b, .day-card__service-row small, .day-card__service-row em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .day-card__service-row b { color: color-mix(in srgb, var(--cl-ink) 82%, #475569); font-size: 9px; font-weight: var(--rst-fw-bold); }
-  .day-card__service-row small { color: var(--cl-muted); font-size: 8px; font-weight: var(--rst-fw-medium); }
-  .day-card__service-row em { color: var(--cl-muted); font-size: 8px; font-style: normal; font-variant-numeric: tabular-nums; }
+  .day-card__service-row b { color: currentColor; font-size: 9px; font-weight: var(--rst-fw-bold); }
+  .day-card__service-row small { color: color-mix(in srgb, currentColor 58%, var(--cl-muted)); font-size: 8px; font-weight: var(--rst-fw-medium); }
+  .day-card__service-row em { color: currentColor; font-size: 8px; font-style: normal; font-variant-numeric: tabular-nums; text-align: right; }
   .day-card__service-row.is-empty b,
   .day-card__service-row.is-empty small,
   .day-card__service-row.is-empty em { color: color-mix(in srgb, var(--cl-muted) 78%, var(--cl-line-strong)); font-weight: var(--rst-fw-regular); }
+  .day-card__service-row.is-empty .day-card__service-icon { opacity: .48; }
+
+  .day-card__compact-meta { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: 7px; min-width: 0; color: color-mix(in srgb, var(--cl-ink) 62%, var(--cl-muted)); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .day-card__compact-meta > span { display: inline-flex; align-items: center; gap: 3px; min-width: 0; white-space: nowrap; }
+  .day-card__compact-meta i { color: var(--cl-muted); font-size: 9px; font-style: normal; }
+  .day-card__compact-meta > span:nth-child(2) { color: var(--break-tone); }
+  .day-card__compact-meta > span:nth-child(2).is-empty { color: var(--cl-muted); }
+  .day-card__compact-area { overflow: hidden; justify-content: flex-end; color: color-mix(in srgb, var(--lunch-color) 70%, var(--cl-ink)); text-overflow: ellipsis; }
+  .day-card__compact-area i { color: currentColor; }
+  .schedule-panel.is-compact .day-card__content { gap: 6px; padding: 7px 8px; }
+  .schedule-panel.is-compact .day-card__top strong { font-size: 11px; }
+  .schedule-panel.is-compact .day-card.is-conflict .day-card__top { padding-right: 11px; }
 
   .day-card.is-conflict { border-color: color-mix(in srgb, var(--cl-problem) 76%, var(--cl-line-strong)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--cl-problem) 18%, transparent), 0 4px 10px color-mix(in srgb, var(--cl-problem) 10%, transparent); }
   .day-card.is-published-conflict { border-color: var(--cl-problem); box-shadow: 0 0 0 1px color-mix(in srgb, var(--cl-problem) 22%, transparent), 0 4px 12px color-mix(in srgb, var(--cl-problem) 13%, transparent); }

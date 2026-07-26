@@ -4189,6 +4189,20 @@ Object.assign(french, {
   '{hours} break': 'Pause de {hours}',
   'No area': 'Aucune zone',
   'Estimated cost': 'Coût estimé',
+  'Show detailed cards': 'Afficher les cartes détaillées',
+  'Show compact cards': 'Afficher les cartes compactes',
+  'Copy previous week?': 'Copier la semaine précédente ?',
+  'Copy shifts': 'Copier les shifts',
+  '{source} has {count} shifts. {added} empty slot will be filled in {target}; your {existing} existing shifts will stay unchanged.':
+    '{source} contient {count} shifts. {added} créneau vide sera rempli dans {target} ; vos {existing} shifts existants resteront inchangés.',
+  '{source} has {count} shifts. {added} empty slots will be filled in {target}; your {existing} existing shifts will stay unchanged.':
+    '{source} contient {count} shifts. {added} créneaux vides seront remplis dans {target} ; vos {existing} shifts existants resteront inchangés.',
+  '{count} shifts from {source} will be added to {target} as a private draft.':
+    '{count} shifts de {source} seront ajoutés à {target} comme brouillon privé.',
+  'Weekly notes copied; all matching shift slots were already filled.':
+    'Les notes hebdomadaires ont été copiées ; tous les créneaux correspondants étaient déjà remplis.',
+  'All matching slots already contain shifts. Nothing was changed.':
+    'Tous les créneaux correspondants contiennent déjà des shifts. Rien n’a été modifié.',
   'Area colour': 'Couleur de la zone',
   'Absence or unavailable': 'Absence ou indisponibilité',
   'Drag a shift to another free employee/day cell. Click it for all details.':
@@ -4242,6 +4256,20 @@ Object.assign(dutch, {
   '{hours} break': '{hours} pauze',
   'No area': 'Geen zone',
   'Estimated cost': 'Geschatte kost',
+  'Show detailed cards': 'Gedetailleerde kaarten tonen',
+  'Show compact cards': 'Compacte kaarten tonen',
+  'Copy previous week?': 'Vorige week kopiëren?',
+  'Copy shifts': 'Shifts kopiëren',
+  '{source} has {count} shifts. {added} empty slot will be filled in {target}; your {existing} existing shifts will stay unchanged.':
+    '{source} bevat {count} shifts. {added} leeg tijdvak wordt ingevuld in {target}; je {existing} bestaande shifts blijven ongewijzigd.',
+  '{source} has {count} shifts. {added} empty slots will be filled in {target}; your {existing} existing shifts will stay unchanged.':
+    '{source} bevat {count} shifts. {added} lege tijdvakken worden ingevuld in {target}; je {existing} bestaande shifts blijven ongewijzigd.',
+  '{count} shifts from {source} will be added to {target} as a private draft.':
+    '{count} shifts uit {source} worden als privéconcept toegevoegd aan {target}.',
+  'Weekly notes copied; all matching shift slots were already filled.':
+    'De weeknotities zijn gekopieerd; alle overeenkomende shiftvakken waren al ingevuld.',
+  'All matching slots already contain shifts. Nothing was changed.':
+    'Alle overeenkomende tijdvakken bevatten al shifts. Er is niets gewijzigd.',
   'Area colour': 'Zonekleur',
   'Absence or unavailable': 'Afwezig of niet beschikbaar',
   'Drag a shift to another free employee/day cell. Click it for all details.':
