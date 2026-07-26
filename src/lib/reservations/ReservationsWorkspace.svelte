@@ -379,7 +379,7 @@
       aria-label={t('Date')}
       bind:value={selectedDate}
     />
-    <select class="cl-field" aria-label={t('Service')} bind:value={selectedService}>
+    <select class="cl-field service-field" aria-label={t('Service')} bind:value={selectedService}>
       {#each data?.services ?? [] as service (service.service_key)}
         <option value={service.service_key}>
           {t(service.name)}{service.setting?.booking_enabled ? '' : ` · ${t('Closed')}`}
@@ -403,7 +403,7 @@
       placeholder={t('Search guest, phone or table')}
       bind:value={search}
     />
-    <select class="cl-field" aria-label={t('Status')} bind:value={statusFilter}>
+    <select class="cl-field status-field" aria-label={t('Status')} bind:value={statusFilter}>
       <option value="">{t('All statuses')}</option>
       {#each RESERVATION_STATUSES as status}
         <option value={status}>{t(reservationStatusMeta(status).label)}</option>
@@ -721,8 +721,10 @@
 </Dialog>
 
 <style>
-  .date-field { width: 142px; }
-  .toolbar-search { min-width: 230px; }
+  .date-field { width: 130px; }
+  .service-field { width: 130px; }
+  .status-field { width: 126px; }
+  .toolbar-search { width: 200px; min-width: 200px; }
   .reservation-summary {
     min-height: 34px;
     display: flex;

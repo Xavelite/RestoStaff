@@ -389,8 +389,15 @@ test('Restaurant Areas is the direct-manipulation venue canvas instead of a dupl
   assert.match(workspace, /function addArea\(\)/);
   assert.match(workspace, /onroomresize=/);
   assert.match(workspace, /onfloorresize=/);
+  assert.match(workspace, /ROOM_GRID = 20/);
+  assert.match(workspace, /TABLE_GRID = 10/);
   assert.doesNotMatch(workspace, /Auto layout|Narrower|Wider|Shallower|Deeper/);
-  assert.match(canvas, /class="resize-handle is-corner"/);
-  assert.match(canvas, /class="floor-resize is-corner"/);
+  assert.match(canvas, /'top-left'/);
+  assert.match(canvas, /'top-right'/);
+  assert.match(canvas, /'bottom-right'/);
+  assert.match(canvas, /'bottom-left'/);
+  assert.match(canvas, /class="resize-handle is-\{edge\}"/);
+  assert.match(canvas, /class="floor-resize is-\{edge\}"/);
+  assert.match(canvas, /class="snap-guide is-vertical"/);
   assert.doesNotMatch(canvas, /Floor plan zoom|zoom-value/);
 });

@@ -380,8 +380,9 @@
       width: min(280px, 84vw);
       padding-top: 12px;
       overflow-y: auto;
-      border-right: 1px solid var(--cl-shell-line);
-      background: var(--cl-shell);
+      border-right: 1px solid var(--cl-rail-line);
+      background: var(--cl-rail-bg);
+      box-shadow: 12px 0 28px rgb(15 23 42 / 12%);
     }
   }
 </style>

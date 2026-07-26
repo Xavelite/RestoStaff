@@ -4,8 +4,8 @@
    A calm, table-first workspace for the complete application.
 
    Rules this file exists to enforce:
-     - The workplace shell stays dark and neutral; data surfaces remain white
-       on light grey so operational content carries the visual weight.
+     - The global top bar stays dark and neutral; the workspace rail is light
+       so it reads as navigation instead of a second heavy frame.
      - Orange is the primary action, brand signature and active nav accent.
      - Colour is allowed, but it must carry meaning — it goes on status, data
        and module identity, never on a surface as decoration. A calm page that
@@ -34,6 +34,11 @@
   --cl-shell-line: #353a43;
   --cl-shell-text: #f7f5f2;
   --cl-shell-muted: #aeb4bd;
+  --cl-rail-bg: #fbfbfc;
+  --cl-rail-hover: #f3f3f5;
+  --cl-rail-line: #e2e2e6;
+  --cl-rail-text: #27272b;
+  --cl-rail-muted: #6f7077;
   /* Table headers use a very light brand tint and a crisp logo-orange
      underline, keeping the grid readable without turning the header into a
      heavy coloured band. */
@@ -279,8 +284,9 @@
   display: flex;
   flex-direction: column;
   padding: 12px 0;
-  border-right: 1px solid var(--cl-shell-line);
-  background: var(--cl-shell-raised);
+  border-right: 1px solid var(--cl-rail-line);
+  background: var(--cl-rail-bg);
+  box-shadow: 4px 0 12px rgb(24 28 34 / 2.5%);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -301,8 +307,8 @@
   gap: 14px;
   padding: 10px 20px;
   border: 0;
-  border-top: 1px solid var(--cl-shell-line);
-  color: var(--cl-shell-muted);
+  border-top: 1px solid var(--cl-rail-line);
+  color: var(--cl-rail-muted);
   background: transparent;
   font: inherit;
   font-size: 13px;
@@ -314,8 +320,8 @@
   transition: transform var(--cl-dur-slow) var(--cl-ease);
 }
 .cl-rail-toggle:hover {
-  color: var(--cl-shell-text);
-  background: var(--cl-shell-hover);
+  color: var(--cl-rail-text);
+  background: var(--cl-rail-hover);
 }
 
 /* ---- collapsed rail --------------------------------------------------- */
@@ -359,7 +365,7 @@
   align-items: center;
   gap: 14px;
   padding: 10px 20px;
-  color: var(--cl-shell-muted);
+  color: var(--cl-rail-muted);
   font-size: 14px;
   font-weight: var(--rst-fw-medium);
   text-decoration: none;
@@ -368,22 +374,22 @@
 .cl-sidebar__link svg {
   width: 20px;
   height: 20px;
-  color: var(--cl-shell-muted);
+  color: var(--cl-rail-muted);
 }
 
 .cl-sidebar__link:hover {
-  color: var(--cl-shell-text);
-  background: var(--cl-shell-hover);
+  color: var(--cl-rail-text);
+  background: var(--cl-rail-hover);
 }
 
 .cl-sidebar__link.is-active,
 .cl-sidebar__link.is-active svg {
-  color: var(--cl-shell-text);
+  color: var(--cl-rail-text);
 }
 
 .cl-sidebar__link.is-active {
   font-weight: var(--rst-fw-bold);
-  background: color-mix(in srgb, var(--cl-accent) 12%, var(--cl-shell-raised));
+  background: color-mix(in srgb, var(--cl-accent) 8%, var(--cl-rail-bg));
 }
 
 .cl-sidebar__link.is-active svg {
@@ -578,25 +584,27 @@
   --chip: var(--cl-line-strong);
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   max-width: 160px;
-  min-height: 24px;
-  padding: 2px 8px 2px 6px;
-  border: 1px solid color-mix(in srgb, var(--chip) 34%, var(--cl-line));
+  min-height: 25px;
+  padding: 3px 8px 3px 6px;
+  border: 1px solid color-mix(in srgb, var(--chip) 44%, var(--cl-line));
   border-radius: 5px;
-  background: color-mix(in srgb, var(--chip) 8%, var(--cl-surface));
-  color: color-mix(in srgb, var(--chip) 68%, var(--cl-ink));
+  background: color-mix(in srgb, var(--chip) 12%, var(--cl-surface));
+  box-shadow: inset 0 1px rgb(255 255 255 / .58), 0 1px 2px rgb(15 23 42 / .045);
+  color: color-mix(in srgb, var(--chip) 74%, var(--cl-ink));
   font-size: 11.5px;
   font-weight: var(--rst-fw-bold);
   white-space: nowrap;
 }
 .cl-chip::before {
   content: '';
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   flex: 0 0 auto;
   border-radius: 50%;
   background: var(--chip);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--chip) 13%, transparent);
 }
 .cl-chip > span {
   overflow: hidden;
@@ -1777,23 +1785,35 @@
 .cl-badge {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   min-height: 24px;
-  padding: 2px 8px;
-  border: 1px solid color-mix(in srgb, var(--cl-info) 22%, var(--cl-line));
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--cl-info) 9%, var(--cl-surface));
-  box-shadow: 0 1px 1px rgb(15 23 42 / .045), inset 0 1px rgb(255 255 255 / .58);
-  color: color-mix(in srgb, var(--cl-info) 48%, var(--cl-ink));
+  padding: 2px 8px 2px 6px;
+  border: 1px solid color-mix(in srgb, var(--cl-info) 36%, var(--cl-line));
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--cl-info) 12%, var(--cl-surface));
+  box-shadow: 0 1px 2px rgb(15 23 42 / .055), inset 0 1px rgb(255 255 255 / .62);
+  color: color-mix(in srgb, var(--cl-info) 62%, var(--cl-ink));
   font-size: 11.5px;
   font-weight: var(--rst-fw-bold);
   white-space: nowrap;
 }
 
-.cl-badge.is-neutral {
-  border-color: color-mix(in srgb, var(--cl-ink) 16%, var(--cl-line));
-  background: color-mix(in srgb, var(--cl-ink) 7%, var(--cl-surface));
-  color: color-mix(in srgb, var(--cl-ink) 78%, var(--cl-muted));
+.cl-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--cl-info);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--cl-info) 12%, transparent);
 }
+
+.cl-badge.is-neutral {
+  border-color: color-mix(in srgb, var(--cl-ink) 24%, var(--cl-line));
+  background: color-mix(in srgb, var(--cl-ink) 7%, var(--cl-surface));
+  color: color-mix(in srgb, var(--cl-ink) 84%, var(--cl-muted));
+}
+.cl-badge.is-neutral::before { background: color-mix(in srgb, var(--cl-ink) 56%, var(--cl-muted)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--cl-ink) 7%, transparent); }
 
 /* Curated colour picker shared by Areas and Positions. */
 .palette-picker {

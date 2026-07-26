@@ -40,7 +40,9 @@
           ? 'off'
           : primary?.status === 'live'
             ? 'live'
-            : 'worked'
+            : primary?.status === 'empty' && primary.truth.plan
+              ? 'planned'
+              : 'worked'
   );
   const actualHours = $derived(visible.reduce((sum, slot) => sum + slot.actualHours, 0));
   const plannedHours = $derived(
@@ -57,6 +59,13 @@
   const actualRange = $derived(combinedRange(visible.map((slot) => slot.actualRange).filter(Boolean)));
   const plannedRange = $derived(combinedRange(visible.map((slot) => slot.plannedRange).filter(Boolean)));
   const mainRange = $derived(actualRange || plannedRange || (primary ? t(slotLabel(primary.status)) : ''));
+  const primaryLabel = $derived(
+    primary?.status === 'empty' && primary.truth.plan
+      ? t('Planned')
+      : primary
+        ? t(slotLabel(primary.status))
+        : ''
+  );
 
   function combinedRange(ranges: string[]): string {
     if (!ranges.length) return '';
@@ -96,7 +105,7 @@
       <b>{actualHours ? formatHours(actualHours) : plannedHours ? formatHours(plannedHours) : '—'}</b>
     </span>
     <span class="attendance-card__summary">
-      <span>{t(slotLabel(primary.status))}</span>
+      <span>{primaryLabel}</span>
       {#if breakMinutes}
         <i></i><span>{t('{minutes}m break', { minutes: breakMinutes })}</span>
       {:else if actualHours}
@@ -160,6 +169,13 @@
   .attendance-card.is-attention { --card-tone: var(--cl-attention); }
   .attendance-card.is-off { --card-tone: var(--cl-evening); }
   .attendance-card.is-live { --card-tone: var(--cl-info); }
+  .attendance-card.is-planned {
+    --card-tone: #7b8490;
+    --card-line: color-mix(in srgb, var(--cl-muted) 28%, var(--cl-line));
+    --card-wash: color-mix(in srgb, var(--cl-surface-muted) 42%, var(--cl-surface));
+    border-style: dashed;
+    box-shadow: none;
+  }
   .attendance-card__signal {
     width: 6px;
     height: 6px;
@@ -170,7 +186,8 @@
     background: var(--card-tone);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--card-tone) 12%, transparent);
   }
-  .attendance-card.is-worked .attendance-card__signal { display: none; }
+  .attendance-card.is-worked .attendance-card__signal,
+  .attendance-card.is-planned .attendance-card__signal { display: none; }
   .attendance-card.is-live .attendance-card__signal { animation: live-pulse 1.8s var(--cl-ease) infinite; }
   .attendance-card__top {
     min-width: 0;
@@ -211,6 +228,10 @@
   .service-row__range { color: color-mix(in srgb, var(--cl-ink) 78%, var(--cl-muted)); font-weight: var(--rst-fw-bold); white-space: nowrap; }
   .service-row__assignment { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .service-row b { color: color-mix(in srgb, var(--card-tone) 72%, var(--cl-ink)); font-size: 8.5px; white-space: nowrap; }
+  .attendance-card.is-planned .attendance-card__top b,
+  .attendance-card.is-planned .service-row__range,
+  .attendance-card.is-planned .service-row b { color: var(--cl-muted); }
+  .attendance-card.is-planned .service-row__icon { color: var(--cl-muted); opacity: .58; }
   @keyframes live-pulse {
     50% { opacity: .55; box-shadow: 0 0 0 6px color-mix(in srgb, var(--card-tone) 0%, transparent); }
   }

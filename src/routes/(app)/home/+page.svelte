@@ -9,6 +9,7 @@
   const modules = $derived(modulesForRole(role).filter((module) => module.key !== 'home'));
   const coreTiles = $derived(modules.filter((module) => !module.placeholder && !module.homeOnly));
   const laterModules = $derived(modules.filter((module) => module.placeholder || module.homeOnly));
+  const workspaceTiles = $derived([...coreTiles, ...laterModules]);
 
   const MODULE_COLOR: Record<string, string> = {
     schedule: 'var(--cl-mod-schedule)',
@@ -37,8 +38,9 @@
       <p>{t('The modules being finalized first: restaurant setup, people, planning, time attendance, payroll preparation and badging.')}</p>
     </div>
     <div class="tiles">
-      {#each coreTiles as module (module.key)}
-        <a class="tile" href={module.href} style="--tile-color:{MODULE_COLOR[module.key] ?? 'var(--cl-muted)'}">
+      {#each workspaceTiles as module (module.key)}
+        <a class="tile" class:is-upcoming={module.placeholder || module.homeOnly} href={module.href} style="--tile-color:{MODULE_COLOR[module.key] ?? 'var(--cl-muted)'}">
+          {#if module.placeholder || module.homeOnly}<span class="tile__badge">{t('Upcoming')}</span>{/if}
           <span class="tile__icon"><ClassicIcon name={module.icon} size={26} /></span>
           <strong>{t(module.label)}</strong>
           <span class="tile__copy">{t(module.summary)}</span>
@@ -46,25 +48,6 @@
       {/each}
     </div>
   </section>
-
-  {#if laterModules.length}
-    <section class="cl-section roadmap-section" aria-label={t('Upcoming modules')}>
-      <div class="section-copy">
-        <h2>{t('Upcoming modules')}</h2>
-        <p>{t('The same workspace will grow with focused modules after the operational core is complete.')}</p>
-      </div>
-      <div class="tiles">
-        {#each laterModules as module (module.key)}
-          <a class="tile is-upcoming" href={module.href} style="--tile-color:{MODULE_COLOR[module.key] ?? 'var(--cl-muted)'}">
-            <span class="tile__badge">{t('Upcoming')}</span>
-            <span class="tile__icon"><ClassicIcon name={module.icon} size={26} /></span>
-            <strong>{t(module.label)}</strong>
-            <span class="tile__copy">{t(module.summary)}</span>
-          </a>
-        {/each}
-      </div>
-    </section>
-  {/if}
 </ClassicPage>
 
 <style>
@@ -79,9 +62,9 @@
   .tile:hover .tile__icon { background: color-mix(in srgb, var(--tile-color) 18%, var(--cl-surface)); }
   .tile strong { font-size: 16px; font-weight: var(--rst-fw-bold); }
   .tile__copy { color: var(--cl-muted); font-size: 13px; line-height: 1.45; }
-  .roadmap-section { margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--cl-line); }
   .tile.is-upcoming { position: relative; background: color-mix(in srgb, var(--cl-surface) 88%, var(--cl-surface-muted)); }
-  .tile__badge { position: absolute; top: 10px; right: 10px; padding: 3px 7px; border: 1px solid var(--cl-line); border-radius: 999px; background: var(--cl-surface-muted); color: var(--cl-muted); font-size: 9px; font-weight: var(--rst-fw-bold); letter-spacing: .03em; text-transform: uppercase; }
+  .tile.is-upcoming .tile__icon { filter: saturate(.68); }
+  .tile__badge { position: absolute; top: 10px; right: 10px; padding: 3px 7px; border: 1px solid color-mix(in srgb, var(--tile-color) 28%, var(--cl-line)); border-radius: 5px; background: color-mix(in srgb, var(--tile-color) 8%, var(--cl-surface)); color: color-mix(in srgb, var(--tile-color) 66%, var(--cl-ink)); font-size: 9px; font-weight: var(--rst-fw-bold); letter-spacing: .04em; text-transform: uppercase; }
   @media (max-width: 980px) { .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
   @media (max-width: 760px) {
     .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
