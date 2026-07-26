@@ -9,6 +9,7 @@ import {
 import { buildEmployeeWeek, employeeMonth } from '../src/lib/employee/employee-model.ts';
 import {
   buildPlanningWeek,
+  planningContractOverages,
   planningDraftForWeek,
   planningOverlapKeys,
   planningOverlaps
@@ -89,6 +90,46 @@ test('adjacent and overnight shifts are not treated as overlaps', () => {
   ];
 
   assert.deepEqual(planningOverlaps(shifts), []);
+});
+
+test('contract-hour overages ignore undefined regimes and report the exact excess', () => {
+  const shifts = [
+    {
+      employeeId: 'e1',
+      weekday: 1,
+      serviceKey: 'lunch',
+      areaId: 'a1',
+      jobFunctionId: 'j1',
+      startsAt: '12:00',
+      endsAt: '23:00',
+      source: 'manual'
+    },
+    {
+      employeeId: 'e1',
+      weekday: 2,
+      serviceKey: 'evening',
+      areaId: 'a1',
+      jobFunctionId: 'j1',
+      startsAt: '18:00',
+      endsAt: '02:00',
+      source: 'manual'
+    },
+    {
+      employeeId: 'unrestricted',
+      weekday: 1,
+      serviceKey: 'lunch',
+      areaId: 'a1',
+      jobFunctionId: 'j1',
+      startsAt: '08:00',
+      endsAt: '23:00',
+      source: 'manual'
+    }
+  ];
+
+  assert.deepEqual(
+    planningContractOverages(shifts, new Map([['e1', 16], ['unrestricted', 0]])),
+    [{ employeeId: 'e1', planned: 19, target: 16, excess: 3 }]
+  );
 });
 
 

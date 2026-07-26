@@ -919,6 +919,9 @@
   justify-content: flex-end;
   padding: 3px 14px 3px 8px;
 }
+.colhead.is-center {
+  text-align: center;
+}
 .colhead__label {
   flex: 1 1 auto;
   min-width: 0;
@@ -1374,12 +1377,12 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 25px;
-  padding: 3px 9px 3px 5px;
+  min-height: 26px;
+  padding: 3px 10px 3px 5px;
   border: 1px solid var(--status-line);
   border-radius: 999px;
   background: var(--status-wash);
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.045), inset 0 1px rgb(255 255 255 / .42);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.08), inset 0 1px rgb(255 255 255 / .56);
   color: var(--status-color);
   font-size: 11.5px;
   font-weight: var(--rst-fw-bold);
@@ -1402,21 +1405,21 @@
 }
 
 .cl-status.is-ok {
-  --status-color: color-mix(in srgb, var(--cl-ok) 78%, #123b2d);
-  --status-wash: color-mix(in srgb, var(--cl-ok) 14%, var(--cl-surface));
-  --status-line: color-mix(in srgb, var(--cl-ok) 31%, var(--cl-line));
+  --status-color: color-mix(in srgb, var(--cl-ok) 88%, #123b2d);
+  --status-wash: color-mix(in srgb, var(--cl-ok) 20%, var(--cl-surface));
+  --status-line: color-mix(in srgb, var(--cl-ok) 43%, var(--cl-line));
 }
 
 .cl-status.is-attention {
-  --status-color: color-mix(in srgb, var(--cl-attention) 84%, #5f3500);
-  --status-wash: color-mix(in srgb, var(--cl-attention) 14%, var(--cl-surface));
-  --status-line: color-mix(in srgb, var(--cl-attention) 32%, var(--cl-line));
+  --status-color: color-mix(in srgb, var(--cl-attention) 91%, #5f3500);
+  --status-wash: color-mix(in srgb, var(--cl-attention) 20%, var(--cl-surface));
+  --status-line: color-mix(in srgb, var(--cl-attention) 44%, var(--cl-line));
 }
 
 .cl-status.is-problem {
-  --status-color: color-mix(in srgb, var(--cl-problem) 82%, #5e1e1e);
-  --status-wash: color-mix(in srgb, var(--cl-problem) 12%, var(--cl-surface));
-  --status-line: color-mix(in srgb, var(--cl-problem) 31%, var(--cl-line));
+  --status-color: color-mix(in srgb, var(--cl-problem) 90%, #5e1e1e);
+  --status-wash: color-mix(in srgb, var(--cl-problem) 18%, var(--cl-surface));
+  --status-line: color-mix(in srgb, var(--cl-problem) 42%, var(--cl-line));
 }
 
 /* -------------------------------------------------- controls ------------- */
@@ -1771,18 +1774,20 @@
   align-items: center;
   min-height: 24px;
   padding: 2px 8px;
-  border: 1px solid color-mix(in srgb, var(--cl-ink) 11%, var(--cl-line));
+  border: 1px solid color-mix(in srgb, var(--cl-info) 22%, var(--cl-line));
   border-radius: 999px;
-  background: color-mix(in srgb, var(--cl-ink) 5%, var(--cl-surface));
-  box-shadow: inset 0 1px rgb(255 255 255 / .5);
-  color: color-mix(in srgb, var(--cl-ink) 68%, var(--cl-muted));
+  background: color-mix(in srgb, var(--cl-info) 9%, var(--cl-surface));
+  box-shadow: 0 1px 1px rgb(15 23 42 / .045), inset 0 1px rgb(255 255 255 / .58);
+  color: color-mix(in srgb, var(--cl-info) 48%, var(--cl-ink));
   font-size: 11.5px;
   font-weight: var(--rst-fw-bold);
   white-space: nowrap;
 }
 
 .cl-badge.is-neutral {
-  background: color-mix(in srgb, var(--cl-ink) 4%, var(--cl-surface));
+  border-color: color-mix(in srgb, var(--cl-ink) 16%, var(--cl-line));
+  background: color-mix(in srgb, var(--cl-ink) 7%, var(--cl-surface));
+  color: color-mix(in srgb, var(--cl-ink) 78%, var(--cl-muted));
 }
 
 /* Curated colour picker shared by Areas and Positions. */

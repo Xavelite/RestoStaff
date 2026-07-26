@@ -31,7 +31,7 @@
     label: string;
     meta?: string;
     metaParts?: string[];
-    align?: 'left' | 'right';
+    align?: 'left' | 'center' | 'right';
     sortable?: boolean;
     sortDir?: 'asc' | 'desc' | null;
     onsort?: (dir: 'asc' | 'desc') => void;

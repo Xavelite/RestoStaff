@@ -4371,3 +4371,36 @@ Object.assign(dutch, {
   'Clear grouping and sorting to reorder': 'Groepering en sortering wissen om te herordenen',
   'No type': 'Geen type'
 });
+
+// Planning header alignment and contracted-hours guardrail.
+Object.assign(french, {
+  'Exceed contracted hours?': 'Dépasser les heures contractuelles ?',
+  'Exceed contracted hours for multiple employees?':
+    'Dépasser les heures contractuelles de plusieurs employés ?',
+  '{name} would have {planned} planned against {target} contracted ({excess} over). The schedule can continue, but this employee will be marked as an hours conflict.':
+    '{name} aurait {planned} planifiées pour {target} contractuelles ({excess} en trop). Le planning peut continuer, mais cet employé sera signalé en conflit d’heures.',
+  '{count} employees would exceed their contracted weekly hours: {names}. The schedule can continue, but each overage will be marked as a conflict.':
+    '{count} employés dépasseraient leurs heures contractuelles hebdomadaires : {names}. Le planning peut continuer, mais chaque dépassement sera signalé comme conflit.',
+  'Plan anyway': 'Planifier quand même',
+  'Keep within contract': 'Respecter le contrat',
+  'Show detailed planning information': 'Afficher les informations détaillées du planning',
+  'Weather unavailable': 'Météo indisponible',
+  'Contracted hours exceeded': 'Heures contractuelles dépassées',
+  'Contract overages': 'Dépassements contractuels'
+});
+
+Object.assign(dutch, {
+  'Exceed contracted hours?': 'Contractuele uren overschrijden?',
+  'Exceed contracted hours for multiple employees?':
+    'Contractuele uren voor meerdere medewerkers overschrijden?',
+  '{name} would have {planned} planned against {target} contracted ({excess} over). The schedule can continue, but this employee will be marked as an hours conflict.':
+    '{name} zou {planned} gepland hebben tegenover {target} contractueel ({excess} te veel). De planning kan doorgaan, maar deze medewerker wordt als urenconflict gemarkeerd.',
+  '{count} employees would exceed their contracted weekly hours: {names}. The schedule can continue, but each overage will be marked as a conflict.':
+    '{count} medewerkers zouden hun contractuele weekuren overschrijden: {names}. De planning kan doorgaan, maar elke overschrijding wordt als conflict gemarkeerd.',
+  'Plan anyway': 'Toch plannen',
+  'Keep within contract': 'Binnen contract blijven',
+  'Show detailed planning information': 'Gedetailleerde planningsinformatie tonen',
+  'Weather unavailable': 'Weer niet beschikbaar',
+  'Contracted hours exceeded': 'Contractuele uren overschreden',
+  'Contract overages': 'Contractoverschrijdingen'
+});

@@ -25,7 +25,7 @@
     label: string;
     meta?: string;
     metaParts?: string[];
-    align?: 'left' | 'right';
+    align?: 'left' | 'center' | 'right';
     sortable?: boolean;
     sortDir?: 'asc' | 'desc' | null;
     onsort?: (dir: 'asc' | 'desc') => void;
@@ -104,7 +104,7 @@
   });
 </script>
 
-<div class="colhead" class:is-right={align === 'right'} bind:this={root}>
+<div class="colhead" class:is-center={align === 'center'} class:is-right={align === 'right'} bind:this={root}>
   <button class="colhead__label" class:is-sortable={sortable} type="button" onclick={toggleSort} title={sortable ? t('Sort') : undefined}>
     <span class="colhead__copy">
       <span>{label}</span>

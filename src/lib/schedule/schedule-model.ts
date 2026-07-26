@@ -53,6 +53,38 @@ export type PlanningOverlap = {
   second: PlanningShiftDraft;
 };
 
+export type PlanningContractOverage = {
+  employeeId: string;
+  planned: number;
+  target: number;
+  excess: number;
+};
+
+/**
+ * Contracted weekly hours are a soft planning guardrail. A missing or zero
+ * target is intentionally unrestricted; positive targets report only the
+ * employees whose planned shift duration exceeds the contract.
+ */
+export function planningContractOverages(
+  shifts: PlanningShiftDraft[],
+  contractHours: ReadonlyMap<string, number>
+): PlanningContractOverage[] {
+  const plannedByEmployee = new Map<string, number>();
+  for (const shift of shifts) {
+    plannedByEmployee.set(
+      shift.employeeId,
+      (plannedByEmployee.get(shift.employeeId) ?? 0) +
+        hoursBetweenClocks(shift.startsAt, shift.endsAt)
+    );
+  }
+
+  return [...contractHours.entries()].flatMap(([employeeId, target]) => {
+    const planned = plannedByEmployee.get(employeeId) ?? 0;
+    if (target <= 0 || planned <= target) return [];
+    return [{ employeeId, planned, target, excess: planned - target }];
+  });
+}
+
 function shiftInterval(shift: Pick<PlanningShiftDraft, 'startsAt' | 'endsAt'>): [number, number] | null {
   const start = clockMinutes(shift.startsAt);
   const rawEnd = clockMinutes(shift.endsAt);

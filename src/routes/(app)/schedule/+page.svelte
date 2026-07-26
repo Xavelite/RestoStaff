@@ -31,6 +31,7 @@
     defaultPlanningShift,
     planningConflicts,
     planningDraftForWeek,
+    planningContractOverages,
     planningNotesForWeek,
     planningOverlapKeys,
     planningOverlaps,
@@ -83,6 +84,13 @@
     estimatedCost: string;
     shifts: DayShiftView[];
   };
+  type ContractOverage = {
+    employeeId: string;
+    employeeName: string;
+    planned: number;
+    target: number;
+    excess: number;
+  };
 
   const SERVICES: ServiceKey[] = ['lunch', 'evening'];
 
@@ -132,6 +140,14 @@
   );
   const employeeActive = $derived(
     new Map((snapshot?.employees ?? []).map((employee) => [employee.id, employee.active]))
+  );
+  const employeeName = $derived(
+    new Map(
+      (snapshot?.employees ?? []).map((employee) => [
+        employee.id,
+        employee.display_name || t('Employee')
+      ])
+    )
   );
   const contractHours = $derived(
     new Map(
@@ -232,13 +248,19 @@
   }
 
   function employeeHours(employeeId: string): number {
-    return scheduleDraft.shifts
+    return employeeHoursIn(scheduleDraft.shifts, employeeId);
+  }
+
+  function employeeHoursIn(shifts: PlanningShiftDraft[], employeeId: string): number {
+    return shifts
       .filter((shift) => shift.employeeId === employeeId)
       .reduce((total, shift) => total + hoursBetweenClocks(shift.startsAt, shift.endsAt), 0);
   }
 
   function hasEmployeeConflict(grid: PlanningGrid, employeeId: string): boolean {
     const overlapKeys = planningOverlapKeys(scheduleDraft.shifts);
+    const target = contractHours.get(employeeId) ?? 0;
+    if (target > 0 && employeeHours(employeeId) > target) return true;
     return [...grid.slotsByKey.values()].some(
       (slot) =>
         slot.employeeId === employeeId &&
@@ -321,6 +343,53 @@
       : [...collapsedGroups, key];
   }
 
+  function contractOverages(shifts: PlanningShiftDraft[]): ContractOverage[] {
+    return planningContractOverages(shifts, contractHours).map((overage) => ({
+      ...overage,
+      employeeName: employeeName.get(overage.employeeId) ?? t('Employee')
+    }));
+  }
+
+  async function replaceDraftWithHoursGuard(next: PlanningShiftDraft[]): Promise<boolean> {
+    const currentHours = new Map(
+      [...new Set(scheduleDraft.shifts.map((shift) => shift.employeeId))]
+        .map((employeeId) => [employeeId, employeeHoursIn(scheduleDraft.shifts, employeeId)])
+    );
+    const newlyIncreasedOverages = contractOverages(next).filter(
+      (overage) => overage.planned > (currentHours.get(overage.employeeId) ?? 0)
+    );
+
+    if (newlyIncreasedOverages.length) {
+      const first = newlyIncreasedOverages[0];
+      const confirmed = await confirmAction({
+        title: t(newlyIncreasedOverages.length === 1
+          ? 'Exceed contracted hours?'
+          : 'Exceed contracted hours for multiple employees?'),
+        body: newlyIncreasedOverages.length === 1
+          ? t('{name} would have {planned} planned against {target} contracted ({excess} over). The schedule can continue, but this employee will be marked as an hours conflict.', {
+              name: first.employeeName,
+              planned: formatHours(first.planned),
+              target: formatHours(first.target),
+              excess: formatHours(first.excess)
+            })
+          : t('{count} employees would exceed their contracted weekly hours: {names}. The schedule can continue, but each overage will be marked as a conflict.', {
+              count: newlyIncreasedOverages.length,
+              names: newlyIncreasedOverages
+                .slice(0, 3)
+                .map((item) => `${item.employeeName} (+${formatHours(item.excess)})`)
+                .join(', ')
+            }),
+        confirmLabel: t('Plan anyway'),
+        cancelLabel: t('Keep within contract'),
+        tone: 'danger'
+      });
+      if (!confirmed) return false;
+    }
+
+    scheduleDraft.replace(next);
+    return true;
+  }
+
   async function copyPreviousWeek(weekStart: string): Promise<void> {
     if (!snapshot) return;
     const previousWeek = addDays(weekStart, -7);
@@ -370,7 +439,10 @@
     });
     if (!confirmed) return;
 
-    if (additions.length) scheduleDraft.replace([...scheduleDraft.shifts, ...additions]);
+    if (additions.length) {
+      const applied = await replaceDraftWithHoursGuard([...scheduleDraft.shifts, ...additions]);
+      if (!applied) return;
+    }
     if (copiedNotes.length) scheduleDraft.replaceNotes([...scheduleDraft.notes, ...copiedNotes]);
     toasts.show(
       additions.length
@@ -509,7 +581,7 @@
     return '';
   }
 
-  function quickPlan(grid: PlanningGrid, employeeId: string, date: string, service: ServiceKey): void {
+  async function quickPlan(grid: PlanningGrid, employeeId: string, date: string, service: ServiceKey): Promise<void> {
     if (!snapshot) return;
     const slot = grid.slotsByKey.get(slotKey(employeeId, date, service));
     if (!slot) return;
@@ -522,7 +594,7 @@
       selectedKey = slot.key;
       return;
     }
-    scheduleDraft.add(next);
+    await replaceDraftWithHoursGuard([...scheduleDraft.shifts, next]);
   }
 
   function beginDrag(key: string): void {
@@ -543,20 +615,19 @@
     return Boolean(target && !target.shift && target.key !== source.key);
   }
 
-  function dropShift(
+  async function dropShift(
     grid: PlanningGrid,
     employeeId: string,
     date: string,
     service: ServiceKey,
     today: string
-  ): void {
+  ): Promise<void> {
     if (!snapshot || !canDrop(grid, employeeId, date, service, today)) return;
     const source = grid.slotsByKey.get(draggingKey);
     const target = grid.slotsByKey.get(slotKey(employeeId, date, service));
     if (!source?.shift || !target) return;
     const defaults = defaultPlanningShift(snapshot, target);
-    scheduleDraft.replace(
-      scheduleDraft.shifts.map((shift) =>
+    const next = scheduleDraft.shifts.map((shift) =>
         shift === source.shift
           ? {
               ...shift,
@@ -567,8 +638,12 @@
               endsAt: service === source.serviceKey ? shift.endsAt : defaults?.endsAt ?? shift.endsAt
             }
           : shift
-      )
-    );
+      );
+    if (!await replaceDraftWithHoursGuard(next)) {
+      draggingKey = '';
+      dropKey = '';
+      return;
+    }
     draggingKey = '';
     dropKey = '';
   }
@@ -657,7 +732,7 @@
     const gaps = snapshot ? coverageIssues(snapshot, scheduleDraft.shifts, weekStart) : [];
     const conflicts = snapshot ? planningConflicts(snapshot, scheduleDraft.shifts, weekStart) : [];
     const pending = pendingRequestCount(grid);
-    if (gaps.length || conflicts.length || pending) {
+    if (gaps.length || conflicts.length || pending || contractOverages(scheduleDraft.shifts).length) {
       showPublishConfirm = true;
       return;
     }
@@ -697,20 +772,21 @@
         {@const publishGaps = snapshot ? coverageIssues(snapshot, scheduleDraft.shifts, week.weekStart) : []}
         {@const publishConflicts = snapshot ? planningConflicts(snapshot, scheduleDraft.shifts, week.weekStart) : []}
         {@const publishPending = pendingRequestCount(grid)}
+        {@const publishContractOverages = contractOverages(scheduleDraft.shifts)}
         <section class="schedule-panel" class:is-compact={compactCards}>
           <header class="schedule-head">
             <div class="schedule-head__left">
-              <button
-                class="density-toggle"
-                class:is-active={!compactCards}
-                type="button"
-                aria-pressed={!compactCards}
-                title={t(compactCards ? 'Show detailed cards' : 'Show compact cards')}
-                onclick={toggleCardDensity}
-              >
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 6h14v12H5z"/><path d="M8 10h8M8 14h5"/></svg>
+              <label class="details-switch" title={t(compactCards ? 'Show detailed cards' : 'Show compact cards')}>
                 <span>{t('Details')}</span>
-              </button>
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={!compactCards}
+                  aria-label={t('Show detailed planning information')}
+                  onchange={toggleCardDensity}
+                />
+                <i aria-hidden="true"><b></b></i>
+              </label>
             </div>
 
             <div class="week-nav" aria-label={t('Week')}>
@@ -776,6 +852,7 @@
                       metaParts={compactCards
                         ? [formatHours(weekHours)]
                         : [formatHours(weekHours), weekCost > 0 ? `~${money(weekCost)}` : '—']}
+                      align="center"
                       sortable
                       sortDir={employeeSort}
                       onsort={(dir) => (employeeSort = dir)}
@@ -807,20 +884,32 @@
                     <th class="board__day" class:is-today={day.today} class:is-weekend={day.weekday >= 6}>
                       <div class="board__day-date"><b>{t(day.label)}</b> {Number(day.date.slice(-2))}</div>
                       <div class="board__day-lower">
-                        <div class="board__day-operations">
-                          <span>{dayEmployees} {t(dayEmployees === 1 ? 'employee' : 'employees')}</span>
-                          <b>
+                        <div class="board__day-stat board__day-operations">
+                          <span class="board__day-signal">
+                            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.5 19c.4-3.2 2.2-5 5.5-5s5.1 1.8 5.5 5M16 5.5a3 3 0 0 1 0 5.8M16 14c2.8.2 4.2 1.8 4.5 4.5"/></svg>
+                            {dayEmployees} {t(dayEmployees === 1 ? 'employee' : 'employees')}
+                          </span>
+                          <b class="board__day-metric">
                             {formatHours(total)}
                             {#if !compactCards}<i>·</i>{totalCost > 0 ? `~${money(totalCost)}` : '—'}{/if}
                           </b>
                         </div>
                         {#if weather}
                           <div
-                            class="board__weather"
+                            class="board__day-stat board__weather"
                             title={`${t(weatherCondition(weather.code))} · ${Math.round(weather.lowC)}–${Math.round(weather.highC)}°C · ${t('{chance}% rain', { chance: Math.round(weather.rainChance) })}`}
                           >
-                            <WeatherIcon code={weather.code} size={23} />
-                            <span><b>{Math.round(weather.highC)}°</b><i>·</i>{Math.round(weather.rainChance)}%</span>
+                            <span class="board__day-signal"><WeatherIcon code={weather.code} size={21} /></span>
+                            <b class="board__day-metric board__weather-metric">
+                              <span>{Math.round(weather.highC)}°</span>
+                              <svg viewBox="0 0 16 16" width="8" height="8" fill="currentColor" aria-hidden="true"><path d="M8 1.2S3.4 6.5 3.4 10A4.6 4.6 0 0 0 8 14.6 4.6 4.6 0 0 0 12.6 10C12.6 6.5 8 1.2 8 1.2Z"/></svg>
+                              <span>{Math.round(weather.rainChance)}%</span>
+                            </b>
+                          </div>
+                        {:else}
+                          <div class="board__day-stat board__weather is-unavailable" aria-label={t('Weather unavailable')}>
+                            <span class="board__day-signal">—</span>
+                            <b class="board__day-metric">—</b>
                           </div>
                         {/if}
                       </div>
@@ -848,18 +937,20 @@
                         {@const planned = employeeHours(row.id)}
                         {@const plannedCost = shiftsCost(scheduleDraft.shifts.filter((shift) => shift.employeeId === row.id))}
                         {@const progress = target ? Math.min(100, Math.round((planned / target) * 100)) : 0}
+                        {@const hoursState = target > 0 && planned > target ? 'over' : target > 0 && planned >= target ? 'complete' : 'under'}
                         {@const active = employeeActive.get(row.id) !== false}
-                        <tr class:is-archived={!active}>
+                        <tr class:is-archived={!active} class:is-hours-over={hoursState === 'over'}>
                           <td class="board__staff">
                             <span class="staff">
                               <span class="cl-avatar" style="--avatar-color:{employeeColor.get(row.id) ?? 'var(--cl-muted)'}">{personInitials(row.name)}</span>
                               <span class="staff__id">
                                 <span class="staff__name"><strong>{row.name}</strong>{#if !active}<em>{t('Archived')}</em>{/if}</span>
-                                <span class="staff__hours">
+                                <span class="staff__hours is-{hoursState}">
                                   <span><b>{formatHours(planned)}</b>{#if target} / {formatHours(target)}{/if}</span>
+                                  {#if hoursState === 'over'}<strong class="staff__overage" title={t('Contracted hours exceeded')}>+{formatHours(planned - target)}</strong>{/if}
                                   {#if !compactCards}<em>{plannedCost > 0 ? `~${money(plannedCost)}` : '—'}</em>{/if}
                                 </span>
-                                {#if target}<span class="staff__meter"><i style={`width:${progress}%`}></i></span>{/if}
+                                {#if target}<span class="staff__meter is-{hoursState}" aria-label={`${formatHours(planned)} / ${formatHours(target)}`}><i style={`width:${progress}%`}></i></span>{/if}
                               </span>
                             </span>
                           </td>
@@ -888,8 +979,8 @@
                                     aria-label={t(service === 'evening' ? 'Plan evening shift' : 'Plan lunch shift')}
                                     ondragover={(event) => { if (canDrop(grid, row.id, cell.date, service, week.today)) { event.preventDefault(); dropKey = targetKey; } }}
                                     ondragleave={() => { if (dropKey === targetKey) dropKey = ''; }}
-                                    ondrop={(event) => { event.preventDefault(); dropShift(grid, row.id, cell.date, service, week.today); }}
-                                    onclick={() => quickPlan(grid, row.id, cell.date, service)}
+                                    ondrop={(event) => { event.preventDefault(); void dropShift(grid, row.id, cell.date, service, week.today); }}
+                                    onclick={() => void quickPlan(grid, row.id, cell.date, service)}
                                   >
                                     <span class="service-zone__cue"><ClassicServiceIcon {service} size={14} /></span>
                                     {#if label}<span class="service-zone__state">{label}</span>{/if}
@@ -946,8 +1037,8 @@
                                             aria-label={t(service === 'evening' ? 'Plan evening shift' : 'Plan lunch shift')}
                                             ondragover={(event) => { if (canDrop(grid, row.id, cell.date, service, week.today)) { event.preventDefault(); dropKey = targetKey; } }}
                                             ondragleave={() => { if (dropKey === targetKey) dropKey = ''; }}
-                                            ondrop={(event) => { event.preventDefault(); dropShift(grid, row.id, cell.date, service, week.today); }}
-                                            onclick={() => quickPlan(grid, row.id, cell.date, service)}
+                                            ondrop={(event) => { event.preventDefault(); void dropShift(grid, row.id, cell.date, service, week.today); }}
+                                            onclick={() => void quickPlan(grid, row.id, cell.date, service)}
                                           ><span>+ {t(service === 'evening' ? 'Evening' : 'Lunch')}</span></button>
                                         {/if}
                                       {/each}
@@ -1060,6 +1151,7 @@
               <span><b>{publishConflicts.length}</b>{t('Conflicts')}</span>
               <span><b>{publishGaps.length}</b>{t('Coverage gaps')}</span>
               <span><b>{publishPending}</b>{t('Pending requests')}</span>
+              <span><b>{publishContractOverages.length}</b>{t('Contract overages')}</span>
             </div>
             <p>{t('These points do not block publication. Employees will see the schedule exactly as shown after you confirm.')}</p>
             <div class="publish-review__actions">
@@ -1086,7 +1178,7 @@
             draft={scheduleDraft.shifts}
             notes={scheduleDraft.notes}
             editable={week.editable && selectedSlot.date >= week.today}
-            onchange={(next) => scheduleDraft.replace(next)}
+            onchange={(next) => void replaceDraftWithHoursGuard(next)}
             onnotes={(next) => scheduleDraft.replaceNotes(next)}
             oncancelleave={async () => {
               const absence = leaveForSlot(selectedSlot, snapshot.absences, ['pending', 'approved']);
@@ -1159,9 +1251,14 @@
   .icon-btn:disabled { opacity: .42; cursor: default; }
   .week-nav > .icon-btn { width: 34px; height: 34px; border: 0; border-radius: 0; background: var(--cl-surface); }
   .week-nav > .icon-btn:hover:not(:disabled) { border-color: transparent; color: var(--cl-ink); background: var(--cl-surface-muted); }
-  .density-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 4px 9px; border: 1px solid var(--cl-line); border-radius: 5px; background: transparent; color: var(--cl-muted); font: inherit; font-size: 11px; font-weight: var(--rst-fw-medium); cursor: pointer; transition: border-color var(--cl-dur) var(--cl-ease), color var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease); }
-  .density-toggle:hover { border-color: var(--cl-line-strong); color: var(--cl-ink); background: var(--cl-surface-muted); }
-  .density-toggle.is-active { border-color: color-mix(in srgb, var(--cl-accent) 34%, var(--cl-line)); color: var(--cl-accent); background: var(--cl-accent-wash); }
+  .details-switch { display: inline-flex; align-items: center; gap: 8px; min-height: 30px; color: var(--cl-muted); font-size: 11.5px; font-weight: var(--rst-fw-bold); cursor: pointer; user-select: none; }
+  .details-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  .details-switch > i { position: relative; width: 32px; height: 18px; flex: 0 0 auto; border: 1px solid var(--cl-line-strong); border-radius: 999px; background: var(--cl-surface-muted); box-shadow: inset 0 1px 2px rgb(15 23 42 / .06); transition: border-color var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease); }
+  .details-switch > i b { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--cl-muted); box-shadow: 0 1px 2px rgb(15 23 42 / .2); transition: transform var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease); }
+  .details-switch input:checked + i { border-color: color-mix(in srgb, var(--cl-accent) 54%, var(--cl-line)); background: color-mix(in srgb, var(--cl-accent) 18%, var(--cl-surface)); }
+  .details-switch input:checked + i b { background: var(--cl-accent); transform: translateX(14px); }
+  .details-switch:has(input:checked) { color: var(--cl-ink); }
+  .details-switch:has(input:focus-visible) > i { outline: 2px solid color-mix(in srgb, var(--cl-accent) 28%, transparent); outline-offset: 2px; }
   .publish-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; padding: 7px 15px; border: 1px solid var(--cl-accent); border-radius: 6px; background: var(--cl-accent); color: white; font: inherit; font-size: 13px; font-weight: var(--rst-fw-bold); cursor: pointer; }
   .publish-btn:hover:not(:disabled) { filter: brightness(.97); box-shadow: 0 4px 12px color-mix(in srgb, var(--cl-accent) 22%, transparent); }
   .publish-btn:disabled { cursor: default; }
@@ -1180,18 +1277,24 @@
   .board td { height: 90px; padding: 0; border-bottom: 1px solid color-mix(in srgb, var(--cl-ink) 14%, var(--cl-grid-line)); background: var(--cl-surface); background-clip: padding-box; vertical-align: middle; }
   .board__staff { position: sticky; left: 0; z-index: 4; width: 230px; border-right: 1px solid var(--cl-grid-line); background: var(--cl-surface) !important; }
   thead .board__staff { z-index: 10; background: var(--cl-thead) !important; }
+  thead .board__staff :global(.cl-primary-head) { position: relative; }
+  thead .board__staff :global(.cl-primary-head > .colhead) { width: 100%; padding-inline: 0; }
+  thead .board__staff :global(.colhead__label) { justify-content: center; padding-inline: 0; }
+  thead .board__staff :global(.colhead__copy) { width: auto; justify-items: center; }
+  thead .board__staff :global(.colhead__meta) { width: auto; justify-content: center; }
+  thead .board__staff :global(.colhead__trigger) { position: absolute; top: 50%; right: 31px; transform: translateY(-50%); }
+  thead .board__staff :global(.groupmenu) { position: absolute; top: 0; right: 0; bottom: 0; padding-right: 6px; }
   .board__day { border-left: 1px solid var(--cl-grid-line); text-align: center !important; }
   .board__day-date { color: var(--cl-ink); font-size: 12px; line-height: 1.05; text-align: center; white-space: nowrap; }
   .board__day-date b { font-weight: var(--rst-fw-bold); }
-  .board__day-lower { min-height: 38px; display: grid; grid-template-columns: minmax(0, 1fr) 43px; align-items: center; gap: 4px; margin-top: 2px; }
-  .board__day-operations { min-width: 0; display: grid; justify-items: center; gap: 3px; color: var(--cl-muted); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
-  .board__day-operations > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-  .board__day-operations b { color: color-mix(in srgb, var(--cl-ink) 72%, var(--cl-muted)); font-size: 8.5px; font-weight: var(--rst-fw-bold); }
-  .board__day-operations i,
-  .board__weather i { margin: 0 3px; color: var(--cl-line-strong); font-style: normal; }
-  .board__weather { min-width: 0; display: grid; justify-items: center; gap: 0; color: color-mix(in srgb, var(--cl-ink) 69%, var(--cl-muted)); font-size: 8.5px; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
-  .board__weather > span { display: flex; align-items: center; }
-  .board__weather b { color: color-mix(in srgb, var(--cl-ink) 80%, var(--cl-muted)); font-size: 8.5px; }
+  .board__day-lower { min-height: 38px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(42px, .72fr); align-items: stretch; gap: 4px; margin-top: 2px; }
+  .board__day-stat { min-width: 0; display: grid; grid-template-rows: 23px 11px; place-items: center; color: var(--cl-muted); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
+  .board__day-signal { min-width: 0; max-width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 3px; overflow: hidden; text-overflow: ellipsis; }
+  .board__day-signal > svg { flex: 0 0 auto; }
+  .board__day-metric { min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 3px; overflow: hidden; color: color-mix(in srgb, var(--cl-ink) 78%, var(--cl-muted)); font-size: 8.5px; font-weight: var(--rst-fw-bold); text-overflow: ellipsis; }
+  .board__day-metric i { margin: 0 1px; color: var(--cl-line-strong); font-style: normal; }
+  .board__weather-metric svg { color: #3287b8; }
+  .board__weather.is-unavailable { opacity: .5; }
   .board__day.is-today { color: var(--cl-accent); background: var(--cl-accent-wash); }
   .board__day.is-weekend:not(.is-today) { background: color-mix(in srgb, var(--cl-surface-muted) 58%, var(--cl-thead)); }
   .board__cell { position: relative; border-left: 1px solid var(--cl-grid-line); }
@@ -1206,11 +1309,19 @@
   .staff__name { display: flex; align-items: center; gap: 7px; min-width: 0; }
   .staff__name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: var(--rst-fw-bold); }
   .staff__name em { padding: 2px 5px; border: 1px solid var(--cl-line); border-radius: 999px; color: var(--cl-muted); font-size: 9px; font-style: normal; text-transform: uppercase; }
-  .staff__hours { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; color: var(--cl-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .staff__hours { display: flex; align-items: baseline; justify-content: flex-start; gap: 5px; color: var(--cl-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
   .staff__hours b { color: var(--cl-ink); }
-  .staff__hours em { flex: 0 0 auto; color: color-mix(in srgb, var(--cl-accent) 58%, var(--cl-muted)); font-size: 10px; font-style: normal; font-weight: var(--rst-fw-medium); }
+  .staff__hours em { flex: 0 0 auto; color: color-mix(in srgb, var(--cl-accent) 64%, var(--cl-muted)); font-size: 10px; font-style: normal; font-weight: var(--rst-fw-medium); }
+  .staff__hours em::before { content: '·'; margin-right: 5px; color: var(--cl-line-strong); }
+  .staff__hours.is-complete b { color: var(--cl-ok); }
+  .staff__hours.is-over b { color: var(--cl-problem); }
+  .staff__overage { padding: 1px 4px; border: 1px solid var(--cl-problem-line); border-radius: 999px; color: var(--cl-problem); background: var(--cl-problem-wash); font-size: 8.5px; line-height: 1.2; }
   .staff__meter { width: 100%; height: 4px; overflow: hidden; border-radius: 999px; background: var(--cl-line); }
-  .staff__meter i { display: block; height: 100%; border-radius: inherit; background: var(--cl-accent); }
+  .staff__meter i { display: block; height: 100%; border-radius: inherit; background: var(--cl-info); transition: width var(--cl-dur-slow) var(--cl-ease), background var(--cl-dur) var(--cl-ease); }
+  .staff__meter.is-complete i { background: var(--cl-ok); }
+  .staff__meter.is-over { background: color-mix(in srgb, var(--cl-problem) 14%, var(--cl-line)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--cl-problem) 18%, transparent); }
+  .staff__meter.is-over i { background: var(--cl-problem); }
+  tr.is-hours-over > td.board__staff { background: color-mix(in srgb, var(--cl-problem) 3%, var(--cl-surface)) !important; }
 
   .service-canvas { position: relative; min-height: 89px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: hidden; }
   .schedule-panel.is-compact .board td { height: 66px; }
@@ -1322,7 +1433,7 @@
   .draft-save > span i { width: 6px; height: 6px; border-radius: 50%; background: var(--cl-attention); }
 
   .publish-review { display: grid; gap: 16px; padding: 16px; }
-  .publish-review__stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .publish-review__stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
   .publish-review__stats span { display: grid; gap: 4px; padding: 12px; border: 1px solid var(--cl-line); border-radius: 6px; background: var(--cl-surface-muted); color: var(--cl-muted); font-size: 11px; }
   .publish-review__stats b { color: var(--cl-ink); font-size: 20px; }
   .publish-review p { margin: 0; color: var(--cl-muted); font-size: 13px; line-height: 1.55; }
