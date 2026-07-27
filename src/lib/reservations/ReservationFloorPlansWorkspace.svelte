@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { friendlyError } from '$lib/api/error-messages';
   import Dialog from '$lib/components/Dialog.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
-  import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
+  import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
+  import ClassicCellBadge from '$lib/classic/ClassicCellBadge.svelte';
   import type { ClassicRestaurantContext } from '$lib/classic/classic-workspace-context';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
@@ -49,9 +50,7 @@
   let selectedRoomId = $state('');
   let selectedTableId = $state('');
   let tableToArchive = $state<ReservationTableDraft | null>(null);
-  let areaPickerOpen = $state(false);
-  let areaCatalogueSearch = $state('');
-  let customAreaName = $state('');
+  let newAreaId = $state('');
   let compactViewport = $state(false);
   let editorView = $state<'plan' | 'list'>('plan');
   let tableLayoutMode = $state<'tables' | 'areas'>('tables');
@@ -60,13 +59,13 @@
   const TABLE_GRID = 10;
   const editorReadOnly = $derived(compactViewport || workspace.isPreview);
   const availableCatalogueAreas = $derived.by(() => {
-    const term = areaCatalogueSearch.trim().toLowerCase();
-    return WORKSPACE_AREA_CATALOGUE.filter(
-      (area) =>
-        (!term ||
-          area.label.toLowerCase().includes(term) ||
-          area.category.toLowerCase().includes(term))
+    const usedKeys = new Set(
+      (restaurantContext?.draft.areas ?? [])
+        .filter((area) => area.active)
+        .map((area) => area.catalogueKey)
+        .filter(Boolean)
     );
+    return WORKSPACE_AREA_CATALOGUE.filter((area) => !usedKeys.has(area.key));
   });
 
   onMount(() => {
@@ -108,6 +107,9 @@
       return left.level - right.level || left.sort_order - right.sort_order;
     });
   });
+  const selectedFloorIndex = $derived(
+    selectableFloors.findIndex((floor) => floor.id === selectedFloorId)
+  );
   const mergedRooms = $derived.by(() => {
     if (!draft || !source) return [] as ReservationRoom[];
     return draft.rooms
@@ -130,6 +132,7 @@
             (area?.metadata && typeof area.metadata === 'object' && !Array.isArray(area.metadata) && typeof area.metadata.color === 'string'
               ? area.metadata.color
               : null),
+          area_icon: draftArea?.iconKey ?? area?.icon_key ?? null,
           position_x: room.position_x,
           position_y: room.position_y,
           width: room.width,
@@ -174,9 +177,6 @@
   );
   const selectedTable = $derived(
     draft?.tables.find((table) => table.id === selectedTableId) ?? null
-  );
-  const selectedAreaType = $derived(
-    workspaceAreaByKey.get(selectedAreaDraft?.catalogueKey ?? '') ?? null
   );
   $effect(() => {
     const restaurantId = workspace.activeId;
@@ -358,18 +358,17 @@
     return count === 1 ? t('1 table') : t('{count} tables', { count });
   }
 
-  function uniqueAreaName(base: string): string {
-    const fallback = t('Area {number}', {
-      number: (restaurantContext?.draft.areas.length ?? 0) + 1
-    });
-    const clean = base.trim() || fallback;
-    const names = new Set(
-      (restaurantContext?.draft.areas ?? []).map((area) => area.name.trim().toLowerCase())
-    );
-    if (!names.has(clean.toLowerCase())) return clean;
-    let suffix = 2;
-    while (names.has(`${clean} ${suffix}`.toLowerCase())) suffix += 1;
-    return `${clean} ${suffix}`;
+  function selectFloor(floorId: string): void {
+    if (!selectableFloors.some((floor) => floor.id === floorId)) return;
+    selectedFloorId = floorId;
+    selectedRoomId = '';
+    selectedTableId = '';
+  }
+
+  function navigateFloor(offset: number): void {
+    const currentIndex = selectableFloors.findIndex((floor) => floor.id === selectedFloorId);
+    const next = selectableFloors[currentIndex + offset];
+    if (next) selectFloor(next.id);
   }
 
   function positionCountForArea(areaId: string): number {
@@ -382,14 +381,13 @@
     );
   }
 
-  function addArea(catalogueKey = '', customName = '') {
+  async function addArea() {
     if (!draft || !selectedFloor || !restaurantContext || workspace.isPreview) return;
     const areas = restaurantContext.draft.areas;
-    const catalogue = workspaceAreaByKey.get(catalogueKey);
     const id = crypto.randomUUID();
     const area = {
       id,
-      name: uniqueAreaName(catalogue?.label ?? customName),
+      name: '',
       code: '',
       notes: '',
       active: true,
@@ -397,9 +395,9 @@
       lunchEnd: '',
       eveningStart: '',
       eveningEnd: '',
-      color: catalogue?.color ?? defaultAreaColor(areas.length),
-      catalogueKey: catalogue?.key ?? '',
-      iconKey: catalogue?.icon ?? ''
+      color: defaultAreaColor(areas.length),
+      catalogueKey: '',
+      iconKey: ''
     };
     areas.push(area);
     const geometry = nextAreaGeometry(selectedFloor, floorRooms.length);
@@ -425,24 +423,42 @@
     selectedTableId = '';
     restaurantConfig.touch();
     touch();
-    areaPickerOpen = false;
-    areaCatalogueSearch = '';
-    customAreaName = '';
+    newAreaId = id;
+    await tick();
+    document.querySelector<HTMLInputElement>(`[data-area-name="${id}"]`)?.focus();
   }
 
-  function addCustomArea() {
-    if (!customAreaName.trim()) return;
-    addArea('', customAreaName);
+  function applyAreaCatalogue(areaId: string): void {
+    const area = restaurantContext?.draft.areas.find((candidate) => candidate.id === areaId);
+    if (!area || area.catalogueKey) return;
+    const match = availableCatalogueAreas.find(
+      (item) => item.label.toLowerCase() === area.name.trim().toLowerCase()
+    );
+    if (!match) return;
+    area.catalogueKey = match.key;
+    area.color = match.color;
+    area.iconKey = match.icon;
+    restaurantConfig.touch();
   }
 
-  async function archiveArea() {
-    if (!draft || !selectedRoomDraft || !selectedAreaDraft || !restaurantContext || workspace.isPreview) return;
-    const linkedPositions = positionCountForArea(selectedAreaDraft.id);
+  function areaNameChanged(areaId: string): void {
+    applyAreaCatalogue(areaId);
+    if (newAreaId === areaId) newAreaId = '';
+  }
+
+  async function archiveArea(roomId = selectedRoomId) {
+    if (!draft || !restaurantContext || workspace.isPreview) return;
+    const roomDraft = draft.rooms.find((room) => room.id === roomId);
+    const areaDraft = restaurantContext.draft.areas.find(
+      (area) => area.id === roomDraft?.work_area_id
+    );
+    if (!roomDraft || !areaDraft) return;
+    const linkedPositions = positionCountForArea(areaDraft.id);
     const linkedTables = draft.tables.filter(
-      (table) => table.room_id === selectedRoomDraft.id && table.active
+      (table) => table.room_id === roomDraft.id && table.active
     ).length;
     const confirmed = await confirmAction({
-      title: t('Archive {name}?', { name: selectedAreaDraft.name }),
+      title: t('Archive {name}?', { name: areaDraft.name }),
       body: t(
         'This removes the area from Planning and Staffing, unlinks {positions} positions and archives {tables} reservation tables.',
         { positions: linkedPositions, tables: linkedTables }
@@ -450,20 +466,20 @@
       confirmLabel: t('Archive area')
     });
     if (!confirmed) return;
-    const archivedAreaId = selectedAreaDraft.id;
-    const persisted = (workspace.restaurant?.work_areas ?? []).some((area) => area.id === selectedAreaDraft.id);
+    const archivedAreaId = areaDraft.id;
+    const persisted = (workspace.restaurant?.work_areas ?? []).some((area) => area.id === areaDraft.id);
     if (persisted) {
-      selectedAreaDraft.active = false;
-      selectedRoomDraft.active = false;
+      areaDraft.active = false;
+      roomDraft.active = false;
       draft.tables
-        .filter((table) => table.room_id === selectedRoomDraft.id)
+        .filter((table) => table.room_id === roomDraft.id)
         .forEach((table) => (table.active = false));
     } else {
       restaurantContext.draft.areas = restaurantContext.draft.areas.filter(
-        (area) => area.id !== selectedAreaDraft.id
+        (area) => area.id !== areaDraft.id
       );
-      draft.rooms = draft.rooms.filter((room) => room.id !== selectedRoomDraft.id);
-      draft.tables = draft.tables.filter((table) => table.room_id !== selectedRoomDraft.id);
+      draft.rooms = draft.rooms.filter((room) => room.id !== roomDraft.id);
+      draft.tables = draft.tables.filter((table) => table.room_id !== roomDraft.id);
     }
     restaurantContext.draft.coverage = restaurantContext.draft.coverage.filter(
       (item) => item.areaId !== archivedAreaId
@@ -480,23 +496,61 @@
   }
 
   function assignRoom(room: ReservationRoom) {
-    if (!selectedFloor || !draft) return;
-    const target = draft.rooms.find((item) => item.id === room.id);
-    if (!target) return;
-    const geometry = nextAreaGeometry(selectedFloor, floorRooms.length);
-    target.floor_id = selectedFloor.id;
+    if (!selectedFloor) return;
+    moveAreaToFloor(room.id, selectedFloor.id, true);
+  }
+
+  function openAreaOnPlan(room: ReservationRoom): void {
+    if (room.floor_id) {
+      selectedFloorId = room.floor_id;
+      selectedRoomId = room.id;
+      selectedTableId = '';
+    } else {
+      assignRoom(room);
+    }
+    editorView = 'plan';
+  }
+
+  function moveAreaToFloor(roomId: string, floorId: string, navigate = false): void {
+    if (!draft || workspace.isPreview) return;
+    const target = draft.rooms.find((room) => room.id === roomId);
+    const floor = draft.floors.find((candidate) => candidate.id === floorId && candidate.active);
+    if (!target || !floor || target.floor_id === floor.id) {
+      if (navigate && floor) {
+        selectedFloorId = floor.id;
+        selectedRoomId = roomId;
+        selectedTableId = '';
+      }
+      return;
+    }
+    const targetFloorRooms = mergedRooms.filter(
+      (room) => room.floor_id === floor.id && room.id !== roomId
+    );
+    const geometry = nextAreaGeometry(floor, targetFloorRooms.length);
+    const dx = geometry.x - Number(target.position_x);
+    const dy = geometry.y - Number(target.position_y);
+    target.floor_id = floor.id;
     target.position_x = geometry.x;
     target.position_y = geometry.y;
     target.width = geometry.width;
     target.height = geometry.height;
-    if (geometry.y + geometry.height + ROOM_GRID > selectedFloor.canvas_height) {
-      selectedFloor.canvas_height = Math.min(
+    draft.tables
+      .filter((table) => table.room_id === roomId)
+      .forEach((table) => {
+        table.position_x = Number(table.position_x) + dx;
+        table.position_y = Number(table.position_y) + dy;
+      });
+    if (geometry.y + geometry.height + ROOM_GRID > floor.canvas_height) {
+      floor.canvas_height = Math.min(
         1200,
         snap(geometry.y + geometry.height + ROOM_GRID)
       );
     }
-    selectedRoomId = target.id;
-    selectedTableId = '';
+    if (navigate) {
+      selectedFloorId = floor.id;
+      selectedRoomId = roomId;
+      selectedTableId = '';
+    }
     touch();
   }
 
@@ -784,6 +838,40 @@
   }
 </script>
 
+{#snippet floorNavigator()}
+  <div class="floor-navigator" aria-label={t('Floors')}>
+    <button
+      type="button"
+      aria-label={t('Previous floor')}
+      title={t('Previous floor')}
+      disabled={selectedFloorIndex <= 0}
+      onclick={() => navigateFloor(-1)}
+    >
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+    </button>
+    <label>
+      <span class="sr-only">{t('Floor')}</span>
+      <select
+        value={selectedFloorId}
+        onchange={(event) => selectFloor((event.currentTarget as HTMLSelectElement).value)}
+      >
+        {#each selectableFloors as floor (floor.id)}
+          <option value={floor.id}>{floorLevel(floor.level)} · {floorLabel(floor)}</option>
+        {/each}
+      </select>
+    </label>
+    <button
+      type="button"
+      aria-label={t('Next floor')}
+      title={t('Next floor')}
+      disabled={selectedFloorIndex < 0 || selectedFloorIndex >= selectableFloors.length - 1}
+      onclick={() => navigateFloor(1)}
+    >
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+    </button>
+  </div>
+{/snippet}
+
 <svelte:head><title>{t(mode === 'areas' ? 'Areas' : 'Tables')} &middot; restogogo</title></svelte:head>
 
 {#if error}<div class="floor-error" role="alert">{error}</div>{/if}
@@ -806,7 +894,7 @@
           <button class:is-active={editorView === 'plan'} type="button" onclick={() => (editorView = 'plan')}>{t('Plan')}</button>
           <button class:is-active={editorView === 'list'} type="button" onclick={() => (editorView = 'list')}>{t('List')}</button>
         </div>
-        <button class="cl-btn is-primary" type="button" disabled={!selectedFloor || editorReadOnly} onclick={() => (areaPickerOpen = true)}>+ {t('Add area')}</button>
+        <button class="cl-btn is-primary" type="button" disabled={!selectedFloor || editorReadOnly} onclick={() => void addArea()}>+ {t('Add area')}</button>
       {:else}
         <div class="view-switch" aria-label={t('View')}>
           <button class:is-active={tableLayoutMode === 'tables'} type="button" onclick={() => setTableLayoutMode('tables')}>{t('Arrange tables')}</button>
@@ -825,7 +913,6 @@
                 <tr>
                   <th>{t('Area')}</th>
                   <th>{t('Floor')}</th>
-                  <th>{t('Type')}</th>
                   <th class="is-num">{t('Positions')}</th>
                   <th>{t('Status')}</th>
                   <th aria-label={t('Actions')}></th>
@@ -835,79 +922,119 @@
                 {#each orderedAreaRooms as room (room.id)}
                   {@const floor = draft.floors.find((item) => item.id === room.floor_id)}
                   {@const areaDraft = restaurantContext?.draft.areas.find((area) => area.id === room.work_area_id)}
-                  {@const areaType = workspaceAreaByKey.get(areaDraft?.catalogueKey ?? '')}
                   <tr class:is-attention={!room.floor_id}>
                     <td>
-                      <span class="cl-table__name">
+                      <span class="area-row-name">
                         <WorkspaceAreaIcon icon={areaIconFor(room.work_area_id)} color={room.area_color} size={18} />
-                        <span class="cl-cellstack"><strong>{room.name}</strong><small class="cl-cellsub">{areaType ? t(areaType.reservable ? 'Guest-facing' : 'Operations') : t('Custom area')}</small></span>
+                        {#if areaDraft}
+                          <input
+                            class="cl-field"
+                            data-area-name={areaDraft.id}
+                            list="restaurant-area-catalogue"
+                            placeholder={t('Select or type an area')}
+                            disabled={editorReadOnly}
+                            bind:value={areaDraft.name}
+                            oninput={() => restaurantConfig.touch()}
+                            onchange={() => areaNameChanged(areaDraft.id)}
+                            onblur={() => areaNameChanged(areaDraft.id)}
+                          />
+                        {:else}
+                          <strong>{room.name}</strong>
+                        {/if}
                       </span>
                     </td>
-                    <td class:is-quiet={!floor}>{floor ? floorLabel(floor) : t('Not placed')}</td>
-                    <td class="is-quiet">{areaType ? t(areaType.label) : t('Custom')}</td>
+                    <td>
+                      <select
+                        class="cl-field floor-select"
+                        aria-label={t('Floor')}
+                        disabled={editorReadOnly}
+                        value={room.floor_id ?? ''}
+                        onchange={(event) =>
+                          moveAreaToFloor(
+                            room.id,
+                            (event.currentTarget as HTMLSelectElement).value
+                          )}
+                      >
+                        <option value="" disabled>{t('Not placed')}</option>
+                        {#each selectableFloors as floorOption (floorOption.id)}
+                          <option value={floorOption.id}>{floorLabel(floorOption)}</option>
+                        {/each}
+                      </select>
+                    </td>
                     <td class="is-num">{positionCountForArea(room.work_area_id)}</td>
-                    <td><ClassicStatus label={floor ? 'Active' : 'Needs placement'} tone={floor ? 'ok' : 'attention'} /></td>
-                    <td class="is-num">
-                      <button class="row-open" type="button" onclick={() => {
-                        if (room.floor_id) selectedFloorId = room.floor_id;
-                        else assignRoom(room);
-                        selectedRoomId = room.id;
-                        selectedTableId = '';
-                        editorView = 'plan';
-                      }}>{t(floor ? 'Open plan' : 'Place')}</button>
+                    <td><ClassicCellBadge label={floor ? 'Active' : 'Needs placement'} tone={floor ? 'success' : 'warning'} icon={floor ? 'check' : 'warning'} /></td>
+                    <td class="menu-cell">
+                      <ClassicRowMenu
+                        disabled={editorReadOnly}
+                        items={[
+                          {
+                            label: t(floor ? 'Open plan' : 'Place'),
+                            onselect: () => openAreaOnPlan(room)
+                          },
+                          {
+                            label: t('Archive'),
+                            tone: 'danger',
+                            onselect: () => void archiveArea(room.id)
+                          }
+                        ]}
+                      />
                     </td>
                   </tr>
                 {:else}
-                  <tr><td colspan="6"><div class="cl-empty"><strong>{t('No areas yet')}</strong><span>{t('Add a standard area to start shaping your restaurant.')}</span></div></td></tr>
+                  <tr><td colspan="5"><div class="cl-empty"><strong>{t('No areas yet')}</strong><span>{t('Add an area to start shaping your restaurant.')}</span></div></td></tr>
                 {/each}
               </tbody>
             </table>
           </div>
         {:else}
         <div class="area-editor">
-          <nav class="plan-commandbar" aria-label={t('Floors')}>
-            <div class="floor-list">
-              {#each selectableFloors as floor (floor.id)}
-                <button class:is-active={floor.id === selectedFloorId} type="button" onclick={() => {
-                  selectedFloorId = floor.id;
-                  selectedRoomId = '';
-                  selectedTableId = '';
-                }}>
-                  <span>{floorLevel(floor.level)}</span>
-                  <strong>{floorLabel(floor)}</strong>
-                  <small>{mergedRooms.filter((room) => room.floor_id === floor.id).length}</small>
-                </button>
-              {/each}
-            </div>
-            <span class="plan-commandbar__hint">{t(
-              mode === 'areas'
-                ? 'Snap to grid is on'
-                : tableLayoutMode === 'areas'
-                  ? 'Drag areas; pull an edge or corner to resize.'
-                  : 'Select an area to arrange its tables'
-            )}</span>
-          </nav>
-
           <section class="cl-card plan-card">
             {#if selectedFloor}
               {#if selectedRoomDraft && selectedRoom && selectedAreaDraft && mode === 'areas'}
                 <div class="selection-bar room-selection is-above">
                   <header class="inspector-head">
                     <WorkspaceAreaIcon icon={areaIconFor(selectedRoom.work_area_id)} color={selectedRoom.area_color} size={20} />
-                    <div><strong>{t('Area details')}</strong><small>{selectedAreaType ? t(selectedAreaType.label) : t('Custom area')}</small></div>
+                    <div><strong>{t('Area details')}</strong><small>{floorLabel(selectedFloor)}</small></div>
+                    <ClassicRowMenu
+                      disabled={editorReadOnly}
+                      items={[
+                        {
+                          label: t('Archive'),
+                          tone: 'danger',
+                          onselect: () => void archiveArea(selectedRoom.id)
+                        }
+                      ]}
+                    />
                   </header>
-                  <label class="area-name"><span>{t('Area name')}</span><input class="cl-field" disabled={editorReadOnly} bind:value={selectedAreaDraft.name} oninput={() => restaurantConfig.touch()} /></label>
+                  {@render floorNavigator()}
+                  <label class="area-name"><span>{t('Area name')}</span><input class="cl-field" data-area-name={selectedAreaDraft.id} list="restaurant-area-catalogue" placeholder={t('Select or type an area')} disabled={editorReadOnly} bind:value={selectedAreaDraft.name} oninput={() => restaurantConfig.touch()} onchange={() => areaNameChanged(selectedAreaDraft.id)} onblur={() => areaNameChanged(selectedAreaDraft.id)} /></label>
+                  <label>
+                    <span>{t('Move to floor')}</span>
+                    <select
+                      class="cl-field"
+                      disabled={editorReadOnly}
+                      value={selectedRoom.floor_id ?? ''}
+                      onchange={(event) =>
+                        moveAreaToFloor(
+                          selectedRoom.id,
+                          (event.currentTarget as HTMLSelectElement).value,
+                          true
+                        )}
+                    >
+                      {#each selectableFloors as floorOption (floorOption.id)}
+                        <option value={floorOption.id}>{floorLabel(floorOption)}</option>
+                      {/each}
+                    </select>
+                  </label>
                   <div class="area-colour"><span>{t('Colour identity')}</span><div><ClassicPalettePicker value={selectedAreaDraft.color} palette={AREA_PALETTE} label={t('Choose area colour')} disabled={editorReadOnly} onselect={(color) => { selectedAreaDraft.color = color; restaurantConfig.touch(); }} /><small>{t('Shared with linked positions and Planning.')}</small></div></div>
                   <dl class="inspector-stats">
-                    <div><dt>{t('Floor')}</dt><dd>{floorLabel(selectedFloor)}</dd></div>
                     <div><dt>{t('Positions')}</dt><dd>{positionCountForArea(selectedAreaDraft.id)}</dd></div>
                   </dl>
                   <p class="resize-note">{t('Drag to move. Pull any edge or corner to reshape; nearby areas align automatically.')}</p>
-                  <button class="cl-btn is-problem" type="button" disabled={editorReadOnly} onclick={() => void archiveArea()}>{t('Archive area')}</button>
                 </div>
               {:else if mode === 'areas'}
                 <div class="selection-hint is-above">
-                  <strong>{floorLabel(selectedFloor)}</strong>
+                  {@render floorNavigator()}
                   <p>{t('Select an area on the plan to edit it. Pull any outside edge or corner to reshape this floor.')}</p>
                 </div>
               {/if}
@@ -915,6 +1042,7 @@
               {#if mode === 'tables' && tableLayoutMode === 'areas' && selectedRoom}
                 <div class="selection-bar room-selection is-above">
                   <header class="inspector-head"><WorkspaceAreaIcon icon={areaIconFor(selectedRoom.work_area_id)} color={selectedRoom.area_color} size={20} /><div><strong>{selectedRoom.name}</strong><small>{floorLabel(selectedFloor)}</small></div></header>
+                  {@render floorNavigator()}
                   <dl class="inspector-stats">
                     <div><dt>{t('Floor')}</dt><dd>{floorLabel(selectedFloor)}</dd></div>
                     <div><dt>{t('Tables')}</dt><dd>{floorTables.filter((table) => table.room_id === selectedRoom.id).length}</dd></div>
@@ -922,10 +1050,11 @@
                   <p class="resize-note">{t('Drag to move. Pull any edge or corner to reshape; nearby areas align automatically.')}</p>
                 </div>
               {:else if mode === 'tables' && tableLayoutMode === 'areas'}
-                <div class="selection-hint is-above"><strong>{t('Choose an area')}</strong><p>{t('Drag areas; pull an edge or corner to resize.')}</p></div>
+                <div class="selection-hint is-above">{@render floorNavigator()}<strong>{t('Choose an area')}</strong><p>{t('Drag areas; pull an edge or corner to resize.')}</p></div>
               {:else if mode === 'tables' && selectedTable}
                 <div class="selection-bar table-selection is-above">
                   <header class="inspector-head"><span class="inspector-glyph" aria-hidden="true">T</span><div><strong>{t('Table details')}</strong><small>{selectedRoom?.name ?? floorLabel(selectedFloor)}</small></div></header>
+                  {@render floorNavigator()}
                   <label><span>{t('Table')}</span><input class="cl-field" disabled={editorReadOnly} bind:value={selectedTable.label} oninput={touch} /></label>
                   <label><span>{t('Minimum')}</span><input class="cl-field" disabled={editorReadOnly} type="number" min="1" max="100" bind:value={selectedTable.minimum_capacity} oninput={touch} /></label>
                   <label><span>{t('Maximum')}</span><input class="cl-field" disabled={editorReadOnly} type="number" min="1" max="500" bind:value={selectedTable.maximum_capacity} oninput={touch} /></label>
@@ -940,12 +1069,13 @@
               {:else if selectedRoomDraft && selectedRoom && mode === 'tables'}
                 <div class="selection-bar room-selection is-above">
                   <header class="inspector-head"><WorkspaceAreaIcon icon={areaIconFor(selectedRoom.work_area_id)} color={selectedRoom.area_color} size={20} /><div><strong>{selectedRoom.name}</strong><small>{t('Dining area')}</small></div></header>
+                  {@render floorNavigator()}
                   <p class="resize-note">{t('Tables snap into a clean alignment as you drag.')}</p>
                   <button class="cl-btn" type="button" disabled={editorReadOnly} onclick={() => arrangeTables()}>{t('Arrange tables')}</button>
                   <button class="cl-btn is-primary" type="button" disabled={editorReadOnly} onclick={addTable}>+ {t('Add table')}</button>
                 </div>
               {:else if mode === 'tables'}
-                <div class="selection-hint is-above"><strong>{t('Choose an area')}</strong><p>{t('Select an area on the plan to add and arrange its tables.')}</p></div>
+                <div class="selection-hint is-above">{@render floorNavigator()}<strong>{t('Choose an area')}</strong><p>{t('Select an area on the plan to add and arrange its tables.')}</p></div>
               {/if}
 
               {#if compactViewport}
@@ -1003,47 +1133,11 @@
     {/snippet}
 </ClassicTablePanel>
 
-<Dialog
-  open={areaPickerOpen}
-  title="Add an area"
-  description="Choose a standard restaurant area. Its colour becomes the shared identity used by positions, Planning and Reservations."
-  size="large"
-  onclose={() => (areaPickerOpen = false)}
->
-  {#snippet children()}
-    <div class="catalogue-picker">
-      <label class="catalogue-search">
-        <span>{t('Search areas')}</span>
-        <input
-          class="cl-field"
-          type="search"
-          placeholder={t('Search by name or category')}
-          bind:value={areaCatalogueSearch}
-        />
-      </label>
-      <div class="catalogue-grid">
-        {#each availableCatalogueAreas as item (item.key)}
-          <button type="button" style={`--catalogue-color:${item.color}`} onclick={() => addArea(item.key)}>
-            <WorkspaceAreaIcon icon={item.icon} color={item.color} size={17} />
-            <span><strong>{item.label}</strong><small>{item.category}</small></span>
-          </button>
-        {:else}
-          <p class="catalogue-empty">{t('No standard area matches this search.')}</p>
-        {/each}
-      </div>
-      <div class="custom-area">
-        <div>
-          <strong>{t('Need a special area?')}</strong>
-          <span>{t('Custom areas remain available, but standard areas keep reporting consistent.')}</span>
-        </div>
-        <input class="cl-field" placeholder={t('Custom area name')} bind:value={customAreaName} />
-        <button class="cl-btn" type="button" disabled={!customAreaName.trim()} onclick={addCustomArea}>
-          {t('Add custom')}
-        </button>
-      </div>
-    </div>
-  {/snippet}
-</Dialog>
+<datalist id="restaurant-area-catalogue">
+  {#each availableCatalogueAreas as item (item.key)}
+    <option value={item.label}>{item.category}</option>
+  {/each}
+</datalist>
 
 <Dialog open={Boolean(tableToArchive)} title="Archive table" description="Past reservations keep their table history." size="small" onclose={() => (tableToArchive = null)}>
   {#snippet children()}<p class="dialog-copy">{t('Archive table {label}?', { label: tableToArchive?.label ?? '' })}</p>{/snippet}
@@ -1063,34 +1157,12 @@
   .view-switch button { min-height: 30px; padding: 5px 12px; border: 0; border-radius: calc(var(--cl-radius) - 2px); background: transparent; color: var(--cl-muted); font: inherit; font-size: 12px; font-weight: var(--rst-fw-medium); cursor: pointer; }
   .view-switch button.is-active { background: var(--cl-surface); color: var(--cl-ink); box-shadow: 0 1px 3px rgb(15 23 42 / 10%); }
   .area-directory { --cl-grid-max-height: calc(100dvh - 190px); }
-  .area-directory .cl-table { min-width: 760px; }
-  .row-open { padding: 5px 8px; border: 0; border-radius: 5px; background: transparent; color: var(--cl-accent); font: inherit; font-size: 12px; font-weight: var(--rst-fw-bold); cursor: pointer; }
-  .row-open:hover { background: var(--cl-accent-wash); }
+  .area-directory .cl-table { min-width: 680px; }
+  .area-row-name { min-width: 230px; display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 9px; }
+  .area-row-name > strong { font-size: 12px; }
+  .floor-select { min-width: 150px; }
+  .menu-cell { width: 44px; }
   .area-editor { min-width: 0; display: grid; gap: 10px; }
-  .plan-commandbar { min-width: 0; min-height: 46px; display: flex; align-items: center; gap: 12px; padding: 6px 8px; overflow: hidden; border: 1px solid var(--cl-line); border-radius: var(--cl-radius-surface); background: var(--cl-surface); }
-  .plan-commandbar__hint { margin-left: auto; padding-right: 6px; color: var(--cl-muted); font-size: 11px; white-space: nowrap; }
-  .floor-list { min-width: 0; display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: none; }
-  .floor-list::-webkit-scrollbar { display: none; }
-  .floor-list > button {
-    min-height: 32px;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 5px 9px;
-    border: 1px solid transparent;
-    border-radius: 5px;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    white-space: nowrap;
-    cursor: pointer;
-  }
-  .floor-list > button:hover { border-color: var(--cl-line); background: var(--cl-surface-muted); }
-  .floor-list > button.is-active { border-color: color-mix(in srgb, var(--cl-accent) 28%, var(--cl-line)); background: var(--cl-accent-wash); color: var(--cl-accent); }
-  .floor-list > button > span { min-width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid var(--cl-line); border-radius: 5px; background: var(--cl-surface-muted); color: var(--cl-muted); font-size: 9.5px; font-weight: var(--rst-fw-bold); }
-  .floor-list > button.is-active > span { border-color: color-mix(in srgb, var(--cl-accent) 34%, var(--cl-line)); background: var(--cl-surface); color: var(--cl-accent); }
-  .floor-list strong { font-size: 12px; }
-  .floor-list small { min-width: 18px; height: 18px; display: grid; place-items: center; border-radius: 999px; background: color-mix(in srgb, var(--cl-ink) 6%, transparent); color: var(--cl-muted); font-size: 9px; }
   .plan-card { min-width: 0; display: grid; grid-template-columns: minmax(560px, 1fr) 286px; grid-template-rows: minmax(480px, 1fr); overflow: hidden; border-color: var(--cl-line-strong); }
   .area-canvas { min-width: 0; grid-column: 1; grid-row: 1; padding: 0; border-right: 1px solid var(--cl-line); background: var(--cl-surface-muted); }
   .selection-bar {
@@ -1111,11 +1183,19 @@
   .selection-bar label span, .area-colour > span { color: var(--cl-muted); font-size: 11px; font-weight: var(--rst-fw-bold); }
   .selection-bar input, .selection-bar select { width: 100%; }
   .selection-bar .cl-btn { width: 100%; }
-  .inspector-head { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid var(--cl-line); }
+  .inspector-head { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid var(--cl-line); }
   .inspector-head > div { min-width: 0; display: grid; gap: 2px; }
   .inspector-head strong { font-size: 13px; }
   .inspector-head small { overflow: hidden; color: var(--cl-muted); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
   .inspector-glyph { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--cl-line); border-radius: 6px; background: var(--cl-surface-muted); color: var(--cl-accent); font-size: 12px; font-weight: var(--rst-fw-bold); }
+  .floor-navigator { display: grid; grid-template-columns: 31px minmax(0, 1fr) 31px; align-items: center; overflow: hidden; border: 1px solid var(--cl-line); border-radius: 6px; background: var(--cl-surface-muted); }
+  .floor-navigator button { width: 31px; height: 31px; display: grid; place-items: center; padding: 0; border: 0; background: transparent; color: var(--cl-muted); cursor: pointer; }
+  .floor-navigator button:first-child { border-right: 1px solid var(--cl-line); }
+  .floor-navigator button:last-child { border-left: 1px solid var(--cl-line); }
+  .floor-navigator button:hover:not(:disabled) { background: var(--cl-surface); color: var(--cl-accent); }
+  .floor-navigator button:disabled { cursor: default; opacity: .3; }
+  .floor-navigator label { min-width: 0; display: block; }
+  .floor-navigator select { width: 100%; height: 31px; padding: 0 8px; border: 0; outline: 0; background: transparent; color: var(--cl-ink); font: inherit; font-size: 11px; font-weight: var(--rst-fw-bold); text-align: center; cursor: pointer; }
   .area-colour { display: grid; gap: 7px; }
   .area-colour > div { display: flex; align-items: center; gap: 8px; }
   .area-colour small { color: var(--cl-muted); font-size: 10px; line-height: 1.35; }
@@ -1130,29 +1210,14 @@
   .selection-hint strong { color: var(--cl-ink); font-size: 13px; }
   .selection-hint p { margin: 0; line-height: 1.5; }
   .dialog-copy { margin: 0; color: var(--cl-muted); font-size: 12px; }
-  .catalogue-picker { display: grid; gap: 16px; }
-  .catalogue-search { display: grid; gap: 6px; color: var(--cl-muted); font-size: 11px; font-weight: 700; }
-  .catalogue-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; max-height: 390px; overflow: auto; padding: 2px; }
-  .catalogue-grid > button { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: center; gap: 10px; min-height: 58px; padding: 9px 11px; border: 1px solid var(--cl-line); border-radius: 6px; background: var(--cl-surface); color: var(--cl-ink); text-align: left; cursor: pointer; }
-  .catalogue-grid > button:hover { border-color: var(--catalogue-color); background: color-mix(in srgb, var(--catalogue-color) 7%, var(--cl-surface)); }
-  .catalogue-grid strong, .catalogue-grid small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .catalogue-grid strong { font-size: 12px; }
-  .catalogue-grid small { margin-top: 2px; color: var(--cl-muted); font-size: 10px; text-transform: capitalize; }
-  .catalogue-empty { grid-column: 1 / -1; margin: 0; padding: 24px; color: var(--cl-muted); text-align: center; }
-  .custom-area { display: grid; grid-template-columns: minmax(0, 1fr) minmax(180px, 240px) auto; align-items: end; gap: 12px; padding-top: 14px; border-top: 1px solid var(--cl-line); }
-  .custom-area > div { display: grid; gap: 3px; }
-  .custom-area strong { font-size: 12px; }
-  .custom-area span { color: var(--cl-muted); font-size: 10.5px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .cl-btn.is-problem { border-color: var(--cl-problem-line); background: var(--cl-problem-wash); color: var(--cl-problem); }
   @media (max-width: 980px) {
     .plan-card { grid-template-columns: minmax(520px, 1fr) 250px; }
-    .plan-commandbar__hint { display: none; }
   }
   @media (max-width: 760px) {
     .plan-card { display: block; }
     .selection-bar, .selection-hint { border-top: 1px solid var(--cl-line); }
     .area-canvas { border-right: 0; }
-    .catalogue-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .custom-area { grid-template-columns: 1fr; align-items: stretch; }
   }
 </style>

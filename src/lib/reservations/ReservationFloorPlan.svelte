@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/i18n/i18n.svelte';
+  import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
   import type {
     Reservation,
     ReservationRoom,
@@ -543,7 +544,10 @@
           onpointerdown={(event) => startRoomDrag(event, room)}
           onclick={() => onroomselect(room)}
         >
-          <span>{room.name}</span>
+          <span class="zone-identity">
+            <WorkspaceAreaIcon icon={room.area_icon} color={room.area_color} size={13} />
+            <span class="zone-name">{room.name}</span>
+          </span>
           {#if showTableCount}<small>{tables.filter((table) => table.room_id === room.id).length} {t('tables')}</small>{/if}
           {#if roomsEditable && room.id === selectedRoomId}
             {#each resizeEdges as edge}
@@ -776,7 +780,19 @@
   .snap-guide.is-horizontal { height: 1px; right: 0; left: 0; top: var(--guide); }
   .floor-zone.is-dragging { z-index: 4; cursor: grabbing; box-shadow: 0 8px 18px rgb(28 35 44 / 12%); }
   .floor-zone.is-selected { z-index: 2; border-style: solid; outline: 4px solid color-mix(in srgb, var(--room-color) 16%, transparent); outline-offset: 2px; box-shadow: 0 6px 18px color-mix(in srgb, var(--room-color) 18%, transparent); }
-  .floor-zone span {
+  .zone-identity {
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .floor-zone :global(.zone-identity .area-icon) {
+    width: 25px;
+    height: 25px;
+    border-radius: 5px;
+    background: color-mix(in srgb, var(--room-color) 8%, var(--cl-surface));
+  }
+  .floor-zone .zone-name {
     overflow: hidden;
     font-size: 10px;
     font-weight: var(--rst-fw-bold);

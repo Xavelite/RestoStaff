@@ -2,11 +2,13 @@
   let {
     icon = '',
     color = 'var(--cl-muted)',
-    size = 18
+    size = 18,
+    compact = false
   }: {
     icon?: string | null;
     color?: string | null;
     size?: number;
+    compact?: boolean;
   } = $props();
 
   const group = $derived(
@@ -30,7 +32,12 @@
   );
 </script>
 
-<span class="area-icon" style={`--area-icon-color:${color || 'var(--cl-muted)'}`} aria-hidden="true">
+<span
+  class="area-icon"
+  class:is-compact={compact}
+  style={`--area-icon-color:${color || 'var(--cl-muted)'};--area-icon-size:${size}px`}
+  aria-hidden="true"
+>
   <svg
     viewBox="0 0 24 24"
     width={size}
@@ -83,5 +90,13 @@
     border-radius: 7px;
     background: color-mix(in srgb, var(--area-icon-color) 10%, var(--cl-surface));
     color: color-mix(in srgb, var(--area-icon-color) 82%, var(--cl-ink));
+  }
+  .area-icon.is-compact {
+    width: var(--area-icon-size);
+    height: var(--area-icon-size);
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: color-mix(in srgb, var(--area-icon-color) 88%, var(--cl-ink));
   }
 </style>

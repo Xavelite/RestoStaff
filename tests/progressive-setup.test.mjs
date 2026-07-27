@@ -55,6 +55,8 @@ test('Schedule uses one premium week header and one full daily card with interna
   assert.match(schedule, /class="day-card__surface"/);
   assert.match(schedule, /class="day-card__fill is-lunch"/);
   assert.match(schedule, /class="day-card__fill is-evening"/);
+  assert.match(schedule, /--lunch-color:\$\{lunchColor\};--evening-color:\$\{eveningColor\}/);
+  assert.match(schedule, /<WorkspaceAreaIcon icon=\{chip\.icon\} color=\{chip\.color\}/);
   assert.match(schedule, /function dayCardView/);
   assert.match(schedule, /`\$\{clockLabel\(first\.startsAt\)\}–\$\{clockLabel\(last\.endsAt\)\}`/);
   assert.doesNotMatch(schedule, /function compact/);

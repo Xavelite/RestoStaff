@@ -1,9 +1,12 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
+
   let {
     colspan,
     label,
     meta = '',
     color = '',
+    icon,
     collapsed = false,
     dropTarget = false,
     ontoggle,
@@ -15,6 +18,7 @@
     label: string;
     meta?: string;
     color?: string;
+    icon?: Snippet;
     collapsed?: boolean;
     dropTarget?: boolean;
     ontoggle: () => void;
@@ -39,6 +43,7 @@
       onclick={ontoggle}
     >
       <svg
+        class="cl-group-row__chevron"
         class:is-collapsed={collapsed}
         viewBox="0 0 24 24"
         width="13"
@@ -52,11 +57,14 @@
       >
         <path d="m9 18 6-6-6-6" />
       </svg>
-      {#if color}
+      {#if color && !icon}
         <i class="cl-group-row__dot" style={`--group:${color}`}></i>
       {/if}
+      {#if icon}
+        <span class="cl-group-row__icon">{@render icon()}</span>
+      {/if}
       <strong>{label}</strong>
-      {#if meta}<span>{meta}</span>{/if}
+      {#if meta}<span class="cl-group-row__meta">{meta}</span>{/if}
     </button>
   </td>
 </tr>

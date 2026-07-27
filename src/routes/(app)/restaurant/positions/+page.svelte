@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { buildAreaColorMap, buildPositionColorMap } from '$lib/ui/position-color';
   import { workspace } from '$lib/workspace/workspace.svelte';
@@ -10,7 +10,9 @@
   import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
   import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
+  import ClassicCellBadge from '$lib/classic/ClassicCellBadge.svelte';
   import Dialog from '$lib/components/Dialog.svelte';
+  import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
   import {
     WORKSPACE_POSITION_CATALOGUE,
     workspacePositionByKey
@@ -62,10 +64,8 @@
   let groupBy = $state<GroupBy>('none');
   let collapsedGroups = $state<string[]>([]);
   let dragId = $state('');
-  let positionPickerOpen = $state(false);
   let positionAreaEditorId = $state('');
-  let catalogueSearch = $state('');
-  let customPositionName = $state('');
+  let newPositionId = $state('');
 
   const OPTIONAL_COLUMNS = [
     { key: 'cost', label: 'Estimated hourly cost' },
@@ -121,15 +121,11 @@
         .map((position) => position.catalogueKey)
         .filter(Boolean)
     );
-    const term = catalogueSearch.trim().toLowerCase();
     return WORKSPACE_POSITION_CATALOGUE.filter(
       (position) =>
         !usedKeys.has(position.key) &&
         (position.areaKeys.length === 0 ||
-          position.areaKeys.some((areaKey) => areaKeys.has(areaKey))) &&
-        (!term ||
-          position.label.toLowerCase().includes(term) ||
-          position.category.toLowerCase().includes(term))
+          position.areaKeys.some((areaKey) => areaKeys.has(areaKey)))
     );
   });
   const positionAreaEditor = $derived(
@@ -138,71 +134,63 @@
     ) ?? null
   );
 
-  function addPosition(catalogueKey = '', customName = '') {
+  async function addPosition() {
     const draft = restaurantConfig.draft;
     if (!draft) return;
-    const catalogue = workspacePositionByKey.get(catalogueKey);
-    const areaIds = catalogue
-      ? draft.areas
-          .filter(
-            (area) =>
-              area.active &&
-              Boolean(area.catalogueKey) &&
-              catalogue.areaKeys.includes(area.catalogueKey)
-          )
-          .map((area) => area.id)
-      : [];
-    const primaryAreaId = areaIds[0] ?? '';
+    const id = crypto.randomUUID();
     draft.jobFunctions = [{
-      id: crypto.randomUUID(),
-      name: catalogue?.label ?? customName.trim(),
+      id,
+      name: '',
       code: '',
       active: true,
       estimatedHourlyCost: 0,
-      primaryAreaId,
-      areaIds,
-      catalogueKey: catalogue?.key ?? '',
+      primaryAreaId: '',
+      areaIds: [],
+      catalogueKey: '',
       iconKey: ''
     }, ...draft.jobFunctions];
     restaurantConfig.touch();
-    positionPickerOpen = false;
-    catalogueSearch = '';
-    customPositionName = '';
+    newPositionId = id;
+    await tick();
+    document.querySelector<HTMLInputElement>(`[data-position-name="${id}"]`)?.focus();
   }
 
-  function addCustomPosition() {
-    if (!customPositionName.trim()) return;
-    addPosition('', customPositionName);
+  function applyPositionCatalogue(position: PositionRow) {
+    if (position.catalogueKey) return;
+    const match = availableCataloguePositions.find(
+      (item) => item.label.toLowerCase() === position.name.trim().toLowerCase()
+    );
+    if (!match || !restaurantConfig.draft) return;
+    const areaIds = restaurantConfig.draft.areas
+      .filter(
+        (area) =>
+          area.active &&
+          Boolean(area.catalogueKey) &&
+          match.areaKeys.some((areaKey) => areaKey === area.catalogueKey)
+      )
+      .map((area) => area.id);
+    position.catalogueKey = match.key;
+    position.areaIds = areaIds;
+    position.primaryAreaId = areaIds[0] ?? '';
+    restaurantConfig.touch();
   }
 
-  function areaSummary(position: PositionRow): string {
-    if (!position.areaIds.length) {
-      return workspacePositionByKey.get(position.catalogueKey)?.areaKeys.length === 0
-        ? t('All areas')
-        : t('No area linked');
-    }
-    const orderedAreaIds = position.primaryAreaId
-      ? [
-          position.primaryAreaId,
-          ...position.areaIds.filter((areaId) => areaId !== position.primaryAreaId)
-        ]
-      : position.areaIds;
-    const names = orderedAreaIds
-      .map((areaId) => restaurantConfig.draft?.areas.find((area) => area.id === areaId)?.name)
-      .filter((name): name is string => Boolean(name));
-    if (names.length <= 1) return names[0] ?? t('No area linked');
-    return `${names[0]} +${names.length - 1}`;
+  function positionAreaIcon(position: PositionRow): string {
+    const areaId = position.primaryAreaId || position.areaIds[0] || '';
+    return (
+      restaurantConfig.draft?.areas.find((area) => area.id === areaId)?.iconKey ??
+      'support'
+    );
+  }
+
+  function primaryAreaLabel(position: PositionRow): string {
+    return workspacePositionByKey.get(position.catalogueKey)?.areaKeys.length === 0
+      ? t('All areas')
+      : t('No primary area');
   }
 
   function primaryAreaColor(position: PositionRow): string {
     return areaColor.get(position.primaryAreaId) ?? '#64748b';
-  }
-
-  function suggestedPositionColor(areaKeys: readonly string[]): string {
-    const area = restaurantConfig.draft?.areas.find(
-      (candidate) => candidate.active && areaKeys.includes(candidate.catalogueKey)
-    );
-    return area ? areaColor.get(area.id) ?? '#64748b' : '#64748b';
   }
 
   function togglePositionArea(position: PositionRow, areaId: string) {
@@ -221,6 +209,11 @@
 
   function setPrimaryPositionArea(position: PositionRow, areaId: string) {
     if (workspace.isPreview) return;
+    if (!areaId) {
+      position.primaryAreaId = '';
+      restaurantConfig.touch();
+      return;
+    }
     if (!position.areaIds.includes(areaId)) {
       position.areaIds = [...position.areaIds, areaId];
     }
@@ -324,7 +317,7 @@
       <span><i class="dot is-green"></i>{t('{count} active', { count: rows.filter((position) => position.active).length })}</span>
     {/snippet}
     {#snippet actions()}
-      <button class="cl-btn is-primary" type="button" disabled={workspace.isPreview || !restaurantConfig.draft} onclick={() => (positionPickerOpen = true)}><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>{t('Add position')}</button>
+      <button class="cl-btn is-primary" type="button" disabled={workspace.isPreview || !restaurantConfig.draft} onclick={() => void addPosition()}><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>{t('Add position')}</button>
     {/snippet}
     {#snippet children()}
       <div class="cl-tablewrap">
@@ -371,36 +364,65 @@
                       <td class="cl-grip"><button type="button" disabled={Boolean(sort) || groupBy !== 'none' || workspace.isPreview} title={sort || groupBy !== 'none' ? t('Clear grouping and sorting to reorder') : t('Drag to reorder')} aria-label={t('Drag to reorder')}>⋮⋮</button></td>
                       <td>
                         <div class="position-identity">
-                        <span
-                          class="derived-swatch"
-                          style={`--position-color:${positionColor.get(position.id) ?? 'var(--cl-line-strong)'};--area-color:${primaryAreaColor(position)}`}
-                          title={t('Lighter tint inherited from the primary area')}
-                        ></span>
-                          <input class="cl-field" placeholder={t('Position name')} disabled={workspace.isPreview} bind:value={position.name} oninput={() => restaurantConfig.touch()} />
+                          <WorkspaceAreaIcon
+                            icon={positionAreaIcon(position)}
+                            color={positionColor.get(position.id) ?? 'var(--cl-line-strong)'}
+                            size={15}
+                          />
+                          <input
+                            class="cl-field"
+                            data-position-name={position.id}
+                            list="restaurant-position-catalogue"
+                            placeholder={t('Select or type a position')}
+                            disabled={workspace.isPreview}
+                            bind:value={position.name}
+                            oninput={() => restaurantConfig.touch()}
+                            onchange={() => applyPositionCatalogue(position)}
+                            onblur={() => {
+                              applyPositionCatalogue(position);
+                              if (newPositionId === position.id) newPositionId = '';
+                            }}
+                          />
                         </div>
                       </td>
                       <td>
-                        <button
-                          class="area-link-button"
-                          type="button"
+                        <div class="primary-area-field" style={`--area-color:${primaryAreaColor(position)}`}>
+                          <span aria-hidden="true"></span>
+                          <select
+                            class="cl-field"
+                            aria-label={t('Primary area')}
                           disabled={workspace.isPreview}
-                          onclick={() => (positionAreaEditorId = position.id)}
-                        >
-                          <span style={`--area-color:${primaryAreaColor(position)}`}></span>
-                          <strong>{areaSummary(position)}</strong>
-                        </button>
+                            value={position.primaryAreaId}
+                            onchange={(event) =>
+                              setPrimaryPositionArea(
+                                position,
+                                (event.currentTarget as HTMLSelectElement).value
+                              )}
+                          >
+                            <option value="">{primaryAreaLabel(position)}</option>
+                            {#each draft.areas.filter((area) => area.active) as area (area.id)}
+                              <option value={area.id}>{area.name}</option>
+                            {/each}
+                          </select>
+                        </div>
                       </td>
                       {#if shown('cost')}<td class="is-num"><input class="cl-field cost" type="number" disabled={workspace.isPreview} min="0" step="0.5" bind:value={position.estimatedHourlyCost} oninput={() => restaurantConfig.touch()} /></td>{/if}
                       {#if shown('employees')}<td><span class="cl-linkcount" class:is-zero={!headcount} title={t('{count} people', { count: headcount })}><span class="cl-linkcount__n">{headcount}</span></span></td>{/if}
-                      {#if shown('active')}<td><label class="switch"><input type="checkbox" disabled={workspace.isPreview} bind:checked={position.active} onchange={() => restaurantConfig.touch()} /><span>{t(position.active ? 'Active' : 'Archived')}</span></label></td>{/if}
+                      {#if shown('active')}<td><ClassicCellBadge label={position.active ? 'Active' : 'Archived'} tone={position.active ? 'success' : 'neutral'} icon={position.active ? 'check' : 'minus'} /></td>{/if}
                       <td class="menu-cell">
                         <ClassicRowMenu
                           disabled={workspace.isPreview}
-                          items={persistedPositionIds.has(position.id)
-                            ? position.active
-                              ? [{ label: t('Archive'), tone: 'danger', onselect: () => removeOrTogglePosition(position.id) }]
-                              : [{ label: t('Restore'), onselect: () => removeOrTogglePosition(position.id) }]
-                            : [{ label: t('Remove'), tone: 'danger', onselect: () => removeOrTogglePosition(position.id) }]}
+                          items={[
+                            {
+                              label: t('Edit linked areas'),
+                              onselect: () => (positionAreaEditorId = position.id)
+                            },
+                            ...(persistedPositionIds.has(position.id)
+                              ? position.active
+                                ? [{ label: t('Archive'), tone: 'danger' as const, onselect: () => removeOrTogglePosition(position.id) }]
+                                : [{ label: t('Restore'), onselect: () => removeOrTogglePosition(position.id) }]
+                              : [{ label: t('Remove'), tone: 'danger' as const, onselect: () => removeOrTogglePosition(position.id) }])
+                          ]}
                         />
                       </td>
                     </tr>
@@ -415,47 +437,11 @@
   </ClassicTablePanel>
 {/if}
 
-<Dialog
-  open={positionPickerOpen}
-  title="Add a position"
-  description="Choose a standard restaurant position. Its colour and compatible areas stay consistent automatically."
-  size="large"
-  onclose={() => (positionPickerOpen = false)}
->
-  {#snippet children()}
-    <div class="catalogue-picker">
-      <label class="catalogue-search">
-        <span>{t('Search positions')}</span>
-        <input
-          class="cl-field"
-          type="search"
-          placeholder={t('Search by name or category')}
-          bind:value={catalogueSearch}
-        />
-      </label>
-      <div class="catalogue-grid">
-        {#each availableCataloguePositions as item (item.key)}
-          <button type="button" style={`--catalogue-color:${suggestedPositionColor(item.areaKeys)}`} onclick={() => addPosition(item.key)}>
-            <span class="catalogue-icon" aria-hidden="true">{item.label.charAt(0)}</span>
-            <span><strong>{item.label}</strong><small>{item.category}</small></span>
-          </button>
-        {:else}
-          <p class="catalogue-empty">{t('No unused catalogue position matches this search.')}</p>
-        {/each}
-      </div>
-      <div class="custom-position">
-        <div>
-          <strong>{t('Need a special position?')}</strong>
-          <span>{t('Custom positions remain available, but standard positions are easier to reuse.')}</span>
-        </div>
-        <input class="cl-field" placeholder={t('Custom position name')} bind:value={customPositionName} />
-        <button class="cl-btn" type="button" disabled={!customPositionName.trim()} onclick={addCustomPosition}>
-          {t('Add custom')}
-        </button>
-      </div>
-    </div>
-  {/snippet}
-</Dialog>
+<datalist id="restaurant-position-catalogue">
+  {#each availableCataloguePositions as item (item.key)}
+    <option value={item.label}>{item.category}</option>
+  {/each}
+</datalist>
 
 <Dialog
   open={Boolean(positionAreaEditor)}
@@ -503,24 +489,11 @@
 
 <style>
   .cost { width: 120px; text-align: right; }
-  .switch { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; }
-  .switch input { width: 16px; height: 16px; accent-color: var(--cl-accent); }
-  .position-identity { min-width: 180px; display: grid; grid-template-columns: 9px minmax(0, 1fr); align-items: center; gap: 9px; }
-  .derived-swatch {
-    width: 9px;
-    height: 32px;
-    display: block;
-    border: 1px solid color-mix(in srgb, var(--area-color) 62%, var(--cl-line));
-    border-radius: 3px;
-    background:
-      linear-gradient(to bottom, color-mix(in srgb, var(--position-color) 88%, white) 0 calc(100% - 6px), var(--area-color) calc(100% - 6px));
-    box-shadow: 0 1px 2px color-mix(in srgb, var(--area-color) 13%, transparent);
-  }
-  .area-link-button { display: inline-grid; grid-template-columns: 7px minmax(0, 1fr); align-items: center; gap: 8px; min-width: 150px; max-width: 220px; min-height: 34px; padding: 5px 9px; border: 1px solid var(--cl-line); border-radius: 4px; background: var(--cl-surface); color: var(--cl-ink); text-align: left; cursor: pointer; }
-  .area-link-button:hover { border-color: var(--cl-line-strong); background: var(--cl-surface-muted); }
-  .area-link-button:disabled { cursor: default; opacity: .55; }
-  .area-link-button > span { width: 7px; height: 22px; border-radius: 2px; background: var(--area-color); }
-  .area-link-button strong { overflow: hidden; font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
+  .position-identity { min-width: 200px; display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 9px; }
+  .position-identity :global(.area-icon) { width: 30px; height: 30px; border-radius: 6px; }
+  .primary-area-field { min-width: 165px; display: grid; grid-template-columns: 7px minmax(0, 1fr); align-items: center; gap: 8px; }
+  .primary-area-field > span { width: 7px; height: 24px; border-radius: 2px; background: var(--area-color); }
+  .primary-area-field select { min-width: 145px; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .chooser-col,
   .menu-cell { width: 44px; }
@@ -529,20 +502,6 @@
   .cl-grip button:disabled { cursor: default; opacity: .35; }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-line-strong); display: inline-block; }
   .dot.is-green { background: var(--cl-ok); }
-  .catalogue-picker { display: grid; gap: 16px; }
-  .catalogue-search { display: grid; gap: 6px; color: var(--cl-muted); font-size: 11px; font-weight: 700; }
-  .catalogue-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; max-height: 390px; overflow: auto; padding: 2px; }
-  .catalogue-grid > button { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 10px; min-height: 58px; padding: 9px 11px; border: 1px solid var(--cl-line); border-radius: 6px; background: var(--cl-surface); color: var(--cl-ink); text-align: left; cursor: pointer; }
-  .catalogue-grid > button:hover { border-color: color-mix(in srgb, var(--catalogue-color) 62%, var(--cl-line)); background: color-mix(in srgb, var(--catalogue-color) 7%, var(--cl-surface)); }
-  .catalogue-grid strong, .catalogue-grid small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .catalogue-grid strong { font-size: 12px; }
-  .catalogue-grid small { margin-top: 2px; color: var(--cl-muted); font-size: 10px; text-transform: capitalize; }
-  .catalogue-icon { display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid color-mix(in srgb, var(--catalogue-color) 34%, var(--cl-line)); border-radius: 7px; background: color-mix(in srgb, var(--catalogue-color) 10%, var(--cl-surface)); color: color-mix(in srgb, var(--catalogue-color) 82%, var(--cl-ink)); font-size: 12px; font-weight: 800; }
-  .catalogue-empty { grid-column: 1 / -1; margin: 0; padding: 24px; color: var(--cl-muted); text-align: center; }
-  .custom-position { display: grid; grid-template-columns: minmax(0, 1fr) minmax(180px, 240px) auto; align-items: end; gap: 12px; padding-top: 14px; border-top: 1px solid var(--cl-line); }
-  .custom-position > div { display: grid; gap: 3px; }
-  .custom-position strong { font-size: 12px; }
-  .custom-position span { color: var(--cl-muted); font-size: 10.5px; }
   .position-area-list { display: grid; gap: 7px; }
   .position-area-list > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 52px; padding: 8px 10px; border: 1px solid var(--cl-line); border-radius: 5px; background: var(--cl-surface); }
   .position-area-list > div.is-linked { border-color: color-mix(in srgb, var(--cl-accent) 32%, var(--cl-line)); background: color-mix(in srgb, var(--cl-accent) 4%, var(--cl-surface)); }
@@ -555,8 +514,4 @@
   .primary-area { color: var(--cl-muted); font-size: 10.5px; white-space: nowrap; }
   .primary-area:has(input:checked) { color: var(--cl-ink); font-weight: 700; }
   .primary-area:has(input:disabled) { cursor: default; opacity: .4; }
-  @media (max-width: 760px) {
-    .catalogue-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .custom-position { grid-template-columns: 1fr; align-items: stretch; }
-  }
 </style>

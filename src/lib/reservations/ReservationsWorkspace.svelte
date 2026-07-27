@@ -6,6 +6,7 @@
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import ClassicPage from '$lib/classic/ClassicPage.svelte';
   import ClassicPeriodNav from '$lib/classic/ClassicPeriodNav.svelte';
+  import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
   import ReservationFloorPlan from '$lib/reservations/ReservationFloorPlan.svelte';
   import ReservationStatusBadge from '$lib/reservations/ReservationStatusBadge.svelte';
   import {
@@ -580,22 +581,19 @@
                     {reservation.guest_comment || reservation.internal_notes || '—'}
                   </span>
                 </td>
-                <td>
-                  <label class="row-status-action" title={t('Change status')}>
-                    <span aria-hidden="true">•••</span>
-                    <select
-                      aria-label={t('Change status for {name}', { name: reservation.guest.display_name })}
-                      value={reservation.status}
-                      onchange={(event) => void changeStatus(
-                        reservation,
-                        event.currentTarget.value as ReservationStatus
-                      )}
-                    >
-                      {#each reservationNextStatuses(reservation.status) as status}
-                        <option value={status}>{t(reservationStatusMeta(status).label)}</option>
-                      {/each}
-                    </select>
-                  </label>
+                <td class="menu-cell">
+                  <ClassicRowMenu
+                    items={[
+                      {
+                        label: t('Details'),
+                        onselect: () => openReservation(reservation)
+                      },
+                      ...reservationNextStatuses(reservation.status).map((status) => ({
+                        label: t(reservationStatusMeta(status).label),
+                        onselect: () => void changeStatus(reservation, status)
+                      }))
+                    ]}
+                  />
                 </td>
               </tr>
             {/each}
@@ -944,22 +942,7 @@
   }
   .muted { color: var(--cl-muted); font-size: 12px; }
   .note { max-width: 210px; display: block; overflow: hidden; color: var(--cl-muted); text-overflow: ellipsis; white-space: nowrap; }
-  .row-status-action {
-    width: 30px;
-    height: 30px;
-    position: relative;
-    display: grid;
-    place-items: center;
-    padding: 0;
-    border: 1px solid var(--cl-line);
-    border-radius: 4px;
-    background: var(--cl-surface);
-    color: var(--cl-muted);
-    cursor: pointer;
-  }
-  .row-status-action > span { margin-top: -4px; font-size: 12px; font-weight: var(--rst-fw-bold); letter-spacing: 1px; }
-  .row-status-action select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
-  .row-status-action:focus-within { outline: 2px solid var(--cl-accent); outline-offset: 1px; }
+  .menu-cell { width: 44px; }
   .reservation-form { display: grid; gap: 18px; }
   .reservation-form section { display: grid; gap: 10px; }
   .reservation-form h3 { margin: 0; padding-bottom: 7px; border-bottom: 1px solid var(--cl-line); font-size: 13px; }

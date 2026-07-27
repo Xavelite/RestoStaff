@@ -176,13 +176,17 @@ test('people edit contact cells inline while employee identity opens one complet
   assert.match(people, /class="inline-cell"[\s\S]*startInlineEdit\(employee, 'email'\)/);
   assert.match(people, /editingField === 'phone'[\s\S]*onblur=\{commitInlineEdit\}/);
   assert.match(contracts, /class="position-identity"/);
-  assert.match(contracts, /formatDate\(employee\.contractStart\)/);
+  assert.match(contracts, /class="grid-field contract-field"[\s\S]*updateContractType\(employee, event\.currentTarget\.value\)/);
+  assert.match(contracts, /type="date" value=\{employee\.contractStart\}[\s\S]*teamDraft\.update\(employee\.id, \{ contractStart:/);
+  assert.match(contracts, /type="number"[\s\S]*updateHours\(employee\.id, event\.currentTarget\.value\)/);
   assert.match(payrollEmployees, /setReferenceFunction\(employee, event\.currentTarget\.value\)/);
   for (const source of [people, contracts, payrollEmployees]) {
     assert.match(source, /<EmployeeInlineEditor/);
     assert.match(source, /detailId/);
   }
-  assert.match(people, /<ClassicRowMenu/);
+  for (const source of [people, contracts, payrollEmployees]) {
+    assert.match(source, /<ClassicRowMenu/);
+  }
   assert.doesNotMatch(people, /<th[^>]*>\{t\('Actions'\)\}<\/th>/);
   assert.doesNotMatch(contracts, /<th[^>]*>\{t\('Actions'\)\}<\/th>/);
   assert.doesNotMatch(contracts, />\{t\('Open'\)\}<\/button>/);
@@ -201,11 +205,18 @@ test('Restaurant Areas is the visible floor editor and Team groups positions by 
   const nav = await readFile('src/lib/classic/classic-nav.ts', 'utf8');
   const areasRoute = await readFile('src/routes/(app)/restaurant/areas/+page.svelte', 'utf8');
   const floorPlans = await readFile('src/lib/reservations/ReservationFloorPlansWorkspace.svelte', 'utf8');
+  const positions = await readFile('src/routes/(app)/restaurant/positions/+page.svelte', 'utf8');
   const people = await readFile('src/routes/(app)/team/+page.svelte', 'utf8');
 
   assert.match(nav, /\{ href: '\/restaurant\/areas', label: 'Areas' \}/);
   assert.match(areasRoute, /mode="areas"/);
   assert.match(floorPlans, /mode\?: 'areas' \| 'tables'/);
+  assert.match(floorPlans, /async function addArea\(\)/);
+  assert.match(floorPlans, /class="cl-field floor-select"/);
+  assert.doesNotMatch(floorPlans, /<th>\{t\('Type'\)\}<\/th>/);
+  assert.match(positions, /async function addPosition\(\)/);
+  assert.match(positions, /data-position-name=\{position\.id\}/);
+  assert.match(positions, /aria-label=\{t\('Primary area'\)\}/);
   assert.match(people, /\.sort\(\(left, right\) => Number\(right\.is_primary\) - Number\(left\.is_primary\)\)/);
   assert.match(people, /const primaryAreaId = areaRelations\[0\]\?\.area_id/);
   assert.doesNotMatch(people, /coverage_requirements/);
@@ -218,6 +229,7 @@ test('operational core exposes planning, attendance and payroll as one classic w
   const timesheet = await readFile('src/routes/(app)/timesheet/+page.svelte', 'utf8');
   const calendar = await readFile('src/routes/(app)/timesheet/calendar/+page.svelte', 'utf8');
   const live = await readFile('src/routes/(app)/timesheet/live/+page.svelte', 'utf8');
+  const reservations = await readFile('src/lib/reservations/ReservationsWorkspace.svelte', 'utf8');
   const payrollOverview = await readFile('src/routes/(app)/payroll/+page.svelte', 'utf8');
   const payrollExports = await readFile('src/routes/(app)/payroll/exports/+page.svelte', 'utf8');
   const payrollConfig = await readFile('src/routes/(app)/payroll/configuration/+page.svelte', 'utf8');
@@ -233,6 +245,9 @@ test('operational core exposes planning, attendance and payroll as one classic w
   assert.match(timesheet, /page\.url\.searchParams\.get\('entry'\)/);
   assert.match(calendar, /href=\{`\/timesheet\?date=\$\{day\.date\}`\}/);
   assert.match(live, /entry=\$\{encodeURIComponent\(slot\.key\)\}/);
+  assert.match(live, /<ClassicRowMenu/);
+  assert.match(reservations, /<ClassicRowMenu/);
+  assert.doesNotMatch(reservations, /row-status-action/);
   assert.match(payrollOverview, /Prepare reliable payroll inputs/);
   assert.doesNotMatch(payrollOverview, /<PayrollWorkspace/);
   assert.match(experimentalPayroll, /<PayrollWorkspace/);
@@ -324,7 +339,8 @@ test('Team and Restaurant use one route-scoped workspace instead of mounting sta
     assert.match(source, /useClassicRestaurantContext/);
     assert.doesNotMatch(source, /ClassicRestaurantPage/);
   }
-  assert.match(restaurantProfile, /Weekly service periods/);
+  assert.match(restaurantProfile, /<table class="cl-table hours-table">/);
+  assert.doesNotMatch(restaurantProfile, /<h2>\{t\('Weekly service periods'\)\}<\/h2>/);
   assert.match(hoursRedirect, /redirect\(308, '\/restaurant'\)/);
 });
 

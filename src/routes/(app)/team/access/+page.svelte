@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import ActionButton from '$lib/components/ActionButton.svelte';
   import Dialog from '$lib/components/Dialog.svelte';
   import { inviteEmployee, revokeEmployeeInvitation, setEmployeeAccessState } from '$lib/api/mutations';
@@ -13,12 +13,15 @@
   import { workspace } from '$lib/workspace/workspace.svelte';
   import type { EmployeeDraft } from '$lib/team/team-model';
   import { useClassicTeamContext } from '$lib/classic/classic-workspace-context';
-  import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
+  import ClassicCellBadge from '$lib/classic/ClassicCellBadge.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
   import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
   import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
+  import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
+  import EmployeeInlineEditor from '$lib/classic/EmployeeInlineEditor.svelte';
+  import { teamDraft } from '$lib/classic/classic-team.svelte';
 
   type GroupBy = 'status' | 'role' | 'none';
   type SortKey = 'name' | 'email' | 'role' | 'pin' | 'status';
@@ -37,6 +40,10 @@
   let excludedPin = $state(new Set<string>());
   let emailSearch = $state('');
   let collapsedGroups = $state<string[]>([]);
+  let detailId = $state('');
+  let editingEmployeeId = $state('');
+  let editingValue = $state('');
+  let editingInput = $state<HTMLInputElement | null>(null);
 
   const OPTIONAL_COLUMNS = [
     { key: 'email', label: 'Email' },
@@ -94,12 +101,18 @@
     try { localStorage.setItem(COLS_KEY, JSON.stringify([...next])); } catch {}
   }
   const shown = (key: string) => !hidden.has(key);
-  const colCount = $derived(3 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length);
+  const colCount = $derived(2 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length);
 
-  function accessTone(state: string): 'ok' | 'attention' | 'problem' {
-    if (state === 'active') return 'ok';
-    if (state === 'disabled' || state === 'expired') return 'problem';
-    return 'attention';
+  function accessTone(state: string): 'success' | 'warning' | 'danger' {
+    if (state === 'active') return 'success';
+    if (state === 'disabled' || state === 'expired') return 'danger';
+    return 'warning';
+  }
+  function accessIcon(state: string): 'check' | 'clock' | 'minus' | 'lock' {
+    if (state === 'active') return 'check';
+    if (state === 'invited') return 'clock';
+    if (state === 'not_invited') return 'minus';
+    return 'lock';
   }
   function toggleExcluded(value: string) {
     const next = new Set(excludedStatus);
@@ -150,9 +163,42 @@
   }
 
   function roleLabel(role: string): string {
-    if (role === 'manager') return t('Manager');
-    if (role === 'employee') return t('Employee');
+    if (role === 'manager') return 'Manager';
+    if (role === 'employee') return 'Employee';
     return '—';
+  }
+
+  async function startEmailEdit(employee: EmployeeDraft): Promise<void> {
+    if (!team?.editable) return;
+    editingEmployeeId = employee.id;
+    editingValue = employee.email;
+    await tick();
+    editingInput?.focus();
+    editingInput?.select();
+  }
+
+  function commitEmailEdit(): void {
+    if (!editingEmployeeId) return;
+    const id = editingEmployeeId;
+    const email = editingValue.trim();
+    editingEmployeeId = '';
+    editingValue = '';
+    teamDraft.update(id, { email });
+  }
+
+  function cancelEmailEdit(): void {
+    editingEmployeeId = '';
+    editingValue = '';
+  }
+
+  function handleEmailKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      commitEmailEdit();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      cancelEmailEdit();
+    }
   }
 
   function openInvite(employee: EmployeeDraft) {
@@ -221,7 +267,7 @@
     {@const activeEmployees = team.employees.filter((employee) => employee.active)}
     {@const appEnabled = activeEmployees.filter((employee) => employee.accessState === 'active').length}
 
-    <ClassicTablePanel>
+    <ClassicTablePanel dirty={team.dirty} saving={team.saving} canSave={team.canSave} onsave={() => void team.save().catch(() => undefined)} ondiscard={() => { team.discard(); cancelEmailEdit(); }}>
       {#snippet meta()}
         <span><i class="dot"></i>{t('{count} employees', { count: activeEmployees.length })}</span>
         <span><i class="dot is-green"></i>{t('{count} with app access', { count: appEnabled })}</span>
@@ -235,7 +281,6 @@
               {#if shown('role')}<th class="has-menu"><ClassicColMenu label={t('Role')} sortable sortDir={sort?.key === 'role' ? sort.dir : null} onsort={(dir) => (sort = { key: 'role', dir })} filterKind="values" filterValues={roleValues} selected={excludedRole} ontoggle={(value) => { const next = new Set(excludedRole); next.has(value) ? next.delete(value) : next.add(value); excludedRole = next; }} onselectall={(on) => (excludedRole = on ? new Set() : new Set(roleValues.map((item) => item.value)))} /></th>{/if}
               {#if shown('pin')}<th class="has-menu"><ClassicColMenu label={t('Badge PIN')} sortable sortDir={sort?.key === 'pin' ? sort.dir : null} onsort={(dir) => (sort = { key: 'pin', dir })} filterKind="values" filterValues={pinValues} selected={excludedPin} ontoggle={(value) => { const next = new Set(excludedPin); next.has(value) ? next.delete(value) : next.add(value); excludedPin = next; }} onselectall={(on) => (excludedPin = on ? new Set() : new Set(pinValues.map((item) => item.value)))} /></th>{/if}
               {#if shown('status')}<th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={sort?.key === 'status' ? sort.dir : null} onsort={(dir) => (sort = { key: 'status', dir })} filterKind="values" filterValues={accessValues} selected={excludedStatus} ontoggle={toggleExcluded} onselectall={(on) => (excludedStatus = on ? new Set() : new Set(accessValues.map((item) => item.value)))} /></th>{/if}
-              <th class="actions-col">{t('Actions')}</th>
               <th class="chooser-col"><ClassicColChooser columns={OPTIONAL_COLUMNS.map((column) => ({ key: column.key, label: t(column.label) }))} {hidden} ontoggle={toggleColumn} /></th>
             </tr></thead>
             {#if !filtered.length}
@@ -253,13 +298,32 @@
                   {#if !collapsedGroups.includes(group.key)}
                   {#each group.employees as employee (employee.id)}
                     <tr>
-                      <td><span class="cl-table__name"><span class="cl-avatar" style="--avatar-color:{employeeColor.get(employee.id) ?? 'var(--cl-muted)'}">{personInitials(employee.displayName)}</span>{employee.displayName}</span></td>
-                      {#if shown('email')}<td class="is-quiet">{employee.email || '—'}</td>{/if}
-                      {#if shown('role')}<td class="is-quiet">{roleLabel(employee.accessRole)}</td>{/if}
-                      {#if shown('pin')}<td class="is-quiet">{t(employee.pinStatus === 'set' ? 'Set' : 'Not set')}</td>{/if}
-                      {#if shown('status')}<td><ClassicStatus label={ACCESS_LABEL[employee.accessState] ?? employee.accessState} tone={accessTone(employee.accessState)} /></td>{/if}
-                      <td class="is-num"><span class="actions">{#if employee.accessState === 'active'}<button class="cl-btn access-action" type="button" disabled={!team.editable || busy === employee.id} onclick={() => void disableAccess(employee).catch(() => undefined)}>{t('Disable')}</button>{:else if employee.accessState === 'disabled'}<button class="cl-btn access-action" type="button" disabled={!team.editable || busy === employee.id} onclick={() => run(employee.id, () => setEmployeeAccessState(workspace.activeId!, employee.id, 'restore'), 'App access restored.').catch(() => undefined)}>{t('Restore')}</button>{:else if employee.accessState === 'invited'}<button class="cl-btn access-action" type="button" disabled={!team.editable || busy === employee.id} onclick={() => void revokeInvite(employee).catch(() => undefined)}>{t('Revoke')}</button>{:else}<button class="cl-btn access-action" type="button" disabled={!team.editable || busy === employee.id} onclick={() => openInvite(employee)}>{t('Invite')}</button>{/if}</span></td>
-                      <td></td>
+                      <td><span class="cl-table__name"><span class="cl-avatar" style="--avatar-color:{employeeColor.get(employee.id) ?? 'var(--cl-muted)'}">{personInitials(employee.displayName)}</span><button class="employee-link" type="button" disabled={!team.editable} onclick={() => (detailId = employee.id)}>{employee.displayName}</button></span></td>
+                      {#if shown('email')}<td>
+                        {#if editingEmployeeId === employee.id}
+                          <input bind:this={editingInput} class="cl-field email-editor" type="email" aria-label={`${t('Email')} · ${employee.displayName}`} value={editingValue} oninput={(event) => (editingValue = event.currentTarget.value)} onkeydown={handleEmailKeydown} onblur={commitEmailEdit} />
+                        {:else}
+                          <button class="inline-cell" class:is-empty={!employee.email} type="button" disabled={!team.editable} onclick={() => startEmailEdit(employee)}><span>{employee.email || t('Add')}</span><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 20 4.3-1 10.8-10.8a2.1 2.1 0 0 0-3-3L5.3 16zM14.8 6.5l3 3" /></svg></button>
+                        {/if}
+                      </td>{/if}
+                      {#if shown('role')}<td><ClassicCellBadge label={roleLabel(employee.accessRole)} tone={employee.accessRole === 'manager' ? 'info' : 'neutral'} icon="user" /></td>{/if}
+                      {#if shown('pin')}<td><ClassicCellBadge label={employee.pinStatus === 'set' ? 'Set' : 'Not set'} tone={employee.pinStatus === 'set' ? 'success' : 'neutral'} icon="key" /></td>{/if}
+                      {#if shown('status')}<td><ClassicCellBadge label={ACCESS_LABEL[employee.accessState] ?? employee.accessState} tone={accessTone(employee.accessState)} icon={accessIcon(employee.accessState)} /></td>{/if}
+                      <td class="menu-cell">
+                        <ClassicRowMenu
+                          disabled={!team.editable || busy === employee.id}
+                          items={[
+                            { label: t('Open employee'), onselect: () => (detailId = employee.id) },
+                            employee.accessState === 'active'
+                              ? { label: t('Disable'), tone: 'danger', onselect: () => void disableAccess(employee).catch(() => undefined) }
+                              : employee.accessState === 'disabled'
+                                ? { label: t('Restore'), onselect: () => void run(employee.id, () => setEmployeeAccessState(workspace.activeId!, employee.id, 'restore'), 'App access restored.').catch(() => undefined) }
+                                : employee.accessState === 'invited'
+                                  ? { label: t('Revoke invitation'), tone: 'danger', onselect: () => void revokeInvite(employee).catch(() => undefined) }
+                                  : { label: t('Invite'), onselect: () => openInvite(employee) }
+                          ]}
+                        />
+                      </td>
                     </tr>
                   {/each}
                   {/if}
@@ -276,15 +340,27 @@
       <div class="form"><label class="cl-label"><span>{t('Email')}</span><input class="cl-field" type="email" bind:value={inviteEmail} /></label><label class="cl-label"><span>{t('Role')}</span><select class="cl-field" bind:value={inviteRole}><option value="employee">{t('Employee')}</option><option value="manager">{t('Manager')}</option></select></label></div>
     </Dialog>
 
+    {#if detailId}
+      <EmployeeInlineEditor employeeId={detailId} mode="people" saving={team.saving} onclose={() => (detailId = '')} onsave={team.saveEmployee} />
+    {/if}
+
 {/if}
 
 <style>
-  .actions { display: inline-flex; gap: 8px; }
-  .access-action { min-height: 30px; padding: 3px 10px; font-size: 12px; }
   .form { display: grid; gap: 14px; }
+  .employee-link { max-width: 230px; overflow: hidden; padding: 3px 0; border: 0; color: var(--cl-ink); background: transparent; font: inherit; font-size: 13px; font-weight: var(--rst-fw-medium); text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+  .employee-link:hover:not(:disabled) { color: var(--cl-accent); text-decoration: underline; text-underline-offset: 2px; }
+  .employee-link:disabled { cursor: default; }
+  .inline-cell { max-width: 260px; min-height: 30px; display: inline-flex; align-items: center; gap: 7px; overflow: hidden; margin: -3px -7px; padding: 4px 7px; border: 1px solid transparent; border-radius: 6px; color: var(--cl-muted); background: transparent; font: inherit; font-size: 13px; text-align: left; cursor: text; }
+  .inline-cell span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .inline-cell svg { flex: 0 0 auto; opacity: 0; }
+  .inline-cell:hover:not(:disabled), .inline-cell:focus-visible { border-color: color-mix(in srgb, var(--cl-accent) 22%, var(--cl-line)); color: var(--cl-ink); background: var(--cl-accent-wash); }
+  .inline-cell:hover:not(:disabled) svg, .inline-cell:focus-visible svg, .inline-cell.is-empty svg { opacity: .72; }
+  .inline-cell.is-empty { color: var(--cl-accent); font-size: 12px; font-weight: var(--rst-fw-medium); }
+  .email-editor { min-width: 160px; height: 32px; border-color: var(--cl-accent); box-shadow: 0 0 0 2px var(--cl-accent-wash); }
   .empty-link { justify-self: center; color: var(--cl-accent); font-size: 13px; font-weight: var(--rst-fw-medium); text-decoration: none; }
   .empty-link:hover { text-decoration: underline; }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-line-strong); display: inline-block; }
   .dot.is-green { background: var(--cl-ok); }
-  .actions-col, .chooser-col { width: 44px; }
+  .chooser-col, .menu-cell { width: 44px; }
 </style>

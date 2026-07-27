@@ -59,11 +59,20 @@
   import { DEFAULT_PLANNING_EXPORT_COLUMNS } from '$lib/schedule/schedule-export-columns';
   import { getReservationDemand } from '$lib/reservations/reservation-api';
   import type { ReservationDemand } from '$lib/reservations/reservation-types';
+  import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
+  import { workspaceAreaByKey } from '$lib/restaurant/workspace-catalogue';
 
   type GroupMode = 'none' | 'contract' | 'position' | 'area' | 'status';
   type PlanningGrid = ReturnType<typeof buildPlanningWeek>;
   type PlanningRow = PlanningGrid['rows'][number];
-  type RowGroup = { key: string; label: string; rows: PlanningRow[]; hours: number };
+  type RowGroup = {
+    key: string;
+    label: string;
+    rows: PlanningRow[];
+    hours: number;
+    color: string;
+    icon: string;
+  };
   type DayShiftView = {
     key: string;
     service: ServiceKey;
@@ -76,6 +85,7 @@
     position: string;
     showPosition: boolean;
     color: string;
+    icon: string;
     conflict: boolean;
     overlap: boolean;
     spansDay: boolean;
@@ -123,6 +133,14 @@
   );
   const areaName = $derived(
     new Map((snapshot?.work_areas ?? []).map((area) => [area.id, area.name]))
+  );
+  const areaIcon = $derived(
+    new Map(
+      (snapshot?.work_areas ?? []).map((area) => [
+        area.id,
+        area.icon_key || workspaceAreaByKey.get(area.catalogue_key ?? '')?.icon || ''
+      ])
+    )
   );
   const positionName = $derived(
     new Map((snapshot?.job_functions ?? []).map((position) => [position.id, position.name]))
@@ -335,22 +353,35 @@
     return [...rows].sort((left, right) => factor * left.name.localeCompare(right.name, i18n.intlLocale));
   }
 
-  function employeeAreaLabel(employeeId: string): string {
+  function employeeAreaId(employeeId: string): string | null {
     const scheduledAreas = new Set(
       scheduleDraft.shifts
         .filter((shift) => shift.employeeId === employeeId && shift.areaId)
-        .map((shift) => areaName.get(shift.areaId))
-        .filter((value): value is string => Boolean(value))
+        .map((shift) => shift.areaId)
     );
     if (scheduledAreas.size === 1) return [...scheduledAreas][0];
-    if (scheduledAreas.size > 1) return t('Multiple areas');
+    if (scheduledAreas.size > 1) return null;
 
     const primaryPosition = employeePosition.get(employeeId);
-    const defaults = (snapshot?.coverage_requirements ?? [])
-      .filter((requirement) => requirement.active && requirement.job_function_id === primaryPosition)
-      .map((requirement) => areaName.get(requirement.area_id))
-      .filter((value): value is string => Boolean(value));
-    return defaults[0] ?? t('No area');
+    const linkedAreas = (snapshot?.job_function_areas ?? [])
+      .filter((link) => link.active && link.job_function_id === primaryPosition)
+      .toSorted((left, right) => Number(right.is_primary) - Number(left.is_primary));
+    if (linkedAreas[0]?.area_id) return linkedAreas[0].area_id;
+
+    return (snapshot?.coverage_requirements ?? [])
+      .find((requirement) => requirement.active && requirement.job_function_id === primaryPosition)
+      ?.area_id ?? null;
+  }
+
+  function employeeAreaLabel(employeeId: string): string {
+    const scheduledAreaIds = new Set(
+      scheduleDraft.shifts
+        .filter((shift) => shift.employeeId === employeeId && shift.areaId)
+        .map((shift) => shift.areaId)
+    );
+    if (scheduledAreaIds.size > 1) return t('Multiple areas');
+    const areaId = employeeAreaId(employeeId);
+    return areaId ? areaName.get(areaId) ?? t('No area') : t('No area');
   }
 
   function groupLabel(row: PlanningRow, grid: PlanningGrid): string {
@@ -380,7 +411,9 @@
         key: 'all',
         label: '',
         rows,
-        hours: rows.reduce((total, row) => total + employeeHours(row.id), 0)
+        hours: rows.reduce((total, row) => total + employeeHours(row.id), 0),
+        color: '',
+        icon: ''
       }];
     }
     const groups = new Map<string, PlanningRow[]>();
@@ -390,12 +423,28 @@
     }
     return [...groups.entries()]
       .sort(([left], [right]) => left.localeCompare(right, i18n.intlLocale))
-      .map(([label, groupRows]) => ({
-        key: `${groupMode}:${label}`,
-        label,
-        rows: groupRows,
-        hours: groupRows.reduce((total, row) => total + employeeHours(row.id), 0)
-      }));
+      .map(([label, groupRows]) => {
+        const firstEmployeeId = groupRows[0]?.id ?? '';
+        const positionId = groupMode === 'position'
+          ? employeePosition.get(firstEmployeeId) ?? ''
+          : '';
+        const linkedPositionArea = positionId
+          ? (snapshot?.job_function_areas ?? [])
+              .filter((link) => link.active && link.job_function_id === positionId)
+              .toSorted((left, right) => Number(right.is_primary) - Number(left.is_primary))[0]?.area_id ?? null
+          : null;
+        const groupAreaId = groupMode === 'area'
+          ? employeeAreaId(firstEmployeeId)
+          : linkedPositionArea;
+        return {
+          key: `${groupMode}:${label}`,
+          label,
+          rows: groupRows,
+          hours: groupRows.reduce((total, row) => total + employeeHours(row.id), 0),
+          color: groupAreaId ? areaColor.get(groupAreaId) ?? '' : '',
+          icon: groupAreaId ? areaIcon.get(groupAreaId) ?? '' : ''
+        };
+      });
   }
 
   function toggleGroup(key: string): void {
@@ -574,6 +623,7 @@
         showPosition: Boolean(slot.shift.jobFunctionId) &&
           slot.shift.jobFunctionId !== employeePosition.get(employeeId),
         color: areaColor.get(slot.shift.areaId) ?? 'var(--cl-muted)',
+        icon: areaIcon.get(slot.shift.areaId) ?? '',
         conflict: slot.truth.state === 'conflict' || overlapKeys.has(draftKey(slot.shift)),
         overlap: overlapKeys.has(draftKey(slot.shift)),
         spansDay: spansServiceBoundary(slot.shift),
@@ -1105,10 +1155,15 @@
                 {:else}
                   {#each groups as group (group.key)}
                     {#if groupMode !== 'none'}
+                      {#snippet groupIcon()}
+                        <WorkspaceAreaIcon icon={group.icon} color={group.color} size={13} compact />
+                      {/snippet}
                       <ClassicGroupRow
                         colspan={grid.days.length + 1}
                         label={group.label}
                         meta={`${t('{count} employees', { count: group.rows.length })} · ${formatHours(group.hours)}`}
+                        color={group.color}
+                        icon={group.icon ? groupIcon : undefined}
                         collapsed={collapsedGroups.includes(group.key)}
                         ontoggle={() => toggleGroup(group.key)}
                       />
@@ -1141,8 +1196,8 @@
                             {@const lunchShift = shifts.find((shift) => shift.service === 'lunch') ?? null}
                             {@const eveningShift = shifts.find((shift) => shift.service === 'evening') ?? null}
                             {@const spanningShift = shifts.length === 1 && shifts[0].spansDay ? shifts[0] : null}
-                            {@const lunchColor = lunchShift?.color ?? spanningShift?.color ?? 'var(--cl-muted)'}
-                            {@const eveningColor = eveningShift?.color ?? spanningShift?.color ?? 'var(--cl-muted)'}
+                            {@const lunchColor = lunchShift?.color ?? spanningShift?.color ?? eveningShift?.color ?? 'var(--cl-muted)'}
+                            {@const eveningColor = eveningShift?.color ?? spanningShift?.color ?? lunchShift?.color ?? 'var(--cl-muted)'}
                             {@const dayConflict = shifts.some((shift) => shift.conflict)}
                             {@const dayOverlap = shifts.some((shift) => shift.overlap)}
                             {@const past = cell.date < week.today}
@@ -1290,6 +1345,13 @@
                                               <span class="day-card__service-row is-{chip.service}">
                                                 <span class="day-card__service-icon">{#if chip.spansDay}<ClassicServiceIcon name="span" size={11} />{:else}<ClassicServiceIcon service={chip.service} size={11} />{/if}</span>
                                                 <span class="day-card__service-name">
+                                                  {#if chip.icon}
+                                                    <i class="day-card__area-icon">
+                                                      <WorkspaceAreaIcon icon={chip.icon} color={chip.color} size={10} compact />
+                                                    </i>
+                                                  {:else}
+                                                    <i class="day-card__area-dot" style={`--area-color:${chip.color}`}></i>
+                                                  {/if}
                                                   <b>{chip.area}</b>
                                                   {#if chip.showPosition}<small>· {chip.position}</small>{/if}
                                                 </span>
@@ -1550,6 +1612,7 @@
   /* Area colour owns the card surface and border. Service colour is semantic:
      warm for lunch, cool for evening, orange for breaks. */
   .day-card { --lunch-color: var(--cl-muted); --evening-color: var(--cl-muted); --day-tone: var(--cl-lunch); --night-tone: var(--cl-evening); --break-tone: var(--cl-attention); position: absolute; z-index: 3; inset: 4px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--lunch-color) 72%, var(--cl-line-strong)); border-radius: 3px; background: var(--cl-surface); box-shadow: 0 1px 3px rgb(15 23 42 / .075), inset 0 0 0 1px rgb(255 255 255 / .5); isolation: isolate; transition: border-color var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease); }
+  .day-card::before { content: ''; position: absolute; z-index: 1; top: 0; right: 0; left: 0; height: 2px; background: linear-gradient(90deg, var(--lunch-color) 0 50%, var(--evening-color) 50% 100%); opacity: .92; pointer-events: none; }
   .day-card.is-lunch-only { border-color: color-mix(in srgb, var(--lunch-color) 72%, var(--cl-line-strong)); }
   .day-card.is-evening-only { border-color: color-mix(in srgb, var(--evening-color) 72%, var(--cl-line-strong)); }
   .day-card.is-full-day { border-color: color-mix(in srgb, var(--lunch-color) 72%, var(--cl-line-strong)); }
@@ -1600,6 +1663,8 @@
   .day-card__service-row.is-lunch { color: var(--day-tone); }
   .day-card__service-row.is-evening { color: var(--night-tone); }
   .day-card__service-name { display: flex; align-items: baseline; gap: 3px; min-width: 0; overflow: hidden; white-space: nowrap; }
+  .day-card__area-icon { display: inline-flex; flex: 0 0 auto; align-self: center; color: currentColor; font-style: normal; }
+  .day-card__area-dot { width: 5px; height: 5px; flex: 0 0 auto; align-self: center; border-radius: 50%; background: var(--area-color); }
   .day-card__service-row b, .day-card__service-row small, .day-card__service-row em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .day-card__service-row b { color: currentColor; font-size: 9.5px; font-weight: var(--rst-fw-bold); }
   .day-card__service-row small { color: color-mix(in srgb, currentColor 58%, var(--cl-muted)); font-size: 8.5px; font-weight: var(--rst-fw-medium); }

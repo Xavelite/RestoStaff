@@ -5067,3 +5067,27 @@ Object.assign(dutch, {
   'Employer identifiers and external connections are available to restaurant operators.':
     'Werkgeversgegevens en externe koppelingen zijn beschikbaar voor restaurantbeheerders.'
 });
+
+Object.assign(french, {
+  'Previous floor': 'Étage précédent',
+  'Next floor': 'Étage suivant',
+  'Select or type an area': 'Sélectionnez ou saisissez une zone',
+  'Add an area to start shaping your restaurant.':
+    'Ajoutez une zone pour commencer à dessiner votre restaurant.',
+  'Move to floor': 'Déplacer vers l’étage',
+  'No primary area': 'Aucune zone principale',
+  'Select or type a position': 'Sélectionnez ou saisissez un poste',
+  'Edit linked areas': 'Modifier les zones liées'
+});
+
+Object.assign(dutch, {
+  'Previous floor': 'Vorige verdieping',
+  'Next floor': 'Volgende verdieping',
+  'Select or type an area': 'Selecteer of typ een zone',
+  'Add an area to start shaping your restaurant.':
+    'Voeg een zone toe om je restaurant vorm te geven.',
+  'Move to floor': 'Naar verdieping verplaatsen',
+  'No primary area': 'Geen primaire zone',
+  'Select or type a position': 'Selecteer of typ een functie',
+  'Edit linked areas': 'Gekoppelde zones bewerken'
+});

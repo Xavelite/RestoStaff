@@ -1419,61 +1419,6 @@
   font-weight: var(--rst-fw-bold);
 }
 
-/* -------------------------------------------------- status --------------- */
-
-/* Compact status pill shared by every directory and payroll table. Meaning is
-   carried by both a symbol and a label, never by colour alone. */
-.cl-status {
-  --status-color: var(--cl-muted);
-  --status-wash: var(--cl-surface-muted);
-  --status-line: var(--cl-line);
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 24px;
-  padding: 2px 9px 2px 4px;
-  border: 1px solid var(--status-line);
-  border-radius: 999px;
-  background: var(--status-wash);
-  color: var(--status-color);
-  font-size: 11px;
-  font-weight: var(--rst-fw-bold);
-  white-space: nowrap;
-}
-
-.cl-status__symbol {
-  display: grid;
-  place-items: center;
-  width: 15px;
-  height: 15px;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: var(--status-color);
-  color: white;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--status-color) 10%, transparent);
-  font-size: 9px;
-  font-weight: var(--rst-fw-bold);
-  line-height: 1;
-}
-
-.cl-status.is-ok {
-  --status-color: color-mix(in srgb, var(--cl-ok) 88%, #123b2d);
-  --status-wash: color-mix(in srgb, var(--cl-ok) 20%, var(--cl-surface));
-  --status-line: color-mix(in srgb, var(--cl-ok) 43%, var(--cl-line));
-}
-
-.cl-status.is-attention {
-  --status-color: color-mix(in srgb, var(--cl-attention) 91%, #5f3500);
-  --status-wash: color-mix(in srgb, var(--cl-attention) 20%, var(--cl-surface));
-  --status-line: color-mix(in srgb, var(--cl-attention) 44%, var(--cl-line));
-}
-
-.cl-status.is-problem {
-  --status-color: color-mix(in srgb, var(--cl-problem) 90%, #5e1e1e);
-  --status-wash: color-mix(in srgb, var(--cl-problem) 18%, var(--cl-surface));
-  --status-line: color-mix(in srgb, var(--cl-problem) 42%, var(--cl-line));
-}
-
 /* -------------------------------------------------- controls ------------- */
 
 .cl-btn {
@@ -1707,10 +1652,11 @@
   cursor: pointer;
 }
 .cl-group-row__button:hover { background: color-mix(in srgb, var(--cl-accent) 4%, transparent); }
-.cl-group-row__button svg { flex: 0 0 auto; transform: rotate(90deg); transition: transform var(--cl-dur) var(--cl-ease); }
-.cl-group-row__button svg.is-collapsed { transform: rotate(0deg); }
+.cl-group-row__chevron { flex: 0 0 auto; transform: rotate(90deg); transition: transform var(--cl-dur) var(--cl-ease); }
+.cl-group-row__chevron.is-collapsed { transform: rotate(0deg); }
 .cl-group-row__button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: var(--rst-fw-bold); letter-spacing: 0; }
-.cl-group-row__button span { margin-left: auto; color: var(--cl-muted); font-size: 11px; font-weight: var(--rst-fw-medium); }
+.cl-group-row__meta { margin-left: auto; color: var(--cl-muted); font-size: 11px; font-weight: var(--rst-fw-medium); }
+.cl-group-row__icon { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; }
 .cl-group-row__dot { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--group, var(--cl-accent)); }
 .cl-group-row__count { margin-left: 8px; color: var(--cl-muted); font-size: 11px; font-weight: var(--rst-fw-medium); }
 .cl-group-row.is-drop-target td { background: color-mix(in srgb, var(--cl-accent) 9%, var(--cl-surface-muted)) !important; }

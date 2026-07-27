@@ -9,7 +9,8 @@
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { useClassicTeamContext } from '$lib/classic/classic-workspace-context';
   import ClassicService from '$lib/classic/ClassicService.svelte';
-  import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
+  import ClassicCellBadge from '$lib/classic/ClassicCellBadge.svelte';
+  import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
   import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
   import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
   import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
@@ -66,10 +67,16 @@
       : [...collapsedGroups, key];
   }
 
-  function toneFor(status: string): 'ok' | 'attention' | 'problem' {
-    if (status === 'approved') return 'ok';
-    if (status === 'pending') return 'attention';
-    return 'problem';
+  function toneFor(status: string): 'success' | 'warning' | 'danger' {
+    if (status === 'approved') return 'success';
+    if (status === 'pending') return 'warning';
+    return 'danger';
+  }
+
+  function iconFor(status: string): 'check' | 'clock' | 'warning' {
+    if (status === 'approved') return 'check';
+    if (status === 'pending') return 'clock';
+    return 'warning';
   }
 
   function formatDate(value: string): string {
@@ -169,8 +176,18 @@
                     <td><span class="cl-cellstack"><span class="is-quiet">{typeName.get(absence.absence_type_id ?? '') ?? '—'}</span>{#if absence.employee_comment}<small class="cl-cellsub">{absence.employee_comment}</small>{/if}</span></td>
                     <td><span class="cl-cellstack period"><time datetime={absence.start_date}>{formatDate(absence.start_date)}{#if absence.end_date !== absence.start_date} → {formatDate(absence.end_date)}{/if}</time><small class="cl-cellsub">{durationLabel(absence)}</small></span></td>
                     <td>{#if service}<ClassicService {service} />{:else}<span class="is-quiet">{t('Full day')}</span>{/if}</td>
-                    <td><ClassicStatus label={t(absence.status)} tone={toneFor(absence.status)} /></td>
-                    <td class="is-num">{#if absence.status === 'pending'}<span class="actions"><button class="cl-btn decision" type="button" disabled={!teamContext.editable || busy === absence.id} onclick={() => resolve(absence.id, absence.employee_id, 'reject')}>{t('Reject')}</button><button class="cl-btn is-primary decision" type="button" disabled={!teamContext.editable || busy === absence.id} onclick={() => resolve(absence.id, absence.employee_id, 'approve')}>{t('Approve')}</button></span>{/if}</td>
+                    <td><ClassicCellBadge label={absence.status} tone={toneFor(absence.status)} icon={iconFor(absence.status)} /></td>
+                    <td class="menu-cell">
+                      {#if absence.status === 'pending'}
+                        <ClassicRowMenu
+                          disabled={!teamContext.editable || busy === absence.id}
+                          items={[
+                            { label: t('Approve'), onselect: () => void resolve(absence.id, absence.employee_id, 'approve') },
+                            { label: t('Reject'), tone: 'danger', onselect: () => void resolve(absence.id, absence.employee_id, 'reject') }
+                          ]}
+                        />
+                      {/if}
+                    </td>
                   </tr>
                 {/each}
                 {/if}
@@ -185,8 +202,7 @@
 {/if}
 
 <style>
-  .actions { display: inline-flex; gap: 8px; }
-  .decision { min-height: 30px; padding: 3px 10px; font-size: 12px; }
+  .menu-cell { width: 44px; }
   .view-switch { display: inline-flex; overflow: hidden; border: 1px solid var(--cl-line-strong); border-radius: var(--cl-radius); background: var(--cl-surface); }
   .view-switch button { min-height: 32px; padding: 5px 10px; border: 0; border-left: 1px solid var(--cl-line); background: transparent; color: var(--cl-muted); font: inherit; font-size: 12px; font-weight: var(--rst-fw-medium); cursor: pointer; }
   .view-switch button:first-child { border-left: 0; }

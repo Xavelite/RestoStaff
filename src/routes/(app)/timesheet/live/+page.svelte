@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { goto } from '$app/navigation';
   import {
     addDays,
     formatHours,
@@ -17,6 +18,7 @@
   import ClassicService from '$lib/classic/ClassicService.svelte';
   import ClassicStat from '$lib/classic/ClassicStat.svelte';
   import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
+  import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
   import { isTimesheetRow, slotLabel, slotTone } from '$lib/classic/classic-time';
 
   const employeeColor = $derived(
@@ -126,7 +128,7 @@
             <th>{t('Recorded')}</th>
             <th class="is-num">{t('Worked')}</th>
             <th>{t('Status')}</th>
-            <th></th>
+            <th class="menu-cell" aria-label={t('Actions')}></th>
           </tr>
         </thead>
         <tbody>
@@ -159,7 +161,19 @@
                 </td>
                 <td class="is-num">{slot.actualHours ? formatHours(slot.actualHours) : '—'}</td>
                 <td><ClassicStatus label={slotLabel(slot.status)} {tone} /></td>
-                <td class="is-num"><a class="cl-btn" href={`/timesheet?date=${today}&entry=${encodeURIComponent(slot.key)}`}>{t('Details')}</a></td>
+                <td class="menu-cell">
+                  <ClassicRowMenu
+                    items={[
+                      {
+                        label: t('Details'),
+                        onselect: () =>
+                          void goto(
+                            `/timesheet?date=${today}&entry=${encodeURIComponent(slot.key)}`
+                          )
+                      }
+                    ]}
+                  />
+                </td>
               </tr>
             {/each}
           {/if}
@@ -186,6 +200,9 @@
     display: block;
     color: var(--cl-muted);
     font-size: 12px;
+  }
+  .menu-cell {
+    width: 44px;
   }
   /* A live shift gets a soft green pulse next to its running duration. */
   .live-tag {

@@ -84,6 +84,7 @@ export type ReservationRoom = {
   name: string;
   area_code: string;
   area_color: string | null;
+  area_icon?: string | null;
   position_x: number;
   position_y: number;
   width: number;

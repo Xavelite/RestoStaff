@@ -6,13 +6,16 @@
   import { workspace } from '$lib/workspace/workspace.svelte';
   import type { EmployeeDraft } from '$lib/team/team-model';
   import { useClassicTeamContext } from '$lib/classic/classic-workspace-context';
-  import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
+  import ClassicCellBadge from '$lib/classic/ClassicCellBadge.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
   import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
   import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
+  import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
   import EmployeeInlineEditor from '$lib/classic/EmployeeInlineEditor.svelte';
+  import { teamDraft } from '$lib/classic/classic-team.svelte';
+  import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
 
   type GroupBy = 'contract' | 'position' | 'status' | 'none';
   type Group = { key: string; label: string; employees: EmployeeDraft[] };
@@ -89,6 +92,16 @@
       : new Map<string, string>()
   );
 
+  function positionArea(positionId: string): { icon: string; color: string } | null {
+    const relation = (workspace.restaurant?.job_function_areas ?? [])
+      .filter((item) => item.active && item.job_function_id === positionId)
+      .sort((left, right) => Number(right.is_primary) - Number(left.is_primary))[0];
+    const area = workspace.restaurant?.work_areas.find((item) => item.id === relation?.area_id);
+    return area
+      ? { icon: area.icon_key ?? '', color: area.color ?? 'var(--cl-muted)' }
+      : null;
+  }
+
   const REGIME_LABEL: Record<string, string> = {
     weekly_availability: 'Weekly availability',
     fixed_schedule: 'Fixed schedule',
@@ -117,6 +130,18 @@
 
   function closeDetails() {
     detailId = '';
+  }
+
+  function updateContractType(employee: EmployeeDraft, id: string): void {
+    const code = workspace.team?.contract_types.find((item) => item.id === id)?.code ?? '';
+    teamDraft.update(employee.id, {
+      contractTypeId: id,
+      ...(code === 'CDI' ? { contractEnd: '' } : {})
+    });
+  }
+
+  function updateHours(employeeId: string, value: string): void {
+    teamDraft.update(employeeId, { weeklyContractHours: Math.max(0, Number(value) || 0) });
   }
 
 
@@ -188,12 +213,6 @@
     }
     return [...map.values()].sort((l, r) => l.key.startsWith('__') ? -1 : r.key.startsWith('__') ? 1 : l.label.localeCompare(r.label));
   }
-  function formatDate(value: string): string {
-    if (!value) return '—';
-    const [year, month, day] = value.split('-');
-    return year && month && day ? `${day}/${month}/${year}` : value;
-  }
-
   function peopleCountLabel(count: number): string {
     return count === 1 ? t('1 person') : t('{count} people', { count });
   }
@@ -238,10 +257,18 @@
           {:else}
             {#each groups as group (group.key)}
               <tbody>
-                {#if groupBy !== 'none'}<ClassicGroupRow colspan={colCount + 1} label={group.label} meta={peopleCountLabel(group.employees.length)} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />{/if}
+                {#if groupBy !== 'none'}
+                  {@const groupArea = groupBy === 'position' ? positionArea(group.key) : null}
+                  {#snippet groupIcon()}
+                    {#if groupArea}<WorkspaceAreaIcon icon={groupArea.icon} color={groupArea.color} size={15} compact />{/if}
+                  {/snippet}
+                  <ClassicGroupRow colspan={colCount + 1} label={group.label} meta={peopleCountLabel(group.employees.length)} icon={groupArea ? groupIcon : undefined} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />
+                {/if}
                 {#if !collapsedGroups.includes(group.key)}
                 {#each group.employees as employee (employee.id)}
                   {@const missing = gaps(employee)}
+                  {@const linkedArea = positionArea(employee.jobFunctionIds[0] ?? '')}
+                  {@const contractCode = workspace.team?.contract_types.find((item) => item.id === employee.contractTypeId)?.code ?? ''}
                   <tr data-employee-id={employee.id} class:is-attention={missing.length > 0}>
                     <td>
                       <span class="cl-table__name is-employee">
@@ -251,17 +278,36 @@
                     </td>
                     {#if shown('position')}<td>
                       <span class="position-identity" style={`--position-color:${positionColor.get(employee.jobFunctionIds[0] ?? '') ?? 'var(--cl-line-strong)'}`}>
-                        <i aria-hidden="true"></i>
+                        {#if linkedArea}
+                          <WorkspaceAreaIcon icon={linkedArea.icon} color={linkedArea.color} size={16} compact />
+                        {:else}
+                          <i aria-hidden="true"></i>
+                        {/if}
                         <span>{team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position yet')}</span>
                       </span>
                     </td>{/if}
-                    {#if shown('contract')}<td><span class="cl-badge is-neutral">{team.contractName.get(employee.contractTypeId) ?? t('Not set')}</span></td>{/if}
-                    {#if shown('regime')}<td class="is-quiet">{t(REGIME_LABEL[employee.workRegime] ?? employee.workRegime)}</td>{/if}
-                    {#if shown('start')}<td class="date-value"><time datetime={employee.contractStart}>{formatDate(employee.contractStart)}</time></td>{/if}
-                    {#if shown('end')}<td class="date-value"><time datetime={employee.contractEnd}>{formatDate(employee.contractEnd)}</time></td>{/if}
-                    {#if shown('hours')}<td class="is-num hours-value">{employee.weeklyContractHours ? `${employee.weeklyContractHours}h` : '—'}</td>{/if}
-                    {#if shown('status')}<td>{#if missing.length}<ClassicStatus label={missing.length === 1 ? '1 detail missing' : '{count} details missing'} params={{ count: missing.length }} tone="attention" />{:else}<ClassicStatus label="Complete" tone="ok" />{/if}</td>{/if}
-                    <td class="menu-cell"></td>
+                    {#if shown('contract')}<td>
+                      <select class="grid-field contract-field" aria-label={`${t('Contract')} · ${employee.displayName}`} value={employee.contractTypeId} disabled={!team.editable} onchange={(event) => updateContractType(employee, event.currentTarget.value)}>
+                        <option value="">{t('Not set')}</option>
+                        {#each [...team.contractName] as [id, name] (id)}<option value={id}>{name}</option>{/each}
+                      </select>
+                    </td>{/if}
+                    {#if shown('regime')}<td>
+                      <select class="grid-field regime-field" aria-label={`${t('Planning mode')} · ${employee.displayName}`} value={employee.workRegime} disabled={!team.editable} onchange={(event) => teamDraft.update(employee.id, { workRegime: event.currentTarget.value as EmployeeDraft['workRegime'] })}>
+                        {#each Object.entries(REGIME_LABEL) as [value, label] (value)}<option {value}>{t(label)}</option>{/each}
+                      </select>
+                    </td>{/if}
+                    {#if shown('start')}<td><input class="grid-field date-field" aria-label={`${t('Start')} · ${employee.displayName}`} type="date" value={employee.contractStart} disabled={!team.editable} oninput={(event) => teamDraft.update(employee.id, { contractStart: event.currentTarget.value })} /></td>{/if}
+                    {#if shown('end')}<td>
+                      {#if contractCode === 'CDI'}
+                        <ClassicCellBadge label="Open ended" icon="contract" />
+                      {:else}
+                        <input class="grid-field date-field" aria-label={`${t('End')} · ${employee.displayName}`} type="date" value={employee.contractEnd} disabled={!team.editable} oninput={(event) => teamDraft.update(employee.id, { contractEnd: event.currentTarget.value })} />
+                      {/if}
+                    </td>{/if}
+                    {#if shown('hours')}<td class="is-num"><span class="hours-field"><input class="grid-field" aria-label={`${t('Weekly hours')} · ${employee.displayName}`} type="number" min="0" step="0.25" value={employee.weeklyContractHours || ''} disabled={!team.editable} oninput={(event) => updateHours(employee.id, event.currentTarget.value)} /><span>h</span></span></td>{/if}
+                    {#if shown('status')}<td>{#if missing.length}<ClassicCellBadge label={missing.length === 1 ? '1 detail missing' : '{count} details missing'} params={{ count: missing.length }} tone="warning" icon="warning" />{:else}<ClassicCellBadge label="Complete" tone="success" icon="check" />{/if}</td>{/if}
+                    <td class="menu-cell"><ClassicRowMenu disabled={!team.editable} items={[{ label: t('Open employee'), onselect: () => (detailId = employee.id) }]} /></td>
                   </tr>
                 {/each}
                 {/if}
@@ -285,10 +331,20 @@
   .cell-value { max-width: 230px; display: block; overflow: hidden; padding: 3px 0; border: 0; background: transparent; color: var(--cl-ink); font: inherit; font-size: 13px; line-height: 1.35; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
   .cell-value:hover:not(:disabled) { color: var(--cl-accent); text-decoration: underline; text-underline-offset: 2px; }
   .cell-value:disabled { cursor: default; }
-  .position-identity { min-width: 112px; max-width: 190px; display: inline-grid; grid-template-columns: 6px minmax(0, 1fr); align-items: center; gap: 7px; color: var(--cl-ink); font-size: 13px; }
+  .position-identity { min-width: 112px; max-width: 190px; display: inline-grid; grid-template-columns: 16px minmax(0, 1fr); align-items: center; gap: 7px; color: var(--cl-ink); font-size: 13px; }
   .position-identity > i { width: 6px; height: 20px; border-radius: 2px; background: var(--position-color); }
   .position-identity > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .date-value, .hours-value { color: var(--cl-muted); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .grid-field { min-width: 0; width: 100%; min-height: 31px; padding: 4px 7px; border: 1px solid transparent; border-radius: 6px; outline: 0; color: var(--cl-ink); background: transparent; font: inherit; font-size: 12px; font-variant-numeric: tabular-nums; transition: border-color var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease); }
+  .grid-field:hover:not(:disabled) { border-color: var(--cl-line); background: var(--cl-surface-muted); }
+  .grid-field:focus { border-color: var(--cl-accent); background: var(--cl-surface); box-shadow: 0 0 0 2px var(--cl-accent-wash); }
+  .grid-field:disabled { color: var(--cl-muted); opacity: 1; }
+  select.grid-field { cursor: pointer; }
+  .contract-field { min-width: 130px; }
+  .regime-field { min-width: 150px; }
+  .date-field { min-width: 126px; }
+  .hours-field { min-width: 74px; display: inline-grid; grid-template-columns: minmax(0, 1fr) 14px; align-items: center; }
+  .hours-field .grid-field { text-align: right; }
+  .hours-field > span { color: var(--cl-muted); font-size: 11px; }
   .chooser-col, .menu-cell { width: 44px; }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-line-strong); display: inline-block; }
   .dot.is-orange { background: var(--cl-attention); }

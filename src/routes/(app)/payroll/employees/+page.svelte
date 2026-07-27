@@ -11,6 +11,7 @@
   import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
   import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
+  import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
   import ClassicTeamPage from '$lib/classic/ClassicTeamPage.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import EmployeeInlineEditor from '$lib/classic/EmployeeInlineEditor.svelte';
@@ -262,16 +263,15 @@
               {#if shown('basis')}<th class="has-menu"><ClassicColMenu label={t('Salary basis')} sortable sortDir={sort?.key === 'basis' ? sort.dir : null} onsort={(dir) => (sort = { key: 'basis', dir })} filterKind="values" filterValues={basisValues} selected={excludedBasis} ontoggle={(value) => (excludedBasis = toggleExcluded(excludedBasis, value))} onselectall={(on) => (excludedBasis = on ? new Set() : new Set(basisValues.map((item) => item.value)))} /></th>{/if}
               {#if shown('rate')}<th class="has-menu"><ClassicColMenu label={t('Rate')} sortable sortDir={sort?.key === 'rate' ? sort.dir : null} onsort={(dir) => (sort = { key: 'rate', dir })} filterKind="text" searchValue={rateSearch} onsearch={(value) => (rateSearch = value)} /></th>{/if}
               {#if shown('status')}<th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={sort?.key === 'status' ? sort.dir : null} onsort={(dir) => (sort = { key: 'status', dir })} filterKind="values" filterValues={[{ value: 'ready', label: t('Ready for payroll') }, { value: 'not_ready', label: t('Not ready for payroll') }]} selected={excludedStatus} ontoggle={(value) => (excludedStatus = toggleExcluded(excludedStatus, value))} onselectall={(on) => (excludedStatus = on ? new Set() : new Set(['ready', 'not_ready']))} /></th>{/if}
-              <th class="actions-col">{t('Actions')}</th>
               <th class="chooser-col"><ClassicColChooser columns={OPTIONAL_COLUMNS.map((column) => ({ key: column.key, label: t(column.label) }))} {hidden} ontoggle={toggleColumn} /></th>
             </tr>
           </thead>
           {#if !rows.length}
-            <tbody><tr><td colspan={colCount + 1}><div class="cl-empty"><strong>{t('No active employees')}</strong></div></td></tr></tbody>
+            <tbody><tr><td colspan={colCount}><div class="cl-empty"><strong>{t('No active employees')}</strong></div></td></tr></tbody>
           {:else}
             {#each groups as group (group.key)}
               <tbody>
-                {#if groupBy !== 'none'}<ClassicGroupRow colspan={colCount + 1} label={group.label} meta={t('{count} people', { count: group.employees.length })} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />{/if}
+                {#if groupBy !== 'none'}<ClassicGroupRow colspan={colCount} label={group.label} meta={t('{count} people', { count: group.employees.length })} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />{/if}
                 {#if !collapsedGroups.includes(group.key)}
                 {#each group.employees as employee (employee.id)}
                   {@const missing = payrollGaps(employee)}
@@ -286,8 +286,12 @@
                     {#if shown('basis')}<td><select class="cl-field basisfield" value={employee.salaryBasis} disabled={!team.canViewFinancials || !team.editable} onchange={(event) => teamDraft.update(employee.id, { salaryBasis: event.currentTarget.value as EmployeeDraft['salaryBasis'] })}><option value="">{t('Not set')}</option><option value="hourly">{t('Hourly')}</option><option value="monthly">{t('Monthly')}</option></select></td>{/if}
                     {#if shown('rate')}<td>{#if employee.salaryBasis === 'monthly'}<input class="cl-field ratefield" inputmode="decimal" value={employee.contractualMonthlySalary} disabled={!team.canViewFinancials || !team.editable} oninput={(event) => teamDraft.update(employee.id, { contractualMonthlySalary: event.currentTarget.value })} />{:else}<input class="cl-field ratefield" inputmode="decimal" value={employee.contractualHourlyRate} disabled={!team.canViewFinancials || !team.editable} oninput={(event) => teamDraft.update(employee.id, { contractualHourlyRate: event.currentTarget.value })} />{/if}</td>{/if}
                     {#if shown('status')}<td>{#if missing.length}<ClassicStatus label={missing.length === 1 ? '1 detail missing' : '{count} details missing'} params={{ count: missing.length }} tone="problem" /><span class="missing">{missing.map((item) => t(item)).join(', ')}</span>{:else}<ClassicStatus label={terms?.label ?? 'Ready for payroll'} tone={terms?.tone ?? 'ok'} />{/if}</td>{/if}
-                    <td class="is-num"><button class="cl-btn edit" type="button" disabled={!team.canViewFinancials || !team.editable || teamDraft.supplementaryLoading} onclick={() => (detailId = employee.id)}>{t('Details')}</button></td>
-                    <td class="menu-cell"></td>
+                    <td class="menu-cell">
+                      <ClassicRowMenu
+                        disabled={!team.canViewFinancials || !team.editable || teamDraft.supplementaryLoading}
+                        items={[{ label: t('Open employee'), onselect: () => (detailId = employee.id) }]}
+                      />
+                    </td>
                   </tr>
                 {/each}
                 {/if}
@@ -308,7 +312,6 @@
 <style>
   .employee-name { font-weight: var(--rst-fw-medium); }
   .missing { display: block; color: var(--cl-muted); font-size: 12px; }
-  .edit { min-height: 32px; padding: 4px 10px; font-size: 13px; }
   .payrollid { min-width: 120px; height: 34px; }
   .functionfield { min-width: 210px; max-width: 280px; height: 34px; }
   .basisfield { min-width: 108px; height: 34px; }
@@ -316,5 +319,5 @@
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-line-strong); display: inline-block; }
   .dot.is-green { background: var(--cl-ok); }
   .dot.is-red { background: var(--cl-problem); }
-  .actions-col, .chooser-col, .menu-cell { width: 44px; }
+  .chooser-col, .menu-cell { width: 44px; }
 </style>

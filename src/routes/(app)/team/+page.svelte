@@ -7,7 +7,7 @@
   import type { EmployeeDraft } from '$lib/team/team-model';
   import { newEmployeeDraft } from '$lib/team/team-model';
   import { useClassicTeamContext } from '$lib/classic/classic-workspace-context';
-  import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
+  import ClassicCellBadge from '$lib/classic/ClassicCellBadge.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
   import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
@@ -17,6 +17,7 @@
   import EmployeeInlineEditor from '$lib/classic/EmployeeInlineEditor.svelte';
   import { teamDraft } from '$lib/classic/classic-team.svelte';
   import { workspacePositionByKey } from '$lib/restaurant/workspace-catalogue';
+  import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
 
   type SortKey = 'employee' | 'position' | 'email' | 'phone' | 'contract' | 'access' | 'status';
   type GroupBy = 'position' | 'contract' | 'area' | 'status' | 'none';
@@ -105,6 +106,16 @@
     new Map((workspace.restaurant?.work_areas ?? []).map((area) => [area.id, area.name]))
   );
   const restaurantAreaColor = $derived(buildAreaColorMap(workspace.restaurant?.work_areas ?? []));
+
+  function positionArea(positionId: string): { icon: string; color: string } | null {
+    const relation = (workspace.restaurant?.job_function_areas ?? [])
+      .filter((item) => item.active && item.job_function_id === positionId)
+      .sort((left, right) => Number(right.is_primary) - Number(left.is_primary))[0];
+    const area = workspace.restaurant?.work_areas.find((item) => item.id === relation?.area_id);
+    return area
+      ? { icon: area.icon_key ?? '', color: area.color ?? 'var(--cl-muted)' }
+      : null;
+  }
 
   function setGroupBy(next: GroupBy): void {
     groupBy = next;
@@ -332,14 +343,17 @@
     not_invited: 'Not invited'
   };
 
-  const accessTone: Record<string, 'ok' | 'attention' | 'problem'> = {
-    active: 'ok',
-    disabled: 'problem',
-    expired: 'problem',
-    invited: 'attention',
-    revoked: 'attention',
-    not_invited: 'attention'
+  const accessTone: Record<string, 'success' | 'warning' | 'danger'> = {
+    active: 'success',
+    disabled: 'danger',
+    expired: 'danger',
+    invited: 'warning',
+    revoked: 'warning',
+    not_invited: 'warning'
   };
+
+  const accessIcon = (state: string): 'check' | 'clock' | 'minus' | 'lock' =>
+    state === 'active' ? 'check' : state === 'invited' ? 'clock' : state === 'not_invited' ? 'minus' : 'lock';
 
   const readTeamContext = useClassicTeamContext();
   const team = $derived(readTeamContext());
@@ -447,17 +461,29 @@
             {#each rows as group (group.key)}
               <tbody>
                 {#if groupBy !== 'none'}
+                  {@const groupArea = groupBy === 'position'
+                    ? positionArea(group.key)
+                    : groupBy === 'area'
+                      ? workspace.restaurant?.work_areas.find((area) => area.id === group.key)
+                      : null}
+                  {#snippet groupIcon()}
+                    {#if groupArea}
+                      <WorkspaceAreaIcon icon={'icon' in groupArea ? groupArea.icon : groupArea.icon_key} color={groupArea.color} size={15} compact />
+                    {/if}
+                  {/snippet}
                   <ClassicGroupRow
                     colspan={colCount + 1}
                     label={group.label}
                     meta={peopleCountLabel(group.employees.length)}
                     color={group.color}
+                    icon={groupArea ? groupIcon : undefined}
                     collapsed={collapsedGroups.includes(group.key)}
                     ontoggle={() => toggleGroup(group.key)}
                   />
                 {/if}
                 {#if !collapsedGroups.includes(group.key)}
                 {#each group.employees as employee (employee.id)}
+                  {@const primaryPositionArea = positionArea(employee.jobFunctionIds[0] ?? '')}
                   <tr data-employee-id={employee.id} class:is-attention={employee.id === freshId}>
                     <td>
                       <span class="cl-table__name is-employee">
@@ -475,16 +501,25 @@
                       <td>
                         <details class="posmenu">
                           <summary style={`--position-color:${positionColor.get(employee.jobFunctionIds[0] ?? '') ?? 'var(--cl-line-strong)'}`}>
-                            <i aria-hidden="true"></i>
+                            {#if primaryPositionArea}
+                              <WorkspaceAreaIcon icon={primaryPositionArea.icon} color={primaryPositionArea.color} size={16} compact />
+                            {:else}
+                              <i aria-hidden="true"></i>
+                            {/if}
                             <span>{team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position yet')}</span>
                             {#if employee.jobFunctionIds.length > 1}<em>+{employee.jobFunctionIds.length - 1}</em>{/if}
                           </summary>
                           <div class="posmenu__list">
                             {#if team.jobName.size}
                               {#each [...team.jobName] as [id, name] (id)}
+                                {@const linkedArea = positionArea(id)}
                                 <label>
                                   <input type="checkbox" disabled={!team.editable} checked={employee.jobFunctionIds.includes(id)} onchange={(event) => togglePosition(employee, id, event.currentTarget.checked)} />
-                                  <i style={`--position-color:${positionColor.get(id) ?? 'var(--cl-line-strong)'}`} aria-hidden="true"></i>
+                                  {#if linkedArea}
+                                    <WorkspaceAreaIcon icon={linkedArea.icon} color={linkedArea.color} size={15} compact />
+                                  {:else}
+                                    <i style={`--position-color:${positionColor.get(id) ?? 'var(--cl-line-strong)'}`} aria-hidden="true"></i>
+                                  {/if}
                                   <span>{name}</span>
                                 </label>
                               {/each}
@@ -551,9 +586,22 @@
                         </button>
                       {/if}
                     </td>{/if}
-                    {#if shown('contract')}<td><span class="cl-badge is-neutral">{team.contractName.get(employee.contractTypeId) ?? t('Not set')}</span></td>{/if}
-                    {#if shown('access')}<td><ClassicStatus label={ACCESS_LABEL[employee.accessState] ?? employee.accessState} tone={accessTone[employee.accessState] ?? 'attention'} /></td>{/if}
-                    {#if shown('status')}<td><ClassicStatus label={employee.active ? 'Active' : 'Archived'} tone={employee.active ? 'ok' : 'attention'} /></td>{/if}
+                    {#if shown('contract')}<td>
+                      <label class="contract-select">
+                        <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.2 3.5h6.2l3.4 3.4v9.6H5.2z" /><path d="M11.4 3.5v3.4h3.4M7.7 10h4.8M7.7 13h4.8" /></svg>
+                        <select
+                          aria-label={`${t('Contract')} · ${employee.displayName}`}
+                          value={employee.contractTypeId}
+                          disabled={!team.editable}
+                          onchange={(event) => teamDraft.update(employee.id, { contractTypeId: event.currentTarget.value })}
+                        >
+                          <option value="">{t('Not set')}</option>
+                          {#each [...team.contractName] as [id, name] (id)}<option value={id}>{name}</option>{/each}
+                        </select>
+                      </label>
+                    </td>{/if}
+                    {#if shown('access')}<td><ClassicCellBadge label={ACCESS_LABEL[employee.accessState] ?? employee.accessState} tone={accessTone[employee.accessState] ?? 'warning'} icon={accessIcon(employee.accessState)} /></td>{/if}
+                    {#if shown('status')}<td><ClassicCellBadge label={employee.active ? 'Active' : 'Archived'} tone={employee.active ? 'success' : 'warning'} icon={employee.active ? 'check' : 'clock'} /></td>{/if}
                     <td class="menu-cell">
                       <ClassicRowMenu
                         disabled={!team.editable}
@@ -598,7 +646,7 @@
   .inline-cell:disabled { cursor: default; }
   .inline-editor { border-color: var(--cl-accent); background: var(--cl-surface); box-shadow: 0 0 0 2px var(--cl-accent-wash); }
   .posmenu { position: relative; }
-  .posmenu summary { min-width: 118px; max-width: 230px; display: inline-grid; grid-template-columns: 7px minmax(0, 1fr) auto; align-items: center; gap: 7px; list-style: none; padding: 6px 9px; border: 1px solid color-mix(in srgb, var(--position-color) 28%, var(--cl-line)); border-radius: 6px; background: color-mix(in srgb, var(--position-color) 7%, var(--cl-surface)); color: var(--cl-ink); font-size: 13px; cursor: pointer; white-space: nowrap; }
+  .posmenu summary { min-width: 118px; max-width: 230px; display: inline-grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 7px; list-style: none; padding: 6px 9px; border: 1px solid color-mix(in srgb, var(--position-color) 28%, var(--cl-line)); border-radius: 6px; background: color-mix(in srgb, var(--position-color) 7%, var(--cl-surface)); color: var(--cl-ink); font-size: 13px; cursor: pointer; white-space: nowrap; }
   .posmenu summary:hover { border-color: color-mix(in srgb, var(--position-color) 54%, var(--cl-line)); background: color-mix(in srgb, var(--position-color) 10%, var(--cl-surface)); }
   .posmenu summary > i { width: 7px; height: 20px; border-radius: 2px; background: var(--position-color); }
   .posmenu summary > span { overflow: hidden; text-overflow: ellipsis; }
@@ -606,9 +654,13 @@
   .posmenu summary::-webkit-details-marker { display: none; }
   .posmenu[open] summary { border-color: color-mix(in srgb, var(--position-color) 66%, var(--cl-line)); background: var(--cl-surface); }
   .posmenu__list { position: absolute; z-index: var(--rst-z-popover, 120); top: calc(100% + 4px); left: 0; display: grid; gap: 6px; min-width: 220px; padding: 10px 12px; border: 1px solid var(--cl-line-strong); border-radius: var(--cl-radius); background: var(--cl-surface); box-shadow: 0 8px 24px rgba(0,0,0,.12); }
-  .posmenu__list label { display: grid; grid-template-columns: 15px 6px minmax(0, 1fr); align-items: center; gap: 8px; font-size: 13px; }
+  .posmenu__list label { display: grid; grid-template-columns: 15px 16px minmax(0, 1fr); align-items: center; gap: 8px; font-size: 13px; }
   .posmenu__list input { width: 15px; height: 15px; accent-color: var(--cl-accent); }
   .posmenu__list label > i { width: 6px; height: 20px; border-radius: 2px; background: var(--position-color); }
+  .contract-select { max-width: 190px; min-height: 30px; display: grid; grid-template-columns: 17px minmax(0, 1fr); align-items: center; gap: 6px; margin: -3px -7px; padding: 3px 6px; border: 1px solid transparent; border-radius: 6px; color: var(--cl-muted); transition: border-color var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease), color var(--cl-dur) var(--cl-ease); }
+  .contract-select:hover, .contract-select:focus-within { border-color: color-mix(in srgb, var(--cl-info) 24%, var(--cl-line)); color: var(--cl-info); background: color-mix(in srgb, var(--cl-info) 7%, var(--cl-surface)); }
+  .contract-select select { min-width: 0; width: 100%; padding: 2px 20px 2px 0; border: 0; outline: 0; color: var(--cl-ink); background: transparent; font: inherit; font-size: 12px; font-weight: var(--rst-fw-medium); text-overflow: ellipsis; cursor: pointer; }
+  .contract-select select:disabled { cursor: default; }
   .posmenu__list > span { color: var(--cl-muted); font-size: 12px; }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-line-strong); display: inline-block; }
   .dot.is-green { background: var(--cl-ok); }
