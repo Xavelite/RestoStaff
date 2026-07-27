@@ -144,7 +144,7 @@ test('planning operational setup concerns are confirmable warnings, not publicat
   );
 });
 
-test('venue saves preserve one stable reservation room per work area', async () => {
+test('area saves preserve one stable reservation room per work area', async () => {
   const migration = await readFile(
     'supabase/migrations/20260726230651_restore_venue_room_identity.sql',
     'utf8'
@@ -159,7 +159,7 @@ test('venue saves preserve one stable reservation room per work area', async () 
   assert.match(editor, /const activeAreaIds = new Set/);
   assert.match(
     editor,
-    /mode === 'venue' && activeAreaIds\.has\(room\.work_area_id\) \? true : room\.active/
+    /mode === 'areas' && activeAreaIds\.has\(room\.work_area_id\) \? true : room\.active/
   );
 });
 

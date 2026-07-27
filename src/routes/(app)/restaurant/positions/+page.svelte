@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
-  import { buildPositionColorMap } from '$lib/ui/position-color';
+  import { buildAreaColorMap, buildPositionColorMap } from '$lib/ui/position-color';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { useClassicRestaurantContext } from '$lib/classic/classic-workspace-context';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
@@ -30,7 +30,7 @@
   type PositionGroup = { key: string; label: string; rows: PositionRow[] };
 
   $effect(() => {
-    if (workspace.activeId && workspace.effectiveRole === 'owner') {
+    if (workspace.activeId && ['owner', 'manager'].includes(workspace.effectiveRole ?? '')) {
       void workspace.loadTeam().catch(() => undefined);
     }
   });
@@ -51,6 +51,7 @@
       restaurantConfig.draft?.areas ?? []
     )
   );
+  const areaColor = $derived(buildAreaColorMap(restaurantConfig.draft?.areas ?? []));
 
   let search = $state('');
   let costSearch = $state('');
@@ -182,6 +183,17 @@
       .filter((name): name is string => Boolean(name));
     if (names.length <= 1) return names[0] ?? t('No area linked');
     return `${names[0]} +${names.length - 1}`;
+  }
+
+  function primaryAreaColor(position: PositionRow): string {
+    return areaColor.get(position.primaryAreaId) ?? '#64748b';
+  }
+
+  function suggestedPositionColor(areaKeys: readonly string[]): string {
+    const area = restaurantConfig.draft?.areas.find(
+      (candidate) => candidate.active && areaKeys.includes(candidate.catalogueKey)
+    );
+    return area ? areaColor.get(area.id) ?? '#64748b' : '#64748b';
   }
 
   function togglePositionArea(position: PositionRow, areaId: string) {
@@ -343,7 +355,11 @@
                     <tr draggable={!sort && groupBy === 'none' && !workspace.isPreview} ondragstart={() => (dragId = position.id)} ondragend={() => (dragId = '')} ondragover={(event) => { if (!sort && groupBy === 'none') event.preventDefault(); }} ondrop={() => movePosition(position.id)}>
                       <td class="cl-grip"><button type="button" disabled={Boolean(sort) || groupBy !== 'none' || workspace.isPreview} title={sort || groupBy !== 'none' ? t('Clear grouping and sorting to reorder') : t('Drag to reorder')} aria-label={t('Drag to reorder')}>⋮⋮</button></td>
                       <td class="swatch-col">
-                        <span class="derived-swatch" style={`--position-color:${positionColor.get(position.id) ?? 'var(--cl-line-strong)'}`} title={t('Colour inherited from primary area')}></span>
+                        <span
+                          class="derived-swatch"
+                          style={`--position-color:${positionColor.get(position.id) ?? 'var(--cl-line-strong)'};--area-color:${primaryAreaColor(position)}`}
+                          title={t('Lighter tint inherited from the primary area')}
+                        ></span>
                       </td>
                       <td><input class="cl-field" placeholder={t('Position name')} disabled={workspace.isPreview} bind:value={position.name} oninput={() => restaurantConfig.touch()} /></td>
                       <td>
@@ -353,7 +369,7 @@
                           disabled={workspace.isPreview}
                           onclick={() => (positionAreaEditorId = position.id)}
                         >
-                          <span style={`--position-color:${positionColor.get(position.id) ?? 'var(--cl-line-strong)'}`}></span>
+                          <span style={`--area-color:${primaryAreaColor(position)}`}></span>
                           <strong>{areaSummary(position)}</strong>
                         </button>
                       </td>
@@ -394,7 +410,7 @@
       </label>
       <div class="catalogue-grid">
         {#each availableCataloguePositions as item (item.key)}
-          <button type="button" onclick={() => addPosition(item.key)}>
+          <button type="button" style={`--catalogue-color:${suggestedPositionColor(item.areaKeys)}`} onclick={() => addPosition(item.key)}>
             <span class="catalogue-icon" aria-hidden="true">{item.label.charAt(0)}</span>
             <span><strong>{item.label}</strong><small>{item.category}</small></span>
           </button>
@@ -465,11 +481,20 @@
   .switch { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; }
   .switch input { width: 16px; height: 16px; accent-color: var(--cl-accent); }
   .swatch-col { width: 34px; padding-right: 0 !important; }
-  .derived-swatch { width: 14px; height: 28px; display: block; border: 1px solid color-mix(in srgb, var(--position-color) 72%, #111827); border-radius: 3px; background: color-mix(in srgb, var(--position-color) 88%, white); }
+  .derived-swatch {
+    width: 15px;
+    height: 30px;
+    display: block;
+    border: 1px solid color-mix(in srgb, var(--area-color) 62%, var(--cl-line));
+    border-radius: 4px;
+    background:
+      linear-gradient(to bottom, color-mix(in srgb, var(--position-color) 88%, white) 0 calc(100% - 5px), var(--area-color) calc(100% - 5px));
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--area-color) 13%, transparent);
+  }
   .area-link-button { display: inline-grid; grid-template-columns: 7px minmax(0, 1fr); align-items: center; gap: 8px; min-width: 150px; max-width: 220px; min-height: 34px; padding: 5px 9px; border: 1px solid var(--cl-line); border-radius: 4px; background: var(--cl-surface); color: var(--cl-ink); text-align: left; cursor: pointer; }
   .area-link-button:hover { border-color: var(--cl-line-strong); background: var(--cl-surface-muted); }
   .area-link-button:disabled { cursor: default; opacity: .55; }
-  .area-link-button > span { width: 7px; height: 22px; border-radius: 2px; background: var(--position-color); }
+  .area-link-button > span { width: 7px; height: 22px; border-radius: 2px; background: var(--area-color); }
   .area-link-button strong { overflow: hidden; font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .chooser-col { width: 44px; }
@@ -486,12 +511,12 @@
   .catalogue-picker { display: grid; gap: 16px; }
   .catalogue-search { display: grid; gap: 6px; color: var(--cl-muted); font-size: 11px; font-weight: 700; }
   .catalogue-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; max-height: 390px; overflow: auto; padding: 2px; }
-  .catalogue-grid > button { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 10px; min-height: 58px; padding: 9px 11px; border: 1px solid var(--cl-line); border-radius: 5px; background: var(--cl-surface); color: var(--cl-ink); text-align: left; cursor: pointer; }
-  .catalogue-grid > button:hover { border-color: color-mix(in srgb, var(--cl-accent) 55%, var(--cl-line)); background: var(--cl-accent-wash); }
+  .catalogue-grid > button { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 10px; min-height: 58px; padding: 9px 11px; border: 1px solid var(--cl-line); border-radius: 6px; background: var(--cl-surface); color: var(--cl-ink); text-align: left; cursor: pointer; }
+  .catalogue-grid > button:hover { border-color: color-mix(in srgb, var(--catalogue-color) 62%, var(--cl-line)); background: color-mix(in srgb, var(--catalogue-color) 7%, var(--cl-surface)); }
   .catalogue-grid strong, .catalogue-grid small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .catalogue-grid strong { font-size: 12px; }
   .catalogue-grid small { margin-top: 2px; color: var(--cl-muted); font-size: 10px; text-transform: capitalize; }
-  .catalogue-icon { display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid var(--cl-line); border-radius: 4px; background: var(--cl-surface-muted); color: var(--cl-accent); font-size: 12px; font-weight: 800; }
+  .catalogue-icon { display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid color-mix(in srgb, var(--catalogue-color) 34%, var(--cl-line)); border-radius: 7px; background: color-mix(in srgb, var(--catalogue-color) 10%, var(--cl-surface)); color: color-mix(in srgb, var(--catalogue-color) 82%, var(--cl-ink)); font-size: 12px; font-weight: 800; }
   .catalogue-empty { grid-column: 1 / -1; margin: 0; padding: 24px; color: var(--cl-muted); text-align: center; }
   .custom-position { display: grid; grid-template-columns: minmax(0, 1fr) minmax(180px, 240px) auto; align-items: end; gap: 12px; padding-top: 14px; border-top: 1px solid var(--cl-line); }
   .custom-position > div { display: grid; gap: 3px; }

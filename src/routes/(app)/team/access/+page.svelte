@@ -48,7 +48,7 @@
   let hidden = $state(new Set<string>());
 
   const inviteDirty = $derived(Boolean(inviting && inviteBaseline && JSON.stringify([inviteEmail, inviteRole]) !== inviteBaseline));
-  const employeeColor = $derived(workspace.team ? buildEmployeeColorMap(workspace.team.job_functions, workspace.team.employee_job_functions, workspace.operations?.work_areas ?? []) : new Map<string, string>());
+  const employeeColor = $derived(workspace.team ? buildEmployeeColorMap(workspace.team.job_functions, workspace.team.employee_job_functions, workspace.restaurant?.work_areas ?? []) : new Map<string, string>());
 
   const ACCESS_LABEL: Record<string, string> = {
     active: 'Signed in', disabled: 'Disabled', invited: 'Invitation sent', expired: 'Invitation expired', revoked: 'Invitation revoked', not_invited: 'No invitation'
@@ -138,6 +138,10 @@
     return [...map.values()].sort((a, b) => a.key === '__undefined__' ? -1 : b.key === '__undefined__' ? 1 : a.label.localeCompare(b.label));
   }
 
+  function peopleCountLabel(count: number): string {
+    return count === 1 ? t('1 person') : t('{count} people', { count });
+  }
+
   function openInvite(employee: EmployeeDraft) {
     inviting = employee;
     inviteEmail = employee.email;
@@ -201,7 +205,7 @@
             {:else}
               {#each groups as group (group.key)}
                 <tbody>
-                  {#if groupBy !== 'none'}<ClassicGroupRow colspan={colCount} label={group.label} meta={t('{count} people', { count: group.employees.length })} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />{/if}
+                  {#if groupBy !== 'none'}<ClassicGroupRow colspan={colCount} label={group.label} meta={peopleCountLabel(group.employees.length)} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />{/if}
                   {#if !collapsedGroups.includes(group.key)}
                   {#each group.employees as employee (employee.id)}
                     <tr>

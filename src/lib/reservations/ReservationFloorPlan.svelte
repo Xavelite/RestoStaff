@@ -47,6 +47,7 @@
     floorEditable = false,
     roomsEditable = editable,
     tablesEditable = editable,
+    showTableCount = true,
     selectedTableId = '',
     selectedRoomId = '',
     emptyMessage = 'Add a table to start this floor plan.',
@@ -69,6 +70,7 @@
     floorEditable?: boolean;
     roomsEditable?: boolean;
     tablesEditable?: boolean;
+    showTableCount?: boolean;
     selectedTableId?: string;
     selectedRoomId?: string;
     emptyMessage?: string;
@@ -522,7 +524,7 @@
       class:is-floor-editable={floorEditable}
       style={`--floor-aspect:${floorWidth / floorHeight}`}
       role="group"
-      aria-label={t('{name} tables', { name: roomName })}
+      aria-label={t('{name} floor plan', { name: roomName })}
       onpointermove={moveDrag}
       onpointerup={endDrag}
       onpointercancel={endDrag}
@@ -539,7 +541,7 @@
           onclick={() => onroomselect(room)}
         >
           <span>{room.name}</span>
-          <small>{tables.filter((table) => table.room_id === room.id).length} {t('tables')}</small>
+          {#if showTableCount}<small>{tables.filter((table) => table.room_id === room.id).length} {t('tables')}</small>{/if}
           {#if roomsEditable && room.id === selectedRoomId}
             {#each resizeEdges as edge}
               <i class="resize-handle is-{edge}" aria-hidden="true" onpointerdown={(event) => startRoomResize(event, room, edge)}></i>
@@ -677,10 +679,10 @@
     gap: 10px;
     padding: 9px 11px;
     overflow: visible;
-    border: 1.5px solid color-mix(in srgb, var(--room-color) 62%, var(--cl-line));
+    border: 1.5px solid color-mix(in srgb, var(--room-color) 72%, var(--cl-line));
     border-radius: 5px;
-    background: color-mix(in srgb, var(--room-color) 9%, var(--cl-surface));
-    color: color-mix(in srgb, var(--room-color) 72%, var(--cl-ink));
+    background: color-mix(in srgb, var(--room-color) 11%, var(--cl-surface));
+    color: color-mix(in srgb, var(--room-color) 84%, var(--cl-ink));
     font: inherit;
     text-align: left;
     cursor: pointer;
@@ -767,7 +769,7 @@
   .snap-guide.is-vertical { width: 1px; top: 0; bottom: 0; left: var(--guide); }
   .snap-guide.is-horizontal { height: 1px; right: 0; left: 0; top: var(--guide); }
   .floor-zone.is-dragging { z-index: 4; cursor: grabbing; box-shadow: 0 8px 18px rgb(28 35 44 / 12%); }
-  .floor-zone.is-selected { z-index: 2; border-style: solid; outline: 4px solid color-mix(in srgb, var(--room-color) 14%, transparent); outline-offset: 2px; box-shadow: 0 5px 14px color-mix(in srgb, var(--room-color) 14%, transparent); }
+  .floor-zone.is-selected { z-index: 2; border-style: solid; outline: 4px solid color-mix(in srgb, var(--room-color) 16%, transparent); outline-offset: 2px; box-shadow: 0 6px 18px color-mix(in srgb, var(--room-color) 18%, transparent); }
   .floor-zone span {
     overflow: hidden;
     font-size: 10px;

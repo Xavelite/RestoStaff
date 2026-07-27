@@ -7,8 +7,8 @@
   const context = $derived(readRestaurantContext());
 </script>
 
-<svelte:head><title>{t('Venue')} &middot; restogogo</title></svelte:head>
+<svelte:head><title>{t('Areas')} &middot; restogogo</title></svelte:head>
 
 {#if context}
-  <ReservationFloorPlansWorkspace mode="venue" restaurantContext={context} />
+  <ReservationFloorPlansWorkspace mode="areas" restaurantContext={context} />
 {/if}

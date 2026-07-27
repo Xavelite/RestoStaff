@@ -146,7 +146,7 @@
   >
     {#snippet meta()}
       <span><i class="dot is-green"></i>{t('{count} services open', { count: enabledServices })}</span>
-      <span><i class="dot"></i>{t('Venue and tables are managed visually')}</span>
+      <span><i class="dot"></i>{t('Areas and tables are managed visually')}</span>
     {/snippet}
     {#snippet children()}
       {#if loading && !draft}

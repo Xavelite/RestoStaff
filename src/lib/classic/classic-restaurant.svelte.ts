@@ -1,7 +1,7 @@
 import { untrack } from 'svelte';
 import type { RestaurantReadModel } from '$lib/api/workspace-snapshot';
 import { saveRestaurant } from '$lib/api/mutations';
-import { saveVenueModel } from '$lib/reservations/reservation-api';
+import { saveRestaurantAreasModel } from '$lib/reservations/reservation-api';
 import type { ReservationFloorPlansDraft } from '$lib/reservations/reservation-types';
 import { restaurantDraft, restaurantSavePayload, type RestaurantDraft } from '$lib/restaurant/restaurant-model';
 import { workspace } from '$lib/workspace/workspace.svelte';
@@ -65,14 +65,14 @@ class ClassicRestaurantDraft {
     await workspace.loadRestaurant(true);
   }
 
-  async saveVenue(
+  async saveAreas(
     restaurantId: string,
     snapshot: RestaurantReadModel,
     floorPlans: ReservationFloorPlansDraft,
     expectedRevision: number
   ): Promise<void> {
     if (!this.draft) return;
-    await saveVenueModel(
+    await saveRestaurantAreasModel(
       restaurantId,
       restaurantSavePayload(snapshot, this.draft),
       floorPlans,

@@ -83,7 +83,7 @@
 
   const employeeColor = $derived(
     workspace.team
-      ? buildEmployeeColorMap(workspace.team.job_functions, workspace.team.employee_job_functions, workspace.operations?.work_areas ?? [])
+      ? buildEmployeeColorMap(workspace.team.job_functions, workspace.team.employee_job_functions, workspace.restaurant?.work_areas ?? [])
       : new Map<string, string>()
   );
 
@@ -225,6 +225,10 @@
     });
   }
 
+  function peopleCountLabel(count: number): string {
+    return count === 1 ? t('1 person') : t('{count} people', { count });
+  }
+
   const readTeamContext = useClassicTeamContext();
   const team = $derived(readTeamContext());
 </script>
@@ -272,7 +276,7 @@
           {:else}
             {#each groups as group (group.key)}
               <tbody>
-                {#if groupBy !== 'none'}<ClassicGroupRow colspan={colCount + 1} label={group.label} meta={t('{count} people', { count: group.employees.length })} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />{/if}
+                {#if groupBy !== 'none'}<ClassicGroupRow colspan={colCount + 1} label={group.label} meta={peopleCountLabel(group.employees.length)} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />{/if}
                 {#if !collapsedGroups.includes(group.key)}
                 {#each group.employees as employee (employee.id)}
                   {@const missing = gaps(employee)}
@@ -314,6 +318,15 @@
 {/if}
 
 <style>
+  .contract-table { min-width: 1160px; }
+  .contract-table :is(th, td):nth-child(1) { min-width: 150px; }
+  .contract-table :is(th, td):nth-child(2) { min-width: 118px; }
+  .contract-table :is(th, td):nth-child(3) { min-width: 105px; }
+  .contract-table :is(th, td):nth-child(4) { min-width: 138px; }
+  .contract-table :is(th, td):nth-child(5),
+  .contract-table :is(th, td):nth-child(6) { min-width: 132px; }
+  .contract-table :is(th, td):nth-child(7) { min-width: 122px; }
+  .contract-table :is(th, td):nth-child(8) { min-width: 112px; }
   .missing { display: block; color: var(--cl-muted); font-size: 12px; }
   .namefield { min-width: 170px; height: 34px; }
   .employee-name { font-weight: var(--rst-fw-medium); }

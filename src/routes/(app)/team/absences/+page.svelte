@@ -18,7 +18,7 @@
 
   const employeeColor = $derived(
     workspace.team
-      ? buildEmployeeColorMap(workspace.team.job_functions, workspace.team.employee_job_functions, workspace.operations?.work_areas ?? [])
+      ? buildEmployeeColorMap(workspace.team.job_functions, workspace.team.employee_job_functions, workspace.restaurant?.work_areas ?? [])
       : new Map<string, string>()
   );
 

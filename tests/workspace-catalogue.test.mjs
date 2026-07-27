@@ -9,6 +9,7 @@ import {
   workspaceAreaByKey,
   workspacePositionByKey
 } from '../src/lib/restaurant/workspace-catalogue.ts';
+import { buildPositionColorMap } from '../src/lib/ui/position-color.ts';
 
 test('workspace area catalogue has stable unique identities and valid visual metadata', () => {
   assert.ok(WORKSPACE_AREA_CATALOGUE.length >= 20);
@@ -56,4 +57,25 @@ test('starter workspace is useful without becoming the whole catalogue', () => {
   );
   assert.ok(areas.length < WORKSPACE_AREA_CATALOGUE.length);
   assert.ok(positions.length < WORKSPACE_POSITION_CATALOGUE.length);
+});
+
+test('areas are modern colour anchors and positions inherit a lighter tint', () => {
+  assert.equal(workspaceAreaByKey.get('dining_room')?.color, '#f97316');
+  assert.equal(workspaceAreaByKey.get('bar')?.color, '#3b82f6');
+  assert.equal(workspaceAreaByKey.get('kitchen')?.color, '#f43f5e');
+  assert.equal(workspaceAreaByKey.get('dishwashing')?.color, '#14b8a6');
+
+  const colors = buildPositionColorMap(
+    [
+      {
+        id: 'waiter',
+        name: 'Waiter',
+        primaryAreaId: 'dining',
+        areaIds: ['dining']
+      }
+    ],
+    [{ id: 'dining', name: 'Dining room', color: '#f97316' }]
+  );
+  assert.equal(colors.get('waiter'), '#fa8f45');
+  assert.notEqual(colors.get('waiter'), '#f97316');
 });

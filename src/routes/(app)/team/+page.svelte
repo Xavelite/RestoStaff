@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
-  import { buildAreaColorMap, buildEmployeeColorMap } from '$lib/ui/position-color';
+  import { buildAreaColorMap, buildEmployeeColorMap, buildPositionColorMap } from '$lib/ui/position-color';
   import { personInitials } from '$lib/ui/person';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import type { EmployeeDraft } from '$lib/team/team-model';
@@ -15,6 +15,7 @@
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
   import EmployeeInlineEditor from '$lib/classic/EmployeeInlineEditor.svelte';
   import { teamDraft } from '$lib/classic/classic-team.svelte';
+  import { workspacePositionByKey } from '$lib/restaurant/workspace-catalogue';
 
   type SortKey = 'employee' | 'position' | 'email' | 'phone' | 'contract' | 'access' | 'status';
   type GroupBy = 'position' | 'contract' | 'area' | 'status' | 'none';
@@ -88,7 +89,12 @@
 
   const employeeColor = $derived(
     workspace.team
-      ? buildEmployeeColorMap(workspace.team.job_functions, workspace.team.employee_job_functions, workspace.operations?.work_areas ?? [])
+      ? buildEmployeeColorMap(workspace.team.job_functions, workspace.team.employee_job_functions, workspace.restaurant?.work_areas ?? [])
+      : new Map<string, string>()
+  );
+  const positionColor = $derived(
+    workspace.team
+      ? buildPositionColorMap(workspace.team.job_functions, workspace.restaurant?.work_areas ?? [])
       : new Map<string, string>()
   );
 
@@ -110,19 +116,26 @@
 
   function employeeArea(employee: EmployeeDraft): { key: string; label: string; color?: string } {
     const positionId = employee.jobFunctionIds[0] ?? '';
-    const areaIds = [...new Set(
-      (workspace.restaurant?.coverage_requirements ?? [])
-        .filter((requirement) => requirement.active && requirement.job_function_id === positionId)
-        .map((requirement) => requirement.area_id)
-    )];
-    if (!areaIds.length) return { key: '__no_area__', label: t('No area') };
-    if (areaIds.length > 1) return { key: '__multiple_areas__', label: t('Multiple areas') };
-    const areaId = areaIds[0];
+    const position = workspace.restaurant?.job_functions.find((job) => job.id === positionId);
+    const areaRelations = (workspace.restaurant?.job_function_areas ?? [])
+      .filter((relation) => relation.active && relation.job_function_id === positionId)
+      .sort((left, right) => Number(right.is_primary) - Number(left.is_primary));
+    const primaryAreaId = areaRelations[0]?.area_id;
+    const catalogue = position?.catalogue_key ?? null;
+    const allAreasPosition = catalogue
+      ? workspacePositionByKey.get(catalogue)?.areaKeys.length === 0
+      : false;
+    if (!primaryAreaId && allAreasPosition) return { key: '__all_areas__', label: t('All areas') };
+    if (!primaryAreaId) return { key: '__no_area__', label: t('No area') };
     return {
-      key: areaId,
-      label: restaurantAreaName.get(areaId) ?? t('Unknown'),
-      color: restaurantAreaColor.get(areaId)
+      key: primaryAreaId,
+      label: restaurantAreaName.get(primaryAreaId) ?? t('Unknown'),
+      color: restaurantAreaColor.get(primaryAreaId)
     };
+  }
+
+  function peopleCountLabel(count: number): string {
+    return count === 1 ? t('1 person') : t('{count} people', { count });
   }
 
   async function addEmployee() {
@@ -327,7 +340,7 @@
 
     <ClassicTablePanel dirty={team.dirty} saving={team.saving} canSave={team.canSave} onsave={() => void savePage(team.save).catch(() => undefined)} ondiscard={() => discardPage(team.discard)}>
       {#snippet meta()}
-        <span><i class="dot"></i>{t('{count} people', { count: total })}</span>
+        <span><i class="dot"></i>{peopleCountLabel(total)}</span>
         <span><i class="dot is-green"></i>{t('{count} active', { count: activeCount })}</span>
         <span><i class="dot is-blue"></i>{t('{count} with app access', { count: accessCount })}</span>
       {/snippet}
@@ -409,7 +422,7 @@
                   <ClassicGroupRow
                     colspan={colCount + 1}
                     label={group.label}
-                    meta={t('{count} people', { count: group.employees.length })}
+                    meta={peopleCountLabel(group.employees.length)}
                     color={group.color}
                     collapsed={collapsedGroups.includes(group.key)}
                     dropTarget={dropGroupKey === group.key}
@@ -431,11 +444,19 @@
                     {#if shown('position')}
                       <td>
                         <details class="posmenu">
-                          <summary>{employee.jobFunctionIds.map((id) => team.jobName.get(id)).filter(Boolean).join(', ') || t('No position yet')}</summary>
+                          <summary style={`--position-color:${positionColor.get(employee.jobFunctionIds[0] ?? '') ?? 'var(--cl-line-strong)'}`}>
+                            <i aria-hidden="true"></i>
+                            <span>{team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position yet')}</span>
+                            {#if employee.jobFunctionIds.length > 1}<em>+{employee.jobFunctionIds.length - 1}</em>{/if}
+                          </summary>
                           <div class="posmenu__list">
                             {#if team.jobName.size}
                               {#each [...team.jobName] as [id, name] (id)}
-                                <label><input type="checkbox" disabled={!team.editable} checked={employee.jobFunctionIds.includes(id)} onchange={(event) => togglePosition(employee, id, event.currentTarget.checked)} />{name}</label>
+                                <label>
+                                  <input type="checkbox" disabled={!team.editable} checked={employee.jobFunctionIds.includes(id)} onchange={(event) => togglePosition(employee, id, event.currentTarget.checked)} />
+                                  <i style={`--position-color:${positionColor.get(id) ?? 'var(--cl-line-strong)'}`} aria-hidden="true"></i>
+                                  <span>{name}</span>
+                                </label>
                               {/each}
                             {:else}
                               <span>{t('Create positions in Restaurant first.')}</span>
@@ -478,14 +499,18 @@
   .detail { min-height: 32px; padding: 4px 12px; font-size: 13px; }
   .detail.is-quiet { border-color: transparent; background: transparent; color: var(--cl-muted); }
   .posmenu { position: relative; }
-  .posmenu summary { list-style: none; padding: 6px 10px; border: 1px solid transparent; border-radius: var(--cl-radius); color: var(--cl-ink); font-size: 14px; cursor: pointer; white-space: nowrap; }
-  .posmenu summary:hover { border-color: var(--cl-line); background: var(--cl-surface-muted); }
+  .posmenu summary { min-width: 118px; max-width: 230px; display: inline-grid; grid-template-columns: 7px minmax(0, 1fr) auto; align-items: center; gap: 7px; list-style: none; padding: 6px 9px; border: 1px solid color-mix(in srgb, var(--position-color) 28%, var(--cl-line)); border-radius: 6px; background: color-mix(in srgb, var(--position-color) 7%, var(--cl-surface)); color: var(--cl-ink); font-size: 13px; cursor: pointer; white-space: nowrap; }
+  .posmenu summary:hover { border-color: color-mix(in srgb, var(--position-color) 54%, var(--cl-line)); background: color-mix(in srgb, var(--position-color) 10%, var(--cl-surface)); }
+  .posmenu summary > i { width: 7px; height: 20px; border-radius: 2px; background: var(--position-color); }
+  .posmenu summary > span { overflow: hidden; text-overflow: ellipsis; }
+  .posmenu summary > em { min-width: 18px; height: 18px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--position-color) 30%, var(--cl-line)); border-radius: 999px; color: var(--cl-muted); font-size: 9px; font-style: normal; }
   .posmenu summary::-webkit-details-marker { display: none; }
-  .posmenu[open] summary { border-color: var(--cl-accent); background: var(--cl-surface); }
+  .posmenu[open] summary { border-color: color-mix(in srgb, var(--position-color) 66%, var(--cl-line)); background: var(--cl-surface); }
   .posmenu__list { position: absolute; z-index: var(--rst-z-popover, 120); top: calc(100% + 4px); left: 0; display: grid; gap: 6px; min-width: 220px; padding: 10px 12px; border: 1px solid var(--cl-line-strong); border-radius: var(--cl-radius); background: var(--cl-surface); box-shadow: 0 8px 24px rgba(0,0,0,.12); }
-  .posmenu__list label { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  .posmenu__list label { display: grid; grid-template-columns: 15px 6px minmax(0, 1fr); align-items: center; gap: 8px; font-size: 13px; }
   .posmenu__list input { width: 15px; height: 15px; accent-color: var(--cl-accent); }
-  .posmenu__list span { color: var(--cl-muted); font-size: 12px; }
+  .posmenu__list label > i { width: 6px; height: 20px; border-radius: 2px; background: var(--position-color); }
+  .posmenu__list > span { color: var(--cl-muted); font-size: 12px; }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-line-strong); display: inline-block; }
   .dot.is-green { background: var(--cl-ok); }
   .dot.is-blue { background: var(--cl-info); }

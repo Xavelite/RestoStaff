@@ -87,7 +87,7 @@ test('reservation JSON parsers provide stable safe defaults', () => {
   });
 });
 
-test('venue editor can create reservation rooms during its first transactional save', async () => {
+test('area editor can create reservation rooms during its first transactional save', async () => {
   const migration = await readFile(
     'supabase/migrations/20260726153249_upsert_reservation_rooms_from_venue_editor.sql',
     'utf8'

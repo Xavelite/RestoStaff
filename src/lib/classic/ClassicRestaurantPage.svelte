@@ -59,7 +59,7 @@
     }
   }
 
-  async function saveVenue(
+  async function saveAreas(
     floorPlans: ReservationFloorPlansDraft,
     expectedRevision: number
   ): Promise<void> {
@@ -72,7 +72,7 @@
     }
     saving = true;
     try {
-      await restaurantConfig.saveVenue(
+      await restaurantConfig.saveAreas(
         workspace.activeId,
         snapshot,
         floorPlans,
@@ -104,7 +104,7 @@
     saving,
     canSave: !workspace.isPreview,
     save,
-    saveVenue,
+    saveAreas,
     discard
   } : null);
 

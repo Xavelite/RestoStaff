@@ -184,6 +184,20 @@ test('people, contracts and payroll employees share direct rows and one complete
   assert.match(teamPage, /unsavedChanges\.register/);
 });
 
+test('Restaurant Areas is the visible floor editor and Team groups positions by their primary area', async () => {
+  const nav = await readFile('src/lib/classic/classic-nav.ts', 'utf8');
+  const areasRoute = await readFile('src/routes/(app)/restaurant/areas/+page.svelte', 'utf8');
+  const floorPlans = await readFile('src/lib/reservations/ReservationFloorPlansWorkspace.svelte', 'utf8');
+  const people = await readFile('src/routes/(app)/team/+page.svelte', 'utf8');
+
+  assert.match(nav, /\{ href: '\/restaurant\/areas', label: 'Areas' \}/);
+  assert.match(areasRoute, /mode="areas"/);
+  assert.match(floorPlans, /mode\?: 'areas' \| 'tables'/);
+  assert.match(people, /\.sort\(\(left, right\) => Number\(right\.is_primary\) - Number\(left\.is_primary\)\)/);
+  assert.match(people, /const primaryAreaId = areaRelations\[0\]\?\.area_id/);
+  assert.doesNotMatch(people, /coverage_requirements/);
+});
+
 
 test('operational core exposes planning, attendance and payroll as one classic workflow', async () => {
   const nav = await readFile('src/lib/classic/classic-nav.ts', 'utf8');
@@ -379,12 +393,12 @@ test('Planning, Team, Restaurant and Payroll use the same first-column grouping 
   assert.match(schedule, /t\('\{count\} employees', \{ count: group\.rows\.length \}\).*formatHours\(group\.hours\)/s);
 });
 
-test('Restaurant Areas is the direct-manipulation venue canvas instead of a duplicate data grid', async () => {
+test('Restaurant Areas is the direct-manipulation floor canvas instead of a duplicate data grid', async () => {
   const page = await readFile('src/routes/(app)/restaurant/areas/+page.svelte', 'utf8');
   const workspace = await readFile('src/lib/reservations/ReservationFloorPlansWorkspace.svelte', 'utf8');
   const canvas = await readFile('src/lib/reservations/ReservationFloorPlan.svelte', 'utf8');
 
-  assert.match(page, /<ReservationFloorPlansWorkspace mode="venue"/);
+  assert.match(page, /<ReservationFloorPlansWorkspace mode="areas"/);
   assert.doesNotMatch(page, /<ClassicTablePanel|<table/);
   assert.match(workspace, /function addFloor\(\)/);
   assert.match(workspace, /function addArea\(/);
@@ -403,21 +417,21 @@ test('Restaurant Areas is the direct-manipulation venue canvas instead of a dupl
   assert.doesNotMatch(canvas, /Floor plan zoom|zoom-value/);
 });
 
-test('pilot UX exposes only active modules and separates Venue from Tables', async () => {
+test('pilot UX exposes only active modules and separates Areas from Tables', async () => {
   const home = await readFile('src/routes/(app)/home/+page.svelte', 'utf8');
   const nav = await readFile('src/lib/classic/classic-nav.ts', 'utf8');
   const layout = await readFile('src/routes/(app)/+layout.svelte', 'utf8');
-  const venue = await readFile('src/lib/reservations/ReservationFloorPlansWorkspace.svelte', 'utf8');
+  const areas = await readFile('src/lib/reservations/ReservationFloorPlansWorkspace.svelte', 'utf8');
 
   assert.match(home, /!module\.placeholder && !module\.homeOnly/);
   assert.doesNotMatch(home, /Core workspace|Upcoming|laterModules|workspaceTiles/);
-  assert.match(nav, /\/restaurant\/areas', label: 'Venue'/);
+  assert.match(nav, /\/restaurant\/areas', label: 'Areas'/);
   assert.match(nav, /\/reservations\/floor-plans', label: 'Tables'/);
   const reportsBlock = nav.match(/key: 'reports'[\s\S]*?  \},/)?.[0] ?? '';
   assert.match(reportsBlock, /subNav:/);
   assert.doesNotMatch(reportsBlock, /placeholder|homeOnly/);
   assert.doesNotMatch(layout, /#key `\$\{page\.url\.pathname\}\$\{page\.url\.search\}`/);
-  assert.match(venue, /editorReadOnly = \$derived\(compactViewport \|\| workspace\.isPreview\)/);
-  assert.match(venue, /editable=\{!editorReadOnly\}/);
-  assert.match(venue, /View only on small screens/);
+  assert.match(areas, /editorReadOnly = \$derived\(compactViewport \|\| workspace\.isPreview\)/);
+  assert.match(areas, /editable=\{!editorReadOnly\}/);
+  assert.match(areas, /View only on small screens/);
 });

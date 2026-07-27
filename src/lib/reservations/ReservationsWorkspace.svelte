@@ -470,7 +470,7 @@
               roomName={liveFloor.name}
               floorWidth={liveFloor.canvas_width}
               floorHeight={liveFloor.canvas_height}
-              emptyMessage="Build the venue and add tables before using the live floor view."
+              emptyMessage="Set up restaurant areas and tables before using the live floor view."
               onselect={selectFloorTable}
             />
             <aside class="arrival-rail">
@@ -509,7 +509,7 @@
         {:else}
           <div class="cl-empty">
             <strong>{t('No reservable room yet')}</strong>
-            <span>{t('Build the venue in Restaurant → Venue, then add tables in Reservations → Tables.')}</span>
+            <span>{t('Set up areas in Restaurant → Areas, then add tables in Reservations → Tables.')}</span>
             <a class="cl-btn is-primary" href="/reservations/floor-plans">{t('Open Tables')}</a>
           </div>
         {/if}

@@ -83,7 +83,7 @@ export async function saveReservationSetup(
   if (error) throw toApiError(error, 'Reservation setup could not be saved.');
 }
 
-export async function saveVenueModel(
+export async function saveRestaurantAreasModel(
   restaurantId: string,
   restaurant: RestaurantSavePayload,
   draft: ReservationFloorPlansDraft,
@@ -104,7 +104,7 @@ export async function saveVenueModel(
     p_combinations: asJsonArray(draft.combinations),
     p_expected_revision: expectedRevision
   });
-  if (error) throw toApiError(error, 'Venue could not be saved.');
+  if (error) throw toApiError(error, 'Restaurant areas could not be saved.');
 }
 
 export async function checkReservationAvailability(

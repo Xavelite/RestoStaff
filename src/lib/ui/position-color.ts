@@ -1,35 +1,35 @@
 // Shared colour identity for positions, areas and employees.
 //
-// Positions use a lighter, vivid palette because they are operational labels.
-// Areas use a deeper palette because they are structural locations. Defaults are
-// deterministic; owner-selected overrides take precedence.
+// Areas are the strong colour anchor. Positions inherit the same hue as a
+// deliberately lighter tint, so the relationship stays visible throughout
+// Restaurant, Team, Planning and Time & attendance.
 
 import { catalogueAreaColor } from '../restaurant/workspace-catalogue.ts';
 
 export const POSITION_PALETTE = [
-  '#2563eb', // blue
-  '#ea580c', // orange
-  '#16a34a', // green
-  '#9333ea', // violet
-  '#0891b2', // cyan
-  '#dc2626', // red
-  '#d97706', // amber
-  '#4f46e5', // indigo
-  '#db2777', // pink
-  '#0284c7' // sky
+  '#60a5fa', // blue
+  '#fb923c', // orange
+  '#34d399', // green
+  '#a78bfa', // violet
+  '#22d3ee', // cyan
+  '#fb7185', // rose
+  '#fbbf24', // amber
+  '#818cf8', // indigo
+  '#f472b6', // pink
+  '#38bdf8' // sky
 ] as const;
 
 export const AREA_PALETTE = [
-  '#0f766e', // deep teal
-  '#7c2d12', // rust
-  '#3730a3', // deep indigo
-  '#166534', // forest
-  '#9d174d', // deep rose
-  '#1e3a8a', // navy
-  '#78350f', // umber
-  '#5b21b6', // deep violet
-  '#115e59', // pine
-  '#374151' // slate
+  '#f97316', // orange
+  '#3b82f6', // blue
+  '#10b981', // emerald
+  '#8b5cf6', // violet
+  '#ec4899', // pink
+  '#06b6d4', // cyan
+  '#6366f1', // indigo
+  '#f43f5e', // rose
+  '#84cc16', // lime
+  '#64748b' // slate
 ] as const;
 
 type JobFunctionLike = {
@@ -123,7 +123,7 @@ function mixHex(base: string, target: '#ffffff' | '#000000', amount: number): st
 
 /**
  * Position id → colour. A position inherits the identity of its primary area;
- * sibling positions receive stable tints so the venue keeps one visual
+ * sibling positions receive stable lighter tints so the restaurant keeps one visual
  * language. Legacy colours remain a fallback while no area is linked.
  */
 export function buildPositionColorMap(
@@ -152,10 +152,10 @@ export function buildPositionColorMap(
       const siblingIndex = positionIndexByArea.get(areaId) ?? 0;
       positionIndexByArea.set(areaId, siblingIndex + 1);
       const variants = [
-        mixHex(areaColor, '#ffffff', 0.14),
-        mixHex(areaColor, '#ffffff', 0.28),
-        mixHex(areaColor, '#000000', 0.08),
-        mixHex(areaColor, '#ffffff', 0.4)
+        mixHex(areaColor, '#ffffff', 0.2),
+        mixHex(areaColor, '#ffffff', 0.32),
+        mixHex(areaColor, '#ffffff', 0.42),
+        mixHex(areaColor, '#ffffff', 0.5)
       ];
       map.set(item.id, variants[siblingIndex % variants.length]);
       return;

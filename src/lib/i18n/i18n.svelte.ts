@@ -4891,6 +4891,28 @@ Object.assign(dutch, {
 });
 
 Object.assign(french, {
+  Areas: 'Zones',
+  'Areas saved.': 'Zones enregistrées.',
+  'Drag and resize areas to match the restaurant.': 'Déplacez et redimensionnez les zones pour reproduire le restaurant.',
+  'Use a tablet or desktop to move, resize or add areas.': 'Utilisez une tablette ou un ordinateur pour déplacer, redimensionner ou ajouter des zones.',
+  'Set up areas in Restaurant → Areas before adding tables.': 'Configurez les zones dans Restaurant → Zones avant d’ajouter des tables.',
+  'Set up areas in Restaurant → Areas, then add tables in Reservations → Tables.': 'Configurez les zones dans Restaurant → Zones, puis ajoutez les tables dans Réservations → Tables.',
+  'Areas and tables are managed visually': 'Les zones et les tables sont gérées visuellement',
+  'Set up restaurant areas and tables before using the live floor view.': 'Configurez les zones et les tables avant d’utiliser la vue en direct.'
+});
+
+Object.assign(dutch, {
+  Areas: 'Zones',
+  'Areas saved.': 'Zones opgeslagen.',
+  'Drag and resize areas to match the restaurant.': 'Sleep en schaal zones om het restaurant na te bouwen.',
+  'Use a tablet or desktop to move, resize or add areas.': 'Gebruik een tablet of computer om zones te verplaatsen, te schalen of toe te voegen.',
+  'Set up areas in Restaurant → Areas before adding tables.': 'Stel zones in via Restaurant → Zones voordat je tafels toevoegt.',
+  'Set up areas in Restaurant → Areas, then add tables in Reservations → Tables.': 'Stel zones in via Restaurant → Zones en voeg daarna tafels toe via Reservaties → Tafels.',
+  'Areas and tables are managed visually': 'Zones en tafels worden visueel beheerd',
+  'Set up restaurant areas and tables before using the live floor view.': 'Stel restaurantzones en tafels in voordat je de live zaalweergave gebruikt.'
+});
+
+Object.assign(french, {
   'Missing area': 'Zone manquante',
   'Archived area': 'Zone archivÃ©e',
   'Missing position': 'Poste manquant',
@@ -4908,4 +4930,30 @@ Object.assign(dutch, {
   'Position not assigned to employee': 'Functie niet aan medewerker toegewezen',
   'Closed service': 'Gesloten service',
   'Setup warnings': 'Configuratiewaarschuwingen'
+});
+
+Object.assign(french, {
+  '1 floor': '1 étage',
+  '1 area': '1 zone',
+  '1 table': '1 table',
+  '1 person': '1 personne',
+  'A restaurant needs at least one floor.': 'Un restaurant doit avoir au moins un étage.',
+  'Move or archive the areas on this floor first.': 'Déplacez ou archivez d’abord les zones de cet étage.',
+  'Archive floor': 'Archiver l’étage',
+  'Copy lunch hours to every day': 'Copier les horaires du midi sur tous les jours',
+  'Copy evening hours to every day': 'Copier les horaires du soir sur tous les jours',
+  'Lighter tint inherited from the primary area': 'Teinte plus claire héritée de la zone principale'
+});
+
+Object.assign(dutch, {
+  '1 floor': '1 verdieping',
+  '1 area': '1 zone',
+  '1 table': '1 tafel',
+  '1 person': '1 persoon',
+  'A restaurant needs at least one floor.': 'Een restaurant heeft minstens één verdieping nodig.',
+  'Move or archive the areas on this floor first.': 'Verplaats of archiveer eerst de zones op deze verdieping.',
+  'Archive floor': 'Verdieping archiveren',
+  'Copy lunch hours to every day': 'Lunchuren naar alle dagen kopiëren',
+  'Copy evening hours to every day': 'Avonduren naar alle dagen kopiëren',
+  'Lighter tint inherited from the primary area': 'Lichtere tint overgenomen van de primaire zone'
 });

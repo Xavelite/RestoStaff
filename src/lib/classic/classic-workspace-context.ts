@@ -23,7 +23,7 @@ export type ClassicRestaurantContext = {
   saving: boolean;
   canSave: boolean;
   save: () => Promise<void>;
-  saveVenue: (floorPlans: ReservationFloorPlansDraft, expectedRevision: number) => Promise<void>;
+  saveAreas: (floorPlans: ReservationFloorPlansDraft, expectedRevision: number) => Promise<void>;
   discard: () => void;
 };
 
