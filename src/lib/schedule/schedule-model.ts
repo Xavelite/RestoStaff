@@ -441,13 +441,10 @@ export function planningAssignmentOptions(
     return left.sort_order - right.sort_order || left.name.localeCompare(right.name);
   });
 
-  const relationOrder = new Map(
+  const linkedPositionAreas = new Set(
     (snapshot.job_function_areas ?? [])
       .filter((row) => row.active)
-      .map((row) => [
-        `${row.job_function_id}|${row.area_id}`,
-        row.is_primary ? 0 : 1
-      ])
+      .map((row) => `${row.job_function_id}|${row.area_id}`)
   );
   const recommended = new Set(
     snapshot.coverage_requirements
@@ -456,13 +453,9 @@ export function planningAssignmentOptions(
   );
   const options = jobs.flatMap((job) => {
     const areas = [...activeAreas].sort((left, right) => {
-      const leftRelation = relationOrder.get(`${job.id}|${left.id}`);
-      const rightRelation = relationOrder.get(`${job.id}|${right.id}`);
-      if (leftRelation != null || rightRelation != null) {
-        if (leftRelation == null) return 1;
-        if (rightRelation == null) return -1;
-        if (leftRelation !== rightRelation) return leftRelation - rightRelation;
-      }
+      const leftLinked = linkedPositionAreas.has(`${job.id}|${left.id}`);
+      const rightLinked = linkedPositionAreas.has(`${job.id}|${right.id}`);
+      if (leftLinked !== rightLinked) return leftLinked ? -1 : 1;
       return left.sort_order - right.sort_order || left.name.localeCompare(right.name);
     });
     return areas.map((area) => ({
@@ -476,8 +469,8 @@ export function planningAssignmentOptions(
     const leftEmployee = employeeOrder.has(left.jobFunctionId);
     const rightEmployee = employeeOrder.has(right.jobFunctionId);
     if (leftEmployee !== rightEmployee) return leftEmployee ? -1 : 1;
-    const leftRelated = relationOrder.has(`${left.jobFunctionId}|${left.areaId}`);
-    const rightRelated = relationOrder.has(`${right.jobFunctionId}|${right.areaId}`);
+    const leftRelated = linkedPositionAreas.has(`${left.jobFunctionId}|${left.areaId}`);
+    const rightRelated = linkedPositionAreas.has(`${right.jobFunctionId}|${right.areaId}`);
     if (leftRelated !== rightRelated) return leftRelated ? -1 : 1;
     if (left.recommended !== right.recommended) return left.recommended ? -1 : 1;
     const leftJob = jobs.findIndex((job) => job.id === left.jobFunctionId);

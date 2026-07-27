@@ -8,7 +8,10 @@
   import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
   import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
-  import type { CoverageDraft } from '$lib/restaurant/restaurant-model';
+  import type {
+    CoverageDraft,
+    JobFunctionDraft
+  } from '$lib/restaurant/restaurant-model';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { buildAreaColorMap, buildPositionColorMap } from '$lib/ui/position-color';
   import { areaInstanceLabelMap } from '$lib/restaurant/area-instance';
@@ -42,6 +45,30 @@
       restaurantConfig.draft?.areas ?? []
     )
   );
+
+  function effectivePositionAreaIds(
+    position: Pick<JobFunctionDraft, 'areaIds'>,
+    activeAreaIds: ReadonlySet<string>
+  ): string[] {
+    const linkedAreaIds = position.areaIds.filter((areaId) =>
+      activeAreaIds.has(areaId)
+    );
+    return linkedAreaIds.length ? linkedAreaIds : [...activeAreaIds];
+  }
+
+  function positionSupportsArea(
+    position: Pick<JobFunctionDraft, 'areaIds'>,
+    areaId: string
+  ): boolean {
+    if (!areaId) return true;
+    const activeAreaIds = new Set(
+      (restaurantConfig.draft?.areas ?? [])
+        .filter((area) => area.active)
+        .map((area) => area.id)
+    );
+    return effectivePositionAreaIds(position, activeAreaIds).includes(areaId);
+  }
+
   const suggestedRows = $derived.by(() => {
     const draft = restaurantConfig.draft;
     if (!draft) return [] as Row[];
@@ -50,12 +77,7 @@
     );
     const suggestions: Row[] = [];
     for (const position of draft.jobFunctions.filter((job) => job.active)) {
-      const linkedAreas = new Set(
-        [position.primaryAreaId, ...position.areaIds].filter((areaId) =>
-          activeAreaIds.has(areaId)
-        )
-      );
-      for (const areaId of linkedAreas) {
+      for (const areaId of effectivePositionAreaIds(position, activeAreaIds)) {
         for (const serviceKey of ['lunch', 'evening'] as ServiceKey[]) {
           if (!exists(areaId, position.id, serviceKey)) {
             suggestions.push({ areaId, jobFunctionId: position.id, serviceKey });
@@ -291,7 +313,7 @@
                 {@const duplicate = Boolean(row.areaId && row.jobFunctionId && row.serviceKey && exists(row.areaId, row.jobFunctionId, row.serviceKey as ServiceKey))}
                 <tr class="is-attention">
                   <td><select class="cl-field" aria-label={t('Area')} value={row.areaId} onchange={(event) => patchNewRow(row.tempId, { areaId: event.currentTarget.value })}><option value="">{t('Choose area')}</option>{#each activeAreas as area (area.id)}<option value={area.id}>{areaName.get(area.id) ?? area.name}</option>{/each}</select></td>
-                  <td><select class="cl-field" aria-label={t('Position')} value={row.jobFunctionId} onchange={(event) => patchNewRow(row.tempId, { jobFunctionId: event.currentTarget.value })}><option value="">{t('Choose position')}</option>{#each activePositions.filter((job) => !row.areaId || job.primaryAreaId === row.areaId || job.areaIds.includes(row.areaId)) as job (job.id)}<option value={job.id}>{job.name}</option>{/each}</select></td>
+                  <td><select class="cl-field" aria-label={t('Position')} value={row.jobFunctionId} onchange={(event) => patchNewRow(row.tempId, { jobFunctionId: event.currentTarget.value })}><option value="">{t('Choose position')}</option>{#each activePositions.filter((job) => positionSupportsArea(job, row.areaId)) as job (job.id)}<option value={job.id}>{job.name}</option>{/each}</select></td>
                   <td><select class="cl-field" aria-label={t('Service')} value={row.serviceKey} onchange={(event) => patchNewRow(row.tempId, { serviceKey: event.currentTarget.value as PendingService })}><option value="">{t('Choose service')}</option><option value="lunch">{t('Lunch')}</option><option value="evening">{t('Evening')}</option></select></td>
                   {#each WEEKDAYS as day, index (day)}<td class="cov__day"><input class="cl-field num" class:is-set={row.counts[index] != null} type="number" min="0" step="1" placeholder="—" aria-label={`${t(day)} ${t('required people')}`} value={row.counts[index] ?? ''} oninput={(event) => setNewCount(row.tempId, index, event.currentTarget.value)} /></td>{/each}
                   <td class="is-num"><button class="cl-btn is-icon remove" type="button" title={t('Remove')} aria-label={t('Remove')} onclick={() => removeNewRow(row.tempId)}>×</button></td>

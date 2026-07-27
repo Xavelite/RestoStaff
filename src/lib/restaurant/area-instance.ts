@@ -4,6 +4,7 @@ export type AreaInstanceIdentity = {
   active: boolean;
   catalogueKey: string;
   instanceNumber: number;
+  floorLevel: number;
 };
 
 /**
@@ -25,7 +26,7 @@ type AreaInstanceRow = {
 
 function areaInstanceIdentity(
   area: AreaInstanceRow
-): AreaInstanceIdentity & { floorLevel: number } {
+): AreaInstanceIdentity {
   return {
     id: area.id,
     name: area.name,
@@ -44,9 +45,7 @@ function areaInstanceIdentity(
 function normalizedAreaTypeName(name: string): string {
   return name
     .trim()
-    .toLocaleLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
 }
@@ -91,26 +90,52 @@ export function duplicateAreaTypeCount(
 }
 
 export function areaInstanceLocator(
-  area: Pick<AreaInstanceIdentity, 'instanceNumber'>,
-  floorLevel: number
+  area: AreaInstanceIdentity,
+  areas: ReadonlyArray<AreaInstanceIdentity>
 ): string {
-  return `${areaFloorToken(floorLevel)}.${areaInstanceLetter(area.instanceNumber)}`;
+  const floorToken = areaFloorToken(area.floorLevel);
+  const typeKey = areaTypeKey(area);
+  const currentAreas = areas.some((candidate) => candidate.id === area.id)
+    ? areas.map((candidate) => (candidate.id === area.id ? area : candidate))
+    : [...areas, area];
+  const floorPeers = currentAreas
+    .filter(
+      (candidate) =>
+        candidate.active &&
+        areaTypeKey(candidate) === typeKey &&
+        candidate.floorLevel === area.floorLevel
+    )
+    .toSorted(
+      (left, right) =>
+        left.instanceNumber - right.instanceNumber ||
+        left.id.localeCompare(right.id)
+    );
+
+  if (floorPeers.length <= 1) return floorToken;
+
+  const floorIndex = floorPeers.findIndex(
+    (candidate) => candidate.id === area.id
+  );
+  const letter = areaInstanceLetter(
+    floorIndex >= 0 ? floorIndex + 1 : floorPeers.length + 1
+  );
+  return `${floorToken}.${letter}`;
 }
 
 export function areaInstanceLabel(
   area: AreaInstanceIdentity,
-  areas: ReadonlyArray<AreaInstanceIdentity>,
-  floorLevel: number
+  areas: ReadonlyArray<AreaInstanceIdentity>
 ): string {
   return duplicateAreaTypeCount(area, areas) > 1
-    ? `${area.name} (${areaInstanceLocator(area, floorLevel)})`
+    ? `${area.name} (${areaInstanceLocator(area, areas)})`
     : area.name;
 }
 
 /**
  * Reader-facing label for a row. The editable `name` remains the canonical
- * base name ("Bar"); the physical locator is derived only when duplicate
- * active catalogue types need disambiguation.
+ * base name ("Bar"). Duplicate types on separate floors use only the floor
+ * token ("Bar (+1)"). A floor-local letter is added only when that floor has
+ * several active instances of the same type ("Bar (+1.A)", "Bar (+1.B)").
  */
 export function areaInstanceRowLabel(
   area: AreaInstanceRow,
@@ -120,7 +145,7 @@ export function areaInstanceRowLabel(
   const identity =
     identities.find((candidate) => candidate.id === area.id) ??
     areaInstanceIdentity(area);
-  return areaInstanceLabel(identity, identities, identity.floorLevel);
+  return areaInstanceLabel(identity, identities);
 }
 
 export function areaInstanceLabelMap(
@@ -130,7 +155,7 @@ export function areaInstanceLabelMap(
   return new Map(
     identities.map((area) => [
       area.id,
-      areaInstanceLabel(area, identities, area.floorLevel)
+      areaInstanceLabel(area, identities)
     ])
   );
 }

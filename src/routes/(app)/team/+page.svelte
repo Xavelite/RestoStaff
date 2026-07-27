@@ -1,7 +1,13 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
-  import { buildAreaColorMap, buildEmployeeColorMap, buildPositionColorMap } from '$lib/ui/position-color';
+  import {
+    buildAreaColorMap,
+    buildEmployeeColorMap,
+    buildPositionColorMap,
+    linkedAreasForPosition,
+    positionAreaVisualIdentity
+  } from '$lib/ui/position-color';
   import { personInitials } from '$lib/ui/person';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import type { EmployeeDraft } from '$lib/team/team-model';
@@ -16,7 +22,6 @@
   import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
   import EmployeeInlineEditor from '$lib/classic/EmployeeInlineEditor.svelte';
   import { teamDraft } from '$lib/classic/classic-team.svelte';
-  import { workspacePositionByKey } from '$lib/restaurant/workspace-catalogue';
   import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
   import { areaInstanceLabelMap } from '$lib/restaurant/area-instance';
 
@@ -99,12 +104,21 @@
 
   const employeeColor = $derived(
     workspace.team
-      ? buildEmployeeColorMap(workspace.team.job_functions, workspace.team.employee_job_functions, workspace.restaurant?.work_areas ?? [])
+      ? buildEmployeeColorMap(
+          workspace.team.job_functions,
+          workspace.team.employee_job_functions,
+          workspace.restaurant?.work_areas ?? [],
+          workspace.restaurant?.job_function_areas ?? []
+        )
       : new Map<string, string>()
   );
   const positionColor = $derived(
     workspace.team
-      ? buildPositionColorMap(workspace.team.job_functions, workspace.restaurant?.work_areas ?? [])
+      ? buildPositionColorMap(
+          workspace.team.job_functions,
+          workspace.restaurant?.work_areas ?? [],
+          workspace.restaurant?.job_function_areas ?? []
+        )
       : new Map<string, string>()
   );
 
@@ -116,14 +130,22 @@
     teamDraft.employees.find((employee) => employee.id === positionMenuEmployeeId) ?? null
   );
 
+  function positionLinkedAreas(positionId: string) {
+    return linkedAreasForPosition(
+      positionId,
+      workspace.restaurant?.work_areas ?? [],
+      workspace.restaurant?.job_function_areas ?? []
+    );
+  }
+
   function positionArea(positionId: string): { icon: string; color: string } | null {
-    const relation = (workspace.restaurant?.job_function_areas ?? [])
-      .filter((item) => item.active && item.job_function_id === positionId)
-      .sort((left, right) => Number(right.is_primary) - Number(left.is_primary))[0];
-    const area = workspace.restaurant?.work_areas.find((item) => item.id === relation?.area_id);
-    return area
-      ? { icon: area.icon_key ?? '', color: area.color ?? 'var(--cl-muted)' }
-      : null;
+    const identity = positionAreaVisualIdentity(
+      positionId,
+      workspace.restaurant?.work_areas ?? [],
+      workspace.restaurant?.job_function_areas ?? [],
+      restaurantAreaColor
+    );
+    return identity ? { icon: identity.icon, color: identity.color } : null;
   }
 
   function setGroupBy(next: GroupBy): void {
@@ -140,21 +162,35 @@
   function employeeArea(employee: EmployeeDraft): { key: string; label: string; color?: string } {
     const positionId = employee.jobFunctionIds[0] ?? '';
     const preferredAreaId = employee.jobFunctionAreaIds[positionId] ?? '';
-    const position = workspace.restaurant?.job_functions.find((job) => job.id === positionId);
-    const areaRelations = (workspace.restaurant?.job_function_areas ?? [])
-      .filter((relation) => relation.active && relation.job_function_id === positionId)
-      .sort((left, right) => Number(right.is_primary) - Number(left.is_primary));
-    const primaryAreaId = preferredAreaId || areaRelations[0]?.area_id;
-    const catalogue = position?.catalogue_key ?? null;
-    const allAreasPosition = catalogue
-      ? workspacePositionByKey.get(catalogue)?.areaKeys.length === 0
-      : false;
-    if (!primaryAreaId && allAreasPosition) return { key: '__all_areas__', label: t('All areas') };
-    if (!primaryAreaId) return { key: '__no_area__', label: t('No area') };
+    const linkedAreas = positionLinkedAreas(positionId);
+    const linkedAreaIds = new Set(linkedAreas.map((area) => area.id));
+    const preferredArea = preferredAreaId
+      ? workspace.restaurant?.work_areas.find(
+          (area) => area.active && area.id === preferredAreaId
+        ) ?? null
+      : null;
+    const selectedArea =
+      preferredArea && (!linkedAreas.length || linkedAreaIds.has(preferredArea.id))
+      ? preferredArea
+      : linkedAreas.length === 1
+        ? linkedAreas[0]
+        : null;
+    if (selectedArea) {
+      return {
+        key: selectedArea.id,
+        label: restaurantAreaName.get(selectedArea.id) ?? t('Unknown'),
+        color: restaurantAreaColor.get(selectedArea.id)
+      };
+    }
+    if (linkedAreas.length > 1) {
+      return { key: '__multiple_areas__', label: t('Multiple areas') };
+    }
+    if (positionId && !linkedAreas.length) {
+      return { key: '__all_areas__', label: t('All areas') };
+    }
     return {
-      key: primaryAreaId,
-      label: restaurantAreaName.get(primaryAreaId) ?? t('Unknown'),
-      color: restaurantAreaColor.get(primaryAreaId)
+      key: '__no_area__',
+      label: t('No area')
     };
   }
 
@@ -264,15 +300,8 @@
 
   function areasForPosition(positionId: string) {
     const areas = workspace.restaurant?.work_areas.filter((area) => area.active) ?? [];
-    const linkedIds = new Set(
-      (workspace.restaurant?.job_function_areas ?? [])
-        .filter(
-          (relation) =>
-            relation.active && relation.job_function_id === positionId
-        )
-        .map((relation) => relation.area_id)
-    );
-    return linkedIds.size ? areas.filter((area) => linkedIds.has(area.id)) : areas;
+    const linked = positionLinkedAreas(positionId);
+    return linked.length ? linked : areas;
   }
 
   function setEmployeePositionArea(

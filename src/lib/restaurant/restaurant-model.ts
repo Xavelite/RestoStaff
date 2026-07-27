@@ -4,8 +4,7 @@ import type { RestaurantReadModel } from '$lib/api/workspace-snapshot';
 import { defaultAreaColor, readColorOverride } from '../ui/position-color.ts';
 import {
   catalogueAreaColor,
-  workspaceAreaByKey,
-  workspacePositionByKey
+  workspaceAreaByKey
 } from './workspace-catalogue.ts';
 import { uniqueAreaTechnicalCode } from './area-instance.ts';
 import type { RestaurantSavePayload } from '$lib/api/mutations';
@@ -26,7 +25,6 @@ export type NamedSetupItem = {
 
 export type JobFunctionDraft = NamedSetupItem & {
   estimatedHourlyCost: number;
-  primaryAreaId: string;
   areaIds: string[];
   catalogueKey: string;
   iconKey: string;
@@ -118,24 +116,6 @@ function openingValue(
   ).slice(0, 5);
 }
 
-function inferredPrimaryAreaId(
-  positionName: string,
-  areas: RestaurantReadModel['work_areas']
-): string {
-  const normalized = positionName.toLowerCase();
-  const exact = areas.find((area) => normalized.includes(area.name.toLowerCase()));
-  if (exact) return exact.id;
-  const hint =
-    /cook|chef|kitchen|dish/.test(normalized)
-      ? /kitchen|cuisine/
-      : /bar|bartend/.test(normalized)
-        ? /bar/
-        : /wait|server|host|runner/.test(normalized)
-          ? /hall|room|salle/
-          : null;
-  return hint ? areas.find((area) => hint.test(area.name.toLowerCase()))?.id ?? '' : '';
-}
-
 export function restaurantDraft(snapshot: RestaurantReadModel): RestaurantDraft {
   const employment = snapshot.restaurant_employment_settings ?? {};
   return {
@@ -158,9 +138,20 @@ export function restaurantDraft(snapshot: RestaurantReadModel): RestaurantDraft 
     city: snapshot.restaurant.city ?? '',
     jobFunctions: snapshot.job_functions.map((row) => {
       const relations = (snapshot.job_function_areas ?? [])
-        .filter((relation) => relation.job_function_id === row.id && relation.active)
-        .sort((a, b) => Number(b.is_primary) - Number(a.is_primary));
-      const relationAreaIds = relations.map((relation) => relation.area_id);
+        .filter((relation) => relation.job_function_id === row.id && relation.active);
+      const relationIds = new Set(relations.map((relation) => relation.area_id));
+      const relationAreaIds = snapshot.work_areas
+        .filter((area) => relationIds.has(area.id))
+        .map((area) => area.id);
+      const legacyAreaIds =
+        row.metadata &&
+        typeof row.metadata === 'object' &&
+        'area_ids' in row.metadata &&
+        Array.isArray(row.metadata.area_ids)
+          ? row.metadata.area_ids.filter(
+              (areaId): areaId is string => typeof areaId === 'string'
+            )
+          : [];
       const legacyAreaId =
         row.metadata &&
         typeof row.metadata === 'object' &&
@@ -168,22 +159,23 @@ export function restaurantDraft(snapshot: RestaurantReadModel): RestaurantDraft 
         typeof row.metadata.area_id === 'string'
           ? row.metadata.area_id
           : '';
-      const areaIds = relationAreaIds.length
+      const configuredAreaIds = relationAreaIds.length
         ? relationAreaIds
-        : legacyAreaId
-          ? [legacyAreaId]
-          : [];
-      const primaryAreaId =
-        relations.find((relation) => relation.is_primary)?.area_id ??
-        areaIds[0] ??
-        inferredPrimaryAreaId(row.name, snapshot.work_areas);
+        : legacyAreaIds.length
+          ? legacyAreaIds
+          : legacyAreaId
+            ? [legacyAreaId]
+            : [];
+      const configured = new Set(configuredAreaIds);
+      const areaIds = snapshot.work_areas
+        .filter((area) => configured.has(area.id))
+        .map((area) => area.id);
       return {
         id: row.id,
         name: row.name,
         code: row.code,
         active: row.active,
         estimatedHourlyCost: row.estimated_hourly_cost,
-        primaryAreaId,
         areaIds,
         catalogueKey: row.catalogue_key ?? '',
         iconKey: row.icon_key ?? ''
@@ -341,51 +333,20 @@ export function restaurantSavePayload(
     jobFunctions: asJsonArray(
       draft.jobFunctions
         .map((item, index) => {
-          const systemPosition = workspacePositionByKey.get(item.catalogueKey);
-          const compatibleAreaIds =
-            systemPosition && systemPosition.areaKeys.length
-              ? draft.areas
-                  .filter(
-                    (area) =>
-                      area.active &&
-                      Boolean(area.catalogueKey) &&
-                      systemPosition.areaKeys.some(
-                        (areaKey) => areaKey === area.catalogueKey
-                      )
-                  )
-                  .map((area) => area.id)
-              : [];
-          const manualAreaIds = [
-            ...new Set([
-              item.primaryAreaId,
-              ...item.areaIds
-            ])
-          ]
+          // Linked physical areas are the canonical position relationship.
+          // System catalogue selection suggests compatible instances in the
+          // client, but managers can then refine the exact set themselves.
+          const areaIds = [...new Set(item.areaIds)]
             .filter(Boolean)
             .filter((areaId) =>
               draft.areas.some((area) => area.id === areaId && area.active)
             );
-          // Catalogue positions own their area-type contract. Every physical
-          // instance of a compatible type is linked automatically; managers
-          // only maintain exact links for custom positions. A catalogue role
-          // with no area keys intentionally works everywhere.
-          const areaIds = systemPosition
-            ? compatibleAreaIds
-            : manualAreaIds;
-          const primaryAreaId =
-            systemPosition?.areaKeys.length === 0
-              ? ''
-              : areaIds.includes(item.primaryAreaId)
-                ? item.primaryAreaId
-                : areaIds[0] ?? '';
           return {
             ...itemRow(item, index),
             catalogue_key: nullable(item.catalogueKey),
             icon_key: nullable(item.iconKey),
-            metadata: {
-              area_id: nullable(primaryAreaId),
-              area_ids: areaIds
-            },
+            area_ids: areaIds,
+            metadata: {},
             estimated_hourly_cost: Math.max(
               0,
               Number(item.estimatedHourlyCost) || 0

@@ -200,7 +200,7 @@ test('people edit contact cells inline while employee identity opens one complet
   assert.match(teamPage, /unsavedChanges\.register/);
 });
 
-test('Restaurant Areas is the visible floor editor and Team groups positions by their primary area', async () => {
+test('Restaurant Areas is the visible floor editor and Positions edits physical links directly', async () => {
   const nav = await readFile('src/lib/classic/classic-nav.ts', 'utf8');
   const areasRoute = await readFile('src/routes/(app)/restaurant/areas/+page.svelte', 'utf8');
   const floorPlans = await readFile('src/lib/reservations/ReservationFloorPlansWorkspace.svelte', 'utf8');
@@ -216,12 +216,18 @@ test('Restaurant Areas is the visible floor editor and Team groups positions by 
   assert.doesNotMatch(floorPlans, /<th>\{t\('Type'\)\}<\/th>/);
   assert.match(positions, /async function addPosition\(\)/);
   assert.match(positions, /data-position-name=\{position\.id\}/);
-  assert.match(positions, /aria-label=\{t\('Primary area'\)\}/);
-  assert.match(people, /\.sort\(\(left, right\) => Number\(right\.is_primary\) - Number\(left\.is_primary\)\)/);
   assert.match(
-    people,
-    /const primaryAreaId = preferredAreaId \|\| areaRelations\[0\]\?\.area_id/
+    positions,
+    /<ClassicColMenu[\s\S]*label=\{t\('Linked areas'\)\}/
   );
+  assert.match(positions, /<PositionLinkedAreasField/);
+  assert.match(positions, /onchange=\{\(areaIds\) => setPositionAreas\(position, areaIds\)\}/);
+  assert.doesNotMatch(positions, /aria-label=\{t\('Primary area'\)\}/);
+  assert.doesNotMatch(positions, /name="primary-position-area"/);
+  assert.match(people, /function positionLinkedAreas\(positionId: string\)/);
+  assert.match(people, /linkedAreas\.length > 1/);
+  assert.doesNotMatch(people, /primaryAreaId/);
+  assert.doesNotMatch(people, /relationship\.is_primary/);
   assert.doesNotMatch(people, /coverage_requirements/);
 });
 

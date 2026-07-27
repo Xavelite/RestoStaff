@@ -16,43 +16,103 @@ const barA = {
   name: 'Bar',
   active: true,
   catalogueKey: 'bar',
-  instanceNumber: 1
+  instanceNumber: 1,
+  floorLevel: 0
 };
 const barB = {
   id: 'bar-b',
   name: 'Bar',
   active: true,
   catalogueKey: 'bar',
-  instanceNumber: 2
+  instanceNumber: 2,
+  floorLevel: 2
 };
 
 test('area instance labels stay quiet until a type has several active locations', () => {
-  assert.equal(areaInstanceLabel(barA, [barA], 0), 'Bar');
-  assert.equal(areaInstanceLabel(barA, [barA, barB], 0), 'Bar (0.A)');
-  assert.equal(areaInstanceLabel(barB, [barA, barB], 2), 'Bar (+2.B)');
+  assert.equal(areaInstanceLabel(barA, [barA]), 'Bar');
+  assert.equal(areaInstanceLabel(barA, [barA, barB]), 'Bar (0)');
+  assert.equal(areaInstanceLabel(barB, [barA, barB]), 'Bar (+2)');
   assert.equal(areaInstanceLetter(26), 'Z');
   assert.equal(areaInstanceLetter(27), 'AA');
 });
 
-test('custom areas with the same normalized name also receive locators', () => {
+test('letters are scoped to matching areas on the same floor', () => {
+  const barC = {
+    ...barB,
+    id: 'bar-c',
+    instanceNumber: 3,
+    floorLevel: 0
+  };
+  const barD = {
+    ...barB,
+    id: 'bar-d',
+    instanceNumber: 4,
+    floorLevel: 2
+  };
+  const areas = [barA, barB, barC, barD];
+
+  assert.equal(areaInstanceLabel(barA, areas), 'Bar (0.A)');
+  assert.equal(areaInstanceLabel(barC, areas), 'Bar (0.B)');
+  assert.equal(areaInstanceLabel(barB, areas), 'Bar (+2.A)');
+  assert.equal(areaInstanceLabel(barD, areas), 'Bar (+2.B)');
+});
+
+test('a floor move immediately replaces the previous floor-local letter', () => {
+  const previousBarB = { ...barB, floorLevel: 0 };
+  const movedBarB = { ...barB, floorLevel: 1 };
+
+  assert.equal(areaInstanceLabel(barA, [barA, previousBarB]), 'Bar (0.A)');
+  assert.equal(
+    areaInstanceLabel(movedBarB, [barA, previousBarB]),
+    'Bar (+1)'
+  );
+});
+
+test('same-floor letters use stable instance number and id ordering', () => {
+  const laterInsertedFirst = {
+    ...barA,
+    id: 'bar-z',
+    instanceNumber: 8
+  };
+  const earlierInsertedSecond = {
+    ...barA,
+    id: 'bar-a',
+    instanceNumber: 3
+  };
+  const sameOrdinalTie = {
+    ...barA,
+    id: 'bar-b',
+    instanceNumber: 3
+  };
+  const shuffled = [laterInsertedFirst, sameOrdinalTie, earlierInsertedSecond];
+
+  assert.equal(areaInstanceLabel(earlierInsertedSecond, shuffled), 'Bar (0.A)');
+  assert.equal(areaInstanceLabel(sameOrdinalTie, shuffled), 'Bar (0.B)');
+  assert.equal(areaInstanceLabel(laterInsertedFirst, shuffled), 'Bar (0.C)');
+});
+
+test('custom area identity matches the database workspace slug contract', () => {
   const patioA = {
     id: 'patio-a',
     name: 'Patio',
     active: true,
     catalogueKey: '',
-    instanceNumber: 1
+    instanceNumber: 1,
+    floorLevel: 0
   };
   const patioB = {
     id: 'patio-b',
-    name: 'Pátio',
+    name: 'P\u00e1tio',
     active: true,
     catalogueKey: '',
-    instanceNumber: 2
+    instanceNumber: 2,
+    floorLevel: -1
   };
 
-  assert.equal(areaInstanceLabel(patioA, [patioA, patioB], 0), 'Patio (0.A)');
-  assert.equal(areaInstanceLabel(patioB, [patioA, patioB], -1), 'Pátio (-1.B)');
+  assert.equal(areaInstanceLabel(patioA, [patioA, patioB]), 'Patio');
+  assert.equal(areaInstanceLabel(patioB, [patioA, patioB]), 'P\u00e1tio');
   assert.equal(nextAreaInstanceNumber('', [patioA], '', 'Patio'), 2);
+  assert.equal(nextAreaInstanceNumber('', [patioA], '', 'P\u00e1tio'), 1);
 });
 
 test('row labels support database and editable draft shapes without changing base names', () => {
@@ -83,13 +143,13 @@ test('row labels support database and editable draft shapes without changing bas
     floorLevel: area.floor_level
   }));
 
-  assert.equal(areaInstanceRowLabel(databaseRows[0], databaseRows), 'Bar (0.A)');
-  assert.equal(areaInstanceRowLabel(draftRows[1], draftRows), 'Bar (+2.B)');
+  assert.equal(areaInstanceRowLabel(databaseRows[0], databaseRows), 'Bar (0)');
+  assert.equal(areaInstanceRowLabel(draftRows[1], draftRows), 'Bar (+2)');
   assert.deepEqual(
     [...areaInstanceLabelMap(databaseRows)],
     [
-      ['bar-a', 'Bar (0.A)'],
-      ['bar-b', 'Bar (+2.B)']
+      ['bar-a', 'Bar (0)'],
+      ['bar-b', 'Bar (+2)']
     ]
   );
   assert.deepEqual(
@@ -159,7 +219,9 @@ test('area instance schema and restaurant save model preserve canonical types', 
   );
   assert.match(model, /instance_number:/);
   assert.match(model, /uniqueAreaTechnicalCode\(item\.name, item\.id\)/);
-  assert.match(model, /compatibleAreaIds/);
-  assert.match(model, /workspacePositionByKey\.get\(item\.catalogueKey\)/);
+  assert.match(model, /const areaIds = \[\.\.\.new Set\(item\.areaIds\)\]/);
+  assert.match(model, /area_ids: areaIds/);
+  assert.doesNotMatch(model, /primaryAreaId/);
+  assert.doesNotMatch(model, /compatibleAreaIds/);
   assert.match(positions, /function typePositionName\(/);
 });

@@ -6,28 +6,28 @@ import { StableDraftPlacement } from '../src/lib/classic/stable-draft-placement.
 
 const clone = (value) => structuredClone(value);
 
-test('a Position edit stays in its committed group until save resets placement', () => {
+test('a Position linked-area edit stays in its committed group until save resets placement', () => {
   const placement = new StableDraftPlacement(clone);
   const saved = {
     id: 'cook',
     name: 'Cook',
     active: true,
-    primaryAreaId: 'kitchen',
+    areaIds: ['kitchen'],
     estimatedHourlyCost: 24
   };
   placement.reset([saved]);
 
   const edited = {
     ...saved,
-    primaryAreaId: 'bar',
+    areaIds: ['bar'],
     estimatedHourlyCost: 26
   };
-  assert.equal(placement.snapshotFor(edited).primaryAreaId, 'kitchen');
+  assert.deepEqual(placement.snapshotFor(edited).areaIds, ['kitchen']);
   assert.equal(placement.snapshotFor(edited).estimatedHourlyCost, 24);
-  assert.equal(edited.primaryAreaId, 'bar');
+  assert.deepEqual(edited.areaIds, ['bar']);
 
   placement.reset([edited]);
-  assert.equal(placement.snapshotFor(edited).primaryAreaId, 'bar');
+  assert.deepEqual(placement.snapshotFor(edited).areaIds, ['bar']);
   assert.equal(placement.snapshotFor(edited).estimatedHourlyCost, 26);
 });
 
@@ -70,7 +70,7 @@ test('Restaurant grids consume stable placement for filters, sorting and groupin
   assert.match(config, /await workspace\.loadRestaurant\(true\);[\s\S]*this\.sync\(workspace\.restaurant, true\)/);
 
   assert.match(positions, /const stable = placementForPosition\(position\)/);
-  assert.match(positions, /stable\.primaryAreaId/);
+  assert.match(positions, /linkedPositionAreaIds\(stable\)/);
   assert.match(positions, /stable\.estimatedHourlyCost/);
   assert.match(positions, /left\.placementLabel\.localeCompare\(right\.placementLabel\)/);
 

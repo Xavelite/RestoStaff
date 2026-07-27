@@ -11,8 +11,10 @@
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
   import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
   import ClassicCellBadge from '$lib/classic/ClassicCellBadge.svelte';
-  import Dialog from '$lib/components/Dialog.svelte';
   import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
+  import PositionLinkedAreasField, {
+    type PositionLinkedAreaOption
+  } from '$lib/restaurant/PositionLinkedAreasField.svelte';
   import WorkspaceCataloguePicker, {
     type WorkspaceCataloguePickerItem
   } from '$lib/restaurant/WorkspaceCataloguePicker.svelte';
@@ -23,7 +25,7 @@
   import { areaInstanceLabelMap } from '$lib/restaurant/area-instance';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
 
-  type SortKey = 'name' | 'cost' | 'employees' | 'active';
+  type SortKey = 'name' | 'areas' | 'cost' | 'employees' | 'active';
   type GroupBy = 'area' | 'status' | 'staffing' | 'none';
   type PositionRow = {
     id: string;
@@ -31,7 +33,6 @@
     code: string;
     estimatedHourlyCost: number;
     active: boolean;
-    primaryAreaId: string;
     areaIds: string[];
     catalogueKey: string;
     iconKey: string;
@@ -40,6 +41,7 @@
     key: string;
     label: string;
     placementLabel: string;
+    color: string;
     rows: PositionRow[];
   };
 
@@ -71,6 +73,7 @@
   );
 
   let search = $state('');
+  let linkedAreaSearch = $state('');
   let costSearch = $state('');
   let employeeSearch = $state('');
   let sort = $state<{ key: SortKey; dir: 'asc' | 'desc' } | null>(null);
@@ -78,8 +81,7 @@
   let groupBy = $state<GroupBy>('none');
   let collapsedGroups = $state<string[]>([]);
   let dragId = $state('');
-  let positionAreaEditorId = $state('');
-  let newPositionId = $state('');
+  let autoOpenPositionId = $state('');
 
   const OPTIONAL_COLUMNS = [
     { key: 'cost', label: 'Estimated hourly cost' },
@@ -126,10 +128,17 @@
     (key !== 'cost' || workspace.canViewFinancials) && !hidden.has(key);
   const colCount = $derived(4 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length);
   const persistedPositionIds = $derived(new Set((workspace.restaurant?.job_functions ?? []).map((position) => position.id)));
-  const positionAreaEditor = $derived(
-    restaurantConfig.draft?.jobFunctions.find(
-      (position) => position.id === positionAreaEditorId
-    ) ?? null
+  const linkedAreaOptions = $derived(
+    (restaurantConfig.draft?.areas ?? [])
+      .filter((area) => area.active)
+      .map(
+        (area): PositionLinkedAreaOption => ({
+          id: area.id,
+          name: areaName.get(area.id) ?? area.name,
+          color: area.color,
+          iconKey: area.iconKey
+        })
+      )
   );
 
   async function addPosition() {
@@ -142,7 +151,6 @@
       code: '',
       active: true,
       estimatedHourlyCost: 0,
-      primaryAreaId: '',
       areaIds: [],
       catalogueKey: '',
       iconKey: ''
@@ -150,7 +158,7 @@
     draft.jobFunctions = [position, ...draft.jobFunctions];
     restaurantConfig.placementPosition(position);
     restaurantConfig.touch();
-    newPositionId = id;
+    autoOpenPositionId = id;
     collapsedGroups = [];
     await tick();
   }
@@ -223,20 +231,22 @@
   ): void {
     const match = WORKSPACE_POSITION_CATALOGUE.find((candidate) => candidate.key === item.key);
     if (!match || !restaurantConfig.draft) return;
-    const areaIds = restaurantConfig.draft.areas
-      .filter(
-        (area) =>
-          area.active &&
-          Boolean(area.catalogueKey) &&
-          match.areaKeys.some((areaKey) => areaKey === area.catalogueKey)
-      )
-      .map((area) => area.id);
+    const areaIds = match.areaKeys.length
+      ? restaurantConfig.draft.areas
+          .filter((area) => {
+            if (!area.active) return false;
+            return (
+              Boolean(area.catalogueKey) &&
+              match.areaKeys.some((areaKey) => areaKey === area.catalogueKey)
+            );
+          })
+          .map((area) => area.id)
+      : [];
     position.name = t(match.label);
     position.catalogueKey = match.key;
     position.iconKey = positionCategoryIcon(match.category);
     position.areaIds = areaIds;
-    position.primaryAreaId = areaIds[0] ?? '';
-    newPositionId = '';
+    if (autoOpenPositionId === position.id) autoOpenPositionId = '';
     restaurantConfig.touch();
   }
 
@@ -244,7 +254,7 @@
     position.name = value;
     position.catalogueKey = '';
     position.iconKey = '';
-    if (value) newPositionId = '';
+    if (value && autoOpenPositionId === position.id) autoOpenPositionId = '';
     restaurantConfig.touch();
   }
 
@@ -262,7 +272,7 @@
   }
 
   function positionAreaIcon(position: PositionRow): string {
-    const areaId = position.primaryAreaId || position.areaIds[0] || '';
+    const areaId = position.areaIds[0] || '';
     return (
       restaurantConfig.draft?.areas.find((area) => area.id === areaId)?.iconKey ||
       position.iconKey ||
@@ -270,83 +280,43 @@
     );
   }
 
-  function primaryAreaLabel(position: PositionRow): string {
-    return workspacePositionByKey.get(position.catalogueKey)?.areaKeys.length === 0
-      ? t('All areas')
-      : t('No primary area');
-  }
-
-  function primaryAreaColor(position: PositionRow): string {
-    return areaColor.get(position.primaryAreaId) ?? '#64748b';
-  }
-
   function systemPosition(position: PositionRow) {
     return workspacePositionByKey.get(position.catalogueKey) ?? null;
   }
 
-  function systemPositionUsesAllAreas(position: PositionRow): boolean {
-    return systemPosition(position)?.areaKeys.length === 0;
-  }
-
-  function positionAreaChoices(position: PositionRow) {
+  function recommendedPositionAreaIds(position: PositionRow): string[] {
     const areas = restaurantConfig.draft?.areas.filter((area) => area.active) ?? [];
     const system = systemPosition(position);
-    if (!system || system.areaKeys.length === 0) return areas;
+    if (!system) return [];
+    if (!system.areaKeys.length) return areas.map((area) => area.id);
     return areas.filter(
       (area) =>
         Boolean(area.catalogueKey) &&
         system.areaKeys.includes(area.catalogueKey)
-    );
+    ).map((area) => area.id);
   }
 
-  function positionAreaIsLinked(position: PositionRow, areaId: string): boolean {
-    const area = restaurantConfig.draft?.areas.find(
-      (candidate) => candidate.id === areaId
-    );
-    const system = systemPosition(position);
-    if (!system) return position.areaIds.includes(areaId);
-    if (system.areaKeys.length === 0) return Boolean(area?.active);
-    return Boolean(
-      area?.active &&
-        area.catalogueKey &&
-        system.areaKeys.includes(area.catalogueKey)
-    );
-  }
-
-  function togglePositionArea(position: PositionRow, areaId: string) {
-    if (workspace.isPreview || systemPosition(position)) return;
-    if (position.areaIds.includes(areaId)) {
-      position.areaIds = position.areaIds.filter((id) => id !== areaId);
-      if (position.primaryAreaId === areaId) {
-        position.primaryAreaId = position.areaIds[0] ?? '';
-      }
-    } else {
-      position.areaIds = [...position.areaIds, areaId];
-      position.primaryAreaId ||= areaId;
-    }
-    restaurantConfig.touch();
-  }
-
-  function setPrimaryPositionArea(position: PositionRow, areaId: string) {
+  function setPositionAreas(position: PositionRow, areaIds: string[]) {
     if (workspace.isPreview) return;
-    if (systemPositionUsesAllAreas(position)) {
-      position.primaryAreaId = '';
-      restaurantConfig.touch();
-      return;
-    }
-    if (!areaId) {
-      position.primaryAreaId = '';
-      restaurantConfig.touch();
-      return;
-    }
-    if (!positionAreaChoices(position).some((area) => area.id === areaId)) {
-      return;
-    }
-    if (!position.areaIds.includes(areaId)) {
-      position.areaIds = [...position.areaIds, areaId];
-    }
-    position.primaryAreaId = areaId;
+    const selected = new Set(areaIds);
+    position.areaIds = linkedAreaOptions
+      .filter((area) => selected.has(area.id))
+      .map((area) => area.id);
     restaurantConfig.touch();
+  }
+
+  function linkedPositionAreaIds(position: PositionRow): string[] {
+    const selected = new Set(position.areaIds);
+    return linkedAreaOptions
+      .filter((area) => selected.has(area.id))
+      .map((area) => area.id);
+  }
+
+  function linkedAreaSetLabel(areaIds: string[]): string {
+    if (!areaIds.length) return t('All areas');
+    const labels = areaIds.map((areaId) => areaName.get(areaId) ?? t('Unknown'));
+    if (labels.length <= 2) return labels.join(', ');
+    return `${labels.slice(0, 2).join(', ')} +${labels.length - 2}`;
   }
 
   function removeOrTogglePosition(positionId: string) {
@@ -360,6 +330,7 @@
       draft.jobFunctions = draft.jobFunctions.filter((item) => item.id !== positionId);
       draft.coverage = draft.coverage.filter((item) => item.jobFunctionId !== positionId);
       restaurantConfig.removePositionPlacement(positionId);
+      if (autoOpenPositionId === positionId) autoOpenPositionId = '';
     }
     restaurantConfig.touch();
   }
@@ -379,11 +350,19 @@
   }
 
   function matches(position: PositionRow) {
-    if (position.id === newPositionId) return true;
+    if (!persistedPositionIds.has(position.id)) return true;
     const stable = placementForPosition(position);
     const term = search.trim().toLowerCase();
     const headcount = employeesByPosition.get(position.id)?.size ?? 0;
     if (excludedStatus.has(stable.active ? 'active' : 'archived')) return false;
+    if (
+      linkedAreaSearch.trim() &&
+      !linkedAreaSetLabel(linkedPositionAreaIds(stable))
+        .toLowerCase()
+        .includes(linkedAreaSearch.trim().toLowerCase())
+    ) {
+      return false;
+    }
     if (costSearch.trim() && !`${stable.estimatedHourlyCost}`.includes(costSearch.trim())) return false;
     if (employeeSearch.trim() && !`${headcount}`.includes(employeeSearch.trim())) return false;
     return !term || stable.name.toLowerCase().includes(term);
@@ -397,6 +376,7 @@
     const stable = placementForPosition(position);
     switch (sort?.key) {
       case 'name': return stable.name.toLowerCase();
+      case 'areas': return linkedAreaSetLabel(linkedPositionAreaIds(stable)).toLowerCase();
       case 'cost': return `${stable.estimatedHourlyCost}`.padStart(8, '0');
       case 'employees': return `${employeesByPosition.get(position.id)?.size ?? 0}`.padStart(4, '0');
       case 'active': return stable.active ? '0' : '1';
@@ -410,37 +390,54 @@
     return [...rows].sort((a, b) => factor * sortValue(a).localeCompare(sortValue(b)));
   }
 
+  async function savePositions(save: () => Promise<void>): Promise<void> {
+    await save();
+    autoOpenPositionId = '';
+  }
+
+  function discardPositions(discard: () => void): void {
+    discard();
+    autoOpenPositionId = '';
+  }
+
   function groupedPositions(rows: PositionRow[]): PositionGroup[] {
     if (groupBy === 'none') {
-      return [{ key: 'all', label: '', placementLabel: '', rows }];
+      return [{ key: 'all', label: '', placementLabel: '', color: '', rows }];
     }
     const groups = new Map<string, PositionGroup>();
     for (const position of rows) {
       const stable = placementForPosition(position);
       const headcount = employeesByPosition.get(position.id)?.size ?? 0;
-      const allAreas = workspacePositionByKey.get(stable.catalogueKey)?.areaKeys.length === 0;
+      const linkedAreaIds = linkedPositionAreaIds(stable);
+      const linkedAreaLabel = linkedAreaSetLabel(linkedAreaIds);
       const key = groupBy === 'area'
-        ? stable.primaryAreaId || (allAreas ? 'all-areas' : 'unlinked')
+        ? linkedAreaIds.length
+          ? `areas:${linkedAreaIds.join(':')}`
+          : 'all-areas'
         : groupBy === 'status'
           ? (stable.active ? 'active' : 'archived')
           : (headcount ? 'staffed' : 'unstaffed');
       const label = groupBy === 'area'
-        ? stable.primaryAreaId
-          ? areaName.get(stable.primaryAreaId) ?? t('No area linked')
-          : t(allAreas ? 'All areas' : 'No area linked')
+        ? linkedAreaLabel
         : groupBy === 'status'
           ? t(stable.active ? 'Active' : 'Archived')
           : t(headcount ? 'Staffed' : 'No staff assigned');
       const placementLabel =
-        groupBy === 'area' && stable.primaryAreaId
-          ? (() => {
-              const area = context.draft.areas.find(
-                (candidate) => candidate.id === stable.primaryAreaId
-              );
-              return area ? areaName.get(area.id) ?? restaurantConfig.placementArea(area).name : label;
-            })()
+        groupBy === 'area'
+          ? linkedAreaIds
+              .map((areaId) => {
+                const area = context.draft.areas.find((candidate) => candidate.id === areaId);
+                return area
+                  ? areaName.get(area.id) ?? restaurantConfig.placementArea(area).name
+                  : t('Unknown');
+              })
+              .join('|')
           : label;
-      const group = groups.get(key) ?? { key, label, placementLabel, rows: [] };
+      const color =
+        groupBy === 'area' && linkedAreaIds.length === 1
+          ? areaColor.get(linkedAreaIds[0]) ?? ''
+          : '';
+      const group = groups.get(key) ?? { key, label, placementLabel, color, rows: [] };
       group.rows.push(position);
       groups.set(key, group);
     }
@@ -461,7 +458,13 @@
   {@const ordered = orderedPositions(rows)}
   {@const groups = groupedPositions(ordered)}
 
-  <ClassicTablePanel dirty={context.dirty} saving={context.saving} canSave={context.canSave} onsave={() => void context.save().catch(() => undefined)} ondiscard={context.discard}>
+  <ClassicTablePanel
+    dirty={context.dirty}
+    saving={context.saving}
+    canSave={context.canSave && rows.every((position) => position.name.trim())}
+    onsave={() => void savePositions(context.save).catch(() => undefined)}
+    ondiscard={() => discardPositions(context.discard)}
+  >
     {#snippet meta()}
       <span><i class="dot"></i>{t('{count} positions', { count: rows.length })}</span>
       <span><i class="dot is-green"></i>{t('{count} active', { count: rows.filter((position) => placementForPosition(position).active).length })}</span>
@@ -487,14 +490,24 @@
                   groupValue={groupBy}
                   groupOptions={[
                     { value: 'none', label: t('No grouping') },
-                    { value: 'area', label: t('Primary area') },
+                    { value: 'area', label: t('Linked areas') },
                     { value: 'status', label: t('Status') },
                     { value: 'staffing', label: t('Staffing') }
                   ]}
                   ongroupchange={(value) => setGroupBy(value as GroupBy)}
                 />
               </th>
-              <th>{t('Primary area')}</th>
+              <th class="has-menu">
+                <ClassicColMenu
+                  label={t('Linked areas')}
+                  sortable
+                  sortDir={sort?.key === 'areas' ? sort.dir : null}
+                  onsort={(dir) => (sort = { key: 'areas', dir })}
+                  filterKind="text"
+                  searchValue={linkedAreaSearch}
+                  onsearch={(value) => (linkedAreaSearch = value)}
+                />
+              </th>
               {#if shown('cost')}<th class="has-menu"><ClassicColMenu label={t('Estimated hourly cost')} sortable sortDir={sort?.key === 'cost' ? sort.dir : null} onsort={(dir) => (sort = { key: 'cost', dir })} filterKind="text" searchValue={costSearch} onsearch={(value) => (costSearch = value)} /></th>{/if}
               {#if shown('employees')}<th class="has-menu"><ClassicColMenu label={t('Employees')} sortable sortDir={sort?.key === 'employees' ? sort.dir : null} onsort={(dir) => (sort = { key: 'employees', dir })} filterKind="text" searchValue={employeeSearch} onsearch={(value) => (employeeSearch = value)} /></th>{/if}
               {#if shown('active')}<th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={sort?.key === 'active' ? sort.dir : null} onsort={(dir) => (sort = { key: 'active', dir })} filterKind="values" filterValues={[{ value: 'active', label: t('Active') }, { value: 'archived', label: t('Archived') }]} selected={excludedStatus} ontoggle={(value) => { const next = new Set(excludedStatus); next.has(value) ? next.delete(value) : next.add(value); excludedStatus = next; }} onselectall={(on) => (excludedStatus = on ? new Set() : new Set(['active', 'archived']))} /></th>{/if}
@@ -506,11 +519,11 @@
           {:else}
             {#each groups as group (group.key)}
               <tbody>
-                {#if groupBy !== 'none'}<ClassicGroupRow colspan={colCount} label={group.label} meta={t('{count} positions', { count: group.rows.length })} color={groupBy === 'area' ? areaColor.get(group.key) : ''} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />{/if}
+                {#if groupBy !== 'none'}<ClassicGroupRow colspan={colCount} label={group.label} meta={t('{count} positions', { count: group.rows.length })} color={group.color} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />{/if}
                 {#if !collapsedGroups.includes(group.key)}
                   {#each group.rows as position (position.id)}
                     {@const headcount = employeesByPosition.get(position.id)?.size ?? 0}
-                    <tr class:is-new={newPositionId === position.id} draggable={!sort && groupBy === 'none' && !workspace.isPreview} ondragstart={() => (dragId = position.id)} ondragend={() => (dragId = '')} ondragover={(event) => { if (!sort && groupBy === 'none') event.preventDefault(); }} ondrop={() => movePosition(position.id)}>
+                    <tr class:is-new={!persistedPositionIds.has(position.id)} draggable={!sort && groupBy === 'none' && !workspace.isPreview} ondragstart={() => (dragId = position.id)} ondragend={() => (dragId = '')} ondragover={(event) => { if (!sort && groupBy === 'none') event.preventDefault(); }} ondrop={() => movePosition(position.id)}>
                       <td class="cl-grip"><button type="button" disabled={Boolean(sort) || groupBy !== 'none' || workspace.isPreview} title={sort || groupBy !== 'none' ? t('Clear grouping and sorting to reorder') : t('Drag to reorder')} aria-label={t('Drag to reorder')}>⋮⋮</button></td>
                       <td>
                         <div class="position-identity" data-position-name={position.id}>
@@ -527,7 +540,7 @@
                             placeholder={t('Select or type a position')}
                             label={t('Select or type a position')}
                             disabled={workspace.isPreview}
-                            autoOpen={newPositionId === position.id}
+                            autoOpen={autoOpenPositionId === position.id}
                             recommendedLabel={t('Recommended')}
                             allLabel={t('All positions')}
                             customLabel={t('Custom position')}
@@ -540,31 +553,25 @@
                             onselect={(item) => selectPositionCatalogue(position, item)}
                             oncustom={(value) => makePositionCustom(position, value)}
                             onclose={() => {
-                              if (position.name.trim()) newPositionId = '';
+                              if (
+                                position.name.trim() &&
+                                autoOpenPositionId === position.id
+                              ) {
+                                autoOpenPositionId = '';
+                              }
                             }}
                           />
                         </div>
                       </td>
                       <td>
-                        <div class="primary-area-field" style={`--area-color:${primaryAreaColor(position)}`}>
-                          <span aria-hidden="true"></span>
-                          <select
-                            class="cl-field"
-                            aria-label={t('Primary area')}
-                            disabled={workspace.isPreview || systemPositionUsesAllAreas(position)}
-                            value={position.primaryAreaId}
-                            onchange={(event) =>
-                              setPrimaryPositionArea(
-                                position,
-                                (event.currentTarget as HTMLSelectElement).value
-                              )}
-                          >
-                            <option value="">{primaryAreaLabel(position)}</option>
-                            {#each positionAreaChoices(position) as area (area.id)}
-                              <option value={area.id}>{areaName.get(area.id) ?? area.name}</option>
-                            {/each}
-                          </select>
-                        </div>
+                        <PositionLinkedAreasField
+                          areas={linkedAreaOptions}
+                          selectedIds={position.areaIds}
+                          recommendedIds={recommendedPositionAreaIds(position)}
+                          disabled={workspace.isPreview}
+                          label={`${t('Linked areas')} · ${position.name || t('Position')}`}
+                          onchange={(areaIds) => setPositionAreas(position, areaIds)}
+                        />
                       </td>
                       {#if shown('cost')}<td class="is-num"><input class="cl-field cost" type="number" disabled={workspace.isPreview} min="0" step="0.5" bind:value={position.estimatedHourlyCost} oninput={() => restaurantConfig.touch()} /></td>{/if}
                       {#if shown('employees')}<td><span class="cl-linkcount" class:is-zero={!headcount} title={t('{count} people', { count: headcount })}><span class="cl-linkcount__n">{headcount}</span></span></td>{/if}
@@ -573,10 +580,6 @@
                         <ClassicRowMenu
                           disabled={workspace.isPreview}
                           items={[
-                            {
-                              label: t(systemPosition(position) ? 'View linked areas' : 'Edit linked areas'),
-                              onselect: () => (positionAreaEditorId = position.id)
-                            },
                             ...(persistedPositionIds.has(position.id)
                               ? position.active
                                 ? [{ label: t('Archive'), tone: 'danger' as const, onselect: () => removeOrTogglePosition(position.id) }]
@@ -597,83 +600,13 @@
   </ClassicTablePanel>
 {/if}
 
-<Dialog
-  open={Boolean(positionAreaEditor)}
-  title={positionAreaEditor
-    ? `${t(systemPosition(positionAreaEditor) ? 'Linked areas' : 'Edit linked areas')} · ${positionAreaEditor.name}`
-    : t('Position areas')}
-  description={positionAreaEditor && systemPosition(positionAreaEditor)
-    ? t('System positions stay linked to every compatible physical area automatically.')
-    : t('Choose every area this position can work in. The primary area supplies its colour across the workspace.')}
-  size="medium"
-  onclose={() => (positionAreaEditorId = '')}
->
-  {#snippet children()}
-    {#if positionAreaEditor && restaurantConfig.draft}
-      <div class="position-area-list">
-        {#each restaurantConfig.draft.areas.filter((area) => area.active) as area (area.id)}
-          {@const linked = positionAreaIsLinked(positionAreaEditor, area.id)}
-          {@const automatic = Boolean(systemPosition(positionAreaEditor))}
-          <div class:is-linked={linked}>
-            <label>
-              <input
-                type="checkbox"
-                checked={linked}
-                disabled={automatic}
-                onchange={() => togglePositionArea(positionAreaEditor, area.id)}
-              />
-              <i style={`--area-color:${area.color}`}></i>
-              <span>
-                <strong>{areaName.get(area.id) ?? area.name}</strong>
-                <small>{automatic
-                  ? t(linked ? 'Linked automatically' : 'Not compatible')
-                  : t(linked ? 'Can work here' : 'Not linked')}</small>
-              </span>
-            </label>
-            <label class="primary-area">
-              <input
-                type="radio"
-                name="primary-position-area"
-                checked={positionAreaEditor.primaryAreaId === area.id}
-                disabled={!linked || systemPositionUsesAllAreas(positionAreaEditor)}
-                onchange={() => setPrimaryPositionArea(positionAreaEditor, area.id)}
-              />
-              <span>{t('Primary colour')}</span>
-            </label>
-          </div>
-        {/each}
-      </div>
-    {/if}
-  {/snippet}
-  {#snippet footer()}
-    <button class="cl-btn is-primary" type="button" onclick={() => (positionAreaEditorId = '')}>
-      {t('Done')}
-    </button>
-  {/snippet}
-</Dialog>
-
 <style>
   .cost { width: 120px; text-align: right; }
   .position-identity { min-width: 200px; display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 9px; }
   .position-identity :global(.area-icon) { width: 30px; height: 30px; border-radius: 6px; }
   .cl-table tr.is-new td { background: color-mix(in srgb, var(--cl-accent) 4%, var(--cl-surface)); }
-  .primary-area-field { min-width: 165px; display: grid; grid-template-columns: 7px minmax(0, 1fr); align-items: center; gap: 8px; }
-  .primary-area-field > span { width: 7px; height: 24px; border-radius: 2px; background: var(--area-color); }
-  .primary-area-field select { min-width: 145px; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .cl-grip { width: 34px; text-align: center; }
   .cl-grip button { border: 0; background: transparent; color: var(--cl-muted); cursor: grab; letter-spacing: -3px; }
   .cl-grip button:disabled { cursor: default; opacity: .35; }
-  .position-area-list { display: grid; gap: 7px; }
-  .position-area-list > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 52px; padding: 8px 10px; border: 1px solid var(--cl-line); border-radius: 5px; background: var(--cl-surface); }
-  .position-area-list > div.is-linked { border-color: color-mix(in srgb, var(--cl-accent) 32%, var(--cl-line)); background: color-mix(in srgb, var(--cl-accent) 4%, var(--cl-surface)); }
-  .position-area-list label { display: flex; align-items: center; gap: 9px; cursor: pointer; }
-  .position-area-list input { width: 15px; height: 15px; accent-color: var(--cl-accent); }
-  .position-area-list i { width: 7px; height: 28px; border-radius: 2px; background: var(--area-color); }
-  .position-area-list strong, .position-area-list small { display: block; }
-  .position-area-list strong { font-size: 12px; }
-  .position-area-list small { margin-top: 1px; color: var(--cl-muted); font-size: 10px; }
-  .primary-area { color: var(--cl-muted); font-size: 10.5px; white-space: nowrap; }
-  .primary-area:has(input:checked) { color: var(--cl-ink); font-weight: 700; }
-  .primary-area:has(input:disabled) { cursor: default; opacity: .4; }
 </style>

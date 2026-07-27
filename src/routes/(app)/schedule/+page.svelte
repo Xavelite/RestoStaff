@@ -43,7 +43,12 @@
     type PlanningOperationalWarningKind,
     type PlanningShiftDraft
   } from '$lib/schedule/schedule-model';
-  import { buildAreaColorMap, buildEmployeeColorMap } from '$lib/ui/position-color';
+  import {
+    buildAreaColorMap,
+    buildEmployeeColorMap,
+    linkedAreasForPosition,
+    positionAreaVisualIdentity
+  } from '$lib/ui/position-color';
   import { personInitials } from '$lib/ui/person';
   import { restaurantWeather } from '$lib/weather/restaurant-weather.svelte';
   import { weatherCondition } from '$lib/weather/weather';
@@ -129,7 +134,12 @@
   );
   const employeeColor = $derived(
     snapshot
-      ? buildEmployeeColorMap(snapshot.job_functions, snapshot.employee_job_functions, snapshot.work_areas)
+      ? buildEmployeeColorMap(
+          snapshot.job_functions,
+          snapshot.employee_job_functions,
+          snapshot.work_areas,
+          snapshot.job_function_areas
+        )
       : new Map<string, string>()
   );
   const areaColor = $derived(
@@ -294,6 +304,18 @@
     return primary;
   });
 
+  const employeePositionArea = $derived.by(() => {
+    const defaults = new Map<string, string>();
+    for (const assignment of snapshot?.employee_job_functions ?? []) {
+      if (!assignment.active || !assignment.default_area_id) continue;
+      defaults.set(
+        `${assignment.employee_id}|${assignment.job_function_id}`,
+        assignment.default_area_id
+      );
+    }
+    return defaults;
+  });
+
   const employeeContract = $derived.by(() => {
     const current = new Map<string, string>();
     for (const contract of snapshot?.employee_contracts ?? []) {
@@ -342,13 +364,48 @@
     );
   }
 
+  function positionLinkedAreas(positionId: string) {
+    return snapshot
+      ? linkedAreasForPosition(
+          positionId,
+          snapshot.work_areas,
+          snapshot.job_function_areas
+        )
+      : [];
+  }
+
+  function preferredAreaIsEligible(
+    areaId: string | null,
+    linkedAreas: ReturnType<typeof positionLinkedAreas>
+  ): areaId is string {
+    if (
+      !areaId ||
+      !snapshot?.work_areas.some((area) => area.active && area.id === areaId)
+    ) {
+      return false;
+    }
+    return (
+      !linkedAreas.length ||
+      linkedAreas.some((area) => area.id === areaId)
+    );
+  }
+
   function placementForRow(row: PlanningRow, grid: PlanningGrid): ScheduleRowPlacement {
     const positionId = employeePosition.get(row.id) ?? '';
-    const linkedPositionAreaId = positionId
-      ? (snapshot?.job_function_areas ?? [])
-          .filter((link) => link.active && link.job_function_id === positionId)
-          .toSorted((left, right) => Number(right.is_primary) - Number(left.is_primary))[0]?.area_id ?? null
+    const linkedAreas = positionLinkedAreas(positionId);
+    const defaultAreaId = employeePositionArea.get(`${row.id}|${positionId}`) ?? null;
+    const positionIdentity = snapshot
+      ? positionAreaVisualIdentity(
+          positionId,
+          snapshot.work_areas,
+          snapshot.job_function_areas,
+          areaColor
+        )
       : null;
+    const linkedPositionAreaId =
+      preferredAreaIsEligible(defaultAreaId, linkedAreas)
+        ? defaultAreaId
+        : positionIdentity?.areaId ?? null;
     const areaId = employeeAreaId(row.id);
     const planned = employeeHours(row.id);
     const target = contractHours.get(row.id) ?? 0;
@@ -403,14 +460,24 @@
     if (scheduledAreas.size > 1) return null;
 
     const primaryPosition = employeePosition.get(employeeId);
-    const linkedAreas = (snapshot?.job_function_areas ?? [])
-      .filter((link) => link.active && link.job_function_id === primaryPosition)
-      .toSorted((left, right) => Number(right.is_primary) - Number(left.is_primary));
-    if (linkedAreas[0]?.area_id) return linkedAreas[0].area_id;
+    if (!primaryPosition) return null;
+    const linkedAreas = positionLinkedAreas(primaryPosition);
+    const defaultAreaId =
+      employeePositionArea.get(`${employeeId}|${primaryPosition}`) ?? null;
+    if (preferredAreaIsEligible(defaultAreaId, linkedAreas)) {
+      return defaultAreaId;
+    }
+    if (linkedAreas.length === 1) return linkedAreas[0].id;
 
-    return (snapshot?.coverage_requirements ?? [])
-      .find((requirement) => requirement.active && requirement.job_function_id === primaryPosition)
-      ?.area_id ?? null;
+    const coverageAreaIds = new Set(
+      (snapshot?.coverage_requirements ?? [])
+        .filter(
+          (requirement) =>
+            requirement.active && requirement.job_function_id === primaryPosition
+        )
+        .map((requirement) => requirement.area_id)
+    );
+    return coverageAreaIds.size === 1 ? [...coverageAreaIds][0] : null;
   }
 
   function employeeAreaLabel(employeeId: string): string {
@@ -421,7 +488,11 @@
     );
     if (scheduledAreaIds.size > 1) return t('Multiple areas');
     const areaId = employeeAreaId(employeeId);
-    return areaId ? areaName.get(areaId) ?? t('No area') : t('No area');
+    if (areaId) return areaName.get(areaId) ?? t('No area');
+    const positionId = employeePosition.get(employeeId) ?? '';
+    return positionLinkedAreas(positionId).length > 1
+      ? t('Multiple areas')
+      : t('No area');
   }
 
   function groupLabel(row: PlanningRow, grid: PlanningGrid): string {

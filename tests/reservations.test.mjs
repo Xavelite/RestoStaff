@@ -154,7 +154,13 @@ test('restaurant area catalogue creates physical instances without hiding repeat
   assert.doesNotMatch(workspace, /disabled:\s*Boolean\(existing/);
   assert.match(workspace, /async function addArea\(\)/);
   assert.match(workspace, /restaurantContext\.draft\.areas = \[area, \.\.\.areas\]/);
-  assert.match(workspace, /autoOpen=\{newAreaId === areaDraft\.id\}/);
+  assert.match(workspace, /let pendingAreaIds = \$state<string\[\]>\(\[\]\)/);
+  assert.match(workspace, /pendingAreaIds = \[id, \.\.\.pendingAreaIds\]/);
+  assert.match(workspace, /autoOpen=\{autoOpenAreaId === areaDraft\.id\}/);
+  assert.match(workspace, /class:is-new=\{pendingAreaIds\.includes\(room\.work_area_id\)\}/);
+  assert.match(workspace, /onclose=\{\(\) => closePendingAreaPicker\(areaDraft\.id\)\}/);
+  assert.doesNotMatch(workspace, /removeEmptyNewArea/);
+  assert.doesNotMatch(workspace, /Boolean\(newAreaId\)/);
   assert.match(workspace, /nextAreaInstanceNumber\(/);
   assert.match(workspace, /typeAreaName\(/);
   assert.doesNotMatch(workspace, /existingArea\.active = true/);

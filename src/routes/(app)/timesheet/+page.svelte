@@ -106,7 +106,12 @@
   // --- week grid (employees × days), mirroring the Schedule board ----------
   const employeeColor = $derived(
     snapshot
-      ? buildEmployeeColorMap(snapshot.job_functions, snapshot.employee_job_functions, snapshot.work_areas)
+      ? buildEmployeeColorMap(
+          snapshot.job_functions,
+          snapshot.employee_job_functions,
+          snapshot.work_areas,
+          snapshot.job_function_areas
+        )
       : new Map<string, string>()
   );
   const contractHours = $derived(

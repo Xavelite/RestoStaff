@@ -10,7 +10,10 @@ import {
   workspaceAreaByKey,
   workspacePositionByKey
 } from '../src/lib/restaurant/workspace-catalogue.ts';
-import { buildPositionColorMap } from '../src/lib/ui/position-color.ts';
+import {
+  buildPositionColorMap,
+  positionAreaVisualIdentity
+} from '../src/lib/ui/position-color.ts';
 
 test('workspace area catalogue has stable unique identities and valid visual metadata', () => {
   assert.ok(WORKSPACE_AREA_CATALOGUE.length >= 20);
@@ -71,7 +74,6 @@ test('areas are modern colour anchors and positions inherit a lighter tint', () 
       {
         id: 'waiter',
         name: 'Waiter',
-        primaryAreaId: 'dining',
         areaIds: ['dining']
       }
     ],
@@ -81,10 +83,91 @@ test('areas are modern colour anchors and positions inherit a lighter tint', () 
   assert.notEqual(colors.get('waiter'), '#f97316');
 });
 
+test('position colours use canonical links without primary flags or legacy metadata', () => {
+  const areas = [
+    { id: 'bar', name: 'Bar', color: '#3b82f6', sort_order: 0 },
+    { id: 'dining', name: 'Dining room', color: '#f97316', sort_order: 1 }
+  ];
+  const positions = [
+    {
+      id: 'floating-role',
+      name: 'Floating role',
+      metadata: { area_id: 'dining', area_ids: ['dining'] }
+    }
+  ];
+  const colors = buildPositionColorMap(positions, areas, [
+    {
+      job_function_id: 'floating-role',
+      area_id: 'dining',
+      active: true,
+      is_primary: true
+    },
+    {
+      job_function_id: 'floating-role',
+      area_id: 'bar',
+      active: true,
+      is_primary: false
+    }
+  ]);
+
+  assert.equal(colors.get('floating-role'), '#629bf8');
+  assert.equal(
+    buildPositionColorMap(positions, areas).get('floating-role'),
+    '#60a5fa'
+  );
+});
+
+test('position area icons stay shared for duplicate locations and neutral for mixed areas', () => {
+  const areas = [
+    {
+      id: 'bar-ground',
+      name: 'Bar',
+      catalogue_key: 'bar',
+      color: '#3b82f6',
+      sort_order: 0,
+      active: true
+    },
+    {
+      id: 'bar-upstairs',
+      name: 'Bar',
+      catalogue_key: 'bar',
+      color: '#3b82f6',
+      sort_order: 1,
+      active: true
+    },
+    {
+      id: 'dining',
+      name: 'Dining room',
+      catalogue_key: 'dining_room',
+      color: '#f97316',
+      sort_order: 2,
+      active: true
+    }
+  ];
+  const duplicateBars = [
+    { job_function_id: 'bartender', area_id: 'bar-upstairs', active: true },
+    { job_function_id: 'bartender', area_id: 'bar-ground', active: true }
+  ];
+  const mixedAreas = [
+    ...duplicateBars,
+    { job_function_id: 'bartender', area_id: 'dining', active: true }
+  ];
+
+  assert.deepEqual(
+    positionAreaVisualIdentity('bartender', areas, duplicateBars),
+    { areaId: 'bar-ground', icon: 'bar', color: '#3b82f6' }
+  );
+  assert.equal(
+    positionAreaVisualIdentity('bartender', areas, mixedAreas),
+    null
+  );
+});
+
 test('position catalogue creation uses the shared accessible picker without hiding system roles', async () => {
-  const [picker, positions] = await Promise.all([
+  const [picker, positions, linkedAreas] = await Promise.all([
     readFile('src/lib/restaurant/WorkspaceCataloguePicker.svelte', 'utf8'),
-    readFile('src/routes/(app)/restaurant/positions/+page.svelte', 'utf8')
+    readFile('src/routes/(app)/restaurant/positions/+page.svelte', 'utf8'),
+    readFile('src/lib/restaurant/PositionLinkedAreasField.svelte', 'utf8')
   ]);
 
   assert.match(picker, /role="combobox"/);
@@ -101,4 +184,10 @@ test('position catalogue creation uses the shared accessible picker without hidi
   assert.match(positions, /position\.catalogueKey = ''/);
   assert.doesNotMatch(positions, /<datalist/);
   assert.doesNotMatch(positions, /availableCataloguePositions/);
+  assert.match(linkedAreas, /role="listbox"/);
+  assert.match(linkedAreas, /aria-multiselectable="true"/);
+  assert.match(linkedAreas, /type="search"/);
+  assert.match(linkedAreas, /event\.key === 'Escape'/);
+  assert.match(linkedAreas, /recommendedIds/);
+  assert.doesNotMatch(linkedAreas, /type="radio"/);
 });

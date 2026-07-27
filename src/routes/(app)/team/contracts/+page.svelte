@@ -2,7 +2,12 @@
   import { onMount } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { personInitials } from '$lib/ui/person';
-  import { buildEmployeeColorMap, buildPositionColorMap } from '$lib/ui/position-color';
+  import {
+    buildAreaColorMap,
+    buildEmployeeColorMap,
+    buildPositionColorMap,
+    positionAreaVisualIdentity
+  } from '$lib/ui/position-color';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import type { EmployeeDraft } from '$lib/team/team-model';
   import { useClassicTeamContext } from '$lib/classic/classic-workspace-context';
@@ -83,23 +88,33 @@
 
   const employeeColor = $derived(
     workspace.team
-      ? buildEmployeeColorMap(workspace.team.job_functions, workspace.team.employee_job_functions, workspace.restaurant?.work_areas ?? [])
+      ? buildEmployeeColorMap(
+          workspace.team.job_functions,
+          workspace.team.employee_job_functions,
+          workspace.restaurant?.work_areas ?? [],
+          workspace.restaurant?.job_function_areas ?? []
+        )
       : new Map<string, string>()
   );
   const positionColor = $derived(
     workspace.team
-      ? buildPositionColorMap(workspace.team.job_functions, workspace.restaurant?.work_areas ?? [])
+      ? buildPositionColorMap(
+          workspace.team.job_functions,
+          workspace.restaurant?.work_areas ?? [],
+          workspace.restaurant?.job_function_areas ?? []
+        )
       : new Map<string, string>()
   );
+  const areaColor = $derived(buildAreaColorMap(workspace.restaurant?.work_areas ?? []));
 
   function positionArea(positionId: string): { icon: string; color: string } | null {
-    const relation = (workspace.restaurant?.job_function_areas ?? [])
-      .filter((item) => item.active && item.job_function_id === positionId)
-      .sort((left, right) => Number(right.is_primary) - Number(left.is_primary))[0];
-    const area = workspace.restaurant?.work_areas.find((item) => item.id === relation?.area_id);
-    return area
-      ? { icon: area.icon_key ?? '', color: area.color ?? 'var(--cl-muted)' }
-      : null;
+    const identity = positionAreaVisualIdentity(
+      positionId,
+      workspace.restaurant?.work_areas ?? [],
+      workspace.restaurant?.job_function_areas ?? [],
+      areaColor
+    );
+    return identity ? { icon: identity.icon, color: identity.color } : null;
   }
 
   const REGIME_LABEL: Record<string, string> = {

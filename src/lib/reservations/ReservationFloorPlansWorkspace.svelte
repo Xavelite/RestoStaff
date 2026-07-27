@@ -79,7 +79,8 @@
     isNew: boolean;
   };
   let combinationEditor = $state<CombinationEditor | null>(null);
-  let newAreaId = $state('');
+  let pendingAreaIds = $state<string[]>([]);
+  let autoOpenAreaId = $state('');
   let compactViewport = $state(false);
   let editorView = $state<'plan' | 'list'>('list');
   type AreaDirectoryPlacement = {
@@ -171,10 +172,10 @@
                   name: draftArea.name,
                   active: draftArea.active,
                   catalogueKey: draftArea.catalogueKey,
-                  instanceNumber: draftArea.instanceNumber
+                  instanceNumber: draftArea.instanceNumber,
+                  floorLevel
                 },
-                areaInstanceIdentities(),
-                floorLevel
+                areaInstanceIdentities()
               )
             : area
               ? areaInstanceLabel(
@@ -183,10 +184,10 @@
                     name: area.name,
                     active: area.active,
                     catalogueKey: area.catalogue_key ?? '',
-                    instanceNumber: area.instance_number
+                    instanceNumber: area.instance_number,
+                    floorLevel
                   },
-                  areaInstanceIdentities(),
-                  floorLevel
+                  areaInstanceIdentities()
                 )
               : persisted?.name ?? t('Area'),
           area_code: draftArea?.code ?? persisted?.area_code ?? area?.code ?? '',
@@ -213,9 +214,14 @@
   );
   const orderedAreaRooms = $derived(
     [...mergedRooms].sort((left, right) => {
-      const leftIsNew = left.work_area_id === newAreaId;
-      const rightIsNew = right.work_area_id === newAreaId;
-      if (leftIsNew !== rightIsNew) return leftIsNew ? -1 : 1;
+      const leftPendingIndex = pendingAreaIds.indexOf(left.work_area_id);
+      const rightPendingIndex = pendingAreaIds.indexOf(right.work_area_id);
+      const leftIsPending = leftPendingIndex >= 0;
+      const rightIsPending = rightPendingIndex >= 0;
+      if (leftIsPending !== rightIsPending) return leftIsPending ? -1 : 1;
+      if (leftIsPending && rightIsPending && leftPendingIndex !== rightPendingIndex) {
+        return leftPendingIndex - rightPendingIndex;
+      }
       const leftPlacement = areaDirectoryPlacement.snapshotFor(
         directoryPlacement(left)
       );
@@ -346,7 +352,8 @@
       selectedRoomId = '';
       selectedTableId = '';
       combinationEditor = null;
-      newAreaId = '';
+      pendingAreaIds = [];
+      autoOpenAreaId = '';
     } catch (cause) {
       error = friendlyError(cause);
     } finally {
@@ -528,7 +535,8 @@
         name: area.name,
         active: area.active,
         catalogueKey: area.catalogueKey,
-        instanceNumber: area.instanceNumber
+        instanceNumber: area.instanceNumber,
+        floorLevel: area.floorLevel ?? 0
       }));
     }
     return (source?.areas ?? []).map((area) => ({
@@ -536,7 +544,8 @@
       name: area.name,
       active: area.active,
       catalogueKey: area.catalogue_key ?? '',
-      instanceNumber: area.instance_number
+      instanceNumber: area.instance_number,
+      floorLevel: area.floor_level ?? 0
     }));
   }
 
@@ -544,15 +553,18 @@
     areaId: string,
     floorId: string | null
   ): string {
-    const area = areaInstanceIdentities().find((candidate) => candidate.id === areaId);
+    const level = draft?.floors.find((floor) => floor.id === floorId)?.level ?? 0;
+    const identities = areaInstanceIdentities().map((candidate) =>
+      candidate.id === areaId ? { ...candidate, floorLevel: level } : candidate
+    );
+    const area = identities.find((candidate) => candidate.id === areaId);
     if (
       !area ||
-      duplicateAreaTypeCount(area, areaInstanceIdentities()) <= 1
+      duplicateAreaTypeCount(area, identities) <= 1
     ) {
       return '';
     }
-    const level = draft?.floors.find((floor) => floor.id === floorId)?.level ?? 0;
-    return areaInstanceLocator(area, level);
+    return areaInstanceLocator(area, identities);
   }
 
   function floorCountLabel(count: number): string {
@@ -585,7 +597,7 @@
       restaurantContext?.draft.jobFunctions.filter(
         (position) =>
           position.active &&
-          (position.primaryAreaId === areaId || position.areaIds.includes(areaId))
+          position.areaIds.includes(areaId)
       ).length ?? 0
     );
   }
@@ -635,7 +647,8 @@
     selectedTableId = '';
     restaurantConfig.touch();
     touch();
-    newAreaId = id;
+    pendingAreaIds = [id, ...pendingAreaIds];
+    autoOpenAreaId = id;
     editorView = 'list';
     await tick();
     document.getElementById(`area-picker-${id}`)?.scrollIntoView({
@@ -703,32 +716,8 @@
     restaurantConfig.touch();
   }
 
-  function removeEmptyNewArea(areaId: string): void {
-    if (!draft || !restaurantContext || areaId !== newAreaId) return;
-    const area = restaurantContext.draft.areas.find(
-      (candidate) => candidate.id === areaId
-    );
-    if (!area) return;
-    if (area.name.trim()) {
-      newAreaId = '';
-      return;
-    }
-    const roomIds = new Set(
-      draft.rooms
-        .filter((room) => room.work_area_id === areaId)
-        .map((room) => room.id)
-    );
-    restaurantContext.draft.areas = restaurantContext.draft.areas.filter(
-      (candidate) => candidate.id !== areaId
-    );
-    draft.rooms = draft.rooms.filter((room) => room.work_area_id !== areaId);
-    draft.tables = draft.tables.filter((table) => !roomIds.has(table.room_id));
-    restaurantConfig.removeAreaPlacement(areaId);
-    for (const roomId of roomIds) areaDirectoryPlacement.remove(roomId);
-    newAreaId = '';
-    selectedRoomId = '';
-    restaurantConfig.touch();
-    touch();
+  function closePendingAreaPicker(areaId: string): void {
+    if (autoOpenAreaId === areaId) autoOpenAreaId = '';
   }
 
   async function archiveArea(roomId = selectedRoomId) {
@@ -778,10 +767,9 @@
     );
     for (const position of restaurantContext.draft.jobFunctions) {
       position.areaIds = position.areaIds.filter((areaId) => areaId !== archivedAreaId);
-      if (position.primaryAreaId === archivedAreaId) {
-        position.primaryAreaId = position.areaIds[0] ?? '';
-      }
     }
+    pendingAreaIds = pendingAreaIds.filter((areaId) => areaId !== archivedAreaId);
+    if (autoOpenAreaId === archivedAreaId) autoOpenAreaId = '';
     restaurantConfig.touch();
     selectedRoomId = '';
     touch();
@@ -1669,7 +1657,8 @@
     selectedRoomId = '';
     selectedTableId = '';
     combinationEditor = null;
-    newAreaId = '';
+    pendingAreaIds = [];
+    autoOpenAreaId = '';
     restaurantContext?.discard();
   }
 
@@ -1747,7 +1736,7 @@
         <button
           class="cl-btn is-primary"
           type="button"
-          disabled={!selectedFloor || editorReadOnly || Boolean(newAreaId)}
+          disabled={!selectedFloor || editorReadOnly}
           onclick={() => void addArea()}
         >+ {t('Add area')}</button>
       {/if}
@@ -1774,7 +1763,7 @@
                   {@const areaDraft = restaurantContext?.draft.areas.find((area) => area.id === room.work_area_id)}
                   <tr
                     class:is-attention={!room.floor_id}
-                    class:is-new={room.work_area_id === newAreaId}
+                    class:is-new={pendingAreaIds.includes(room.work_area_id)}
                   >
                     <td>
                       <span class="area-row-name">
@@ -1789,7 +1778,7 @@
                               label={t('Area')}
                               placeholder={t('Select or type an area')}
                               disabled={editorReadOnly}
-                              autoOpen={newAreaId === areaDraft.id}
+                              autoOpen={autoOpenAreaId === areaDraft.id}
                               recommendedLabel={t('Suggested areas')}
                               allLabel={t('All system areas')}
                               customLabel={t('Custom area')}
@@ -1800,7 +1789,7 @@
                               onvaluechange={(value) => typeAreaName(areaDraft.id, value)}
                               onselect={(item) => selectAreaCatalogue(areaDraft.id, item)}
                               oncustom={(name) => selectCustomArea(areaDraft.id, name)}
-                              onclose={() => removeEmptyNewArea(areaDraft.id)}
+                              onclose={() => closePendingAreaPicker(areaDraft.id)}
                             />
                             {#if areaInstanceLocatorFor(areaDraft.id, room.floor_id)}
                               <small class="area-instance-locator">{areaInstanceLocatorFor(areaDraft.id, room.floor_id)}</small>

@@ -4,7 +4,10 @@
 // deliberately lighter tint, so the relationship stays visible throughout
 // Restaurant, Team, Planning and Time & attendance.
 
-import { catalogueAreaColor } from '../restaurant/workspace-catalogue.ts';
+import {
+  catalogueAreaColor,
+  workspaceAreaByKey
+} from '../restaurant/workspace-catalogue.ts';
 
 const POSITION_PALETTE = [
   '#60a5fa', // blue
@@ -37,9 +40,7 @@ type JobFunctionLike = {
   sort_order?: number | null;
   name?: string | null;
   active?: boolean | null;
-  metadata?: unknown;
   color?: string | null;
-  primaryAreaId?: string | null;
   areaIds?: readonly string[] | null;
   catalogueKey?: string | null;
 };
@@ -49,10 +50,18 @@ type AreaLike = {
   restaurant_id?: string | null;
   sort_order?: number | null;
   name?: string | null;
+  active?: boolean | null;
   metadata?: unknown;
   color?: string | null;
+  icon_key?: string | null;
   catalogue_key?: string | null;
   catalogueKey?: string | null;
+};
+
+type JobFunctionAreaLike = {
+  job_function_id: string;
+  area_id: string;
+  active?: boolean | null;
 };
 
 function validWorkspaceColor(value: unknown): value is string {
@@ -75,42 +84,88 @@ export function defaultAreaColor(index: number): string {
   return AREA_PALETTE[index % AREA_PALETTE.length];
 }
 
-function readPrimaryAreaId(item: JobFunctionLike): string | null {
-  if (item.primaryAreaId) return item.primaryAreaId;
-  if (item.metadata && typeof item.metadata === 'object' && 'area_id' in item.metadata) {
-    const value = (item.metadata as { area_id?: unknown }).area_id;
-    return typeof value === 'string' && value ? value : null;
-  }
-  return null;
+function areaOrder(areas: readonly AreaLike[]): Map<string, number> {
+  return new Map(
+    [...areas]
+      .sort(
+        (left, right) =>
+          (left.sort_order ?? 0) - (right.sort_order ?? 0) ||
+          (left.name ?? '').localeCompare(right.name ?? '') ||
+          left.id.localeCompare(right.id)
+      )
+      .map((area, index) => [area.id, index])
+  );
 }
 
-function readAreaIds(item: JobFunctionLike): string[] {
-  if (Array.isArray(item.areaIds)) {
-    return item.areaIds.filter((value): value is string => typeof value === 'string' && Boolean(value));
-  }
-  if (item.metadata && typeof item.metadata === 'object' && 'area_ids' in item.metadata) {
-    const value = (item.metadata as { area_ids?: unknown }).area_ids;
-    if (Array.isArray(value)) {
-      return value.filter((entry): entry is string => typeof entry === 'string' && Boolean(entry));
-    }
-  }
-  const primary = readPrimaryAreaId(item);
-  return primary ? [primary] : [];
+export function linkedAreasForPosition<T extends AreaLike>(
+  positionId: string,
+  areas: readonly T[],
+  relationships: readonly JobFunctionAreaLike[]
+): T[] {
+  const linkedIds = new Set(
+    relationships
+      .filter(
+        (relationship) =>
+          relationship.active !== false &&
+          relationship.job_function_id === positionId
+      )
+      .map((relationship) => relationship.area_id)
+  );
+  return areas
+    .filter((area) => area.active !== false && linkedIds.has(area.id))
+    .toSorted(
+      (left, right) =>
+        (left.sort_order ?? 0) - (right.sort_order ?? 0) ||
+        (left.name ?? '').localeCompare(right.name ?? '') ||
+        left.id.localeCompare(right.id)
+    );
 }
 
-function inferredAreaId(item: JobFunctionLike, areas: AreaLike[]): string | null {
-  const normalized = (item.name ?? '').toLowerCase();
-  const direct = areas.find((area) => normalized.includes((area.name ?? '').toLowerCase()));
-  if (direct) return direct.id;
-  const hint =
-    /cook|chef|kitchen|dish/.test(normalized)
-      ? /kitchen|cuisine/
-      : /bar|bartend/.test(normalized)
-        ? /bar/
-        : /wait|server|host|runner/.test(normalized)
-          ? /hall|room|salle/
-          : null;
-  return hint ? areas.find((area) => hint.test((area.name ?? '').toLowerCase()))?.id ?? null : null;
+export function positionAreaVisualIdentity(
+  positionId: string,
+  areas: readonly AreaLike[],
+  relationships: readonly JobFunctionAreaLike[],
+  colors: ReadonlyMap<string, string> = buildAreaColorMap([...areas])
+): { areaId: string; icon: string; color: string } | null {
+  const linkedAreas = linkedAreasForPosition(positionId, areas, relationships);
+  const first = linkedAreas[0];
+  if (!first) return null;
+  const iconFor = (area: AreaLike) =>
+    area.icon_key ||
+    workspaceAreaByKey.get(area.catalogueKey ?? area.catalogue_key ?? '')?.icon ||
+    '';
+  const firstIcon = iconFor(first);
+  const firstColor = colors.get(first.id) ?? 'var(--cl-muted)';
+  const hasOneVisualIdentity = linkedAreas.every(
+    (area) =>
+      iconFor(area) === firstIcon &&
+      (colors.get(area.id) ?? 'var(--cl-muted)') === firstColor
+  );
+  return hasOneVisualIdentity
+    ? { areaId: first.id, icon: firstIcon, color: firstColor }
+    : null;
+}
+
+function readAreaIds(
+  item: JobFunctionLike,
+  relationships: readonly JobFunctionAreaLike[],
+  order: ReadonlyMap<string, number>
+): string[] {
+  const linked = Array.isArray(item.areaIds)
+    ? item.areaIds
+    : relationships
+        .filter(
+          (relationship) =>
+            relationship.active !== false && relationship.job_function_id === item.id
+        )
+        .map((relationship) => relationship.area_id);
+  return [...new Set(linked.filter((value): value is string => typeof value === 'string' && Boolean(value)))]
+    .sort(
+      (left, right) =>
+        (order.get(left) ?? Number.MAX_SAFE_INTEGER) -
+          (order.get(right) ?? Number.MAX_SAFE_INTEGER) ||
+        left.localeCompare(right)
+    );
 }
 
 function mixHex(base: string, target: '#ffffff' | '#000000', amount: number): string {
@@ -122,13 +177,14 @@ function mixHex(base: string, target: '#ffffff' | '#000000', amount: number): st
 }
 
 /**
- * Position id → colour. A position inherits the identity of its primary area;
- * sibling positions receive stable lighter tints so the restaurant keeps one visual
- * language. Legacy colours remain a fallback while no area is linked.
+ * Position id -> colour. Linked physical areas are canonical. When a position
+ * spans several areas, their stable workspace order supplies one visual family;
+ * no relationship is treated as "primary".
  */
 export function buildPositionColorMap(
   jobFunctions: JobFunctionLike[],
-  areas: AreaLike[] = []
+  areas: AreaLike[] = [],
+  relationships: readonly JobFunctionAreaLike[] = []
 ): Map<string, string> {
   const ordered = [...jobFunctions].sort(
     (a, b) =>
@@ -136,17 +192,12 @@ export function buildPositionColorMap(
       (a.name ?? '').localeCompare(b.name ?? '')
   );
   const areaColors = buildAreaColorMap(areas);
+  const linkedAreaOrder = areaOrder(areas);
   const positionIndexByArea = new Map<string, number>();
   const map = new Map<string, string>();
   ordered.forEach((item, index) => {
-    const linkedAreaIds = readAreaIds(item);
-    const primaryAreaId = readPrimaryAreaId(item);
-    const areaId =
-      primaryAreaId && linkedAreaIds.includes(primaryAreaId)
-        ? primaryAreaId
-        : linkedAreaIds.length === 1
-        ? linkedAreaIds[0]
-        : inferredAreaId(item, areas);
+    const linkedAreaIds = readAreaIds(item, relationships, linkedAreaOrder);
+    const areaId = linkedAreaIds[0] ?? null;
     const areaColor = areaId ? areaColors.get(areaId) : null;
     if (areaId && areaColor) {
       const siblingIndex = positionIndexByArea.get(areaId) ?? 0;
@@ -161,7 +212,7 @@ export function buildPositionColorMap(
       return;
     }
     const direct = validWorkspaceColor(item.color) ? item.color : null;
-    map.set(item.id, direct ?? readColorOverride(item.metadata) ?? defaultPositionColor(index));
+    map.set(item.id, direct ?? defaultPositionColor(index));
   });
   return map;
 }
@@ -200,9 +251,10 @@ export function buildEmployeeColorMap(
     is_primary?: boolean | null;
     active?: boolean | null;
   }>,
-  areas: AreaLike[] = []
+  areas: AreaLike[] = [],
+  relationships: readonly JobFunctionAreaLike[] = []
 ): Map<string, string> {
-  const positionColors = buildPositionColorMap(jobFunctions, areas);
+  const positionColors = buildPositionColorMap(jobFunctions, areas, relationships);
   const map = new Map<string, string>();
   for (const link of assignments) {
     if (link.active === false || !link.is_primary) continue;
