@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { onMount } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { personInitials } from '$lib/ui/person';
-  import { buildEmployeeColorMap } from '$lib/ui/position-color';
+  import { buildEmployeeColorMap, buildPositionColorMap } from '$lib/ui/position-color';
   import { workspace } from '$lib/workspace/workspace.svelte';
-  import { newEmployeeDraft, type EmployeeDraft } from '$lib/team/team-model';
+  import type { EmployeeDraft } from '$lib/team/team-model';
   import { useClassicTeamContext } from '$lib/classic/classic-workspace-context';
   import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
@@ -13,7 +13,6 @@
   import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
   import EmployeeInlineEditor from '$lib/classic/EmployeeInlineEditor.svelte';
-  import { teamDraft } from '$lib/classic/classic-team.svelte';
 
   type GroupBy = 'contract' | 'position' | 'status' | 'none';
   type Group = { key: string; label: string; employees: EmployeeDraft[] };
@@ -23,7 +22,6 @@
   let groupBy = $state<GroupBy>('contract');
   let sort = $state<{ key: SortKey; dir: 'asc' | 'desc' } | null>(null);
   let detailId = $state('');
-  let freshId = $state('');
   let excludedContract = $state(new Set<string>());
   let excludedPosition = $state(new Set<string>());
   let excludedStatus = $state(new Set<string>());
@@ -32,7 +30,6 @@
   let endSearch = $state('');
   let hoursSearch = $state('');
   let collapsedGroups = $state<string[]>([]);
-  const contractTypes = $derived(workspace.team?.contract_types.filter((item) => item.active) ?? []);
 
   const OPTIONAL_COLUMNS = [
     { key: 'position', label: 'Position' },
@@ -41,7 +38,7 @@
     { key: 'start', label: 'Start' },
     { key: 'end', label: 'End' },
     { key: 'hours', label: 'Weekly hours' },
-    { key: 'status', label: 'Status' }
+    { key: 'status', label: 'Setup' }
   ] as const;
   const COLS_KEY = 'rst-team-contract-cols-v2';
   let hidden = $state(new Set<string>());
@@ -86,6 +83,11 @@
       ? buildEmployeeColorMap(workspace.team.job_functions, workspace.team.employee_job_functions, workspace.restaurant?.work_areas ?? [])
       : new Map<string, string>()
   );
+  const positionColor = $derived(
+    workspace.team
+      ? buildPositionColorMap(workspace.team.job_functions, workspace.restaurant?.work_areas ?? [])
+      : new Map<string, string>()
+  );
 
   const REGIME_LABEL: Record<string, string> = {
     weekly_availability: 'Weekly availability',
@@ -104,47 +106,17 @@
       : [...collapsedGroups, key];
   }
 
-  async function addEmployee() {
-    if (workspace.isPreview || !workspace.team || workspace.effectiveRole !== 'owner') return;
-    const draft = newEmployeeDraft(crypto.randomUUID());
-    draft.displayName = '';
-    teamDraft.employees = [draft, ...teamDraft.employees];
-    freshId = draft.id;
-    search = '';
-    excludedContract = new Set();
-    excludedPosition = new Set();
-    excludedStatus = new Set();
-    excludedRegime = new Set();
-    startSearch = '';
-    endSearch = '';
-    hoursSearch = '';
-    await tick();
-    document.querySelector<HTMLInputElement>(`[data-employee-id="${draft.id}"] .namefield`)?.focus();
-  }
-
-  function setName(employee: EmployeeDraft, value: string) {
-    const parts = value.trim().split(/\s+/);
-    teamDraft.update(employee.id, {
-      displayName: value,
-      firstName: employee.firstName || parts[0] || '',
-      lastName: employee.lastName || parts.slice(1).join(' ')
-    });
-  }
-
   async function savePage(save: () => Promise<void>) {
     await save();
-    freshId = '';
   }
 
   function discardPage(discard: () => void) {
     discard();
-    freshId = '';
     detailId = '';
   }
 
   function closeDetails() {
     detailId = '';
-    freshId = '';
   }
 
 
@@ -172,7 +144,7 @@
     if (endSearch.trim() && !employee.contractEnd.includes(endSearch.trim())) return false;
     if (hoursSearch.trim() && !String(employee.weeklyContractHours).includes(hoursSearch.trim())) return false;
     const term = search.trim().toLowerCase();
-    if (!employee.active && employee.id !== freshId) return false;
+    if (!employee.active) return false;
     return !term || `${employee.displayName} ${contractName.get(employee.contractTypeId) ?? ''} ${jobName.get(positionValue) ?? ''}`.toLowerCase().includes(term);
   }
 
@@ -216,13 +188,10 @@
     }
     return [...map.values()].sort((l, r) => l.key.startsWith('__') ? -1 : r.key.startsWith('__') ? 1 : l.label.localeCompare(r.label));
   }
-  function setContractType(employee: EmployeeDraft, contractTypeId: string) {
-    const code = contractTypes.find((item) => item.id === contractTypeId)?.code;
-    teamDraft.update(employee.id, {
-      contractTypeId,
-      contractEnd: code === 'CDI' ? '' : employee.contractEnd,
-      employmentValidTo: code === 'CDI' ? '' : employee.employmentValidTo
-    });
+  function formatDate(value: string): string {
+    if (!value) return '—';
+    const [year, month, day] = value.split('-');
+    return year && month && day ? `${day}/${month}/${year}` : value;
   }
 
   function peopleCountLabel(count: number): string {
@@ -248,25 +217,19 @@
         <span><i class="dot"></i>{t('{count} employees', { count: filtered.length })}</span>
         <span><i class="dot is-orange"></i>{t('{count} incomplete', { count: incomplete })}</span>
       {/snippet}
-      {#snippet actions()}
-        <button class="cl-btn is-primary" type="button" disabled={workspace.isPreview || workspace.effectiveRole !== 'owner' || !workspace.team} onclick={addEmployee}>
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-          <span>{t('Add employee')}</span>
-        </button>
-      {/snippet}
       {#snippet children()}
       <div class="cl-tablewrap">
         <table class="cl-table contract-table">
           <thead>
             <tr>
-              <th class="has-menu"><ClassicPrimaryColMenu label={t('Employee')} sortable sortDir={sort?.key === 'employee' ? sort.dir : null} onsort={(dir) => (sort = { key: 'employee', dir })} filterKind="text" searchValue={search} onsearch={(value) => (search = value)} groupValue={groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'contract', label: t('Contract type') }, { value: 'position', label: t('Position') }, { value: 'status', label: t('Status') }]} ongroupchange={(value) => setGroupBy(value as GroupBy)} /></th>
+              <th class="has-menu"><ClassicPrimaryColMenu label={t('Employee')} sortable sortDir={sort?.key === 'employee' ? sort.dir : null} onsort={(dir) => (sort = { key: 'employee', dir })} filterKind="text" searchValue={search} onsearch={(value) => (search = value)} groupValue={groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'contract', label: t('Contract type') }, { value: 'position', label: t('Position') }, { value: 'status', label: t('Setup') }]} ongroupchange={(value) => setGroupBy(value as GroupBy)} /></th>
               {#if shown('position')}<th class="has-menu"><ClassicColMenu label={t('Position')} sortable sortDir={sort?.key === 'position' ? sort.dir : null} onsort={(dir) => (sort = { key: 'position', dir })} filterKind="values" filterValues={positionValues} selected={excludedPosition} ontoggle={(value) => (excludedPosition = toggleExcluded(excludedPosition, value))} onselectall={(on) => (excludedPosition = on ? new Set() : new Set(positionValues.map((item) => item.value)))} /></th>{/if}
               {#if shown('contract')}<th class="has-menu"><ClassicColMenu label={t('Contract')} sortable sortDir={sort?.key === 'contract' ? sort.dir : null} onsort={(dir) => (sort = { key: 'contract', dir })} filterKind="values" filterValues={contractValues} selected={excludedContract} ontoggle={(value) => (excludedContract = toggleExcluded(excludedContract, value))} onselectall={(on) => (excludedContract = on ? new Set() : new Set(contractValues.map((item) => item.value)))} /></th>{/if}
               {#if shown('regime')}<th class="has-menu"><ClassicColMenu label={t('Planning mode')} sortable sortDir={sort?.key === 'regime' ? sort.dir : null} onsort={(dir) => (sort = { key: 'regime', dir })} filterKind="values" filterValues={regimeValues} selected={excludedRegime} ontoggle={(value) => (excludedRegime = toggleExcluded(excludedRegime, value))} onselectall={(on) => (excludedRegime = on ? new Set() : new Set(regimeValues.map((item) => item.value)))} /></th>{/if}
               {#if shown('start')}<th class="has-menu"><ClassicColMenu label={t('Start')} sortable sortDir={sort?.key === 'start' ? sort.dir : null} onsort={(dir) => (sort = { key: 'start', dir })} filterKind="text" searchValue={startSearch} onsearch={(value) => (startSearch = value)} /></th>{/if}
               {#if shown('end')}<th class="has-menu"><ClassicColMenu label={t('End')} sortable sortDir={sort?.key === 'end' ? sort.dir : null} onsort={(dir) => (sort = { key: 'end', dir })} filterKind="text" searchValue={endSearch} onsearch={(value) => (endSearch = value)} /></th>{/if}
               {#if shown('hours')}<th class="has-menu"><ClassicColMenu label={t('Weekly hours')} align="right" sortable sortDir={sort?.key === 'hours' ? sort.dir : null} onsort={(dir) => (sort = { key: 'hours', dir })} filterKind="text" searchValue={hoursSearch} onsearch={(value) => (hoursSearch = value)} /></th>{/if}
-              {#if shown('status')}<th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={sort?.key === 'status' ? sort.dir : null} onsort={(dir) => (sort = { key: 'status', dir })} filterKind="values" filterValues={[{ value: 'complete', label: t('Complete') }, { value: 'incomplete', label: t('Incomplete') }]} selected={excludedStatus} ontoggle={(value) => (excludedStatus = toggleExcluded(excludedStatus, value))} onselectall={(on) => (excludedStatus = on ? new Set() : new Set(['complete', 'incomplete']))} /></th>{/if}
+              {#if shown('status')}<th class="has-menu"><ClassicColMenu label={t('Setup')} sortable sortDir={sort?.key === 'status' ? sort.dir : null} onsort={(dir) => (sort = { key: 'status', dir })} filterKind="values" filterValues={[{ value: 'complete', label: t('Complete') }, { value: 'incomplete', label: t('Incomplete') }]} selected={excludedStatus} ontoggle={(value) => (excludedStatus = toggleExcluded(excludedStatus, value))} onselectall={(on) => (excludedStatus = on ? new Set() : new Set(['complete', 'incomplete']))} /></th>{/if}
               <th class="actions-col">{t('Actions')}</th>
               <th class="chooser-col"><ClassicColChooser columns={OPTIONAL_COLUMNS.map((column) => ({ key: column.key, label: t(column.label) }))} {hidden} ontoggle={toggleColumn} /></th>
             </tr>
@@ -280,25 +243,26 @@
                 {#if !collapsedGroups.includes(group.key)}
                 {#each group.employees as employee (employee.id)}
                   {@const missing = gaps(employee)}
-                  <tr data-employee-id={employee.id} class:is-attention={missing.length > 0 || employee.id === freshId}>
+                  <tr data-employee-id={employee.id} class:is-attention={missing.length > 0}>
                     <td>
                       <span class="cl-table__name is-employee">
                         <span class="cl-avatar" style="--avatar-color:{employeeColor.get(employee.id) ?? 'var(--cl-muted)'}">{personInitials(employee.displayName || '?')}</span>
-                        {#if employee.id === freshId}
-                          <input class="cl-field namefield" placeholder={t('Full name')} value={employee.displayName} disabled={!team.owner || !team.editable} oninput={(event) => setName(employee, event.currentTarget.value)} />
-                        {:else}
-                          <span class="employee-name">{employee.displayName || t('New employee')}</span>
-                        {/if}
+                        <button class="cell-value employee-name" type="button" disabled={!team.owner || !team.editable} onclick={() => (detailId = employee.id)}>{employee.displayName || t('New employee')}</button>
                       </span>
                     </td>
-                    {#if shown('position')}<td>{team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position yet')}</td>{/if}
-                    {#if shown('contract')}<td><select class="cl-field cellfield" value={employee.contractTypeId} disabled={!team.owner || !team.editable} onchange={(event) => setContractType(employee, event.currentTarget.value)}><option value="">{t('Not set')}</option>{#each contractTypes as item (item.id)}<option value={item.id}>{item.name}</option>{/each}</select></td>{/if}
-                    {#if shown('regime')}<td><select class="cl-field cellfield regime" value={employee.workRegime} disabled={!team.owner || !team.editable} onchange={(event) => teamDraft.update(employee.id, { workRegime: event.currentTarget.value as EmployeeDraft['workRegime'] })}>{#each Object.entries(REGIME_LABEL) as [value, label] (value)}<option value={value}>{t(label)}</option>{/each}</select></td>{/if}
-                    {#if shown('start')}<td><input class="cl-field datefield" type="date" value={employee.contractStart} disabled={!team.owner || !team.editable} oninput={(event) => teamDraft.update(employee.id, { contractStart: event.currentTarget.value, employmentValidFrom: employee.employmentValidFrom || event.currentTarget.value })} /></td>{/if}
-                    {#if shown('end')}<td><input class="cl-field datefield" type="date" value={employee.contractEnd} disabled={!team.owner || !team.editable || contractTypes.find((item) => item.id === employee.contractTypeId)?.code === 'CDI'} oninput={(event) => teamDraft.update(employee.id, { contractEnd: event.currentTarget.value })} /></td>{/if}
-                    {#if shown('hours')}<td class="is-num"><input class="cl-field hoursfield" type="number" min="0" step="0.25" value={employee.weeklyContractHours} disabled={!team.owner || !team.editable} oninput={(event) => teamDraft.update(employee.id, { weeklyContractHours: event.currentTarget.valueAsNumber || 0 })} /></td>{/if}
-                    {#if shown('status')}<td>{#if missing.length}<ClassicStatus label={missing.length === 1 ? '1 detail missing' : '{count} details missing'} params={{ count: missing.length }} tone="attention" /><span class="missing">{missing.map((item) => t(item)).join(', ')}</span>{:else}<ClassicStatus label="Complete" tone="ok" />{/if}</td>{/if}
-                    <td class="is-num"><button class="cl-btn edit" type="button" disabled={!team.owner || !team.editable} onclick={() => (detailId = employee.id)}>{t('Details')}</button></td>
+                    {#if shown('position')}<td>
+                      <span class="position-identity" style={`--position-color:${positionColor.get(employee.jobFunctionIds[0] ?? '') ?? 'var(--cl-line-strong)'}`}>
+                        <i aria-hidden="true"></i>
+                        <span>{team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position yet')}</span>
+                      </span>
+                    </td>{/if}
+                    {#if shown('contract')}<td><span class="cl-badge is-neutral">{team.contractName.get(employee.contractTypeId) ?? t('Not set')}</span></td>{/if}
+                    {#if shown('regime')}<td class="is-quiet">{t(REGIME_LABEL[employee.workRegime] ?? employee.workRegime)}</td>{/if}
+                    {#if shown('start')}<td class="date-value"><time datetime={employee.contractStart}>{formatDate(employee.contractStart)}</time></td>{/if}
+                    {#if shown('end')}<td class="date-value"><time datetime={employee.contractEnd}>{formatDate(employee.contractEnd)}</time></td>{/if}
+                    {#if shown('hours')}<td class="is-num hours-value">{employee.weeklyContractHours ? `${employee.weeklyContractHours}h` : '—'}</td>{/if}
+                    {#if shown('status')}<td>{#if missing.length}<ClassicStatus label={missing.length === 1 ? '1 detail missing' : '{count} details missing'} params={{ count: missing.length }} tone="attention" />{:else}<ClassicStatus label="Complete" tone="ok" />{/if}</td>{/if}
+                    <td class="is-num"><button class="cl-btn edit" type="button" disabled={!team.owner || !team.editable} onclick={() => (detailId = employee.id)}>{t('Open')}</button></td>
                     <td class="menu-cell"></td>
                   </tr>
                 {/each}
@@ -312,29 +276,22 @@
     </ClassicTablePanel>
 
     {#if detailId}
-      <EmployeeInlineEditor employeeId={detailId} mode="contract" saving={team.saving} isNew={detailId === freshId} onclose={closeDetails} onsave={team.saveEmployee} />
+      <EmployeeInlineEditor employeeId={detailId} mode="contract" saving={team.saving} onclose={closeDetails} onsave={team.saveEmployee} />
     {/if}
 
 {/if}
 
 <style>
-  .contract-table { min-width: 1160px; }
-  .contract-table :is(th, td):nth-child(1) { min-width: 150px; }
-  .contract-table :is(th, td):nth-child(2) { min-width: 118px; }
-  .contract-table :is(th, td):nth-child(3) { min-width: 105px; }
-  .contract-table :is(th, td):nth-child(4) { min-width: 138px; }
-  .contract-table :is(th, td):nth-child(5),
-  .contract-table :is(th, td):nth-child(6) { min-width: 132px; }
-  .contract-table :is(th, td):nth-child(7) { min-width: 122px; }
-  .contract-table :is(th, td):nth-child(8) { min-width: 112px; }
-  .missing { display: block; color: var(--cl-muted); font-size: 12px; }
-  .namefield { min-width: 170px; height: 34px; }
+  .contract-table { min-width: 1080px; }
   .employee-name { font-weight: var(--rst-fw-medium); }
-  .edit { min-height: 32px; padding: 4px 10px; font-size: 13px; }
-  .cellfield, .datefield, .hoursfield { height: 34px; }
-  .cellfield { min-width: 132px; }
-  .regime { min-width: 160px; }
-  .hoursfield { width: 90px; text-align: right; }
+  .cell-value { max-width: 230px; display: block; overflow: hidden; padding: 3px 0; border: 0; background: transparent; color: var(--cl-ink); font: inherit; font-size: 13px; line-height: 1.35; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+  .cell-value:hover:not(:disabled) { color: var(--cl-accent); text-decoration: underline; text-underline-offset: 2px; }
+  .cell-value:disabled { cursor: default; }
+  .position-identity { min-width: 112px; max-width: 190px; display: inline-grid; grid-template-columns: 6px minmax(0, 1fr); align-items: center; gap: 7px; color: var(--cl-ink); font-size: 13px; }
+  .position-identity > i { width: 6px; height: 20px; border-radius: 2px; background: var(--position-color); }
+  .position-identity > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .date-value, .hours-value { color: var(--cl-muted); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .edit { min-height: 30px; padding: 3px 10px; font-size: 12px; }
   .actions-col, .chooser-col, .menu-cell { width: 44px; }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-line-strong); display: inline-block; }
   .dot.is-orange { background: var(--cl-attention); }

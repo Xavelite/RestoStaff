@@ -90,7 +90,7 @@
     unsavedChanges.register({
       id: 'restaurant-workspace',
       label: 'Restaurant',
-      navigationScopes: ['/restaurant'],
+      navigationScopes: ['/restaurant', '/settings'],
       isDirty: () => restaurantConfig.dirty,
       save,
       discard

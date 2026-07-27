@@ -22,6 +22,7 @@
   import { sound } from '$lib/sound/sound.svelte';
   import { supabase } from '$lib/supabase/client';
   import { confirmAction } from '$lib/ui/confirm.svelte';
+  import { workspaceTheme, type WorkspaceTheme } from '$lib/ui/theme.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { orderedMemberships, roleHome } from '$lib/workspace/workspace-selection';
@@ -280,6 +281,28 @@
         <strong>{auth.user?.email}</strong>
         <small>{workspace.active?.restaurant_name} · {workspace.effectiveRole ?? t('Account')}</small>
       </header>
+      <div class="appearance-switcher" aria-label={t('Appearance')}>
+        <span>{t('Appearance')}</span>
+        <div>
+          {#each [
+            { value: 'cobalt' as WorkspaceTheme, label: t('Cobalt'), color: '#315efb' },
+            { value: 'tangerine' as WorkspaceTheme, label: t('Tangerine'), color: '#ff5a1f' }
+          ] as theme (theme.value)}
+            <button
+              type="button"
+              class:is-active={workspaceTheme.value === theme.value}
+              aria-pressed={workspaceTheme.value === theme.value}
+              onclick={() => workspaceTheme.set(theme.value)}
+            >
+              <i style={`--theme-swatch:${theme.color}`} aria-hidden="true"></i>
+              <span>{theme.label}</span>
+              {#if workspaceTheme.value === theme.value}
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4 10-10" /></svg>
+              {/if}
+            </button>
+          {/each}
+        </div>
+      </div>
       {#if workspace.isPreview}
         <button type="button" onclick={() => { open = false; void exitPreviewSession(); }}>{t('Exit preview')}</button>
       {:else}
@@ -464,14 +487,14 @@
     --account-hover: var(--rst-topbar-control-hover, var(--rst-ui-hover-bg));
   }
   .account-button {
-    min-height: 38px;
+    min-height: 36px;
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 5px 9px;
+    padding: 4px 8px 4px 5px;
     border-radius: var(--rst-ui-radius-md);
     border: 1px solid var(--account-line);
-    background: var(--account-bg);
+    background: var(--rst-topbar-control-bg, var(--account-bg));
     color: var(--account-text);
     font: inherit;
     cursor: pointer;
@@ -488,6 +511,7 @@
     font-weight: var(--rst-fw-display);
   }
   .account-button:hover { background: var(--account-hover); }
+  .account-button:active { transform: none; }
   .account-button__email {
     color: var(--account-muted);
     font-size: 13px;
@@ -508,7 +532,7 @@
     animation: rst-menu-in .16s var(--rst-ease-out) backwards;
   }
   .menu-wrap .menu {
-    box-shadow: none;
+    box-shadow: 0 16px 42px rgb(15 23 42 / .16);
   }
   @keyframes rst-menu-in {
     from { opacity: 0; transform: scale(.92) translateY(-4px); }
@@ -520,6 +544,7 @@
     padding: 12px 14px;
     border-bottom: 1px solid var(--rst-ui-divider-soft);
   }
+  .menu header strong { color: var(--rst-ui-text); }
   .menu small { color: var(--rst-ui-muted); text-transform: capitalize; }
   .menu > button,
   .menu > a {
@@ -575,6 +600,67 @@
     background: var(--rst-state-selected-bg);
   }
   .workspace-switcher small { color: var(--rst-ui-muted); text-transform: capitalize; }
+  .appearance-switcher {
+    display: grid;
+    gap: 7px;
+    padding: 10px;
+    border-bottom: 1px solid var(--rst-ui-divider-soft);
+  }
+  .appearance-switcher > span {
+    padding: 0 4px;
+    color: var(--rst-ui-muted);
+    font-size: 10px;
+    font-weight: var(--rst-fw-bold);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .appearance-switcher > div {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+  }
+  .appearance-switcher button {
+    min-width: 0;
+    min-height: 34px;
+    display: grid;
+    grid-template-columns: 10px minmax(0, 1fr) 14px;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 8px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: var(--rst-ui-radius-md);
+    color: var(--rst-ui-muted);
+    background: var(--rst-ui-surface-panel);
+    font: inherit;
+    font-size: 11px;
+    font-weight: var(--rst-fw-medium);
+    text-align: left;
+    cursor: pointer;
+  }
+  .appearance-switcher button:hover {
+    border-color: var(--rst-ui-line-strong);
+    color: var(--rst-ui-text);
+    background: var(--rst-ui-hover-bg);
+  }
+  .appearance-switcher button:active {
+    transform: none;
+  }
+  .appearance-switcher button.is-active {
+    border-color: var(--rst-state-selected-border);
+    color: var(--rst-ui-text);
+    background: var(--rst-state-selected-bg);
+    font-weight: var(--rst-fw-bold);
+  }
+  .appearance-switcher button i {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--theme-swatch);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-swatch) 13%, transparent);
+  }
+  .appearance-switcher button svg {
+    color: var(--rst-ui-action);
+  }
   .pin-form { display: grid; gap: 12px; }
   .pin-form label { display: grid; gap: 6px; }
   .pin-form span { color: var(--rst-ui-muted); font-size: 11px; font-weight: var(--rst-fw-bold); }

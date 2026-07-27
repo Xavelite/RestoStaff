@@ -1,12 +1,12 @@
 /* ==========================================================================
    restogogo — classic design
    ==========================================================================
-   A calm, table-first workspace for the complete application.
+   A precise, table-first workspace for the complete application.
 
    Rules this file exists to enforce:
      - The global top bar stays dark and neutral; the workspace rail is light
        so it reads as navigation instead of a second heavy frame.
-     - Orange is the primary action, brand signature and active nav accent.
+     - Brand colour is a theme choice; operational colour keeps its meaning.
      - Colour is allowed, but it must carry meaning — it goes on status, data
        and module identity, never on a surface as decoration. A calm page that
        is still scannable at a glance, not a monochrome one.
@@ -18,39 +18,40 @@
    ========================================================================== */
 
 :root[data-design='classic'] {
-  --cl-bg: #f7f7f8;
+  color-scheme: light;
+  --cl-bg: #f5f7fb;
   --cl-surface: #ffffff;
-  --cl-surface-muted: #fafafa;
-  --cl-line: #e9e9ec;
-  --cl-line-strong: #d8d8de;
-  --cl-grid-line: #dfdfe4;
-  --cl-ink: #1a1a1a;
-  --cl-muted: #6b6b70;
-  --cl-accent: #fc6203;
-  --cl-accent-wash: rgba(252, 98, 3, 0.07);
-  --cl-shell: #181b20;
-  --cl-shell-raised: #1d2127;
-  --cl-shell-hover: #252a32;
-  --cl-shell-line: #353a43;
-  --cl-shell-text: #f7f5f2;
-  --cl-shell-muted: #aeb4bd;
-  --cl-rail-bg: #fbfbfc;
-  --cl-rail-hover: #f3f3f5;
-  --cl-rail-line: #e2e2e6;
-  --cl-rail-text: #27272b;
-  --cl-rail-muted: #6f7077;
-  /* Table headers use a very light brand tint and a crisp logo-orange
-     underline, keeping the grid readable without turning the header into a
-     heavy coloured band. */
-  --cl-thead: #fff9f6;
-  --cl-thead-line: #fc6203;
+  --cl-surface-muted: #f8fafc;
+  --cl-line: #e3e8ef;
+  --cl-line-strong: #cdd5df;
+  --cl-grid-line: #e4e9f0;
+  --cl-ink: #17212f;
+  --cl-data-text: #344054;
+  --cl-muted: #667085;
+  --cl-accent: #315efb;
+  --cl-accent-hover: #2448d8;
+  --cl-accent-rgb: 49, 94, 251;
+  --cl-accent-wash: rgba(49, 94, 251, 0.075);
+  --cl-shell: #101828;
+  --cl-shell-raised: #172033;
+  --cl-shell-hover: #202b3f;
+  --cl-shell-line: #2b364b;
+  --cl-shell-text: #f8fafc;
+  --cl-shell-muted: #a8b2c3;
+  --cl-rail-bg: #ffffff;
+  --cl-rail-hover: #f4f6fa;
+  --cl-rail-line: #e3e8ef;
+  --cl-rail-text: #253045;
+  --cl-rail-muted: #657084;
+  --cl-thead: #f8faff;
   --cl-radius: 6px;
   /* Data surfaces (tables, cards) sit a touch squarer than the controls. */
   --cl-radius-surface: 4px;
-  --cl-row: 44px;
-  --cl-sidebar: 240px;
-  --cl-topbar: 64px;
-  --cl-gutter: 32px;
+  --cl-row: 46px;
+  --cl-grid-head: 48px;
+  --cl-sidebar: 216px;
+  --cl-topbar: 60px;
+  --cl-gutter: clamp(18px, 2.2vw, 32px);
 
   /* Shared components (Dialog, ActionButton, StatusPill, toasts, confirm)
      read the --rst-* contract. Re-point the ones that carry colour so a
@@ -83,7 +84,8 @@
   --rst-ui-divider-soft: var(--cl-line);
   --rst-ui-divider-strong: var(--cl-line-strong);
   --rst-ui-action: var(--cl-accent);
-  --rst-ui-action-rgb: 252, 98, 3;
+  --rst-ui-action-2: var(--cl-accent-hover);
+  --rst-ui-action-rgb: var(--cl-accent-rgb);
   --rst-ui-accent: var(--cl-accent);
   --rst-ui-panel-title: var(--cl-ink);
   --rst-ui-radius-sm: 4px;
@@ -109,7 +111,7 @@
   --rst-command-radius: var(--cl-radius);
   --rst-command-shadow: none;
   --rst-state-selected-bg: var(--cl-accent-wash);
-  --rst-state-selected-border: var(--cl-line-strong);
+  --rst-state-selected-border: color-mix(in srgb, var(--cl-accent) 36%, var(--cl-line));
   --rst-overlay-bg: rgba(26, 26, 26, 0.32);
   --rst-atmosphere-image: none;
   --rst-atmosphere-fade: none;
@@ -118,9 +120,15 @@
   --rst-topbar-line: var(--cl-shell-line);
   --rst-topbar-text: var(--cl-shell-text);
   --rst-topbar-muted: var(--cl-shell-muted);
+  --rst-topbar-control-bg: rgba(255, 255, 255, .045);
+  --rst-topbar-control-line: rgba(255, 255, 255, .12);
   --rst-topbar-control-hover: var(--cl-shell-hover);
-  --rst-topbar-active-bg: rgba(252, 98, 3, 0.12);
-  --rst-topbar-active-border: rgba(252, 98, 3, 0.52);
+  --rst-topbar-alert: #fbbf24;
+  --rst-topbar-active-bg: rgba(var(--cl-accent-rgb), 0.14);
+  --rst-topbar-active-border: rgba(var(--cl-accent-rgb), 0.52);
+  --rst-focus-color: var(--cl-accent);
+  --rst-ui-focus: 0 0 0 3px rgba(var(--cl-accent-rgb), .22);
+  --rst-ui-font: "Segoe UI Variable Text", "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
   /* ---- meaning colours -------------------------------------------------
      Three operational tones. Each has an ink (for the glyph and emphasis),
@@ -175,6 +183,15 @@
   --cl-dur-slow: 0.28s;
 }
 
+:root[data-design='classic'][data-theme='tangerine'] {
+  --cl-bg: #f7f8fa;
+  --cl-accent: #ff5a1f;
+  --cl-accent-hover: #e9470c;
+  --cl-accent-rgb: 255, 90, 31;
+  --cl-accent-wash: rgba(255, 90, 31, .075);
+  --cl-thead: #fff9f6;
+}
+
 /* Scrollbars and text selection are part of the noise budget too. */
 :root[data-design='classic'] {
   scrollbar-color: var(--cl-line-strong) transparent;
@@ -218,21 +235,25 @@
   height: var(--cl-topbar);
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 20px;
+  gap: 9px;
+  padding: 0 18px;
   border-right: 1px solid var(--cl-shell-line);
   border-bottom: 1px solid var(--cl-shell-line);
   background: var(--cl-shell);
   color: var(--cl-shell-text);
-  font-size: 18px;
+  font-size: 17px;
   font-weight: var(--rst-fw-display);
   text-decoration: none;
 }
 
-.cl-brand img {
-  width: 26px;
-  height: 26px;
+.cl-brand__mark {
+  width: 27px;
+  height: 27px;
+  flex: 0 0 auto;
   display: block;
+  background: var(--cl-accent);
+  -webkit-mask: var(--brand-mark) center / contain no-repeat;
+  mask: var(--brand-mark) center / contain no-repeat;
 }
 
 .cl-brand__word {
@@ -260,7 +281,7 @@
   height: var(--cl-topbar);
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   padding: 0 var(--cl-gutter);
   border-bottom: 1px solid var(--cl-shell-line);
   background: var(--cl-shell);
@@ -283,7 +304,7 @@
   width: var(--cl-sidebar);
   display: flex;
   flex-direction: column;
-  padding: 12px 0;
+  padding: 10px 0 8px;
   border-right: 1px solid var(--cl-rail-line);
   background: var(--cl-rail-bg);
   box-shadow: 4px 0 12px rgb(24 28 34 / 2.5%);
@@ -294,6 +315,12 @@
 .cl-sidebar__nav {
   display: grid;
   gap: 1px;
+}
+
+.cl-sidebar__utility {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--cl-rail-line);
 }
 
 /* The rail toggle sits at the foot of the sidebar and, collapsed, becomes an
@@ -316,6 +343,9 @@
   text-align: left;
   cursor: pointer;
 }
+.cl-sidebar__utility + .cl-rail-toggle {
+  margin-top: 0;
+}
 .cl-rail-toggle svg {
   transition: transform var(--cl-dur-slow) var(--cl-ease);
 }
@@ -326,13 +356,13 @@
 
 /* ---- collapsed rail --------------------------------------------------- */
 .cl-app.is-rail {
-  --cl-sidebar: 66px;
+  --cl-sidebar: 68px;
 }
 .cl-app.is-rail .cl-brand {
   justify-content: center;
   padding-inline: 0;
 }
-.cl-app.is-rail .cl-brand span,
+.cl-app.is-rail .cl-brand__word,
 .cl-app.is-rail .cl-sidebar__link span {
   display: none;
 }
@@ -363,8 +393,8 @@
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr);
   align-items: center;
-  gap: 14px;
-  padding: 10px 20px;
+  gap: 12px;
+  padding: 9px 18px;
   color: var(--cl-rail-muted);
   font-size: 14px;
   font-weight: var(--rst-fw-medium);
@@ -389,7 +419,7 @@
 
 .cl-sidebar__link.is-active {
   font-weight: var(--rst-fw-bold);
-  background: color-mix(in srgb, var(--cl-accent) 8%, var(--cl-rail-bg));
+  background: color-mix(in srgb, var(--cl-accent) 7%, var(--cl-rail-bg));
 }
 
 .cl-sidebar__link.is-active svg {
@@ -402,22 +432,23 @@
   left: 0;
   top: 6px;
   bottom: 6px;
-  width: 3px;
+  width: 2px;
   background: var(--cl-accent);
 }
 
 .cl-main {
   grid-area: main;
   min-width: 0;
-  padding: 28px var(--cl-gutter) 64px;
+  padding: 24px var(--cl-gutter) 64px;
 }
 
 /* -------------------------------------------------- page ----------------- */
 
 .cl-page {
-  max-width: 1240px;
+  width: 100%;
+  max-width: none;
   display: grid;
-  gap: 24px;
+  gap: 20px;
   animation: cl-page-in var(--cl-dur-slow) var(--cl-ease) backwards;
 }
 
@@ -433,7 +464,7 @@
 /* The page title, rendered in the topbar. */
 .cl-pagetitle {
   margin: 0;
-  font-size: 19px;
+  font-size: 18px;
   font-weight: var(--rst-fw-display);
   letter-spacing: -0.01em;
   color: var(--cl-shell-text);
@@ -586,25 +617,24 @@
   align-items: center;
   gap: 6px;
   max-width: 160px;
-  min-height: 25px;
-  padding: 3px 8px 3px 6px;
-  border: 1px solid color-mix(in srgb, var(--chip) 44%, var(--cl-line));
-  border-radius: 5px;
-  background: color-mix(in srgb, var(--chip) 12%, var(--cl-surface));
-  box-shadow: inset 0 1px rgb(255 255 255 / .58), 0 1px 2px rgb(15 23 42 / .045);
-  color: color-mix(in srgb, var(--chip) 74%, var(--cl-ink));
-  font-size: 11.5px;
+  min-height: 24px;
+  padding: 2px 8px 2px 6px;
+  border: 1px solid color-mix(in srgb, var(--chip) 34%, var(--cl-line));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--chip) 9%, var(--cl-surface));
+  color: color-mix(in srgb, var(--chip) 68%, var(--cl-ink));
+  font-size: 11px;
   font-weight: var(--rst-fw-bold);
   white-space: nowrap;
 }
 .cl-chip::before {
   content: '';
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   flex: 0 0 auto;
   border-radius: 50%;
   background: var(--chip);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--chip) 13%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--chip) 10%, transparent);
 }
 .cl-chip > span {
   overflow: hidden;
@@ -840,7 +870,7 @@
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
-  scroll-padding-top: var(--cl-grid-head-height, 52px);
+  scroll-padding-top: var(--cl-grid-head-height, var(--cl-grid-head));
   border: 1px solid color-mix(in srgb, var(--cl-ink) 10%, var(--cl-grid-line));
   border-radius: var(--cl-radius-surface);
   background: var(--cl-surface);
@@ -871,7 +901,7 @@
   top: var(--cl-grid-sticky-top, 0px);
   z-index: 24;
   background-clip: padding-box;
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--cl-accent) 68%, var(--cl-line));
+  box-shadow: 0 1px 0 var(--cl-line-strong);
 }
 
 .cl-table thead th:first-child {
@@ -882,15 +912,18 @@
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  font-size: 13.5px;
+  color: var(--cl-data-text);
+  font-size: 13px;
+  line-height: 1.35;
 }
 
 .cl-table th {
-  padding: 12px 16px;
-  border-bottom: 1px solid color-mix(in srgb, var(--cl-accent) 68%, var(--cl-line));
+  height: var(--cl-grid-head);
+  padding: 0 14px;
+  border-bottom: 1px solid var(--cl-line-strong);
   background: var(--cl-thead);
   color: var(--cl-ink);
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: var(--rst-fw-bold);
   text-align: left;
   white-space: nowrap;
@@ -916,7 +949,7 @@
 }
 .colhead {
   position: relative;
-  min-height: 52px;
+  min-height: var(--cl-grid-head);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -942,7 +975,7 @@
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: var(--rst-fw-bold);
   white-space: nowrap;
   cursor: default;
@@ -981,7 +1014,7 @@
 .colhead__copy small {
   overflow: hidden;
   color: var(--cl-muted);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: var(--rst-fw-medium);
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
@@ -1159,7 +1192,7 @@
 .cl-primary-head {
   display: flex;
   align-items: stretch;
-  min-height: 52px;
+  min-height: var(--cl-grid-head);
 }
 .cl-primary-head > .colhead { flex: 1 1 auto; min-width: 0; }
 .groupmenu {
@@ -1225,12 +1258,13 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 12px 16px;
+  min-height: var(--cl-grid-head);
+  padding: 0 14px;
   border: 0;
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: var(--rst-fw-bold);
   text-align: left;
   white-space: nowrap;
@@ -1268,9 +1302,10 @@
 
 .cl-table td {
   height: var(--cl-row);
-  padding: 10px 14px;
+  padding: 9px 14px;
   border-bottom: 1px solid var(--cl-grid-line);
   background: var(--cl-surface);
+  color: var(--cl-data-text);
   vertical-align: middle;
 }
 
@@ -1305,6 +1340,9 @@
 .cl-table td .cl-field {
   border-color: transparent;
   background: transparent;
+  color: var(--cl-data-text);
+  font-size: 13px;
+  font-weight: var(--rst-fw-regular);
 }
 .cl-table td .cl-field:hover:not(:disabled):not(:focus) {
   border-color: var(--cl-line);
@@ -1318,7 +1356,7 @@
 /* A read-only value (preview, or a field this role cannot change) is just text,
    not a greyed-out box. */
 .cl-table td .cl-field:disabled {
-  color: var(--cl-ink);
+  color: var(--cl-data-text);
   background: transparent;
   border-color: transparent;
   opacity: 1;
@@ -1359,6 +1397,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  color: var(--cl-ink);
+  font-weight: var(--rst-fw-medium);
 }
 
 /* Initials in a disc. By default neutral; pages pass --avatar-color (the
@@ -1390,14 +1430,13 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 26px;
-  padding: 3px 10px 3px 5px;
+  min-height: 24px;
+  padding: 2px 9px 2px 4px;
   border: 1px solid var(--status-line);
   border-radius: 999px;
   background: var(--status-wash);
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.08), inset 0 1px rgb(255 255 255 / .56);
   color: var(--status-color);
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: var(--rst-fw-bold);
   white-space: nowrap;
 }
@@ -1405,13 +1444,13 @@
 .cl-status__symbol {
   display: grid;
   place-items: center;
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   flex: 0 0 auto;
   border-radius: 50%;
   background: var(--status-color);
   color: white;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--status-color) 12%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--status-color) 10%, transparent);
   font-size: 9px;
   font-weight: var(--rst-fw-bold);
   line-height: 1;
@@ -1438,24 +1477,25 @@
 /* -------------------------------------------------- controls ------------- */
 
 .cl-btn {
-  min-height: 38px;
+  min-height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 8px 14px;
+  padding: 7px 12px;
   border: 1px solid var(--cl-line-strong);
   border-radius: var(--cl-radius);
   color: var(--cl-ink);
   background: var(--cl-surface);
   font: inherit;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: var(--rst-fw-medium);
   text-decoration: none;
   cursor: pointer;
 }
 
 .cl-btn:hover:not(:disabled) {
+  border-color: var(--cl-line-strong);
   background: var(--cl-surface-muted);
 }
 
@@ -1467,7 +1507,8 @@
 }
 
 .cl-btn.is-primary:hover:not(:disabled) {
-  background: #e45600;
+  border-color: var(--cl-accent-hover);
+  background: var(--cl-accent-hover);
 }
 
 /* A disabled primary is no longer a primary: it drops the accent entirely so
@@ -1481,8 +1522,12 @@
 }
 
 .cl-btn.is-icon {
-  width: 38px;
+  width: 36px;
   padding: 0;
+}
+
+.cl-btn:not(:disabled):active {
+  transform: none;
 }
 
 .cl-field {
@@ -1536,11 +1581,16 @@
   font-size: 15px;
 }
 
+.cl-empty > .cl-btn {
+  justify-self: center;
+  margin-top: 6px;
+}
+
 /* -------------------------------------------------- responsive ----------- */
 
 @media (max-width: 1180px) {
   :root[data-design='classic'] {
-    --cl-sidebar: 210px;
+    --cl-sidebar: 196px;
     --cl-gutter: 24px;
   }
 }
@@ -1648,7 +1698,7 @@
   gap: 7px;
   width: 100%;
   min-height: 34px;
-  padding: 4px 12px;
+  padding: 4px 14px;
   border: 0;
   background: transparent;
   color: color-mix(in srgb, var(--cl-muted) 84%, var(--cl-ink));
@@ -1659,8 +1709,8 @@
 .cl-group-row__button:hover { background: color-mix(in srgb, var(--cl-accent) 4%, transparent); }
 .cl-group-row__button svg { flex: 0 0 auto; transform: rotate(90deg); transition: transform var(--cl-dur) var(--cl-ease); }
 .cl-group-row__button svg.is-collapsed { transform: rotate(0deg); }
-.cl-group-row__button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: var(--rst-fw-bold); letter-spacing: .035em; text-transform: uppercase; }
-.cl-group-row__button span { margin-left: 2px; color: var(--cl-muted); font-size: 11px; font-weight: var(--rst-fw-medium); }
+.cl-group-row__button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: var(--rst-fw-bold); letter-spacing: 0; }
+.cl-group-row__button span { margin-left: auto; color: var(--cl-muted); font-size: 11px; font-weight: var(--rst-fw-medium); }
 .cl-group-row__dot { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--group, var(--cl-accent)); }
 .cl-group-row__count { margin-left: 8px; color: var(--cl-muted); font-size: 11px; font-weight: var(--rst-fw-medium); }
 .cl-group-row.is-drop-target td { background: color-mix(in srgb, var(--cl-accent) 9%, var(--cl-surface-muted)) !important; }
@@ -1786,14 +1836,13 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 24px;
+  min-height: 23px;
   padding: 2px 8px 2px 6px;
   border: 1px solid color-mix(in srgb, var(--cl-info) 36%, var(--cl-line));
-  border-radius: 5px;
-  background: color-mix(in srgb, var(--cl-info) 12%, var(--cl-surface));
-  box-shadow: 0 1px 2px rgb(15 23 42 / .055), inset 0 1px rgb(255 255 255 / .62);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--cl-info) 9%, var(--cl-surface));
   color: color-mix(in srgb, var(--cl-info) 62%, var(--cl-ink));
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: var(--rst-fw-bold);
   white-space: nowrap;
 }
@@ -1805,7 +1854,7 @@
   flex: 0 0 auto;
   border-radius: 50%;
   background: var(--cl-info);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--cl-info) 12%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--cl-info) 9%, transparent);
 }
 
 .cl-badge.is-neutral {

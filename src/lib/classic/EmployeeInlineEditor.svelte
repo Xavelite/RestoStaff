@@ -12,6 +12,7 @@
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { teamDraft } from './classic-team.svelte';
+  import ClassicStatus from './ClassicStatus.svelte';
 
   type Mode = 'people' | 'contract' | 'payroll';
 
@@ -61,6 +62,7 @@
   const localDirty = $derived(Boolean(form && baseline && JSON.stringify(form) !== baseline));
   const busy = $derived(saving || committing);
   const nissIssue = $derived(belgianNissIssue(form?.nationalRegistryNumber));
+  const payrollContext = $derived(mode === 'payroll');
   const today = new Date().toISOString().slice(0, 10);
 
   function clone(employee: EmployeeDraft): EmployeeDraft {
@@ -263,7 +265,7 @@
     <nav class="editor-tabs" aria-label={t('Employee sections')}>
       <button type="button" class:is-active={section === 'people'} onclick={() => (section = 'people')}>{t('Profile')}</button>
       <button type="button" class:is-active={section === 'contract'} onclick={() => (section = 'contract')}>{t('Contract')}</button>
-      {#if owner}<button type="button" class:is-active={section === 'payroll'} onclick={() => (section = 'payroll')}>{t('Payroll preparation')}</button>{/if}
+      {#if owner && payrollContext}<button type="button" class:is-active={section === 'payroll'} onclick={() => (section = 'payroll')}>{t('Payroll preparation')}</button>{/if}
     </nav>
 
     {#if section === 'people'}
@@ -272,7 +274,9 @@
         <label class="cl-label"><span>{t('Display name')}</span><input class="cl-field" required bind:value={form.displayName} /></label>
         <div class="cl-label">
           <span>{t('Employee status')}</span>
-          <label class="status-toggle"><input type="checkbox" bind:checked={form.active} /><span>{t(form.active ? 'Active' : 'Archived')}</span></label>
+          <div class="status-readonly">
+            <ClassicStatus label={form.active ? 'Active' : 'Archived'} tone={form.active ? 'ok' : 'attention'} />
+          </div>
         </div>
         <label class="cl-label"><span>{t('First name')}</span><input class="cl-field" bind:value={form.firstName} /></label>
         <label class="cl-label"><span>{t('Last name')}</span><input class="cl-field" bind:value={form.lastName} /></label>
@@ -459,7 +463,7 @@
   .editor-spacer { margin-left: auto; }
   .archive-action { color: var(--cl-problem); }
   .archive-action.is-restore { color: var(--cl-ok); }
-  .status-toggle { min-height: 2.5rem; display: inline-flex; align-items: center; gap: .55rem; padding: .55rem .7rem; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); background: var(--cl-surface); }
+  .status-readonly { min-height: 2.5rem; display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); background: var(--cl-surface-muted); }
   .position-field { padding: 12px; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); }
   .position-field legend { padding: 0 5px; color: var(--cl-muted); font-size: 13px; font-weight: var(--rst-fw-medium); }
   .position-grid { display: grid; gap: 7px; }

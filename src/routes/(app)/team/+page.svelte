@@ -331,8 +331,9 @@
     {@const contractValues = [{ value: '__none__', label: t('No contract') }, ...[...team.contractName].map(([id, name]) => ({ value: id, label: name }))]}
     {@const accessValues = [...new Set(team.employees.map((employee) => employee.accessState))].map((state) => ({ value: state, label: state.replace('_', ' ') }))}
     {@const total = filtered.length}
-    {@const activeCount = filtered.filter((employee) => employee.active).length}
-    {@const accessCount = filtered.filter((employee) => employee.accessState === 'active').length}
+    {@const rosterTotal = team.employees.length}
+    {@const activeCount = team.employees.filter((employee) => employee.active).length}
+    {@const accessCount = team.employees.filter((employee) => employee.accessState === 'active').length}
 
     {#if teamDraft.supplementaryError && team.owner}
       <div class="cl-notice" role="alert">{teamDraft.supplementaryError}</div>
@@ -340,7 +341,7 @@
 
     <ClassicTablePanel dirty={team.dirty} saving={team.saving} canSave={team.canSave} onsave={() => void savePage(team.save).catch(() => undefined)} ondiscard={() => discardPage(team.discard)}>
       {#snippet meta()}
-        <span><i class="dot"></i>{peopleCountLabel(total)}</span>
+        <span><i class="dot"></i>{peopleCountLabel(rosterTotal)}</span>
         <span><i class="dot is-green"></i>{t('{count} active', { count: activeCount })}</span>
         <span><i class="dot is-blue"></i>{t('{count} with app access', { count: accessCount })}</span>
       {/snippet}
@@ -414,7 +415,12 @@
             </tr>
           </thead>
           {#if !total}
-            <tbody><tr><td colspan={colCount + 1}><div class="cl-empty"><strong>{t('No employees match')}</strong><span>{t('Change the filter, or add someone to the team.')}</span></div></td></tr></tbody>
+            <tbody><tr><td colspan={colCount + 1}>
+              <div class="cl-empty">
+                <strong>{t(rosterTotal ? 'No employees match' : 'No active employees')}</strong>
+                <span>{t('Change the filter, or add someone to the team.')}</span>
+              </div>
+            </td></tr></tbody>
           {:else}
             {#each rows as group (group.key)}
               <tbody>
@@ -438,7 +444,13 @@
                     <td>
                       <span class="cl-table__name is-employee">
                         <span class="cl-avatar" style="--avatar-color:{employeeColor.get(employee.id) ?? 'var(--cl-muted)'}">{personInitials(employee.displayName || '?')}</span>
-                        <input class="cl-field namefield" placeholder={t('Full name')} value={employee.displayName} disabled={!team.editable} oninput={(event) => setName(employee, event.currentTarget.value)} />
+                        {#if employee.id === freshId}
+                          <input class="cl-field namefield" placeholder={t('Full name')} value={employee.displayName} disabled={!team.editable} oninput={(event) => setName(employee, event.currentTarget.value)} />
+                        {:else}
+                          <button class="cell-value employee-name" type="button" disabled={!team.editable} onclick={() => (detailId = employee.id)}>
+                            {employee.displayName || t('New employee')}
+                          </button>
+                        {/if}
                       </span>
                     </td>
                     {#if shown('position')}
@@ -465,12 +477,24 @@
                         </details>
                       </td>
                     {/if}
-                    {#if shown('email')}<td><input class="cl-field cellfield" type="email" placeholder={t('Email')} value={employee.email} disabled={!team.editable} oninput={(event) => teamDraft.update(employee.id, { email: event.currentTarget.value })} /></td>{/if}
-                    {#if shown('phone')}<td><input class="cl-field cellfield phonefield" type="tel" placeholder={t('Phone')} value={employee.phone} disabled={!team.editable} oninput={(event) => teamDraft.update(employee.id, { phone: event.currentTarget.value })} /></td>{/if}
+                    {#if shown('email')}<td>
+                      {#if employee.id === freshId}
+                        <input class="cl-field cellfield" type="email" placeholder={t('Email')} value={employee.email} disabled={!team.editable} oninput={(event) => teamDraft.update(employee.id, { email: event.currentTarget.value })} />
+                      {:else}
+                        <button class="cell-value is-secondary" type="button" disabled={!team.editable} onclick={() => (detailId = employee.id)}>{employee.email || '—'}</button>
+                      {/if}
+                    </td>{/if}
+                    {#if shown('phone')}<td>
+                      {#if employee.id === freshId}
+                        <input class="cl-field cellfield phonefield" type="tel" placeholder={t('Phone')} value={employee.phone} disabled={!team.editable} oninput={(event) => teamDraft.update(employee.id, { phone: event.currentTarget.value })} />
+                      {:else}
+                        <button class="cell-value is-secondary" type="button" disabled={!team.editable} onclick={() => (detailId = employee.id)}>{employee.phone || '—'}</button>
+                      {/if}
+                    </td>{/if}
                     {#if shown('contract')}<td><span class="cl-badge is-neutral">{team.contractName.get(employee.contractTypeId) ?? t('Not set')}</span></td>{/if}
                     {#if shown('access')}<td><ClassicStatus label={ACCESS_LABEL[employee.accessState] ?? employee.accessState} tone={accessTone[employee.accessState] ?? 'attention'} /></td>{/if}
                     {#if shown('status')}<td><ClassicStatus label={employee.active ? 'Active' : 'Archived'} tone={employee.active ? 'ok' : 'attention'} /></td>{/if}
-                    <td class="is-num">{#if employee.id === freshId}<button class="cl-btn detail is-quiet" type="button" onclick={() => removeDraftEmployee(employee.id)}>{t('Remove')}</button>{:else}<button class="cl-btn detail" type="button" disabled={!team.editable} onclick={() => (detailId = employee.id)}>{t('Details')}</button>{/if}</td>
+                    <td class="is-num">{#if employee.id === freshId}<button class="cl-btn detail is-quiet" type="button" onclick={() => removeDraftEmployee(employee.id)}>{t('Remove')}</button>{:else}<button class="cl-btn detail" type="button" disabled={!team.editable} onclick={() => (detailId = employee.id)}>{t('Open')}</button>{/if}</td>
                     <td class="menu-cell"></td>
                   </tr>
                 {/each}
@@ -496,8 +520,13 @@
   .chooser-col,
   .menu-cell { width: 44px; }
   .actions-col { width: 90px; }
-  .detail { min-height: 32px; padding: 4px 12px; font-size: 13px; }
+  .detail { min-height: 30px; padding: 3px 10px; font-size: 12px; }
   .detail.is-quiet { border-color: transparent; background: transparent; color: var(--cl-muted); }
+  .cell-value { max-width: 260px; display: block; overflow: hidden; padding: 3px 0; border: 0; background: transparent; color: var(--cl-ink); font: inherit; font-size: 13px; font-weight: var(--rst-fw-regular); line-height: 1.35; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+  .cell-value:hover:not(:disabled) { color: var(--cl-accent); text-decoration: underline; text-underline-offset: 2px; }
+  .cell-value:disabled { cursor: default; }
+  .cell-value.employee-name { color: var(--cl-ink); font-weight: var(--rst-fw-medium); }
+  .cell-value.is-secondary { color: var(--cl-muted); }
   .posmenu { position: relative; }
   .posmenu summary { min-width: 118px; max-width: 230px; display: inline-grid; grid-template-columns: 7px minmax(0, 1fr) auto; align-items: center; gap: 7px; list-style: none; padding: 6px 9px; border: 1px solid color-mix(in srgb, var(--position-color) 28%, var(--cl-line)); border-radius: 6px; background: color-mix(in srgb, var(--position-color) 7%, var(--cl-surface)); color: var(--cl-ink); font-size: 13px; cursor: pointer; white-space: nowrap; }
   .posmenu summary:hover { border-color: color-mix(in srgb, var(--position-color) 54%, var(--cl-line)); background: color-mix(in srgb, var(--position-color) 10%, var(--cl-surface)); }

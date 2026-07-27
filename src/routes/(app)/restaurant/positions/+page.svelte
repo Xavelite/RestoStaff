@@ -17,7 +17,7 @@
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
 
   type SortKey = 'name' | 'cost' | 'employees' | 'active';
-  type GroupBy = 'status' | 'staffing' | 'none';
+  type GroupBy = 'area' | 'status' | 'staffing' | 'none';
   type PositionRow = {
     id: string;
     name: string;
@@ -71,15 +71,16 @@
     { key: 'employees', label: 'Employees' },
     { key: 'active', label: 'Status' }
   ] as const;
-  const COLS_KEY = 'rst-restaurant-positions-cols-v2';
-  let hidden = $state(new Set<string>());
+  const COLS_KEY = 'rst-restaurant-positions-cols-v3';
+  const DEFAULT_HIDDEN_COLUMNS = ['cost'];
+  let hidden = $state(new Set<string>(DEFAULT_HIDDEN_COLUMNS));
 
   onMount(() => {
     try {
       const raw = localStorage.getItem(COLS_KEY);
       if (raw) hidden = new Set(JSON.parse(raw) as string[]);
     } catch {
-      hidden = new Set();
+      hidden = new Set(DEFAULT_HIDDEN_COLUMNS);
     }
   });
 
@@ -107,7 +108,7 @@
   }
 
   const shown = (key: string) => !hidden.has(key);
-  const colCount = $derived(6 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length);
+  const colCount = $derived(5 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length);
   const persistedPositionIds = $derived(new Set((workspace.restaurant?.job_functions ?? []).map((position) => position.id)));
   const availableCataloguePositions = $derived.by(() => {
     const areas = restaurantConfig.draft?.areas.filter((area) => area.active) ?? [];
@@ -178,7 +179,13 @@
         ? t('All areas')
         : t('No area linked');
     }
-    const names = position.areaIds
+    const orderedAreaIds = position.primaryAreaId
+      ? [
+          position.primaryAreaId,
+          ...position.areaIds.filter((areaId) => areaId !== position.primaryAreaId)
+        ]
+      : position.areaIds;
+    const names = orderedAreaIds
       .map((areaId) => restaurantConfig.draft?.areas.find((area) => area.id === areaId)?.name)
       .filter((name): name is string => Boolean(name));
     if (names.length <= 1) return names[0] ?? t('No area linked');
@@ -277,12 +284,19 @@
     const groups = new Map<string, PositionGroup>();
     for (const position of rows) {
       const headcount = employeesByPosition.get(position.id)?.size ?? 0;
-      const key = groupBy === 'status'
-        ? (position.active ? 'active' : 'archived')
-        : (headcount ? 'staffed' : 'unstaffed');
-      const label = groupBy === 'status'
-        ? t(position.active ? 'Active' : 'Archived')
-        : t(headcount ? 'Staffed' : 'No staff assigned');
+      const allAreas = workspacePositionByKey.get(position.catalogueKey)?.areaKeys.length === 0;
+      const key = groupBy === 'area'
+        ? position.primaryAreaId || (allAreas ? 'all-areas' : 'unlinked')
+        : groupBy === 'status'
+          ? (position.active ? 'active' : 'archived')
+          : (headcount ? 'staffed' : 'unstaffed');
+      const label = groupBy === 'area'
+        ? position.primaryAreaId
+          ? restaurantConfig.draft?.areas.find((area) => area.id === position.primaryAreaId)?.name ?? t('No area linked')
+          : t(allAreas ? 'All areas' : 'No area linked')
+        : groupBy === 'status'
+          ? t(position.active ? 'Active' : 'Archived')
+          : t(headcount ? 'Staffed' : 'No staff assigned');
       const group = groups.get(key) ?? { key, label, rows: [] };
       group.rows.push(position);
       groups.set(key, group);
@@ -316,7 +330,6 @@
           <thead>
             <tr>
               <th class="cl-grip"><span class="sr-only">{t('Reorder')}</span></th>
-              <th class="swatch-col"><span class="sr-only">{t('Colour')}</span></th>
               <th class="has-menu">
                 <ClassicPrimaryColMenu
                   label={t('Name')}
@@ -329,13 +342,14 @@
                   groupValue={groupBy}
                   groupOptions={[
                     { value: 'none', label: t('No grouping') },
+                    { value: 'area', label: t('Primary area') },
                     { value: 'status', label: t('Status') },
                     { value: 'staffing', label: t('Staffing') }
                   ]}
                   ongroupchange={(value) => setGroupBy(value as GroupBy)}
                 />
               </th>
-              <th>{t('Areas')}</th>
+              <th>{t('Primary area')}</th>
               {#if shown('cost')}<th class="has-menu"><ClassicColMenu label={t('Estimated hourly cost')} sortable sortDir={sort?.key === 'cost' ? sort.dir : null} onsort={(dir) => (sort = { key: 'cost', dir })} filterKind="text" searchValue={costSearch} onsearch={(value) => (costSearch = value)} /></th>{/if}
               {#if shown('employees')}<th class="has-menu"><ClassicColMenu label={t('Employees')} sortable sortDir={sort?.key === 'employees' ? sort.dir : null} onsort={(dir) => (sort = { key: 'employees', dir })} filterKind="text" searchValue={employeeSearch} onsearch={(value) => (employeeSearch = value)} /></th>{/if}
               {#if shown('active')}<th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={sort?.key === 'active' ? sort.dir : null} onsort={(dir) => (sort = { key: 'active', dir })} filterKind="values" filterValues={[{ value: 'active', label: t('Active') }, { value: 'archived', label: t('Archived') }]} selected={excludedStatus} ontoggle={(value) => { const next = new Set(excludedStatus); next.has(value) ? next.delete(value) : next.add(value); excludedStatus = next; }} onselectall={(on) => (excludedStatus = on ? new Set() : new Set(['active', 'archived']))} /></th>{/if}
@@ -348,20 +362,22 @@
           {:else}
             {#each groups as group (group.key)}
               <tbody>
-                {#if groupBy !== 'none'}<ClassicGroupRow colspan={colCount} label={group.label} meta={t('{count} positions', { count: group.rows.length })} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />{/if}
+                {#if groupBy !== 'none'}<ClassicGroupRow colspan={colCount} label={group.label} meta={t('{count} positions', { count: group.rows.length })} color={groupBy === 'area' ? areaColor.get(group.key) : ''} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />{/if}
                 {#if !collapsedGroups.includes(group.key)}
                   {#each group.rows as position (position.id)}
                     {@const headcount = employeesByPosition.get(position.id)?.size ?? 0}
                     <tr draggable={!sort && groupBy === 'none' && !workspace.isPreview} ondragstart={() => (dragId = position.id)} ondragend={() => (dragId = '')} ondragover={(event) => { if (!sort && groupBy === 'none') event.preventDefault(); }} ondrop={() => movePosition(position.id)}>
                       <td class="cl-grip"><button type="button" disabled={Boolean(sort) || groupBy !== 'none' || workspace.isPreview} title={sort || groupBy !== 'none' ? t('Clear grouping and sorting to reorder') : t('Drag to reorder')} aria-label={t('Drag to reorder')}>⋮⋮</button></td>
-                      <td class="swatch-col">
+                      <td>
+                        <div class="position-identity">
                         <span
                           class="derived-swatch"
                           style={`--position-color:${positionColor.get(position.id) ?? 'var(--cl-line-strong)'};--area-color:${primaryAreaColor(position)}`}
                           title={t('Lighter tint inherited from the primary area')}
                         ></span>
+                          <input class="cl-field" placeholder={t('Position name')} disabled={workspace.isPreview} bind:value={position.name} oninput={() => restaurantConfig.touch()} />
+                        </div>
                       </td>
-                      <td><input class="cl-field" placeholder={t('Position name')} disabled={workspace.isPreview} bind:value={position.name} oninput={() => restaurantConfig.touch()} /></td>
                       <td>
                         <button
                           class="area-link-button"
@@ -480,15 +496,15 @@
   .cost { width: 120px; text-align: right; }
   .switch { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; }
   .switch input { width: 16px; height: 16px; accent-color: var(--cl-accent); }
-  .swatch-col { width: 34px; padding-right: 0 !important; }
+  .position-identity { min-width: 180px; display: grid; grid-template-columns: 9px minmax(0, 1fr); align-items: center; gap: 9px; }
   .derived-swatch {
-    width: 15px;
-    height: 30px;
+    width: 9px;
+    height: 32px;
     display: block;
     border: 1px solid color-mix(in srgb, var(--area-color) 62%, var(--cl-line));
-    border-radius: 4px;
+    border-radius: 3px;
     background:
-      linear-gradient(to bottom, color-mix(in srgb, var(--position-color) 88%, white) 0 calc(100% - 5px), var(--area-color) calc(100% - 5px));
+      linear-gradient(to bottom, color-mix(in srgb, var(--position-color) 88%, white) 0 calc(100% - 6px), var(--area-color) calc(100% - 6px));
     box-shadow: 0 1px 2px color-mix(in srgb, var(--area-color) 13%, transparent);
   }
   .area-link-button { display: inline-grid; grid-template-columns: 7px minmax(0, 1fr); align-items: center; gap: 8px; min-width: 150px; max-width: 220px; min-height: 34px; padding: 5px 9px; border: 1px solid var(--cl-line); border-radius: 4px; background: var(--cl-surface); color: var(--cl-ink); text-align: left; cursor: pointer; }

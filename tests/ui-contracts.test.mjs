@@ -61,18 +61,22 @@ test('the application favicon and icons are product-owned brand assets', async (
   assert.doesNotMatch(layout, /svelte-logo|#ff3e00/i);
 });
 
-test('the authenticated topbar uses the brand mark as the leading R and one icon family', async () => {
+test('the authenticated topbar uses the theme-aware brand mark and one line-icon family', async () => {
   const layout = await readFile('src/routes/(app)/+layout.svelte', 'utf8');
   const login = await readFile('src/routes/login/+page.svelte', 'utf8');
   const communications = await readFile('src/lib/communications/CommunicationCenter.svelte', 'utf8');
   const notifications = await readFile('src/lib/components/NotificationBell.svelte', 'utf8');
+  const css = await readFile('src/lib/classic/classic.css', 'utf8');
 
-  assert.match(layout, /restogogo-mark\.png/);
+  assert.match(layout, /class="cl-brand__mark"/);
+  assert.match(layout, /--brand-mark:url\('\/brand\/restogogo-mark\.png'\)/);
+  assert.match(css, /\.cl-brand__mark\s*\{[\s\S]*?mask:\s*var\(--brand-mark\)/);
   assert.match(login, /restogogo-mark\.png/);
   assert.match(login, /<i>esto<\/i><i>gogo<\/i>/);
   assert.match(login, /<h1 class="login__title">\{pageTitle\}<\/h1>/);
-  assert.match(communications, /💬/u);
-  assert.match(notifications, /🔔/u);
+  assert.match(communications, /<svg viewBox="0 0 24 24"/);
+  assert.match(notifications, /<svg viewBox="0 0 24 24"/);
+  assert.doesNotMatch(`${communications}${notifications}`, /💬|🔔/u);
   assert.doesNotMatch(`${layout}${communications}${notifications}`, /@lucide\/svelte/);
 });
 
@@ -159,7 +163,7 @@ test('classic workspace chrome pins navigation and derives tabs directly from th
   assert.match(css, /\.cl-brand\s*\{[\s\S]*?position:\s*fixed;/);
 });
 
-test('people, contracts and payroll employees share direct rows and one complete employee dialog', async () => {
+test('people and contracts use readable rows while all employee details share one complete dialog', async () => {
   const people = await readFile('src/routes/(app)/team/+page.svelte', 'utf8');
   const contracts = await readFile('src/routes/(app)/team/contracts/+page.svelte', 'utf8');
   const payrollEmployees = await readFile('src/routes/(app)/payroll/employees/+page.svelte', 'utf8');
@@ -168,17 +172,23 @@ test('people, contracts and payroll employees share direct rows and one complete
 
   assert.match(people, /let groupBy = \$state<GroupBy>\('position'\)/);
   assert.match(contracts, /let groupBy = \$state<GroupBy>\('contract'\)/);
-  assert.match(people, /oninput=.*teamDraft\.update\(employee\.id, \{ email:/s);
-  assert.match(contracts, /setContractType\(employee, event\.currentTarget\.value\)/);
+  assert.match(people, /employee\.id === freshId[\s\S]*teamDraft\.update\(employee\.id, \{ email:/);
+  assert.match(people, /class="cell-value is-secondary"[\s\S]*\{employee\.email \|\| '—'\}/);
+  assert.match(contracts, /class="position-identity"/);
+  assert.match(contracts, /formatDate\(employee\.contractStart\)/);
   assert.match(payrollEmployees, /setReferenceFunction\(employee, event\.currentTarget\.value\)/);
   for (const source of [people, contracts, payrollEmployees]) {
     assert.match(source, /<EmployeeInlineEditor/);
-    assert.match(source, />\{t\('Details'\)\}<\/button>/);
+    assert.match(source, /detailId/);
   }
+  assert.match(people, />\{t\('Open'\)\}<\/button>/);
+  assert.match(contracts, />\{t\('Open'\)\}<\/button>/);
   assert.match(editor, /<Dialog/);
   assert.match(editor, /section === 'people'/);
   assert.match(editor, /section === 'contract'/);
   assert.doesNotMatch(editor, /EmployeePayrollDetails/);
+  assert.match(editor, /status-readonly/);
+  assert.match(editor, /Archive employee/);
   assert.match(editor, /Advanced tax, benefit and regime-evidence settings are parked/);
   assert.match(teamPage, /saveEmployee/);
   assert.match(teamPage, /unsavedChanges\.register/);
@@ -232,10 +242,13 @@ test('operational core exposes planning, attendance and payroll as one classic w
 
 test('restaurant coverage materializes only a complete weekday row before shared save', async () => {
   const coverage = await readFile('src/routes/(app)/restaurant/coverage/+page.svelte', 'utf8');
-  assert.match(coverage, /type NewRow = \{ tempId: string; areaId: string; jobFunctionId: string; serviceKey: PendingService; counts: number\[] \}/);
+  assert.match(coverage, /counts: Array<number \| null>/);
   assert.match(coverage, /if \(!row \|\| !row\.areaId \|\| !row\.jobFunctionId \|\| !row\.serviceKey\) return/);
-  assert.match(coverage, /WEEKDAYS\.map\(\(_, index\) => \(\{/);
-  assert.match(coverage, /requiredCount: normalizedCount\(row\.counts\[index\]\)/);
+  assert.match(coverage, /if \(!raw\.trim\(\)\)/);
+  assert.match(coverage, /counts: WEEKDAYS\.map\(\(\) => null\)/);
+  assert.match(coverage, /row\.counts\.flatMap\(\(count, index\) =>/);
+  assert.match(coverage, /count == null[\s\S]*\? \[\]/);
+  assert.match(coverage, /requiredCount: normalizedCount\(count\)/);
   assert.doesNotMatch(coverage, /coverageScope: 'default'/);
 });
 
@@ -314,8 +327,10 @@ test('Coverage inherits the same explicit grid contract as every classic table',
   const css = await readFile('src/lib/classic/classic.css', 'utf8');
 
   assert.match(coverage, /<table class="cl-table cov">/);
+  assert.match(coverage, /viewMode === 'map'/);
+  assert.match(coverage, /<ReservationFloorPlan/);
   assert.doesNotMatch(coverage, /\.cov\s+(?:th|td)\s*\{[^}]*border\s*:/s);
-  assert.match(css, /--cl-grid-line:\s*#dfdfe4/);
+  assert.match(css, /--cl-grid-line:\s*#[0-9a-f]{6}/i);
   assert.match(css, /\.cl-table\s*\{[^}]*border-collapse:\s*separate;[^}]*border-spacing:\s*0;/s);
   assert.match(css, /\.cl-table th:not\(:last-child\),\s*\.cl-table tbody td:not\(:last-child\)\s*\{\s*border-right:\s*1px solid var\(--cl-grid-line\)/s);
   assert.match(css, /\.cl-table td\s*\{[^}]*border-bottom:\s*1px solid var\(--cl-grid-line\)/s);
@@ -417,14 +432,16 @@ test('Restaurant Areas is the direct-manipulation floor canvas instead of a dupl
   assert.doesNotMatch(canvas, /Floor plan zoom|zoom-value/);
 });
 
-test('pilot UX exposes only active modules and separates Areas from Tables', async () => {
+test('Home integrates labelled upcoming modules while Areas and Tables stay separate', async () => {
   const home = await readFile('src/routes/(app)/home/+page.svelte', 'utf8');
   const nav = await readFile('src/lib/classic/classic-nav.ts', 'utf8');
   const layout = await readFile('src/routes/(app)/+layout.svelte', 'utf8');
   const areas = await readFile('src/lib/reservations/ReservationFloorPlansWorkspace.svelte', 'utf8');
 
-  assert.match(home, /!module\.placeholder && !module\.homeOnly/);
-  assert.doesNotMatch(home, /Core workspace|Upcoming|laterModules|workspaceTiles/);
+  assert.match(home, /available\.filter\(\(module\) => !module\.placeholder\)/);
+  assert.match(home, /available\.filter\(\(module\) => module\.placeholder\)/);
+  assert.match(home, /<article class="tile tile--upcoming"/);
+  assert.match(home, /\{t\('Upcoming'\)\}/);
   assert.match(nav, /\/restaurant\/areas', label: 'Areas'/);
   assert.match(nav, /\/reservations\/floor-plans', label: 'Tables'/);
   const reportsBlock = nav.match(/key: 'reports'[\s\S]*?  \},/)?.[0] ?? '';

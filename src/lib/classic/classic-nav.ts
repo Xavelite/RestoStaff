@@ -24,6 +24,8 @@ export type ClassicModule = {
   homeOnly?: boolean;
   /** A full-screen module has no sidebar, no tabs (badge terminal). */
   fullscreen?: boolean;
+  /** Utility modules are separated from the everyday operational navigation. */
+  utility?: boolean;
   subNav?: ClassicSubNavItem[];
 };
 
@@ -37,7 +39,8 @@ export type ClassicIcon =
   | 'inventory'
   | 'payroll'
   | 'badge'
-  | 'reports';
+  | 'reports'
+  | 'settings';
 
 const MANAGER: WorkspaceRole[] = ['owner', 'manager'];
 const OWNER: WorkspaceRole[] = ['owner'];
@@ -99,12 +102,11 @@ const CLASSIC_MODULES: ClassicModule[] = [
     icon: 'restaurant',
     roles: MANAGER,
     subNav: [
-      { href: '/restaurant', label: 'Identity' },
+      { href: '/restaurant', label: 'Profile' },
       { href: '/restaurant/hours', label: 'Hours' },
       { href: '/restaurant/areas', label: 'Areas' },
       { href: '/restaurant/positions', label: 'Positions' },
-      { href: '/restaurant/coverage', label: 'Coverage' },
-      { href: '/restaurant/absence-types', label: 'Absence types' }
+      { href: '/restaurant/coverage', label: 'Staffing' }
     ]
   },
   {
@@ -216,6 +218,19 @@ const CLASSIC_MODULES: ClassicModule[] = [
       { href: '/reports/operations', label: 'Operations' }
     ]
   },
+  {
+    key: 'settings',
+    href: '/settings/connections',
+    label: 'Settings',
+    summary: 'Organization, connections and workforce policies',
+    icon: 'settings',
+    roles: MANAGER,
+    utility: true,
+    subNav: [
+      { href: '/settings/connections', label: 'Connections' },
+      { href: '/settings/absence-types', label: 'Time-off policies' }
+    ]
+  },
   // Employees share the same shell; their two screens are simply the only
   // modules their role can see.
   {
@@ -244,9 +259,19 @@ export function modulesForRole(role: WorkspaceRole | null): ClassicModule[] {
 /** The module a pathname belongs to, matching the longest href first. */
 export function moduleForPath(pathname: string): ClassicModule | null {
   return (
-    CLASSIC_MODULES.filter(
-      (module) => pathname === module.href || pathname.startsWith(`${module.href}/`)
-    ).sort((left, right) => right.href.length - left.href.length)[0] ?? null
+    CLASSIC_MODULES.filter((module) =>
+      [module.href, ...(module.subNav?.map((item) => item.href) ?? [])].some(
+        (href) => pathname === href || pathname.startsWith(`${href}/`)
+      )
+    ).sort((left, right) => {
+      const matchLength = (module: ClassicModule) =>
+        Math.max(
+          ...[module.href, ...(module.subNav?.map((item) => item.href) ?? [])]
+            .filter((href) => pathname === href || pathname.startsWith(`${href}/`))
+            .map((href) => href.length)
+        );
+      return matchLength(right) - matchLength(left);
+    })[0] ?? null
   );
 }
 

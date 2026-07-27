@@ -210,7 +210,10 @@
   title={t('Team messages')}
   onclick={() => openCenter()}
 >
-  <span aria-hidden="true">💬</span>
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M5 17.5 3.8 21l4-2.1A9.5 9.5 0 1 0 5 17.5Z" />
+    <path d="M8 10h8M8 14h5" />
+  </svg>
   {#if badgeCount > 0}<b>{badgeCount > 9 ? '9+' : badgeCount}</b>{/if}
 </button>
 
@@ -279,12 +282,12 @@
 <style>
   /* Bare glyph on the topbar, styled exactly like the notification bell beside
      it: transparent, no filled disc, same hover surface and badge. */
-  .communications-button { position: relative; width: 38px; min-height: 38px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 50%; color: var(--rst-topbar-muted); background: transparent; font: inherit; line-height: 1; cursor: pointer; transition: color .18s ease, background .18s ease, transform .18s ease; }
-  .communications-button:hover { background: var(--rst-topbar-control-hover); transform: translateY(-1px); }
-  .communications-button > span { display: inline-block; font-size: 18px; transition: transform .22s var(--rst-ease-spring); }
-  .communications-button:hover > span { transform: scale(1.12); }
+  .communications-button { position: relative; width: 36px; min-height: 36px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 1px solid transparent; border-radius: var(--rst-ui-radius-md); color: var(--rst-topbar-muted); background: transparent; font: inherit; line-height: 1; cursor: pointer; transition: color .16s ease, background .16s ease, border-color .16s ease; }
+  .communications-button:hover { border-color: var(--rst-topbar-control-line); color: var(--rst-topbar-text); background: var(--rst-topbar-control-hover); transform: none; }
+  .communications-button:active { transform: none; }
+  .communications-button > svg { display: block; }
   /* Unread messages give the same gentle nudge the bell uses for alerts. */
-  .communications-button.has-unread > span { animation: rst-wiggle 2.4s ease-in-out infinite; animation-delay: 1.6s; }
+  .communications-button.has-unread > svg { color: var(--rst-topbar-text); }
   .communications-button b { position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; display: grid; place-items: center; padding: 0 4px; border-radius: var(--rst-ui-radius-pill); color: var(--rst-on-accent-text); background: var(--rst-state-danger); font-size: 9px; font-weight: 800; animation: rst-pop-in .32s var(--rst-ease-spring) backwards; }
   .center-stack { display: grid; gap: 16px; }
   .composer { display: grid; gap: 11px; padding: 14px; border: 1px solid var(--rst-ui-line); border-radius: var(--rst-ui-radius-lg); background: var(--rst-ui-surface-field); }

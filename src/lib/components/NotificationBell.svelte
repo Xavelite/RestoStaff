@@ -440,7 +440,10 @@
     aria-expanded={open}
     onclick={toggleOpen}
   >
-    <span aria-hidden="true">🔔</span>
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+      <path d="M10 21h4" />
+    </svg>
     {#if totalCount > 0}<b>{totalCount}</b>{/if}
   </button>
 
@@ -608,32 +611,24 @@
   .notifications-shell { position: relative; }
   .notification-button {
     position: relative;
-    width: 38px;
-    min-height: 38px;
+    width: 36px;
+    min-height: 36px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 0;
-    border-radius: 50%;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: var(--rst-ui-radius-md);
     color: var(--rst-topbar-muted, var(--rst-ui-muted));
     background: transparent;
     font: inherit;
     cursor: pointer;
+    transition: color .16s ease, background .16s ease, border-color .16s ease;
   }
-  .notification-button:hover { background: var(--rst-topbar-control-hover, var(--rst-ui-surface-field-strong)); transform: translateY(-1px); }
-  .notification-button.has-alerts { color: var(--rst-state-warning-text); }
-  .notification-button > span {
-    display: inline-block;
-    font-size: 17px;
-    transition: transform .22s var(--rst-ease-spring);
-  }
-  .notification-button:hover > span {
-    transform: scale(1.12);
-  }
-  .notification-button.has-alerts > span {
-    animation: rst-wiggle 2.4s ease-in-out infinite;
-    animation-delay: 1s;
-  }
+  .notification-button:hover { border-color: var(--rst-topbar-control-line, var(--rst-ui-line)); color: var(--rst-topbar-text, var(--rst-ui-text)); background: var(--rst-topbar-control-hover, var(--rst-ui-surface-field-strong)); transform: none; }
+  .notification-button:active { transform: none; }
+  .notification-button.has-alerts { color: var(--rst-topbar-alert, var(--rst-state-warning-text)); }
+  .notification-button > svg { display: block; }
   .notification-button b {
     position: absolute;
     right: -5px;

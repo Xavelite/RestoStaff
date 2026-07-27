@@ -16,9 +16,15 @@
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { supabase } from '$lib/supabase/client';
   import { toasts } from '$lib/ui/toast.svelte';
+  import { workspaceTheme } from '$lib/ui/theme.svelte';
   import ClassicIcon from '$lib/classic/ClassicIcon.svelte';
   
-  import { moduleForPath, modulesForRole, subNavItemForPath } from '$lib/classic/classic-nav';
+  import {
+    moduleForPath,
+    modulesForRole,
+    subNavItemForPath,
+    type ClassicModule
+  } from '$lib/classic/classic-nav';
   import { roleHome } from '$lib/workspace/workspace-selection';
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
   import '$lib/classic/classic.css';
@@ -71,6 +77,8 @@
   }
 
   const modules = $derived(modulesForRole(workspace.effectiveRole).filter((module) => !module.homeOnly));
+  const primaryModules = $derived(modules.filter((module) => !module.utility));
+  const utilityModules = $derived(modules.filter((module) => module.utility));
   const activeModule = $derived(moduleForPath(page.url.pathname));
   const activeTabs = $derived(activeModule?.subNav ?? []);
   const activeTabHref = $derived(activeModule ? subNavItemForPath(activeModule, page.url.pathname)?.href ?? '' : '');
@@ -85,7 +93,11 @@
   // toasts, which portal to <body>, inherit it too.
   onMount(() => {
     document.documentElement.dataset.design = 'classic';
-    return () => delete document.documentElement.dataset.design;
+    workspaceTheme.init();
+    return () => {
+      delete document.documentElement.dataset.design;
+      delete document.documentElement.dataset.theme;
+    };
   });
 
   // Role boundaries are enforced by route, not by hidden links: a module the
@@ -133,9 +145,9 @@
   }
 </script>
 
-{#snippet moduleNav()}
-  <nav class="cl-sidebar__nav" aria-label={t('Main')} data-tour="nav">
-    {#each modules as module (module.key)}
+{#snippet moduleNav(items: ClassicModule[], label: string)}
+  <nav class="cl-sidebar__nav" aria-label={t(label)} data-tour={label === 'Main' ? 'nav' : undefined}>
+    {#each items as module (module.key)}
       <a
         class="cl-sidebar__link"
         class:is-active={module.key === activeModule?.key}
@@ -158,7 +170,7 @@
   {:else}
     <div class="cl-app" class:is-rail={sidebarCollapsed}>
       <a class="cl-brand" href="/home" aria-label="Restogogo">
-        <img src="/brand/restogogo-mark.png" alt="" width="26" height="26" />
+        <span class="cl-brand__mark" style="--brand-mark:url('/brand/restogogo-mark.png')" aria-hidden="true"></span>
         <span class="cl-brand__word" aria-hidden="true"><i>esto</i><i>gogo</i></span>
       </a>
 
@@ -216,7 +228,12 @@
       </header>
 
       <aside class="cl-sidebar">
-        {@render moduleNav()}
+        {@render moduleNav(primaryModules, 'Main')}
+        {#if utilityModules.length}
+          <div class="cl-sidebar__utility">
+            {@render moduleNav(utilityModules, 'Settings')}
+          </div>
+        {/if}
         <button
           class="cl-rail-toggle"
           type="button"
@@ -233,7 +250,12 @@
       {#if sidebarOpen}
         <button class="cl-scrim" type="button" aria-label={t('Close')} onclick={() => (sidebarOpen = false)}></button>
         <aside class="cl-drawer">
-          {@render moduleNav()}
+          {@render moduleNav(primaryModules, 'Main')}
+          {#if utilityModules.length}
+            <div class="cl-sidebar__utility">
+              {@render moduleNav(utilityModules, 'Settings')}
+            </div>
+          {/if}
         </aside>
       {/if}
 

@@ -6,11 +6,13 @@
   import { modulesForRole } from '$lib/classic/classic-nav';
 
   const role = $derived(workspace.effectiveRole);
-  const modules = $derived(
-    modulesForRole(role).filter(
-      (module) => module.key !== 'home' && !module.placeholder && !module.homeOnly
-    )
-  );
+  const modules = $derived.by(() => {
+    const available = modulesForRole(role).filter((module) => module.key !== 'home');
+    return [
+      ...available.filter((module) => !module.placeholder),
+      ...available.filter((module) => module.placeholder)
+    ];
+  });
 
   const MODULE_COLOR: Record<string, string> = {
     schedule: 'var(--cl-mod-schedule)',
@@ -29,18 +31,26 @@
 <ClassicPage>
   <div class="tiles" aria-label={t('Modules')}>
     {#each modules as module (module.key)}
-      <a
-        class="tile"
-        href={module.href}
-        style="--tile-color:{MODULE_COLOR[module.key] ?? 'var(--cl-muted)'}"
-      >
-        <span class="tile__icon"><ClassicIcon name={module.icon} size={27} /></span>
-        <span class="tile__content">
-          <strong>{t(module.label)}</strong>
-          <span>{t(module.summary)}</span>
-        </span>
-        <span class="tile__arrow" aria-hidden="true">→</span>
-      </a>
+      {@const color = MODULE_COLOR[module.key] ?? 'var(--cl-muted)'}
+      {#if module.placeholder}
+        <article class="tile tile--upcoming" style="--tile-color:{color}">
+          <span class="tile__icon"><ClassicIcon name={module.icon} size={27} /></span>
+          <span class="tile__content">
+            <strong>{t(module.label)}</strong>
+            <span>{t(module.summary)}</span>
+          </span>
+          <span class="tile__badge">{t('Upcoming')}</span>
+        </article>
+      {:else}
+        <a class="tile" href={module.href} style="--tile-color:{color}">
+          <span class="tile__icon"><ClassicIcon name={module.icon} size={27} /></span>
+          <span class="tile__content">
+            <strong>{t(module.label)}</strong>
+            <span>{t(module.summary)}</span>
+          </span>
+          <span class="tile__arrow" aria-hidden="true">→</span>
+        </a>
+      {/if}
     {/each}
   </div>
 </ClassicPage>
@@ -83,6 +93,18 @@
     box-shadow: 0 10px 24px rgb(15 23 42 / 8%);
     transform: translateY(-2px);
   }
+  .tile--upcoming {
+    --tile-color: var(--cl-muted) !important;
+    cursor: default;
+    background:
+      linear-gradient(135deg, color-mix(in srgb, var(--cl-canvas) 58%, transparent), transparent 60%),
+      var(--cl-surface);
+  }
+  .tile--upcoming:hover {
+    border-color: var(--cl-line);
+    box-shadow: 0 1px 2px rgb(15 23 42 / 3%);
+    transform: none;
+  }
   .tile:focus-visible {
     outline: 3px solid color-mix(in srgb, var(--tile-color) 28%, transparent);
     outline-offset: 2px;
@@ -110,6 +132,20 @@
     transition: transform var(--cl-dur) var(--cl-ease), opacity var(--cl-dur) var(--cl-ease);
   }
   .tile:hover .tile__arrow { transform: translateX(3px); opacity: 1; }
+  .tile__badge {
+    position: absolute;
+    top: 20px;
+    right: 18px;
+    padding: 4px 8px;
+    border: 1px solid var(--cl-line);
+    border-radius: 999px;
+    color: var(--cl-muted);
+    background: var(--cl-surface);
+    font-size: 9px;
+    font-weight: var(--rst-fw-bold);
+    letter-spacing: .055em;
+    text-transform: uppercase;
+  }
 
   @media (max-width: 1180px) { .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
   @media (max-width: 760px) {

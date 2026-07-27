@@ -39,7 +39,7 @@ a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid var(--rst-state-info);
+  outline: 2px solid var(--rst-focus-color, var(--rst-state-info));
 }
 
 button,

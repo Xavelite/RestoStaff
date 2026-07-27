@@ -51,7 +51,12 @@
   const employeeColor = $derived(workspace.team ? buildEmployeeColorMap(workspace.team.job_functions, workspace.team.employee_job_functions, workspace.restaurant?.work_areas ?? []) : new Map<string, string>());
 
   const ACCESS_LABEL: Record<string, string> = {
-    active: 'Signed in', disabled: 'Disabled', invited: 'Invitation sent', expired: 'Invitation expired', revoked: 'Invitation revoked', not_invited: 'No invitation'
+    active: 'Enabled',
+    disabled: 'Disabled',
+    invited: 'Invited',
+    expired: 'Invitation expired',
+    revoked: 'Invitation revoked',
+    not_invited: 'Not invited'
   };
 
   function setGroupBy(next: GroupBy): void {
@@ -130,7 +135,9 @@
         ? t(ACCESS_LABEL[employee.accessState] ?? employee.accessState)
         : key === '__undefined__'
           ? t('No role')
-          : t(key);
+          : key === 'manager'
+            ? t('Manager')
+            : t('Employee');
       const group = map.get(key) ?? { key, label, employees: [] };
       group.employees.push(employee);
       map.set(key, group);
@@ -140,6 +147,12 @@
 
   function peopleCountLabel(count: number): string {
     return count === 1 ? t('1 person') : t('{count} people', { count });
+  }
+
+  function roleLabel(role: string): string {
+    if (role === 'manager') return t('Manager');
+    if (role === 'employee') return t('Employee');
+    return '—';
   }
 
   function openInvite(employee: EmployeeDraft) {
@@ -169,6 +182,30 @@
     discardInvite();
   }
 
+  async function disableAccess(employee: EmployeeDraft) {
+    const confirmed = await confirmAction({
+      title: 'Disable app access?',
+      body: `${employee.displayName} will no longer be able to sign in. Their employee history and badge records are preserved.`,
+      confirmLabel: 'Disable access',
+      cancelLabel: 'Keep enabled',
+      tone: 'danger'
+    });
+    if (!confirmed) return;
+    await run(employee.id, () => setEmployeeAccessState(workspace.activeId!, employee.id, 'disable'), 'App access disabled.');
+  }
+
+  async function revokeInvite(employee: EmployeeDraft) {
+    const confirmed = await confirmAction({
+      title: 'Revoke this invitation?',
+      body: `${employee.displayName} will no longer be able to use the invitation link.`,
+      confirmLabel: 'Revoke invitation',
+      cancelLabel: 'Keep invitation',
+      tone: 'danger'
+    });
+    if (!confirmed) return;
+    await run(employee.id, () => revokeEmployeeInvitation(workspace.activeId!, employee.id), 'Invitation revoked.');
+  }
+
   const readTeamContext = useClassicTeamContext();
   const team = $derived(readTeamContext());
 </script>
@@ -179,20 +216,21 @@
 {@const filtered = team.employees.filter(matches)}
     {@const groups = grouped(ordered(filtered), team.jobName)}
     {@const accessValues = [...new Set(team.employees.filter((employee) => employee.active).map((employee) => employee.accessState))].map((value) => ({ value, label: t(ACCESS_LABEL[value] ?? value) }))}
-    {@const roleValues = [{ value: '__none__', label: t('No role') }, { value: 'manager', label: t('manager') }, { value: 'employee', label: t('employee') }]}
+    {@const roleValues = [{ value: '__none__', label: t('No role') }, { value: 'manager', label: t('Manager') }, { value: 'employee', label: t('Employee') }]}
     {@const pinValues = [...new Set(team.employees.filter((employee) => employee.active).map((employee) => employee.pinStatus || '__none__'))].map((value) => ({ value, label: value === '__none__' ? t('Not set') : t(value) }))}
-    {@const signedIn = filtered.filter((employee) => employee.accessState === 'active').length}
+    {@const activeEmployees = team.employees.filter((employee) => employee.active)}
+    {@const appEnabled = activeEmployees.filter((employee) => employee.accessState === 'active').length}
 
     <ClassicTablePanel>
       {#snippet meta()}
-        <span><i class="dot"></i>{t('{count} employees', { count: filtered.length })}</span>
-        <span><i class="dot is-green"></i>{t('{count} signed in', { count: signedIn })}</span>
+        <span><i class="dot"></i>{t('{count} employees', { count: activeEmployees.length })}</span>
+        <span><i class="dot is-green"></i>{t('{count} with app access', { count: appEnabled })}</span>
       {/snippet}
       {#snippet children()}
         <div class="cl-tablewrap">
           <table class="cl-table">
             <thead><tr>
-              <th class="has-menu"><ClassicPrimaryColMenu label={t('Name')} sortable sortDir={sort?.key === 'name' ? sort.dir : null} onsort={(dir) => (sort = { key: 'name', dir })} filterKind="text" searchValue={search} onsearch={(value) => (search = value)} groupValue={groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'status', label: t('Status') }, { value: 'role', label: t('Role') }]} ongroupchange={(value) => setGroupBy(value as GroupBy)} /></th>
+              <th class="has-menu"><ClassicPrimaryColMenu label={t('Employee')} sortable sortDir={sort?.key === 'name' ? sort.dir : null} onsort={(dir) => (sort = { key: 'name', dir })} filterKind="text" searchValue={search} onsearch={(value) => (search = value)} groupValue={groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'status', label: t('Status') }, { value: 'role', label: t('Role') }]} ongroupchange={(value) => setGroupBy(value as GroupBy)} /></th>
               {#if shown('email')}<th class="has-menu"><ClassicColMenu label={t('Email')} sortable sortDir={sort?.key === 'email' ? sort.dir : null} onsort={(dir) => (sort = { key: 'email', dir })} filterKind="text" searchValue={emailSearch} onsearch={(value) => (emailSearch = value)} /></th>{/if}
               {#if shown('role')}<th class="has-menu"><ClassicColMenu label={t('Role')} sortable sortDir={sort?.key === 'role' ? sort.dir : null} onsort={(dir) => (sort = { key: 'role', dir })} filterKind="values" filterValues={roleValues} selected={excludedRole} ontoggle={(value) => { const next = new Set(excludedRole); next.has(value) ? next.delete(value) : next.add(value); excludedRole = next; }} onselectall={(on) => (excludedRole = on ? new Set() : new Set(roleValues.map((item) => item.value)))} /></th>{/if}
               {#if shown('pin')}<th class="has-menu"><ClassicColMenu label={t('Badge PIN')} sortable sortDir={sort?.key === 'pin' ? sort.dir : null} onsort={(dir) => (sort = { key: 'pin', dir })} filterKind="values" filterValues={pinValues} selected={excludedPin} ontoggle={(value) => { const next = new Set(excludedPin); next.has(value) ? next.delete(value) : next.add(value); excludedPin = next; }} onselectall={(on) => (excludedPin = on ? new Set() : new Set(pinValues.map((item) => item.value)))} /></th>{/if}
@@ -201,7 +239,13 @@
               <th class="chooser-col"><ClassicColChooser columns={OPTIONAL_COLUMNS.map((column) => ({ key: column.key, label: t(column.label) }))} {hidden} ontoggle={toggleColumn} /></th>
             </tr></thead>
             {#if !filtered.length}
-              <tbody><tr><td colspan={colCount}><div class="cl-empty"><strong>{t('No active employees')}</strong></div></td></tr></tbody>
+              <tbody><tr><td colspan={colCount}>
+                <div class="cl-empty">
+                  <strong>{t(activeEmployees.length ? 'No employees match' : 'No active employees')}</strong>
+                  <span>{t('Change the filter, or add someone to the team.')}</span>
+                  {#if !activeEmployees.length}<a class="empty-link" href="/team">{t('People')}</a>{/if}
+                </div>
+              </td></tr></tbody>
             {:else}
               {#each groups as group (group.key)}
                 <tbody>
@@ -211,10 +255,10 @@
                     <tr>
                       <td><span class="cl-table__name"><span class="cl-avatar" style="--avatar-color:{employeeColor.get(employee.id) ?? 'var(--cl-muted)'}">{personInitials(employee.displayName)}</span>{employee.displayName}</span></td>
                       {#if shown('email')}<td class="is-quiet">{employee.email || '—'}</td>{/if}
-                      {#if shown('role')}<td class="is-quiet">{employee.accessRole ? t(employee.accessRole) : '—'}</td>{/if}
+                      {#if shown('role')}<td class="is-quiet">{roleLabel(employee.accessRole)}</td>{/if}
                       {#if shown('pin')}<td class="is-quiet">{t(employee.pinStatus === 'set' ? 'Set' : 'Not set')}</td>{/if}
                       {#if shown('status')}<td><ClassicStatus label={ACCESS_LABEL[employee.accessState] ?? employee.accessState} tone={accessTone(employee.accessState)} /></td>{/if}
-                      <td class="is-num"><span class="actions">{#if employee.accessState === 'active'}<button class="cl-btn" type="button" disabled={!team.editable || busy === employee.id} onclick={() => run(employee.id, () => setEmployeeAccessState(workspace.activeId!, employee.id, 'disable'), 'App access disabled.').catch(() => undefined)}>{t('Disable')}</button>{:else if employee.accessState === 'disabled'}<button class="cl-btn" type="button" disabled={!team.editable || busy === employee.id} onclick={() => run(employee.id, () => setEmployeeAccessState(workspace.activeId!, employee.id, 'restore'), 'App access restored.').catch(() => undefined)}>{t('Restore')}</button>{:else if employee.accessState === 'invited'}<button class="cl-btn" type="button" disabled={!team.editable || busy === employee.id} onclick={() => run(employee.id, () => revokeEmployeeInvitation(workspace.activeId!, employee.id), 'Invitation revoked.').catch(() => undefined)}>{t('Revoke')}</button>{:else}<button class="cl-btn" type="button" disabled={!team.editable || busy === employee.id} onclick={() => openInvite(employee)}>{t('Invite')}</button>{/if}</span></td>
+                      <td class="is-num"><span class="actions">{#if employee.accessState === 'active'}<button class="cl-btn access-action" type="button" disabled={!team.editable || busy === employee.id} onclick={() => void disableAccess(employee).catch(() => undefined)}>{t('Disable')}</button>{:else if employee.accessState === 'disabled'}<button class="cl-btn access-action" type="button" disabled={!team.editable || busy === employee.id} onclick={() => run(employee.id, () => setEmployeeAccessState(workspace.activeId!, employee.id, 'restore'), 'App access restored.').catch(() => undefined)}>{t('Restore')}</button>{:else if employee.accessState === 'invited'}<button class="cl-btn access-action" type="button" disabled={!team.editable || busy === employee.id} onclick={() => void revokeInvite(employee).catch(() => undefined)}>{t('Revoke')}</button>{:else}<button class="cl-btn access-action" type="button" disabled={!team.editable || busy === employee.id} onclick={() => openInvite(employee)}>{t('Invite')}</button>{/if}</span></td>
                       <td></td>
                     </tr>
                   {/each}
@@ -229,14 +273,17 @@
 
     {#snippet footer()}<ActionButton label={t('Cancel')} onclick={() => void requestInviteClose()} /><ActionButton label={t('Send invitation')} tone="primary" disabled={Boolean(busy)} onclick={() => void sendInvite().catch(() => undefined)} />{/snippet}
     <Dialog open={Boolean(inviting)} title={t('Invite {name}', { name: inviting?.displayName ?? '' })} description={t('They receive an email link to set a password and sign in.')} size="small" onclose={() => void requestInviteClose()} {footer}>
-      <div class="form"><label class="cl-label"><span>{t('Email')}</span><input class="cl-field" type="email" bind:value={inviteEmail} /></label><label class="cl-label"><span>{t('Role')}</span><select class="cl-field" bind:value={inviteRole}><option value="employee">{t('employee')}</option><option value="manager">{t('manager')}</option></select></label></div>
+      <div class="form"><label class="cl-label"><span>{t('Email')}</span><input class="cl-field" type="email" bind:value={inviteEmail} /></label><label class="cl-label"><span>{t('Role')}</span><select class="cl-field" bind:value={inviteRole}><option value="employee">{t('Employee')}</option><option value="manager">{t('Manager')}</option></select></label></div>
     </Dialog>
 
 {/if}
 
 <style>
   .actions { display: inline-flex; gap: 8px; }
+  .access-action { min-height: 30px; padding: 3px 10px; font-size: 12px; }
   .form { display: grid; gap: 14px; }
+  .empty-link { justify-self: center; color: var(--cl-accent); font-size: 13px; font-weight: var(--rst-fw-medium); text-decoration: none; }
+  .empty-link:hover { text-decoration: underline; }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-line-strong); display: inline-block; }
   .dot.is-green { background: var(--cl-ok); }
   .actions-col, .chooser-col { width: 44px; }

@@ -11,10 +11,16 @@
   import type { CoverageDraft } from '$lib/restaurant/restaurant-model';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { buildAreaColorMap, buildPositionColorMap } from '$lib/ui/position-color';
+  import { getReservationFloorPlans } from '$lib/reservations/reservation-api';
+  import ReservationFloorPlan from '$lib/reservations/ReservationFloorPlan.svelte';
+  import type {
+    ReservationFloorPlans,
+    ReservationRoom
+  } from '$lib/reservations/reservation-types';
 
   type Row = { areaId: string; jobFunctionId: string; serviceKey: ServiceKey };
   type PendingService = ServiceKey | '';
-  type NewRow = { tempId: string; areaId: string; jobFunctionId: string; serviceKey: PendingService; counts: number[] };
+  type NewRow = { tempId: string; areaId: string; jobFunctionId: string; serviceKey: PendingService; counts: Array<number | null> };
   type CoverageGroup = { key: string; label: string; rows: Row[] };
 
   let newRows = $state<NewRow[]>([]);
@@ -25,6 +31,11 @@
   let excludedPosition = $state(new Set<string>());
   let excludedService = $state(new Set<string>());
   let collapsedGroups = $state<string[]>([]);
+  let viewMode = $state<'grid' | 'map'>('grid');
+  let floorPlans = $state<ReservationFloorPlans | null>(null);
+  let mapFloorId = $state('');
+  let mapWeekday = $state(1);
+  let mapService = $state<ServiceKey>('lunch');
 
   const areaColor = $derived(buildAreaColorMap(restaurantConfig.draft?.areas ?? []));
   const positionColor = $derived(
@@ -33,6 +44,44 @@
       restaurantConfig.draft?.areas ?? []
     )
   );
+  const suggestedRows = $derived.by(() => {
+    const draft = restaurantConfig.draft;
+    if (!draft) return [] as Row[];
+    const activeAreaIds = new Set(
+      draft.areas.filter((area) => area.active).map((area) => area.id)
+    );
+    const suggestions: Row[] = [];
+    for (const position of draft.jobFunctions.filter((job) => job.active)) {
+      const linkedAreas = new Set(
+        [position.primaryAreaId, ...position.areaIds].filter((areaId) =>
+          activeAreaIds.has(areaId)
+        )
+      );
+      for (const areaId of linkedAreas) {
+        for (const serviceKey of ['lunch', 'evening'] as ServiceKey[]) {
+          if (!exists(areaId, position.id, serviceKey)) {
+            suggestions.push({ areaId, jobFunctionId: position.id, serviceKey });
+          }
+        }
+      }
+    }
+    return suggestions;
+  });
+
+  $effect(() => {
+    const restaurantId = workspace.activeId;
+    if (!restaurantId) return;
+    void getReservationFloorPlans(restaurantId)
+      .then((plans) => {
+        floorPlans = plans;
+        if (!mapFloorId || !plans.floors.some((floor) => floor.id === mapFloorId && floor.active)) {
+          mapFloorId = plans.floors.find((floor) => floor.active)?.id ?? '';
+        }
+      })
+      .catch(() => {
+        floorPlans = null;
+      });
+  });
 
   function rowKey(row: Row): string {
     return `${row.areaId}|${row.jobFunctionId}|${row.serviceKey}`;
@@ -50,6 +99,13 @@
     const draft = restaurantConfig.draft;
     if (!draft || workspace.isPreview) return;
     const existing = entry(draft, row, weekday);
+    if (!raw.trim()) {
+      if (existing) {
+        draft.coverage = draft.coverage.filter((item) => item.id !== existing.id);
+        restaurantConfig.touch();
+      }
+      return;
+    }
     const requiredCount = normalizedCount(raw);
     if (existing) existing.requiredCount = requiredCount;
     else {
@@ -71,7 +127,23 @@
 
   function addRow() {
     if (!restaurantConfig.draft || workspace.isPreview) return;
-    newRows = [{ tempId: crypto.randomUUID(), areaId: '', jobFunctionId: '', serviceKey: '', counts: WEEKDAYS.map(() => 0) }, ...newRows];
+    newRows = [{ tempId: crypto.randomUUID(), areaId: '', jobFunctionId: '', serviceKey: '', counts: WEEKDAYS.map(() => null) }, ...newRows];
+  }
+
+  function stageSuggestions() {
+    if (workspace.isPreview) return;
+    const staged = new Set(
+      newRows.map((row) => `${row.areaId}|${row.jobFunctionId}|${row.serviceKey}`)
+    );
+    const rows = suggestedRows
+      .filter((row) => !staged.has(rowKey(row)))
+      .map((row) => ({
+        tempId: crypto.randomUUID(),
+        ...row,
+        counts: WEEKDAYS.map(() => null) as Array<number | null>
+      }));
+    newRows = [...rows, ...newRows];
+    viewMode = 'grid';
   }
 
   function removeNewRow(tempId: string) {
@@ -84,7 +156,13 @@
   }
 
   function setNewCount(tempId: string, index: number, raw: string) {
-    newRows = newRows.map((row) => row.tempId === tempId ? { ...row, counts: row.counts.map((value, itemIndex) => itemIndex === index ? normalizedCount(raw) : value) } : row);
+    newRows = newRows.map((row) => row.tempId === tempId ? {
+      ...row,
+      counts: row.counts.map((value, itemIndex) =>
+        itemIndex === index ? (raw.trim() ? normalizedCount(raw) : null) : value
+      )
+    } : row);
+    materialize(tempId);
   }
 
   function materialize(tempId: string) {
@@ -93,15 +171,20 @@
     const row = newRows.find((item) => item.tempId === tempId);
     if (!row || !row.areaId || !row.jobFunctionId || !row.serviceKey) return;
     if (exists(row.areaId, row.jobFunctionId, row.serviceKey)) return;
-    const entries: CoverageDraft[] = WEEKDAYS.map((_, index) => ({
-      id: crypto.randomUUID(),
-      areaId: row.areaId,
-      jobFunctionId: row.jobFunctionId,
-      serviceKey: row.serviceKey as ServiceKey,
-      coverageScope: 'weekday',
-      weekday: index + 1,
-      requiredCount: normalizedCount(row.counts[index])
-    }));
+    const entries: CoverageDraft[] = row.counts.flatMap((count, index) =>
+      count == null
+        ? []
+        : [{
+            id: crypto.randomUUID(),
+            areaId: row.areaId,
+            jobFunctionId: row.jobFunctionId,
+            serviceKey: row.serviceKey as ServiceKey,
+            coverageScope: 'weekday' as const,
+            weekday: index + 1,
+            requiredCount: normalizedCount(count)
+          }]
+    );
+    if (!entries.length) return;
     draft.coverage = [...entries, ...draft.coverage];
     newRows = newRows.filter((item) => item.tempId !== tempId);
     restaurantConfig.touch();
@@ -155,6 +238,43 @@
     });
   }
 
+  function requiredForArea(
+    draft: { coverage: CoverageDraft[] },
+    areaId: string,
+    weekday: number,
+    serviceKey: ServiceKey
+  ): number | null {
+    const entries = draft.coverage.filter(
+      (item) =>
+        item.areaId === areaId &&
+        item.weekday === weekday &&
+        item.serviceKey === serviceKey
+    );
+    if (!entries.length) return null;
+    return entries.reduce((total, item) => total + item.requiredCount, 0);
+  }
+
+  function coverageMapRooms(
+    plans: ReservationFloorPlans | null,
+    draft: { coverage: CoverageDraft[]; areas: Array<{ id: string; name: string; color: string }> },
+    floorId: string,
+    weekday: number,
+    serviceKey: ServiceKey
+  ): ReservationRoom[] {
+    if (!plans) return [];
+    return plans.rooms
+      .filter((room) => room.active && room.floor_id === floorId)
+      .map((room) => {
+        const area = draft.areas.find((item) => item.id === room.work_area_id);
+        const required = requiredForArea(draft, room.work_area_id, weekday, serviceKey);
+        return {
+          ...room,
+          name: `${area?.name ?? room.name} · ${required == null ? t('Not set') : t('{count} people', { count: required })}`,
+          area_color: area?.color ?? room.area_color
+        };
+      });
+  }
+
 
   const readRestaurantContext = useClassicRestaurantContext();
   const context = $derived(readRestaurantContext());
@@ -180,9 +300,48 @@
     {@const serviceValues = [{ value: 'lunch', label: t('Lunch') }, { value: 'evening', label: t('Evening') }]}
 
     <ClassicTablePanel dirty={context.dirty} saving={context.saving} canSave={context.canSave} onsave={() => void context.save().catch(() => undefined)} ondiscard={context.discard}>
-      {#snippet meta()}<span><i class="dot"></i>{t('{count} coverage lines', { count: rows.length })}</span>{/snippet}
-      {#snippet actions()}<button class="cl-btn is-primary" type="button" disabled={workspace.isPreview || !restaurantConfig.draft} onclick={addRow}><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>{t('Add requirement')}</button>{/snippet}
+      {#snippet meta()}<span><i class="dot"></i>{t('{count} staffing rules', { count: rows.length })}</span>{/snippet}
+      {#snippet actions()}
+        <div class="view-switch" aria-label={t('View')}>
+          <button class:is-active={viewMode === 'grid'} type="button" onclick={() => (viewMode = 'grid')}>{t('Grid')}</button>
+          <button class:is-active={viewMode === 'map'} type="button" onclick={() => (viewMode = 'map')}>{t('Map')}</button>
+        </div>
+        {#if suggestedRows.length}
+          <button class="cl-btn suggestion-action" type="button" disabled={workspace.isPreview} onclick={stageSuggestions}>
+            {t('Use linked positions')} <span>{suggestedRows.length}</span>
+          </button>
+        {/if}
+        <button class="cl-btn is-primary" type="button" disabled={workspace.isPreview || !restaurantConfig.draft} onclick={addRow}><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>{t('Add rule')}</button>
+      {/snippet}
       {#snippet children()}
+        {#if viewMode === 'map'}
+          {@const activeFloors = floorPlans?.floors.filter((floor) => floor.active) ?? []}
+          {@const selectedMapFloor = activeFloors.find((floor) => floor.id === mapFloorId) ?? null}
+          {@const mapRooms = coverageMapRooms(floorPlans, draft, mapFloorId, mapWeekday, mapService)}
+          <section class="coverage-map">
+            <header class="coverage-map__toolbar">
+              <label><span>{t('Floor')}</span><select class="cl-field" bind:value={mapFloorId}>{#each activeFloors as floor (floor.id)}<option value={floor.id}>{floor.name}</option>{/each}</select></label>
+              <label><span>{t('Day')}</span><select class="cl-field" bind:value={mapWeekday}>{#each WEEKDAYS as day, index (day)}<option value={index + 1}>{t(day)}</option>{/each}</select></label>
+              <label><span>{t('Service')}</span><select class="cl-field" bind:value={mapService}><option value="lunch">{t('Lunch')}</option><option value="evening">{t('Evening')}</option></select></label>
+              <p>{t('Each area shows the total people required across its linked positions.')}</p>
+            </header>
+            {#if selectedMapFloor}
+              <ReservationFloorPlan
+                tables={[]}
+                rooms={mapRooms}
+                roomName={selectedMapFloor.name}
+                floorWidth={selectedMapFloor.canvas_width}
+                floorHeight={selectedMapFloor.canvas_height}
+                editable={false}
+                showHeader={false}
+                showTableCount={false}
+                emptyMessage="Set up the floor in Areas to see staffing on the map."
+              />
+            {:else}
+              <div class="cl-empty"><strong>{t('No floor plan yet')}</strong><span>{t('Create and shape areas first, then staffing totals appear here.')}</span><a class="cl-btn is-primary" href="/restaurant/areas">{t('Open Areas')}</a></div>
+            {/if}
+          </section>
+        {:else}
         <div class="cl-tablewrap">
           <table class="cl-table cov">
             <thead>
@@ -199,9 +358,9 @@
                 {@const duplicate = Boolean(row.areaId && row.jobFunctionId && row.serviceKey && exists(row.areaId, row.jobFunctionId, row.serviceKey as ServiceKey))}
                 <tr class="is-attention">
                   <td><select class="cl-field" aria-label={t('Area')} value={row.areaId} onchange={(event) => patchNewRow(row.tempId, { areaId: event.currentTarget.value })}><option value="">{t('Choose area')}</option>{#each activeAreas as area (area.id)}<option value={area.id}>{area.name}</option>{/each}</select></td>
-                  <td><select class="cl-field" aria-label={t('Position')} value={row.jobFunctionId} onchange={(event) => patchNewRow(row.tempId, { jobFunctionId: event.currentTarget.value })}><option value="">{t('Choose position')}</option>{#each activePositions as job (job.id)}<option value={job.id}>{job.name}</option>{/each}</select></td>
+                  <td><select class="cl-field" aria-label={t('Position')} value={row.jobFunctionId} onchange={(event) => patchNewRow(row.tempId, { jobFunctionId: event.currentTarget.value })}><option value="">{t('Choose position')}</option>{#each activePositions.filter((job) => !row.areaId || job.primaryAreaId === row.areaId || job.areaIds.includes(row.areaId)) as job (job.id)}<option value={job.id}>{job.name}</option>{/each}</select></td>
                   <td><select class="cl-field" aria-label={t('Service')} value={row.serviceKey} onchange={(event) => patchNewRow(row.tempId, { serviceKey: event.currentTarget.value as PendingService })}><option value="">{t('Choose service')}</option><option value="lunch">{t('Lunch')}</option><option value="evening">{t('Evening')}</option></select></td>
-                  {#each WEEKDAYS as day, index (day)}<td class="cov__day"><input class="cl-field num" class:is-set={row.counts[index] > 0} type="number" min="0" step="1" aria-label={`${t(day)} ${t('required people')}`} value={row.counts[index]} oninput={(event) => setNewCount(row.tempId, index, event.currentTarget.value)} /></td>{/each}
+                  {#each WEEKDAYS as day, index (day)}<td class="cov__day"><input class="cl-field num" class:is-set={row.counts[index] != null} type="number" min="0" step="1" placeholder="—" aria-label={`${t(day)} ${t('required people')}`} value={row.counts[index] ?? ''} oninput={(event) => setNewCount(row.tempId, index, event.currentTarget.value)} /></td>{/each}
                   <td class="is-num"><button class="cl-btn is-icon remove" type="button" title={t('Remove')} aria-label={t('Remove')} onclick={() => removeNewRow(row.tempId)}>×</button></td>
                 </tr>
                 {#if duplicate}<tr class="inline-warning"><td colspan={WEEKDAYS.length + 4}>{t('This area, position and service already has a coverage row.')}</td></tr>{/if}
@@ -209,11 +368,11 @@
             </tbody>
 
             {#if !ordered.length && !newRows.length}
-              <tbody><tr><td colspan={WEEKDAYS.length + 4}><div class="cl-empty"><strong>{t('No coverage requirements set')}</strong><span>{t('Add a line above to set how many people each service needs.')}</span></div></td></tr></tbody>
+              <tbody><tr><td colspan={WEEKDAYS.length + 4}><div class="cl-empty"><strong>{t('No staffing rules yet')}</strong><span>{t('Start from linked areas and positions, then enter only the days that need a target.')}</span>{#if suggestedRows.length}<button class="cl-btn" type="button" onclick={stageSuggestions}>{t('Use linked positions')}</button>{/if}</div></td></tr></tbody>
             {:else}
               {#each groups as group (group.key)}
                 <tbody>
-                  {#if groupBy !== 'none'}<ClassicGroupRow colspan={WEEKDAYS.length + 4} label={group.label} meta={t('{count} coverage lines', { count: group.rows.length })} color={groupBy === 'area' ? areaColor.get(group.key) : groupBy === 'position' ? positionColor.get(group.key) : ''} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />{/if}
+                  {#if groupBy !== 'none'}<ClassicGroupRow colspan={WEEKDAYS.length + 4} label={group.label} meta={t('{count} staffing rules', { count: group.rows.length })} color={groupBy === 'area' ? areaColor.get(group.key) : groupBy === 'position' ? positionColor.get(group.key) : ''} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />{/if}
                   {#if !collapsedGroups.includes(group.key)}
                   {#each group.rows as row (rowKey(row))}
                     <tr>
@@ -222,7 +381,7 @@
                       <td><ClassicService service={row.serviceKey} /></td>
                       {#each WEEKDAYS as _day, index (index)}
                         {@const value = entry(draft, row, index + 1)}
-                        <td class="cov__day"><input class="cl-field num" class:is-set={(value?.requiredCount ?? 0) > 0} type="number" min="0" step="1" value={value?.requiredCount ?? 0} disabled={workspace.isPreview} oninput={(event) => setCount(row, index + 1, event.currentTarget.value)} /></td>
+                        <td class="cov__day"><input class="cl-field num" class:is-set={Boolean(value)} type="number" min="0" step="1" placeholder="—" value={value?.requiredCount ?? ''} disabled={workspace.isPreview} oninput={(event) => setCount(row, index + 1, event.currentTarget.value)} /></td>
                       {/each}
                       <td class="is-num"><button class="cl-btn is-icon remove" type="button" disabled={workspace.isPreview} title={t('Remove requirement')} aria-label={t('Remove requirement')} onclick={() => removeRow(row)}>×</button></td>
                     </tr>
@@ -233,6 +392,7 @@
             {/if}
           </table>
         </div>
+        {/if}
       {/snippet}
     </ClassicTablePanel>
 
@@ -241,9 +401,25 @@
 <style>
   .cov { min-width: 980px; }
   .cov__day { text-align: center; }
-  .num { width: 62px; height: 34px; text-align: center; font-variant-numeric: tabular-nums; color: var(--cl-line-strong); }
+  .num { width: 62px; height: 34px; text-align: center; font-variant-numeric: tabular-nums; color: var(--cl-muted); }
   .num.is-set { color: var(--cl-ink); font-weight: var(--rst-fw-bold); }
+  .num::placeholder { color: var(--cl-line-strong); }
   .remove { min-height: 30px; height: 30px; width: 30px; color: var(--cl-problem); font-size: 18px; }
   .inline-warning td { padding-block: 7px !important; color: var(--cl-attention); background: var(--cl-attention-wash); font-size: 12px; }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-line-strong); display: inline-block; }
+  .view-switch { display: inline-flex; align-items: center; padding: 2px; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); background: var(--cl-surface-muted); }
+  .view-switch button { min-height: 30px; padding: 5px 12px; border: 0; border-radius: calc(var(--cl-radius) - 2px); background: transparent; color: var(--cl-muted); font: inherit; font-size: 12px; font-weight: var(--rst-fw-medium); cursor: pointer; }
+  .view-switch button.is-active { background: var(--cl-surface); color: var(--cl-ink); box-shadow: 0 1px 3px rgb(15 23 42 / 10%); }
+  .suggestion-action span { min-width: 20px; height: 20px; display: grid; place-items: center; border-radius: 999px; background: var(--cl-accent-wash); color: var(--cl-accent); font-size: 10px; font-weight: var(--rst-fw-bold); }
+  .coverage-map { min-width: 0; overflow: hidden; border: 1px solid var(--cl-line-strong); border-radius: var(--cl-radius-surface); background: var(--cl-surface); }
+  .coverage-map__toolbar { display: flex; align-items: end; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--cl-line); background: var(--cl-surface); }
+  .coverage-map__toolbar label { display: grid; gap: 4px; }
+  .coverage-map__toolbar label > span { color: var(--cl-muted); font-size: 10px; font-weight: var(--rst-fw-bold); }
+  .coverage-map__toolbar select { min-width: 126px; height: 34px; min-height: 34px; padding-block: 4px; font-size: 12px; }
+  .coverage-map__toolbar p { max-width: 360px; margin: 0 0 3px auto; color: var(--cl-muted); font-size: 10.5px; line-height: 1.45; text-align: right; }
+  .coverage-map :global(.floor__viewport) { min-height: 560px; }
+  @media (max-width: 760px) {
+    .coverage-map__toolbar { align-items: stretch; flex-direction: column; }
+    .coverage-map__toolbar p { margin: 0; text-align: left; }
+  }
 </style>
