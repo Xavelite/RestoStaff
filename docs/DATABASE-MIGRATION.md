@@ -337,10 +337,10 @@ restaurant-wide runtime snapshot and introduces five explicit browser reads:
 - `get_restaurant_read_model(uuid)` for owner-only restaurant configuration.
 
 Operational reads are limited to 63 days. Employee reads expose only the
-linked employee; manager reads exclude Team contacts/access and Restaurant
-setup state; owner-private legal/payroll rows remain empty for managers.
-Mutation RPCs return compact acknowledgements instead of retransmitting all
-workspace domains.
+linked employee. Managers receive Team contacts, access, operational legal
+identity and Restaurant setup, while costs and payroll profiles remain
+owner-only. Mutation RPCs return compact acknowledgements instead of
+retransmitting all workspace domains.
 
 Migrations `024`–`026` complete the deployed contract without compatibility
 paths: employee work-area labels and Team membership roles are assigned to

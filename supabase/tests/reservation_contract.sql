@@ -138,7 +138,14 @@ begin
     slot_interval_minutes, default_duration_minutes,
     minimum_party_size, maximum_party_size
   )
-  values (v_restaurant_id, 'lunch', true, true, 15, 120, 1, 8);
+  values (v_restaurant_id, 'lunch', true, true, 15, 120, 1, 8)
+  on conflict (restaurant_id, service_key) do update set
+    booking_enabled = excluded.booking_enabled,
+    automatic_confirmation = excluded.automatic_confirmation,
+    slot_interval_minutes = excluded.slot_interval_minutes,
+    default_duration_minutes = excluded.default_duration_minutes,
+    minimum_party_size = excluded.minimum_party_size,
+    maximum_party_size = excluded.maximum_party_size;
   insert into public.reservation_rooms (
     id, restaurant_id, work_area_id, floor_id, active
   )
@@ -427,6 +434,92 @@ begin
   );
   if coalesce((v_availability->>'available')::boolean, false) is not true then
     raise exception 'Overnight service booking was rejected: %', v_availability;
+  end if;
+
+  update public.work_areas
+  set active = false
+  where restaurant_id = v_restaurant_id
+    and id = v_area_id;
+  if exists (
+    select 1
+    from public.reservation_rooms
+    where restaurant_id = v_restaurant_id
+      and work_area_id = v_area_id
+      and active
+  ) or exists (
+    select 1
+    from public.reservation_tables
+    where restaurant_id = v_restaurant_id
+      and room_id = v_room_id
+      and active
+  ) or exists (
+    select 1
+    from public.reservation_table_combinations
+    where restaurant_id = v_restaurant_id
+      and room_id = v_room_id
+      and active
+  ) then
+    raise exception 'Archiving an area did not retire its reservation layout.';
+  end if;
+
+  begin
+    update public.reservation_rooms
+    set active = true
+    where restaurant_id = v_restaurant_id
+      and id = v_room_id;
+  exception
+    when others then
+      if position('reservation_room_area_inactive' in lower(sqlerrm)) > 0 then
+        v_rejected := true;
+      else
+        raise;
+      end if;
+  end;
+  if not v_rejected then
+    raise exception 'An active room was accepted for an archived area.';
+  end if;
+  v_rejected := false;
+
+  update public.reservation_rooms
+  set active = false
+  where restaurant_id = v_restaurant_id
+    and id = v_room_two_id;
+  if exists (
+    select 1
+    from public.reservation_tables
+    where restaurant_id = v_restaurant_id
+      and room_id = v_room_two_id
+      and active
+  ) then
+    raise exception 'Archiving a room did not retire its active tables.';
+  end if;
+  update public.reservation_rooms
+  set active = true
+  where restaurant_id = v_restaurant_id
+    and id = v_room_two_id;
+  update public.reservation_tables
+  set active = true
+  where restaurant_id = v_restaurant_id
+    and id = v_table_other_room_id;
+
+  update public.reservation_floors
+  set active = false
+  where restaurant_id = v_restaurant_id
+    and id = v_floor_id;
+  if exists (
+    select 1
+    from public.reservation_rooms
+    where restaurant_id = v_restaurant_id
+      and floor_id = v_floor_id
+      and active
+  ) or exists (
+    select 1
+    from public.reservation_tables
+    where restaurant_id = v_restaurant_id
+      and room_id = v_room_two_id
+      and active
+  ) then
+    raise exception 'Archiving a floor did not retire its reservation layout.';
   end if;
 end
 $reservation_workflow$;

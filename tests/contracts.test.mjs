@@ -15,6 +15,16 @@ test('CSV export preserves commas, quotes and new lines', () => {
   );
 });
 
+test('CSV export neutralizes spreadsheet formulas without changing numbers', () => {
+  assert.equal(
+    csvText(
+      ['Name', 'Phone', 'Hours'],
+      [['=HYPERLINK("bad")', '+32000000000', -2]]
+    ),
+    'Name,Phone,Hours\r\n"\'=HYPERLINK(""bad"")",\'+32000000000,-2'
+  );
+});
+
 test('workspace parsing rejects missing restaurant truth', () => {
   assert.throws(() => parseWorkspaceBootstrap({}), /valid restaurant/);
 });

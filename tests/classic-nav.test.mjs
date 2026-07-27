@@ -33,7 +33,8 @@ test('manager navigation follows the setup-to-operations story and owner payroll
     'time',
     'badge-terminal',
     'reservations',
-    'reports'
+    'reports',
+    'exports'
   ]);
   assert.deepEqual(visible('owner'), [
     'home',
@@ -44,7 +45,8 @@ test('manager navigation follows the setup-to-operations story and owner payroll
     'badge-terminal',
     'reservations',
     'payroll',
-    'reports'
+    'reports',
+    'exports'
   ]);
 
   const payroll = moduleForPath('/payroll');
@@ -52,4 +54,5 @@ test('manager navigation follows the setup-to-operations story and owner payroll
   assert.equal(payroll?.href, '/payroll/employees');
   assert.equal(payroll?.subNav, undefined);
   assert.equal(moduleForPath('/payroll/employees')?.key, 'payroll');
+  assert.equal(moduleForPath('/exports')?.key, 'exports');
 });

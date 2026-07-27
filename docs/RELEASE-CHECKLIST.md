@@ -13,11 +13,14 @@ reports zero errors and warnings, and the static production build succeeds.
 ## Database and Edge Function gate
 
 1. Follow `docs/DATABASE-MIGRATION.md`, including before/after identity snapshots.
-2. Run `supabase/tests/security_contract.sql`.
-3. Regenerate `src/lib/supabase/database.types.ts`.
-4. Deploy `send-employee-invitation` and `upload-badge-proof` with the exact
+2. Before applying reservation identity migrations to an existing database, run
+   the read-only `supabase/tests/reservation_identity_preflight.sql` and resolve
+   any duplicate floor levels or normalized active table/combination names.
+3. Run `supabase/tests/security_contract.sql`.
+4. Regenerate `src/lib/supabase/database.types.ts`.
+5. Deploy `send-employee-invitation` and `upload-badge-proof` with the exact
    staging/production `APP_ORIGIN`.
-5. Configure Auth redirect URLs for `/onboarding`, `/accept-invite` and
+6. Configure Auth redirect URLs for `/onboarding`, `/accept-invite` and
    `/reset-password`.
 
 ## Role acceptance
@@ -26,8 +29,9 @@ Create disposable fixtures using `supabase/seed/create-role-fixtures.ts`.
 
 - Owner: onboarding, Restaurant, Team private fields, invitation, Planning
   publish/revert, Actuals approve/reopen, exports and Badge terminal.
-- Manager: no Restaurant or owner-private payroll/legal data; Team invitation
-  cannot grant manager unless caller is owner.
+- Manager: Restaurant and Team operations are available; costs, payroll data
+  and payroll exports remain owner-only. Team invitation cannot grant manager
+  unless caller is owner.
 - Employee: only Shifts and Calendar; only own published shifts, entries,
   availability and leave.
 

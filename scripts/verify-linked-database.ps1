@@ -2,27 +2,57 @@ $ErrorActionPreference = 'Stop'
 
 function Invoke-Supabase {
   param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
-  & npx supabase @Arguments
-  if ($LASTEXITCODE -ne 0) {
+  $previousErrorActionPreference = $ErrorActionPreference
+  $exitCode = -1
+  try {
+    # Supabase CLI writes connection progress to stderr even on success.
+    # PowerShell 5 promotes that harmless progress to NativeCommandError when
+    # ErrorActionPreference is Stop, so trust the native exit code instead.
+    $ErrorActionPreference = 'Continue'
+    & npx supabase @Arguments
+    $exitCode = $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+  }
+  if ($exitCode -ne 0) {
     throw "Supabase command failed: npx supabase $($Arguments -join ' ')"
   }
 }
 
 function Assert-MigrationLedgerParity {
   Write-Host 'Checking linked migration ledger...'
-  $ledgerOutput = (& npx supabase migration list --linked 2>&1 | Out-String)
-  if ($LASTEXITCODE -ne 0) {
+  $previousErrorActionPreference = $ErrorActionPreference
+  $exitCode = -1
+  try {
+    $ErrorActionPreference = 'Continue'
+    $ledgerOutput = (& npx supabase migration list --linked 2>&1 | Out-String)
+    $exitCode = $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+  }
+  if ($exitCode -ne 0) {
     throw "Supabase migration list failed.`n$ledgerOutput"
   }
 
-  Write-Host $ledgerOutput.TrimEnd()
-
   $local = [System.Collections.Generic.HashSet[string]]::new()
   $remote = [System.Collections.Generic.HashSet[string]]::new()
-  foreach ($line in ($ledgerOutput -split "`r?`n")) {
-    if ($line -match '^\s*(\d{8,14})?\s*\|\s*(\d{8,14})?\s*\|') {
-      if ($Matches[1]) { [void]$local.Add($Matches[1]) }
-      if ($Matches[2]) { [void]$remote.Add($Matches[2]) }
+  $ledgerLines = @($ledgerOutput -split "`r?`n")
+  $jsonLine = $ledgerLines |
+    Where-Object { $_.TrimStart().StartsWith('{"migrations":') } |
+    Select-Object -First 1
+  if ($jsonLine) {
+    $ledger = $jsonLine | ConvertFrom-Json
+    foreach ($migration in $ledger.migrations) {
+      if ($migration.local) { [void]$local.Add([string]$migration.local) }
+      if ($migration.remote) { [void]$remote.Add([string]$migration.remote) }
+    }
+  } else {
+    Write-Host $ledgerOutput.TrimEnd()
+    foreach ($line in $ledgerLines) {
+      if ($line -match '^\s*(\d{8,14})?\s*\|\s*(\d{8,14})?\s*\|') {
+        if ($Matches[1]) { [void]$local.Add($Matches[1]) }
+        if ($Matches[2]) { [void]$remote.Add($Matches[2]) }
+      }
     }
   }
 
@@ -65,6 +95,7 @@ $workflowContracts = @(
   'model_integrity_contract.sql',
   'notification_payroll_contract.sql',
   'push_notification_contract.sql',
+  'reservation_identity_preflight.sql',
   'reservation_contract.sql'
 )
 foreach ($contract in $workflowContracts) {
@@ -75,8 +106,16 @@ Write-Host 'Linting the public schema...'
 Invoke-Supabase db lint --linked --schema public --level error
 
 Write-Host 'Comparing generated public types...'
-$generated = (& npx supabase gen types typescript --linked --schema public | Out-String)
-if ($LASTEXITCODE -ne 0) {
+$previousErrorActionPreference = $ErrorActionPreference
+$exitCode = -1
+try {
+  $ErrorActionPreference = 'Continue'
+  $generated = (& npx supabase gen types typescript --linked --schema public | Out-String)
+  $exitCode = $LASTEXITCODE
+} finally {
+  $ErrorActionPreference = $previousErrorActionPreference
+}
+if ($exitCode -ne 0) {
   throw 'Supabase type generation failed.'
 }
 $generated = $generated.Replace("`r`n", "`n").TrimEnd()

@@ -1,7 +1,13 @@
 type CsvValue = string | number | boolean | null | undefined;
 
 function escapeCsv(value: CsvValue): string {
-  const text = value == null ? '' : String(value);
+  const raw = value == null ? '' : String(value);
+  // Spreadsheet applications may interpret user-controlled text as a formula.
+  // A leading apostrophe preserves the displayed value while forcing text.
+  const text =
+    typeof value === 'string' && /^[\t\r\n ]*[=+\-@]/.test(raw)
+      ? `'${raw}`
+      : raw;
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 

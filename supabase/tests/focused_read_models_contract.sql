@@ -70,7 +70,7 @@ begin
       'public.get_employee_operations_read_model(uuid,date,date)'::regprocedure
     )
   ) = 0 or position(
-    'Owner access required.'
+    'Owner or manager access required.'
     in pg_get_functiondef(
       'public.get_restaurant_read_model(uuid)'::regprocedure
     )
@@ -116,13 +116,24 @@ begin
     end if;
     if v_employee ? 'employee_payroll_profiles'
        or v_employee ? 'employee_legal_profiles'
-       or v_employee ? 'work_week_events'
        or v_employee ? 'time_entry_adjustments' then
       raise exception 'Employee operations leaks manager/private data.';
     end if;
-    if jsonb_array_length(v_team->'employee_legal_profiles') <> 0
-       or jsonb_array_length(v_team->'employee_payroll_profiles') <> 0 then
-      raise exception 'Manager Team read exposes owner-private data.';
+    if position(
+      'e.event_type = ''planning_published'''
+      in pg_get_functiondef(
+        'public.build_employee_operations_read_model(uuid,uuid,date,date)'::regprocedure
+      )
+    ) = 0 or position(
+      'p.employee_id = p_employee_id'
+      in pg_get_functiondef(
+        'public.build_employee_operations_read_model(uuid,uuid,date,date)'::regprocedure
+      )
+    ) = 0 then
+      raise exception 'Employee planning-event visibility is not scoped to own published Planning.';
+    end if;
+    if jsonb_array_length(v_team->'employee_payroll_profiles') <> 0 then
+      raise exception 'Manager Team read exposes owner-only payroll data.';
     end if;
     if v_restaurant ? 'employees'
        or v_restaurant ? 'time_entries'

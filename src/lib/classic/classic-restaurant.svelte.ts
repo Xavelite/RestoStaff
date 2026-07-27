@@ -13,6 +13,14 @@ import {
 import { workspace } from '$lib/workspace/workspace.svelte';
 import { StableDraftPlacement } from './stable-draft-placement';
 
+function cloneAreaPlacement(area: AreaDraft): AreaDraft {
+  return { ...area };
+}
+
+function clonePositionPlacement(position: JobFunctionDraft): JobFunctionDraft {
+  return { ...position, areaIds: [...position.areaIds] };
+}
+
 /**
  * The restaurant configuration being edited in the classic Restaurant module.
  *
@@ -23,8 +31,8 @@ import { StableDraftPlacement } from './stable-draft-placement';
 class ClassicRestaurantDraft {
   draft = $state<RestaurantDraft | null>(null);
   dirty = $state(false);
-  #areaPlacement = new StableDraftPlacement<AreaDraft>(structuredClone);
-  #positionPlacement = new StableDraftPlacement<JobFunctionDraft>(structuredClone);
+  #areaPlacement = new StableDraftPlacement<AreaDraft>(cloneAreaPlacement);
+  #positionPlacement = new StableDraftPlacement<JobFunctionDraft>(clonePositionPlacement);
 
   /** Plain, not $state: sync() must be safe to call from an $effect. */
   #loadedRestaurantId = '';

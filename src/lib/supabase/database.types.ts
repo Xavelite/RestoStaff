@@ -1874,8 +1874,8 @@ export type Database = {
           code: string
           created_at: string
           estimated_hourly_cost: number
-          id: string
           icon_key: string | null
+          id: string
           metadata: Json
           name: string
           restaurant_id: string
@@ -1888,8 +1888,8 @@ export type Database = {
           code: string
           created_at?: string
           estimated_hourly_cost?: number
-          id?: string
           icon_key?: string | null
+          id?: string
           metadata?: Json
           name: string
           restaurant_id: string
@@ -1902,8 +1902,8 @@ export type Database = {
           code?: string
           created_at?: string
           estimated_hourly_cost?: number
-          id?: string
           icon_key?: string | null
+          id?: string
           metadata?: Json
           name?: string
           restaurant_id?: string
@@ -3541,6 +3541,152 @@ export type Database = {
           },
           {
             foreignKeyName: "planned_shifts_week_fk"
+            columns: ["restaurant_id", "week_start"]
+            isOneToOne: false
+            referencedRelation: "work_weeks"
+            referencedColumns: ["restaurant_id", "week_start"]
+          },
+        ]
+      }
+      planning_draft_notes: {
+        Row: {
+          created_at: string
+          id: string
+          note: string
+          restaurant_id: string
+          service_key: string
+          updated_at: string
+          week_start: string
+          weekday: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note: string
+          restaurant_id: string
+          service_key: string
+          updated_at?: string
+          week_start: string
+          weekday: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string
+          restaurant_id?: string
+          service_key?: string
+          updated_at?: string
+          week_start?: string
+          weekday?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planning_draft_notes_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planning_draft_notes_service_fk"
+            columns: ["restaurant_id", "service_key"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["restaurant_id", "service_key"]
+          },
+          {
+            foreignKeyName: "planning_draft_notes_week_fk"
+            columns: ["restaurant_id", "week_start"]
+            isOneToOne: false
+            referencedRelation: "work_weeks"
+            referencedColumns: ["restaurant_id", "week_start"]
+          },
+        ]
+      }
+      planning_draft_shifts: {
+        Row: {
+          area_id: string | null
+          created_at: string
+          employee_id: string
+          ends_at: string | null
+          id: string
+          job_function_id: string | null
+          restaurant_id: string
+          service_key: string
+          source: Database["public"]["Enums"]["planned_shift_source"]
+          starts_at: string | null
+          updated_at: string
+          week_start: string
+          weekday: number
+        }
+        Insert: {
+          area_id?: string | null
+          created_at?: string
+          employee_id: string
+          ends_at?: string | null
+          id?: string
+          job_function_id?: string | null
+          restaurant_id: string
+          service_key: string
+          source?: Database["public"]["Enums"]["planned_shift_source"]
+          starts_at?: string | null
+          updated_at?: string
+          week_start: string
+          weekday: number
+        }
+        Update: {
+          area_id?: string | null
+          created_at?: string
+          employee_id?: string
+          ends_at?: string | null
+          id?: string
+          job_function_id?: string | null
+          restaurant_id?: string
+          service_key?: string
+          source?: Database["public"]["Enums"]["planned_shift_source"]
+          starts_at?: string | null
+          updated_at?: string
+          week_start?: string
+          weekday?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planning_draft_shifts_area_fk"
+            columns: ["restaurant_id", "area_id"]
+            isOneToOne: false
+            referencedRelation: "work_areas"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+          {
+            foreignKeyName: "planning_draft_shifts_employee_fk"
+            columns: ["restaurant_id", "employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+          {
+            foreignKeyName: "planning_draft_shifts_job_function_fk"
+            columns: ["restaurant_id", "job_function_id"]
+            isOneToOne: false
+            referencedRelation: "job_functions"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+          {
+            foreignKeyName: "planning_draft_shifts_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planning_draft_shifts_service_fk"
+            columns: ["restaurant_id", "service_key"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["restaurant_id", "service_key"]
+          },
+          {
+            foreignKeyName: "planning_draft_shifts_week_fk"
             columns: ["restaurant_id", "week_start"]
             isOneToOne: false
             referencedRelation: "work_weeks"
@@ -5477,8 +5623,8 @@ export type Database = {
           code: string
           color: string | null
           created_at: string
-          id: string
           icon_key: string | null
+          id: string
           metadata: Json
           name: string
           notes: string | null
@@ -5492,8 +5638,8 @@ export type Database = {
           code: string
           color?: string | null
           created_at?: string
-          id?: string
           icon_key?: string | null
+          id?: string
           metadata?: Json
           name: string
           notes?: string | null
@@ -5507,8 +5653,8 @@ export type Database = {
           code?: string
           color?: string | null
           created_at?: string
-          id?: string
           icon_key?: string | null
+          id?: string
           metadata?: Json
           name?: string
           notes?: string | null
@@ -6082,6 +6228,14 @@ export type Database = {
         Args: { p_employee_id: string; p_facts: Json; p_restaurant_id: string }
         Returns: Json
       }
+      discard_manager_planning_draft: {
+        Args: {
+          p_expected_revision: number
+          p_restaurant_id: string
+          p_week_start: string
+        }
+        Returns: Json
+      }
       employee_invitation_states_for_restaurant: {
         Args: { p_restaurant_id: string }
         Returns: Json
@@ -6532,14 +6686,6 @@ export type Database = {
         }
         Returns: Json
       }
-      discard_manager_planning_draft: {
-        Args: {
-          p_expected_revision: number
-          p_restaurant_id: string
-          p_week_start: string
-        }
-        Returns: Json
-      }
       save_owner_onboarding_draft: {
         Args: { p_draft: Json; p_step: number }
         Returns: Json
@@ -6576,24 +6722,6 @@ export type Database = {
           p_restaurant_id: string
           p_rooms: Json
           p_services: Json
-          p_tables: Json
-        }
-        Returns: Json
-      }
-      save_venue_model: {
-        Args: {
-          p_area_service_defaults: Json
-          p_areas: Json
-          p_combinations?: Json
-          p_coverage_requirements: Json
-          p_expected_revision?: number
-          p_floors: Json
-          p_job_functions: Json
-          p_opening_hours: Json
-          p_restaurant: Json
-          p_restaurant_id: string
-          p_rooms: Json
-          p_settings: Json
           p_tables: Json
         }
         Returns: Json
@@ -6652,6 +6780,24 @@ export type Database = {
           p_reason: string
           p_restaurant_id: string
           p_time_entry_id: string
+        }
+        Returns: Json
+      }
+      save_venue_model: {
+        Args: {
+          p_area_service_defaults: Json
+          p_areas: Json
+          p_combinations?: Json
+          p_coverage_requirements: Json
+          p_expected_revision?: number
+          p_floors: Json
+          p_job_functions: Json
+          p_opening_hours: Json
+          p_restaurant: Json
+          p_restaurant_id: string
+          p_rooms: Json
+          p_settings: Json
+          p_tables: Json
         }
         Returns: Json
       }

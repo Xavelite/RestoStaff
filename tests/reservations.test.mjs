@@ -87,15 +87,75 @@ test('reservation JSON parsers provide stable safe defaults', () => {
   });
 });
 
-test('area editor can create reservation rooms during its first transactional save', async () => {
+test('reservation layout revives canonical floor and room identities safely', async () => {
   const migration = await readFile(
-    'supabase/migrations/20260726153249_upsert_reservation_rooms_from_venue_editor.sql',
+    'supabase/migrations/20260727100005_reservation_floor_identity_and_service_defaults.sql',
     'utf8'
   );
 
   assert.match(migration, /insert into public\.reservation_rooms/i);
-  assert.match(migration, /on conflict \(id\) do update set/i);
-  assert.match(migration, /work_area_id = excluded\.work_area_id/i);
+  assert.match(migration, /on conflict \(restaurant_id, level\) do update set/i);
+  assert.match(migration, /on conflict \(restaurant_id, work_area_id\) do update set/i);
+  assert.match(migration, /v_floor_map/);
+  assert.match(migration, /v_room_map/);
+  assert.match(migration, /reservation_tables_active_room_label_key/i);
+  assert.match(migration, /where active/i);
+});
+
+test('reservation services default online booking off without blocking operators', async () => {
+  const migration = await readFile(
+    'supabase/migrations/20260727100005_reservation_floor_identity_and_service_defaults.sql',
+    'utf8'
+  );
+
+  assert.match(migration, /services_ensure_reservation_setting/i);
+  assert.match(migration, /new\.service_key,\s*false/is);
+  assert.match(
+    migration,
+    /not v_setting\.booking_enabled\s+and not public\.is_owner_or_manager\(p_restaurant_id\)/is
+  );
+});
+
+test('live reservations never exposes stale dates or superseded availability results', async () => {
+  const workspace = await readFile(
+    'src/lib/reservations/ReservationsWorkspace.svelte',
+    'utf8'
+  );
+
+  assert.match(
+    workspace,
+    /const currentData = \$derived\(data\?\.businessDate === selectedDate \? data : null\)/
+  );
+  assert.match(workspace, /let availabilityRequestId = 0/);
+  assert.match(workspace, /const current = \+\+availabilityRequestId/);
+  assert.match(workspace, /const availabilityDraft: ReservationDraft = \{ \.\.\.draft \}/);
+  assert.match(workspace, /if \(current !== availabilityRequestId\) return;\s*availability = result/);
+  assert.match(workspace, /if \(current === availabilityRequestId\) availabilityLoading = false/);
+  assert.match(workspace, /function isCurrentWorkspaceRequest\(/);
+  assert.match(workspace, /restaurantId === workspace\.activeId/);
+  assert.match(workspace, /date === selectedDate/);
+  assert.match(workspace, /if \(!currentData\) return;/);
+  assert.match(workspace, /workspace\.activeId === restaurantId && selectedDate === viewDate/);
+  assert.match(workspace, /\{#if loading && !currentData\}/);
+});
+
+test('restaurant area catalogue prevents duplicate identities and revives archived areas', async () => {
+  const workspace = await readFile(
+    'src/lib/reservations/ReservationFloorPlansWorkspace.svelte',
+    'utf8'
+  );
+
+  assert.match(workspace, /function catalogueAreaItems\(/);
+  assert.match(workspace, /area\.id !== currentAreaId && area\.catalogueKey/);
+  assert.match(workspace, /disabled:\s*Boolean\(existing && !canRestore\)/);
+  assert.match(workspace, /existing\.active\s*\?\s*t\('Already added'\)/s);
+  assert.match(workspace, /items=\{catalogueAreaItems\('', true\)\}/);
+  assert.match(workspace, /existingArea\.active = true/);
+  assert.match(workspace, /room\.active = true/);
+  assert.match(
+    workspace,
+    /draft\.rooms\.find\(\(candidate\) => candidate\.work_area_id === existingArea\.id\)/
+  );
 });
 
 

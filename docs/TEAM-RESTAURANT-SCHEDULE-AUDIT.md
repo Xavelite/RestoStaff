@@ -39,7 +39,8 @@ An entered invalid NISS/BIS value remains editable and is shown as a warning. A 
 ### Remaining intentional blockers
 
 - A blank employee full name cannot be saved.
-- Only an owner can change owner-only legal or payroll-preparation fields.
+- Managers can maintain operational legal identity; payroll-preparation and
+  financial fields remain owner-only.
 - Sending an invitation requires a usable email address.
 - An entered contract end date cannot precede its start date.
 

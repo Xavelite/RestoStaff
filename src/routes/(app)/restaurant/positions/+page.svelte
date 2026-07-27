@@ -13,6 +13,9 @@
   import ClassicCellBadge from '$lib/classic/ClassicCellBadge.svelte';
   import Dialog from '$lib/components/Dialog.svelte';
   import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
+  import WorkspaceCataloguePicker, {
+    type WorkspaceCataloguePickerItem
+  } from '$lib/restaurant/WorkspaceCataloguePicker.svelte';
   import {
     WORKSPACE_POSITION_CATALOGUE,
     workspacePositionByKey
@@ -119,22 +122,6 @@
     (key !== 'cost' || workspace.canViewFinancials) && !hidden.has(key);
   const colCount = $derived(4 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length);
   const persistedPositionIds = $derived(new Set((workspace.restaurant?.job_functions ?? []).map((position) => position.id)));
-  const availableCataloguePositions = $derived.by(() => {
-    const areas = restaurantConfig.draft?.areas.filter((area) => area.active) ?? [];
-    const areaKeys = new Set(areas.map((area) => area.catalogueKey).filter(Boolean));
-    const usedKeys = new Set(
-      (restaurantConfig.draft?.jobFunctions ?? [])
-        .filter((position) => position.active)
-        .map((position) => position.catalogueKey)
-        .filter(Boolean)
-    );
-    return WORKSPACE_POSITION_CATALOGUE.filter(
-      (position) =>
-        !usedKeys.has(position.key) &&
-        (position.areaKeys.length === 0 ||
-          position.areaKeys.some((areaKey) => areaKeys.has(areaKey)))
-    );
-  });
   const positionAreaEditor = $derived(
     restaurantConfig.draft?.jobFunctions.find(
       (position) => position.id === positionAreaEditorId
@@ -160,15 +147,77 @@
     restaurantConfig.placementPosition(position);
     restaurantConfig.touch();
     newPositionId = id;
+    collapsedGroups = [];
     await tick();
-    document.querySelector<HTMLInputElement>(`[data-position-name="${id}"]`)?.focus();
   }
 
-  function applyPositionCatalogue(position: PositionRow) {
-    if (position.catalogueKey) return;
-    const match = availableCataloguePositions.find(
-      (item) => item.label.toLowerCase() === position.name.trim().toLowerCase()
+  function positionCategoryIcon(category: string): string {
+    if (category === 'bar') return 'bar';
+    if (category === 'kitchen') return 'kitchen';
+    if (category === 'takeaway') return 'takeaway';
+    if (category === 'management') return 'office';
+    if (category === 'service') return 'dining';
+    return 'support';
+  }
+
+  function positionCategoryColor(category: string): string {
+    if (category === 'bar') return '#2563eb';
+    if (category === 'kitchen') return '#ef4444';
+    if (category === 'takeaway') return '#f59e0b';
+    if (category === 'management') return '#6366f1';
+    if (category === 'service') return '#f97316';
+    return '#64748b';
+  }
+
+  function positionCategoryLabel(category: string): string {
+    if (category === 'management') return t('Management');
+    if (category === 'service') return t('Service');
+    if (category === 'bar') return t('Bar');
+    if (category === 'kitchen') return t('Kitchen');
+    if (category === 'takeaway') return t('Takeaway');
+    return t('Support');
+  }
+
+  function positionCatalogueItems(position: PositionRow): WorkspaceCataloguePickerItem[] {
+    const draft = restaurantConfig.draft;
+    const areaKeys = new Set(
+      (draft?.areas ?? [])
+        .filter((area) => area.active)
+        .map((area) => area.catalogueKey)
+        .filter(Boolean)
     );
+    const existingByKey = new Map(
+      (draft?.jobFunctions ?? [])
+        .filter((candidate) => candidate.id !== position.id && candidate.catalogueKey)
+        .map((candidate) => [candidate.catalogueKey, candidate])
+    );
+    return WORKSPACE_POSITION_CATALOGUE.map((item) => {
+      const existing = existingByKey.get(item.key);
+      const areaMatch =
+        item.areaKeys.length === 0 ||
+        item.areaKeys.some((areaKey) => areaKeys.has(areaKey));
+      return {
+        key: item.key,
+        label: t(item.label),
+        category: positionCategoryLabel(item.category),
+        icon: positionCategoryIcon(item.category),
+        color: positionCategoryColor(item.category),
+        recommended: item.starter && areaMatch,
+        disabled: Boolean(existing),
+        disabledReason: existing
+          ? existing.active
+            ? t('Already added')
+            : t('Already added · archived')
+          : undefined
+      };
+    });
+  }
+
+  function selectPositionCatalogue(
+    position: PositionRow,
+    item: WorkspaceCataloguePickerItem
+  ): void {
+    const match = WORKSPACE_POSITION_CATALOGUE.find((candidate) => candidate.key === item.key);
     if (!match || !restaurantConfig.draft) return;
     const areaIds = restaurantConfig.draft.areas
       .filter(
@@ -178,16 +227,28 @@
           match.areaKeys.some((areaKey) => areaKey === area.catalogueKey)
       )
       .map((area) => area.id);
+    position.name = t(match.label);
     position.catalogueKey = match.key;
+    position.iconKey = positionCategoryIcon(match.category);
     position.areaIds = areaIds;
     position.primaryAreaId = areaIds[0] ?? '';
+    newPositionId = '';
+    restaurantConfig.touch();
+  }
+
+  function makePositionCustom(position: PositionRow, value: string): void {
+    position.name = value;
+    position.catalogueKey = '';
+    position.iconKey = '';
+    if (value) newPositionId = '';
     restaurantConfig.touch();
   }
 
   function positionAreaIcon(position: PositionRow): string {
     const areaId = position.primaryAreaId || position.areaIds[0] || '';
     return (
-      restaurantConfig.draft?.areas.find((area) => area.id === areaId)?.iconKey ??
+      restaurantConfig.draft?.areas.find((area) => area.id === areaId)?.iconKey ||
+      position.iconKey ||
       'support'
     );
   }
@@ -260,6 +321,7 @@
   }
 
   function matches(position: PositionRow) {
+    if (position.id === newPositionId) return true;
     const stable = placementForPosition(position);
     const term = search.trim().toLowerCase();
     const headcount = employeesByPosition.get(position.id)?.size ?? 0;
@@ -390,27 +452,37 @@
                 {#if !collapsedGroups.includes(group.key)}
                   {#each group.rows as position (position.id)}
                     {@const headcount = employeesByPosition.get(position.id)?.size ?? 0}
-                    <tr draggable={!sort && groupBy === 'none' && !workspace.isPreview} ondragstart={() => (dragId = position.id)} ondragend={() => (dragId = '')} ondragover={(event) => { if (!sort && groupBy === 'none') event.preventDefault(); }} ondrop={() => movePosition(position.id)}>
+                    <tr class:is-new={newPositionId === position.id} draggable={!sort && groupBy === 'none' && !workspace.isPreview} ondragstart={() => (dragId = position.id)} ondragend={() => (dragId = '')} ondragover={(event) => { if (!sort && groupBy === 'none') event.preventDefault(); }} ondrop={() => movePosition(position.id)}>
                       <td class="cl-grip"><button type="button" disabled={Boolean(sort) || groupBy !== 'none' || workspace.isPreview} title={sort || groupBy !== 'none' ? t('Clear grouping and sorting to reorder') : t('Drag to reorder')} aria-label={t('Drag to reorder')}>⋮⋮</button></td>
                       <td>
-                        <div class="position-identity">
+                        <div class="position-identity" data-position-name={position.id}>
                           <WorkspaceAreaIcon
                             icon={positionAreaIcon(position)}
                             color={positionColor.get(position.id) ?? 'var(--cl-line-strong)'}
                             size={15}
                           />
-                          <input
-                            class="cl-field"
-                            data-position-name={position.id}
-                            list="restaurant-position-catalogue"
-                            placeholder={t('Select or type a position')}
-                            disabled={workspace.isPreview}
+                          <WorkspaceCataloguePicker
+                            inputId={`position-catalogue-${position.id}`}
                             bind:value={position.name}
-                            oninput={() => restaurantConfig.touch()}
-                            onchange={() => applyPositionCatalogue(position)}
-                            onblur={() => {
-                              applyPositionCatalogue(position);
-                              if (newPositionId === position.id) newPositionId = '';
+                            selectedKey={position.catalogueKey}
+                            items={positionCatalogueItems(position)}
+                            placeholder={t('Select or type a position')}
+                            label={t('Select or type a position')}
+                            disabled={workspace.isPreview}
+                            autoOpen={newPositionId === position.id}
+                            recommendedLabel={t('Recommended')}
+                            allLabel={t('All positions')}
+                            customLabel={t('Custom position')}
+                            browseLabel={t('Browse system positions')}
+                            noMatchesLabel={t('No matching system positions')}
+                            customDescription={t('Keep this position specific to your restaurant')}
+                            formatCustomLabel={(name) =>
+                              t('Use “{name}” as a custom position', { name })}
+                            onvaluechange={() => restaurantConfig.touch()}
+                            onselect={(item) => selectPositionCatalogue(position, item)}
+                            oncustom={(value) => makePositionCustom(position, value)}
+                            onclose={() => {
+                              if (position.name.trim()) newPositionId = '';
                             }}
                           />
                         </div>
@@ -467,12 +539,6 @@
   </ClassicTablePanel>
 {/if}
 
-<datalist id="restaurant-position-catalogue">
-  {#each availableCataloguePositions as item (item.key)}
-    <option value={item.label}>{item.category}</option>
-  {/each}
-</datalist>
-
 <Dialog
   open={Boolean(positionAreaEditor)}
   title={positionAreaEditor ? `Areas for ${positionAreaEditor.name}` : 'Position areas'}
@@ -521,6 +587,7 @@
   .cost { width: 120px; text-align: right; }
   .position-identity { min-width: 200px; display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 9px; }
   .position-identity :global(.area-icon) { width: 30px; height: 30px; border-radius: 6px; }
+  .cl-table tr.is-new td { background: color-mix(in srgb, var(--cl-accent) 4%, var(--cl-surface)); }
   .primary-area-field { min-width: 165px; display: grid; grid-template-columns: 7px minmax(0, 1fr); align-items: center; gap: 8px; }
   .primary-area-field > span { width: 7px; height: 24px; border-radius: 2px; background: var(--area-color); }
   .primary-area-field select { min-width: 145px; }

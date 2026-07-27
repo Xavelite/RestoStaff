@@ -33,6 +33,9 @@
     workspaceAreaByKey
   } from '$lib/restaurant/workspace-catalogue';
   import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
+  import WorkspaceCataloguePicker, {
+    type WorkspaceCataloguePickerItem
+  } from '$lib/restaurant/WorkspaceCataloguePicker.svelte';
 
   let {
     mode = 'tables',
@@ -53,9 +56,10 @@
   let selectedTableId = $state('');
   let tableToArchive = $state<ReservationTableDraft | null>(null);
   let newAreaId = $state('');
+  let addingArea = $state(false);
+  let newAreaName = $state('');
   let compactViewport = $state(false);
   let editorView = $state<'plan' | 'list'>('list');
-  let tableLayoutMode = $state<'tables' | 'areas'>('tables');
   type AreaDirectoryPlacement = {
     id: string;
     floorOrder: number;
@@ -69,15 +73,38 @@
   const ROOM_GRID = 20;
   const TABLE_GRID = 10;
   const editorReadOnly = $derived(compactViewport || workspace.isPreview);
-  const availableCatalogueAreas = $derived.by(() => {
-    const usedKeys = new Set(
+  function catalogueAreaItems(
+    currentAreaId = '',
+    allowArchivedRevival = false
+  ): WorkspaceCataloguePickerItem[] {
+    const existingByKey = new Map(
       (restaurantContext?.draft.areas ?? [])
-        .filter((area) => area.active)
-        .map((area) => area.catalogueKey)
-        .filter(Boolean)
+        .filter((area) => area.id !== currentAreaId && area.catalogueKey)
+        .map((area) => [area.catalogueKey, area])
     );
-    return WORKSPACE_AREA_CATALOGUE.filter((area) => !usedKeys.has(area.key));
-  });
+    return WORKSPACE_AREA_CATALOGUE.map((area) => {
+      const existing = existingByKey.get(area.key);
+      const canRestore = Boolean(existing && !existing.active && allowArchivedRevival);
+      return {
+        key: area.key,
+        label: area.label,
+        category: canRestore
+          ? `${t('Archived')} · ${t('Restore')}`
+          : area.category,
+        icon: area.icon,
+        color: area.color,
+        recommended: area.starter,
+        disabled: Boolean(existing && !canRestore),
+        disabledReason: existing
+          ? existing.active
+            ? t('Already added')
+            : canRestore
+              ? undefined
+              : t('Already added · archived')
+          : undefined
+      };
+    });
+  }
 
   onMount(() => {
     const media = window.matchMedia('(max-width: 760px)');
@@ -159,6 +186,9 @@
   );
   const orderedAreaRooms = $derived(
     [...mergedRooms].sort((left, right) => {
+      const leftIsNew = left.work_area_id === newAreaId;
+      const rightIsNew = right.work_area_id === newAreaId;
+      if (leftIsNew !== rightIsNew) return leftIsNew ? -1 : 1;
       const leftPlacement = areaDirectoryPlacement.snapshotFor(
         directoryPlacement(left)
       );
@@ -215,6 +245,9 @@
       }
       selectedRoomId = '';
       selectedTableId = '';
+      newAreaId = '';
+      addingArea = false;
+      newAreaName = '';
     } catch (cause) {
       error = friendlyError(cause);
     } finally {
@@ -385,11 +418,6 @@
     return level > 0 ? `+${level}` : `${level}`;
   }
 
-  function setTableLayoutMode(next: 'tables' | 'areas'): void {
-    tableLayoutMode = next;
-    selectedTableId = '';
-  }
-
   function areaIconFor(areaId: string): string {
     return restaurantContext?.draft.areas.find((area) => area.id === areaId)?.iconKey ?? '';
   }
@@ -429,13 +457,81 @@
     );
   }
 
-  async function addArea() {
+  async function createArea(
+    catalogueItem: WorkspaceCataloguePickerItem | null,
+    customName = ''
+  ) {
     if (!draft || !selectedFloor || !restaurantContext || workspace.isPreview) return;
     const areas = restaurantContext.draft.areas;
+    const existingArea = catalogueItem
+      ? areas.find((area) => area.catalogueKey === catalogueItem.key)
+      : null;
+    if (existingArea) {
+      if (existingArea.active) return;
+      existingArea.active = true;
+      let room = draft.rooms.find((candidate) => candidate.work_area_id === existingArea.id);
+      if (room) {
+        room.active = true;
+        const roomFloor = draft.floors.find(
+          (floor) => floor.id === room!.floor_id && floor.active
+        );
+        if (!roomFloor) {
+          const geometry = nextAreaGeometry(selectedFloor, floorRooms.length);
+          room.floor_id = selectedFloor.id;
+          room.position_x = geometry.x;
+          room.position_y = geometry.y;
+          room.width = geometry.width;
+          room.height = geometry.height;
+          if (geometry.y + geometry.height + ROOM_GRID > selectedFloor.canvas_height) {
+            selectedFloor.canvas_height = Math.min(
+              1200,
+              snap(geometry.y + geometry.height + ROOM_GRID)
+            );
+          }
+        }
+      } else {
+        const geometry = nextAreaGeometry(selectedFloor, floorRooms.length);
+        room = {
+          id: crypto.randomUUID(),
+          work_area_id: existingArea.id,
+          floor_id: selectedFloor.id,
+          position_x: geometry.x,
+          position_y: geometry.y,
+          width: geometry.width,
+          height: geometry.height,
+          active: true,
+          sort_order: draft.rooms.length
+        };
+        if (geometry.y + geometry.height + ROOM_GRID > selectedFloor.canvas_height) {
+          selectedFloor.canvas_height = Math.min(
+            1200,
+            snap(geometry.y + geometry.height + ROOM_GRID)
+          );
+        }
+        draft.rooms = [...draft.rooms, room];
+      }
+      areaDirectoryPlacement.snapshotFor(directoryPlacement(room));
+      selectedFloorId = room.floor_id ?? selectedFloor.id;
+      selectedRoomId = room.id;
+      selectedTableId = '';
+      restaurantConfig.touch();
+      touch();
+      newAreaId = existingArea.id;
+      addingArea = false;
+      newAreaName = '';
+      await tick();
+      document.getElementById(`area-picker-${existingArea.id}`)?.scrollIntoView({
+        block: 'nearest',
+        inline: 'nearest'
+      });
+      return;
+    }
     const id = crypto.randomUUID();
+    const fallbackName = `${t('Area')} ${areas.filter((item) => item.active).length + 1}`;
+    const name = (catalogueItem?.label ?? customName.trim()) || fallbackName;
     const area = {
       id,
-      name: '',
+      name,
       code: '',
       notes: '',
       active: true,
@@ -443,9 +539,9 @@
       lunchEnd: '',
       eveningStart: '',
       eveningEnd: '',
-      color: defaultAreaColor(areas.length),
-      catalogueKey: '',
-      iconKey: ''
+      color: catalogueItem?.color ?? defaultAreaColor(areas.length),
+      catalogueKey: catalogueItem?.key ?? '',
+      iconKey: catalogueItem?.icon ?? ''
     };
     areas.push(area);
     const geometry = nextAreaGeometry(selectedFloor, floorRooms.length);
@@ -473,26 +569,35 @@
     restaurantConfig.touch();
     touch();
     newAreaId = id;
+    addingArea = false;
+    newAreaName = '';
     await tick();
-    document.querySelector<HTMLInputElement>(`[data-area-name="${id}"]`)?.focus();
+    document.getElementById(`area-picker-${id}`)?.scrollIntoView({
+      block: 'nearest',
+      inline: 'nearest'
+    });
   }
 
-  function applyAreaCatalogue(areaId: string): void {
+  function selectAreaCatalogue(
+    areaId: string,
+    item: WorkspaceCataloguePickerItem
+  ): void {
     const area = restaurantContext?.draft.areas.find((candidate) => candidate.id === areaId);
-    if (!area || area.catalogueKey) return;
-    const match = availableCatalogueAreas.find(
-      (item) => item.label.toLowerCase() === area.name.trim().toLowerCase()
-    );
-    if (!match) return;
-    area.catalogueKey = match.key;
-    area.color = match.color;
-    area.iconKey = match.icon;
+    if (!area) return;
+    area.name = item.label;
+    area.catalogueKey = item.key;
+    area.color = item.color ?? area.color;
+    area.iconKey = item.icon ?? '';
     restaurantConfig.touch();
   }
 
-  function areaNameChanged(areaId: string): void {
-    applyAreaCatalogue(areaId);
-    if (newAreaId === areaId) newAreaId = '';
+  function selectCustomArea(areaId: string, name: string): void {
+    const area = restaurantContext?.draft.areas.find((candidate) => candidate.id === areaId);
+    if (!area) return;
+    if (name.trim()) area.name = name.trim();
+    area.catalogueKey = '';
+    area.iconKey = '';
+    restaurantConfig.touch();
   }
 
   async function archiveArea(roomId = selectedRoomId) {
@@ -632,50 +737,55 @@
     if (!selectedFloor || !draft) return;
     const target = draft.rooms.find((item) => item.id === room.id);
     if (!target) return;
-    const nextX = clamp(snap(positionX), 0, selectedFloor.canvas_width - 160);
-    const nextY = clamp(snap(positionY), 0, selectedFloor.canvas_height - 120);
-    const nextWidth = Math.max(
+    let nextX = clamp(snap(positionX), 0, selectedFloor.canvas_width - 160);
+    let nextY = clamp(snap(positionY), 0, selectedFloor.canvas_height - 120);
+    let nextWidth = Math.max(
       160,
       Math.min(selectedFloor.canvas_width - nextX, width)
     );
-    const nextHeight = Math.max(
+    let nextHeight = Math.max(
       120,
       Math.min(selectedFloor.canvas_height - nextY, height)
     );
+
+    // An area may never be resized through its tables. Preserve the manager's
+    // table layout and constrain the requested area edge to the occupied
+    // extents instead of stacking tables against one another.
+    const inset = 12;
+    const topInset = 28;
+    const activeTables = draft.tables.filter(
+      (table) => table.room_id === room.id && table.active
+    );
+    if (activeTables.length) {
+      const requestedRight = nextX + nextWidth;
+      const requestedBottom = nextY + nextHeight;
+      const occupiedLeft =
+        Math.min(...activeTables.map((table) => Number(table.position_x))) - inset;
+      const occupiedTop =
+        Math.min(...activeTables.map((table) => Number(table.position_y))) - topInset;
+      const occupiedRight =
+        Math.max(
+          ...activeTables.map(
+            (table) => Number(table.position_x) + Number(table.width)
+          )
+        ) + inset;
+      const occupiedBottom =
+        Math.max(
+          ...activeTables.map(
+            (table) => Number(table.position_y) + Number(table.height)
+          )
+        ) + inset;
+      nextX = clamp(Math.min(nextX, occupiedLeft), 0, selectedFloor.canvas_width - 160);
+      nextY = clamp(Math.min(nextY, occupiedTop), 0, selectedFloor.canvas_height - 120);
+      nextWidth = Math.max(160, Math.max(requestedRight, occupiedRight) - nextX);
+      nextHeight = Math.max(120, Math.max(requestedBottom, occupiedBottom) - nextY);
+      nextWidth = Math.min(nextWidth, selectedFloor.canvas_width - nextX);
+      nextHeight = Math.min(nextHeight, selectedFloor.canvas_height - nextY);
+    }
     target.position_x = nextX;
     target.position_y = nextY;
     target.width = nextWidth;
     target.height = nextHeight;
-
-    // Tables use floor coordinates. When an area shrinks or moves from its
-    // top/left edge, keep every table inside the new bounds instead of leaving
-    // an apparently lost table outside the room.
-    const inset = 12;
-    const topInset = 28;
-    draft.tables
-      .filter((table) => table.room_id === room.id && table.active)
-      .forEach((table) => {
-        const minimumX = nextX + inset;
-        const maximumX = Math.max(
-          minimumX,
-          nextX + nextWidth - Number(table.width) - inset
-        );
-        const minimumY = nextY + topInset;
-        const maximumY = Math.max(
-          minimumY,
-          nextY + nextHeight - Number(table.height) - inset
-        );
-        table.position_x = clamp(
-          snap(clamp(Number(table.position_x), minimumX, maximumX), TABLE_GRID),
-          minimumX,
-          maximumX
-        );
-        table.position_y = clamp(
-          snap(clamp(Number(table.position_y), minimumY, maximumY), TABLE_GRID),
-          minimumY,
-          maximumY
-        );
-      });
     touch();
   }
 
@@ -803,26 +913,69 @@
     touch();
   }
 
+  function recommendedTableFootprint(
+    capacity: number,
+    shape: ReservationTableDraft['shape']
+  ): { width: number; height: number } {
+    const seats = clamp(Math.round(Number(capacity) || 1), 1, 16);
+    if (shape === 'round' || shape === 'square') {
+      const size = clamp(76 + Math.ceil(Math.max(0, seats - 2) / 2) * 14, 76, 160);
+      return { width: size, height: size };
+    }
+    return {
+      width: clamp(94 + Math.ceil(Math.max(0, seats - 4) / 2) * 20, 94, 190),
+      height: seats > 10 ? 90 : seats > 6 ? 82 : 72
+    };
+  }
+
+  function fitTableToCapacity(
+    table: ReservationTableDraft,
+    allowShrink = false
+  ): void {
+    const recommendation = recommendedTableFootprint(
+      table.maximum_capacity,
+      table.shape
+    );
+    const width = allowShrink
+      ? recommendation.width
+      : Math.max(Number(table.width), recommendation.width);
+    const height = allowShrink
+      ? recommendation.height
+      : Math.max(Number(table.height), recommendation.height);
+    resizeTable(
+      table,
+      Number(table.position_x),
+      Number(table.position_y),
+      width,
+      height
+    );
+  }
+
+  function tableCapacityChanged(
+    table: ReservationTableDraft,
+    field: 'minimum' | 'maximum',
+    rawValue: string
+  ): void {
+    const value = Math.round(Number(rawValue) || 1);
+    if (field === 'minimum') {
+      table.minimum_capacity = clamp(value, 1, 100);
+      table.maximum_capacity = Math.max(
+        table.minimum_capacity,
+        Number(table.maximum_capacity) || table.minimum_capacity
+      );
+    } else {
+      table.maximum_capacity = clamp(value, table.minimum_capacity, 500);
+    }
+    fitTableToCapacity(table);
+  }
+
   function setTableShape(
     table: ReservationTableDraft,
     shape: ReservationTableDraft['shape']
   ) {
     if (table.shape === shape) return;
     table.shape = shape;
-    if (shape === 'round' || shape === 'square') {
-      const size = Math.max(64, Math.min(Number(table.width), Number(table.height)));
-      resizeTable(table, Number(table.position_x), Number(table.position_y), size, size);
-    } else if (Math.abs(Number(table.width) - Number(table.height)) < TABLE_GRID) {
-      resizeTable(
-        table,
-        Number(table.position_x),
-        Number(table.position_y),
-        Number(table.width) + 40,
-        Number(table.height)
-      );
-    } else {
-      touch();
-    }
+    fitTableToCapacity(table, true);
   }
 
   function turnTable(table: ReservationTableDraft) {
@@ -908,12 +1061,13 @@
 
   function addTable() {
     if (!draft || !selectedRoomDraft) return;
-    const roomTables = draft.tables.filter((table) => table.room_id === selectedRoomDraft.id);
+    const roomTables = draft.tables.filter(
+      (table) => table.room_id === selectedRoomDraft.id && table.active
+    );
     const labels = new Set(roomTables.map((table) => table.label));
     let number = 1;
     while (labels.has(String(number))) number += 1;
-    const width = 86;
-    const height = 86;
+    const { width, height } = recommendedTableFootprint(2, 'round');
     const position = nextTablePosition(selectedRoomDraft, width, height, roomTables);
     const table: ReservationTableDraft = {
       id: crypto.randomUUID(),
@@ -938,7 +1092,9 @@
 
   function duplicateTable(table: ReservationTableDraft) {
     if (!draft) return;
-    const roomTables = draft.tables.filter((item) => item.room_id === table.room_id);
+    const roomTables = draft.tables.filter(
+      (item) => item.room_id === table.room_id && item.active
+    );
     const room = draft.rooms.find((item) => item.id === table.room_id);
     if (!room) return;
     const labels = new Set(roomTables.map((item) => item.label.toLowerCase()));
@@ -975,21 +1131,49 @@
   }
 
   function canSave(): boolean {
-    return Boolean(
-      draft &&
-      draft.floors.every(
+    if (!draft) return false;
+    const activeFloors = draft.floors.filter((floor) => floor.active);
+    const activeRooms = draft.rooms.filter((room) => room.active);
+    const activeTables = draft.tables.filter((table) => table.active);
+    const activeAreas = restaurantContext?.draft.areas.filter((area) => area.active) ?? [];
+    if (
+      !activeFloors.every(
         (floor) =>
           floor.name.trim() &&
           floor.canvas_width >= 400 &&
           floor.canvas_height >= 300
-      ) &&
-      draft.tables.every(
-        (table) =>
-          table.label.trim() &&
-          table.minimum_capacity >= 1 &&
-          table.maximum_capacity >= table.minimum_capacity
-      )
-    );
+      ) ||
+      !activeRooms.every(
+        (room) =>
+          room.work_area_id &&
+          room.floor_id &&
+          activeFloors.some((floor) => floor.id === room.floor_id)
+      ) ||
+      (restaurantContext &&
+        (!activeAreas.every((area) => area.name.trim()) ||
+          activeAreas.some(
+            (area) =>
+              activeRooms.filter((room) => room.work_area_id === area.id).length !== 1
+          )))
+    ) {
+      return false;
+    }
+
+    const tableLabels = new Set<string>();
+    for (const table of activeTables) {
+      if (
+        !table.label.trim() ||
+        table.minimum_capacity < 1 ||
+        table.maximum_capacity < table.minimum_capacity ||
+        !activeRooms.some((room) => room.id === table.room_id)
+      ) {
+        return false;
+      }
+      const key = `${table.room_id}:${table.label.trim().toLocaleLowerCase()}`;
+      if (tableLabels.has(key)) return false;
+      tableLabels.add(key);
+    }
+    return true;
   }
 
   async function save() {
@@ -1023,6 +1207,9 @@
       '';
     selectedRoomId = '';
     selectedTableId = '';
+    newAreaId = '';
+    addingArea = false;
+    newAreaName = '';
     restaurantContext?.discard();
   }
 
@@ -1094,12 +1281,41 @@
           <button class:is-active={editorView === 'list'} type="button" onclick={() => (editorView = 'list')}>{t('List')}</button>
           <button class:is-active={editorView === 'plan'} type="button" onclick={() => (editorView = 'plan')}>{t('Plan')}</button>
         </div>
-        <button class="cl-btn is-primary" type="button" disabled={!selectedFloor || editorReadOnly} onclick={() => void addArea()}>+ {t('Add area')}</button>
-      {:else}
-        <div class="view-switch" aria-label={t('View')}>
-          <button class:is-active={tableLayoutMode === 'tables'} type="button" onclick={() => setTableLayoutMode('tables')}>{t('Arrange tables')}</button>
-          <button class:is-active={tableLayoutMode === 'areas'} type="button" title={t('Drag areas; pull an edge or corner to resize.')} onclick={() => setTableLayoutMode('areas')}>{t('Areas')}</button>
-        </div>
+        {#if addingArea}
+          <div class="add-area-picker">
+            <WorkspaceCataloguePicker
+              inputId="new-area-catalogue"
+              bind:value={newAreaName}
+              items={catalogueAreaItems('', true)}
+              label={t('Choose an area')}
+              placeholder={t('Search system areas')}
+              autoOpen
+              recommendedLabel={t('Suggested areas')}
+              allLabel={t('All system areas')}
+              customLabel={t('Custom area')}
+              browseLabel={t('Browse system areas')}
+              noMatchesLabel={t('No matching system areas')}
+              customDescription={t('Keep this area specific to your restaurant')}
+              formatCustomLabel={(name) => t('Use “{name}” as a custom area', { name })}
+              onselect={(item) => void createArea(item)}
+              oncustom={(name) => void createArea(null, name)}
+              onclose={() => {
+                addingArea = false;
+                newAreaName = '';
+              }}
+            />
+          </div>
+        {:else}
+          <button
+            class="cl-btn is-primary"
+            type="button"
+            disabled={!selectedFloor || editorReadOnly}
+            onclick={() => {
+              addingArea = true;
+              newAreaName = '';
+            }}
+          >+ {t('Add area')}</button>
+        {/if}
       {/if}
     {/snippet}
     {#snippet children()}
@@ -1122,21 +1338,32 @@
                 {#each orderedAreaRooms as room (room.id)}
                   {@const floor = draft.floors.find((item) => item.id === room.floor_id)}
                   {@const areaDraft = restaurantContext?.draft.areas.find((area) => area.id === room.work_area_id)}
-                  <tr class:is-attention={!room.floor_id}>
+                  <tr
+                    class:is-attention={!room.floor_id}
+                    class:is-new={room.work_area_id === newAreaId}
+                  >
                     <td>
                       <span class="area-row-name">
                         <WorkspaceAreaIcon icon={areaIconFor(room.work_area_id)} color={room.area_color} size={18} />
                         {#if areaDraft}
-                          <input
-                            class="cl-field"
-                            data-area-name={areaDraft.id}
-                            list="restaurant-area-catalogue"
+                          <WorkspaceCataloguePicker
+                            inputId={`area-picker-${areaDraft.id}`}
+                            bind:value={areaDraft.name}
+                            selectedKey={areaDraft.catalogueKey}
+                            items={catalogueAreaItems(areaDraft.id)}
+                            label={t('Area')}
                             placeholder={t('Select or type an area')}
                             disabled={editorReadOnly}
-                            bind:value={areaDraft.name}
-                            oninput={() => restaurantConfig.touch()}
-                            onchange={() => areaNameChanged(areaDraft.id)}
-                            onblur={() => areaNameChanged(areaDraft.id)}
+                            recommendedLabel={t('Suggested areas')}
+                            allLabel={t('All system areas')}
+                            customLabel={t('Custom area')}
+                            browseLabel={t('Browse system areas')}
+                            noMatchesLabel={t('No matching system areas')}
+                            customDescription={t('Keep this area specific to your restaurant')}
+                            formatCustomLabel={(name) => t('Use “{name}” as a custom area', { name })}
+                            onvaluechange={() => restaurantConfig.touch()}
+                            onselect={(item) => selectAreaCatalogue(areaDraft.id, item)}
+                            oncustom={(name) => selectCustomArea(areaDraft.id, name)}
                           />
                         {:else}
                           <strong>{room.name}</strong>
@@ -1207,7 +1434,28 @@
                     />
                   </header>
                   {@render floorNavigator()}
-                  <label class="area-name"><span>{t('Area name')}</span><input class="cl-field" data-area-name={selectedAreaDraft.id} list="restaurant-area-catalogue" placeholder={t('Select or type an area')} disabled={editorReadOnly} bind:value={selectedAreaDraft.name} oninput={() => restaurantConfig.touch()} onchange={() => areaNameChanged(selectedAreaDraft.id)} onblur={() => areaNameChanged(selectedAreaDraft.id)} /></label>
+                  <label class="area-name">
+                    <span>{t('Area name')}</span>
+                    <WorkspaceCataloguePicker
+                      inputId={`area-picker-${selectedAreaDraft.id}`}
+                      bind:value={selectedAreaDraft.name}
+                      selectedKey={selectedAreaDraft.catalogueKey}
+                      items={catalogueAreaItems(selectedAreaDraft.id)}
+                      label={t('Area name')}
+                      placeholder={t('Select or type an area')}
+                      disabled={editorReadOnly}
+                      recommendedLabel={t('Suggested areas')}
+                      allLabel={t('All system areas')}
+                      customLabel={t('Custom area')}
+                      browseLabel={t('Browse system areas')}
+                      noMatchesLabel={t('No matching system areas')}
+                      customDescription={t('Keep this area specific to your restaurant')}
+                      formatCustomLabel={(name) => t('Use “{name}” as a custom area', { name })}
+                      onvaluechange={() => restaurantConfig.touch()}
+                      onselect={(item) => selectAreaCatalogue(selectedAreaDraft.id, item)}
+                      oncustom={(name) => selectCustomArea(selectedAreaDraft.id, name)}
+                    />
+                  </label>
                   <label>
                     <span>{t('Move to floor')}</span>
                     <select
@@ -1239,19 +1487,7 @@
                 </div>
               {/if}
 
-              {#if mode === 'tables' && tableLayoutMode === 'areas' && selectedRoom}
-                <div class="selection-bar room-selection is-above">
-                  <header class="inspector-head"><WorkspaceAreaIcon icon={areaIconFor(selectedRoom.work_area_id)} color={selectedRoom.area_color} size={20} /><div><strong>{selectedRoom.name}</strong><small>{floorLabel(selectedFloor)}</small></div></header>
-                  {@render floorNavigator()}
-                  <dl class="inspector-stats">
-                    <div><dt>{t('Floor')}</dt><dd>{floorLabel(selectedFloor)}</dd></div>
-                    <div><dt>{t('Tables')}</dt><dd>{floorTables.filter((table) => table.room_id === selectedRoom.id).length}</dd></div>
-                  </dl>
-                  <p class="resize-note">{t('Drag to move. Pull any edge or corner to reshape; nearby areas align automatically.')}</p>
-                </div>
-              {:else if mode === 'tables' && tableLayoutMode === 'areas'}
-                <div class="selection-hint is-above">{@render floorNavigator()}<strong>{t('Choose an area')}</strong><p>{t('Drag areas; pull an edge or corner to resize.')}</p></div>
-              {:else if mode === 'tables' && selectedTable}
+              {#if mode === 'tables' && selectedTable}
                 <div class="selection-bar table-selection is-above">
                   <header class="inspector-head">
                     <span class="inspector-glyph table-glyph is-{selectedTable.shape}" aria-hidden="true"></span>
@@ -1276,9 +1512,9 @@
                   <div class="capacity-field">
                     <span>{t('Capacity')}</span>
                     <div>
-                      <label><small>{t('Minimum')}</small><input class="cl-field" disabled={editorReadOnly} type="number" min="1" max="100" bind:value={selectedTable.minimum_capacity} oninput={touch} /></label>
+                      <label><small>{t('Minimum')}</small><input class="cl-field" disabled={editorReadOnly} type="number" min="1" max="100" value={selectedTable.minimum_capacity} oninput={(event) => tableCapacityChanged(selectedTable, 'minimum', event.currentTarget.value)} /></label>
                       <span aria-hidden="true">–</span>
-                      <label><small>{t('Maximum')}</small><input class="cl-field" disabled={editorReadOnly} type="number" min="1" max="500" bind:value={selectedTable.maximum_capacity} oninput={touch} /></label>
+                      <label><small>{t('Maximum')}</small><input class="cl-field" disabled={editorReadOnly} type="number" min="1" max="500" value={selectedTable.maximum_capacity} oninput={(event) => tableCapacityChanged(selectedTable, 'maximum', event.currentTarget.value)} /></label>
                     </div>
                   </div>
                   <div class="shape-field">
@@ -1307,6 +1543,12 @@
                     <div><dt>{t('Footprint')}</dt><dd>{tableFootprint(selectedTable)}</dd></div>
                     <div><dt>{t('Seats')}</dt><dd>{selectedTable.minimum_capacity}–{selectedTable.maximum_capacity}</dd></div>
                   </dl>
+                  <button
+                    class="cl-btn is-subtle"
+                    type="button"
+                    disabled={editorReadOnly}
+                    onclick={() => fitTableToCapacity(selectedTable, true)}
+                  >{t('Fit table to seats')}</button>
                   <label class="table-availability">
                     <input type="checkbox" disabled={editorReadOnly} bind:checked={selectedTable.blocked} onchange={touch} />
                     <span><strong>{t('Temporarily unavailable')}</strong><small>{t('Keep this table off the live seating plan.')}</small></span>
@@ -1320,12 +1562,16 @@
                 <div class="selection-bar room-selection is-above">
                   <header class="inspector-head"><WorkspaceAreaIcon icon={areaIconFor(selectedRoom.work_area_id)} color={selectedRoom.area_color} size={20} /><div><strong>{selectedRoom.name}</strong><small>{t('Dining area')}</small></div></header>
                   {@render floorNavigator()}
-                  <p class="resize-note">{t('Tables snap into a clean alignment as you drag.')}</p>
+                  <dl class="inspector-stats">
+                    <div><dt>{t('Floor')}</dt><dd>{floorLabel(selectedFloor)}</dd></div>
+                    <div><dt>{t('Tables')}</dt><dd>{floorTables.filter((table) => table.room_id === selectedRoom.id).length}</dd></div>
+                  </dl>
+                  <p class="resize-note">{t('Drag the area background to move it. Pull any edge or corner to reshape it; tables remain safely inside.')}</p>
                   <button class="cl-btn" type="button" disabled={editorReadOnly} onclick={() => arrangeTables()}>{t('Arrange tables')}</button>
                   <button class="cl-btn is-primary" type="button" disabled={editorReadOnly} onclick={addTable}>+ {t('Add table')}</button>
                 </div>
               {:else if mode === 'tables'}
-                <div class="selection-hint is-above">{@render floorNavigator()}<strong>{t('Choose an area')}</strong><p>{t('Select an area on the plan to add and arrange its tables.')}</p></div>
+                <div class="selection-hint is-above">{@render floorNavigator()}<strong>{t('Choose an area')}</strong><p>{t('Select an area to add tables, or drag its background to adjust the layout.')}</p></div>
               {/if}
 
               {#if compactViewport}
@@ -1345,26 +1591,26 @@
                   editable={!editorReadOnly}
                   showHeader={false}
                   floorEditable={mode === 'areas' && !editorReadOnly}
-                  roomsEditable={(mode === 'areas' || tableLayoutMode === 'areas') && !editorReadOnly}
-                  tablesEditable={mode === 'tables' && tableLayoutMode === 'tables' && !editorReadOnly}
-                  tablesSelectable={mode !== 'tables' || tableLayoutMode === 'tables'}
+                  roomsEditable={!editorReadOnly}
+                  tablesEditable={mode === 'tables' && !editorReadOnly}
+                  tablesSelectable
                   showTableCount={mode === 'tables'}
-                  {selectedRoomId}
+                  selectedRoomId={selectedTableId ? '' : selectedRoomId}
                   {selectedTableId}
                   emptyMessage="Place an area on this floor, then add its tables."
                   onroomselect={(room) => {
                     selectedRoomId = room.id;
                     selectedTableId = '';
                   }}
-                  onroommove={mode === 'areas' || tableLayoutMode === 'areas' ? moveRoom : () => {}}
-                  onroomresize={mode === 'areas' || tableLayoutMode === 'areas' ? resizeRoom : () => {}}
+                  onroommove={moveRoom}
+                  onroomresize={resizeRoom}
                   onfloorresize={mode === 'areas' ? resizeFloor : () => {}}
                   onselect={(table) => {
                     selectedTableId = table.id;
                     selectedRoomId = table.room_id;
                   }}
-                  onmove={mode === 'tables' && tableLayoutMode === 'tables' ? moveTable : () => {}}
-                  onresize={mode === 'tables' && tableLayoutMode === 'tables' ? resizeTable : () => {}}
+                  onmove={mode === 'tables' ? moveTable : () => {}}
+                  onresize={mode === 'tables' ? resizeTable : () => {}}
                 />
               </div>
 
@@ -1384,12 +1630,6 @@
     {/snippet}
 </ClassicTablePanel>
 
-<datalist id="restaurant-area-catalogue">
-  {#each availableCatalogueAreas as item (item.key)}
-    <option value={item.label}>{item.category}</option>
-  {/each}
-</datalist>
-
 <Dialog open={Boolean(tableToArchive)} title="Archive table" description="Past reservations keep their table history." size="small" onclose={() => (tableToArchive = null)}>
   {#snippet children()}<p class="dialog-copy">{t('Archive table {label}?', { label: tableToArchive?.label ?? '' })}</p>{/snippet}
   {#snippet footer()}
@@ -1407,8 +1647,11 @@
   .view-switch { display: inline-flex; align-items: center; padding: 2px; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); background: var(--cl-surface-muted); }
   .view-switch button { min-height: 30px; padding: 5px 12px; border: 0; border-radius: calc(var(--cl-radius) - 2px); background: transparent; color: var(--cl-muted); font: inherit; font-size: 12px; font-weight: var(--rst-fw-medium); cursor: pointer; }
   .view-switch button.is-active { background: var(--cl-surface); color: var(--cl-ink); box-shadow: 0 1px 3px rgb(15 23 42 / 10%); }
+  .add-area-picker { width: min(320px, 42vw); }
   .area-directory { --cl-grid-max-height: calc(100dvh - 190px); }
   .area-directory .cl-table { min-width: 680px; }
+  .area-directory tr.is-new > td { background: color-mix(in srgb, var(--cl-accent) 6%, var(--cl-surface)); }
+  .area-directory tr.is-new > td:first-child { box-shadow: inset 3px 0 0 var(--cl-accent); }
   .area-row-name { min-width: 230px; display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 9px; }
   .area-row-name > strong { font-size: 12px; }
   .floor-select { min-width: 150px; }

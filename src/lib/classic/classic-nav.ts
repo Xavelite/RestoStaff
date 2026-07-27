@@ -44,6 +44,7 @@ export type ClassicIcon =
   | 'payroll'
   | 'badge'
   | 'reports'
+  | 'exports'
   | 'settings';
 
 const MANAGER: WorkspaceRole[] = ['owner', 'manager'];
@@ -226,6 +227,15 @@ const CLASSIC_MODULES: ClassicModule[] = [
     ]
   },
   {
+    key: 'exports',
+    href: '/exports',
+    label: 'Exports',
+    summary: 'Operational files for planning, worked time and payroll handoff',
+    icon: 'exports',
+    roles: MANAGER,
+    navSection: 'reports'
+  },
+  {
     key: 'settings',
     href: '/settings/connections',
     label: 'Settings',
@@ -270,6 +280,7 @@ const MODULE_ORDER = [
   'reservations',
   'payroll',
   'reports',
+  'exports',
   'settings',
   'inventory',
   'recipes',

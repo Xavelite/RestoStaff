@@ -209,7 +209,7 @@
   }
 
   function tableSeats(table: FloorTable): TableSeat[] {
-    const count = clamp(Math.round(Number(table.maximum_capacity)), 1, 12);
+    const count = clamp(Math.round(Number(table.maximum_capacity)), 1, 16);
     if (count === 1) return [{ side: 'top', offset: 0.5 }];
     if (count === 2) {
       return [
@@ -1118,12 +1118,12 @@
     background: transparent;
     touch-action: none;
   }
-  .resize-handle.is-top, .resize-handle.is-bottom { height: 14px; right: 18px; left: 18px; cursor: ns-resize; }
-  .resize-handle.is-top { top: -7px; }
-  .resize-handle.is-bottom { bottom: -7px; }
-  .resize-handle.is-right, .resize-handle.is-left { width: 14px; top: 18px; bottom: 18px; cursor: ew-resize; }
-  .resize-handle.is-right { right: -7px; }
-  .resize-handle.is-left { left: -7px; }
+  .resize-handle.is-top, .resize-handle.is-bottom { height: 20px; right: 20px; left: 20px; cursor: ns-resize; }
+  .resize-handle.is-top { top: -10px; }
+  .resize-handle.is-bottom { bottom: -10px; }
+  .resize-handle.is-right, .resize-handle.is-left { width: 20px; top: 20px; bottom: 20px; cursor: ew-resize; }
+  .resize-handle.is-right { right: -10px; }
+  .resize-handle.is-left { left: -10px; }
   .resize-handle.is-top::after, .resize-handle.is-bottom::after,
   .resize-handle.is-right::after, .resize-handle.is-left::after {
     content: '';
@@ -1137,17 +1137,17 @@
   .resize-handle.is-right::after, .resize-handle.is-left::after { width: 3px; height: 34px; left: 50%; top: 50%; transform: translate(-50%, -50%); }
   .resize-handle.is-top-left, .resize-handle.is-top-right,
   .resize-handle.is-bottom-right, .resize-handle.is-bottom-left {
-    width: 18px;
-    height: 18px;
+    width: 24px;
+    height: 24px;
     border: 2px solid var(--cl-surface);
     border-radius: 4px;
     background: var(--room-color);
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--room-color) 78%, var(--cl-line-strong));
   }
-  .resize-handle.is-top-left { top: -9px; left: -9px; cursor: nwse-resize; }
-  .resize-handle.is-top-right { top: -9px; right: -9px; cursor: nesw-resize; }
-  .resize-handle.is-bottom-right { right: -9px; bottom: -9px; cursor: nwse-resize; }
-  .resize-handle.is-bottom-left { bottom: -9px; left: -9px; cursor: nesw-resize; }
+  .resize-handle.is-top-left { top: -12px; left: -12px; cursor: nwse-resize; }
+  .resize-handle.is-top-right { top: -12px; right: -12px; cursor: nesw-resize; }
+  .resize-handle.is-bottom-right { right: -12px; bottom: -12px; cursor: nwse-resize; }
+  .resize-handle.is-bottom-left { bottom: -12px; left: -12px; cursor: nesw-resize; }
   .floor-resize.is-top, .floor-resize.is-bottom { height: 16px; right: 24px; left: 24px; cursor: ns-resize; }
   .floor-resize.is-top { top: -9px; }
   .floor-resize.is-bottom { bottom: -9px; }
@@ -1318,22 +1318,22 @@
   }
   .table-resize.is-top,
   .table-resize.is-bottom {
-    height: 14px;
+    height: 18px;
     right: 12px;
     left: 12px;
     cursor: ns-resize;
   }
-  .table-resize.is-top { top: -7px; }
-  .table-resize.is-bottom { bottom: -7px; }
+  .table-resize.is-top { top: -9px; }
+  .table-resize.is-bottom { bottom: -9px; }
   .table-resize.is-right,
   .table-resize.is-left {
-    width: 14px;
+    width: 18px;
     top: 12px;
     bottom: 12px;
     cursor: ew-resize;
   }
-  .table-resize.is-right { right: -7px; }
-  .table-resize.is-left { left: -7px; }
+  .table-resize.is-right { right: -9px; }
+  .table-resize.is-left { left: -9px; }
   .table-resize.is-top::after,
   .table-resize.is-bottom::after,
   .table-resize.is-right::after,
@@ -1365,17 +1365,17 @@
   .table-resize.is-top-right,
   .table-resize.is-bottom-right,
   .table-resize.is-bottom-left {
-    width: 15px;
-    height: 15px;
+    width: 20px;
+    height: 20px;
     border: 2px solid var(--cl-surface);
     border-radius: 50%;
     background: var(--cl-accent);
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--cl-accent) 72%, var(--cl-line-strong));
   }
-  .table-resize.is-top-left { top: -8px; left: -8px; cursor: nwse-resize; }
-  .table-resize.is-top-right { top: -8px; right: -8px; cursor: nesw-resize; }
-  .table-resize.is-bottom-right { right: -8px; bottom: -8px; cursor: nwse-resize; }
-  .table-resize.is-bottom-left { bottom: -8px; left: -8px; cursor: nesw-resize; }
+  .table-resize.is-top-left { top: -10px; left: -10px; cursor: nwse-resize; }
+  .table-resize.is-top-right { top: -10px; right: -10px; cursor: nesw-resize; }
+  .table-resize.is-bottom-right { right: -10px; bottom: -10px; cursor: nwse-resize; }
+  .table-resize.is-bottom-left { bottom: -10px; left: -10px; cursor: nesw-resize; }
   .table-resize:hover::after { opacity: 1; }
   .table-footprint {
     position: absolute;

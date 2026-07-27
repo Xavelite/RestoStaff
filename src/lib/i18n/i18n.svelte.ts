@@ -3390,6 +3390,82 @@ Object.assign(dutch, {
   'Payroll export columns': 'Kolommen voor loonexport'
 });
 
+Object.assign(french, {
+  'Operational files for planning, worked time and payroll handoff':
+    'Fichiers opérationnels pour le planning, les heures prestées et le transfert paie',
+  'Choose a valid date range': 'Choisissez une période valide',
+  'The end date must be on or after the start date.':
+    'La date de fin doit être égale ou postérieure à la date de début.',
+  'Choose a shorter export period': "Choisissez une période d'export plus courte",
+  'Exports can cover at most 53 weeks.':
+    'Les exports peuvent couvrir au maximum 53 semaines.',
+  'Operational exports unavailable': 'Exports opérationnels indisponibles',
+  'The social-secretariat file remains available because it is prepared separately on the server.':
+    'Le fichier pour le secrétariat social reste disponible car il est préparé séparément sur le serveur.',
+  'Available exports': 'Exports disponibles',
+  'Operational files': 'Fichiers opérationnels',
+  'Choose the file you need. Every export uses the selected period.':
+    'Choisissez le fichier nécessaire. Chaque export utilise la période sélectionnée.',
+  File: 'Fichier',
+  Includes: 'Contenu',
+  Records: 'Enregistrements',
+  Action: 'Action',
+  'Planning CSV': 'Planning CSV',
+  'Current saved planning': 'Planning actuellement enregistré',
+  'Employees, services, times, areas and positions.':
+    'Employés, services, horaires, zones et fonctions.',
+  'Download CSV': 'Télécharger le CSV',
+  'Worked-time CSV': 'Heures prestées CSV',
+  'Badge and corrected time': 'Pointages et corrections',
+  'Clock times, breaks, net hours and actual assignments.':
+    'Pointages, pauses, heures nettes et affectations réelles.',
+  'Social-secretariat CSV': 'Secrétariat social CSV',
+  'Owner-only draft': 'Brouillon propriétaire',
+  'Payroll identities and worked-time handoff.':
+    'Identités paie et transfert des heures prestées.',
+  'Select complete Monday-to-Sunday weeks.':
+    'Sélectionnez des semaines complètes du lundi au dimanche.',
+  'Preparing…': 'Préparation…'
+});
+
+Object.assign(dutch, {
+  'Operational files for planning, worked time and payroll handoff':
+    'Operationele bestanden voor planning, gewerkte tijd en loonoverdracht',
+  'Choose a valid date range': 'Kies een geldige periode',
+  'The end date must be on or after the start date.':
+    'De einddatum moet op of na de begindatum liggen.',
+  'Choose a shorter export period': 'Kies een kortere exportperiode',
+  'Exports can cover at most 53 weeks.':
+    'Exports kunnen maximaal 53 weken beslaan.',
+  'Operational exports unavailable': 'Operationele exports niet beschikbaar',
+  'The social-secretariat file remains available because it is prepared separately on the server.':
+    'Het bestand voor het sociaal secretariaat blijft beschikbaar omdat het afzonderlijk op de server wordt voorbereid.',
+  'Available exports': 'Beschikbare exports',
+  'Operational files': 'Operationele bestanden',
+  'Choose the file you need. Every export uses the selected period.':
+    'Kies het bestand dat je nodig hebt. Elke export gebruikt de geselecteerde periode.',
+  File: 'Bestand',
+  Includes: 'Inhoud',
+  Records: 'Registraties',
+  Action: 'Actie',
+  'Planning CSV': 'Planning CSV',
+  'Current saved planning': 'Huidige opgeslagen planning',
+  'Employees, services, times, areas and positions.':
+    'Medewerkers, diensten, tijden, zones en functies.',
+  'Download CSV': 'CSV downloaden',
+  'Worked-time CSV': 'Gewerkte tijd CSV',
+  'Badge and corrected time': 'Badgetijden en correcties',
+  'Clock times, breaks, net hours and actual assignments.':
+    'Kloktijden, pauzes, netto-uren en werkelijke toewijzingen.',
+  'Social-secretariat CSV': 'Sociaal secretariaat CSV',
+  'Owner-only draft': 'Concept voor eigenaar',
+  'Payroll identities and worked-time handoff.':
+    'Loonidentiteiten en overdracht van gewerkte tijd.',
+  'Select complete Monday-to-Sunday weeks.':
+    'Selecteer volledige weken van maandag tot en met zondag.',
+  'Preparing…': 'Voorbereiden…'
+});
+
 const dictionaries: Record<Exclude<AppLocale, 'en'>, Record<string, string>> = {
   fr: french,
   nl: dutch
@@ -4692,4 +4768,98 @@ Object.assign(dutch, {
   'No primary area': 'Geen primaire zone',
   'Select or type a position': 'Selecteer of typ een functie',
   'Edit linked areas': 'Gekoppelde zones bewerken'
+});
+
+Object.assign(french, {
+  'tables ready': 'tables prêtes',
+  'Choose date': 'Choisir une date',
+  'Online off': 'En ligne désactivé',
+  'Edit layout': 'Modifier le plan',
+  'Online bookings on': 'Réservations en ligne actives',
+  'Online bookings off': 'Réservations en ligne désactivées',
+  'Service unavailable': 'Service indisponible',
+  'Service ready': 'Service prêt'
+});
+
+Object.assign(dutch, {
+  'tables ready': 'tafels klaar',
+  'Choose date': 'Datum kiezen',
+  'Online off': 'Online uit',
+  'Edit layout': 'Plan bewerken',
+  'Online bookings on': 'Online reservaties aan',
+  'Online bookings off': 'Online reservaties uit',
+  'Service unavailable': 'Service niet beschikbaar',
+  'Service ready': 'Service klaar'
+});
+
+Object.assign(french, {
+  'Recommended': 'Recommandé',
+  'All catalogue items': 'Tous les éléments du catalogue',
+  'Custom item': 'Élément personnalisé',
+  'Browse catalogue': 'Parcourir le catalogue',
+  'No matching catalogue items': 'Aucun élément correspondant dans le catalogue',
+  'Create something specific to your restaurant': 'Créez un élément propre à votre restaurant',
+  'Use “{name}”': 'Utiliser « {name} »',
+  'Already added': 'Déjà ajouté',
+  'Already added · archived': 'Déjà ajouté · archivé',
+  'Custom position': 'Poste personnalisé',
+  'Browse system positions': 'Parcourir les postes standards',
+  'No matching system positions': 'Aucun poste standard correspondant',
+  'Keep this position specific to your restaurant': 'Conserver ce poste propre à votre restaurant',
+  'Use “{name}” as a custom position': 'Utiliser « {name} » comme poste personnalisé',
+  'Bar': 'Bar',
+  'Kitchen': 'Cuisine',
+  'Takeaway': 'Vente à emporter',
+  'Support': 'Assistance'
+});
+
+Object.assign(dutch, {
+  'Recommended': 'Aanbevolen',
+  'All catalogue items': 'Alle catalogusitems',
+  'Custom item': 'Aangepast item',
+  'Browse catalogue': 'Catalogus bekijken',
+  'No matching catalogue items': 'Geen overeenkomende catalogusitems',
+  'Create something specific to your restaurant': 'Maak iets specifieks voor je restaurant',
+  'Use “{name}”': '“{name}” gebruiken',
+  'Already added': 'Al toegevoegd',
+  'Already added · archived': 'Al toegevoegd · gearchiveerd',
+  'Custom position': 'Aangepaste functie',
+  'Browse system positions': 'Systeemfuncties bekijken',
+  'No matching system positions': 'Geen overeenkomende systeemfuncties',
+  'Keep this position specific to your restaurant': 'Houd deze functie specifiek voor je restaurant',
+  'Use “{name}” as a custom position': '“{name}” als aangepaste functie gebruiken',
+  'Bar': 'Bar',
+  'Kitchen': 'Keuken',
+  'Takeaway': 'Afhaal',
+  'Support': 'Ondersteuning'
+});
+
+Object.assign(french, {
+  'Search system areas': 'Rechercher dans les zones standards',
+  'Suggested areas': 'Zones suggérées',
+  'All system areas': 'Toutes les zones standards',
+  'Browse system areas': 'Parcourir les zones standards',
+  'No matching system areas': 'Aucune zone standard correspondante',
+  'Keep this area specific to your restaurant': 'Conserver cette zone propre à votre restaurant',
+  'Use “{name}” as a custom area': 'Utiliser « {name} » comme zone personnalisée',
+  'Fit table to seats': 'Adapter la table aux places',
+  'Drag the area background to move it. Pull any edge or corner to reshape it; tables remain safely inside.':
+    'Faites glisser le fond de la zone pour la déplacer. Tirez un bord ou un coin pour la redimensionner ; les tables restent à l’intérieur.',
+  'Select an area to add tables, or drag its background to adjust the layout.':
+    'Sélectionnez une zone pour ajouter des tables, ou faites glisser son fond pour ajuster le plan.'
+});
+
+Object.assign(dutch, {
+  'Search system areas': 'Systeemzones zoeken',
+  'Suggested areas': 'Voorgestelde zones',
+  'All system areas': 'Alle systeemzones',
+  'Browse system areas': 'Systeemzones bekijken',
+  'No matching system areas': 'Geen overeenkomende systeemzones',
+  'Keep this area specific to your restaurant': 'Houd deze zone specifiek voor je restaurant',
+  'Use “{name}” as a custom area': '“{name}” als aangepaste zone gebruiken',
+  'Fit table to seats': 'Tafel aan zitplaatsen aanpassen',
+  'Drag the area background to move it. Pull any edge or corner to reshape it; tables remain safely inside.':
+    'Sleep de achtergrond van de zone om ze te verplaatsen. Trek aan een rand of hoek om ze te vormen; tafels blijven veilig binnen de zone.',
+  'Select an area to add tables, or drag its background to adjust the layout.':
+    'Selecteer een zone om tafels toe te voegen, of sleep de achtergrond om de indeling aan te passen.'
 });

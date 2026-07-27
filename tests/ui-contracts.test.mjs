@@ -210,7 +210,8 @@ test('Restaurant Areas is the visible floor editor and Team groups positions by 
   assert.match(nav, /\{ href: '\/restaurant\/areas', label: 'Areas' \}/);
   assert.match(areasRoute, /mode="areas"/);
   assert.match(floorPlans, /mode\?: 'areas' \| 'tables'/);
-  assert.match(floorPlans, /async function addArea\(\)/);
+  assert.match(floorPlans, /async function createArea\(/);
+  assert.match(floorPlans, /<WorkspaceCataloguePicker/);
   assert.match(floorPlans, /class="cl-field floor-select"/);
   assert.doesNotMatch(floorPlans, /<th>\{t\('Type'\)\}<\/th>/);
   assert.match(positions, /async function addPosition\(\)/);
@@ -252,6 +253,12 @@ test('operational core exposes planning, attendance and payroll as one classic w
   assert.match(live, /entry=\$\{encodeURIComponent\(slot\.key\)\}/);
   assert.match(live, /<ClassicRowMenu/);
   assert.match(reservations, /<ClassicRowMenu/);
+  assert.match(reservations, /<ClassicTablePanel>/);
+  assert.match(reservations, /Online bookings off/);
+  assert.match(reservations, /class="reservation-period"/);
+  assert.doesNotMatch(reservations, /Configure this service before taking bookings/);
+  assert.doesNotMatch(reservations, /ontoday=/);
+  assert.doesNotMatch(reservations, /class="reservation-summary"/);
   assert.doesNotMatch(reservations, /row-status-action/);
   assert.match(reservations, /const liveTableIds = new Set/);
   assert.match(reservations, /if \(reservation\.table_ids\.length\) return false/);
@@ -263,6 +270,25 @@ test('operational core exposes planning, attendance and payroll as one classic w
   }
   assert.match(absences, /href="\/settings\/absence-types"/);
   assert.doesNotMatch(absences, /href="\/restaurant\/absence-types"/);
+});
+
+test('Exports is a standalone manager module beside Reports', async () => {
+  const nav = await readFile('src/lib/classic/classic-nav.ts', 'utf8');
+  const exportsPage = await readFile('src/routes/(app)/exports/+page.svelte', 'utf8');
+  const payrollRedirect = await readFile('src/routes/(app)/payroll/exports/+page.ts', 'utf8');
+
+  assert.match(nav, /key: 'reports'[\s\S]*key: 'exports'/);
+  assert.match(nav, /key: 'exports'[\s\S]*href: '\/exports'[\s\S]*roles: MANAGER[\s\S]*navSection: 'reports'/);
+  assert.match(exportsPage, /planningPeriodCsv/);
+  assert.match(exportsPage, /workedTimeCsv/);
+  assert.match(exportsPage, /getExportOperationsReadModel/);
+  assert.match(exportsPage, /MAX_EXPORT_DAYS/);
+  assert.match(exportsPage, /previewSocialSecretariatCsv/);
+  assert.match(exportsPage, /workspace\.effectiveRole === 'owner'/);
+  assert.match(exportsPage, /disabled=\{!completeWeeks \|\| Boolean\(downloading\)\}/);
+  assert.match(exportsPage, /social-secretariat file remains available/);
+  assert.match(exportsPage, /downloadCsv/);
+  assert.match(payrollRedirect, /redirect\(307, '\/payroll\/employees'\)/);
 });
 
 test('restaurant coverage materializes only a complete weekday row before shared save', async () => {
@@ -456,7 +482,8 @@ test('Restaurant Areas is the direct-manipulation floor canvas instead of a dupl
   assert.match(workspace, /const CANONICAL_FLOOR_LEVELS = \[-1, 0, 1, 2\] as const/);
   assert.match(workspace, /function persistedFloorName\(/);
   assert.doesNotMatch(workspace, /function addFloor\(\)/);
-  assert.match(workspace, /function addArea\(/);
+  assert.match(workspace, /async function createArea\(/);
+  assert.match(workspace, /catalogueAreaItems/);
   assert.match(workspace, /onroomresize=/);
   assert.match(workspace, /onfloorresize=/);
   assert.match(workspace, /ROOM_GRID = 20/);

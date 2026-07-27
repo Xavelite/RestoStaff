@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
@@ -78,4 +79,26 @@ test('areas are modern colour anchors and positions inherit a lighter tint', () 
   );
   assert.equal(colors.get('waiter'), '#fa8f45');
   assert.notEqual(colors.get('waiter'), '#f97316');
+});
+
+test('position catalogue creation uses the shared accessible picker without hiding system roles', async () => {
+  const [picker, positions] = await Promise.all([
+    readFile('src/lib/restaurant/WorkspaceCataloguePicker.svelte', 'utf8'),
+    readFile('src/routes/(app)/restaurant/positions/+page.svelte', 'utf8')
+  ]);
+
+  assert.match(picker, /role="combobox"/);
+  assert.match(picker, /role="listbox"/);
+  assert.match(picker, /aria-activedescendant=/);
+  assert.match(picker, /event\.key === 'ArrowDown'/);
+  assert.match(picker, /event\.key === 'Escape'/);
+  assert.match(picker, /oncustom:/);
+  assert.match(positions, /<WorkspaceCataloguePicker/);
+  assert.match(positions, /WORKSPACE_POSITION_CATALOGUE\.map/);
+  assert.match(positions, /candidate\.id !== position\.id && candidate\.catalogueKey/);
+  assert.match(positions, /disabledReason:/);
+  assert.match(positions, /position\.catalogueKey = match\.key/);
+  assert.match(positions, /position\.catalogueKey = ''/);
+  assert.doesNotMatch(positions, /<datalist/);
+  assert.doesNotMatch(positions, /availableCataloguePositions/);
 });

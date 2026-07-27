@@ -308,36 +308,86 @@ begin
     raise exception 'Planning publication did not preserve its snapshot';
   end if;
 
-  begin
-    perform public.save_manager_planning(
-      v_restaurant_id,
-      v_planning_week,
-      'published',
-      v_shift,
-      '[]'::jsonb,
-      3,
-      'Silent overwrite attempt'
-    );
-    raise exception 'Published Planning was overwritten';
-  exception
-    when others then
-      if sqlerrm not like 'Revert the published plan%' then raise; end if;
-  end;
-
   perform public.save_manager_planning(
     v_restaurant_id,
     v_planning_week,
     'draft',
-    '[]'::jsonb,
+    v_shift,
     '[]'::jsonb,
     3,
-    'Reopened for fixture correction'
+    'Private manager edit'
   );
   if not exists (
     select 1 from public.planned_shifts
     where id = v_shift_id and ends_at = '15:30'::time
   ) then
-    raise exception 'Reverting Planning altered the published shift set';
+    raise exception 'Private Planning edit altered the employee-visible shift set';
+  end if;
+  if not exists (
+    select 1 from public.planning_draft_shifts
+    where restaurant_id = v_restaurant_id
+      and week_start = v_planning_week
+      and employee_id = v_employee_id
+      and ends_at = '15:00'::time
+  ) or not exists (
+    select 1 from public.work_weeks
+    where restaurant_id = v_restaurant_id
+      and week_start = v_planning_week
+      and planning_status = 'published'
+      and planning_has_unpublished_changes
+      and planning_revision = 4
+  ) then
+    raise exception 'Published Planning did not retain its private manager draft';
+  end if;
+
+  perform public.discard_manager_planning_draft(
+    v_restaurant_id,
+    v_planning_week,
+    4
+  );
+  if exists (
+    select 1 from public.planning_draft_shifts
+    where restaurant_id = v_restaurant_id and week_start = v_planning_week
+  ) or exists (
+    select 1 from public.work_weeks
+    where restaurant_id = v_restaurant_id
+      and week_start = v_planning_week
+      and planning_has_unpublished_changes
+  ) then
+    raise exception 'Discarding the private Planning draft did not restore published truth';
+  end if;
+
+  perform public.save_manager_planning(
+    v_restaurant_id,
+    v_planning_week,
+    'draft',
+    v_shift,
+    '[]'::jsonb,
+    5,
+    'Private edit before republish'
+  );
+  perform public.save_manager_planning(
+    v_restaurant_id,
+    v_planning_week,
+    'published',
+    v_shift,
+    '[]'::jsonb,
+    6,
+    'Explicit fixture republish'
+  );
+  if not exists (
+    select 1 from public.planned_shifts
+    where id = v_shift_id and ends_at = '15:00'::time
+  ) or exists (
+    select 1 from public.planning_draft_shifts
+    where restaurant_id = v_restaurant_id and week_start = v_planning_week
+  ) or exists (
+    select 1 from public.work_weeks
+    where restaurant_id = v_restaurant_id
+      and week_start = v_planning_week
+      and planning_has_unpublished_changes
+  ) then
+    raise exception 'Explicit Planning republish did not promote and clear the private draft';
   end if;
 
   insert into public.time_entries (

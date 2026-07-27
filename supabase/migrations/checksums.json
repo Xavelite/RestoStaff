@@ -127,6 +127,10 @@
     "20260727000355_modernize_workspace_area_palette.sql": "d4320890a6f232c7e50779200587ccb39c1d3c7dfea30140d9f52499d1215a63",
     "20260727020209_operational_capabilities_and_assignment_context.sql": "daf2c6f6738c4a9e8f02b4a0b7f6b9a0ae47447c238a795b3cdb7829c91a6ab2",
     "20260727020219_private_planning_drafts.sql": "87c0cf098c0ea924377d1c88e313f9abf8ceed12ce577d07b73d3aa00fb31164",
-    "20260727020710_index_private_planning_draft_foreign_keys.sql": "bdb73069b51617fb00dbbba7ce8e35d3d326b698a03d743b5668736d4b7a233b"
+    "20260727020710_index_private_planning_draft_foreign_keys.sql": "bdb73069b51617fb00dbbba7ce8e35d3d326b698a03d743b5668736d4b7a233b",
+    "20260727100005_reservation_floor_identity_and_service_defaults.sql": "961b4be56177b7fc7c185cd521345df10e8c19034333746bbb1825e24dda8b0a",
+    "20260727104311_revoke_archive_trigger_execute.sql": "92a8b56dbe2e12a02ae8758c62254c10d8878b23006bbd7eab6b841a901210b9",
+    "20260727113000_reservation_room_active_context.sql": "ed4d0ba837c66361d198eceebca24643297a1b94576b5bfddfd05ba95b6a17f8",
+    "20260727114500_reservation_room_archive_cascade.sql": "738445b30932b40896ea803e611c0fc92e5dc4f07ba431699f8011da2b8ddd8d"
   }
 }

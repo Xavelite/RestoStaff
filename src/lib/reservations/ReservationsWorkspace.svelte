@@ -5,8 +5,8 @@
   import { friendlyError } from '$lib/api/error-messages';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import ClassicPage from '$lib/classic/ClassicPage.svelte';
-  import ClassicPeriodNav from '$lib/classic/ClassicPeriodNav.svelte';
   import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
+  import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import ReservationFloorPlan from '$lib/reservations/ReservationFloorPlan.svelte';
   import ReservationStatusBadge from '$lib/reservations/ReservationStatusBadge.svelte';
   import {
@@ -54,21 +54,27 @@
   let editorReadOnly = $state(false);
   let availability = $state<AvailabilityResult | null>(null);
   let availabilityLoading = $state(false);
-  let availabilityTimer: ReturnType<typeof setTimeout> | null = null;
+  let availabilityRequestId = 0;
   let draft = $state<ReservationDraft>(emptyDraft('', '', ''));
 
+  const currentData = $derived(data?.businessDate === selectedDate ? data : null);
   const timezone = $derived(
-    data?.timezone || workspace.bootstrap?.restaurant_settings.timezone || 'Europe/Brussels'
+    currentData?.timezone || workspace.bootstrap?.restaurant_settings.timezone || 'Europe/Brussels'
   );
   const enabledServices = $derived(
-    (data?.services ?? []).filter((service) => service.setting?.booking_enabled)
+    (currentData?.services ?? []).filter((service) => service.setting?.booking_enabled)
   );
   const activeService = $derived(
-    data?.services.find((service) => service.service_key === selectedService) ?? null
+    currentData?.services.find((service) => service.service_key === selectedService) ?? null
+  );
+  const activeFloors = $derived(
+    (floorPlans?.floors ?? [])
+      .filter((floor) => floor.active)
+      .sort((left, right) => left.level - right.level || left.sort_order - right.sort_order)
   );
   const reservations = $derived.by(() => {
     const term = search.trim().toLowerCase();
-    return (data?.reservations ?? []).filter((reservation) => {
+    return (currentData?.reservations ?? []).filter((reservation) => {
       if (selectedService && reservation.service_key !== selectedService) return false;
       if (statusFilter && reservation.status !== statusFilter) return false;
       if (!term) return true;
@@ -87,7 +93,7 @@
     });
   });
   const operationalReservations = $derived(
-    (data?.reservations ?? []).filter(
+    (currentData?.reservations ?? []).filter(
       (reservation) =>
         (!selectedService || reservation.service_key === selectedService) &&
         !['cancelled', 'no_show', 'finished'].includes(reservation.status)
@@ -104,29 +110,38 @@
   const availableTables = $derived(
     Math.max(
       0,
-      (data?.tables.filter((table) => table.active && !table.blocked).length ?? 0) -
+      (currentData?.tables.filter((table) => table.active && !table.blocked).length ?? 0) -
         occupiedTables
     )
   );
+  const activeTableCount = $derived(
+    currentData?.tables.filter((table) => table.active && !table.blocked).length ?? 0
+  );
   const serviceReadiness = $derived(
-    !activeService?.setting?.booking_enabled
-      ? 'Setup required'
-      : data?.tables.length && availableTables === 0
+    !activeService
+      ? 'Service unavailable'
+      : activeTableCount && availableTables === 0
         ? 'Fully booked'
         : capacity !== null && covers >= capacity
           ? 'Cover limit reached'
-          : 'Accepting bookings'
+          : 'Service ready'
+  );
+  const onlineBookingsEnabled = $derived(
+    Boolean(activeService?.setting?.booking_enabled)
   );
   const liveFloor = $derived(
-    floorPlans?.floors.find((floor) => floor.id === liveFloorId) ??
-      floorPlans?.floors[0] ??
+    activeFloors.find((floor) => floor.id === liveFloorId) ??
+      activeFloors[0] ??
       null
   );
+  const liveFloorIndex = $derived(
+    activeFloors.findIndex((floor) => floor.id === liveFloor?.id)
+  );
   const liveRooms = $derived(
-    (data?.rooms ?? []).filter((room) => room.floor_id === liveFloor?.id)
+    (currentData?.rooms ?? []).filter((room) => room.floor_id === liveFloor?.id)
   );
   const liveTables = $derived(
-    (data?.tables ?? []).filter(
+    (currentData?.tables ?? []).filter(
       (table) => table.active && liveRooms.some((room) => room.id === table.room_id)
     )
   );
@@ -156,8 +171,10 @@
   });
 
   $effect(() => {
+    const current = ++availabilityRequestId;
     if (!editorOpen || !workspace.activeId || editorReadOnly) {
       availability = null;
+      availabilityLoading = false;
       return;
     }
     const input = JSON.stringify([
@@ -170,7 +187,6 @@
       draft.expected_revision
     ]);
     void input;
-    if (availabilityTimer) clearTimeout(availabilityTimer);
     if (
       !draft.business_date ||
       !draft.service_key ||
@@ -178,25 +194,35 @@
       !draft.party_size
     ) {
       availability = null;
+      availabilityLoading = false;
       return;
     }
+    availability = null;
     availabilityLoading = true;
     const activeRestaurantId = workspace.activeId;
-    availabilityTimer = setTimeout(async () => {
+    const availabilityDraft: ReservationDraft = { ...draft };
+    const timer = setTimeout(async () => {
       try {
-        availability = await checkReservationAvailability(activeRestaurantId!, draft);
+        const result = await checkReservationAvailability(activeRestaurantId, availabilityDraft);
+        if (current !== availabilityRequestId) return;
+        availability = result;
       } catch (error) {
+        if (current !== availabilityRequestId) return;
         availability = {
           available: false,
           code: 'error',
           reason: friendlyError(error)
         };
       } finally {
-        availabilityLoading = false;
+        if (current === availabilityRequestId) availabilityLoading = false;
       }
     }, 260);
     return () => {
-      if (availabilityTimer) clearTimeout(availabilityTimer);
+      clearTimeout(timer);
+      if (current === availabilityRequestId) {
+        availabilityRequestId += 1;
+        availabilityLoading = false;
+      }
     };
   });
 
@@ -209,7 +235,7 @@
         getReservationWorkspace(restaurantId, date),
         getReservationFloorPlans(restaurantId)
       ]);
-      if (current !== requestId) return;
+      if (!isCurrentWorkspaceRequest(current, restaurantId, date)) return;
       data = next;
       floorPlans = nextFloorPlans;
       if (
@@ -223,15 +249,32 @@
       }
       if (
         !liveFloorId ||
-        !nextFloorPlans.floors.some((floor) => floor.id === liveFloorId)
+        !nextFloorPlans.floors.some((floor) => floor.active && floor.id === liveFloorId)
       ) {
-        liveFloorId = nextFloorPlans.floors[0]?.id ?? '';
+        liveFloorId =
+          nextFloorPlans.floors.find((floor) => floor.active && floor.level === 0)?.id ??
+          nextFloorPlans.floors.find((floor) => floor.active)?.id ??
+          '';
       }
     } catch (error) {
-      if (current === requestId) loadError = friendlyError(error);
+      if (isCurrentWorkspaceRequest(current, restaurantId, date)) {
+        loadError = friendlyError(error);
+      }
     } finally {
-      if (current === requestId) loading = false;
+      if (isCurrentWorkspaceRequest(current, restaurantId, date)) loading = false;
     }
+  }
+
+  function isCurrentWorkspaceRequest(
+    current: number,
+    restaurantId: string,
+    date: string
+  ): boolean {
+    return (
+      current === requestId &&
+      restaurantId === workspace.activeId &&
+      date === selectedDate
+    );
   }
 
   function emptyDraft(
@@ -263,8 +306,9 @@
   }
 
   function openNewReservation(roomId = '') {
+    if (!currentData) return;
     const service =
-      data?.services.find((item) => item.service_key === selectedService) ??
+      currentData.services.find((item) => item.service_key === selectedService) ??
       enabledServices[0] ??
       null;
     draft = emptyDraft(selectedDate, service?.service_key ?? '', serviceStart(service));
@@ -273,6 +317,11 @@
     editorError = '';
     editorReadOnly = false;
     editorOpen = true;
+  }
+
+  function navigateLiveFloor(offset: number) {
+    const next = activeFloors[liveFloorIndex + offset];
+    if (next) liveFloorId = next.id;
   }
 
   function selectFloorTable(table: Omit<ReservationTable, 'restaurant_id'>, reservation: Reservation | null) {
@@ -284,6 +333,7 @@
   }
 
   function openReservation(reservation: Reservation) {
+    if (!currentData || reservation.business_date !== selectedDate) return;
     const localTime = new Intl.DateTimeFormat('en-GB', {
       timeZone: timezone,
       hour: '2-digit',
@@ -319,13 +369,19 @@
       editorError = t('Guest name is required.');
       return;
     }
+    const restaurantId = workspace.activeId;
+    const viewDate = selectedDate;
+    const reservationDraft: ReservationDraft = { ...draft };
+    const wasUpdate = Boolean(reservationDraft.id);
     editorSaving = true;
     editorError = '';
     try {
-      await saveReservation(workspace.activeId, draft);
+      await saveReservation(restaurantId, reservationDraft);
       editorOpen = false;
-      await loadWorkspace(workspace.activeId, selectedDate);
-      toasts.show(t(draft.id ? 'Reservation updated.' : 'Reservation added.'), 'success');
+      if (workspace.activeId === restaurantId && selectedDate === viewDate) {
+        await loadWorkspace(restaurantId, viewDate);
+      }
+      toasts.show(t(wasUpdate ? 'Reservation updated.' : 'Reservation added.'), 'success');
     } catch (error) {
       editorError = friendlyError(error);
     } finally {
@@ -334,10 +390,19 @@
   }
 
   async function changeStatus(reservation: Reservation, status: ReservationStatus) {
-    if (!workspace.activeId || status === reservation.status) return;
+    if (
+      !workspace.activeId ||
+      !currentData ||
+      reservation.business_date !== selectedDate ||
+      status === reservation.status
+    ) return;
+    const restaurantId = workspace.activeId;
+    const viewDate = selectedDate;
     try {
-      await setReservationStatus(workspace.activeId, reservation.id, status, reservation.revision);
-      await loadWorkspace(workspace.activeId, selectedDate);
+      await setReservationStatus(restaurantId, reservation.id, status, reservation.revision);
+      if (workspace.activeId === restaurantId && selectedDate === viewDate) {
+        await loadWorkspace(restaurantId, viewDate);
+      }
       toasts.show(t('Reservation status updated.'), 'success');
     } catch (error) {
       toasts.show(friendlyError(error), 'danger');
@@ -376,52 +441,6 @@
 <svelte:head><title>{t('Reservations')} &middot; restogogo</title></svelte:head>
 
 <ClassicPage>
-  {#snippet actions()}
-    <ClassicPeriodNav
-      label={dateLabel(selectedDate)}
-      onprevious={() => (selectedDate = addDays(selectedDate, -1))}
-      onnext={() => (selectedDate = addDays(selectedDate, 1))}
-      ontoday={() => (selectedDate = todayInTimezone(timezone))}
-    />
-    <input
-      class="cl-field date-field"
-      type="date"
-      aria-label={t('Date')}
-      bind:value={selectedDate}
-    />
-    <select class="cl-field service-field" aria-label={t('Service')} bind:value={selectedService}>
-      {#each data?.services ?? [] as service (service.service_key)}
-        <option value={service.service_key}>
-          {t(service.name)}{service.setting?.booking_enabled ? '' : ` · ${t('Closed')}`}
-        </option>
-      {/each}
-    </select>
-    <button
-      class="cl-btn is-primary"
-      type="button"
-      disabled={workspace.isPreview || !activeService?.setting?.booking_enabled}
-      onclick={() => openNewReservation()}
-    >
-      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-      {t('Add reservation')}
-    </button>
-    <span class="toolbar-grow"></span>
-    {#if initialView === 'list'}
-    <input
-      class="cl-field toolbar-search"
-      type="search"
-      placeholder={t('Search guest, phone or table')}
-      bind:value={search}
-    />
-    <select class="cl-field status-field" aria-label={t('Status')} bind:value={statusFilter}>
-      <option value="">{t('All statuses')}</option>
-      {#each RESERVATION_STATUSES as status}
-        <option value={status}>{t(reservationStatusMeta(status).label)}</option>
-      {/each}
-    </select>
-    {/if}
-  {/snippet}
-
   {#if loadError}
     <section class="cl-state" role="alert">
       <strong>{t('Reservations unavailable')}</strong>
@@ -429,40 +448,130 @@
       <button class="cl-btn" type="button" onclick={() => workspace.activeId && loadWorkspace(workspace.activeId, selectedDate)}>{t('Try again')}</button>
     </section>
   {:else}
-    <section class="reservation-summary" aria-label={t('Reservation summary')}>
-      <span><b>{activeReservations.length}</b> {t('bookings')}</span>
-      <span><b>{covers}{capacity ? ` / ${capacity}` : ''}</b> {t('covers')}</span>
-      <span><b>{data?.tables.length ? availableTables : '—'}</b> {t('tables available')}</span>
-      <span class:is-ready={serviceReadiness === 'Accepting bookings'}><i></i>{t(serviceReadiness)}</span>
-    </section>
-
-    {#if !loading && !activeService?.setting?.booking_enabled}
-      <section class="setup-callout">
-        <div>
-          <strong>{t('Configure this service before taking bookings')}</strong>
-          <span>{t('Set duration, capacity and reservable rooms once; the booking engine will enforce them everywhere.')}</span>
-        </div>
-        <a class="cl-btn is-primary" href="/reservations/setup">{t('Open reservation setup')}</a>
-      </section>
-    {/if}
-
-    {#if initialView === 'floor'}
-      <section class="live-floor">
-        <div class="live-floor__rooms" aria-label={t('Restaurant floors')}>
-          {#each floorPlans?.floors ?? [] as floor (floor.id)}
+    <ClassicTablePanel>
+      {#snippet meta()}
+        <span><b>{activeReservations.length}</b> {t('bookings')}</span>
+        <span><b>{covers}{capacity !== null ? ` / ${capacity}` : ''}</b> {t('covers')}</span>
+        <span><b>{activeTableCount ? `${availableTables} / ${activeTableCount}` : '—'}</b> {t('tables ready')}</span>
+        <span
+          class="service-capacity"
+          class:is-problem={serviceReadiness !== 'Service ready'}
+        ><i></i>{t(serviceReadiness)}</span>
+        <a
+          class="online-state"
+          class:is-enabled={onlineBookingsEnabled}
+          href="/reservations/setup"
+          title={t('Open reservation setup')}
+        >
+          <i></i>
+          <span>{t(onlineBookingsEnabled ? 'Online bookings on' : 'Online bookings off')}</span>
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+        </a>
+      {/snippet}
+      {#snippet actions()}
+        <div class="reservation-actions">
+          <div class="reservation-period" aria-label={t('Date')}>
             <button
-              class:is-active={floor.id === liveFloor?.id}
               type="button"
-              onclick={() => (liveFloorId = floor.id)}
+              aria-label={t('Previous')}
+              title={t('Previous')}
+              onclick={() => (selectedDate = addDays(selectedDate, -1))}
             >
-              <i style="--room-color:var(--cl-accent)"></i>
-              <span>{floor.name}</span>
-              <small>{data?.tables.filter((table) =>
-                table.active && data?.rooms.some((room) => room.floor_id === floor.id && room.id === table.room_id)
-              ).length ?? 0}</small>
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
             </button>
-          {/each}
-          <a href="/reservations/floor-plans">{t('Edit tables')}</a>
+            <label class="reservation-period__date">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2v4M18 2v4M3 9h18"/><rect x="3" y="4" width="18" height="17" rx="2"/></svg>
+              <span>{dateLabel(selectedDate)}</span>
+              <input
+                type="date"
+                aria-label={t('Choose date')}
+                bind:value={selectedDate}
+              />
+            </label>
+            <button
+              type="button"
+              aria-label={t('Next')}
+              title={t('Next')}
+              onclick={() => (selectedDate = addDays(selectedDate, 1))}
+            >
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+            </button>
+          </div>
+          <label class="service-picker">
+            <span class="sr-only">{t('Service')}</span>
+            <select class="cl-field" aria-label={t('Service')} bind:value={selectedService}>
+              {#each currentData?.services ?? [] as service (service.service_key)}
+                <option value={service.service_key}>
+                  {t(service.name)}{service.setting?.booking_enabled ? '' : ` · ${t('Online off')}`}
+                </option>
+              {/each}
+            </select>
+          </label>
+          {#if initialView === 'list'}
+            <input
+              class="cl-field reservation-search"
+              type="search"
+              placeholder={t('Search guest, phone or table')}
+              bind:value={search}
+            />
+            <select class="cl-field status-field" aria-label={t('Status')} bind:value={statusFilter}>
+              <option value="">{t('All statuses')}</option>
+              {#each RESERVATION_STATUSES as status}
+                <option value={status}>{t(reservationStatusMeta(status).label)}</option>
+              {/each}
+            </select>
+          {/if}
+          <button
+            class="cl-btn is-primary"
+            type="button"
+            disabled={workspace.isPreview || !activeService}
+            onclick={() => openNewReservation()}
+          >
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+            {t('Add reservation')}
+          </button>
+        </div>
+      {/snippet}
+      {#snippet children()}
+      {#if initialView === 'floor'}
+      <section class="live-floor">
+        <div class="live-floor__head">
+          <div class="floor-navigator" aria-label={t('Restaurant floors')}>
+            <button
+              type="button"
+              aria-label={t('Previous floor')}
+              title={t('Previous floor')}
+              disabled={liveFloorIndex <= 0}
+              onclick={() => navigateLiveFloor(-1)}
+            >
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+            </button>
+            <label>
+              <span class="sr-only">{t('Floor')}</span>
+              <select bind:value={liveFloorId}>
+                {#each activeFloors as floor (floor.id)}
+                  <option value={floor.id}>{floor.name}</option>
+                {/each}
+              </select>
+            </label>
+            <button
+              type="button"
+              aria-label={t('Next floor')}
+              title={t('Next floor')}
+              disabled={liveFloorIndex < 0 || liveFloorIndex >= activeFloors.length - 1}
+              onclick={() => navigateLiveFloor(1)}
+            >
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+            </button>
+          </div>
+          <div class="live-floor__meta">
+            <span>{liveRooms.length} {t(liveRooms.length === 1 ? 'area' : 'areas')}</span>
+            <span>{liveTables.length} {t(liveTables.length === 1 ? 'table' : 'tables')}</span>
+            <a href="/reservations/floor-plans">
+              {t('Edit layout')}
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+            </a>
+          </div>
         </div>
         {#if liveFloor}
           <div class="live-floor__workspace">
@@ -503,7 +612,12 @@
                   {/each}
                 {/if}
               </div>
-              <button class="arrival-rail__add" type="button" onclick={() => openNewReservation()}>
+              <button
+                class="arrival-rail__add"
+                type="button"
+                disabled={workspace.isPreview || !activeService}
+                onclick={() => openNewReservation()}
+              >
                 <span>+</span>
                 {t('Add booking')}
               </button>
@@ -533,7 +647,7 @@
           </tr>
         </thead>
         <tbody>
-          {#if loading && !data}
+          {#if loading && !currentData}
             {#each Array(6) as _}
               <tr>
                 <td colspan="8"><span class="cl-skel"></span></td>
@@ -569,11 +683,11 @@
                 </td>
                 <td>
                   {#if reservation.table_labels.length}
-                    <span class="cl-chip" style={`--chip:${data?.rooms.find((room) => room.id === reservation.room_preference_id)?.area_color || 'var(--cl-info)'}`}>
+                    <span class="cl-chip" style={`--chip:${currentData?.rooms.find((room) => room.id === reservation.room_preference_id)?.area_color || 'var(--cl-info)'}`}>
                       <span>{reservation.table_labels.join(' + ')}</span>
                     </span>
                   {:else}
-                    <span class="muted">{data?.rooms.find((room) => room.id === reservation.room_preference_id)?.name || t('Unassigned')}</span>
+                    <span class="muted">{currentData?.rooms.find((room) => room.id === reservation.room_preference_id)?.name || t('Unassigned')}</span>
                   {/if}
                 </td>
                 <td><span class="source">{sourceLabel(reservation.source)}</span></td>
@@ -603,7 +717,9 @@
         </tbody>
       </table>
     </div>
-    {/if}
+      {/if}
+      {/snippet}
+    </ClassicTablePanel>
   {/if}
 </ClassicPage>
 
@@ -731,93 +847,164 @@
 </Dialog>
 
 <style>
-  .date-field { width: 130px; }
-  .service-field { width: 130px; }
-  .status-field { width: 126px; }
-  .toolbar-search { width: 200px; min-width: 200px; }
-  .reservation-summary {
-    min-height: 34px;
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0;
-    padding: 0 10px;
-    border: 1px solid var(--cl-line);
-    border-radius: var(--cl-radius-surface);
-    background: var(--cl-surface-muted);
+  :global(.cl-tablepanel__meta b) {
+    color: var(--cl-ink);
+    font-variant-numeric: tabular-nums;
   }
-  .reservation-summary > span {
+  .service-capacity,
+  .online-state {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 0 10px;
-    border-right: 1px solid var(--cl-line);
-    color: var(--cl-muted);
-    font-size: 10.5px;
+    gap: 6px;
   }
-  .reservation-summary > span:last-child { margin-left: auto; border-right: 0; color: var(--cl-attention); }
-  .reservation-summary > span.is-ready { color: var(--cl-ok); }
-  .reservation-summary b { color: var(--cl-ink); font-size: 11px; font-variant-numeric: tabular-nums; }
-  .reservation-summary i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-  .setup-callout {
+  .service-capacity { color: var(--cl-ok); }
+  .service-capacity.is-problem { color: var(--cl-attention); }
+  .service-capacity i,
+  .online-state i {
+    width: 6px;
+    height: 6px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .online-state {
+    color: var(--cl-attention);
+    font-size: 13px;
+    font-weight: var(--rst-fw-medium);
+    text-decoration: none;
+  }
+  .online-state.is-enabled { color: var(--cl-ok); }
+  .online-state:hover { color: var(--cl-accent); }
+  .reservation-actions {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 20px;
-    margin-top: -12px;
-    padding: 13px 15px;
-    border: 1px solid var(--cl-attention-line);
-    border-left: 3px solid var(--cl-attention);
-    border-radius: var(--cl-radius);
-    background: var(--cl-attention-wash);
+    gap: 8px;
   }
-  .setup-callout > div { display: grid; gap: 3px; }
-  .setup-callout strong { font-size: 13px; }
-  .setup-callout span { color: var(--cl-muted); font-size: 12px; }
+  .reservation-period,
+  .floor-navigator {
+    min-height: 34px;
+    display: inline-flex;
+    align-items: stretch;
+    overflow: hidden;
+    border: 1px solid var(--cl-line);
+    border-radius: var(--cl-radius);
+    background: var(--cl-surface);
+  }
+  .reservation-period > button,
+  .floor-navigator > button {
+    width: 32px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--cl-muted);
+    cursor: pointer;
+  }
+  .reservation-period > button:hover,
+  .floor-navigator > button:hover:not(:disabled) {
+    background: var(--cl-surface-muted);
+    color: var(--cl-accent);
+  }
+  .reservation-period > button:disabled,
+  .floor-navigator > button:disabled {
+    opacity: .32;
+    cursor: default;
+  }
+  .reservation-period__date {
+    position: relative;
+    min-width: 238px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 12px;
+    border-inline: 1px solid var(--cl-line);
+    color: var(--cl-text);
+    cursor: pointer;
+  }
+  .reservation-period__date > svg { color: var(--cl-muted); }
+  .reservation-period__date > span {
+    overflow: hidden;
+    font-size: 12.5px;
+    font-weight: var(--rst-fw-bold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .reservation-period__date > input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .reservation-period__date:focus-within {
+    box-shadow: var(--rst-ui-focus);
+  }
+  .service-picker { display: inline-flex; }
+  .service-picker .cl-field { width: 145px; }
+  .status-field { width: 126px; }
+  .reservation-search { width: 190px; min-width: 170px; }
   .live-floor {
     overflow: hidden;
     border: 1px solid var(--cl-line);
     border-radius: var(--cl-radius-surface);
     background: var(--cl-surface);
   }
-  .live-floor__rooms {
-    min-height: 43px;
+  .live-floor__head {
+    min-height: 46px;
     display: flex;
     align-items: center;
-    gap: 5px;
-    padding: 6px 8px;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 9px;
     border-bottom: 1px solid var(--cl-line);
     background: var(--cl-thead);
   }
-  .live-floor__rooms button {
-    min-height: 29px;
-    display: inline-flex;
+  .floor-navigator { min-height: 32px; }
+  .floor-navigator label {
+    width: 166px;
+    display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 8px;
-    border: 1px solid transparent;
-    border-radius: 4px;
+    border-inline: 1px solid var(--cl-line);
+  }
+  .floor-navigator select {
+    width: 100%;
+    height: 30px;
+    padding: 0 25px 0 9px;
+    border: 0;
+    outline: 0;
     background: transparent;
-    color: var(--cl-muted);
+    color: var(--cl-text);
     font: inherit;
-    font-size: 11px;
+    font-size: 11.5px;
     font-weight: var(--rst-fw-bold);
     cursor: pointer;
   }
-  .live-floor__rooms button:hover { background: var(--cl-surface-muted); }
-  .live-floor__rooms button.is-active { border-color: var(--cl-line); background: var(--cl-surface); color: var(--cl-text); }
-  .live-floor__rooms button > i { width: 7px; height: 18px; border-radius: 2px; background: var(--room-color); }
-  .live-floor__rooms button small {
-    min-width: 18px;
-    padding: 1px 5px;
-    border-radius: 999px;
-    background: var(--cl-surface-muted);
+  .live-floor__meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
     color: var(--cl-muted);
-    font-size: 9px;
-    text-align: center;
+    font-size: 10.5px;
+    font-weight: var(--rst-fw-medium);
   }
-  .live-floor__rooms > a { margin-left: auto; color: var(--cl-muted); font-size: 10.5px; font-weight: var(--rst-fw-bold); text-decoration: none; }
-  .live-floor__rooms > a:hover { color: var(--cl-accent); }
+  .live-floor__meta > span + span {
+    padding-left: 12px;
+    border-left: 1px solid var(--cl-line);
+  }
+  .live-floor__meta > a {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding-left: 12px;
+    border-left: 1px solid var(--cl-line);
+    color: var(--cl-accent);
+    font-weight: var(--rst-fw-bold);
+    text-decoration: none;
+  }
+  .live-floor__meta > a:hover { text-decoration: underline; }
   .live-floor__workspace {
     display: grid;
     grid-template-columns: minmax(560px, 1.7fr) minmax(250px, .72fr);
@@ -981,12 +1168,22 @@
   .form-error { margin: 0; color: var(--cl-problem); font-size: 12px; }
   @media (max-width: 760px) {
     .live-floor__workspace { grid-template-columns: minmax(0, 1fr); }
-    .reservation-summary > span:last-child { width: 100%; margin-left: 0; padding-top: 5px; padding-bottom: 5px; border-top: 1px solid var(--cl-line); }
+    .reservation-actions { flex-wrap: wrap; justify-content: flex-end; }
+    .reservation-period__date { min-width: 190px; }
+    .live-floor__head { align-items: stretch; flex-direction: column; }
+    .live-floor__meta { justify-content: flex-end; }
     .notes-col { display: none; }
   }
   @media (max-width: 520px) {
     .form-grid { grid-template-columns: minmax(0, 1fr); }
     .form-wide { grid-column: 1; }
-    .setup-callout { align-items: stretch; flex-direction: column; }
+    .reservation-actions,
+    .reservation-period,
+    .service-picker,
+    .service-picker .cl-field,
+    .reservation-search,
+    .status-field { width: 100%; }
+    .reservation-period__date { min-width: 0; flex: 1; }
+    .live-floor__meta { align-items: flex-start; flex-wrap: wrap; justify-content: flex-start; }
   }
 </style>

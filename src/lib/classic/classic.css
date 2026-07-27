@@ -48,6 +48,7 @@
   /* Data surfaces (tables, cards) sit a touch squarer than the controls. */
   --cl-radius-surface: 4px;
   --cl-row: 46px;
+  --cl-nav-row: 42px;
   --cl-grid-head: 48px;
   --cl-sidebar: 216px;
   --cl-topbar: 60px;
@@ -314,7 +315,7 @@
 
 .cl-sidebar__nav {
   display: grid;
-  gap: 1px;
+  gap: 0;
 }
 
 .cl-sidebar__divider {
@@ -395,12 +396,12 @@
 
 .cl-sidebar__link {
   position: relative;
-  min-height: var(--cl-row);
+  min-height: var(--cl-nav-row);
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr);
   align-items: center;
   gap: 12px;
-  padding: 9px 18px;
+  padding: 7px 18px;
   color: var(--cl-rail-muted);
   font-size: 14px;
   font-weight: var(--rst-fw-medium);

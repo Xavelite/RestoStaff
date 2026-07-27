@@ -22,6 +22,7 @@
     payroll: 'var(--cl-mod-payroll)',
     'badge-terminal': 'var(--cl-mod-badge)',
     reports: 'var(--cl-mod-reports)',
+    exports: 'var(--cl-mod-reports)',
     reservations: 'var(--cl-mod-schedule)'
   };
 </script>

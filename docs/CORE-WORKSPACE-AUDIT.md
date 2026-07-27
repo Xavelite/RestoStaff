@@ -29,7 +29,7 @@ Dimona is a separate integration boundary. Restaurant and Team store the employe
 | Payroll-preparation employment facts | Team | versioned `employee_employment_terms` |
 | Planned work | Schedule | `planned_shifts`, work-week lifecycle |
 | Badge and actual work evidence | Time & attendance | `time_entries`, break intervals and adjustment history |
-| Secretariat-ready time export | Payroll preparation | approved Timesheet evidence plus immutable export lineage |
+| Operational and secretariat-ready files | Exports | saved Planning, Timesheet evidence and owner-only server-projected payroll drafts |
 | Official payroll and declarations | External provider / authority | not a Restogogo source of truth |
 
 ## Implemented alignment
@@ -38,9 +38,9 @@ Dimona is a separate integration boundary. Restaurant and Team store the employe
 
 - Retained one authenticated classic workspace shell, one navigation registry and one route-role contract.
 - Kept unsaved-draft protection across navigation, restaurant switching, preview, terminal and sign-out transitions.
-- Limited daily navigation to the operational core.
-- Marked Reports and future restaurant modules as Home-only roadmap items until their contracts exist.
-- Renamed the owner module to **Payroll preparation** and reduced it to Overview, Employees, Exports and Scope & settings.
+- Limited daily navigation to the operational core, with Reports and Exports sharing one compact output group.
+- Kept future restaurant modules as Home-only roadmap items until their contracts exist.
+- Kept the owner-only **Payroll** module focused on its Employees page and moved file generation to standalone Exports.
 
 ### Restaurant
 
@@ -58,12 +58,12 @@ Dimona is a separate integration boundary. Restaurant and Team store the employe
 - Kept normalized payroll classifications server-derived. The browser submits facts; PostgreSQL derives duration, employment regime, volume, legal schedule, CP 302 category and default worker status.
 - Preserved NISS/BIS normalization and the official modulo-97 validation for new or changed values.
 
-### Payroll preparation
+### Payroll and Exports
 
-- Replaced the active gross-to-net run dashboard with a preparation overview.
-- Made employer readiness, employee readiness, approved-hours export and ownership boundaries the primary workflow.
-- Preserved the former calculation/reconciliation UI under the unlinked `/payroll/advanced` route so the work is not destroyed while the final estimation scope is designed.
-- Kept approved-hours exports as a core feature because they directly reduce social-secretariat preparation work.
+- Kept Payroll focused on employee readiness and ownership boundaries.
+- Moved planning, worked-time and owner-only social-secretariat draft files into the standalone Exports module beside Reports.
+- Kept former Payroll overview, configuration, advanced and export URLs as redirects to Employees instead of reviving stale interfaces.
+- Preserved immutable official payroll export infrastructure for the later finalized payroll workflow without reviving the former Payroll export UI.
 
 ### Repository and database consistency
 

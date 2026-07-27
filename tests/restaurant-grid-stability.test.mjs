@@ -63,6 +63,9 @@ test('Restaurant grids consume stable placement for filters, sorting and groupin
 
   assert.match(config, /#areaPlacement = new StableDraftPlacement<AreaDraft>/);
   assert.match(config, /#positionPlacement = new StableDraftPlacement<JobFunctionDraft>/);
+  assert.match(config, /StableDraftPlacement<AreaDraft>\(cloneAreaPlacement\)/);
+  assert.match(config, /StableDraftPlacement<JobFunctionDraft>\(clonePositionPlacement\)/);
+  assert.doesNotMatch(config, /StableDraftPlacement<(?:AreaDraft|JobFunctionDraft)>\(structuredClone\)/);
   assert.match(config, /this\.#positionPlacement\.reset\(next\.jobFunctions\)/);
   assert.match(config, /await workspace\.loadRestaurant\(true\);[\s\S]*this\.sync\(workspace\.restaurant, true\)/);
 
