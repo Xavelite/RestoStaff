@@ -124,7 +124,7 @@
     "20260726230651_restore_venue_room_identity.sql": "84cfccb052b27c77cbcee22617f4f869a8f7f24678c8c50c6926ad67383035b0",
     "20260726232311_workspace_area_position_catalogue.sql": "4a9699a75abcb6addcf2c091386aa621d518548f7ed9187273904abc0f384615",
     "20260726232707_workspace_catalogue_uniqueness.sql": "0d614d7f2991eb7f5da5c0810173f24a2ddb81ea4010d2c039d2877689975b6b",
-    "20260727000318_modernize_workspace_area_palette.sql": "d4320890a6f232c7e50779200587ccb39c1d3c7dfea30140d9f52499d1215a63",
+    "20260727000355_modernize_workspace_area_palette.sql": "d4320890a6f232c7e50779200587ccb39c1d3c7dfea30140d9f52499d1215a63",
     "20260727020209_operational_capabilities_and_assignment_context.sql": "daf2c6f6738c4a9e8f02b4a0b7f6b9a0ae47447c238a795b3cdb7829c91a6ab2",
     "20260727020219_private_planning_drafts.sql": "87c0cf098c0ea924377d1c88e313f9abf8ceed12ce577d07b73d3aa00fb31164",
     "20260727020710_index_private_planning_draft_foreign_keys.sql": "bdb73069b51617fb00dbbba7ce8e35d3d326b698a03d743b5668736d4b7a233b"
