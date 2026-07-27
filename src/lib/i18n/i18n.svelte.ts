@@ -2864,16 +2864,18 @@ Object.assign(french, {
     'Le stock est prévu. Les inventaires et la gestion des articles apparaîtront ici.',
   'Your modules and what needs attention today':
     "Vos modules et ce qui demande votre attention aujourd'hui",
-  'Weekly planning, coverage and publishing': 'Planning hebdomadaire, couverture et publication',
+  'Weekly shifts, conflicts and publishing': 'Services hebdomadaires, conflits et publication',
   'Clock-ins, corrections and week approval':
     'Pointages, corrections et approbation de la semaine',
   'People, contracts, access and absences': 'Personnes, contrats, accès et absences',
   'Identity, opening hours, areas and positions':
     "Identité, horaires d'ouverture, zones et fonctions",
+  'Employee payroll data and readiness checks':
+    'Données salariales des employés et contrôles de préparation',
   'Stock counts and item management': 'Inventaires et gestion des articles',
   'Employment terms, labour cost and exports': "Conditions d'emploi, coût du travail et exports",
   'Clock in and out on a shared device': 'Pointer sur un appareil partagé',
-  'Hours, cost and operational trends': 'Heures, coûts et tendances opérationnelles',
+  'Hours, attendance and operational trends': 'Heures, présences et tendances opérationnelles',
   Modules: 'Modules',
   Item: 'Élément',
   Count: 'Nombre',
@@ -3176,14 +3178,16 @@ Object.assign(dutch, {
   'Inventory is on the roadmap. Stock counts and item management will appear here.':
     'Voorraad staat op de planning. Tellingen en artikelbeheer verschijnen hier.',
   'Your modules and what needs attention today': 'Je modules en wat vandaag aandacht vraagt',
-  'Weekly planning, coverage and publishing': 'Weekplanning, bezetting en publicatie',
+  'Weekly shifts, conflicts and publishing': 'Weekshifts, conflicten en publicatie',
   'Clock-ins, corrections and week approval': 'Badgeringen, correcties en weekgoedkeuring',
   'People, contracts, access and absences': 'Mensen, contracten, toegang en afwezigheden',
   'Identity, opening hours, areas and positions': 'Identiteit, openingsuren, zones en functies',
+  'Employee payroll data and readiness checks':
+    'Loongegevens van medewerkers en gereedheidscontroles',
   'Stock counts and item management': 'Voorraadtellingen en artikelbeheer',
   'Employment terms, labour cost and exports': 'Arbeidsvoorwaarden, loonkost en exports',
   'Clock in and out on a shared device': 'In- en uitklokken op een gedeeld toestel',
-  'Hours, cost and operational trends': 'Uren, kosten en operationele trends',
+  'Hours, attendance and operational trends': 'Uren, aanwezigheid en operationele trends',
   Modules: 'Modules',
   Item: 'Onderdeel',
   Count: 'Aantal',
@@ -4805,7 +4809,14 @@ Object.assign(french, {
   'The same workspace will grow with focused modules after the operational core is complete.': 'Le même espace de travail s’enrichira de modules ciblés après finalisation du cœur opérationnel.',
   'Primary area': 'Zone principale',
   'Colour inherited from primary area': 'Couleur héritée de la zone principale',
-  'Across areas': 'Plusieurs zones'
+  'Across areas': 'Plusieurs zones',
+  Footprint: 'Dimensions au sol',
+  Seats: 'Places',
+  'Temporarily unavailable': 'Temporairement indisponible',
+  'Keep this table off the live seating plan.': 'Masquer cette table du plan de salle en direct.',
+  'Drag to move. Pull any edge or corner to resize; nearby tables align automatically.':
+    'Faites glisser pour déplacer. Tirez un bord ou un coin pour redimensionner ; les tables proches s’alignent automatiquement.',
+  'Turn table': 'Tourner la table'
 });
 
 Object.assign(dutch, {
@@ -4851,7 +4862,14 @@ Object.assign(dutch, {
   'The same workspace will grow with focused modules after the operational core is complete.': 'Dezelfde werkruimte groeit met gerichte modules zodra de operationele kern klaar is.',
   'Primary area': 'Primaire zone',
   'Colour inherited from primary area': 'Kleur overgenomen van de primaire zone',
-  'Across areas': 'Meerdere zones'
+  'Across areas': 'Meerdere zones',
+  Footprint: 'Afmetingen',
+  Seats: 'Zitplaatsen',
+  'Temporarily unavailable': 'Tijdelijk niet beschikbaar',
+  'Keep this table off the live seating plan.': 'Houd deze tafel buiten het live zaalplan.',
+  'Drag to move. Pull any edge or corner to resize; nearby tables align automatically.':
+    'Sleep om te verplaatsen. Trek aan een rand of hoek om te schalen; tafels in de buurt lijnen automatisch uit.',
+  'Turn table': 'Tafel draaien'
 });
 
 

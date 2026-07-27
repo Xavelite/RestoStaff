@@ -24,6 +24,7 @@
   } from './reservation-types';
   import { toasts } from '$lib/ui/toast.svelte';
   import { confirmAction } from '$lib/ui/confirm.svelte';
+  import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { AREA_PALETTE, defaultAreaColor } from '$lib/ui/position-color';
   import {
@@ -52,7 +53,7 @@
   let tableToArchive = $state<ReservationTableDraft | null>(null);
   let newAreaId = $state('');
   let compactViewport = $state(false);
-  let editorView = $state<'plan' | 'list'>('plan');
+  let editorView = $state<'plan' | 'list'>('list');
   let tableLayoutMode = $state<'tables' | 'areas'>('tables');
   const CANONICAL_FLOOR_LEVELS = [-1, 0, 1, 2] as const;
   const ROOM_GRID = 20;
@@ -716,16 +717,142 @@
     touch();
   }
 
+  function resizeTable(
+    table: ReservationTableDraft,
+    positionX: number,
+    positionY: number,
+    width: number,
+    height: number
+  ) {
+    if (!draft) return;
+    const room = draft.rooms.find((item) => item.id === table.room_id);
+    const target = draft.tables.find((item) => item.id === table.id);
+    if (!target || !room) return;
+    const inset = 12;
+    const topInset = 28;
+    const roomLeft = Number(room.position_x) + inset;
+    const roomTop = Number(room.position_y) + topInset;
+    const roomRight = Number(room.position_x) + Number(room.width) - inset;
+    const roomBottom = Number(room.position_y) + Number(room.height) - inset;
+    const nextX = clamp(snap(positionX, TABLE_GRID), roomLeft, roomRight - 60);
+    const nextY = clamp(snap(positionY, TABLE_GRID), roomTop, roomBottom - 52);
+    const maximumWidth = Math.max(60, roomRight - nextX);
+    const maximumHeight = Math.max(52, roomBottom - nextY);
+    let nextWidth = clamp(snap(width, TABLE_GRID), 60, maximumWidth);
+    let nextHeight = clamp(snap(height, TABLE_GRID), 52, maximumHeight);
+    if (target.shape === 'round' || target.shape === 'square') {
+      const size = Math.min(nextWidth, nextHeight);
+      nextWidth = size;
+      nextHeight = size;
+    }
+    target.position_x = nextX;
+    target.position_y = nextY;
+    target.width = nextWidth;
+    target.height = nextHeight;
+    target.rotation_degrees = 0;
+    touch();
+  }
+
+  function setTableShape(
+    table: ReservationTableDraft,
+    shape: ReservationTableDraft['shape']
+  ) {
+    if (table.shape === shape) return;
+    table.shape = shape;
+    if (shape === 'round' || shape === 'square') {
+      const size = Math.max(64, Math.min(Number(table.width), Number(table.height)));
+      resizeTable(table, Number(table.position_x), Number(table.position_y), size, size);
+    } else if (Math.abs(Number(table.width) - Number(table.height)) < TABLE_GRID) {
+      resizeTable(
+        table,
+        Number(table.position_x),
+        Number(table.position_y),
+        Number(table.width) + 40,
+        Number(table.height)
+      );
+    } else {
+      touch();
+    }
+  }
+
+  function turnTable(table: ReservationTableDraft) {
+    if (table.shape !== 'rectangle') return;
+    resizeTable(
+      table,
+      Number(table.position_x),
+      Number(table.position_y),
+      Number(table.height),
+      Number(table.width)
+    );
+  }
+
+  function tableFootprint(table: ReservationTableDraft): string {
+    const width = Number(table.width) / 100;
+    const height = Number(table.height) / 100;
+    return `${width.toFixed(width % 1 === 0 ? 0 : 1)} × ${height.toFixed(height % 1 === 0 ? 0 : 1)} m`;
+  }
+
+  function nextTablePosition(
+    room: ReservationRoomDraft,
+    width: number,
+    height: number,
+    roomTables: ReservationTableDraft[]
+  ) {
+    const gap = 20;
+    const left = snap(Number(room.position_x) + 30, TABLE_GRID);
+    const top = snap(Number(room.position_y) + 50, TABLE_GRID);
+    const right = Number(room.position_x) + Number(room.width) - width - 20;
+    const bottom = Number(room.position_y) + Number(room.height) - height - 20;
+    for (let y = top; y <= bottom; y += TABLE_GRID) {
+      for (let x = left; x <= right; x += TABLE_GRID) {
+        const collides = roomTables.some((table) => {
+          const tableLeft = Number(table.position_x);
+          const tableTop = Number(table.position_y);
+          const tableRight = tableLeft + Number(table.width);
+          const tableBottom = tableTop + Number(table.height);
+          return !(
+            x + width + gap <= tableLeft ||
+            x >= tableRight + gap ||
+            y + height + gap <= tableTop ||
+            y >= tableBottom + gap
+          );
+        });
+        if (!collides) return { x, y };
+      }
+    }
+    return { x: left, y: top };
+  }
+
   function arrangeTables(roomId = selectedRoomId) {
     if (!draft) return;
     const room = draft.rooms.find((item) => item.id === roomId);
     if (!room) return;
     const tables = draft.tables.filter((table) => table.room_id === roomId && table.active);
-    const columns = Math.max(1, Math.floor((Number(room.width) - 30) / 155));
-    tables.forEach((table, index) => {
-      table.position_x = snap(Number(room.position_x) + 30 + (index % columns) * 140, TABLE_GRID);
-      table.position_y = snap(Number(room.position_y) + 50 + Math.floor(index / columns) * 110, TABLE_GRID);
-    });
+    const left = Number(room.position_x) + 30;
+    const right = Number(room.position_x) + Number(room.width) - 20;
+    const bottom = Number(room.position_y) + Number(room.height) - 20;
+    let cursorX = left;
+    let cursorY = Number(room.position_y) + 50;
+    let rowHeight = 0;
+    for (const table of tables) {
+      const width = Number(table.width);
+      const height = Number(table.height);
+      if (cursorX !== left && cursorX + width > right) {
+        cursorX = left;
+        cursorY += rowHeight + 28;
+        rowHeight = 0;
+      }
+      table.position_x = snap(
+        clamp(cursorX, left, Math.max(left, right - width)),
+        TABLE_GRID
+      );
+      table.position_y = snap(
+        clamp(cursorY, Number(room.position_y) + 50, Math.max(Number(room.position_y) + 50, bottom - height)),
+        TABLE_GRID
+      );
+      cursorX += width + 28;
+      rowHeight = Math.max(rowHeight, height);
+    }
     touch();
   }
 
@@ -735,17 +862,20 @@
     const labels = new Set(roomTables.map((table) => table.label));
     let number = 1;
     while (labels.has(String(number))) number += 1;
+    const width = 86;
+    const height = 86;
+    const position = nextTablePosition(selectedRoomDraft, width, height, roomTables);
     const table: ReservationTableDraft = {
       id: crypto.randomUUID(),
       room_id: selectedRoomDraft.id,
       label: String(number),
       minimum_capacity: 1,
       maximum_capacity: 2,
-      shape: 'square',
-      position_x: snap(Number(selectedRoomDraft.position_x) + 40 + (roomTables.length % 4) * 140, TABLE_GRID),
-      position_y: snap(Number(selectedRoomDraft.position_y) + 50 + Math.floor(roomTables.length / 4) * 110, TABLE_GRID),
-      width: 112,
-      height: 76,
+      shape: 'round',
+      position_x: position.x,
+      position_y: position.y,
+      width,
+      height,
       rotation_degrees: 0,
       active: true,
       blocked: false,
@@ -759,17 +889,25 @@
   function duplicateTable(table: ReservationTableDraft) {
     if (!draft) return;
     const roomTables = draft.tables.filter((item) => item.room_id === table.room_id);
+    const room = draft.rooms.find((item) => item.id === table.room_id);
+    if (!room) return;
     const labels = new Set(roomTables.map((item) => item.label.toLowerCase()));
     const base = `${table.label} copy`;
     let label = base;
     let suffix = 2;
     while (labels.has(label.toLowerCase())) label = `${base} ${suffix++}`;
+    const position = nextTablePosition(
+      room,
+      Number(table.width),
+      Number(table.height),
+      roomTables
+    );
     const duplicate = {
       ...table,
       id: crypto.randomUUID(),
       label,
-      position_x: Number(table.position_x) + 25,
-      position_y: Number(table.position_y) + 25,
+      position_x: position.x,
+      position_y: position.y,
       active: true,
       sort_order: roomTables.length
     };
@@ -836,6 +974,17 @@
     selectedTableId = '';
     restaurantContext?.discard();
   }
+
+  onMount(() =>
+    unsavedChanges.register({
+      id: mode === 'areas' ? 'restaurant-floor-layout' : 'reservation-table-layout',
+      label: mode === 'areas' ? 'Restaurant floor layout' : 'Reservation table layout',
+      priority: 20,
+      isDirty: () => dirty,
+      save,
+      discard
+    })
+  );
 </script>
 
 {#snippet floorNavigator()}
@@ -891,8 +1040,8 @@
     {#snippet actions()}
       {#if mode === 'areas'}
         <div class="view-switch" aria-label={t('View')}>
-          <button class:is-active={editorView === 'plan'} type="button" onclick={() => (editorView = 'plan')}>{t('Plan')}</button>
           <button class:is-active={editorView === 'list'} type="button" onclick={() => (editorView = 'list')}>{t('List')}</button>
+          <button class:is-active={editorView === 'plan'} type="button" onclick={() => (editorView = 'plan')}>{t('Plan')}</button>
         </div>
         <button class="cl-btn is-primary" type="button" disabled={!selectedFloor || editorReadOnly} onclick={() => void addArea()}>+ {t('Add area')}</button>
       {:else}
@@ -1053,18 +1202,68 @@
                 <div class="selection-hint is-above">{@render floorNavigator()}<strong>{t('Choose an area')}</strong><p>{t('Drag areas; pull an edge or corner to resize.')}</p></div>
               {:else if mode === 'tables' && selectedTable}
                 <div class="selection-bar table-selection is-above">
-                  <header class="inspector-head"><span class="inspector-glyph" aria-hidden="true">T</span><div><strong>{t('Table details')}</strong><small>{selectedRoom?.name ?? floorLabel(selectedFloor)}</small></div></header>
+                  <header class="inspector-head">
+                    <span class="inspector-glyph table-glyph is-{selectedTable.shape}" aria-hidden="true"></span>
+                    <div><strong>{t('Table details')}</strong><small>{selectedRoom?.name ?? floorLabel(selectedFloor)}</small></div>
+                    <ClassicRowMenu
+                      disabled={editorReadOnly}
+                      items={[
+                        {
+                          label: t('Duplicate'),
+                          onselect: () => duplicateTable(selectedTable)
+                        },
+                        {
+                          label: t('Archive'),
+                          tone: 'danger',
+                          onselect: () => (tableToArchive = selectedTable)
+                        }
+                      ]}
+                    />
+                  </header>
                   {@render floorNavigator()}
                   <label><span>{t('Table')}</span><input class="cl-field" disabled={editorReadOnly} bind:value={selectedTable.label} oninput={touch} /></label>
-                  <label><span>{t('Minimum')}</span><input class="cl-field" disabled={editorReadOnly} type="number" min="1" max="100" bind:value={selectedTable.minimum_capacity} oninput={touch} /></label>
-                  <label><span>{t('Maximum')}</span><input class="cl-field" disabled={editorReadOnly} type="number" min="1" max="500" bind:value={selectedTable.maximum_capacity} oninput={touch} /></label>
-                  <label><span>{t('Shape')}</span><select class="cl-field" disabled={editorReadOnly} bind:value={selectedTable.shape} onchange={touch}><option value="round">{t('Round')}</option><option value="square">{t('Square')}</option><option value="rectangle">{t('Rectangle')}</option></select></label>
-                  <button class="cl-btn" type="button" disabled={editorReadOnly} onclick={() => {
-                    selectedTable.rotation_degrees = (Number(selectedTable.rotation_degrees) + 15) % 360;
-                    touch();
-                  }}>{t('Rotate 15°')}</button>
-                  <button class="cl-btn" type="button" disabled={editorReadOnly} onclick={() => duplicateTable(selectedTable)}>{t('Duplicate')}</button>
-                  <button class="cl-btn is-problem" type="button" disabled={editorReadOnly} onclick={() => (tableToArchive = selectedTable)}>{t('Archive')}</button>
+                  <div class="capacity-field">
+                    <span>{t('Capacity')}</span>
+                    <div>
+                      <label><small>{t('Minimum')}</small><input class="cl-field" disabled={editorReadOnly} type="number" min="1" max="100" bind:value={selectedTable.minimum_capacity} oninput={touch} /></label>
+                      <span aria-hidden="true">–</span>
+                      <label><small>{t('Maximum')}</small><input class="cl-field" disabled={editorReadOnly} type="number" min="1" max="500" bind:value={selectedTable.maximum_capacity} oninput={touch} /></label>
+                    </div>
+                  </div>
+                  <div class="shape-field">
+                    <span>{t('Shape')}</span>
+                    <div class="shape-picker">
+                      {#each [
+                        { value: 'round', label: t('Round') },
+                        { value: 'square', label: t('Square') },
+                        { value: 'rectangle', label: t('Rectangle') }
+                      ] as option (option.value)}
+                        <button
+                          class:is-active={selectedTable.shape === option.value}
+                          type="button"
+                          disabled={editorReadOnly}
+                          aria-pressed={selectedTable.shape === option.value}
+                          title={option.label}
+                          onclick={() => setTableShape(selectedTable, option.value as ReservationTableDraft['shape'])}
+                        >
+                          <i class="shape-swatch is-{option.value}" aria-hidden="true"></i>
+                          <span>{option.label}</span>
+                        </button>
+                      {/each}
+                    </div>
+                  </div>
+                  <dl class="inspector-stats table-stats">
+                    <div><dt>{t('Footprint')}</dt><dd>{tableFootprint(selectedTable)}</dd></div>
+                    <div><dt>{t('Seats')}</dt><dd>{selectedTable.minimum_capacity}–{selectedTable.maximum_capacity}</dd></div>
+                  </dl>
+                  <label class="table-availability">
+                    <input type="checkbox" disabled={editorReadOnly} bind:checked={selectedTable.blocked} onchange={touch} />
+                    <span><strong>{t('Temporarily unavailable')}</strong><small>{t('Keep this table off the live seating plan.')}</small></span>
+                  </label>
+                  <p class="resize-note">{t('Drag to move. Pull any edge or corner to resize; nearby tables align automatically.')}</p>
+                  {#if selectedTable.shape === 'rectangle'}
+                    <button class="cl-btn" type="button" disabled={editorReadOnly} onclick={() => turnTable(selectedTable)}>{t('Turn table')}</button>
+                  {/if}
                 </div>
               {:else if selectedRoomDraft && selectedRoom && mode === 'tables'}
                 <div class="selection-bar room-selection is-above">
@@ -1114,6 +1313,7 @@
                     selectedRoomId = table.room_id;
                   }}
                   onmove={mode === 'tables' && tableLayoutMode === 'tables' ? moveTable : () => {}}
+                  onresize={mode === 'tables' && tableLayoutMode === 'tables' ? resizeTable : () => {}}
                 />
               </div>
 
@@ -1188,6 +1388,17 @@
   .inspector-head strong { font-size: 13px; }
   .inspector-head small { overflow: hidden; color: var(--cl-muted); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
   .inspector-glyph { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--cl-line); border-radius: 6px; background: var(--cl-surface-muted); color: var(--cl-accent); font-size: 12px; font-weight: var(--rst-fw-bold); }
+  .table-glyph::before {
+    content: '';
+    width: 16px;
+    height: 16px;
+    border: 2px solid currentColor;
+    border-radius: 3px;
+    background: var(--cl-surface);
+    box-shadow: 0 -5px 0 -3px currentColor, 0 5px 0 -3px currentColor;
+  }
+  .table-glyph.is-round::before { border-radius: 50%; }
+  .table-glyph.is-rectangle::before { width: 20px; height: 12px; }
   .floor-navigator { display: grid; grid-template-columns: 31px minmax(0, 1fr) 31px; align-items: center; overflow: hidden; border: 1px solid var(--cl-line); border-radius: 6px; background: var(--cl-surface-muted); }
   .floor-navigator button { width: 31px; height: 31px; display: grid; place-items: center; padding: 0; border: 0; background: transparent; color: var(--cl-muted); cursor: pointer; }
   .floor-navigator button:first-child { border-right: 1px solid var(--cl-line); }
@@ -1204,6 +1415,101 @@
   .inspector-stats div + div { border-top: 1px solid var(--cl-line); }
   .inspector-stats dt { color: var(--cl-muted); font-size: 11px; }
   .inspector-stats dd { margin: 0; color: var(--cl-ink); font-size: 12px; font-weight: var(--rst-fw-bold); }
+  .capacity-field,
+  .shape-field {
+    display: grid;
+    gap: 6px;
+  }
+  .capacity-field > span,
+  .shape-field > span {
+    color: var(--cl-muted);
+    font-size: 11px;
+    font-weight: var(--rst-fw-bold);
+  }
+  .capacity-field > div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: end;
+    gap: 8px;
+  }
+  .capacity-field > div > span {
+    padding-bottom: 9px;
+    color: var(--cl-muted);
+    font-size: 11px;
+  }
+  .capacity-field label { gap: 4px; }
+  .capacity-field label small {
+    color: var(--cl-muted);
+    font-size: 9px;
+    font-weight: var(--rst-fw-medium);
+  }
+  .shape-picker {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+  }
+  .shape-picker button {
+    min-width: 0;
+    display: grid;
+    justify-items: center;
+    gap: 5px;
+    padding: 8px 4px 7px;
+    border: 1px solid var(--cl-line);
+    border-radius: 6px;
+    background: var(--cl-surface);
+    color: var(--cl-muted);
+    font: inherit;
+    font-size: 9px;
+    cursor: pointer;
+  }
+  .shape-picker button:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--cl-accent) 45%, var(--cl-line));
+    color: var(--cl-ink);
+  }
+  .shape-picker button.is-active {
+    border-color: color-mix(in srgb, var(--cl-accent) 60%, var(--cl-line));
+    background: color-mix(in srgb, var(--cl-accent) 7%, var(--cl-surface));
+    color: var(--cl-accent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cl-accent) 12%, transparent);
+  }
+  .shape-picker button:disabled { cursor: default; opacity: .55; }
+  .shape-swatch {
+    width: 17px;
+    height: 17px;
+    display: block;
+    border: 1.5px solid currentColor;
+    border-radius: 3px;
+  }
+  .shape-swatch.is-round { border-radius: 50%; }
+  .shape-swatch.is-rectangle { width: 24px; height: 14px; }
+  .table-stats { margin-top: -2px; }
+  .table-availability {
+    grid-template-columns: auto minmax(0, 1fr) !important;
+    align-items: start;
+    gap: 9px !important;
+    padding: 10px;
+    border: 1px solid var(--cl-line);
+    border-radius: 6px;
+    background: var(--cl-surface-muted);
+  }
+  .table-availability > input {
+    width: 15px;
+    height: 15px;
+    margin: 1px 0 0;
+    accent-color: var(--cl-accent);
+  }
+  .table-availability > span {
+    display: grid;
+    gap: 2px;
+    color: var(--cl-ink) !important;
+  }
+  .table-availability strong { font-size: 10.5px; }
+  .table-availability small {
+    color: var(--cl-muted);
+    font-size: 9.5px;
+    font-weight: var(--rst-fw-regular);
+    line-height: 1.35;
+  }
   .resize-note { margin: 0; color: var(--cl-muted); font-size: 10.5px; line-height: 1.5; }
   .selection-hint { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 16px; background: var(--cl-surface); color: var(--cl-muted); font-size: 11px; text-align: left; }
   .selection-hint.is-above { border: 0; }

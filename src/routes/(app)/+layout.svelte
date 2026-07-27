@@ -147,7 +147,10 @@
 
 {#snippet moduleNav(items: ClassicModule[], label: string)}
   <nav class="cl-sidebar__nav" aria-label={t(label)} data-tour={label === 'Main' ? 'nav' : undefined}>
-    {#each items as module (module.key)}
+    {#each items as module, index (module.key)}
+      {#if index > 0 && module.navSection !== items[index - 1]?.navSection}
+        <span class="cl-sidebar__divider" aria-hidden="true"></span>
+      {/if}
       <a
         class="cl-sidebar__link"
         class:is-active={module.key === activeModule?.key}

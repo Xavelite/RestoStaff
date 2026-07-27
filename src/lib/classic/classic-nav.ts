@@ -13,6 +13,8 @@ export type ClassicSubNavItem = {
 export type ClassicModule = {
   key: string;
   href: string;
+  /** Legacy or transitional URLs that should still resolve to this module. */
+  aliases?: string[];
   label: string;
   /** One line on the Home tile: what this module is for. */
   summary: string;
@@ -26,6 +28,8 @@ export type ClassicModule = {
   fullscreen?: boolean;
   /** Utility modules are separated from the everyday operational navigation. */
   utility?: boolean;
+  /** Visual grouping for the manager sidebar. */
+  navSection?: 'home' | 'setup' | 'operations' | 'reservations' | 'payroll' | 'reports' | 'employee';
   subNav?: ClassicSubNavItem[];
 };
 
@@ -53,15 +57,17 @@ const CLASSIC_MODULES: ClassicModule[] = [
     label: 'Home',
     summary: 'Your modules and what needs attention today',
     icon: 'home',
-    roles: MANAGER
+    roles: MANAGER,
+    navSection: 'home'
   },
   {
     key: 'schedule',
     href: '/schedule',
     label: 'Schedule',
-    summary: 'Weekly planning, coverage and publishing',
+    summary: 'Weekly shifts, conflicts and publishing',
     icon: 'schedule',
     roles: MANAGER,
+    navSection: 'operations',
     subNav: [
       { href: '/schedule', label: 'Planning' },
       { href: '/schedule/history', label: 'History' }
@@ -74,6 +80,7 @@ const CLASSIC_MODULES: ClassicModule[] = [
     summary: 'Clock-ins, corrections and week approval',
     icon: 'time',
     roles: MANAGER,
+    navSection: 'operations',
     subNav: [
       { href: '/timesheet', label: 'Timesheet' },
       { href: '/timesheet/calendar', label: 'Calendar' },
@@ -87,6 +94,7 @@ const CLASSIC_MODULES: ClassicModule[] = [
     summary: 'People, contracts, access and absences',
     icon: 'team',
     roles: MANAGER,
+    navSection: 'setup',
     subNav: [
       { href: '/team', label: 'People' },
       { href: '/team/contracts', label: 'Contracts' },
@@ -101,6 +109,7 @@ const CLASSIC_MODULES: ClassicModule[] = [
     summary: 'Identity, opening hours, areas and positions',
     icon: 'restaurant',
     roles: MANAGER,
+    navSection: 'setup',
     subNav: [
       { href: '/restaurant', label: 'Profile' },
       { href: '/restaurant/areas', label: 'Areas' },
@@ -125,6 +134,7 @@ const CLASSIC_MODULES: ClassicModule[] = [
     summary: 'Bookings, covers, tables and service demand',
     icon: 'reservations',
     roles: MANAGER,
+    navSection: 'reservations',
     subNav: [
       { href: '/reservations', label: 'Live' },
       { href: '/reservations/bookings', label: 'Bookings' },
@@ -184,17 +194,13 @@ const CLASSIC_MODULES: ClassicModule[] = [
   },
   {
     key: 'payroll',
-    href: '/payroll',
-    label: 'Payroll preparation',
-    summary: 'Employment data, cost estimates and secretariat exports',
+    href: '/payroll/employees',
+    aliases: ['/payroll'],
+    label: 'Payroll',
+    summary: 'Employee payroll data and readiness checks',
     icon: 'payroll',
     roles: OWNER,
-    subNav: [
-      { href: '/payroll', label: 'Overview' },
-      { href: '/payroll/employees', label: 'Employees' },
-      { href: '/payroll/exports', label: 'Exports' },
-      { href: '/payroll/configuration', label: 'Scope & settings' }
-    ]
+    navSection: 'payroll'
   },
   {
     key: 'badge-terminal',
@@ -202,15 +208,17 @@ const CLASSIC_MODULES: ClassicModule[] = [
     label: 'Badge terminal',
     summary: 'Paired devices and the clock-in terminal',
     icon: 'badge',
-    roles: MANAGER
+    roles: MANAGER,
+    navSection: 'operations'
   },
   {
     key: 'reports',
     href: '/reports',
     label: 'Reports',
-    summary: 'Hours, cost and operational trends',
+    summary: 'Hours, attendance and operational trends',
     icon: 'reports',
     roles: MANAGER,
+    navSection: 'reports',
     subNav: [
       { href: '/reports', label: 'Overview' },
       { href: '/reports/people', label: 'People' },
@@ -238,7 +246,8 @@ const CLASSIC_MODULES: ClassicModule[] = [
     label: 'My service',
     summary: 'Your week and your availability',
     icon: 'schedule',
-    roles: EMPLOYEE
+    roles: EMPLOYEE,
+    navSection: 'employee'
   },
   {
     key: 'my-time',
@@ -246,26 +255,51 @@ const CLASSIC_MODULES: ClassicModule[] = [
     label: 'My time',
     summary: 'Your hours, time off and balance',
     icon: 'time',
-    roles: EMPLOYEE
+    roles: EMPLOYEE,
+    navSection: 'employee'
   }
 ];
 
+const MODULE_ORDER = [
+  'home',
+  'restaurant',
+  'team',
+  'schedule',
+  'time',
+  'badge-terminal',
+  'reservations',
+  'payroll',
+  'reports',
+  'settings',
+  'inventory',
+  'recipes',
+  'purchasing',
+  'menu-costing',
+  'tasks',
+  'food-safety',
+  'my-service',
+  'my-time'
+] as const;
+const moduleOrder = new Map<string, number>(MODULE_ORDER.map((key, index) => [key, index]));
+
 export function modulesForRole(role: WorkspaceRole | null): ClassicModule[] {
   if (!role) return [];
-  return CLASSIC_MODULES.filter((module) => module.roles.includes(role));
+  return CLASSIC_MODULES
+    .filter((module) => module.roles.includes(role))
+    .sort((left, right) => (moduleOrder.get(left.key) ?? 999) - (moduleOrder.get(right.key) ?? 999));
 }
 
 /** The module a pathname belongs to, matching the longest href first. */
 export function moduleForPath(pathname: string): ClassicModule | null {
   return (
     CLASSIC_MODULES.filter((module) =>
-      [module.href, ...(module.subNav?.map((item) => item.href) ?? [])].some(
+      [module.href, ...(module.aliases ?? []), ...(module.subNav?.map((item) => item.href) ?? [])].some(
         (href) => pathname === href || pathname.startsWith(`${href}/`)
       )
     ).sort((left, right) => {
       const matchLength = (module: ClassicModule) =>
         Math.max(
-          ...[module.href, ...(module.subNav?.map((item) => item.href) ?? [])]
+          ...[module.href, ...(module.aliases ?? []), ...(module.subNav?.map((item) => item.href) ?? [])]
             .filter((href) => pathname === href || pathname.startsWith(`${href}/`))
             .map((href) => href.length)
         );

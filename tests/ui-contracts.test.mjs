@@ -230,13 +230,20 @@ test('operational core exposes planning, attendance and payroll as one classic w
   const calendar = await readFile('src/routes/(app)/timesheet/calendar/+page.svelte', 'utf8');
   const live = await readFile('src/routes/(app)/timesheet/live/+page.svelte', 'utf8');
   const reservations = await readFile('src/lib/reservations/ReservationsWorkspace.svelte', 'utf8');
-  const payrollOverview = await readFile('src/routes/(app)/payroll/+page.svelte', 'utf8');
-  const payrollExports = await readFile('src/routes/(app)/payroll/exports/+page.svelte', 'utf8');
-  const payrollConfig = await readFile('src/routes/(app)/payroll/configuration/+page.svelte', 'utf8');
+  const payrollRedirect = await readFile('src/routes/(app)/payroll/+page.ts', 'utf8');
+  const parkedPayrollRedirects = await Promise.all([
+    'src/routes/(app)/payroll/exports/+page.ts',
+    'src/routes/(app)/payroll/configuration/+page.ts',
+    'src/routes/(app)/payroll/advanced/+page.ts',
+    'src/routes/(app)/payroll/advanced/configuration/+page.ts'
+  ].map((file) => readFile(file, 'utf8')));
   const experimentalPayroll = await readFile('src/routes/(app)/payroll/advanced/+page.svelte', 'utf8');
+  const absences = await readFile('src/routes/(app)/team/absences/+page.svelte', 'utf8');
 
-  assert.match(nav, /\{ href: '\/payroll', label: 'Overview' \}/);
-  assert.match(nav, /\{ href: '\/payroll\/exports', label: 'Exports' \}/);
+  assert.match(nav, /href: '\/payroll\/employees'/);
+  assert.doesNotMatch(nav, /\{ href: '\/payroll', label: 'Overview' \}/);
+  assert.doesNotMatch(nav, /\{ href: '\/payroll\/exports', label: 'Exports' \}/);
+  assert.doesNotMatch(nav, /\{ href: '\/payroll\/configuration', label: 'Scope & settings' \}/);
   assert.match(nav, /homeOnly: true/);
   assert.match(schedule, /copyPreviousWeek/);
   assert.match(schedule, /planningCsv/);
@@ -248,14 +255,17 @@ test('operational core exposes planning, attendance and payroll as one classic w
   assert.match(live, /<ClassicRowMenu/);
   assert.match(reservations, /<ClassicRowMenu/);
   assert.doesNotMatch(reservations, /row-status-action/);
-  assert.match(payrollOverview, /Prepare reliable payroll inputs/);
-  assert.doesNotMatch(payrollOverview, /<PayrollWorkspace/);
+  assert.match(reservations, /const liveTableIds = new Set/);
+  assert.match(reservations, /if \(reservation\.table_ids\.length\) return false/);
+  assert.match(reservations, /!reservation\.room_preference_id \|\| liveRoomIds\.has/);
+  assert.match(reservations, /t\('Unassigned'\)/);
+  assert.match(payrollRedirect, /redirect\(307, '\/payroll\/employees'\)/);
+  for (const redirectSource of parkedPayrollRedirects) {
+    assert.match(redirectSource, /redirect\(307, '\/payroll\/employees'\)/);
+  }
   assert.match(experimentalPayroll, /<PayrollWorkspace/);
-  assert.match(payrollExports, /createPayrollExportRun/);
-  assert.match(payrollExports, /id: 'payroll-export-columns'/);
-  assert.match(payrollConfig, /Restogogo boundary/);
-  assert.match(payrollConfig, /Owned by the social secretariat/);
-  assert.doesNotMatch(payrollConfig, /RestaurantPayrollSetup/);
+  assert.match(absences, /href="\/settings\/absence-types"/);
+  assert.doesNotMatch(absences, /href="\/restaurant\/absence-types"/);
 });
 
 test('restaurant coverage materializes only a complete weekday row before shared save', async () => {
@@ -283,6 +293,8 @@ test('unsaved changes guard routes and context-changing account actions', async 
   const payrollSetup = await readFile('src/lib/payroll/RestaurantPayrollSetup.svelte', 'utf8');
   const payrollDetails = await readFile('src/lib/payroll/EmployeePayrollDetails.svelte', 'utf8');
   const access = await readFile('src/routes/(app)/team/access/+page.svelte', 'utf8');
+  const reservationFloorPlans = await readFile('src/lib/reservations/ReservationFloorPlansWorkspace.svelte', 'utf8');
+  const reservationSetup = await readFile('src/lib/reservations/ReservationSetupWorkspace.svelte', 'utf8');
 
   assert.match(layout, /beforeNavigate/);
   assert.match(layout, /navigation\.cancel\(\)/);
@@ -303,6 +315,10 @@ test('unsaved changes guard routes and context-changing account actions', async 
   assert.match(payrollSetup, /id: 'restaurant-payroll-configuration'/);
   assert.match(payrollDetails, /id: `employee-payroll-details:\$\{employeeId\}`/);
   assert.match(access, /id: 'team-invitation'/);
+  assert.match(reservationFloorPlans, /id: mode === 'areas' \? 'restaurant-floor-layout' : 'reservation-table-layout'/);
+  assert.match(reservationFloorPlans, /isDirty: \(\) => dirty/);
+  assert.match(reservationSetup, /id: 'reservation-setup'/);
+  assert.match(reservationSetup, /isDirty: \(\) => dirty/);
 });
 
 test('Team and Restaurant use one route-scoped workspace instead of mounting stale sibling pages', async () => {
@@ -349,8 +365,8 @@ test('Coverage inherits the same explicit grid contract as every classic table',
   const css = await readFile('src/lib/classic/classic.css', 'utf8');
 
   assert.match(coverage, /<table class="cl-table cov">/);
-  assert.match(coverage, /viewMode === 'map'/);
-  assert.match(coverage, /<ReservationFloorPlan/);
+  assert.doesNotMatch(coverage, /viewMode === 'map'/);
+  assert.doesNotMatch(coverage, /<ReservationFloorPlan/);
   assert.doesNotMatch(coverage, /\.cov\s+(?:th|td)\s*\{[^}]*border\s*:/s);
   assert.match(css, /--cl-grid-line:\s*#[0-9a-f]{6}/i);
   assert.match(css, /\.cl-table\s*\{[^}]*border-collapse:\s*separate;[^}]*border-spacing:\s*0;/s);
@@ -452,7 +468,13 @@ test('Restaurant Areas is the direct-manipulation floor canvas instead of a dupl
   assert.match(canvas, /'bottom-left'/);
   assert.match(canvas, /class="resize-handle is-\{edge\}"/);
   assert.match(canvas, /class="floor-resize is-\{edge\}"/);
+  assert.match(canvas, /class="table-resize is-\{edge\}"/);
   assert.match(canvas, /class="snap-guide is-vertical"/);
+  assert.match(canvas, /class="floor-ruler is-horizontal"/);
+  assert.match(canvas, /class="floor-ruler is-vertical"/);
+  assert.match(workspace, /let editorView = \$state<'plan' \| 'list'>\('list'\)/);
+  assert.match(workspace, /function resizeTable\(/);
+  assert.match(workspace, /onresize=/);
   assert.doesNotMatch(canvas, /Floor plan zoom|zoom-value/);
 });
 

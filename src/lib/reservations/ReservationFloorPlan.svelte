@@ -19,6 +19,10 @@
     | 'bottom-right'
     | 'bottom-left';
   type SnapTarget = { value: number; guide: number };
+  type TableSeat = {
+    side: 'top' | 'right' | 'bottom' | 'left';
+    offset: number;
+  };
 
   const resizeEdges: ResizeEdge[] = [
     'top',
@@ -32,8 +36,12 @@
   ];
   const ROOM_GRID = 20;
   const TABLE_GRID = 10;
+  const TABLE_GAP = 10;
+  const TABLE_MIN_WIDTH = 60;
+  const TABLE_MIN_HEIGHT = 52;
   const ROOM_GAP = 20;
   const SNAP_DISTANCE = 12;
+  const UNITS_PER_METRE = 100;
 
   let {
     tables,
@@ -55,6 +63,7 @@
     emptyMessage = 'Add a table to start this floor plan.',
     onselect = () => {},
     onmove = () => {},
+    onresize = () => {},
     onroomselect = () => {},
     onroommove = () => {},
     onroomresize = () => {},
@@ -79,6 +88,13 @@
     emptyMessage?: string;
     onselect?: (table: FloorTable, reservation: Reservation | null) => void;
     onmove?: (table: FloorTable, positionX: number, positionY: number) => void;
+    onresize?: (
+      table: FloorTable,
+      positionX: number,
+      positionY: number,
+      width: number,
+      height: number
+    ) => void;
     onroomselect?: (room: ReservationRoom) => void;
     onroommove?: (room: ReservationRoom, positionX: number, positionY: number) => void;
     onroomresize?: (
@@ -97,7 +113,7 @@
   } = $props();
 
   let dragging = $state<{
-    kind: 'table' | 'room' | 'room-resize' | 'floor-resize';
+    kind: 'table' | 'table-resize' | 'room' | 'room-resize' | 'floor-resize';
     id: string;
     offsetX: number;
     offsetY: number;
@@ -143,8 +159,8 @@
     return [
       `--x:${(x / floorWidth) * 100}%`,
       `--y:${(y / floorHeight) * 100}%`,
-      `--w:${(Math.max(64, Number(table.width)) / floorWidth) * 100}%`,
-      `--h:${(Math.max(52, Number(table.height)) / floorHeight) * 100}%`,
+      `--w:${(Math.max(TABLE_MIN_WIDTH, Number(table.width)) / floorWidth) * 100}%`,
+      `--h:${(Math.max(TABLE_MIN_HEIGHT, Number(table.height)) / floorHeight) * 100}%`,
       `--rotation:${Number(table.rotation_degrees)}deg`,
       `--room-color:${roomColor}`
     ].join(';');
@@ -181,6 +197,264 @@
     return closest
       ? { value: closest.value, guide: closest.guide }
       : { value: Math.round(value / grid) * grid, guide: null };
+  }
+
+  function metreMarks(size: number): number[] {
+    const count = Math.floor(size / UNITS_PER_METRE);
+    return Array.from({ length: count + 1 }, (_, index) => index * UNITS_PER_METRE);
+  }
+
+  function metres(value: number): string {
+    return `${(value / UNITS_PER_METRE).toFixed(value % UNITS_PER_METRE === 0 ? 0 : 1)}m`;
+  }
+
+  function tableSeats(table: FloorTable): TableSeat[] {
+    const count = clamp(Math.round(Number(table.maximum_capacity)), 1, 12);
+    if (count === 1) return [{ side: 'top', offset: 0.5 }];
+    if (count === 2) {
+      return [
+        { side: 'top', offset: 0.5 },
+        { side: 'bottom', offset: 0.5 }
+      ];
+    }
+    if (count === 3) {
+      return [
+        { side: 'top', offset: 0.5 },
+        { side: 'left', offset: 0.5 },
+        { side: 'right', offset: 0.5 }
+      ];
+    }
+    if (count === 4) {
+      return [
+        { side: 'top', offset: 0.5 },
+        { side: 'right', offset: 0.5 },
+        { side: 'bottom', offset: 0.5 },
+        { side: 'left', offset: 0.5 }
+      ];
+    }
+
+    const width = Math.max(TABLE_MIN_WIDTH, Number(table.width));
+    const height = Math.max(TABLE_MIN_HEIGHT, Number(table.height));
+    const horizontalCount = clamp(
+      Math.round((count * width) / (width + height)),
+      2,
+      count - 2
+    );
+    const verticalCount = count - horizontalCount;
+    const sideCounts = {
+      top: Math.ceil(horizontalCount / 2),
+      bottom: Math.floor(horizontalCount / 2),
+      left: Math.ceil(verticalCount / 2),
+      right: Math.floor(verticalCount / 2)
+    };
+    const seats: TableSeat[] = [];
+    for (const side of ['top', 'right', 'bottom', 'left'] as const) {
+      const sideCount = sideCounts[side];
+      for (let index = 0; index < sideCount; index += 1) {
+        seats.push({ side, offset: (index + 1) / (sideCount + 1) });
+      }
+    }
+    return seats;
+  }
+
+  function tableBounds(table: FloorTable) {
+    const room = rooms.find((item) => item.id === table.room_id);
+    const inset = 12;
+    const topInset = 28;
+    return {
+      left: room ? Number(room.position_x) + inset : 0,
+      top: room ? Number(room.position_y) + topInset : 0,
+      right: room
+        ? Number(room.position_x) + Number(room.width) - inset
+        : floorWidth,
+      bottom: room
+        ? Number(room.position_y) + Number(room.height) - inset
+        : floorHeight
+    };
+  }
+
+  function tableMoveGeometry(table: FloorTable, rawX: number, rawY: number) {
+    const width = Number(table.width);
+    const height = Number(table.height);
+    const bounds = tableBounds(table);
+    const xTargets: SnapTarget[] = [
+      { value: bounds.left, guide: bounds.left },
+      { value: bounds.right - width, guide: bounds.right },
+      {
+        value: bounds.left + (bounds.right - bounds.left - width) / 2,
+        guide: bounds.left + (bounds.right - bounds.left) / 2
+      }
+    ];
+    const yTargets: SnapTarget[] = [
+      { value: bounds.top, guide: bounds.top },
+      { value: bounds.bottom - height, guide: bounds.bottom },
+      {
+        value: bounds.top + (bounds.bottom - bounds.top - height) / 2,
+        guide: bounds.top + (bounds.bottom - bounds.top) / 2
+      }
+    ];
+    for (const other of tables) {
+      if (
+        other.id === table.id ||
+        other.room_id !== table.room_id ||
+        !other.active
+      ) continue;
+      const left = Number(other.position_x);
+      const top = Number(other.position_y);
+      const right = left + Number(other.width);
+      const bottom = top + Number(other.height);
+      const centreX = left + Number(other.width) / 2;
+      const centreY = top + Number(other.height) / 2;
+      xTargets.push(
+        { value: left, guide: left },
+        { value: right - width, guide: right },
+        { value: centreX - width / 2, guide: centreX },
+        { value: right + TABLE_GAP, guide: right + TABLE_GAP },
+        { value: left - width - TABLE_GAP, guide: left - TABLE_GAP }
+      );
+      yTargets.push(
+        { value: top, guide: top },
+        { value: bottom - height, guide: bottom },
+        { value: centreY - height / 2, guide: centreY },
+        { value: bottom + TABLE_GAP, guide: bottom + TABLE_GAP },
+        { value: top - height - TABLE_GAP, guide: top - TABLE_GAP }
+      );
+    }
+
+    const snappedX = snap(
+      clamp(rawX, bounds.left, bounds.right - width),
+      xTargets,
+      TABLE_GRID
+    );
+    const snappedY = snap(
+      clamp(rawY, bounds.top, bounds.bottom - height),
+      yTargets,
+      TABLE_GRID
+    );
+    guideX = snappedX.guide;
+    guideY = snappedY.guide;
+    return {
+      x: clamp(snappedX.value, bounds.left, bounds.right - width),
+      y: clamp(snappedY.value, bounds.top, bounds.bottom - height)
+    };
+  }
+
+  function tableResizeGeometry(
+    table: FloorTable,
+    edge: ResizeEdge,
+    dx: number,
+    dy: number
+  ) {
+    const startX = Number(dragging?.startX);
+    const startY = Number(dragging?.startY);
+    const startWidth = Number(dragging?.startWidth);
+    const startHeight = Number(dragging?.startHeight);
+    const fixedRight = startX + startWidth;
+    const fixedBottom = startY + startHeight;
+    const bounds = tableBounds(table);
+    const xTargets: SnapTarget[] = [
+      { value: bounds.left, guide: bounds.left },
+      { value: bounds.right, guide: bounds.right }
+    ];
+    const yTargets: SnapTarget[] = [
+      { value: bounds.top, guide: bounds.top },
+      { value: bounds.bottom, guide: bounds.bottom }
+    ];
+    for (const other of tables) {
+      if (
+        other.id === table.id ||
+        other.room_id !== table.room_id ||
+        !other.active
+      ) continue;
+      const left = Number(other.position_x);
+      const top = Number(other.position_y);
+      const right = left + Number(other.width);
+      const bottom = top + Number(other.height);
+      xTargets.push(
+        { value: left, guide: left },
+        { value: right, guide: right }
+      );
+      yTargets.push(
+        { value: top, guide: top },
+        { value: bottom, guide: bottom }
+      );
+    }
+    let left = startX;
+    let right = fixedRight;
+    let top = startY;
+    let bottom = fixedBottom;
+    guideX = null;
+    guideY = null;
+
+    if (edgeIncludes(edge, 'left')) {
+      const result = snap(
+        clamp(startX + dx, bounds.left, fixedRight - TABLE_MIN_WIDTH),
+        xTargets,
+        TABLE_GRID
+      );
+      left = result.value;
+      guideX = result.guide;
+    } else if (edgeIncludes(edge, 'right')) {
+      const result = snap(
+        clamp(fixedRight + dx, startX + TABLE_MIN_WIDTH, bounds.right),
+        xTargets,
+        TABLE_GRID
+      );
+      right = result.value;
+      guideX = result.guide;
+    }
+    if (edgeIncludes(edge, 'top')) {
+      const result = snap(
+        clamp(startY + dy, bounds.top, fixedBottom - TABLE_MIN_HEIGHT),
+        yTargets,
+        TABLE_GRID
+      );
+      top = result.value;
+      guideY = result.guide;
+    } else if (edgeIncludes(edge, 'bottom')) {
+      const result = snap(
+        clamp(fixedBottom + dy, startY + TABLE_MIN_HEIGHT, bounds.bottom),
+        yTargets,
+        TABLE_GRID
+      );
+      bottom = result.value;
+      guideY = result.guide;
+    }
+
+    if (table.shape === 'round' || table.shape === 'square') {
+      const requestedWidth = right - left;
+      const requestedHeight = bottom - top;
+      const horizontalResize = edgeIncludes(edge, 'left') || edgeIncludes(edge, 'right');
+      const verticalResize = edgeIncludes(edge, 'top') || edgeIncludes(edge, 'bottom');
+      const size = Math.max(
+        TABLE_MIN_WIDTH,
+        horizontalResize && !verticalResize
+          ? requestedWidth
+          : verticalResize && !horizontalResize
+            ? requestedHeight
+            : Math.max(requestedWidth, requestedHeight)
+      );
+      if (edgeIncludes(edge, 'left')) left = fixedRight - size;
+      else right = startX + size;
+      if (edgeIncludes(edge, 'top')) top = fixedBottom - size;
+      else bottom = startY + size;
+      left = clamp(left, bounds.left, fixedRight - TABLE_MIN_WIDTH);
+      top = clamp(top, bounds.top, fixedBottom - TABLE_MIN_HEIGHT);
+      right = clamp(right, startX + TABLE_MIN_WIDTH, bounds.right);
+      bottom = clamp(bottom, startY + TABLE_MIN_HEIGHT, bounds.bottom);
+      const constrainedSize = Math.min(right - left, bottom - top);
+      if (edgeIncludes(edge, 'left')) left = fixedRight - constrainedSize;
+      else right = left + constrainedSize;
+      if (edgeIncludes(edge, 'top')) top = fixedBottom - constrainedSize;
+      else bottom = top + constrainedSize;
+    }
+
+    return {
+      x: Math.round(left),
+      y: Math.round(top),
+      width: Math.round(right - left),
+      height: Math.round(bottom - top)
+    };
   }
 
   function roomMoveGeometry(room: ReservationRoom, rawX: number, rawY: number) {
@@ -291,7 +565,7 @@
   function startDrag(event: PointerEvent, table: FloorTable) {
     if (!tablesSelectable) return;
     onselect(table, reservationFor(table.id));
-    if (!tablesEditable || table.blocked) return;
+    if (!tablesEditable) return;
     const stage = event.currentTarget instanceof HTMLElement
       ? event.currentTarget.parentElement
       : null;
@@ -310,6 +584,41 @@
     guideY = null;
     stage.setPointerCapture(event.pointerId);
     event.preventDefault();
+  }
+
+  function startTableResize(
+    event: PointerEvent,
+    table: FloorTable,
+    edge: ResizeEdge
+  ) {
+    onselect(table, reservationFor(table.id));
+    if (!tablesEditable) return;
+    const stage = event.currentTarget instanceof HTMLElement
+      ? event.currentTarget.closest<HTMLElement>('.floor__stage')
+      : null;
+    if (!stage) return;
+    const rect = stage.getBoundingClientRect();
+    dragging = {
+      kind: 'table-resize',
+      id: table.id,
+      pointerId: event.pointerId,
+      edge,
+      offsetX: 0,
+      offsetY: 0,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startX: Number(table.position_x),
+      startY: Number(table.position_y),
+      startWidth: Number(table.width),
+      startHeight: Number(table.height),
+      stageWidth: rect.width,
+      stageHeight: rect.height
+    };
+    guideX = null;
+    guideY = null;
+    stage.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    event.stopPropagation();
   }
 
   function startRoomDrag(event: PointerEvent, room: ReservationRoom) {
@@ -409,6 +718,32 @@
       if (clientDistance < 3) return;
       dragging.moved = true;
     }
+    if (dragging.kind === 'table-resize') {
+      const table = tables.find((item) => item.id === dragging?.id);
+      if (!table) return;
+      const dx =
+        ((event.clientX - Number(dragging.startClientX)) /
+          Math.max(1, Number(dragging.stageWidth))) *
+        floorWidth;
+      const dy =
+        ((event.clientY - Number(dragging.startClientY)) /
+          Math.max(1, Number(dragging.stageHeight))) *
+        floorHeight;
+      const geometry = tableResizeGeometry(
+        table,
+        dragging.edge ?? 'bottom-right',
+        dx,
+        dy
+      );
+      onresize(
+        table,
+        geometry.x,
+        geometry.y,
+        geometry.width,
+        geometry.height
+      );
+      return;
+    }
     if (dragging.kind === 'room-resize') {
       const room = rooms.find((item) => item.id === dragging?.id);
       if (!room) return;
@@ -473,25 +808,12 @@
     }
     const table = tables.find((item) => item.id === dragging?.id);
     if (!table) return;
-    const x = Math.max(
-      0,
-      Math.min(
-        floorWidth - Number(table.width),
-        ((event.clientX - rect.left) / rect.width) * floorWidth - dragging.offsetX
-      )
-    );
-    const y = Math.max(
-      0,
-      Math.min(
-        floorHeight - Number(table.height),
-        ((event.clientY - rect.top) / rect.height) * floorHeight - dragging.offsetY
-      )
-    );
-    onmove(
+    const geometry = tableMoveGeometry(
       table,
-      Math.round(x / TABLE_GRID) * TABLE_GRID,
-      Math.round(y / TABLE_GRID) * TABLE_GRID
+      ((event.clientX - rect.left) / rect.width) * floorWidth - dragging.offsetX,
+      ((event.clientY - rect.top) / rect.height) * floorHeight - dragging.offsetY
     );
+    onmove(table, Math.round(geometry.x), Math.round(geometry.y));
   }
 
   function endDrag(event: PointerEvent) {
@@ -526,14 +848,34 @@
       class="floor__stage"
       class:is-editable={editable}
       class:is-floor-editable={floorEditable}
-      style={`--floor-aspect:${floorWidth / floorHeight}`}
+      style={[
+        `--floor-aspect:${floorWidth / floorHeight}`,
+        `--minor-x:${(20 / floorWidth) * 100}%`,
+        `--minor-y:${(20 / floorHeight) * 100}%`,
+        `--major-x:${(UNITS_PER_METRE / floorWidth) * 100}%`,
+        `--major-y:${(UNITS_PER_METRE / floorHeight) * 100}%`,
+        `--room-color:${roomColor}`
+      ].join(';')}
       role="group"
       aria-label={t('{name} floor plan', { name: roomName })}
       onpointermove={moveDrag}
       onpointerup={endDrag}
       onpointercancel={endDrag}
     >
-      <span class="floor__room-label">{roomName}</span>
+      <div class="floor-ruler is-horizontal" aria-hidden="true">
+        {#each metreMarks(floorWidth) as mark}
+          <span style={`--mark:${(mark / floorWidth) * 100}%`}>{metres(mark)}</span>
+        {/each}
+      </div>
+      <div class="floor-ruler is-vertical" aria-hidden="true">
+        {#each metreMarks(floorHeight) as mark}
+          <span style={`--mark:${(mark / floorHeight) * 100}%`}>{metres(mark)}</span>
+        {/each}
+      </div>
+      <span class="floor__room-label">
+        {roomName}
+        <small>{metres(floorWidth)} × {metres(floorHeight)}</small>
+      </span>
       {#each rooms as room (room.id)}
         <button
           class="floor-zone"
@@ -548,7 +890,12 @@
             <WorkspaceAreaIcon icon={room.area_icon} color={room.area_color} size={13} />
             <span class="zone-name">{room.name}</span>
           </span>
-          {#if showTableCount}<small>{tables.filter((table) => table.room_id === room.id).length} {t('tables')}</small>{/if}
+          <small>
+            {#if showTableCount}
+              {tables.filter((table) => table.room_id === room.id).length} {t('tables')} ·
+            {/if}
+            {metres(Number(room.width))} × {metres(Number(room.height))}
+          </small>
           {#if roomsEditable && room.id === selectedRoomId}
             {#each resizeEdges as edge}
               <i class="resize-handle is-{edge}" aria-hidden="true" onpointerdown={(event) => startRoomResize(event, room, edge)}></i>
@@ -574,7 +921,6 @@
           {@const state = tableState(table)}
           <button
             class="floor-table is-{state} is-{table.shape}"
-            class:is-small-party={table.maximum_capacity <= 2}
             class:is-selected={selectedTableId === table.id}
             class:is-dragging={dragging?.id === table.id}
             class:is-passive={!tablesSelectable}
@@ -588,14 +934,29 @@
             onpointerdown={(event) => startDrag(event, table)}
             onclick={() => onselect(table, reservation)}
           >
-            <i class="chair is-top" aria-hidden="true"></i>
-            <i class="chair is-right" aria-hidden="true"></i>
-            <i class="chair is-bottom" aria-hidden="true"></i>
-            <i class="chair is-left" aria-hidden="true"></i>
+            {#each tableSeats(table) as seat, index (`${seat.side}-${index}`)}
+              <i
+                class="table-seat is-{seat.side}"
+                aria-hidden="true"
+                style={`--seat-offset:${seat.offset * 100}%`}
+              ></i>
+            {/each}
             <strong>{table.label}</strong>
             <small>{table.minimum_capacity}–{table.maximum_capacity}</small>
             {#if reservation}
               <em>{guestTime(reservation)}</em>
+            {/if}
+            {#if tablesEditable && selectedTableId === table.id}
+              {#each resizeEdges as edge}
+                <i
+                  class="table-resize is-{edge}"
+                  aria-hidden="true"
+                  onpointerdown={(event) => startTableResize(event, table, edge)}
+                ></i>
+              {/each}
+              <span class="table-footprint" aria-hidden="true">
+                {metres(Number(table.width))} × {metres(Number(table.height))}
+              </span>
             {/if}
           </button>
         {/each}
@@ -652,7 +1013,11 @@
       linear-gradient(90deg, color-mix(in srgb, var(--cl-line-strong) 34%, transparent) 1px, transparent 1px),
       linear-gradient(color-mix(in srgb, var(--cl-line-strong) 40%, transparent) 1px, transparent 1px),
       linear-gradient(90deg, color-mix(in srgb, var(--cl-line-strong) 40%, transparent) 1px, transparent 1px);
-    background-size: 2% 3.333%, 2% 3.333%, 10% 16.667%, 10% 16.667%;
+    background-size:
+      var(--minor-x) var(--minor-y),
+      var(--minor-x) var(--minor-y),
+      var(--major-x) var(--major-y),
+      var(--major-x) var(--major-y);
     box-shadow: 0 5px 18px rgb(24 28 34 / 7%);
     touch-action: none;
   }
@@ -676,6 +1041,51 @@
     letter-spacing: .08em;
     text-transform: uppercase;
   }
+  .floor__room-label small {
+    display: block;
+    margin-top: 2px;
+    font-size: 8px;
+    font-weight: var(--rst-fw-medium);
+    letter-spacing: .02em;
+    text-align: right;
+    text-transform: none;
+  }
+  .floor-ruler {
+    position: absolute;
+    z-index: 9;
+    pointer-events: none;
+    color: color-mix(in srgb, var(--cl-muted) 78%, transparent);
+    font-size: 8px;
+    font-weight: var(--rst-fw-medium);
+    line-height: 1;
+  }
+  .floor-ruler.is-horizontal {
+    height: 14px;
+    right: 0;
+    left: 0;
+    top: -16px;
+  }
+  .floor-ruler.is-horizontal span {
+    position: absolute;
+    left: var(--mark);
+    transform: translateX(-50%);
+  }
+  .floor-ruler.is-horizontal span:first-child { transform: none; }
+  .floor-ruler.is-horizontal span:last-child { transform: translateX(-100%); }
+  .floor-ruler.is-vertical {
+    width: 15px;
+    top: 0;
+    bottom: 0;
+    left: -17px;
+  }
+  .floor-ruler.is-vertical span {
+    position: absolute;
+    right: 0;
+    top: var(--mark);
+    transform: translateY(-50%);
+  }
+  .floor-ruler.is-vertical span:first-child { transform: none; }
+  .floor-ruler.is-vertical span:last-child { transform: translateY(-100%); }
   .floor-zone {
     width: var(--w);
     height: var(--h);
@@ -849,23 +1259,42 @@
     cursor: pointer;
     user-select: none;
   }
-  .chair {
-    width: 14px;
+  .table-seat {
+    width: 13px;
     height: 6px;
     position: absolute;
     display: block;
     border: 1px solid currentColor;
     border-radius: 2px 2px 4px 4px;
-    background: #fff;
-    opacity: .65;
+    background: color-mix(in srgb, currentColor 8%, white);
+    box-shadow: 0 1px 2px rgb(28 35 44 / 10%);
+    opacity: .72;
     pointer-events: none;
   }
-  .chair.is-top { left: 50%; top: -9px; transform: translateX(-50%) rotate(180deg); }
-  .chair.is-bottom { left: 50%; bottom: -9px; transform: translateX(-50%); }
-  .chair.is-left { width: 6px; height: 14px; left: -9px; top: 50%; transform: translateY(-50%) rotate(180deg); }
-  .chair.is-right { width: 6px; height: 14px; right: -9px; top: 50%; transform: translateY(-50%); }
-  .floor-table.is-small-party .chair.is-top,
-  .floor-table.is-small-party .chair.is-bottom { display: none; }
+  .table-seat.is-top {
+    left: var(--seat-offset);
+    top: -9px;
+    transform: translateX(-50%) rotate(180deg);
+  }
+  .table-seat.is-bottom {
+    left: var(--seat-offset);
+    bottom: -9px;
+    transform: translateX(-50%);
+  }
+  .table-seat.is-left {
+    width: 6px;
+    height: 13px;
+    left: -9px;
+    top: var(--seat-offset);
+    transform: translateY(-50%) rotate(180deg);
+  }
+  .table-seat.is-right {
+    width: 6px;
+    height: 13px;
+    right: -9px;
+    top: var(--seat-offset);
+    transform: translateY(-50%);
+  }
   .is-editable .floor-table { cursor: grab; }
   .floor-table.is-dragging { z-index: 4; cursor: grabbing; box-shadow: 0 8px 18px rgb(28 35 44 / 18%); }
   .floor-table.is-passive { pointer-events: none; opacity: .46; }
@@ -878,6 +1307,94 @@
   .floor-table strong { overflow: hidden; font-size: 13px; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
   .floor-table small { font-size: 9px; font-weight: var(--rst-fw-medium); opacity: .8; }
   .floor-table em { max-width: 100%; overflow: hidden; font-size: 8px; font-style: normal; font-weight: var(--rst-fw-bold); text-overflow: ellipsis; white-space: nowrap; }
+  .table-resize {
+    position: absolute;
+    z-index: 10;
+    display: block;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    touch-action: none;
+  }
+  .table-resize.is-top,
+  .table-resize.is-bottom {
+    height: 14px;
+    right: 12px;
+    left: 12px;
+    cursor: ns-resize;
+  }
+  .table-resize.is-top { top: -7px; }
+  .table-resize.is-bottom { bottom: -7px; }
+  .table-resize.is-right,
+  .table-resize.is-left {
+    width: 14px;
+    top: 12px;
+    bottom: 12px;
+    cursor: ew-resize;
+  }
+  .table-resize.is-right { right: -7px; }
+  .table-resize.is-left { left: -7px; }
+  .table-resize.is-top::after,
+  .table-resize.is-bottom::after,
+  .table-resize.is-right::after,
+  .table-resize.is-left::after {
+    content: '';
+    position: absolute;
+    border-radius: 999px;
+    background: var(--cl-accent);
+    box-shadow: 0 0 0 2px var(--cl-surface);
+    opacity: .72;
+  }
+  .table-resize.is-top::after,
+  .table-resize.is-bottom::after {
+    width: 22px;
+    height: 3px;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+  .table-resize.is-right::after,
+  .table-resize.is-left::after {
+    width: 3px;
+    height: 22px;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+  .table-resize.is-top-left,
+  .table-resize.is-top-right,
+  .table-resize.is-bottom-right,
+  .table-resize.is-bottom-left {
+    width: 15px;
+    height: 15px;
+    border: 2px solid var(--cl-surface);
+    border-radius: 50%;
+    background: var(--cl-accent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--cl-accent) 72%, var(--cl-line-strong));
+  }
+  .table-resize.is-top-left { top: -8px; left: -8px; cursor: nwse-resize; }
+  .table-resize.is-top-right { top: -8px; right: -8px; cursor: nesw-resize; }
+  .table-resize.is-bottom-right { right: -8px; bottom: -8px; cursor: nwse-resize; }
+  .table-resize.is-bottom-left { bottom: -8px; left: -8px; cursor: nesw-resize; }
+  .table-resize:hover::after { opacity: 1; }
+  .table-footprint {
+    position: absolute;
+    left: 50%;
+    top: calc(100% + 15px);
+    z-index: 11;
+    padding: 3px 6px;
+    transform: translateX(-50%);
+    border: 1px solid color-mix(in srgb, var(--cl-accent) 30%, var(--cl-line));
+    border-radius: 999px;
+    background: var(--cl-surface);
+    color: var(--cl-muted);
+    box-shadow: 0 2px 6px rgb(28 35 44 / 10%);
+    font-size: 8px;
+    font-weight: var(--rst-fw-bold);
+    line-height: 1;
+    white-space: nowrap;
+    pointer-events: none;
+  }
   .floor__legend {
     min-height: 35px;
     display: flex;

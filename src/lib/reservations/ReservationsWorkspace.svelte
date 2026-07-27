@@ -130,15 +130,17 @@
       (table) => table.active && liveRooms.some((room) => room.id === table.room_id)
     )
   );
-  const liveReservations = $derived(
-    operationalReservations
-      .filter((reservation) =>
-        reservation.table_ids.some((tableId) =>
-          liveTables.some((table) => table.id === tableId)
-        )
-      )
-      .sort((left, right) => left.starts_at.localeCompare(right.starts_at))
-  );
+  const liveReservations = $derived.by(() => {
+    const liveTableIds = new Set(liveTables.map((table) => table.id));
+    const liveRoomIds = new Set(liveRooms.map((room) => room.id));
+    return operationalReservations
+      .filter((reservation) => {
+        if (reservation.table_ids.some((tableId) => liveTableIds.has(tableId))) return true;
+        if (reservation.table_ids.length) return false;
+        return !reservation.room_preference_id || liveRoomIds.has(reservation.room_preference_id);
+      })
+      .sort((left, right) => left.starts_at.localeCompare(right.starts_at));
+  });
 
   onMount(() => {
     selectedDate = todayInTimezone(
@@ -494,7 +496,7 @@
                       <time>{timeLabel(reservation.starts_at)}</time>
                       <span>
                         <strong>{reservation.guest.display_name}</strong>
-                        <small>{reservation.party_size} · {reservation.table_labels.join(' + ')}</small>
+                        <small>{reservation.party_size} · {reservation.table_labels.join(' + ') || t('Unassigned')}</small>
                       </span>
                       <ReservationStatusBadge status={reservation.status} />
                     </button>

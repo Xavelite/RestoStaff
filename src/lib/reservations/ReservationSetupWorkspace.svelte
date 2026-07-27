@@ -1,10 +1,12 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { friendlyError } from '$lib/api/error-messages';
   import { t } from '$lib/i18n/i18n.svelte';
   import ClassicPage from '$lib/classic/ClassicPage.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import { getReservationSetup, saveReservationSetup } from '$lib/reservations/reservation-api';
   import type { ReservationSetup, ReservationSetupDraft } from '$lib/reservations/reservation-types';
+  import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
 
@@ -128,6 +130,16 @@
     draft = setupDraft(source);
     dirty = false;
   }
+
+  onMount(() =>
+    unsavedChanges.register({
+      id: 'reservation-setup',
+      label: 'Reservation settings',
+      isDirty: () => dirty,
+      save,
+      discard
+    })
+  );
 </script>
 
 <svelte:head><title>{t('Reservation setup')} &middot; restogogo</title></svelte:head>

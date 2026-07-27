@@ -224,7 +224,7 @@
   });
 </script>
 
-<svelte:head><title>{t('Payroll preparation')} &middot; restogogo</title></svelte:head>
+<svelte:head><title>{t('Payroll')} &middot; restogogo</title></svelte:head>
 
 <ClassicTeamPage>
   {#snippet children(team)}

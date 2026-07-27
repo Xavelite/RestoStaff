@@ -11,12 +11,6 @@
   import type { CoverageDraft } from '$lib/restaurant/restaurant-model';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { buildAreaColorMap, buildPositionColorMap } from '$lib/ui/position-color';
-  import { getReservationFloorPlans } from '$lib/reservations/reservation-api';
-  import ReservationFloorPlan from '$lib/reservations/ReservationFloorPlan.svelte';
-  import type {
-    ReservationFloorPlans,
-    ReservationRoom
-  } from '$lib/reservations/reservation-types';
 
   type Row = { areaId: string; jobFunctionId: string; serviceKey: ServiceKey };
   type PendingService = ServiceKey | '';
@@ -31,11 +25,6 @@
   let excludedPosition = $state(new Set<string>());
   let excludedService = $state(new Set<string>());
   let collapsedGroups = $state<string[]>([]);
-  let viewMode = $state<'grid' | 'map'>('grid');
-  let floorPlans = $state<ReservationFloorPlans | null>(null);
-  let mapFloorId = $state('');
-  let mapWeekday = $state(1);
-  let mapService = $state<ServiceKey>('lunch');
 
   const areaColor = $derived(buildAreaColorMap(restaurantConfig.draft?.areas ?? []));
   const positionColor = $derived(
@@ -66,21 +55,6 @@
       }
     }
     return suggestions;
-  });
-
-  $effect(() => {
-    const restaurantId = workspace.activeId;
-    if (!restaurantId) return;
-    void getReservationFloorPlans(restaurantId)
-      .then((plans) => {
-        floorPlans = plans;
-        if (!mapFloorId || !plans.floors.some((floor) => floor.id === mapFloorId && floor.active)) {
-          mapFloorId = plans.floors.find((floor) => floor.active)?.id ?? '';
-        }
-      })
-      .catch(() => {
-        floorPlans = null;
-      });
   });
 
   function rowKey(row: Row): string {
@@ -141,9 +115,8 @@
         tempId: crypto.randomUUID(),
         ...row,
         counts: WEEKDAYS.map(() => null) as Array<number | null>
-      }));
+    }));
     newRows = [...rows, ...newRows];
-    viewMode = 'grid';
   }
 
   function removeNewRow(tempId: string) {
@@ -238,44 +211,6 @@
     });
   }
 
-  function requiredForArea(
-    draft: { coverage: CoverageDraft[] },
-    areaId: string,
-    weekday: number,
-    serviceKey: ServiceKey
-  ): number | null {
-    const entries = draft.coverage.filter(
-      (item) =>
-        item.areaId === areaId &&
-        item.weekday === weekday &&
-        item.serviceKey === serviceKey
-    );
-    if (!entries.length) return null;
-    return entries.reduce((total, item) => total + item.requiredCount, 0);
-  }
-
-  function coverageMapRooms(
-    plans: ReservationFloorPlans | null,
-    draft: { coverage: CoverageDraft[]; areas: Array<{ id: string; name: string; color: string }> },
-    floorId: string,
-    weekday: number,
-    serviceKey: ServiceKey
-  ): ReservationRoom[] {
-    if (!plans) return [];
-    return plans.rooms
-      .filter((room) => room.active && room.floor_id === floorId)
-      .map((room) => {
-        const area = draft.areas.find((item) => item.id === room.work_area_id);
-        const required = requiredForArea(draft, room.work_area_id, weekday, serviceKey);
-        return {
-          ...room,
-          name: `${area?.name ?? room.name} · ${required == null ? t('Not set') : t('{count} people', { count: required })}`,
-          area_color: area?.color ?? room.area_color
-        };
-      });
-  }
-
-
   const readRestaurantContext = useClassicRestaurantContext();
   const context = $derived(readRestaurantContext());
 </script>
@@ -302,10 +237,6 @@
     <ClassicTablePanel dirty={context.dirty} saving={context.saving} canSave={context.canSave} onsave={() => void context.save().catch(() => undefined)} ondiscard={context.discard}>
       {#snippet meta()}<span><i class="dot"></i>{t('{count} staffing rules', { count: rows.length })}</span>{/snippet}
       {#snippet actions()}
-        <div class="view-switch" aria-label={t('View')}>
-          <button class:is-active={viewMode === 'grid'} type="button" onclick={() => (viewMode = 'grid')}>{t('Grid')}</button>
-          <button class:is-active={viewMode === 'map'} type="button" onclick={() => (viewMode = 'map')}>{t('Map')}</button>
-        </div>
         {#if suggestedRows.length}
           <button class="cl-btn suggestion-action" type="button" disabled={workspace.isPreview} onclick={stageSuggestions}>
             {t('Use linked positions')} <span>{suggestedRows.length}</span>
@@ -314,34 +245,6 @@
         <button class="cl-btn is-primary" type="button" disabled={workspace.isPreview || !restaurantConfig.draft} onclick={addRow}><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>{t('Add rule')}</button>
       {/snippet}
       {#snippet children()}
-        {#if viewMode === 'map'}
-          {@const activeFloors = floorPlans?.floors.filter((floor) => floor.active) ?? []}
-          {@const selectedMapFloor = activeFloors.find((floor) => floor.id === mapFloorId) ?? null}
-          {@const mapRooms = coverageMapRooms(floorPlans, draft, mapFloorId, mapWeekday, mapService)}
-          <section class="coverage-map">
-            <header class="coverage-map__toolbar">
-              <label><span>{t('Floor')}</span><select class="cl-field" bind:value={mapFloorId}>{#each activeFloors as floor (floor.id)}<option value={floor.id}>{floor.name}</option>{/each}</select></label>
-              <label><span>{t('Day')}</span><select class="cl-field" bind:value={mapWeekday}>{#each WEEKDAYS as day, index (day)}<option value={index + 1}>{t(day)}</option>{/each}</select></label>
-              <label><span>{t('Service')}</span><select class="cl-field" bind:value={mapService}><option value="lunch">{t('Lunch')}</option><option value="evening">{t('Evening')}</option></select></label>
-              <p>{t('Each area shows the total people required across its linked positions.')}</p>
-            </header>
-            {#if selectedMapFloor}
-              <ReservationFloorPlan
-                tables={[]}
-                rooms={mapRooms}
-                roomName={selectedMapFloor.name}
-                floorWidth={selectedMapFloor.canvas_width}
-                floorHeight={selectedMapFloor.canvas_height}
-                editable={false}
-                showHeader={false}
-                showTableCount={false}
-                emptyMessage="Set up the floor in Areas to see staffing on the map."
-              />
-            {:else}
-              <div class="cl-empty"><strong>{t('No floor plan yet')}</strong><span>{t('Create and shape areas first, then staffing totals appear here.')}</span><a class="cl-btn is-primary" href="/restaurant/areas">{t('Open Areas')}</a></div>
-            {/if}
-          </section>
-        {:else}
         <div class="cl-tablewrap">
           <table class="cl-table cov">
             <thead>
@@ -392,7 +295,6 @@
             {/if}
           </table>
         </div>
-        {/if}
       {/snippet}
     </ClassicTablePanel>
 
@@ -407,19 +309,5 @@
   .remove { min-height: 30px; height: 30px; width: 30px; color: var(--cl-problem); font-size: 18px; }
   .inline-warning td { padding-block: 7px !important; color: var(--cl-attention); background: var(--cl-attention-wash); font-size: 12px; }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-line-strong); display: inline-block; }
-  .view-switch { display: inline-flex; align-items: center; padding: 2px; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); background: var(--cl-surface-muted); }
-  .view-switch button { min-height: 30px; padding: 5px 12px; border: 0; border-radius: calc(var(--cl-radius) - 2px); background: transparent; color: var(--cl-muted); font: inherit; font-size: 12px; font-weight: var(--rst-fw-medium); cursor: pointer; }
-  .view-switch button.is-active { background: var(--cl-surface); color: var(--cl-ink); box-shadow: 0 1px 3px rgb(15 23 42 / 10%); }
   .suggestion-action span { min-width: 20px; height: 20px; display: grid; place-items: center; border-radius: 999px; background: var(--cl-accent-wash); color: var(--cl-accent); font-size: 10px; font-weight: var(--rst-fw-bold); }
-  .coverage-map { min-width: 0; overflow: hidden; border: 1px solid var(--cl-line-strong); border-radius: var(--cl-radius-surface); background: var(--cl-surface); }
-  .coverage-map__toolbar { display: flex; align-items: end; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--cl-line); background: var(--cl-surface); }
-  .coverage-map__toolbar label { display: grid; gap: 4px; }
-  .coverage-map__toolbar label > span { color: var(--cl-muted); font-size: 10px; font-weight: var(--rst-fw-bold); }
-  .coverage-map__toolbar select { min-width: 126px; height: 34px; min-height: 34px; padding-block: 4px; font-size: 12px; }
-  .coverage-map__toolbar p { max-width: 360px; margin: 0 0 3px auto; color: var(--cl-muted); font-size: 10.5px; line-height: 1.45; text-align: right; }
-  .coverage-map :global(.floor__viewport) { min-height: 560px; }
-  @media (max-width: 760px) {
-    .coverage-map__toolbar { align-items: stretch; flex-direction: column; }
-    .coverage-map__toolbar p { margin: 0; text-align: left; }
-  }
 </style>

@@ -13,7 +13,9 @@
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import ClassicPage from '$lib/classic/ClassicPage.svelte';
+  import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
   import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
+  import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
 
   let stations = $state<RestaurantStation[]>([]);
   let loading = $state(false);
@@ -89,70 +91,100 @@
 
 <svelte:head><title>{t('Badge devices')} &middot; restogogo</title></svelte:head>
 
-{#snippet pageActions()}
-  <a class="cl-btn" href="/badge-terminal/terminal">{t('Open terminal')}</a>
-  <button
-    class="cl-btn is-primary"
-    type="button"
-    disabled={workspace.isPreview}
-    onclick={() => { pairedCode = ''; pairLabel = ''; pairOpen = true; }}
-  >{t('Pair a device')}</button>
-{/snippet}
+<ClassicPage>
+  <ClassicTablePanel>
+    {#snippet meta()}
+      <span><i class="dot"></i>{t('{count} paired', { count: stations.length })}</span>
+      <span><i class="dot is-green"></i>{t('{count} ready', { count: stations.filter((station) => station.lastUsedAt).length })}</span>
+    {/snippet}
 
-<ClassicPage actions={pageActions}>
-  <p class="cl-section__note">
-    {t('A paired tablet holds only a revocable device token, never a manager session.')}
-  </p>
+    {#snippet actions()}
+      <a class="cl-btn" href="/badge-terminal/terminal">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="5" y="3" width="14" height="18" rx="2" />
+          <path d="M9 7h6M9 11h6M10 17h4" />
+        </svg>
+        <span>{t('Open terminal')}</span>
+      </a>
+      <button
+        class="cl-btn is-primary"
+        type="button"
+        disabled={workspace.isPreview}
+        onclick={() => { pairedCode = ''; pairLabel = ''; pairOpen = true; }}
+      >
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+        <span>{t('Pair a device')}</span>
+      </button>
+    {/snippet}
 
-  <div class="cl-tablewrap">
-    <table class="cl-table">
-      <thead>
-        <tr>
-          <th>{t('Device')}</th>
-          <th>{t('Paired')}</th>
-          <th>{t('Last used')}</th>
-          <th>{t('Status')}</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {#if loading && !stations.length}
-          <tr><td colspan="5"><div class="cl-empty"><strong>{t('Loading your workspace')}</strong></div></td></tr>
-        {:else if !stations.length}
-          <tr>
-            <td colspan="5">
-              <div class="cl-empty">
-                <strong>{t('No paired devices')}</strong>
-                <span>{t('Pair a tablet to run the badge terminal without signing anyone in.')}</span>
-              </div>
-            </td>
-          </tr>
-        {:else}
-          {#each stations as station (station.id)}
+    {#snippet children()}
+      <div class="cl-tablewrap">
+        <table class="cl-table">
+          <thead>
             <tr>
-              <td>{station.label}</td>
-              <td class="is-quiet">{stamp(station.createdAt)}</td>
-              <td class="is-quiet">{stamp(station.lastUsedAt) || t('Never')}</td>
-              <td>
-                <ClassicStatus
-                  label={station.lastUsedAt ? 'In use' : 'Waiting for first badge'}
-                  tone={station.lastUsedAt ? 'ok' : 'attention'}
-                />
-              </td>
-              <td class="is-num">
-                <button
-                  class="cl-btn"
-                  type="button"
-                  disabled={workspace.isPreview || busy === station.id}
-                  onclick={() => revoke(station)}
-                >{t('Revoke')}</button>
-              </td>
+              <th>{t('Device')}</th>
+              <th>{t('Paired')}</th>
+              <th>{t('Last used')}</th>
+              <th>{t('Status')}</th>
+              <th class="menu-cell" aria-label={t('Actions')}></th>
             </tr>
-          {/each}
-        {/if}
-      </tbody>
-    </table>
-  </div>
+          </thead>
+          <tbody>
+            {#if loading && !stations.length}
+              <tr><td colspan="5"><div class="cl-empty"><strong>{t('Loading your workspace')}</strong></div></td></tr>
+            {:else if !stations.length}
+              <tr>
+                <td colspan="5">
+                  <div class="cl-empty">
+                    <strong>{t('No paired devices')}</strong>
+                    <span>{t('Pair a tablet to run the badge terminal without signing anyone in.')}</span>
+                  </div>
+                </td>
+              </tr>
+            {:else}
+              {#each stations as station (station.id)}
+                <tr>
+                  <td>
+                    <span class="cl-table__name">
+                      <span class="device-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                          <rect x="6" y="3" width="12" height="18" rx="2" />
+                          <path d="M10 17h4" />
+                        </svg>
+                      </span>
+                      <strong>{station.label}</strong>
+                    </span>
+                  </td>
+                  <td class="is-quiet">{stamp(station.createdAt)}</td>
+                  <td class="is-quiet">{stamp(station.lastUsedAt) || t('Never')}</td>
+                  <td>
+                    <ClassicStatus
+                      label={station.lastUsedAt ? 'Ready' : 'Waiting for first badge'}
+                      tone={station.lastUsedAt ? 'ok' : 'attention'}
+                    />
+                  </td>
+                  <td class="menu-cell">
+                    <ClassicRowMenu
+                      disabled={workspace.isPreview || busy === station.id}
+                      items={[
+                        {
+                          label: t('Revoke'),
+                          tone: 'danger',
+                          onselect: () => void revoke(station)
+                        }
+                      ]}
+                    />
+                  </td>
+                </tr>
+              {/each}
+            {/if}
+          </tbody>
+        </table>
+      </div>
+    {/snippet}
+  </ClassicTablePanel>
 </ClassicPage>
 
 {#snippet pairFooter()}
@@ -185,6 +217,30 @@
 </Dialog>
 
 <style>
+  .menu-cell {
+    width: 44px;
+  }
+  .dot {
+    width: 7px;
+    height: 7px;
+    display: inline-block;
+    border-radius: 50%;
+    background: var(--cl-line-strong);
+  }
+  .dot.is-green {
+    background: var(--cl-ok);
+  }
+  .device-icon {
+    width: 28px;
+    height: 28px;
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--cl-info) 24%, var(--cl-line));
+    border-radius: 7px;
+    color: var(--cl-info);
+    background: color-mix(in srgb, var(--cl-info) 8%, var(--cl-surface));
+  }
   .paired {
     display: grid;
     gap: 8px;
@@ -209,4 +265,3 @@
     line-height: 1.5;
   }
 </style>
-

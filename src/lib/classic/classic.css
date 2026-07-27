@@ -317,6 +317,12 @@
   gap: 1px;
 }
 
+.cl-sidebar__divider {
+  height: 1px;
+  margin: 6px 18px 5px;
+  background: color-mix(in srgb, var(--cl-rail-line) 78%, transparent);
+}
+
 .cl-sidebar__utility {
   margin-top: auto;
   padding-top: 8px;

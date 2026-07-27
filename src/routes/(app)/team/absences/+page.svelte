@@ -147,7 +147,7 @@
           <button type="button" class:is-active={view === 'review'} aria-pressed={view === 'review'} onclick={() => (view = 'review')}>{t('Needs review')}</button>
           <button type="button" class:is-active={view === 'all'} aria-pressed={view === 'all'} onclick={() => (view = 'all')}>{t('All')}</button>
         </div>
-        <a class="settings-link" href="/restaurant/absence-types">{t('Absence types')}</a>
+        <a class="settings-link" href="/settings/absence-types">{t('Absence types')}</a>
       {/snippet}
       {#snippet children()}
       <div class="cl-tablewrap">
