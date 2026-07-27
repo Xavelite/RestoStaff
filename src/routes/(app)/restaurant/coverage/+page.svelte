@@ -11,6 +11,7 @@
   import type { CoverageDraft } from '$lib/restaurant/restaurant-model';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { buildAreaColorMap, buildPositionColorMap } from '$lib/ui/position-color';
+  import { areaInstanceLabelMap } from '$lib/restaurant/area-instance';
 
   type Row = { areaId: string; jobFunctionId: string; serviceKey: ServiceKey };
   type PendingService = ServiceKey | '';
@@ -32,6 +33,9 @@
   let collapsedGroups = $state<string[]>([]);
 
   const areaColor = $derived(buildAreaColorMap(restaurantConfig.draft?.areas ?? []));
+  const areaName = $derived(
+    areaInstanceLabelMap(restaurantConfig.draft?.areas ?? [])
+  );
   const positionColor = $derived(
     buildPositionColorMap(
       restaurantConfig.draft?.jobFunctions ?? [],
@@ -170,7 +174,7 @@
 
   function placementAreaName(areaId: string): string {
     const area = restaurantConfig.draft?.areas.find((item) => item.id === areaId);
-    return area ? restaurantConfig.placementArea(area).name : '';
+    return area ? areaName.get(area.id) ?? restaurantConfig.placementArea(area).name : '';
   }
 
   function placementPositionName(positionId: string): string {
@@ -246,7 +250,6 @@
 
 {#if context}
 {@const draft = context.draft}
-    {@const areaName = new Map(draft.areas.map((area) => [area.id, area.name]))}
     {@const jobName = new Map(draft.jobFunctions.map((job) => [job.id, job.name]))}
     {@const activeAreas = draft.areas.filter((area) => area.active && area.name.trim())}
     {@const activePositions = draft.jobFunctions.filter((job) => job.active && job.name.trim())}
@@ -257,7 +260,7 @@
       .filter((row) => `${placementAreaName(row.areaId)} ${placementPositionName(row.jobFunctionId)} ${row.serviceKey}`.toLowerCase().includes(search.trim().toLowerCase()))}
     {@const ordered = orderedCoverageRows(rows)}
     {@const groups = groupRows(ordered, areaName, jobName)}
-    {@const areaValues = activeAreas.map((area) => ({ value: area.id, label: area.name }))}
+    {@const areaValues = activeAreas.map((area) => ({ value: area.id, label: areaName.get(area.id) ?? area.name }))}
     {@const positionValues = activePositions.map((job) => ({ value: job.id, label: job.name }))}
     {@const serviceValues = [{ value: 'lunch', label: t('Lunch') }, { value: 'evening', label: t('Evening') }]}
 
@@ -287,7 +290,7 @@
               {#each newRows as row (row.tempId)}
                 {@const duplicate = Boolean(row.areaId && row.jobFunctionId && row.serviceKey && exists(row.areaId, row.jobFunctionId, row.serviceKey as ServiceKey))}
                 <tr class="is-attention">
-                  <td><select class="cl-field" aria-label={t('Area')} value={row.areaId} onchange={(event) => patchNewRow(row.tempId, { areaId: event.currentTarget.value })}><option value="">{t('Choose area')}</option>{#each activeAreas as area (area.id)}<option value={area.id}>{area.name}</option>{/each}</select></td>
+                  <td><select class="cl-field" aria-label={t('Area')} value={row.areaId} onchange={(event) => patchNewRow(row.tempId, { areaId: event.currentTarget.value })}><option value="">{t('Choose area')}</option>{#each activeAreas as area (area.id)}<option value={area.id}>{areaName.get(area.id) ?? area.name}</option>{/each}</select></td>
                   <td><select class="cl-field" aria-label={t('Position')} value={row.jobFunctionId} onchange={(event) => patchNewRow(row.tempId, { jobFunctionId: event.currentTarget.value })}><option value="">{t('Choose position')}</option>{#each activePositions.filter((job) => !row.areaId || job.primaryAreaId === row.areaId || job.areaIds.includes(row.areaId)) as job (job.id)}<option value={job.id}>{job.name}</option>{/each}</select></td>
                   <td><select class="cl-field" aria-label={t('Service')} value={row.serviceKey} onchange={(event) => patchNewRow(row.tempId, { serviceKey: event.currentTarget.value as PendingService })}><option value="">{t('Choose service')}</option><option value="lunch">{t('Lunch')}</option><option value="evening">{t('Evening')}</option></select></td>
                   {#each WEEKDAYS as day, index (day)}<td class="cov__day"><input class="cl-field num" class:is-set={row.counts[index] != null} type="number" min="0" step="1" placeholder="—" aria-label={`${t(day)} ${t('required people')}`} value={row.counts[index] ?? ''} oninput={(event) => setNewCount(row.tempId, index, event.currentTarget.value)} /></td>{/each}

@@ -210,7 +210,7 @@ test('Restaurant Areas is the visible floor editor and Team groups positions by 
   assert.match(nav, /\{ href: '\/restaurant\/areas', label: 'Areas' \}/);
   assert.match(areasRoute, /mode="areas"/);
   assert.match(floorPlans, /mode\?: 'areas' \| 'tables'/);
-  assert.match(floorPlans, /async function createArea\(/);
+  assert.match(floorPlans, /async function addArea\(/);
   assert.match(floorPlans, /<WorkspaceCataloguePicker/);
   assert.match(floorPlans, /class="cl-field floor-select"/);
   assert.doesNotMatch(floorPlans, /<th>\{t\('Type'\)\}<\/th>/);
@@ -218,7 +218,10 @@ test('Restaurant Areas is the visible floor editor and Team groups positions by 
   assert.match(positions, /data-position-name=\{position\.id\}/);
   assert.match(positions, /aria-label=\{t\('Primary area'\)\}/);
   assert.match(people, /\.sort\(\(left, right\) => Number\(right\.is_primary\) - Number\(left\.is_primary\)\)/);
-  assert.match(people, /const primaryAreaId = areaRelations\[0\]\?\.area_id/);
+  assert.match(
+    people,
+    /const primaryAreaId = preferredAreaId \|\| areaRelations\[0\]\?\.area_id/
+  );
   assert.doesNotMatch(people, /coverage_requirements/);
 });
 
@@ -256,7 +259,12 @@ test('operational core exposes planning, attendance and payroll as one classic w
   assert.match(reservations, /<ClassicTablePanel>/);
   assert.match(reservations, /Online bookings off/);
   assert.match(reservations, /class="reservation-period"/);
+  assert.match(reservations, /<ClassicPrimaryColMenu/);
+  assert.match(reservations, /<ClassicColMenu/);
+  assert.match(reservations, /showHeader=\{false\}/);
   assert.doesNotMatch(reservations, /Configure this service before taking bookings/);
+  assert.doesNotMatch(reservations, /The same server-side availability check/);
+  assert.doesNotMatch(reservations, /class="reservation-search"/);
   assert.doesNotMatch(reservations, /ontoday=/);
   assert.doesNotMatch(reservations, /class="reservation-summary"/);
   assert.doesNotMatch(reservations, /row-status-action/);
@@ -482,7 +490,7 @@ test('Restaurant Areas is the direct-manipulation floor canvas instead of a dupl
   assert.match(workspace, /const CANONICAL_FLOOR_LEVELS = \[-1, 0, 1, 2\] as const/);
   assert.match(workspace, /function persistedFloorName\(/);
   assert.doesNotMatch(workspace, /function addFloor\(\)/);
-  assert.match(workspace, /async function createArea\(/);
+  assert.match(workspace, /async function addArea\(/);
   assert.match(workspace, /catalogueAreaItems/);
   assert.match(workspace, /onroomresize=/);
   assert.match(workspace, /onfloorresize=/);

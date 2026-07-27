@@ -18,6 +18,7 @@ import {
   resolveWorkspaceServiceSlot,
   type ServiceSlotTruth
 } from '../calendar/service-slot.ts';
+import { areaInstanceLabelMap } from '../restaurant/area-instance.ts';
 
 export type ActualSlot = {
   key: string;
@@ -96,6 +97,7 @@ export function actualSlotsForDate(
   today: string,
   asOf = new Date()
 ): ActualSlot[] {
+  const areaName = areaInstanceLabelMap(snapshot.work_areas ?? []);
   const timezone = snapshot.restaurant_settings.timezone || 'Europe/Brussels';
   const weekStart = mondayFor(date);
   const day = weekday(date);
@@ -133,9 +135,7 @@ export function actualSlotsForDate(
               startsAt: String(plan.starts_at).slice(0, 5),
               endsAt: String(plan.ends_at).slice(0, 5),
               contractBaseline: plan.source === 'template',
-              area:
-                (snapshot.work_areas ?? []).find((area) => area.id === plan.area_id)?.name ??
-                'Any area'
+              area: areaName.get(plan.area_id ?? '') ?? 'Any area'
             }
           : null
       });

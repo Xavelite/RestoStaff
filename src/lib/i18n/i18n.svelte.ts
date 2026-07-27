@@ -3466,6 +3466,124 @@ Object.assign(dutch, {
   'Preparing…': 'Voorbereiden…'
 });
 
+Object.assign(french, {
+  'Website bookings are ready.': 'Les réservations sur le site sont prêtes.',
+  'Website booking settings saved.': 'Paramètres de réservation du site enregistrés.',
+  'Website booking key replaced.': 'Clé de réservation du site remplacée.',
+  'Copy the code from the field below.': 'Copiez le code depuis le champ ci-dessous.',
+  'Reservation API': 'API de réservation',
+  'No guest receives database access': 'Aucun client n’accède à la base de données',
+  'Loading': 'Chargement',
+  'Website widget': 'Widget pour site web',
+  'Restaurant website': 'Site web du restaurant',
+  'Only this website will be able to start the embedded booking widget.':
+    'Seul ce site pourra démarrer le widget de réservation intégré.',
+  'Website channel active': 'Canal du site actif',
+  'Website channel off': 'Canal du site désactivé',
+  'Off': 'Désactivé',
+  'Accept bookings on your own website': 'Acceptez des réservations sur votre propre site',
+  'Create a secure booking channel, copy one embed code, and let RestoGogo allocate only tables that are truly available.':
+    'Créez un canal sécurisé, copiez un seul code d’intégration et laissez RestoGogo attribuer uniquement les tables réellement disponibles.',
+  'Creating…': 'Création…',
+  'Create website widget': 'Créer le widget du site',
+  'Available now': 'Disponible maintenant',
+  'The widget searches live capacity, holds exact tables for five minutes, then confirms the guest.':
+    'Le widget vérifie la capacité en direct, réserve les tables exactes pendant cinq minutes, puis confirme le client.',
+  'Allowed website origins': 'Origines de site autorisées',
+  'One complete origin per line — for example https://restaurant.be':
+    'Une origine complète par ligne — par exemple https://restaurant.be',
+  'Public channel key': 'Clé publique du canal',
+  'Revocable channel identifier — never a database credential':
+    'Identifiant de canal révocable — jamais un accès à la base de données',
+  'Replacing…': 'Remplacement…',
+  'Replace key now': 'Remplacer la clé maintenant',
+  'Replace key': 'Remplacer la clé',
+  'This immediately disables the old embed code and releases unfinished holds. Click again to confirm.':
+    'Cela désactive immédiatement l’ancien code et libère les réservations temporaires. Cliquez encore pour confirmer.',
+  'Embed code': 'Code d’intégration',
+  'Paste this once in the page where guests should book.':
+    'Collez-le une fois sur la page où les clients doivent réserver.',
+  'Copy embed code': 'Copier le code d’intégration',
+  'Website embed code': 'Code d’intégration du site',
+  'Open widget preview': 'Ouvrir l’aperçu du widget',
+  'Booking safeguards': 'Protections des réservations',
+  'Capacity stays server-owned': 'La capacité reste contrôlée par le serveur',
+  'Live availability': 'Disponibilité en direct',
+  'Service limits and table inventory are checked on every search.':
+    'Les limites du service et les tables sont vérifiées à chaque recherche.',
+  'Five-minute hold': 'Réservation temporaire de cinq minutes',
+  'Exact tables are locked while the guest enters details.':
+    'Les tables exactes sont bloquées pendant la saisie des coordonnées.',
+  'Atomic confirmation': 'Confirmation atomique',
+  'Duplicate requests and overlapping parties are rejected in the database.':
+    'Les demandes en double et les groupes qui se chevauchent sont rejetés dans la base de données.',
+  'Server API': 'API serveur',
+  'Create bookings from trusted partner systems with private credentials, scoped permissions and full audit history.':
+    'Créez des réservations depuis des partenaires approuvés avec des identifiants privés, des droits limités et un historique complet.',
+  'Webhooks': 'Webhooks',
+  'Notify approved integrations when a booking is created, changed, seated or cancelled.':
+    'Informez les intégrations approuvées lorsqu’une réservation est créée, modifiée, installée ou annulée.'
+});
+
+Object.assign(dutch, {
+  'Website bookings are ready.': 'Websiteboekingen zijn klaar.',
+  'Website booking settings saved.': 'Instellingen voor websiteboekingen opgeslagen.',
+  'Website booking key replaced.': 'Sleutel voor websiteboekingen vervangen.',
+  'Copy the code from the field below.': 'Kopieer de code uit het veld hieronder.',
+  'Reservation API': 'Reserverings-API',
+  'No guest receives database access': 'Geen enkele gast krijgt databasetoegang',
+  'Loading': 'Laden',
+  'Website widget': 'Websitewidget',
+  'Restaurant website': 'Website van het restaurant',
+  'Only this website will be able to start the embedded booking widget.':
+    'Alleen deze website kan de ingesloten boekingswidget starten.',
+  'Website channel active': 'Websitekanaal actief',
+  'Website channel off': 'Websitekanaal uit',
+  'Off': 'Uit',
+  'Accept bookings on your own website': 'Ontvang reserveringen op je eigen website',
+  'Create a secure booking channel, copy one embed code, and let RestoGogo allocate only tables that are truly available.':
+    'Maak een veilig boekingskanaal, kopieer één insluitcode en laat RestoGogo alleen werkelijk beschikbare tafels toewijzen.',
+  'Creating…': 'Aanmaken…',
+  'Create website widget': 'Websitewidget aanmaken',
+  'Available now': 'Nu beschikbaar',
+  'The widget searches live capacity, holds exact tables for five minutes, then confirms the guest.':
+    'De widget controleert live capaciteit, houdt exacte tafels vijf minuten vast en bevestigt daarna de gast.',
+  'Allowed website origins': 'Toegestane website-origins',
+  'One complete origin per line — for example https://restaurant.be':
+    'Eén volledige origin per regel — bijvoorbeeld https://restaurant.be',
+  'Public channel key': 'Publieke kanaalsleutel',
+  'Revocable channel identifier — never a database credential':
+    'Intrekbare kanaalidentificatie — nooit een databasecredential',
+  'Replacing…': 'Vervangen…',
+  'Replace key now': 'Sleutel nu vervangen',
+  'Replace key': 'Sleutel vervangen',
+  'This immediately disables the old embed code and releases unfinished holds. Click again to confirm.':
+    'Dit schakelt de oude insluitcode meteen uit en geeft onafgeronde holds vrij. Klik opnieuw om te bevestigen.',
+  'Embed code': 'Insluitcode',
+  'Paste this once in the page where guests should book.':
+    'Plak dit één keer op de pagina waar gasten moeten reserveren.',
+  'Copy embed code': 'Insluitcode kopiëren',
+  'Website embed code': 'Insluitcode voor website',
+  'Open widget preview': 'Widgetvoorbeeld openen',
+  'Booking safeguards': 'Beveiliging van boekingen',
+  'Capacity stays server-owned': 'Capaciteit blijft door de server beheerd',
+  'Live availability': 'Live beschikbaarheid',
+  'Service limits and table inventory are checked on every search.':
+    'Dienstlimieten en tafelvoorraad worden bij elke zoekopdracht gecontroleerd.',
+  'Five-minute hold': 'Hold van vijf minuten',
+  'Exact tables are locked while the guest enters details.':
+    'De exacte tafels worden vastgehouden terwijl de gast gegevens invult.',
+  'Atomic confirmation': 'Atomaire bevestiging',
+  'Duplicate requests and overlapping parties are rejected in the database.':
+    'Dubbele verzoeken en overlappende groepen worden in de database geweigerd.',
+  'Server API': 'Server-API',
+  'Create bookings from trusted partner systems with private credentials, scoped permissions and full audit history.':
+    'Maak boekingen vanuit vertrouwde partnersystemen met privécredentials, beperkte rechten en een volledige auditgeschiedenis.',
+  'Webhooks': 'Webhooks',
+  'Notify approved integrations when a booking is created, changed, seated or cancelled.':
+    'Informeer goedgekeurde integraties wanneer een boeking wordt gemaakt, gewijzigd, geplaatst of geannuleerd.'
+});
+
 const dictionaries: Record<Exclude<AppLocale, 'en'>, Record<string, string>> = {
   fr: french,
   nl: dutch
@@ -4862,4 +4980,120 @@ Object.assign(dutch, {
     'Sleep de achtergrond van de zone om ze te verplaatsen. Trek aan een rand of hoek om ze te vormen; tafels blijven veilig binnen de zone.',
   'Select an area to add tables, or drag its background to adjust the layout.':
     'Selecteer een zone om tafels toe te voegen, of sleep de achtergrond om de indeling aan te passen.'
+});
+
+Object.assign(french, {
+  'Preferred area': 'Zone habituelle',
+  'Any linked area': 'Toutes les zones liées',
+  'View linked areas': 'Voir les zones liées',
+  'Linked areas': 'Zones liées',
+  'Position areas': 'Zones du poste',
+  'System positions stay linked to every compatible physical area automatically.':
+    'Les postes standards restent automatiquement liés à chaque zone physique compatible.',
+  'Choose every area this position can work in. The primary area supplies its colour across the workspace.':
+    'Choisissez chaque zone où ce poste peut travailler. La zone principale fournit sa couleur dans tout l’espace.',
+  'Linked automatically': 'Lié automatiquement',
+  'Not compatible': 'Non compatible'
+});
+
+Object.assign(dutch, {
+  'Preferred area': 'Vaste zone',
+  'Any linked area': 'Elke gekoppelde zone',
+  'View linked areas': 'Gekoppelde zones bekijken',
+  'Linked areas': 'Gekoppelde zones',
+  'Position areas': 'Functiezones',
+  'System positions stay linked to every compatible physical area automatically.':
+    'Systeemfuncties blijven automatisch gekoppeld aan elke compatibele fysieke zone.',
+  'Choose every area this position can work in. The primary area supplies its colour across the workspace.':
+    'Kies elke zone waar deze functie kan werken. De primaire zone bepaalt de kleur in de hele werkruimte.',
+  'Linked automatically': 'Automatisch gekoppeld',
+  'Not compatible': 'Niet compatibel'
+});
+
+Object.assign(french, {
+  'No free table space in this area. Move tables or enlarge the area first.':
+    'Aucun espace libre pour une table dans cette zone. Déplacez les tables ou agrandissez d’abord la zone.',
+  'These tables need more room. Enlarge the area or archive a table first.':
+    'Ces tables ont besoin de plus d’espace. Agrandissez la zone ou archivez d’abord une table.',
+  '{count} tables overlap': '{count} tables se chevauchent',
+  'Tables can only be added to reservable guest areas.':
+    'Les tables ne peuvent être ajoutées qu’aux zones clients réservables.',
+  'This operational area stays on the floor plan but cannot hold reservation tables.':
+    'Cette zone opérationnelle reste sur le plan, mais ne peut pas contenir de tables de réservation.',
+  'Reservable area': 'Zone réservable',
+  'Operational area': 'Zone opérationnelle'
+});
+
+Object.assign(dutch, {
+  'No free table space in this area. Move tables or enlarge the area first.':
+    'Er is geen vrije ruimte voor een tafel in deze zone. Verplaats tafels of vergroot eerst de zone.',
+  'These tables need more room. Enlarge the area or archive a table first.':
+    'Deze tafels hebben meer ruimte nodig. Vergroot de zone of archiveer eerst een tafel.',
+  '{count} tables overlap': '{count} tafels overlappen',
+  'Tables can only be added to reservable guest areas.':
+    'Tafels kunnen alleen aan reserveerbare gastenzones worden toegevoegd.',
+  'This operational area stays on the floor plan but cannot hold reservation tables.':
+    'Deze operationele zone blijft op de plattegrond, maar kan geen reservatietafels bevatten.',
+  'Reservable area': 'Reserveerbare zone',
+  'Operational area': 'Operationele zone'
+});
+
+Object.assign(french, {
+  'Joinable sets': 'Assemblages autorisés',
+  'Only these exact table sets can host one larger booking. Tables are never shared between parties.':
+    'Seuls ces assemblages précis peuvent accueillir une grande réservation. Les tables ne sont jamais partagées entre groupes.',
+  'Add joinable set': 'Ajouter un assemblage',
+  'New table set': 'Nouvel assemblage',
+  'Edit table set': 'Modifier l’assemblage',
+  'Choose the tables staff may join for a single party.':
+    'Choisissez les tables que l’équipe peut réunir pour un seul groupe.',
+  'Table {label}': 'Table {label}',
+  'Selected table': 'Table sélectionnée',
+  '{count} seats': '{count} places',
+  'Booking size': 'Taille du groupe',
+  'Combined physical limit: {count} seats.':
+    'Capacité physique combinée : {count} places.',
+  'Select at least one more table from this area.':
+    'Sélectionnez au moins une autre table de cette zone.',
+  'Save set': 'Enregistrer l’assemblage',
+  '{minimum}–{maximum} guests': '{minimum}–{maximum} personnes',
+  'Remove table set': 'Supprimer l’assemblage',
+  'No joinable set uses this table yet.':
+    'Cette table ne fait encore partie d’aucun assemblage.',
+  'Add another table in this area to create a joinable set.':
+    'Ajoutez une autre table dans cette zone pour créer un assemblage.',
+  'Add another table in this area before creating a joinable set.':
+    'Ajoutez une autre table dans cette zone avant de créer un assemblage.',
+  'This joinable table set already exists.':
+    'Cet assemblage de tables existe déjà.'
+});
+
+Object.assign(dutch, {
+  'Joinable sets': 'Koppelbare tafelsets',
+  'Only these exact table sets can host one larger booking. Tables are never shared between parties.':
+    'Alleen deze exacte tafelsets kunnen één grotere boeking ontvangen. Tafels worden nooit tussen gezelschappen gedeeld.',
+  'Add joinable set': 'Tafelset toevoegen',
+  'New table set': 'Nieuwe tafelset',
+  'Edit table set': 'Tafelset bewerken',
+  'Choose the tables staff may join for a single party.':
+    'Kies welke tafels het team voor één gezelschap mag samenvoegen.',
+  'Table {label}': 'Tafel {label}',
+  'Selected table': 'Geselecteerde tafel',
+  '{count} seats': '{count} plaatsen',
+  'Booking size': 'Groepsgrootte',
+  'Combined physical limit: {count} seats.':
+    'Gecombineerde fysieke limiet: {count} plaatsen.',
+  'Select at least one more table from this area.':
+    'Selecteer minstens één andere tafel in deze zone.',
+  'Save set': 'Tafelset opslaan',
+  '{minimum}–{maximum} guests': '{minimum}–{maximum} gasten',
+  'Remove table set': 'Tafelset verwijderen',
+  'No joinable set uses this table yet.':
+    'Deze tafel hoort nog niet bij een koppelbare tafelset.',
+  'Add another table in this area to create a joinable set.':
+    'Voeg nog een tafel toe in deze zone om een tafelset te maken.',
+  'Add another table in this area before creating a joinable set.':
+    'Voeg nog een tafel toe in deze zone voordat je een tafelset maakt.',
+  'This joinable table set already exists.':
+    'Deze koppelbare tafelset bestaat al.'
 });

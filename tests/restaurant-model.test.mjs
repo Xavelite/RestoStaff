@@ -69,6 +69,7 @@ test('restaurant hours preserve lunch and evening opening states independently',
         code: 'dining-room',
         name: 'Dining room',
         notes: null,
+        instance_number: 1,
         active: true,
         sort_order: 0,
         metadata: { color: '#16a34a' }
@@ -102,7 +103,8 @@ test('restaurant hours preserve lunch and evening opening states independently',
     area_ids: ['area-1']
   });
   assert.equal(payload.areas[0].color, '#16a34a');
-  assert.deepEqual(payload.areas[0].metadata, {});
+  assert.equal(payload.areas[0].instance_number, 1);
+  assert.deepEqual(payload.areas[0].metadata, { reservable: true });
   assert.equal(payload.restaurant.name, 'Demo');
   assert.equal(payload.restaurant.legal_name, 'Demo');
   assert.deepEqual(payload.restaurant.employment_settings, {

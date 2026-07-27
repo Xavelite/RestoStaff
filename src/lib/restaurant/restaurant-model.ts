@@ -2,7 +2,12 @@ import { asJsonArray } from '../api/json.ts';
 import { slug } from './setup-item-code.ts';
 import type { RestaurantReadModel } from '$lib/api/workspace-snapshot';
 import { defaultAreaColor, readColorOverride } from '../ui/position-color.ts';
-import { catalogueAreaColor } from './workspace-catalogue.ts';
+import {
+  catalogueAreaColor,
+  workspaceAreaByKey,
+  workspacePositionByKey
+} from './workspace-catalogue.ts';
+import { uniqueAreaTechnicalCode } from './area-instance.ts';
 import type { RestaurantSavePayload } from '$lib/api/mutations';
 import {
   SERVICES,
@@ -40,6 +45,8 @@ export type AreaDraft = {
   color: string;
   catalogueKey: string;
   iconKey: string;
+  instanceNumber: number;
+  floorLevel: number | null;
 };
 
 export type OpeningDraft = {
@@ -198,7 +205,9 @@ export function restaurantDraft(snapshot: RestaurantReadModel): RestaurantDraft 
           catalogueAreaColor(row.catalogue_key) ??
           defaultAreaColor(index),
         catalogueKey: row.catalogue_key ?? '',
-        iconKey: row.icon_key ?? ''
+        iconKey: row.icon_key ?? '',
+        instanceNumber: Math.max(1, Number(row.instance_number) || 1),
+        floorLevel: row.floor_level ?? null
       })),
     opening: WEEKDAYS.map((_, index) => {
       const weekday = index + 1;
@@ -331,18 +340,58 @@ export function restaurantSavePayload(
     },
     jobFunctions: asJsonArray(
       draft.jobFunctions
-        .map((item, index) => ({
-          ...itemRow(item, index),
-          catalogue_key: nullable(item.catalogueKey),
-          icon_key: nullable(item.iconKey),
-          metadata: {
-            area_id: nullable(item.primaryAreaId),
-            area_ids: [...new Set([item.primaryAreaId, ...item.areaIds])]
-              .filter(Boolean)
-              .filter((areaId) => draft.areas.some((area) => area.id === areaId))
-          },
-          estimated_hourly_cost: Math.max(0, Number(item.estimatedHourlyCost) || 0)
-        }))
+        .map((item, index) => {
+          const systemPosition = workspacePositionByKey.get(item.catalogueKey);
+          const compatibleAreaIds =
+            systemPosition && systemPosition.areaKeys.length
+              ? draft.areas
+                  .filter(
+                    (area) =>
+                      area.active &&
+                      Boolean(area.catalogueKey) &&
+                      systemPosition.areaKeys.some(
+                        (areaKey) => areaKey === area.catalogueKey
+                      )
+                  )
+                  .map((area) => area.id)
+              : [];
+          const manualAreaIds = [
+            ...new Set([
+              item.primaryAreaId,
+              ...item.areaIds
+            ])
+          ]
+            .filter(Boolean)
+            .filter((areaId) =>
+              draft.areas.some((area) => area.id === areaId && area.active)
+            );
+          // Catalogue positions own their area-type contract. Every physical
+          // instance of a compatible type is linked automatically; managers
+          // only maintain exact links for custom positions. A catalogue role
+          // with no area keys intentionally works everywhere.
+          const areaIds = systemPosition
+            ? compatibleAreaIds
+            : manualAreaIds;
+          const primaryAreaId =
+            systemPosition?.areaKeys.length === 0
+              ? ''
+              : areaIds.includes(item.primaryAreaId)
+                ? item.primaryAreaId
+                : areaIds[0] ?? '';
+          return {
+            ...itemRow(item, index),
+            catalogue_key: nullable(item.catalogueKey),
+            icon_key: nullable(item.iconKey),
+            metadata: {
+              area_id: nullable(primaryAreaId),
+              area_ids: areaIds
+            },
+            estimated_hourly_cost: Math.max(
+              0,
+              Number(item.estimatedHourlyCost) || 0
+            )
+          };
+        })
         .filter((item) => item.name)
     ),
     areas: asJsonArray(
@@ -350,7 +399,9 @@ export function restaurantSavePayload(
         .map((item, index) => ({
           id: item.id,
           restaurant_id: restaurantId,
-          code: item.code.trim() || slug(item.name, `area-${index + 1}`),
+          code:
+            item.code.trim() ||
+            uniqueAreaTechnicalCode(item.name, item.id),
           name: item.name.trim(),
           active: item.active,
           sort_order: index,
@@ -358,7 +409,15 @@ export function restaurantSavePayload(
           catalogue_key: nullable(item.catalogueKey),
           color: item.color,
           icon_key: nullable(item.iconKey),
-          metadata: {}
+          instance_number: Math.max(
+            1,
+            Math.round(Number(item.instanceNumber) || 1)
+          ),
+          floor_level: item.floorLevel,
+          metadata: {
+            reservable:
+              workspaceAreaByKey.get(item.catalogueKey)?.reservable ?? true
+          }
         }))
         .filter((item) => item.name)
     ),

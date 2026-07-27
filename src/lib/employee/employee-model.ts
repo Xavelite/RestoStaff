@@ -26,6 +26,7 @@ import {
 } from '../calendar/date.ts';
 import { workPatternExceptionOverlaps } from '../work-pattern-exceptions/work-pattern-exception.ts';
 import type { EmployeeServiceDraft } from './employee-self-service.ts';
+import { areaInstanceLabelMap } from '../restaurant/area-instance.ts';
 
 type OperationalEnums = Database['public']['Enums'];
 
@@ -121,6 +122,7 @@ export function publishedShiftsForWeek(
   employeeId: string,
   weekStart: string
 ): EmployeeShift[] {
+  const areaName = areaInstanceLabelMap(snapshot.work_areas ?? []);
   const published =
     snapshot.work_weeks.find((week) => week.week_start === weekStart)?.planning_status ===
     'published';
@@ -137,9 +139,7 @@ export function publishedShiftsForWeek(
         serviceKey,
         startsAt: clockLabel(shift.starts_at),
         endsAt: clockLabel(shift.ends_at),
-        area:
-          (snapshot.work_areas ?? []).find((area) => area.id === shift.area_id)?.name ??
-          'Any area',
+        area: areaName.get(shift.area_id ?? '') ?? 'Any area',
         jobFunction:
           snapshot.job_functions.find((job) => job.id === shift.job_function_id)?.name ??
           'Team member',

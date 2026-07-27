@@ -38,3 +38,9 @@ verify_jwt = true
 
 [functions.dispatch-push]
 verify_jwt = false
+
+# Website guests do not have a Supabase session. This function performs its
+# own revocable channel-key/origin authentication, rate limiting, and then
+# calls only service-role-only reservation RPCs.
+[functions.reservation-public]
+verify_jwt = false

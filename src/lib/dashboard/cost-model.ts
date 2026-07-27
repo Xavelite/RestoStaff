@@ -1,6 +1,7 @@
 import type { ManagerOperationsReadModel } from '../api/workspace-snapshot.ts';
 import type { InsightsCostRates } from '../payroll/payroll-api.ts';
 import { dateForWeekday, serviceLabel } from '../calendar/date.ts';
+import { areaInstanceLabelMap } from '../restaurant/area-instance.ts';
 import type { DateRange, InsightFilters, InsightPeriod, Regime } from './dashboard-model';
 
 type CostSource = 'estimated_profile_rate' | 'calculated_payroll' | 'reconciled_provider';
@@ -243,7 +244,7 @@ export function buildCostInsights(
   const rateMap = new Map(rates.rates.filter((rate) => rate.has_rate && rate.estimated_hourly_cost_cents != null)
     .map((rate) => [rate.employee_id, BigInt(rate.estimated_hourly_cost_cents as number)]));
   const employeeLabels = new Map(model.employees.map((employee) => [employee.id, employee.display_name]));
-  const areaLabels = new Map(model.work_areas.map((area) => [area.id, area.name]));
+  const areaLabels = areaInstanceLabelMap(model.work_areas);
   areaLabels.set('unassigned', 'Unassigned');
   const serviceLabels = new Map(model.services.map((service) => [service.service_key, serviceLabel(service.service_key)]));
   const typeLabels = new Map(rates.rates.map((rate) => [rate.employment_type, rate.employment_type.replaceAll('_', ' ')]));

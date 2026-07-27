@@ -1,10 +1,12 @@
 <script lang="ts">
   import '../app.css';
   import { onMount } from 'svelte';
+  import { page } from '$app/state';
   import { auth } from '$lib/auth/session.svelte';
   import { startClientMonitoring } from '$lib/monitoring/client';
 
   let { children } = $props();
+  const isPublicBooking = $derived(page.url.pathname === '/book');
 
   onMount(() => {
     const stopMonitoring = startClientMonitoring();
@@ -25,7 +27,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 </svelte:head>
 
-{#if auth.ready}
+{#if isPublicBooking}
+  {@render children()}
+{:else if auth.ready}
   {#if auth.error}
     <main class="fatal" role="alert">
       <h1>Unable to start restogogo</h1>

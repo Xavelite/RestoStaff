@@ -1287,6 +1287,7 @@ export type Database = {
         Row: {
           active: boolean
           created_at: string
+          default_area_id: string | null
           employee_id: string
           is_primary: boolean
           job_function_id: string
@@ -1296,6 +1297,7 @@ export type Database = {
         Insert: {
           active?: boolean
           created_at?: string
+          default_area_id?: string | null
           employee_id: string
           is_primary?: boolean
           job_function_id: string
@@ -1305,6 +1307,7 @@ export type Database = {
         Update: {
           active?: boolean
           created_at?: string
+          default_area_id?: string | null
           employee_id?: string
           is_primary?: boolean
           job_function_id?: string
@@ -1312,6 +1315,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "employee_job_functions_default_area_fk"
+            columns: ["restaurant_id", "default_area_id"]
+            isOneToOne: false
+            referencedRelation: "work_areas"
+            referencedColumns: ["restaurant_id", "id"]
+          },
           {
             foreignKeyName: "employee_job_functions_employee_fk"
             columns: ["restaurant_id", "employee_id"]
@@ -4203,6 +4213,279 @@ export type Database = {
           },
         ]
       }
+      reservation_public_channels: {
+        Row: {
+          allowed_origins: string[]
+          created_at: string
+          enabled: boolean
+          id: string
+          name: string
+          public_key: string
+          restaurant_id: string
+          updated_at: string
+        }
+        Insert: {
+          allowed_origins: string[]
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          name?: string
+          public_key: string
+          restaurant_id: string
+          updated_at?: string
+        }
+        Update: {
+          allowed_origins?: string[]
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          name?: string
+          public_key?: string
+          restaurant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_public_channels_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reservation_public_hold_tables: {
+        Row: {
+          created_at: string
+          hold_id: string
+          restaurant_id: string
+          sort_order: number
+          table_id: string
+        }
+        Insert: {
+          created_at?: string
+          hold_id: string
+          restaurant_id: string
+          sort_order?: number
+          table_id: string
+        }
+        Update: {
+          created_at?: string
+          hold_id?: string
+          restaurant_id?: string
+          sort_order?: number
+          table_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_public_hold_tables_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_public_hold_tables_restaurant_id_hold_id_fkey"
+            columns: ["restaurant_id", "hold_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_public_holds"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+          {
+            foreignKeyName: "reservation_public_hold_tables_restaurant_id_table_id_fkey"
+            columns: ["restaurant_id", "table_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_tables"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+        ]
+      }
+      reservation_public_holds: {
+        Row: {
+          business_date: string
+          channel_id: string
+          consumed_at: string | null
+          created_at: string
+          ends_at: string
+          expires_at: string
+          hold_token_hash: string
+          id: string
+          party_size: number
+          released_at: string | null
+          reservation_id: string | null
+          restaurant_id: string
+          room_id: string | null
+          service_key: string
+          starts_at: string
+          token_prefix: string
+        }
+        Insert: {
+          business_date: string
+          channel_id: string
+          consumed_at?: string | null
+          created_at?: string
+          ends_at: string
+          expires_at: string
+          hold_token_hash: string
+          id?: string
+          party_size: number
+          released_at?: string | null
+          reservation_id?: string | null
+          restaurant_id: string
+          room_id?: string | null
+          service_key: string
+          starts_at: string
+          token_prefix: string
+        }
+        Update: {
+          business_date?: string
+          channel_id?: string
+          consumed_at?: string | null
+          created_at?: string
+          ends_at?: string
+          expires_at?: string
+          hold_token_hash?: string
+          id?: string
+          party_size?: number
+          released_at?: string | null
+          reservation_id?: string | null
+          restaurant_id?: string
+          room_id?: string | null
+          service_key?: string
+          starts_at?: string
+          token_prefix?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_public_holds_restaurant_id_channel_id_fkey"
+            columns: ["restaurant_id", "channel_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_public_channels"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+          {
+            foreignKeyName: "reservation_public_holds_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_public_holds_restaurant_id_reservation_id_fkey"
+            columns: ["restaurant_id", "reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+          {
+            foreignKeyName: "reservation_public_holds_restaurant_id_room_id_fkey"
+            columns: ["restaurant_id", "room_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_rooms"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+          {
+            foreignKeyName: "reservation_public_holds_restaurant_id_service_key_fkey"
+            columns: ["restaurant_id", "service_key"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["restaurant_id", "service_key"]
+          },
+        ]
+      }
+      reservation_public_idempotency: {
+        Row: {
+          channel_id: string
+          created_at: string
+          expires_at: string
+          idempotency_key: string
+          operation: string
+          request_hash: string
+          response: Json
+          restaurant_id: string
+        }
+        Insert: {
+          channel_id: string
+          created_at?: string
+          expires_at: string
+          idempotency_key: string
+          operation: string
+          request_hash: string
+          response: Json
+          restaurant_id: string
+        }
+        Update: {
+          channel_id?: string
+          created_at?: string
+          expires_at?: string
+          idempotency_key?: string
+          operation?: string
+          request_hash?: string
+          response?: Json
+          restaurant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_public_idempotency_restaurant_id_channel_id_fkey"
+            columns: ["restaurant_id", "channel_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_public_channels"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+          {
+            foreignKeyName: "reservation_public_idempotency_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reservation_public_rate_limits: {
+        Row: {
+          bucket: string
+          channel_id: string
+          client_hash: string
+          request_count: number
+          restaurant_id: string
+          updated_at: string
+          window_started_at: string
+        }
+        Insert: {
+          bucket: string
+          channel_id: string
+          client_hash: string
+          request_count?: number
+          restaurant_id: string
+          updated_at?: string
+          window_started_at: string
+        }
+        Update: {
+          bucket?: string
+          channel_id?: string
+          client_hash?: string
+          request_count?: number
+          restaurant_id?: string
+          updated_at?: string
+          window_started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_public_rate_limits_restaurant_id_channel_id_fkey"
+            columns: ["restaurant_id", "channel_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_public_channels"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+          {
+            foreignKeyName: "reservation_public_rate_limits_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reservation_rooms: {
         Row: {
           active: boolean
@@ -4414,6 +4697,7 @@ export type Database = {
           explanation: string | null
           id: string
           metadata: Json
+          occupied_at: unknown
           reservation_id: string
           restaurant_id: string
           table_id: string
@@ -4426,6 +4710,7 @@ export type Database = {
           explanation?: string | null
           id?: string
           metadata?: Json
+          occupied_at: unknown
           reservation_id: string
           restaurant_id: string
           table_id: string
@@ -4438,6 +4723,7 @@ export type Database = {
           explanation?: string | null
           id?: string
           metadata?: Json
+          occupied_at?: unknown
           reservation_id?: string
           restaurant_id?: string
           table_id?: string
@@ -4668,6 +4954,7 @@ export type Database = {
           internal_notes: string | null
           metadata: Json
           party_size: number
+          preferred_table_id: string | null
           restaurant_id: string
           revision: number
           room_preference_id: string | null
@@ -4690,6 +4977,7 @@ export type Database = {
           internal_notes?: string | null
           metadata?: Json
           party_size: number
+          preferred_table_id?: string | null
           restaurant_id: string
           revision?: number
           room_preference_id?: string | null
@@ -4712,6 +5000,7 @@ export type Database = {
           internal_notes?: string | null
           metadata?: Json
           party_size?: number
+          preferred_table_id?: string | null
           restaurant_id?: string
           revision?: number
           room_preference_id?: string | null
@@ -4742,6 +5031,13 @@ export type Database = {
             columns: ["restaurant_id", "guest_id"]
             isOneToOne: false
             referencedRelation: "reservation_guests"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+          {
+            foreignKeyName: "reservations_restaurant_id_preferred_table_id_fkey"
+            columns: ["restaurant_id", "preferred_table_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_tables"
             referencedColumns: ["restaurant_id", "id"]
           },
           {
@@ -5623,8 +5919,10 @@ export type Database = {
           code: string
           color: string | null
           created_at: string
+          floor_level: number | null
           icon_key: string | null
           id: string
+          instance_number: number
           metadata: Json
           name: string
           notes: string | null
@@ -5638,8 +5936,10 @@ export type Database = {
           code: string
           color?: string | null
           created_at?: string
+          floor_level?: number | null
           icon_key?: string | null
           id?: string
+          instance_number: number
           metadata?: Json
           name: string
           notes?: string | null
@@ -5653,8 +5953,10 @@ export type Database = {
           code?: string
           color?: string | null
           created_at?: string
+          floor_level?: number | null
           icon_key?: string | null
           id?: string
+          instance_number?: number
           metadata?: Json
           name?: string
           notes?: string | null
@@ -6194,6 +6496,7 @@ export type Database = {
           p_exclude_reservation_id?: string
           p_local_time: string
           p_party_size: number
+          p_preferred_table_id?: string
           p_restaurant_id: string
           p_room_id?: string
           p_service_key: string
@@ -6201,6 +6504,17 @@ export type Database = {
         Returns: Json
       }
       clear_owner_onboarding_draft: { Args: never; Returns: Json }
+      consume_reservation_public_rate_limit: {
+        Args: {
+          p_bucket: string
+          p_client_hash: string
+          p_limit: number
+          p_origin: string
+          p_public_key: string
+          p_window_seconds: number
+        }
+        Returns: Json
+      }
       create_payroll_export_run: {
         Args: {
           p_columns?: Json
@@ -6238,6 +6552,10 @@ export type Database = {
       }
       employee_invitation_states_for_restaurant: {
         Args: { p_restaurant_id: string }
+        Returns: Json
+      }
+      ensure_reservation_public_channel: {
+        Args: { p_default_origin: string; p_restaurant_id: string }
         Returns: Json
       }
       gen_salt:
@@ -6361,6 +6679,10 @@ export type Database = {
         Args: { p_restaurant_id: string }
         Returns: Json
       }
+      get_reservation_public_channel: {
+        Args: { p_restaurant_id: string }
+        Returns: Json
+      }
       get_reservation_setup: {
         Args: { p_restaurant_id: string }
         Returns: Json
@@ -6428,6 +6750,10 @@ export type Database = {
           p_restaurant_id: string
         }
         Returns: Json
+      }
+      normalize_reservation_public_origin: {
+        Args: { p_origin: string }
+        Returns: string
       }
       payroll_export_field_label: { Args: { p_key: string }; Returns: string }
       payroll_export_run_summaries: {
@@ -6525,6 +6851,10 @@ export type Database = {
         }
         Returns: Json
       }
+      release_expired_reservation_public_holds: {
+        Args: { p_restaurant_id: string }
+        Returns: number
+      }
       require_communications_context: {
         Args: { p_restaurant_id: string }
         Returns: {
@@ -6567,6 +6897,10 @@ export type Database = {
           profile_id: string
         }[]
       }
+      reservation_area_instance_label: {
+        Args: { p_area_id: string; p_floor_id: string; p_restaurant_id: string }
+        Returns: string
+      }
       reservation_assignment_candidate: {
         Args: {
           p_ends_at: string
@@ -6590,10 +6924,108 @@ export type Database = {
         }
         Returns: Json
       }
+      reservation_exact_table_candidate: {
+        Args: {
+          p_ends_at: string
+          p_exclude_reservation_id: string
+          p_party_size: number
+          p_preferred_table_id: string
+          p_restaurant_id: string
+          p_room_id: string
+          p_starts_at: string
+        }
+        Returns: Json
+      }
       reservation_local_timestamp: {
         Args: {
           p_business_date: string
           p_local_time: string
+          p_restaurant_id: string
+        }
+        Returns: string
+      }
+      reservation_operator_availability_internal: {
+        Args: {
+          p_business_date: string
+          p_exclude_reservation_id: string
+          p_local_time: string
+          p_party_size: number
+          p_preferred_table_id: string
+          p_restaurant_id: string
+          p_room_id: string
+          p_service_key: string
+        }
+        Returns: Json
+      }
+      reservation_public_area_instance_letter: {
+        Args: { p_number: number }
+        Returns: string
+      }
+      reservation_public_channel_context: {
+        Args: { p_origin: string; p_public_key: string }
+        Returns: {
+          channel_id: string
+          restaurant_id: string
+        }[]
+      }
+      reservation_public_confirm: {
+        Args: {
+          p_guest: Json
+          p_hold_token: string
+          p_idempotency_key: string
+          p_origin: string
+          p_public_key: string
+        }
+        Returns: Json
+      }
+      reservation_public_context: {
+        Args: { p_origin: string; p_public_key: string }
+        Returns: Json
+      }
+      reservation_public_create_hold: {
+        Args: {
+          p_idempotency_key: string
+          p_origin: string
+          p_public_key: string
+          p_request: Json
+        }
+        Returns: Json
+      }
+      reservation_public_normalize_origins: {
+        Args: { p_origins: string[] }
+        Returns: string[]
+      }
+      reservation_public_release_hold: {
+        Args: { p_hold_token: string; p_origin: string; p_public_key: string }
+        Returns: Json
+      }
+      reservation_public_search_availability: {
+        Args: {
+          p_business_date: string
+          p_origin: string
+          p_party_size: number
+          p_public_key: string
+          p_room_id?: string
+          p_service_key: string
+        }
+        Returns: Json
+      }
+      reservation_public_slot_availability: {
+        Args: {
+          p_business_date: string
+          p_local_time: string
+          p_party_size: number
+          p_restaurant_id: string
+          p_room_id?: string
+          p_service_key: string
+        }
+        Returns: Json
+      }
+      resolve_operator_reservation_guest: {
+        Args: {
+          p_guest_id: string
+          p_normalized_email: string
+          p_normalized_phone: string
           p_restaurant_id: string
         }
         Returns: string
@@ -6628,6 +7060,10 @@ export type Database = {
       }
       revoke_restaurant_station: {
         Args: { p_restaurant_id: string; p_station_id: string }
+        Returns: Json
+      }
+      rotate_reservation_public_channel: {
+        Args: { p_restaurant_id: string }
         Returns: Json
       }
       save_absence_lifecycle: {
@@ -6711,6 +7147,14 @@ export type Database = {
           p_restaurant_id: string
           p_rooms: Json
           p_tables: Json
+        }
+        Returns: Json
+      }
+      save_reservation_public_channel: {
+        Args: {
+          p_allowed_origins: string[]
+          p_enabled: boolean
+          p_restaurant_id: string
         }
         Returns: Json
       }

@@ -131,6 +131,18 @@
     "20260727100005_reservation_floor_identity_and_service_defaults.sql": "961b4be56177b7fc7c185cd521345df10e8c19034333746bbb1825e24dda8b0a",
     "20260727104311_revoke_archive_trigger_execute.sql": "92a8b56dbe2e12a02ae8758c62254c10d8878b23006bbd7eab6b841a901210b9",
     "20260727113000_reservation_room_active_context.sql": "ed4d0ba837c66361d198eceebca24643297a1b94576b5bfddfd05ba95b6a17f8",
-    "20260727114500_reservation_room_archive_cascade.sql": "738445b30932b40896ea803e611c0fc92e5dc4f07ba431699f8011da2b8ddd8d"
+    "20260727114500_reservation_room_archive_cascade.sql": "738445b30932b40896ea803e611c0fc92e5dc4f07ba431699f8011da2b8ddd8d",
+    "20260727150000_area_instances.sql": "30187bd1afadda67312325c299285d9887885805118ec42f6d028893fd744044",
+    "20260727151000_reservation_public_booking_channel.sql": "a3b920a8284d8b917b7e39a2b99f826748effb2fa4a009878827fc30f3282738",
+    "20260727152000_employee_position_area_defaults.sql": "d87548a66026873bcda29e86c25d448a030630d4a89b07831bedfade21f07c41",
+    "20260727152343_manager_restaurant_logo_access.sql": "337cfd5632bb996a677b8e4f365d7f0066d3d12a0aa8266508da5770234433e1",
+    "20260727152637_work_area_floor_context.sql": "15a8c8128b914534e0c9f255f62f1c9e84e01039ea7edefcbc828082fb29b52b",
+    "20260727153612_reservation_operator_area_instance_labels.sql": "8e0df9da78eddc582e8b2c12523fa12409e37186f587510f3a4de75ef810a6c9",
+    "20260727154500_reservation_table_area_rules.sql": "8d39aca4d0d0a8c23fe5cfa74d3f42d30c9c0ca5b2a440bd9c2094a59a4a0ab0",
+    "20260727160126_operator_reservation_table_preference.sql": "74b9d5e181ecfc254608d81e8790758a5432869a1ad4429d3414c78aae25200f",
+    "20260727160200_restrict_restaurant_logo_rpc.sql": "8ec7304fff0e268e66090026a0a99c9805bf5a355635f614b7397b9f0280083c",
+    "20260727160300_restrict_employee_area_guard.sql": "db8199fd7f14b488eb473c224101a60eaacb895ec37d091fe4616ae5e8b37d97",
+    "20260727163538_harden_logo_and_reservation_room_identity.sql": "729fe3613145d67fe39d78b5b6641f1171e8974f8dd2c06cf2d62a5e69340dac",
+    "20260727163604_preserve_public_guest_identity.sql": "fc6b963c2f9b95692f6379a0a8129f4f6624fc9e11c7668d188f2f586db37fda"
   }
 }

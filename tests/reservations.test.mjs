@@ -11,6 +11,7 @@ const {
 const {
   RESERVATION_STATUSES,
   RESERVATION_STATUS,
+  reservationIsCurrentAt,
   reservationIsTerminal,
   reservationNextStatuses,
   reservationStatusMeta
@@ -33,6 +34,10 @@ test('reservation navigation is a live workspace with setup beneath it', () => {
   assert.equal(
     subNavItemForPath(reservations, '/reservations/setup')?.href,
     '/reservations/setup'
+  );
+  assert.equal(
+    subNavItemForPath(reservations, '/reservations/api')?.href,
+    '/reservations/api'
   );
 });
 
@@ -139,23 +144,55 @@ test('live reservations never exposes stale dates or superseded availability res
   assert.match(workspace, /\{#if loading && !currentData\}/);
 });
 
-test('restaurant area catalogue prevents duplicate identities and revives archived areas', async () => {
+test('restaurant area catalogue creates physical instances without hiding repeated types', async () => {
   const workspace = await readFile(
     'src/lib/reservations/ReservationFloorPlansWorkspace.svelte',
     'utf8'
   );
 
   assert.match(workspace, /function catalogueAreaItems\(/);
-  assert.match(workspace, /area\.id !== currentAreaId && area\.catalogueKey/);
-  assert.match(workspace, /disabled:\s*Boolean\(existing && !canRestore\)/);
-  assert.match(workspace, /existing\.active\s*\?\s*t\('Already added'\)/s);
-  assert.match(workspace, /items=\{catalogueAreaItems\('', true\)\}/);
-  assert.match(workspace, /existingArea\.active = true/);
-  assert.match(workspace, /room\.active = true/);
+  assert.doesNotMatch(workspace, /disabled:\s*Boolean\(existing/);
+  assert.match(workspace, /async function addArea\(\)/);
+  assert.match(workspace, /restaurantContext\.draft\.areas = \[area, \.\.\.areas\]/);
+  assert.match(workspace, /autoOpen=\{newAreaId === areaDraft\.id\}/);
+  assert.match(workspace, /nextAreaInstanceNumber\(/);
+  assert.match(workspace, /typeAreaName\(/);
+  assert.doesNotMatch(workspace, /existingArea\.active = true/);
+});
+
+test('moving an area preserves its footprint and table containment remains save-enforced', async () => {
+  const workspace = await readFile(
+    'src/lib/reservations/ReservationFloorPlansWorkspace.svelte',
+    'utf8'
+  );
+  const moveStart = workspace.indexOf('function moveAreaToFloor(');
+  const moveEnd = workspace.indexOf('\n  function moveRoom(', moveStart);
+  const moveArea = workspace.slice(moveStart, moveEnd);
+
+  assert.match(moveArea, /const preservedWidth = Number\(target\.width\)/);
+  assert.match(moveArea, /const preservedHeight = Number\(target\.height\)/);
+  assert.match(moveArea, /target\.width = preservedWidth/);
+  assert.match(moveArea, /target\.height = preservedHeight/);
+  assert.doesNotMatch(moveArea, /target\.width = geometry\.width/);
+  assert.doesNotMatch(moveArea, /target\.height = geometry\.height/);
   assert.match(
     workspace,
-    /draft\.rooms\.find\(\(candidate\) => candidate\.work_area_id === existingArea\.id\)/
+    /Number\(table\.position_x\) \+ Number\(table\.width\) >\s+Number\(tableRoom\.position_x\) \+ Number\(tableRoom\.width\)/
   );
+  assert.match(
+    workspace,
+    /Number\(table\.position_y\) \+ Number\(table\.height\) >\s+Number\(tableRoom\.position_y\) \+ Number\(tableRoom\.height\)/
+  );
+});
+
+test('authenticated reservation rooms retain canonical area colour and icon identity', async () => {
+  const migration = await readFile(
+    'supabase/migrations/20260727153612_reservation_operator_area_instance_labels.sql',
+    'utf8'
+  );
+
+  assert.match(migration, /coalesce\(area\.color,\s*area\.metadata->>'color'\)/);
+  assert.match(migration, /'area_icon', area\.icon_key/);
 });
 
 
@@ -173,6 +210,123 @@ test('reservation status transitions are forward-only and terminal states are im
   assert.equal(reservationIsTerminal('finished'), true);
   assert.equal(reservationIsTerminal('cancelled'), true);
   assert.equal(reservationIsTerminal('confirmed'), false);
+});
+
+test('live table state uses the current seating window and live lifecycle states', () => {
+  const confirmed = {
+    status: 'confirmed',
+    starts_at: '2026-07-27T18:00:00.000Z',
+    ends_at: '2026-07-27T20:00:00.000Z'
+  };
+
+  assert.equal(reservationIsCurrentAt(confirmed, Date.parse('2026-07-27T17:59:59.000Z')), false);
+  assert.equal(reservationIsCurrentAt(confirmed, Date.parse('2026-07-27T18:00:00.000Z')), true);
+  assert.equal(reservationIsCurrentAt(confirmed, Date.parse('2026-07-27T19:00:00.000Z')), true);
+  assert.equal(reservationIsCurrentAt(confirmed, Date.parse('2026-07-27T20:00:00.000Z')), false);
+  assert.equal(
+    reservationIsCurrentAt(
+      { ...confirmed, status: 'seated' },
+      Date.parse('2026-07-27T22:00:00.000Z')
+    ),
+    true
+  );
+  assert.equal(
+    reservationIsCurrentAt(
+      { ...confirmed, status: 'finished' },
+      Date.parse('2026-07-27T19:00:00.000Z')
+    ),
+    false
+  );
+});
+
+test('operator reservations own their source and locale while setup stays a plain workspace grid', async () => {
+  const workspace = await readFile(
+    'src/lib/reservations/ReservationsWorkspace.svelte',
+    'utf8'
+  );
+  const setup = await readFile(
+    'src/lib/reservations/ReservationSetupWorkspace.svelte',
+    'utf8'
+  );
+
+  assert.match(workspace, /source: 'internal'/);
+  assert.match(workspace, /language_code: restaurantLanguageCode\(\)/);
+  assert.match(workspace, /restaurant_settings\.locale/);
+  assert.match(workspace, /reservations=\{currentReservations\}/);
+  assert.doesNotMatch(workspace, /<option value="widget"/);
+  assert.doesNotMatch(workspace, /<option value="integration"/);
+  assert.doesNotMatch(setup, /cl-card__head/);
+  assert.match(setup, /t\('Booking rules by service'\)/);
+});
+
+test('manager floor bookings preserve an optional exact table without weakening guest identity', async () => {
+  const workspace = await readFile(
+    'src/lib/reservations/ReservationsWorkspace.svelte',
+    'utf8'
+  );
+  const api = await readFile(
+    'src/lib/reservations/reservation-api.ts',
+    'utf8'
+  );
+  const types = await readFile(
+    'src/lib/reservations/reservation-types.ts',
+    'utf8'
+  );
+  const migration = await readFile(
+    'supabase/migrations/20260727160126_operator_reservation_table_preference.sql',
+    'utf8'
+  );
+
+  assert.match(types, /preferred_table_id: string;/);
+  assert.match(workspace, /openNewReservation\(table\.room_id, table\.id\)/);
+  assert.match(workspace, /value=\{draft\.preferred_table_id\}/);
+  assert.match(workspace, /<option value="">\{t\('Best available'\)\}<\/option>/);
+  assert.match(api, /p_preferred_table_id: draft\.preferred_table_id \|\| undefined/);
+
+  assert.match(migration, /add column preferred_table_id uuid/i);
+  assert.match(migration, /get_reservation_workspace\(uuid,date\)/i);
+  assert.match(migration, /'preferred_table_id', r\.preferred_table_id/i);
+  assert.match(migration, /reservation_exact_table_candidate/i);
+  assert.match(migration, /reservation_public_hold_tables/i);
+  assert.match(migration, /'kind', 'preferred_table'/i);
+  assert.match(migration, /resolve_operator_reservation_guest/i);
+  assert.match(migration, /email and phone point to different guest records/i);
+  assert.match(migration, /\|reservation-guests/);
+  assert.doesNotMatch(
+    migration,
+    /\(v_normalized_email is not null and g\.normalized_email = v_normalized_email\)\s+or\s+\(v_normalized_phone/is
+  );
+
+  const sqlContract = await readFile(
+    'supabase/tests/reservation_contract.sql',
+    'utf8'
+  );
+  assert.match(
+    sqlContract,
+    /Authenticated reservation workspace lost the exact table preference/
+  );
+});
+
+test('reservation tables remain confined to reservable guest areas', async () => {
+  const workspace = await readFile(
+    'src/lib/reservations/ReservationFloorPlansWorkspace.svelte',
+    'utf8'
+  );
+  const model = await readFile(
+    'src/lib/restaurant/restaurant-model.ts',
+    'utf8'
+  );
+  const migration = await readFile(
+    'supabase/migrations/20260727154500_reservation_table_area_rules.sql',
+    'utf8'
+  );
+
+  assert.match(workspace, /selectedRoomReservable/);
+  assert.match(workspace, /Tables can only be added to reservable guest areas\./);
+  assert.match(model, /reservable:\s*workspaceAreaByKey/);
+  assert.match(migration, /guard_reservation_table_area/);
+  assert.match(migration, /Reservation tables require a reservable guest area\./);
+  assert.match(migration, /reservation_tables_guard_area/);
 });
 
 test('phase 1 and 2 migration exposes revision and integrity guards', async () => {

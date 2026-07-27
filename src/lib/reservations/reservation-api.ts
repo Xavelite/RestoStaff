@@ -1,9 +1,12 @@
 import { supabase } from '$lib/supabase/client';
-import { toApiError } from '$lib/api/error';
+import { PUBLIC_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_URL } from '$env/static/public';
+import { apiErrorMessage, toApiError } from '$lib/api/error';
 import { asJson, asJsonArray } from '$lib/api/json';
 import type { RestaurantSavePayload } from '$lib/api/mutations';
+import type { Json } from '$lib/supabase/database.types';
 import {
   parseAvailability,
+  parseReservationPublicChannel,
   parseReservationFloorPlans,
   parseReservationSetup,
   parseReservationWorkspace,
@@ -12,11 +15,35 @@ import {
   type ReservationDraft,
   type ReservationFloorPlans,
   type ReservationFloorPlansDraft,
+  type ReservationPublicChannel,
   type ReservationSetup,
   type ReservationSetupDraft,
   type ReservationStatus,
   type ReservationWorkspace
 } from './reservation-types';
+
+async function reservationManagerRpc(
+  name: string,
+  payload: Record<string, Json | undefined>
+): Promise<Json> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error('Authenticated session required.');
+  const response = await fetch(`${PUBLIC_SUPABASE_URL}/rest/v1/rpc/${name}`, {
+    method: 'POST',
+    headers: {
+      apikey: PUBLIC_SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+  const result = (await response.json().catch(() => ({}))) as Json;
+  if (!response.ok) {
+    throw new Error(apiErrorMessage(result, 'Website booking settings could not be saved.'));
+  }
+  return result;
+}
 
 export async function getReservationWorkspace(
   restaurantId: string,
@@ -118,6 +145,7 @@ export async function checkReservationAvailability(
     p_local_time: draft.local_time,
     p_party_size: draft.party_size,
     p_room_id: draft.room_preference_id || undefined,
+    p_preferred_table_id: draft.preferred_table_id || undefined,
     p_exclude_reservation_id: draft.id || undefined
   });
   if (error) throw toApiError(error, 'Availability could not be checked.');
@@ -168,4 +196,50 @@ export async function getReservationDemand(
     first_arrival: row.first_arrival ?? null,
     last_arrival: row.last_arrival ?? null
   }));
+}
+
+export async function getReservationPublicChannel(
+  restaurantId: string
+): Promise<ReservationPublicChannel> {
+  return parseReservationPublicChannel(
+    await reservationManagerRpc('get_reservation_public_channel', {
+      p_restaurant_id: restaurantId
+    })
+  );
+}
+
+export async function ensureReservationPublicChannel(
+  restaurantId: string,
+  defaultOrigin: string
+): Promise<ReservationPublicChannel> {
+  return parseReservationPublicChannel(
+    await reservationManagerRpc('ensure_reservation_public_channel', {
+      p_restaurant_id: restaurantId,
+      p_default_origin: defaultOrigin
+    })
+  );
+}
+
+export async function saveReservationPublicChannel(
+  restaurantId: string,
+  enabled: boolean,
+  allowedOrigins: string[]
+): Promise<ReservationPublicChannel> {
+  return parseReservationPublicChannel(
+    await reservationManagerRpc('save_reservation_public_channel', {
+      p_restaurant_id: restaurantId,
+      p_enabled: enabled,
+      p_allowed_origins: allowedOrigins
+    })
+  );
+}
+
+export async function rotateReservationPublicChannel(
+  restaurantId: string
+): Promise<ReservationPublicChannel> {
+  return parseReservationPublicChannel(
+    await reservationManagerRpc('rotate_reservation_public_channel', {
+      p_restaurant_id: restaurantId
+    })
+  );
 }

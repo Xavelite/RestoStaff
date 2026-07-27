@@ -14,6 +14,8 @@ export type WorkArea = {
   catalogue_key: string | null;
   color: string | null;
   icon_key: string | null;
+  instance_number: number;
+  floor_level: number | null;
   active: boolean;
   sort_order: number;
   created_at?: string;
@@ -45,6 +47,7 @@ export type EmployeeJobFunction = {
   restaurant_id: string;
   employee_id: string;
   job_function_id: string;
+  default_area_id: string | null;
   is_primary: boolean;
   active: boolean;
   created_at?: string;

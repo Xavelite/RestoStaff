@@ -42,6 +42,7 @@
   import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
   import TimesheetDayCard from '$lib/timesheet/TimesheetDayCard.svelte';
   import { isTimesheetRow, needsAttention } from '$lib/classic/classic-time';
+  import { areaInstanceLabelMap } from '$lib/restaurant/area-instance';
 
   type GroupMode = 'none' | 'contract' | 'position' | 'status';
 
@@ -157,7 +158,7 @@
     )
   );
   const areaName = $derived(
-    new Map((snapshot?.work_areas ?? []).map((area) => [area.id, area.name]))
+    areaInstanceLabelMap(snapshot?.work_areas ?? [])
   );
   const positionName = $derived(
     new Map((snapshot?.job_functions ?? []).map((position) => [position.id, position.name]))

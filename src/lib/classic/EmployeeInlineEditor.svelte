@@ -11,6 +11,7 @@
   import { confirmAction } from '$lib/ui/confirm.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
+  import { areaInstanceLabelMap } from '$lib/restaurant/area-instance';
   import { teamDraft } from './classic-team.svelte';
   import ClassicStatus from './ClassicStatus.svelte';
 
@@ -41,6 +42,10 @@
   let committing = $state(false);
 
   const snapshot = $derived(workspace.team);
+  const restaurant = $derived(workspace.restaurant);
+  const areaName = $derived(
+    areaInstanceLabelMap(restaurant?.work_areas ?? [])
+  );
   const canManageOperations = $derived(workspace.canManageOperations);
   const canViewFinancials = $derived(workspace.canViewFinancials);
   const jobFunctions = $derived(snapshot?.job_functions.filter((item) => item.active) ?? []);
@@ -70,6 +75,7 @@
     return {
       ...employee,
       jobFunctionIds: [...employee.jobFunctionIds],
+      jobFunctionAreaIds: { ...employee.jobFunctionAreaIds },
       recurringSlots: employee.recurringSlots.map((slot) => ({ ...slot }))
     };
   }
@@ -111,11 +117,42 @@
     form.jobFunctionIds = enabled
       ? [...new Set([...form.jobFunctionIds, id])]
       : form.jobFunctionIds.filter((item) => item !== id);
+    if (!enabled && form.jobFunctionAreaIds[id]) {
+      const next = { ...form.jobFunctionAreaIds };
+      delete next[id];
+      form.jobFunctionAreaIds = next;
+    }
   }
 
   function makePrimary(id: string) {
     if (!form || !form.jobFunctionIds.includes(id)) return;
     form.jobFunctionIds = [id, ...form.jobFunctionIds.filter((item) => item !== id)];
+  }
+
+  function areasForPosition(positionId: string) {
+    const areas = restaurant?.work_areas.filter((area) => area.active) ?? [];
+    const linkedIds = new Set(
+      (restaurant?.job_function_areas ?? [])
+        .filter(
+          (relation) =>
+            relation.active && relation.job_function_id === positionId
+        )
+        .map((relation) => relation.area_id)
+    );
+    return linkedIds.size ? areas.filter((area) => linkedIds.has(area.id)) : areas;
+  }
+
+  function setPositionArea(positionId: string, areaId: string) {
+    if (!form) return;
+    form.jobFunctionAreaIds = {
+      ...form.jobFunctionAreaIds,
+      [positionId]: areaId
+    };
+    if (!areaId) {
+      const next = { ...form.jobFunctionAreaIds };
+      delete next[positionId];
+      form.jobFunctionAreaIds = next;
+    }
   }
 
   function toggleRecurring(weekday: number, serviceKey: 'lunch' | 'evening', enabled: boolean) {
@@ -287,13 +324,29 @@
           {#if jobFunctions.length}
             <div class="position-grid">
               {#each jobFunctions as item (item.id)}
-                <label class:is-selected={form.jobFunctionIds.includes(item.id)}>
-                  <input type="checkbox" checked={form.jobFunctionIds.includes(item.id)} onchange={(event) => togglePosition(item.id, event.currentTarget.checked)} />
-                  <span>{item.name}</span>
-                  {#if form.jobFunctionIds.includes(item.id)}
+                {@const selected = form.jobFunctionIds.includes(item.id)}
+                {@const availableAreas = areasForPosition(item.id)}
+                <div class:is-selected={selected}>
+                  <label>
+                    <input type="checkbox" checked={selected} onchange={(event) => togglePosition(item.id, event.currentTarget.checked)} />
+                    <span>{item.name}</span>
+                  </label>
+                  {#if selected && availableAreas.length}
+                    <select
+                      aria-label={`${t('Preferred area')} · ${item.name}`}
+                      value={form.jobFunctionAreaIds[item.id] ?? ''}
+                      onchange={(event) => setPositionArea(item.id, event.currentTarget.value)}
+                    >
+                      <option value="">{t('Any linked area')}</option>
+                      {#each availableAreas as area (area.id)}
+                        <option value={area.id}>{areaName.get(area.id) ?? area.name}</option>
+                      {/each}
+                    </select>
+                  {/if}
+                  {#if selected}
                     <button type="button" class:is-primary={form.jobFunctionIds[0] === item.id} title={t('Set as primary position')} onclick={() => makePrimary(item.id)}>{form.jobFunctionIds[0] === item.id ? t('Primary') : t('Make primary')}</button>
                   {/if}
-                </label>
+                </div>
               {/each}
             </div>
           {:else}
@@ -468,8 +521,10 @@
   .position-field { padding: 12px; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); }
   .position-field legend { padding: 0 5px; color: var(--cl-muted); font-size: 13px; font-weight: var(--rst-fw-medium); }
   .position-grid { display: grid; gap: 7px; }
-  .position-grid > label { min-height: 40px; display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 7px 9px; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); background: var(--cl-surface-muted); font-size: 13px; }
-  .position-grid > label.is-selected { border-color: var(--cl-line-strong); background: var(--cl-accent-wash); }
+  .position-grid > div { min-height: 40px; display: grid; grid-template-columns: minmax(150px, 1fr) minmax(150px, .9fr) auto; align-items: center; gap: 8px; padding: 7px 9px; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); background: var(--cl-surface-muted); font-size: 13px; }
+  .position-grid > div.is-selected { border-color: var(--cl-line-strong); background: var(--cl-accent-wash); }
+  .position-grid label { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: center; gap: 8px; cursor: pointer; }
+  .position-grid select { min-width: 0; height: 30px; padding: 0 28px 0 9px; border: 1px solid var(--cl-line); border-radius: 5px; background: var(--cl-surface); color: var(--cl-ink); font: inherit; font-size: 11px; }
   .position-grid button { padding: 3px 7px; border: 0; border-radius: 4px; color: var(--cl-muted); background: transparent; font: inherit; font-size: 11px; cursor: pointer; }
   .position-grid button.is-primary { color: var(--cl-accent); font-weight: var(--rst-fw-bold); }
   .position-grid input, .sensitive-toggle input { width: 15px; height: 15px; accent-color: var(--cl-accent); }
@@ -490,7 +545,7 @@
 
   @media (max-width: 760px) {
     .editor-tabs { overflow-x: auto; }
-    .position-grid > label { grid-template-columns: 18px minmax(0, 1fr); }
-    .position-grid button { grid-column: 2; justify-self: start; }
+    .position-grid > div { grid-template-columns: minmax(0, 1fr); }
+    .position-grid button { justify-self: start; }
   }
 </style>

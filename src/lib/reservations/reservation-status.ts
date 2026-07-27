@@ -1,4 +1,4 @@
-import type { ReservationStatus } from './reservation-types';
+import type { Reservation, ReservationStatus } from './reservation-types';
 
 type ReservationStatusMeta = {
   label: string;
@@ -50,4 +50,19 @@ export function reservationNextStatuses(status: ReservationStatus): ReservationS
 
 export function reservationIsTerminal(status: ReservationStatus): boolean {
   return RESERVATION_NEXT_STATUS[status].length === 0;
+}
+
+export function reservationIsCurrentAt(
+  reservation: Pick<Reservation, 'status' | 'starts_at' | 'ends_at'>,
+  at: number | Date
+): boolean {
+  if (reservationIsTerminal(reservation.status)) return false;
+  if (['arrived', 'waiting', 'seated'].includes(reservation.status)) return true;
+
+  const timestamp = at instanceof Date ? at.getTime() : at;
+  const startsAt = Date.parse(reservation.starts_at);
+  const endsAt = Date.parse(reservation.ends_at);
+  if (![timestamp, startsAt, endsAt].every(Number.isFinite)) return false;
+
+  return startsAt <= timestamp && timestamp < endsAt;
 }

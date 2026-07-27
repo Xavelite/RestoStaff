@@ -2,6 +2,7 @@ import type { ManagerOperationsReadModel } from '$lib/api/workspace-snapshot';
 import { addDays, clockMinutes, serviceLabel } from '$lib/calendar/date';
 import { planningFieldLabel } from './schedule-export-columns';
 import type { PlanningNoteDraft, PlanningShiftDraft } from './schedule-model';
+import { areaInstanceLabelMap } from '$lib/restaurant/area-instance';
 
 type PlanningCsv = {
   filename: string;
@@ -23,7 +24,7 @@ export function planningCsv(input: {
   const employeeName = new Map(
     input.snapshot.employees.map((employee) => [employee.id, employee.display_name])
   );
-  const areaName = new Map(input.snapshot.work_areas.map((area) => [area.id, area.name]));
+  const areaName = areaInstanceLabelMap(input.snapshot.work_areas);
   const jobName = new Map(input.snapshot.job_functions.map((job) => [job.id, job.name]));
   const noteFor = new Map(input.notes.map((note) => [`${note.weekday}|${note.serviceKey}`, note.note]));
 

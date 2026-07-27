@@ -199,6 +199,14 @@ test('workspace catalogue normalizes position links and preserves multi-restaura
     'supabase/migrations/20260726232707_workspace_catalogue_uniqueness.sql',
     'utf8'
   );
+  const operationalMigration = await readFile(
+    'supabase/migrations/20260727020209_operational_capabilities_and_assignment_context.sql',
+    'utf8'
+  );
+  const instanceMigration = await readFile(
+    'supabase/migrations/20260727150000_area_instances.sql',
+    'utf8'
+  );
   assert.match(catalogueMigration, /create table public\.job_function_areas/);
   assert.match(catalogueMigration, /job_function_areas_job_function_fk/);
   assert.match(catalogueMigration, /job_function_areas_area_fk/);
@@ -212,10 +220,8 @@ test('workspace catalogue normalizes position links and preserves multi-restaura
     uniquenessMigration,
     /create unique index if not exists restaurants_owner_profile_id_idx/
   );
-  assert.match(
-    uniquenessMigration,
-    /work_areas_restaurant_catalogue_key_idx[\s\S]*where catalogue_key is not null/
-  );
+  assert.match(operationalMigration, /drop index if exists public\.work_areas_restaurant_catalogue_key_idx/);
+  assert.match(instanceMigration, /work_areas_restaurant_type_instance_idx/);
   assert.match(
     uniquenessMigration,
     /job_functions_restaurant_catalogue_key_idx[\s\S]*where catalogue_key is not null/

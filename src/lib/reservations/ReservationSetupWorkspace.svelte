@@ -158,71 +158,61 @@
   >
     {#snippet meta()}
       <span><i class="dot is-green"></i>{t('{count} services open', { count: enabledServices })}</span>
-      <span><i class="dot"></i>{t('Areas and tables are managed visually')}</span>
+      <span><i class="dot"></i>{t('Booking rules by service')}</span>
     {/snippet}
     {#snippet children()}
       {#if loading && !draft}
         <div class="setup-loading"><span class="cl-skel"></span><span class="cl-skel"></span><span class="cl-skel"></span></div>
       {:else if draft}
-        <div class="setup-sections">
-          <section class="cl-card">
-            <div class="cl-card__head">
-              <div>
-                <h2>{t('Booking rules by service')}</h2>
-                <p>{t('Restaurant opening hours remain the source of truth; these settings define how reservations use them.')}</p>
-              </div>
-            </div>
-            <div class="cl-tablewrap is-unbounded">
-              <table class="cl-table services-grid">
-                <thead>
-                  <tr>
-                    <th>{t('Service')}</th>
-                    <th>{t('Bookings')}</th>
-                    <th>{t('Duration')}</th>
-                    <th>{t('Interval')}</th>
-                    <th>{t('Party size')}</th>
-                    <th>{t('Cover limit')}</th>
-                    <th>{t('Confirmation')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {#each draft.services as service (service.service_key)}
-                    <tr>
-                      <td>
-                        <span class="service-name">
-                          <i class:is-evening={service.service_key === 'evening'}></i>
-                          <strong>{t(serviceName(service.service_key))}</strong>
-                        </span>
-                      </td>
-                      <td>
-                        <label class="cl-switch">
-                          <input type="checkbox" bind:checked={service.booking_enabled} onchange={touch} />
-                          <span aria-hidden="true"></span>
-                          <em>{t(service.booking_enabled ? 'Open' : 'Closed')}</em>
-                        </label>
-                      </td>
-                      <td><input class="cl-field number-field" type="number" min="15" max="720" step="15" bind:value={service.default_duration_minutes} oninput={touch} /><small>min</small></td>
-                      <td><input class="cl-field number-field" type="number" min="5" max="120" step="5" bind:value={service.slot_interval_minutes} oninput={touch} /><small>min</small></td>
-                      <td>
-                        <span class="range-field">
-                          <input class="cl-field number-field" aria-label={t('Minimum party size')} type="number" min="1" max="100" bind:value={service.minimum_party_size} oninput={touch} />
-                          <i>–</i>
-                          <input class="cl-field number-field" aria-label={t('Maximum party size')} type="number" min="1" max="500" bind:value={service.maximum_party_size} oninput={touch} />
-                        </span>
-                      </td>
-                      <td><input class="cl-field cover-field" type="number" min="1" max="10000" placeholder="—" bind:value={service.maximum_covers} oninput={touch} /></td>
-                      <td>
-                        <select class="cl-field compact-select" bind:value={service.automatic_confirmation} onchange={touch}>
-                          <option value={true}>{t('Automatic')}</option>
-                          <option value={false}>{t('Manual')}</option>
-                        </select>
-                      </td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-          </section>
+        <div class="cl-tablewrap is-unbounded">
+          <table class="cl-table services-grid">
+            <thead>
+              <tr>
+                <th>{t('Service')}</th>
+                <th>{t('Bookings')}</th>
+                <th>{t('Duration')}</th>
+                <th>{t('Interval')}</th>
+                <th>{t('Party size')}</th>
+                <th>{t('Cover limit')}</th>
+                <th>{t('Confirmation')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each draft.services as service (service.service_key)}
+                <tr>
+                  <td>
+                    <span class="service-name">
+                      <i class:is-evening={service.service_key === 'evening'}></i>
+                      <strong>{t(serviceName(service.service_key))}</strong>
+                    </span>
+                  </td>
+                  <td>
+                    <label class="cl-switch">
+                      <input type="checkbox" bind:checked={service.booking_enabled} onchange={touch} />
+                      <span aria-hidden="true"></span>
+                      <em>{t(service.booking_enabled ? 'Open' : 'Closed')}</em>
+                    </label>
+                  </td>
+                  <td><input class="cl-field number-field" type="number" min="15" max="720" step="15" bind:value={service.default_duration_minutes} oninput={touch} /><small>min</small></td>
+                  <td><input class="cl-field number-field" type="number" min="5" max="120" step="5" bind:value={service.slot_interval_minutes} oninput={touch} /><small>min</small></td>
+                  <td>
+                    <span class="range-field">
+                      <input class="cl-field number-field" aria-label={t('Minimum party size')} type="number" min="1" max="100" bind:value={service.minimum_party_size} oninput={touch} />
+                      <i>–</i>
+                      <input class="cl-field number-field" aria-label={t('Maximum party size')} type="number" min="1" max="500" bind:value={service.maximum_party_size} oninput={touch} />
+                    </span>
+                  </td>
+                  <td><input class="cl-field cover-field" type="number" min="1" max="10000" placeholder="—" bind:value={service.maximum_covers} oninput={touch} /></td>
+                  <td>
+                    <select class="cl-field compact-select" bind:value={service.automatic_confirmation} onchange={touch}>
+                      <option value={true}>{t('Automatic')}</option>
+                      <option value={false}>{t('Manual')}</option>
+                    </select>
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
         </div>
       {/if}
     {/snippet}
@@ -240,9 +230,6 @@
     font-size: 12px;
   }
   .setup-loading { display: grid; gap: 16px; padding: 24px; }
-  .setup-sections { display: grid; gap: 18px; }
-  .cl-card__head > div { display: grid; gap: 3px; }
-  .cl-card__head p { margin: 0; color: var(--cl-muted); font-size: 11.5px; line-height: 1.4; }
   .services-grid td { height: 54px; }
   .services-grid th:first-child { min-width: 130px; }
   .service-name { display: inline-flex; align-items: center; gap: 8px; }

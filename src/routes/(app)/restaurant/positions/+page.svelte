@@ -20,6 +20,7 @@
     WORKSPACE_POSITION_CATALOGUE,
     workspacePositionByKey
   } from '$lib/restaurant/workspace-catalogue';
+  import { areaInstanceLabelMap } from '$lib/restaurant/area-instance';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
 
   type SortKey = 'name' | 'cost' | 'employees' | 'active';
@@ -65,6 +66,9 @@
     )
   );
   const areaColor = $derived(buildAreaColorMap(restaurantConfig.draft?.areas ?? []));
+  const areaName = $derived(
+    areaInstanceLabelMap(restaurantConfig.draft?.areas ?? [])
+  );
 
   let search = $state('');
   let costSearch = $state('');
@@ -244,6 +248,19 @@
     restaurantConfig.touch();
   }
 
+  function typePositionName(position: PositionRow, value: string): void {
+    const catalogueLabel = workspacePositionByKey.get(position.catalogueKey)?.label ?? '';
+    if (
+      position.catalogueKey &&
+      value.trim().toLocaleLowerCase() !==
+        t(catalogueLabel).trim().toLocaleLowerCase()
+    ) {
+      position.catalogueKey = '';
+      position.iconKey = '';
+    }
+    restaurantConfig.touch();
+  }
+
   function positionAreaIcon(position: PositionRow): string {
     const areaId = position.primaryAreaId || position.areaIds[0] || '';
     return (
@@ -263,8 +280,41 @@
     return areaColor.get(position.primaryAreaId) ?? '#64748b';
   }
 
+  function systemPosition(position: PositionRow) {
+    return workspacePositionByKey.get(position.catalogueKey) ?? null;
+  }
+
+  function systemPositionUsesAllAreas(position: PositionRow): boolean {
+    return systemPosition(position)?.areaKeys.length === 0;
+  }
+
+  function positionAreaChoices(position: PositionRow) {
+    const areas = restaurantConfig.draft?.areas.filter((area) => area.active) ?? [];
+    const system = systemPosition(position);
+    if (!system || system.areaKeys.length === 0) return areas;
+    return areas.filter(
+      (area) =>
+        Boolean(area.catalogueKey) &&
+        system.areaKeys.includes(area.catalogueKey)
+    );
+  }
+
+  function positionAreaIsLinked(position: PositionRow, areaId: string): boolean {
+    const area = restaurantConfig.draft?.areas.find(
+      (candidate) => candidate.id === areaId
+    );
+    const system = systemPosition(position);
+    if (!system) return position.areaIds.includes(areaId);
+    if (system.areaKeys.length === 0) return Boolean(area?.active);
+    return Boolean(
+      area?.active &&
+        area.catalogueKey &&
+        system.areaKeys.includes(area.catalogueKey)
+    );
+  }
+
   function togglePositionArea(position: PositionRow, areaId: string) {
-    if (workspace.isPreview) return;
+    if (workspace.isPreview || systemPosition(position)) return;
     if (position.areaIds.includes(areaId)) {
       position.areaIds = position.areaIds.filter((id) => id !== areaId);
       if (position.primaryAreaId === areaId) {
@@ -279,9 +329,17 @@
 
   function setPrimaryPositionArea(position: PositionRow, areaId: string) {
     if (workspace.isPreview) return;
+    if (systemPositionUsesAllAreas(position)) {
+      position.primaryAreaId = '';
+      restaurantConfig.touch();
+      return;
+    }
     if (!areaId) {
       position.primaryAreaId = '';
       restaurantConfig.touch();
+      return;
+    }
+    if (!positionAreaChoices(position).some((area) => area.id === areaId)) {
       return;
     }
     if (!position.areaIds.includes(areaId)) {
@@ -368,7 +426,7 @@
           : (headcount ? 'staffed' : 'unstaffed');
       const label = groupBy === 'area'
         ? stable.primaryAreaId
-          ? restaurantConfig.draft?.areas.find((area) => area.id === stable.primaryAreaId)?.name ?? t('No area linked')
+          ? areaName.get(stable.primaryAreaId) ?? t('No area linked')
           : t(allAreas ? 'All areas' : 'No area linked')
         : groupBy === 'status'
           ? t(stable.active ? 'Active' : 'Archived')
@@ -379,7 +437,7 @@
               const area = context.draft.areas.find(
                 (candidate) => candidate.id === stable.primaryAreaId
               );
-              return area ? restaurantConfig.placementArea(area).name : label;
+              return area ? areaName.get(area.id) ?? restaurantConfig.placementArea(area).name : label;
             })()
           : label;
       const group = groups.get(key) ?? { key, label, placementLabel, rows: [] };
@@ -478,7 +536,7 @@
                             customDescription={t('Keep this position specific to your restaurant')}
                             formatCustomLabel={(name) =>
                               t('Use “{name}” as a custom position', { name })}
-                            onvaluechange={() => restaurantConfig.touch()}
+                            onvaluechange={(value) => typePositionName(position, value)}
                             onselect={(item) => selectPositionCatalogue(position, item)}
                             oncustom={(value) => makePositionCustom(position, value)}
                             onclose={() => {
@@ -493,7 +551,7 @@
                           <select
                             class="cl-field"
                             aria-label={t('Primary area')}
-                          disabled={workspace.isPreview}
+                            disabled={workspace.isPreview || systemPositionUsesAllAreas(position)}
                             value={position.primaryAreaId}
                             onchange={(event) =>
                               setPrimaryPositionArea(
@@ -502,8 +560,8 @@
                               )}
                           >
                             <option value="">{primaryAreaLabel(position)}</option>
-                            {#each draft.areas.filter((area) => area.active) as area (area.id)}
-                              <option value={area.id}>{area.name}</option>
+                            {#each positionAreaChoices(position) as area (area.id)}
+                              <option value={area.id}>{areaName.get(area.id) ?? area.name}</option>
                             {/each}
                           </select>
                         </div>
@@ -516,7 +574,7 @@
                           disabled={workspace.isPreview}
                           items={[
                             {
-                              label: t('Edit linked areas'),
+                              label: t(systemPosition(position) ? 'View linked areas' : 'Edit linked areas'),
                               onselect: () => (positionAreaEditorId = position.id)
                             },
                             ...(persistedPositionIds.has(position.id)
@@ -541,8 +599,12 @@
 
 <Dialog
   open={Boolean(positionAreaEditor)}
-  title={positionAreaEditor ? `Areas for ${positionAreaEditor.name}` : 'Position areas'}
-  description="Choose every area this position can work in. The primary area supplies its colour across the workspace."
+  title={positionAreaEditor
+    ? `${t(systemPosition(positionAreaEditor) ? 'Linked areas' : 'Edit linked areas')} · ${positionAreaEditor.name}`
+    : t('Position areas')}
+  description={positionAreaEditor && systemPosition(positionAreaEditor)
+    ? t('System positions stay linked to every compatible physical area automatically.')
+    : t('Choose every area this position can work in. The primary area supplies its colour across the workspace.')}
   size="medium"
   onclose={() => (positionAreaEditorId = '')}
 >
@@ -550,23 +612,30 @@
     {#if positionAreaEditor && restaurantConfig.draft}
       <div class="position-area-list">
         {#each restaurantConfig.draft.areas.filter((area) => area.active) as area (area.id)}
-          {@const linked = positionAreaEditor.areaIds.includes(area.id)}
+          {@const linked = positionAreaIsLinked(positionAreaEditor, area.id)}
+          {@const automatic = Boolean(systemPosition(positionAreaEditor))}
           <div class:is-linked={linked}>
             <label>
               <input
                 type="checkbox"
                 checked={linked}
+                disabled={automatic}
                 onchange={() => togglePositionArea(positionAreaEditor, area.id)}
               />
               <i style={`--area-color:${area.color}`}></i>
-              <span><strong>{area.name}</strong><small>{linked ? t('Can work here') : t('Not linked')}</small></span>
+              <span>
+                <strong>{areaName.get(area.id) ?? area.name}</strong>
+                <small>{automatic
+                  ? t(linked ? 'Linked automatically' : 'Not compatible')
+                  : t(linked ? 'Can work here' : 'Not linked')}</small>
+              </span>
             </label>
             <label class="primary-area">
               <input
                 type="radio"
                 name="primary-position-area"
                 checked={positionAreaEditor.primaryAreaId === area.id}
-                disabled={!linked}
+                disabled={!linked || systemPositionUsesAllAreas(positionAreaEditor)}
                 onchange={() => setPrimaryPositionArea(positionAreaEditor, area.id)}
               />
               <span>{t('Primary colour')}</span>

@@ -1,5 +1,6 @@
 import type { ManagerOperationsReadModel } from '../api/workspace-snapshot.ts';
 import { personInitials } from '../ui/person.ts';
+import { areaInstanceLabelMap } from '../restaurant/area-instance.ts';
 import {
   addDays,
   addMonths,
@@ -518,7 +519,7 @@ function analysePeriod(
   const regimeHours: Record<Regime, number> = { flexi: 0, fixed: 0, manager: 0 };
   const timezone = model.restaurant_settings.timezone || 'Europe/Brussels';
   const employeeNames = new Map(model.employees.map((employee) => [employee.id, employee.display_name]));
-  const areaNames = new Map(model.work_areas.map((area) => [area.id, area.name]));
+  const areaNames = areaInstanceLabelMap(model.work_areas);
   const publishedShifts = model.published_planned_shifts ?? model.planned_shifts;
   const plannedById = new Map(publishedShifts.map((shift) => [shift.id, shift]));
   const entriesByPlan = new Map<string, ManagerOperationsReadModel['time_entries'][number]>();

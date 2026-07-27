@@ -18,6 +18,7 @@
   import { teamDraft } from '$lib/classic/classic-team.svelte';
   import { workspacePositionByKey } from '$lib/restaurant/workspace-catalogue';
   import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
+  import { areaInstanceLabelMap } from '$lib/restaurant/area-instance';
 
   type SortKey = 'employee' | 'position' | 'email' | 'phone' | 'contract' | 'access' | 'status';
   type GroupBy = 'position' | 'contract' | 'area' | 'status' | 'none';
@@ -39,6 +40,11 @@
   let editingValue = $state('');
   let editingInput = $state<HTMLInputElement | null>(null);
   let collapsedGroups = $state<string[]>([]);
+  let positionMenuEmployeeId = $state('');
+  let positionMenuTrigger = $state<HTMLButtonElement | null>(null);
+  let positionMenuElement = $state<HTMLElement | null>(null);
+  let positionMenuLeft = $state(0);
+  let positionMenuTop = $state(0);
 
   const OPTIONAL_COLUMNS = [
     { key: 'position', label: 'Position' },
@@ -103,9 +109,12 @@
   );
 
   const restaurantAreaName = $derived(
-    new Map((workspace.restaurant?.work_areas ?? []).map((area) => [area.id, area.name]))
+    areaInstanceLabelMap(workspace.restaurant?.work_areas ?? [])
   );
   const restaurantAreaColor = $derived(buildAreaColorMap(workspace.restaurant?.work_areas ?? []));
+  const positionMenuEmployee = $derived(
+    teamDraft.employees.find((employee) => employee.id === positionMenuEmployeeId) ?? null
+  );
 
   function positionArea(positionId: string): { icon: string; color: string } | null {
     const relation = (workspace.restaurant?.job_function_areas ?? [])
@@ -130,11 +139,12 @@
 
   function employeeArea(employee: EmployeeDraft): { key: string; label: string; color?: string } {
     const positionId = employee.jobFunctionIds[0] ?? '';
+    const preferredAreaId = employee.jobFunctionAreaIds[positionId] ?? '';
     const position = workspace.restaurant?.job_functions.find((job) => job.id === positionId);
     const areaRelations = (workspace.restaurant?.job_function_areas ?? [])
       .filter((relation) => relation.active && relation.job_function_id === positionId)
       .sort((left, right) => Number(right.is_primary) - Number(left.is_primary));
-    const primaryAreaId = areaRelations[0]?.area_id;
+    const primaryAreaId = preferredAreaId || areaRelations[0]?.area_id;
     const catalogue = position?.catalogue_key ?? null;
     const allAreasPosition = catalogue
       ? workspacePositionByKey.get(catalogue)?.areaKeys.length === 0
@@ -240,14 +250,117 @@
   }
 
   function togglePosition(employee: EmployeeDraft, id: string, on: boolean) {
+    const jobFunctionAreaIds = { ...employee.jobFunctionAreaIds };
+    if (!on) delete jobFunctionAreaIds[id];
     teamDraft.update(employee.id, {
       jobFunctionIds: on
         ? employee.jobFunctionIds.includes(id)
           ? employee.jobFunctionIds
           : [...employee.jobFunctionIds, id]
-        : employee.jobFunctionIds.filter((item) => item !== id)
+        : employee.jobFunctionIds.filter((item) => item !== id),
+      jobFunctionAreaIds
     });
   }
+
+  function areasForPosition(positionId: string) {
+    const areas = workspace.restaurant?.work_areas.filter((area) => area.active) ?? [];
+    const linkedIds = new Set(
+      (workspace.restaurant?.job_function_areas ?? [])
+        .filter(
+          (relation) =>
+            relation.active && relation.job_function_id === positionId
+        )
+        .map((relation) => relation.area_id)
+    );
+    return linkedIds.size ? areas.filter((area) => linkedIds.has(area.id)) : areas;
+  }
+
+  function setEmployeePositionArea(
+    employee: EmployeeDraft,
+    positionId: string,
+    areaId: string
+  ) {
+    const next = { ...employee.jobFunctionAreaIds };
+    if (areaId) next[positionId] = areaId;
+    else delete next[positionId];
+    teamDraft.update(employee.id, { jobFunctionAreaIds: next });
+  }
+
+  function preferredAreaName(employee: EmployeeDraft, positionId: string): string {
+    const areaId = employee.jobFunctionAreaIds[positionId] ?? '';
+    return areaId ? restaurantAreaName.get(areaId) ?? '' : '';
+  }
+
+  function positionEmployeeMenu() {
+    if (!positionMenuTrigger) return;
+    const triggerRect = positionMenuTrigger.getBoundingClientRect();
+    const width = positionMenuElement?.offsetWidth || 340;
+    const height = positionMenuElement?.offsetHeight || 260;
+    const roomBelow = window.innerHeight - triggerRect.bottom;
+    positionMenuLeft = Math.max(
+      12,
+      Math.min(triggerRect.left, window.innerWidth - width - 12)
+    );
+    positionMenuTop =
+      roomBelow >= height + 12
+        ? triggerRect.bottom + 5
+        : Math.max(12, triggerRect.top - height - 5);
+  }
+
+  async function togglePositionMenu(
+    employeeId: string,
+    trigger: HTMLButtonElement
+  ) {
+    if (positionMenuEmployeeId === employeeId) {
+      closePositionMenu(true);
+      return;
+    }
+    positionMenuEmployeeId = employeeId;
+    positionMenuTrigger = trigger;
+    await tick();
+    positionEmployeeMenu();
+    positionMenuElement
+      ?.querySelector<HTMLElement>('input:not(:disabled), select:not(:disabled)')
+      ?.focus();
+  }
+
+  function closePositionMenu(returnFocus = false) {
+    if (!positionMenuEmployeeId) return;
+    const trigger = positionMenuTrigger;
+    positionMenuEmployeeId = '';
+    positionMenuElement = null;
+    positionMenuTrigger = null;
+    if (returnFocus) void tick().then(() => trigger?.focus());
+  }
+
+  function handlePositionMenuKeydown(event: KeyboardEvent) {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    closePositionMenu(true);
+  }
+
+  $effect(() => {
+    if (!positionMenuEmployeeId) return;
+    const onDocumentClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        positionMenuElement?.contains(target) ||
+        positionMenuTrigger?.contains(target)
+      ) {
+        return;
+      }
+      closePositionMenu();
+    };
+    const onReposition = () => positionEmployeeMenu();
+    window.addEventListener('click', onDocumentClick, true);
+    window.addEventListener('resize', onReposition);
+    window.addEventListener('scroll', onReposition, true);
+    return () => {
+      window.removeEventListener('click', onDocumentClick, true);
+      window.removeEventListener('resize', onReposition);
+      window.removeEventListener('scroll', onReposition, true);
+    };
+  });
 
   function toggleExcluded(set: Set<string>, value: string): Set<string> {
     const next = new Set(set);
@@ -502,35 +615,30 @@
                     </td>
                     {#if shown('position')}
                       <td>
-                        <details class="posmenu">
-                          <summary style={`--position-color:${positionColor.get(employee.jobFunctionIds[0] ?? '') ?? 'var(--cl-line-strong)'}`}>
-                            {#if primaryPositionArea}
-                              <WorkspaceAreaIcon icon={primaryPositionArea.icon} color={primaryPositionArea.color} size={16} compact />
-                            {:else}
-                              <i aria-hidden="true"></i>
+                        <button
+                          class="posmenu__trigger"
+                          style={`--position-color:${positionColor.get(employee.jobFunctionIds[0] ?? '') ?? 'var(--cl-line-strong)'}`}
+                          type="button"
+                          disabled={!team.editable}
+                          aria-label={`${t('Position')} · ${employee.displayName}`}
+                          aria-haspopup="dialog"
+                          aria-expanded={positionMenuEmployeeId === employee.id}
+                          onclick={(event) =>
+                            void togglePositionMenu(employee.id, event.currentTarget)}
+                        >
+                          {#if primaryPositionArea}
+                            <WorkspaceAreaIcon icon={primaryPositionArea.icon} color={primaryPositionArea.color} size={16} compact />
+                          {:else}
+                            <i aria-hidden="true"></i>
+                          {/if}
+                          <span>
+                            {team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position yet')}
+                            {#if preferredAreaName(employee, employee.jobFunctionIds[0] ?? '')}
+                              <small>{preferredAreaName(employee, employee.jobFunctionIds[0] ?? '')}</small>
                             {/if}
-                            <span>{team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position yet')}</span>
-                            {#if employee.jobFunctionIds.length > 1}<em>+{employee.jobFunctionIds.length - 1}</em>{/if}
-                          </summary>
-                          <div class="posmenu__list">
-                            {#if team.jobName.size}
-                              {#each [...team.jobName] as [id, name] (id)}
-                                {@const linkedArea = positionArea(id)}
-                                <label>
-                                  <input type="checkbox" disabled={!team.editable} checked={employee.jobFunctionIds.includes(id)} onchange={(event) => togglePosition(employee, id, event.currentTarget.checked)} />
-                                  {#if linkedArea}
-                                    <WorkspaceAreaIcon icon={linkedArea.icon} color={linkedArea.color} size={15} compact />
-                                  {:else}
-                                    <i style={`--position-color:${positionColor.get(id) ?? 'var(--cl-line-strong)'}`} aria-hidden="true"></i>
-                                  {/if}
-                                  <span>{name}</span>
-                                </label>
-                              {/each}
-                            {:else}
-                              <span>{t('Create positions in Restaurant first.')}</span>
-                            {/if}
-                          </div>
-                        </details>
+                          </span>
+                          {#if employee.jobFunctionIds.length > 1}<em>+{employee.jobFunctionIds.length - 1}</em>{/if}
+                        </button>
                       </td>
                     {/if}
                     {#if shown('email')}<td>
@@ -624,6 +732,74 @@
       {/snippet}
     </ClassicTablePanel>
 
+    {#if positionMenuEmployee}
+      <div
+        bind:this={positionMenuElement}
+        class="posmenu__list"
+        style={`left:${positionMenuLeft}px;top:${positionMenuTop}px`}
+        role="dialog"
+        tabindex="-1"
+        aria-label={`${t('Positions')} · ${positionMenuEmployee.displayName}`}
+        onkeydown={handlePositionMenuKeydown}
+      >
+        <div class="posmenu__head">
+          <span>
+            <strong>{t('Positions')}</strong>
+            <small>{positionMenuEmployee.displayName}</small>
+          </span>
+          <button type="button" aria-label={t('Close')} onclick={() => closePositionMenu(true)}>×</button>
+        </div>
+        {#if team.jobName.size}
+          {#each [...team.jobName] as [id, name] (id)}
+            {@const linkedArea = positionArea(id)}
+            {@const positionSelected = positionMenuEmployee.jobFunctionIds.includes(id)}
+            {@const compatibleAreas = areasForPosition(id)}
+            <div class="posmenu__option" class:is-selected={positionSelected}>
+              <label>
+                <input
+                  type="checkbox"
+                  disabled={!team.editable}
+                  checked={positionSelected}
+                  onchange={(event) =>
+                    togglePosition(
+                      positionMenuEmployee,
+                      id,
+                      event.currentTarget.checked
+                    )}
+                />
+                {#if linkedArea}
+                  <WorkspaceAreaIcon icon={linkedArea.icon} color={linkedArea.color} size={15} compact />
+                {:else}
+                  <i style={`--position-color:${positionColor.get(id) ?? 'var(--cl-line-strong)'}`} aria-hidden="true"></i>
+                {/if}
+                <span>{name}</span>
+              </label>
+              {#if positionSelected && compatibleAreas.length}
+                <select
+                  aria-label={`${t('Preferred area')} · ${name}`}
+                  disabled={!team.editable}
+                  value={positionMenuEmployee.jobFunctionAreaIds[id] ?? ''}
+                  onchange={(event) =>
+                    setEmployeePositionArea(
+                      positionMenuEmployee,
+                      id,
+                      event.currentTarget.value
+                    )}
+                >
+                  <option value="">{t('Any linked area')}</option>
+                  {#each compatibleAreas as area (area.id)}
+                    <option value={area.id}>{restaurantAreaName.get(area.id) ?? area.name}</option>
+                  {/each}
+                </select>
+              {/if}
+            </div>
+          {/each}
+        {:else}
+          <span class="posmenu__empty">{t('Create positions in Restaurant first.')}</span>
+        {/if}
+      </div>
+    {/if}
+
     {#if detailId}
       <EmployeeInlineEditor employeeId={detailId} mode="people" saving={team.saving} isNew={detailId === freshId} onclose={closeDetails} onsave={team.saveEmployee} />
     {/if}
@@ -646,22 +822,31 @@
   .inline-cell.is-empty { color: var(--cl-accent); font-size: 12px; font-weight: var(--rst-fw-medium); }
   .inline-cell:disabled { cursor: default; }
   .inline-editor { border-color: var(--cl-accent); background: var(--cl-surface); box-shadow: 0 0 0 2px var(--cl-accent-wash); }
-  .posmenu { position: relative; }
-  .posmenu summary { min-width: 118px; max-width: 230px; display: inline-grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 7px; list-style: none; padding: 6px 9px; border: 1px solid color-mix(in srgb, var(--position-color) 28%, var(--cl-line)); border-radius: 6px; background: color-mix(in srgb, var(--position-color) 7%, var(--cl-surface)); color: var(--cl-ink); font-size: 13px; cursor: pointer; white-space: nowrap; }
-  .posmenu summary:hover { border-color: color-mix(in srgb, var(--position-color) 54%, var(--cl-line)); background: color-mix(in srgb, var(--position-color) 10%, var(--cl-surface)); }
-  .posmenu summary > i { width: 7px; height: 20px; border-radius: 2px; background: var(--position-color); }
-  .posmenu summary > span { overflow: hidden; text-overflow: ellipsis; }
-  .posmenu summary > em { min-width: 18px; height: 18px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--position-color) 30%, var(--cl-line)); border-radius: 999px; color: var(--cl-muted); font-size: 9px; font-style: normal; }
-  .posmenu summary::-webkit-details-marker { display: none; }
-  .posmenu[open] summary { border-color: color-mix(in srgb, var(--position-color) 66%, var(--cl-line)); background: var(--cl-surface); }
-  .posmenu__list { position: absolute; z-index: var(--rst-z-popover, 120); top: calc(100% + 4px); left: 0; display: grid; gap: 6px; min-width: 220px; padding: 10px 12px; border: 1px solid var(--cl-line-strong); border-radius: var(--cl-radius); background: var(--cl-surface); box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+  .posmenu__trigger { min-width: 118px; max-width: 230px; display: inline-grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 7px; padding: 6px 9px; border: 1px solid color-mix(in srgb, var(--position-color) 28%, var(--cl-line)); border-radius: 6px; background: color-mix(in srgb, var(--position-color) 7%, var(--cl-surface)); color: var(--cl-ink); font: inherit; font-size: 13px; text-align: left; cursor: pointer; white-space: nowrap; }
+  .posmenu__trigger:hover:not(:disabled), .posmenu__trigger[aria-expanded='true'] { border-color: color-mix(in srgb, var(--position-color) 60%, var(--cl-line)); background: color-mix(in srgb, var(--position-color) 10%, var(--cl-surface)); }
+  .posmenu__trigger:focus-visible { outline: 2px solid color-mix(in srgb, var(--cl-accent) 42%, transparent); outline-offset: 2px; }
+  .posmenu__trigger:disabled { cursor: default; }
+  .posmenu__trigger > i { width: 7px; height: 20px; border-radius: 2px; background: var(--position-color); }
+  .posmenu__trigger > span { display: grid; overflow: hidden; text-overflow: ellipsis; }
+  .posmenu__trigger > span small { overflow: hidden; color: var(--cl-muted); font-size: 9px; font-weight: var(--rst-fw-regular); text-overflow: ellipsis; }
+  .posmenu__trigger > em { min-width: 18px; height: 18px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--position-color) 30%, var(--cl-line)); border-radius: 999px; color: var(--cl-muted); font-size: 9px; font-style: normal; }
+  .posmenu__list { position: fixed; z-index: var(--rst-z-popover, 120); display: grid; gap: 6px; width: min(340px, calc(100vw - 24px)); max-height: min(420px, calc(100vh - 24px)); overflow: auto; padding: 8px 10px 10px; border: 1px solid var(--cl-line-strong); border-radius: var(--cl-radius); background: var(--cl-surface); box-shadow: 0 14px 36px rgba(15,23,42,.16); }
+  .posmenu__head { position: sticky; top: -8px; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -2px -4px 2px; padding: 8px 8px 9px; border-bottom: 1px solid var(--cl-line); background: var(--cl-surface); }
+  .posmenu__head > span { display: grid; gap: 1px; }
+  .posmenu__head strong { color: var(--cl-ink); font-size: 12px; }
+  .posmenu__head small { color: var(--cl-muted); font-size: 10px; }
+  .posmenu__head button { width: 26px; height: 26px; display: grid; place-items: center; padding: 0; border: 1px solid transparent; border-radius: 5px; color: var(--cl-muted); background: transparent; font: inherit; font-size: 17px; cursor: pointer; }
+  .posmenu__head button:hover { border-color: var(--cl-line); color: var(--cl-ink); background: var(--cl-soft); }
+  .posmenu__option { display: grid; grid-template-columns: minmax(125px, 1fr) minmax(130px, .9fr); align-items: center; gap: 8px; padding: 5px 6px; border-radius: 5px; }
+  .posmenu__option.is-selected { background: var(--cl-accent-wash); }
   .posmenu__list label { display: grid; grid-template-columns: 15px 16px minmax(0, 1fr); align-items: center; gap: 8px; font-size: 13px; }
   .posmenu__list input { width: 15px; height: 15px; accent-color: var(--cl-accent); }
   .posmenu__list label > i { width: 6px; height: 20px; border-radius: 2px; background: var(--position-color); }
+  .posmenu__option select { min-width: 0; height: 28px; padding: 0 24px 0 8px; border: 1px solid var(--cl-line); border-radius: 5px; background: var(--cl-surface); color: var(--cl-ink); font: inherit; font-size: 10.5px; }
   .contract-select { max-width: 190px; min-height: 30px; display: grid; grid-template-columns: 17px minmax(0, 1fr); align-items: center; gap: 6px; margin: -3px -7px; padding: 3px 6px; border: 1px solid transparent; border-radius: 6px; color: var(--cl-muted); transition: border-color var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease), color var(--cl-dur) var(--cl-ease); }
   .contract-select:hover, .contract-select:focus-within { border-color: color-mix(in srgb, var(--cl-info) 24%, var(--cl-line)); color: var(--cl-info); background: color-mix(in srgb, var(--cl-info) 7%, var(--cl-surface)); }
   .contract-select select { min-width: 0; width: 100%; padding: 2px 20px 2px 0; border: 0; outline: 0; color: var(--cl-ink); background: transparent; font: inherit; font-size: 12px; font-weight: var(--rst-fw-medium); text-overflow: ellipsis; cursor: pointer; }
   .contract-select select:disabled { cursor: default; }
-  .posmenu__list > span { color: var(--cl-muted); font-size: 12px; }
+  .posmenu__empty { padding: 8px; color: var(--cl-muted); font-size: 12px; }
   .is-employee { align-items: flex-start; }
 </style>

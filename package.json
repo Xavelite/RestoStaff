@@ -14,7 +14,7 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"check:dead-code": "knip --no-progress",
-		"check:edge": "deno check supabase/functions/send-employee-invitation/index.ts supabase/functions/upload-badge-proof/index.ts supabase/functions/get-badge-proof/index.ts supabase/functions/dispatch-push/index.ts supabase/seed/create-role-fixtures.ts",
+		"check:edge": "deno check supabase/functions/send-employee-invitation/index.ts supabase/functions/upload-badge-proof/index.ts supabase/functions/get-badge-proof/index.ts supabase/functions/dispatch-push/index.ts supabase/functions/reservation-public/index.ts supabase/seed/create-role-fixtures.ts",
 		"check:migrations": "node scripts/verify-migration-integrity.mjs",
 		"migrations:record": "node scripts/verify-migration-integrity.mjs --write",
 		"verify:database:linked": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-linked-database.ps1",

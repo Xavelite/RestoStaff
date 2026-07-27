@@ -22,6 +22,7 @@ function cloneEmployee(employee: EmployeeDraft): EmployeeDraft {
   return {
     ...employee,
     jobFunctionIds: [...employee.jobFunctionIds],
+    jobFunctionAreaIds: { ...employee.jobFunctionAreaIds },
     recurringSlots: employee.recurringSlots.map((slot) => ({ ...slot }))
   };
 }

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { employmentTermsPayload, newEmployeeDraft, teamSavePayload } from '../src/lib/team/team-model.ts';
 import { defaultWorkRegime, workRegime } from '../src/lib/domain/operations.ts';
@@ -46,6 +47,38 @@ test('employees can carry multiple positions with one primary position', () => {
   assert.equal(payload.employeeJobFunctions.length, 2);
   assert.equal(payload.employeeJobFunctions[0].is_primary, true);
   assert.equal(payload.employeeJobFunctions[1].is_primary, false);
+});
+
+test('a position assignment can prefer one physical area without multiplying roles', () => {
+  const employee = {
+    ...newEmployeeDraft('employee-1'),
+    displayName: 'Alex Morgan',
+    jobFunctionIds: ['bartender'],
+    jobFunctionAreaIds: { bartender: 'bar-b' }
+  };
+  const payload = teamSavePayload('restaurant-1', [employee], 'manager');
+  assert.deepEqual(payload.employeeJobFunctions, [
+    {
+      restaurant_id: 'restaurant-1',
+      employee_id: 'employee-1',
+      job_function_id: 'bartender',
+      is_primary: true,
+      active: true,
+      default_area_id: 'bar-b'
+    }
+  ]);
+});
+
+test('Restaurant changes clear only invalid employee area preferences', async () => {
+  const migration = await readFile(
+    'supabase/migrations/20260727152000_employee_position_area_defaults.sql',
+    'utf8'
+  );
+
+  assert.match(migration, /work_areas_clear_employee_defaults/);
+  assert.match(migration, /job_function_areas_clear_employee_defaults/);
+  assert.match(migration, /set default_area_id = null/);
+  assert.match(migration, /and relation\.active/);
 });
 
 test('only fixed-schedule employees persist recurring schedule slots', () => {

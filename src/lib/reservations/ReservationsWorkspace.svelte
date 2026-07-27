@@ -4,7 +4,9 @@
   import Dialog from '$lib/components/Dialog.svelte';
   import { friendlyError } from '$lib/api/error-messages';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
+  import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
   import ClassicPage from '$lib/classic/ClassicPage.svelte';
+  import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
   import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import ReservationFloorPlan from '$lib/reservations/ReservationFloorPlan.svelte';
@@ -19,6 +21,7 @@
   import {
     RESERVATION_STATUSES,
     reservationNextStatuses,
+    reservationIsCurrentAt,
     reservationIsTerminal,
     reservationStatusMeta
   } from '$lib/reservations/reservation-status';
@@ -39,8 +42,16 @@
 
   let selectedDate = $state('');
   let selectedService = $state('');
+  let nowMs = $state(Date.now());
   let search = $state('');
-  let statusFilter = $state<ReservationStatus | ''>('');
+  let tableSearch = $state('');
+  let notesSearch = $state('');
+  let excludedSources = $state(new Set<string>());
+  let excludedStatuses = $state(new Set<string>());
+  let bookingSort = $state<{
+    key: 'guest' | 'time' | 'party' | 'table' | 'source' | 'status' | 'notes';
+    dir: 'asc' | 'desc';
+  } | null>({ key: 'time', dir: 'asc' });
   let liveFloorId = $state('');
   let data = $state<ReservationWorkspace | null>(null);
   let floorPlans = $state<ReservationFloorPlans | null>(null);
@@ -72,24 +83,68 @@
       .filter((floor) => floor.active)
       .sort((left, right) => left.level - right.level || left.sort_order - right.sort_order)
   );
+  const sourceValues = $derived([
+    { value: 'phone', label: t('Phone') },
+    { value: 'internal', label: t('Internal') },
+    { value: 'walk_in', label: t('Walk-in') },
+    { value: 'widget', label: t('Online') },
+    { value: 'integration', label: t('Integration') }
+  ]);
+  const statusValues = $derived(
+    RESERVATION_STATUSES.map((status) => ({
+      value: status,
+      label: t(reservationStatusMeta(status).label)
+    }))
+  );
   const reservations = $derived.by(() => {
-    const term = search.trim().toLowerCase();
-    return (currentData?.reservations ?? []).filter((reservation) => {
+    const guestTerm = search.trim().toLowerCase();
+    const seatingTerm = tableSearch.trim().toLowerCase();
+    const noteTerm = notesSearch.trim().toLowerCase();
+    const filtered = (currentData?.reservations ?? []).filter((reservation) => {
       if (selectedService && reservation.service_key !== selectedService) return false;
-      if (statusFilter && reservation.status !== statusFilter) return false;
-      if (!term) return true;
-      return [
-        reservation.guest.display_name,
-        reservation.guest.email,
-        reservation.guest.phone,
-        reservation.table_labels.join(' '),
-        reservation.guest_comment,
-        reservation.internal_notes
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-        .includes(term);
+      if (excludedSources.has(reservation.source)) return false;
+      if (excludedStatuses.has(reservation.status)) return false;
+      if (
+        guestTerm &&
+        ![reservation.guest.display_name, reservation.guest.email, reservation.guest.phone]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(guestTerm)
+      ) return false;
+      if (
+        seatingTerm &&
+        ![
+          reservation.table_labels.join(' '),
+          currentData?.rooms.find((room) => room.id === reservation.room_preference_id)?.name
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(seatingTerm)
+      ) return false;
+      if (
+        noteTerm &&
+        ![reservation.guest_comment, reservation.internal_notes]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(noteTerm)
+      ) return false;
+      return true;
+    });
+    if (!bookingSort) return filtered;
+    const direction = bookingSort.dir === 'asc' ? 1 : -1;
+    return filtered.sort((left, right) => {
+      const leftValue = reservationSortValue(left, bookingSort?.key ?? 'time');
+      const rightValue = reservationSortValue(right, bookingSort?.key ?? 'time');
+      if (typeof leftValue === 'number' && typeof rightValue === 'number') {
+        return (leftValue - rightValue) * direction;
+      }
+      return String(leftValue).localeCompare(String(rightValue), i18n.intlLocale, {
+        numeric: true,
+        sensitivity: 'base'
+      }) * direction;
     });
   });
   const operationalReservations = $derived(
@@ -100,12 +155,15 @@
     )
   );
   const activeReservations = $derived(operationalReservations);
+  const currentReservations = $derived(
+    operationalReservations.filter((reservation) => reservationIsCurrentAt(reservation, nowMs))
+  );
   const covers = $derived(
     activeReservations.reduce((total, reservation) => total + reservation.party_size, 0)
   );
   const capacity = $derived(activeService?.setting?.maximum_covers ?? null);
   const occupiedTables = $derived(
-    new Set(activeReservations.flatMap((reservation) => reservation.table_ids)).size
+    new Set(currentReservations.flatMap((reservation) => reservation.table_ids)).size
   );
   const availableTables = $derived(
     Math.max(
@@ -161,6 +219,9 @@
     selectedDate = todayInTimezone(
       workspace.bootstrap?.restaurant_settings.timezone || 'Europe/Brussels'
     );
+    nowMs = Date.now();
+    const timer = window.setInterval(() => (nowMs = Date.now()), 60_000);
+    return () => window.clearInterval(timer);
   });
 
   $effect(() => {
@@ -183,6 +244,7 @@
       draft.local_time,
       draft.party_size,
       draft.room_preference_id,
+      draft.preferred_table_id,
       draft.id,
       draft.expected_revision
     ]);
@@ -291,11 +353,19 @@
       local_time: localTime,
       party_size: 2,
       room_preference_id: '',
-      source: 'phone',
+      preferred_table_id: '',
+      source: 'internal',
       guest_comment: '',
       internal_notes: '',
-      language_code: 'fr'
+      language_code: restaurantLanguageCode()
     };
+  }
+
+  function restaurantLanguageCode(): string {
+    const locale = String(
+      workspace.bootstrap?.restaurant_settings.locale || i18n.locale || 'en'
+    ).trim();
+    return locale.split(/[-_]/)[0]?.toLowerCase() || 'en';
   }
 
   function serviceStart(service: ReservationService | null): string {
@@ -305,7 +375,7 @@
     return clockLabel(opening) || (service?.service_key === 'evening' ? '18:00' : '12:00');
   }
 
-  function openNewReservation(roomId = '') {
+  function openNewReservation(roomId = '', tableId = '') {
     if (!currentData) return;
     const service =
       currentData.services.find((item) => item.service_key === selectedService) ??
@@ -313,6 +383,7 @@
       null;
     draft = emptyDraft(selectedDate, service?.service_key ?? '', serviceStart(service));
     draft.room_preference_id = roomId;
+    draft.preferred_table_id = tableId;
     availability = null;
     editorError = '';
     editorReadOnly = false;
@@ -329,7 +400,7 @@
       openReservation(reservation);
       return;
     }
-    openNewReservation(table.room_id);
+    openNewReservation(table.room_id, table.id);
   }
 
   function openReservation(reservation: Reservation) {
@@ -352,6 +423,7 @@
       local_time: localTime,
       party_size: reservation.party_size,
       room_preference_id: reservation.room_preference_id ?? '',
+      preferred_table_id: reservation.preferred_table_id ?? '',
       source: reservation.source,
       guest_comment: reservation.guest_comment ?? '',
       internal_notes: reservation.internal_notes ?? '',
@@ -429,12 +501,54 @@
     }).format(new Date(value));
   }
 
+  function reservationSortValue(
+    reservation: Reservation,
+    key: 'guest' | 'time' | 'party' | 'table' | 'source' | 'status' | 'notes'
+  ): string | number {
+    if (key === 'guest') return reservation.guest.display_name;
+    if (key === 'time') return reservation.starts_at;
+    if (key === 'party') return reservation.party_size;
+    if (key === 'table') {
+      return (
+        reservation.table_labels.join(' ') ||
+        currentData?.rooms.find((room) => room.id === reservation.room_preference_id)?.name ||
+        ''
+      );
+    }
+    if (key === 'source') return sourceLabel(reservation.source);
+    if (key === 'status') return RESERVATION_STATUSES.indexOf(reservation.status);
+    return reservation.guest_comment || reservation.internal_notes || '';
+  }
+
+  function toggleExcluded(current: Set<string>, value: string): Set<string> {
+    const next = new Set(current);
+    if (next.has(value)) next.delete(value);
+    else next.add(value);
+    return next;
+  }
+
   function sourceLabel(value: string): string {
     if (value === 'walk_in') return t('Walk-in');
     if (value === 'phone') return t('Phone');
     if (value === 'widget') return t('Online');
     if (value === 'integration') return t('Integration');
     return t('Internal');
+  }
+
+  function setRoomPreference(roomId: string) {
+    draft.room_preference_id = roomId;
+    const selectedTable = currentData?.tables.find(
+      (table) => table.id === draft.preferred_table_id
+    );
+    if (selectedTable && selectedTable.room_id !== roomId) {
+      draft.preferred_table_id = '';
+    }
+  }
+
+  function setTablePreference(tableId: string) {
+    draft.preferred_table_id = tableId;
+    const selectedTable = currentData?.tables.find((table) => table.id === tableId);
+    if (selectedTable) draft.room_preference_id = selectedTable.room_id;
   }
 </script>
 
@@ -507,20 +621,6 @@
               {/each}
             </select>
           </label>
-          {#if initialView === 'list'}
-            <input
-              class="cl-field reservation-search"
-              type="search"
-              placeholder={t('Search guest, phone or table')}
-              bind:value={search}
-            />
-            <select class="cl-field status-field" aria-label={t('Status')} bind:value={statusFilter}>
-              <option value="">{t('All statuses')}</option>
-              {#each RESERVATION_STATUSES as status}
-                <option value={status}>{t(reservationStatusMeta(status).label)}</option>
-              {/each}
-            </select>
-          {/if}
           <button
             class="cl-btn is-primary"
             type="button"
@@ -578,10 +678,11 @@
             <ReservationFloorPlan
               tables={liveTables}
               rooms={liveRooms}
-              reservations={operationalReservations}
+              reservations={currentReservations}
               roomName={liveFloor.name}
               floorWidth={liveFloor.canvas_width}
               floorHeight={liveFloor.canvas_height}
+              showHeader={false}
               emptyMessage="Set up restaurant areas and tables before using the live floor view."
               onselect={selectFloorTable}
             />
@@ -636,13 +737,81 @@
       <table class="cl-table reservation-table">
         <thead>
           <tr>
-            <th>{t('Guest')}</th>
-            <th>{t('Time')}</th>
-            <th>{t('Party')}</th>
-            <th>{t('Room & table')}</th>
-            <th>{t('Source')}</th>
-            <th>{t('Status')}</th>
-            <th class="notes-col">{t('Notes')}</th>
+            <th class="has-menu">
+              <ClassicPrimaryColMenu
+                label={t('Guest')}
+                sortable
+                sortDir={bookingSort?.key === 'guest' ? bookingSort.dir : null}
+                onsort={(dir) => (bookingSort = { key: 'guest', dir })}
+                filterKind="text"
+                searchValue={search}
+                onsearch={(value) => (search = value)}
+              />
+            </th>
+            <th class="has-menu">
+              <ClassicColMenu
+                label={t('Time')}
+                sortable
+                sortDir={bookingSort?.key === 'time' ? bookingSort.dir : null}
+                onsort={(dir) => (bookingSort = { key: 'time', dir })}
+              />
+            </th>
+            <th class="has-menu">
+              <ClassicColMenu
+                label={t('Party')}
+                sortable
+                sortDir={bookingSort?.key === 'party' ? bookingSort.dir : null}
+                onsort={(dir) => (bookingSort = { key: 'party', dir })}
+              />
+            </th>
+            <th class="has-menu">
+              <ClassicColMenu
+                label={t('Room & table')}
+                sortable
+                sortDir={bookingSort?.key === 'table' ? bookingSort.dir : null}
+                onsort={(dir) => (bookingSort = { key: 'table', dir })}
+                filterKind="text"
+                searchValue={tableSearch}
+                onsearch={(value) => (tableSearch = value)}
+              />
+            </th>
+            <th class="has-menu">
+              <ClassicColMenu
+                label={t('Source')}
+                sortable
+                sortDir={bookingSort?.key === 'source' ? bookingSort.dir : null}
+                onsort={(dir) => (bookingSort = { key: 'source', dir })}
+                filterKind="values"
+                filterValues={sourceValues}
+                selected={excludedSources}
+                ontoggle={(value) => (excludedSources = toggleExcluded(excludedSources, value))}
+                onselectall={(on) => (excludedSources = on ? new Set() : new Set(sourceValues.map((item) => item.value)))}
+              />
+            </th>
+            <th class="has-menu">
+              <ClassicColMenu
+                label={t('Status')}
+                sortable
+                sortDir={bookingSort?.key === 'status' ? bookingSort.dir : null}
+                onsort={(dir) => (bookingSort = { key: 'status', dir })}
+                filterKind="values"
+                filterValues={statusValues}
+                selected={excludedStatuses}
+                ontoggle={(value) => (excludedStatuses = toggleExcluded(excludedStatuses, value))}
+                onselectall={(on) => (excludedStatuses = on ? new Set() : new Set(statusValues.map((item) => item.value)))}
+              />
+            </th>
+            <th class="has-menu notes-col">
+              <ClassicColMenu
+                label={t('Notes')}
+                sortable
+                sortDir={bookingSort?.key === 'notes' ? bookingSort.dir : null}
+                onsort={(dir) => (bookingSort = { key: 'notes', dir })}
+                filterKind="text"
+                searchValue={notesSearch}
+                onsearch={(value) => (notesSearch = value)}
+              />
+            </th>
             <th aria-label={t('Actions')}></th>
           </tr>
         </thead>
@@ -726,111 +895,139 @@
 <Dialog
   open={editorOpen}
   title={draft.id ? 'Edit reservation' : 'Add reservation'}
-  description="The same server-side availability check is used here and by future booking channels."
   size="large"
   onclose={() => (editorOpen = false)}
 >
   {#snippet children()}
     <div class="reservation-form">
-      <section>
-        <h3>{t('Booking')}</h3>
-        <div class="form-grid">
-          <label class="cl-label">
-            <span>{t('Date')}</span>
-            <input class="cl-field" type="date" bind:value={draft.business_date} />
-          </label>
-          <label class="cl-label">
-            <span>{t('Service')}</span>
-            <select class="cl-field" bind:value={draft.service_key}>
-              {#each data?.services ?? [] as service (service.service_key)}
-                <option value={service.service_key}>{t(service.name)}</option>
-              {/each}
-            </select>
-          </label>
-          <label class="cl-label">
-            <span>{t('Time')}</span>
-            <input class="cl-field" type="time" bind:value={draft.local_time} />
-          </label>
-          <label class="cl-label">
-            <span>{t('Guests')}</span>
-            <input class="cl-field" type="number" min="1" max="500" bind:value={draft.party_size} />
-          </label>
-          <label class="cl-label">
-            <span>{t('Room preference')}</span>
-            <select class="cl-field" bind:value={draft.room_preference_id}>
-              <option value="">{t('Best available')}</option>
-              {#each data?.rooms ?? [] as room (room.id)}
-                <option value={room.id}>{room.name}</option>
-              {/each}
-            </select>
-          </label>
-          <label class="cl-label">
-            <span>{t('Source')}</span>
-            <select class="cl-field" bind:value={draft.source}>
-              <option value="phone">{t('Phone')}</option>
-              <option value="internal">{t('Internal')}</option>
-              <option value="walk_in">{t('Walk-in')}</option>
-              <option value="widget">{t('Online')}</option>
-              <option value="integration">{t('Integration')}</option>
-            </select>
-          </label>
-        </div>
-      </section>
+      <fieldset class="reservation-form__fields" disabled={editorReadOnly}>
+        <section>
+          <h3>{t('Booking')}</h3>
+          <div class="form-grid">
+            <label class="cl-label">
+              <span>{t('Date')}</span>
+              <input class="cl-field" type="date" bind:value={draft.business_date} />
+            </label>
+            <label class="cl-label">
+              <span>{t('Service')}</span>
+              <select class="cl-field" bind:value={draft.service_key}>
+                {#each data?.services ?? [] as service (service.service_key)}
+                  <option value={service.service_key}>{t(service.name)}</option>
+                {/each}
+              </select>
+            </label>
+            <label class="cl-label">
+              <span>{t('Time')}</span>
+              <input class="cl-field" type="time" bind:value={draft.local_time} />
+            </label>
+            <label class="cl-label">
+              <span>{t('Guests')}</span>
+              <input class="cl-field" type="number" min="1" max="500" bind:value={draft.party_size} />
+            </label>
+            <label class="cl-label">
+              <span>{t('Room preference')}</span>
+              <select
+                class="cl-field"
+                value={draft.room_preference_id}
+                onchange={(event) => setRoomPreference(event.currentTarget.value)}
+              >
+                <option value="">{t('Best available')}</option>
+                {#each data?.rooms ?? [] as room (room.id)}
+                  <option value={room.id}>{room.name}</option>
+                {/each}
+              </select>
+            </label>
+            <label class="cl-label">
+              <span>{t('Table')}</span>
+              <select
+                class="cl-field"
+                value={draft.preferred_table_id}
+                onchange={(event) => setTablePreference(event.currentTarget.value)}
+              >
+                <option value="">{t('Best available')}</option>
+                {#each (currentData?.rooms ?? []) as room (room.id)}
+                  {@const roomTables = (currentData?.tables ?? [])
+                    .filter((table) => table.room_id === room.id && table.active && !table.blocked)
+                    .sort((left, right) => left.sort_order - right.sort_order || left.label.localeCompare(right.label))}
+                  {#if roomTables.length}
+                    <optgroup label={room.name}>
+                      {#each roomTables as table (table.id)}
+                        <option value={table.id}>
+                          {t('Table')} {table.label} · {table.minimum_capacity}–{table.maximum_capacity}
+                        </option>
+                      {/each}
+                    </optgroup>
+                  {/if}
+                {/each}
+              </select>
+            </label>
+          </div>
+        </section>
 
-      <section>
-        <h3>{t('Guest')}</h3>
-        <div class="form-grid">
-          <label class="cl-label form-wide">
-            <span>{t('Guest name')}</span>
-            <input class="cl-field" autocomplete="name" bind:value={draft.guest_name} />
-          </label>
-          <label class="cl-label">
-            <span>{t('Phone')}</span>
-            <input class="cl-field" type="tel" autocomplete="tel" bind:value={draft.guest_phone} />
-          </label>
-          <label class="cl-label">
-            <span>{t('Email')}</span>
-            <input class="cl-field" type="email" autocomplete="email" bind:value={draft.guest_email} />
-          </label>
-          <label class="cl-label">
-            <span>{t('Guest request')}</span>
-            <textarea class="cl-field" rows="2" bind:value={draft.guest_comment}></textarea>
-          </label>
-          <label class="cl-label">
-            <span>{t('Internal note')}</span>
-            <textarea class="cl-field" rows="2" bind:value={draft.internal_notes}></textarea>
-          </label>
-        </div>
-      </section>
+        <section>
+          <h3>{t('Guest')}</h3>
+          <div class="form-grid">
+            <label class="cl-label form-wide">
+              <span>{t('Guest name')}</span>
+              <input class="cl-field" autocomplete="name" bind:value={draft.guest_name} />
+            </label>
+            <label class="cl-label">
+              <span>{t('Phone')}</span>
+              <input class="cl-field" type="tel" autocomplete="tel" bind:value={draft.guest_phone} />
+            </label>
+            <label class="cl-label">
+              <span>{t('Email')}</span>
+              <input class="cl-field" type="email" autocomplete="email" bind:value={draft.guest_email} />
+            </label>
+            <label class="cl-label">
+              <span>{t('Guest request')}</span>
+              <textarea class="cl-field" rows="2" bind:value={draft.guest_comment}></textarea>
+            </label>
+            <label class="cl-label">
+              <span>{t('Internal note')}</span>
+              <textarea class="cl-field" rows="2" bind:value={draft.internal_notes}></textarea>
+            </label>
+          </div>
+        </section>
+      </fieldset>
 
-      <div
-        class="availability"
-        class:is-ok={availability?.available}
-        class:is-problem={availability && !availability.available}
-        aria-live="polite"
-      >
-        <span class="availability__symbol" aria-hidden="true">
-          {availabilityLoading ? '…' : availability?.available ? '✓' : '!'}
-        </span>
-        <div>
-          <strong>
-            {availabilityLoading
-              ? t('Checking availability…')
-              : availability?.available
-                ? t('Available')
-                : t('Not available yet')}
-          </strong>
-          <small>
-            {availabilityLoading
-              ? t('Applying service, capacity and table rules.')
-              : availability?.available
-                ? t('A suitable table or capacity slot is available.')
-                : t(availability?.reason || 'Complete the booking details to check availability.')}
-          </small>
-        </div>
-      </div>
       {#if editorReadOnly}
-        <p class="form-error" role="status">{t('Finished, cancelled and no-show reservations are read-only.')}</p>
+        <div class="availability is-readonly" role="status">
+          <span class="availability__symbol" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+          </span>
+          <div>
+            <strong>{t('Details')}</strong>
+            <small>{t('Finished, cancelled and no-show reservations are read-only.')}</small>
+          </div>
+        </div>
+      {:else}
+        <div
+          class="availability"
+          class:is-ok={availability?.available}
+          class:is-problem={availability && !availability.available}
+          aria-live="polite"
+        >
+          <span class="availability__symbol" aria-hidden="true">
+            {availabilityLoading ? '…' : availability?.available ? '✓' : '!'}
+          </span>
+          <div>
+            <strong>
+              {availabilityLoading
+                ? t('Checking availability…')
+                : availability?.available
+                  ? t('Available')
+                  : t('Not available yet')}
+            </strong>
+            <small>
+              {availabilityLoading
+                ? t('Applying service, capacity and table rules.')
+                : availability?.available
+                  ? t('A suitable table or capacity slot is available.')
+                  : t(availability?.reason || 'Complete the booking details to check availability.')}
+            </small>
+          </div>
+        </div>
       {/if}
       {#if editorError}<p class="form-error" role="alert">{editorError}</p>{/if}
     </div>
@@ -944,8 +1141,6 @@
   }
   .service-picker { display: inline-flex; }
   .service-picker .cl-field { width: 145px; }
-  .status-field { width: 126px; }
-  .reservation-search { width: 190px; min-width: 170px; }
   .live-floor {
     overflow: hidden;
     border: 1px solid var(--cl-line);
@@ -1131,9 +1326,38 @@
   }
   .muted { color: var(--cl-muted); font-size: 12px; }
   .note { max-width: 210px; display: block; overflow: hidden; color: var(--cl-muted); text-overflow: ellipsis; white-space: nowrap; }
-  .reservation-form { display: grid; gap: 18px; }
-  .reservation-form section { display: grid; gap: 10px; }
-  .reservation-form h3 { margin: 0; padding-bottom: 7px; border-bottom: 1px solid var(--cl-line); font-size: 13px; }
+  .reservation-form { display: grid; gap: 14px; }
+  .reservation-form__fields {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  .reservation-form section {
+    min-width: 0;
+    display: grid;
+    align-content: start;
+    gap: 11px;
+    padding-right: 16px;
+  }
+  .reservation-form section + section {
+    padding-right: 0;
+    padding-left: 16px;
+    border-left: 1px solid var(--cl-line);
+  }
+  .reservation-form h3 {
+    margin: 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--cl-line);
+    color: var(--cl-ink);
+    font-size: 12px;
+    font-weight: var(--rst-fw-bold);
+    letter-spacing: .025em;
+    text-transform: uppercase;
+  }
   .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .form-wide { grid-column: 1 / -1; }
   textarea.cl-field { height: auto; min-height: 58px; resize: vertical; }
@@ -1148,6 +1372,7 @@
   }
   .availability.is-ok { border-color: var(--cl-ok-line); background: var(--cl-ok-wash); }
   .availability.is-problem { border-color: var(--cl-problem-line); background: var(--cl-problem-wash); }
+  .availability.is-readonly { border-color: var(--cl-line-strong); }
   .availability__symbol {
     width: 24px;
     height: 24px;
@@ -1173,6 +1398,13 @@
     .live-floor__head { align-items: stretch; flex-direction: column; }
     .live-floor__meta { justify-content: flex-end; }
     .notes-col { display: none; }
+    .reservation-form__fields { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+    .reservation-form section { padding: 0; }
+    .reservation-form section + section {
+      padding-top: 14px;
+      border-top: 1px solid var(--cl-line);
+      border-left: 0;
+    }
   }
   @media (max-width: 520px) {
     .form-grid { grid-template-columns: minmax(0, 1fr); }
@@ -1180,9 +1412,7 @@
     .reservation-actions,
     .reservation-period,
     .service-picker,
-    .service-picker .cl-field,
-    .reservation-search,
-    .status-field { width: 100%; }
+    .service-picker .cl-field { width: 100%; }
     .reservation-period__date { min-width: 0; flex: 1; }
     .live-floor__meta { align-items: flex-start; flex-wrap: wrap; justify-content: flex-start; }
   }

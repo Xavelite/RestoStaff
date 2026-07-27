@@ -4,6 +4,7 @@
   import ClassicServiceIcon from '$lib/classic/ClassicServiceIcon.svelte';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
+  import { areaInstanceLabelMap } from '$lib/restaurant/area-instance';
   import {
     blocksPlanningAssignment,
     defaultPlanningShift,
@@ -87,6 +88,7 @@
         assignmentPairs.some((assignment) => assignment.areaId === area.id)
     )
   );
+  const areaName = $derived(areaInstanceLabelMap(snapshot.work_areas));
   const jobFunctions = $derived(
     snapshot.job_functions.filter(
       (job) =>
@@ -286,7 +288,7 @@
           <span>{t('Area')}</span>
           <select disabled={!editable} value={slot.shift.areaId} onchange={(event) => updateShift('areaId', event.currentTarget.value)}>
             <option value="">{t('No area')}</option>
-            {#each areas as area (area.id)}<option value={area.id}>{area.name}</option>{/each}
+            {#each areas as area (area.id)}<option value={area.id}>{areaName.get(area.id) ?? area.name}</option>{/each}
           </select>
         </label>
         <label>

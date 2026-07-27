@@ -60,6 +60,7 @@
     showTableCount = true,
     selectedTableId = '',
     selectedRoomId = '',
+    invalidTableIds = new Set<string>(),
     emptyMessage = 'Add a table to start this floor plan.',
     onselect = () => {},
     onmove = () => {},
@@ -85,6 +86,7 @@
     showTableCount?: boolean;
     selectedTableId?: string;
     selectedRoomId?: string;
+    invalidTableIds?: ReadonlySet<string>;
     emptyMessage?: string;
     onselect?: (table: FloorTable, reservation: Reservation | null) => void;
     onmove?: (table: FloorTable, positionX: number, positionY: number) => void;
@@ -922,6 +924,7 @@
           <button
             class="floor-table is-{state} is-{table.shape}"
             class:is-selected={selectedTableId === table.id}
+            class:is-invalid={invalidTableIds.has(table.id)}
             class:is-dragging={dragging?.id === table.id}
             class:is-passive={!tablesSelectable}
             type="button"
@@ -1301,6 +1304,13 @@
   .floor-table.is-round { border-radius: 999px; }
   .floor-table.is-rectangle { border-radius: 4px; }
   .floor-table.is-selected { outline: 3px solid color-mix(in srgb, var(--cl-accent) 28%, transparent); outline-offset: 2px; }
+  .floor-table.is-invalid {
+    z-index: 4;
+    border-color: var(--cl-problem);
+    background: color-mix(in srgb, var(--cl-problem) 10%, white);
+    color: color-mix(in srgb, var(--cl-problem) 82%, #1d242e);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--cl-problem) 15%, transparent);
+  }
   .floor-table.is-reserved { border-color: var(--cl-info); background: color-mix(in srgb, var(--cl-info) 13%, white); color: color-mix(in srgb, var(--cl-info) 76%, #1d242e); }
   .floor-table.is-occupied { border-color: var(--cl-attention); background: color-mix(in srgb, var(--cl-attention) 15%, white); color: color-mix(in srgb, var(--cl-attention) 78%, #1d242e); }
   .floor-table.is-blocked { border-color: var(--cl-line-strong); background: #e8e9e8; color: var(--cl-muted); box-shadow: none; }

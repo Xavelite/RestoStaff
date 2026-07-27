@@ -60,6 +60,8 @@ export type ReservationArea = {
   catalogue_key: string | null;
   color: string | null;
   icon_key: string | null;
+  instance_number: number;
+  floor_level: number | null;
   active: boolean;
   sort_order: number;
   metadata: Json;
@@ -157,6 +159,7 @@ export type Reservation = {
   status: ReservationStatus;
   source: ReservationSource;
   room_preference_id: string | null;
+  preferred_table_id: string | null;
   guest_comment: string | null;
   internal_notes: string | null;
   assignment_locked: boolean;
@@ -218,6 +221,7 @@ export type ReservationDraft = {
   local_time: string;
   party_size: number;
   room_preference_id: string;
+  preferred_table_id: string;
   source: ReservationSource;
   guest_comment: string;
   internal_notes: string;
@@ -336,5 +340,142 @@ export function parseAvailability(value: Json): AvailabilityResult {
       typeof data.automatic_confirmation === 'boolean'
         ? data.automatic_confirmation
         : undefined
+  };
+}
+
+export type ReservationPublicChannel = {
+  configured: boolean;
+  restaurantId: string;
+  restaurantName: string;
+  id: string | null;
+  name: string;
+  publicKey: string | null;
+  enabled: boolean;
+  allowedOrigins: string[];
+  updatedAt: string | null;
+};
+
+export type PublicReservationService = {
+  key: string;
+  name: string;
+  minimumPartySize: number;
+  maximumPartySize: number;
+  advanceBookingDays: number;
+  bookingCutoffMinutes: number;
+  slotIntervalMinutes: number;
+};
+
+export type PublicReservationArea = {
+  id: string;
+  name: string;
+};
+
+export type PublicReservationContext = {
+  restaurant: {
+    name: string;
+    timezone: string;
+  };
+  services: PublicReservationService[];
+  areas: PublicReservationArea[];
+};
+
+export type PublicAvailabilitySlot = {
+  localTime: string;
+  startsAt: string;
+  endsAt: string;
+};
+
+export type PublicReservationHold = {
+  holdToken: string;
+  expiresAt: string;
+  businessDate: string;
+  serviceKey: string;
+  localTime: string;
+  partySize: number;
+  areaId: string | null;
+};
+
+export type PublicReservationConfirmation = {
+  reservationId: string;
+  status: 'pending' | 'confirmed';
+  businessDate: string;
+  serviceKey: string;
+  startsAt: string;
+  partySize: number;
+};
+
+export function parseReservationPublicChannel(value: Json): ReservationPublicChannel {
+  const data = record(value);
+  return {
+    configured: data.configured === true,
+    restaurantId: String(data.restaurant_id ?? ''),
+    restaurantName: String(data.restaurant_name ?? ''),
+    id: typeof data.id === 'string' ? data.id : null,
+    name: String(data.name ?? 'Website widget'),
+    publicKey: typeof data.public_key === 'string' ? data.public_key : null,
+    enabled: data.enabled === true,
+    allowedOrigins: Array.isArray(data.allowed_origins)
+      ? data.allowed_origins.filter((origin): origin is string => typeof origin === 'string')
+      : [],
+    updatedAt: typeof data.updated_at === 'string' ? data.updated_at : null
+  };
+}
+
+export function parsePublicReservationContext(value: Json): PublicReservationContext {
+  const data = record(value);
+  const restaurant = record(data.restaurant);
+  return {
+    restaurant: {
+      name: String(restaurant.name ?? ''),
+      timezone: String(restaurant.timezone ?? 'Europe/Brussels')
+    },
+    services: rows<RecordLike>(data, 'services').map((service) => ({
+      key: String(service.key ?? ''),
+      name: String(service.name ?? ''),
+      minimumPartySize: Number(service.minimum_party_size ?? 1),
+      maximumPartySize: Number(service.maximum_party_size ?? 12),
+      advanceBookingDays: Number(service.advance_booking_days ?? 180),
+      bookingCutoffMinutes: Number(service.booking_cutoff_minutes ?? 0),
+      slotIntervalMinutes: Number(service.slot_interval_minutes ?? 15)
+    })),
+    areas: rows<RecordLike>(data, 'areas').map((area) => ({
+      id: String(area.id ?? ''),
+      name: String(area.name ?? '')
+    }))
+  };
+}
+
+export function parsePublicAvailabilitySlots(value: Json): PublicAvailabilitySlot[] {
+  return rows<RecordLike>(record(value), 'slots').map((slot) => ({
+    localTime: String(slot.local_time ?? ''),
+    startsAt: String(slot.starts_at ?? ''),
+    endsAt: String(slot.ends_at ?? '')
+  }));
+}
+
+export function parsePublicReservationHold(value: Json): PublicReservationHold {
+  const data = record(value);
+  return {
+    holdToken: String(data.hold_token ?? ''),
+    expiresAt: String(data.expires_at ?? ''),
+    businessDate: String(data.business_date ?? ''),
+    serviceKey: String(data.service_key ?? ''),
+    localTime: String(data.local_time ?? ''),
+    partySize: Number(data.party_size ?? 0),
+    areaId: typeof data.area_id === 'string' ? data.area_id : null
+  };
+}
+
+export function parsePublicReservationConfirmation(
+  value: Json
+): PublicReservationConfirmation {
+  const data = record(value);
+  return {
+    reservationId: String(data.reservation_id ?? ''),
+    status: data.status === 'confirmed' ? 'confirmed' : 'pending',
+    businessDate: String(data.business_date ?? ''),
+    serviceKey: String(data.service_key ?? ''),
+    startsAt: String(data.starts_at ?? ''),
+    partySize: Number(data.party_size ?? 0)
   };
 }

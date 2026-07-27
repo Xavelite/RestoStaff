@@ -8,6 +8,7 @@
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
   import { getTimeEntryPayrollEvidence } from '$lib/payroll/payroll-api';
+  import { areaInstanceLabelMap } from '$lib/restaurant/area-instance';
 
   type FeedbackTone = 'info' | 'success' | 'warning' | 'danger';
   type ActualsEntrySave = {
@@ -54,7 +55,7 @@
     timezone: string;
     editable: boolean;
     jobFunctions: Array<{ id: string; name: string; active: boolean }>;
-    workAreas: Array<{ id: string; name: string; active: boolean }>;
+    workAreas: ManagerOperationsReadModel['work_areas'];
     adjustments: ManagerOperationsReadModel['time_entry_adjustments'];
     onsave: (values: ActualsEntrySave) => Promise<boolean>;
     oncancel: (values: { reason: string }) => Promise<boolean>;
@@ -76,6 +77,7 @@
   let proofUrl = $state('');
   let proofLoading = $state(false);
   let baseline = $state<EditorState | null>(null);
+  const areaName = $derived(areaInstanceLabelMap(workAreas));
 
   function currentState(): EditorState {
     return {
@@ -348,7 +350,7 @@
     <legend>{t('Payroll evidence')}</legend>
     <div class="assignment-grid">
       <label><span>{t('Actual function')}</span><select bind:value={actualJobFunctionId}><option value="">{t('Select function')}</option>{#each jobFunctions.filter((item) => item.active) as item (item.id)}<option value={item.id}>{item.name}</option>{/each}</select></label>
-      <label><span>{t('Actual work area')}</span><select bind:value={actualAreaId}><option value="">{t('Select area')}</option>{#each workAreas.filter((item) => item.active) as item (item.id)}<option value={item.id}>{item.name}</option>{/each}</select></label>
+      <label><span>{t('Actual work area')}</span><select bind:value={actualAreaId}><option value="">{t('Select area')}</option>{#each workAreas.filter((item) => item.active) as item (item.id)}<option value={item.id}>{areaName.get(item.id) ?? item.name}</option>{/each}</select></label>
     </div>
     <div class="break-head">
       <div><strong>{t('Exact unpaid breaks')}</strong><small>{t('{minutes} minutes positioned', { minutes: exactBreakMinutes })}</small></div>

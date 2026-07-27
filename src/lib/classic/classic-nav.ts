@@ -140,7 +140,8 @@ const CLASSIC_MODULES: ClassicModule[] = [
       { href: '/reservations', label: 'Live' },
       { href: '/reservations/bookings', label: 'Bookings' },
       { href: '/reservations/floor-plans', label: 'Tables' },
-      { href: '/reservations/setup', label: 'Settings' }
+      { href: '/reservations/setup', label: 'Settings' },
+      { href: '/reservations/api', label: 'API' }
     ]
   },
   {

@@ -26,6 +26,8 @@ export type EmployeeDraft = {
   firstName: string;
   lastName: string;
   jobFunctionIds: string[];
+  /** Optional preferred physical area for each assigned position. */
+  jobFunctionAreaIds: Record<string, string>;
   active: boolean;
   email: string;
   phone: string;
@@ -150,10 +152,15 @@ export function employeeDrafts(
     const terms = employmentTerms
       .filter((row) => row.employee_id === employee.id && row.active)
       .sort((left, right) => right.valid_from.localeCompare(left.valid_from))[0];
-    const jobFunctionIds = (snapshot.employee_job_functions ?? [])
+    const jobFunctionAssignments = (snapshot.employee_job_functions ?? [])
       .filter((row) => row.employee_id === employee.id && row.active)
-      .sort((a, b) => Number(b.is_primary) - Number(a.is_primary))
-      .map((row) => row.job_function_id);
+      .sort((a, b) => Number(b.is_primary) - Number(a.is_primary));
+    const jobFunctionIds = jobFunctionAssignments.map((row) => row.job_function_id);
+    const jobFunctionAreaIds = Object.fromEntries(
+      jobFunctionAssignments
+        .filter((row) => row.default_area_id)
+        .map((row) => [row.job_function_id, row.default_area_id as string])
+    );
 
     return {
       id: employee.id,
@@ -161,6 +168,7 @@ export function employeeDrafts(
       firstName: employee.first_name ?? '',
       lastName: employee.last_name ?? '',
       jobFunctionIds,
+      jobFunctionAreaIds,
       active: employee.active,
       email: contact?.email ?? '',
       phone: contact?.mobile_phone ?? contact?.phone ?? '',
@@ -267,6 +275,7 @@ export function newEmployeeDraft(id: string): EmployeeDraft {
     firstName: '',
     lastName: '',
     jobFunctionIds: [],
+    jobFunctionAreaIds: {},
     active: true,
     email: '',
     phone: '',
@@ -429,11 +438,12 @@ export function teamSavePayload(
     includedDrafts.flatMap((employee) =>
       employee.jobFunctionIds.map((jobFunctionId, index) => ({
         restaurant_id: restaurantId,
-        employee_id: employee.id,
-        job_function_id: jobFunctionId,
-        is_primary: index === 0,
-        active: employee.active
-      }))
+         employee_id: employee.id,
+         job_function_id: jobFunctionId,
+         is_primary: index === 0,
+         active: employee.active,
+         default_area_id: employee.jobFunctionAreaIds[jobFunctionId] || null
+       }))
     )
   );
   const recurringScheduleSlots = asJsonArray(

@@ -63,7 +63,7 @@
 
   const readRestaurantContext = useClassicRestaurantContext();
   const context = $derived(readRestaurantContext());
-  const canManageLogo = $derived(workspace.effectiveRole === 'owner');
+  const canManageLogo = $derived(workspace.canManageOperations);
 </script>
 
 <svelte:head><title>{t('Restaurant profile')} &middot; restogogo</title></svelte:head>

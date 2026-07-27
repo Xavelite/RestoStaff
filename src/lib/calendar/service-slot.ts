@@ -18,6 +18,7 @@ import {
   weekday,
   type ServiceKey
 } from './date.ts';
+import { areaInstanceLabelMap } from '../restaurant/area-instance.ts';
 
 export type ServiceSlotAvailability =
   | Database['public']['Enums']['service_availability_state']
@@ -118,14 +119,13 @@ function planFromSnapshot(
       row.service_key === input.serviceKey
   );
   if (!shift) return null;
+  const areaName = areaInstanceLabelMap(input.snapshot.work_areas ?? []);
   return {
     id: shift.id,
     startsAt: clockLabel(shift.starts_at),
     endsAt: clockLabel(shift.ends_at),
     contractBaseline: shift.source === 'template',
-    area:
-      (input.snapshot.work_areas ?? []).find((area) => area.id === shift.area_id)?.name ??
-      'Any area'
+    area: areaName.get(shift.area_id ?? '') ?? 'Any area'
   };
 }
 

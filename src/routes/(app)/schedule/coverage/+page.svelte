@@ -4,6 +4,7 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
+  import { areaInstanceLabelMap } from '$lib/restaurant/area-instance';
   import {
     invalidPlanningShift,
     saveSchedule
@@ -24,7 +25,7 @@
   let filling = $state<{ weekday: number; serviceKey: ServiceKey; areaId: string; jobFunctionId: string } | null>(null);
 
   const areaName = $derived(
-    new Map((snapshot?.work_areas ?? []).map((area) => [area.id, area.name]))
+    areaInstanceLabelMap(snapshot?.work_areas ?? [])
   );
   const jobName = $derived(
     new Map((snapshot?.job_functions ?? []).map((job) => [job.id, job.name]))
@@ -278,4 +279,3 @@
     font-size: 13px;
   }
 </style>
-

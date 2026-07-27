@@ -6,6 +6,7 @@ import {
   serviceLabel
 } from '../calendar/date.ts';
 import { instantClockLabel } from '../calendar/service-slot.ts';
+import { areaInstanceLabelMap } from '../restaurant/area-instance.ts';
 import { planningFieldLabel } from '../schedule/schedule-export-columns.ts';
 
 export type ExportFile = {
@@ -47,7 +48,7 @@ export function planningPeriodCsv(input: {
   const employeeName = new Map(
     input.snapshot.employees.map((employee) => [employee.id, employee.display_name])
   );
-  const areaName = new Map(input.snapshot.work_areas.map((area) => [area.id, area.name]));
+  const areaName = areaInstanceLabelMap(input.snapshot.work_areas);
   const positionName = new Map(
     input.snapshot.job_functions.map((position) => [position.id, position.name])
   );
@@ -101,7 +102,7 @@ export function workedTimeCsv(input: {
   const employeeName = new Map(
     input.snapshot.employees.map((employee) => [employee.id, employee.display_name])
   );
-  const areaName = new Map(input.snapshot.work_areas.map((area) => [area.id, area.name]));
+  const areaName = areaInstanceLabelMap(input.snapshot.work_areas);
   const positionName = new Map(
     input.snapshot.job_functions.map((position) => [position.id, position.name])
   );

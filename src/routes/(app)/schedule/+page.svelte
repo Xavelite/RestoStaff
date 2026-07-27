@@ -64,6 +64,7 @@
   import type { ReservationDemand } from '$lib/reservations/reservation-types';
   import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
   import { workspaceAreaByKey } from '$lib/restaurant/workspace-catalogue';
+  import { areaInstanceLabelMap } from '$lib/restaurant/area-instance';
 
   type GroupMode = 'none' | 'contract' | 'position' | 'area' | 'status';
   type PlanningGrid = ReturnType<typeof buildPlanningWeek>;
@@ -135,7 +136,7 @@
     snapshot ? buildAreaColorMap(snapshot.work_areas) : new Map<string, string>()
   );
   const areaName = $derived(
-    new Map((snapshot?.work_areas ?? []).map((area) => [area.id, area.name]))
+    areaInstanceLabelMap(snapshot?.work_areas ?? [])
   );
   const areaIcon = $derived(
     new Map(

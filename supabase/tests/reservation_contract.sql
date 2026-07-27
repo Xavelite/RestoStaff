@@ -40,7 +40,7 @@ begin
     'get_reservation_floor_plans(uuid)',
     'save_reservation_setup(uuid,jsonb,jsonb,jsonb,jsonb,jsonb,integer)',
     'save_reservation_floor_plans(uuid,jsonb,jsonb,jsonb,jsonb,integer)',
-    'check_reservation_availability(uuid,date,text,time without time zone,integer,uuid,uuid)',
+    'check_reservation_availability(uuid,date,text,time without time zone,integer,uuid,uuid,uuid)',
     'save_reservation(uuid,jsonb)',
     'set_reservation_status(uuid,uuid,text,text,integer)',
     'save_venue_model(uuid,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,integer)',
@@ -67,6 +67,66 @@ begin
   ) then
     raise exception 'Reservation history is not append-only.';
   end if;
+
+  if not exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'work_areas'
+      and column_name = 'instance_number'
+      and is_nullable = 'NO'
+  ) then
+    raise exception 'Work areas do not expose a stable instance number.';
+  end if;
+
+  if not exists (
+    select 1
+    from pg_indexes
+    where schemaname = 'public'
+      and tablename = 'work_areas'
+      and indexname = 'work_areas_restaurant_type_instance_idx'
+  ) then
+    raise exception 'Work-area type instances are not uniquely indexed.';
+  end if;
+
+  if has_function_privilege(
+    'authenticated',
+    'public.assign_work_area_instance_number()',
+    'EXECUTE'
+  ) then
+    raise exception 'Area instance trigger helper is directly executable.';
+  end if;
+
+  if has_function_privilege(
+    'authenticated',
+    'public.reservation_area_instance_label(uuid,uuid,uuid)',
+    'EXECUTE'
+  ) then
+    raise exception 'Reservation area-label helper is directly executable.';
+  end if;
+
+  if not exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'reservations'
+      and column_name = 'preferred_table_id'
+      and is_nullable = 'YES'
+  ) then
+    raise exception 'Reservations do not preserve an optional exact table preference.';
+  end if;
+
+  if has_function_privilege(
+    'authenticated',
+    'public.reservation_exact_table_candidate(uuid,timestamptz,timestamptz,integer,uuid,uuid,uuid)',
+    'EXECUTE'
+  ) or has_function_privilege(
+    'authenticated',
+    'public.resolve_operator_reservation_guest(uuid,uuid,text,text)',
+    'EXECUTE'
+  ) then
+    raise exception 'Reservation integrity helpers are directly executable.';
+  end if;
 end
 $reservation_schema$;
 
@@ -88,6 +148,9 @@ declare
   v_weekday integer;
   v_result jsonb;
   v_reservation_id uuid;
+  v_exact_reservation_id uuid;
+  v_guest_one_id uuid := gen_random_uuid();
+  v_guest_two_id uuid := gen_random_uuid();
   v_availability jsonb;
   v_event_id uuid;
   v_revision integer;
@@ -125,10 +188,13 @@ begin
     restaurant_id, weekday, service_key, is_open, opens_at, closes_at
   )
   values (v_restaurant_id, v_weekday, 'lunch', true, '12:00', '15:00');
-  insert into public.work_areas (id, restaurant_id, code, name, active)
+  insert into public.work_areas (
+    id, restaurant_id, code, name, active, catalogue_key, instance_number,
+    floor_level
+  )
   values
-    (v_area_id, v_restaurant_id, 'hall', 'Hall', true),
-    (v_area_two_id, v_restaurant_id, 'terrace', 'Terrace', true);
+    (v_area_id, v_restaurant_id, 'bar-a', 'Bar', true, 'bar', 1, 0),
+    (v_area_two_id, v_restaurant_id, 'bar-b', 'Bar', true, 'bar', 2, 0);
   insert into public.reservation_floors (
     id, restaurant_id, name, level, canvas_width, canvas_height
   )
@@ -192,6 +258,37 @@ begin
     jsonb_build_object('sub', v_auth_user_id)::text,
     true
   );
+
+  v_result := public.get_reservation_workspace(
+    v_restaurant_id,
+    v_business_date
+  );
+  if not exists (
+    select 1
+    from jsonb_array_elements(v_result->'rooms') room
+    where room->>'name' = 'Bar (0.A)'
+  ) or not exists (
+    select 1
+    from jsonb_array_elements(v_result->'rooms') room
+    where room->>'name' = 'Bar (0.B)'
+  ) then
+    raise exception 'Reservation workspace did not label duplicate physical areas: %',
+      v_result->'rooms';
+  end if;
+
+  v_result := public.get_reservation_setup(v_restaurant_id);
+  if not exists (
+    select 1
+    from jsonb_array_elements(v_result->'rooms') room
+    where room->>'name' = 'Bar (0.A)'
+  ) or not exists (
+    select 1
+    from jsonb_array_elements(v_result->'rooms') room
+    where room->>'name' = 'Bar (0.B)'
+  ) then
+    raise exception 'Reservation setup did not label duplicate physical areas: %',
+      v_result->'rooms';
+  end if;
 
   v_result := public.save_reservation(
     v_restaurant_id,
@@ -411,6 +508,168 @@ begin
   );
   if coalesce((v_availability->>'available')::boolean, false) is not true then
     raise exception 'Finished reservation did not release its table: %', v_availability;
+  end if;
+
+  v_availability := public.check_reservation_availability(
+    v_restaurant_id,
+    v_business_date,
+    'lunch',
+    '12:00',
+    2,
+    v_room_id,
+    null,
+    v_table_two_id
+  );
+  if coalesce((v_availability->>'available')::boolean, false) is not true
+    or v_availability->'assignment'->>'kind' <> 'preferred_table'
+    or v_availability->'assignment'->'table_ids'
+      <> jsonb_build_array(v_table_two_id)
+  then
+    raise exception 'Exact-table availability was not preserved: %', v_availability;
+  end if;
+
+  v_result := public.save_reservation(
+    v_restaurant_id,
+    jsonb_build_object(
+      'guest_name', 'Exact table guest',
+      'guest_phone', '+32000000002',
+      'guest_email', 'exact-table@example.test',
+      'business_date', v_business_date,
+      'service_key', 'lunch',
+      'local_time', '12:00',
+      'party_size', 2,
+      'room_preference_id', v_room_id,
+      'preferred_table_id', v_table_two_id,
+      'source', 'phone',
+      'guest_comment', '',
+      'internal_notes', '',
+      'language_code', 'fr'
+    )
+  );
+  v_exact_reservation_id := (v_result->>'reservation_id')::uuid;
+
+  if not exists (
+    select 1
+    from public.reservations reservation
+    join public.reservation_table_assignments assignment
+      on assignment.restaurant_id = reservation.restaurant_id
+     and assignment.reservation_id = reservation.id
+     and assignment.unassigned_at is null
+    where reservation.restaurant_id = v_restaurant_id
+      and reservation.id = v_exact_reservation_id
+      and reservation.preferred_table_id = v_table_two_id
+      and assignment.table_id = v_table_two_id
+  ) then
+    raise exception 'Exact table preference was not persisted and assigned.';
+  end if;
+
+  v_result := public.get_reservation_workspace(
+    v_restaurant_id,
+    v_business_date
+  );
+  if not exists (
+    select 1
+    from jsonb_array_elements(v_result->'reservations') reservation
+    where (reservation->>'id')::uuid = v_exact_reservation_id
+      and (reservation->>'preferred_table_id')::uuid = v_table_two_id
+  ) then
+    raise exception
+      'Authenticated reservation workspace lost the exact table preference.';
+  end if;
+
+  v_availability := public.check_reservation_availability(
+    v_restaurant_id,
+    v_business_date,
+    'lunch',
+    '12:00',
+    2,
+    v_room_id,
+    null,
+    v_table_two_id
+  );
+  if coalesce((v_availability->>'available')::boolean, true)
+    or v_availability->>'code' <> 'preferred_table_unavailable'
+  then
+    raise exception 'An occupied exact table was offered again: %', v_availability;
+  end if;
+
+  insert into public.reservation_guests (
+    id,
+    restaurant_id,
+    display_name,
+    email,
+    normalized_email,
+    phone,
+    normalized_phone
+  )
+  values
+    (
+      v_guest_one_id,
+      v_restaurant_id,
+      'Email owner',
+      'email-owner@example.test',
+      'email-owner@example.test',
+      '+32000000011',
+      '+32000000011'
+    ),
+    (
+      v_guest_two_id,
+      v_restaurant_id,
+      'Phone owner',
+      'phone-owner@example.test',
+      'phone-owner@example.test',
+      '+32000000012',
+      '+32000000012'
+    );
+
+  begin
+    perform public.save_reservation(
+      v_restaurant_id,
+      jsonb_build_object(
+        'guest_name', 'Collision attempt',
+        'guest_phone', '+32000000012',
+        'guest_email', 'email-owner@example.test',
+        'business_date', v_business_date,
+        'service_key', 'lunch',
+        'local_time', '12:00',
+        'party_size', 1,
+        'room_preference_id', v_room_id,
+        'preferred_table_id', v_table_id,
+        'source', 'phone',
+        'guest_comment', '',
+        'internal_notes', '',
+        'language_code', 'fr'
+      )
+    );
+  exception
+    when others then
+      if position('contact collision' in lower(sqlerrm)) > 0 then
+        v_rejected := true;
+      else
+        raise;
+      end if;
+  end;
+  if not v_rejected then
+    raise exception 'Conflicting guest contact details were auto-merged.';
+  end if;
+  v_rejected := false;
+
+  if not exists (
+    select 1
+    from public.reservation_guests guest
+    where guest.restaurant_id = v_restaurant_id
+      and guest.id = v_guest_one_id
+      and guest.display_name = 'Email owner'
+      and guest.normalized_phone = '+32000000011'
+  ) or not exists (
+    select 1
+    from public.reservation_guests guest
+    where guest.restaurant_id = v_restaurant_id
+      and guest.id = v_guest_two_id
+      and guest.display_name = 'Phone owner'
+      and guest.normalized_email = 'phone-owner@example.test'
+  ) then
+    raise exception 'A contact collision overwrote the wrong guest.';
   end if;
 
   update public.opening_hours
