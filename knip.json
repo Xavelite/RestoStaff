@@ -8,18 +8,9 @@
     "tests/*.test.mjs"
   ],
   "ignore": [
-    "src/lib/supabase/database.types.ts",
-    "src/lib/tour/**",
-    "src/lib/payroll/EmployeePayrollDetails.svelte",
-    "src/lib/payroll/payroll-export.ts",
-    "src/lib/payroll/payroll-export-columns.ts",
-    "src/lib/schedule/schedule-export.ts",
-    "src/lib/schedule/schedule-export-columns.ts",
-    "src/lib/operations/RevisionConflictDialog.svelte",
-    "src/lib/team/LeaveBalanceSummary.svelte"
+    "src/lib/supabase/database.types.ts"
   ],
   "ignoreBinaries": ["powershell"],
   "ignoreDependencies": ["@types/web-push", "deno", "npm", "web-push"],
-  "ignoreUnresolved": ["^\\$app/", "^\\$env/", "^\\$service-worker$"],
-  "exclude": ["types", "exports"]
+  "ignoreUnresolved": ["^\\$app/", "^\\$env/", "^\\$service-worker$"]
 }

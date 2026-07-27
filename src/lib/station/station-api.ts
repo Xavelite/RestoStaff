@@ -57,7 +57,7 @@ async function listStationRoster(token: string): Promise<BadgeRosterEmployee[]> 
   return parseRoster(await stationRpc('list_badge_roster_station', { p_token: token }));
 }
 
-export type StationContext = {
+type StationContext = {
   restaurantName: string;
   logoPath: string;
   timezone: string;

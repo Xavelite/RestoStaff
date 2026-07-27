@@ -16,6 +16,15 @@ import type { PayrollCatalogue } from '$lib/payroll/payroll-model';
 import { parseHourlyRate } from '$lib/payroll-engine/money';
 import type { Tables } from '$lib/supabase/database.types';
 import { workspace } from '$lib/workspace/workspace.svelte';
+import { StableDraftPlacement } from './stable-draft-placement';
+
+function cloneEmployee(employee: EmployeeDraft): EmployeeDraft {
+  return {
+    ...employee,
+    jobFunctionIds: [...employee.jobFunctionIds],
+    recurringSlots: employee.recurringSlots.map((slot) => ({ ...slot }))
+  };
+}
 
 /** Shared editable roster used by every classic Team and Payroll page. */
 class ClassicTeamDraft {
@@ -33,6 +42,7 @@ class ClassicTeamDraft {
   #supplementaryPromise: Promise<void> | null = null;
   #preparedSnapshot: TeamReadModel | null = null;
   #preparedRole: WorkspaceRole | null = null;
+  #placement = new StableDraftPlacement<EmployeeDraft>(cloneEmployee);
 
   async prepare(
     snapshot: TeamReadModel,
@@ -151,6 +161,7 @@ class ClassicTeamDraft {
     this.#loadedRestaurantId = restaurantId;
     this.#loadedKey = key;
     this.employees = employeeDrafts(snapshot, this.employmentTerms);
+    this.#placement.reset(this.employees);
     this.#baseline = JSON.stringify(this.employees);
   }
 
@@ -176,27 +187,26 @@ class ClassicTeamDraft {
 
   remove(id: string): void {
     this.employees = this.employees.filter((employee) => employee.id !== id);
+    this.#placement.remove(id);
   }
 
   clone(id: string): EmployeeDraft | null {
     const employee = this.employees.find((item) => item.id === id);
-    return employee
-      ? {
-          ...employee,
-          jobFunctionIds: [...employee.jobFunctionIds],
-          recurringSlots: employee.recurringSlots.map((slot) => ({ ...slot }))
-        }
-      : null;
+    return employee ? cloneEmployee(employee) : null;
+  }
+
+  /**
+   * Values used only to decide where a live draft row belongs in the grid.
+   * This deliberately stays on the last committed state until save/discard.
+   */
+  placement(employee: EmployeeDraft): EmployeeDraft {
+    return this.#placement.snapshotFor(employee);
   }
 
   async save(restaurantId: string, role: WorkspaceRole): Promise<void> {
     const snapshot = workspace.team;
     if (!snapshot) throw new Error('Team data is not loaded.');
-    const sourceDrafts = this.employees.map((employee) => ({
-      ...employee,
-      jobFunctionIds: [...employee.jobFunctionIds],
-      recurringSlots: employee.recurringSlots.map((slot) => ({ ...slot }))
-    }));
+    const sourceDrafts = this.employees.map(cloneEmployee);
     // Supplementary payroll/catalogue reads must never block creating or editing
     // the basic employee. When they are unavailable we save the Team facts and
     // simply defer employment-term versioning until the owner opens that setup.

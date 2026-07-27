@@ -201,9 +201,6 @@
     color: var(--cl-muted);
     font-size: 12px;
   }
-  .menu-cell {
-    width: 44px;
-  }
   /* A live shift gets a soft green pulse next to its running duration. */
   .live-tag {
     display: inline-flex;

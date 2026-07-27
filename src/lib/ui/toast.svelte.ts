@@ -1,8 +1,8 @@
 import { sound } from '$lib/sound/sound.svelte';
 
-export type ToastTone = 'info' | 'success' | 'warning' | 'danger';
+type ToastTone = 'info' | 'success' | 'warning' | 'danger';
 
-export type ToastMessage = {
+type ToastMessage = {
   id: number;
   message: string;
   tone: ToastTone;

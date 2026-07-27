@@ -205,7 +205,6 @@
   class="communications-button"
   class:has-unread={badgeCount > 0}
   type="button"
-  data-tour="communications"
   aria-label={t('Team messages')}
   title={t('Team messages')}
   onclick={() => openCenter()}
@@ -228,7 +227,7 @@
   {:else}
     <div class="center-stack">
       {#if isManager}
-        <section class="composer" data-tour="message-composer">
+        <section class="composer">
           <header><span>{t('New message')}</span><small>{t('Selected employees receive a phone notification.')}</small></header>
           <textarea rows="3" maxlength="1000" bind:value={messageBody} placeholder={t('What does the team need to know?')}></textarea>
           <div class="composer-options">

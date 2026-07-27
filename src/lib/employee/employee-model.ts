@@ -43,7 +43,7 @@ export type AvailabilityDraft = {
 // the schedule treats it as one: planning someone who marked themselves
 // unavailable is surfaced as a clash. 'partial' is a legacy state kept only so
 // old answers still render; it is no longer offered.
-export type SelectableAvailability = 'available' | 'unavailable';
+type SelectableAvailability = 'available' | 'unavailable';
 
 export const SELECTABLE_AVAILABILITY: ReadonlyArray<{
   value: SelectableAvailability;

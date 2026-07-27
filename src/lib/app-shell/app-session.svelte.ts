@@ -10,7 +10,7 @@ import { sound } from '$lib/sound/sound.svelte';
 import { toasts } from '$lib/ui/toast.svelte';
 import { workspace } from '$lib/workspace/workspace.svelte';
 
-export type AppSession = {
+type AppSession = {
   /** False while the browser reports no connection. */
   readonly online: boolean;
   /** An unverified owner sees the verification screen instead of the app. */

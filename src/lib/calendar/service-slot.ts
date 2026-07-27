@@ -377,7 +377,7 @@ function actualCard(truth: ServiceSlotTruth): CalendarItem | null {
   };
 }
 
-export type ServiceSlotProjection = 'employee' | 'planning' | 'actuals';
+type ServiceSlotProjection = 'employee' | 'planning' | 'actuals';
 
 export function projectServiceSlot(
   truth: ServiceSlotTruth,

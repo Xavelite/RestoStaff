@@ -53,7 +53,10 @@
   import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
   import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
   import ClassicServiceIcon from '$lib/classic/ClassicServiceIcon.svelte';
-  import { scheduleDraft } from '$lib/classic/classic-schedule.svelte';
+  import {
+    scheduleDraft,
+    type ScheduleRowPlacement
+  } from '$lib/classic/classic-schedule.svelte';
   import { downloadCsv } from '$lib/export/csv';
   import { planningCsv } from '$lib/schedule/schedule-export';
   import { DEFAULT_PLANNING_EXPORT_COLUMNS } from '$lib/schedule/schedule-export-columns';
@@ -338,14 +341,50 @@
     );
   }
 
+  function placementForRow(row: PlanningRow, grid: PlanningGrid): ScheduleRowPlacement {
+    const positionId = employeePosition.get(row.id) ?? '';
+    const linkedPositionAreaId = positionId
+      ? (snapshot?.job_function_areas ?? [])
+          .filter((link) => link.active && link.job_function_id === positionId)
+          .toSorted((left, right) => Number(right.is_primary) - Number(left.is_primary))[0]?.area_id ?? null
+      : null;
+    const areaId = employeeAreaId(row.id);
+    const planned = employeeHours(row.id);
+    const target = contractHours.get(row.id) ?? 0;
+    const conflict = hasEmployeeConflict(grid, row.id);
+    const statusLabel =
+      employeeActive.get(row.id) === false
+        ? t('Archived')
+        : conflict
+          ? t('Conflict')
+          : planned <= 0
+            ? t('Unplanned')
+            : target > 0 && planned >= target
+              ? t('Complete')
+              : t('Planned');
+
+    return scheduleDraft.placement({
+      id: row.id,
+      conflict,
+      contractLabel:
+        contractTypeName.get(employeeContract.get(row.id) ?? '') ?? t('No contract'),
+      positionLabel: positionName.get(positionId) ?? t('No position'),
+      positionAreaId: linkedPositionAreaId,
+      areaLabel: employeeAreaLabel(row.id),
+      areaId,
+      statusLabel
+    });
+  }
+
   function visibleRows(grid: PlanningGrid): PlanningRow[] {
     const needle = search.trim().toLocaleLowerCase(i18n.intlLocale);
     const rows = grid.rows.filter((row) => {
+      const placement = placementForRow(row, grid);
       if (needle && !`${row.name} ${row.meta}`.toLocaleLowerCase(i18n.intlLocale).includes(needle)) {
         return false;
       }
       if (positionId && employeePosition.get(row.id) !== positionId) return false;
-      if (onlyConflicts && !hasEmployeeConflict(grid, row.id)) return false;
+      if (onlyConflicts && !placement.conflict) return false;
       return true;
     });
     if (!employeeSort) return rows;
@@ -385,22 +424,11 @@
   }
 
   function groupLabel(row: PlanningRow, grid: PlanningGrid): string {
-    if (groupMode === 'contract') {
-      return contractTypeName.get(employeeContract.get(row.id) ?? '') ?? t('No contract');
-    }
-    if (groupMode === 'position') {
-      return positionName.get(employeePosition.get(row.id) ?? '') ?? t('No position');
-    }
-    if (groupMode === 'area') return employeeAreaLabel(row.id);
-    if (groupMode === 'status') {
-      if (employeeActive.get(row.id) === false) return t('Archived');
-      if (hasEmployeeConflict(grid, row.id)) return t('Conflict');
-      const planned = employeeHours(row.id);
-      const target = contractHours.get(row.id) ?? 0;
-      if (planned <= 0) return t('Unplanned');
-      if (target > 0 && planned >= target) return t('Complete');
-      return t('Planned');
-    }
+    const placement = placementForRow(row, grid);
+    if (groupMode === 'contract') return placement.contractLabel;
+    if (groupMode === 'position') return placement.positionLabel;
+    if (groupMode === 'area') return placement.areaLabel;
+    if (groupMode === 'status') return placement.statusLabel;
     return '';
   }
 
@@ -424,18 +452,14 @@
     return [...groups.entries()]
       .sort(([left], [right]) => left.localeCompare(right, i18n.intlLocale))
       .map(([label, groupRows]) => {
-        const firstEmployeeId = groupRows[0]?.id ?? '';
-        const positionId = groupMode === 'position'
-          ? employeePosition.get(firstEmployeeId) ?? ''
-          : '';
-        const linkedPositionArea = positionId
-          ? (snapshot?.job_function_areas ?? [])
-              .filter((link) => link.active && link.job_function_id === positionId)
-              .toSorted((left, right) => Number(right.is_primary) - Number(left.is_primary))[0]?.area_id ?? null
+        const firstPlacement = groupRows[0]
+          ? placementForRow(groupRows[0], grid)
           : null;
         const groupAreaId = groupMode === 'area'
-          ? employeeAreaId(firstEmployeeId)
-          : linkedPositionArea;
+          ? firstPlacement?.areaId ?? null
+          : groupMode === 'position'
+            ? firstPlacement?.positionAreaId ?? null
+            : null;
         return {
           key: `${groupMode}:${label}`,
           label,
@@ -931,7 +955,8 @@
             snapshot,
             weekStart: week.weekStart,
             today: week.today,
-            draft: scheduleDraft.shifts
+            draft: scheduleDraft.shifts,
+            placementDraft: scheduleDraft.placementShifts
           })
         : null}
       {@const selectedSlot = grid?.slotsByKey.get(selectedKey) ?? null}

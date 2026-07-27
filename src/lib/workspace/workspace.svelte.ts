@@ -27,7 +27,7 @@ const ACTIVE_WORKSPACE_KEY = 'restogogo.active-workspace';
 
 type DateRange = { from: string; to: string };
 
-export type PreviewSession = {
+type PreviewSession = {
   restaurantId: string;
   restaurantName: string;
   role: WorkspaceRole;

@@ -28,14 +28,17 @@
     { key: 'approval', label: 'Needs approval' },
     { key: 'status', label: 'Status' }
   ] as const;
-  const COLS_KEY = 'rst-restaurant-absence-types-cols-v2';
+  const COLS_KEY = 'rst-time-off-policies-cols-v1';
+  const LEGACY_COLS_KEY = 'rst-restaurant-absence-types-cols-v2';
   let hidden = $state(new Set<string>());
 
   const PAID_LABEL: Record<string, string> = { paid: 'Paid', unpaid: 'Unpaid', neutral: 'Neutral' };
 
   onMount(() => {
     try {
-      const raw = localStorage.getItem(COLS_KEY);
+      const raw =
+        localStorage.getItem(COLS_KEY) ??
+        localStorage.getItem(LEGACY_COLS_KEY);
       if (raw) hidden = new Set(JSON.parse(raw) as string[]);
     } catch {
       hidden = new Set();
@@ -189,8 +192,3 @@
     {/snippet}
   </ClassicTablePanel>
 {/if}
-
-<style>
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-line-strong); display: inline-block; }
-  .chooser-col { width: 44px; }
-</style>

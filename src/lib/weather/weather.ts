@@ -34,7 +34,7 @@ export type RestaurantWeatherSnapshot = {
   daily: DailyWeather[];
 };
 
-export type WeatherImpact = {
+type WeatherImpact = {
   tone: 'calm' | 'watch' | 'risk';
   label: string;
   detail: string;

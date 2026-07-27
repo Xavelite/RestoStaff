@@ -6,7 +6,7 @@
 // can mute it permanently, and browsers only let us make noise after they have
 // interacted with the page (see unlock).
 
-export type SoundKind = 'notification' | 'message' | 'success' | 'error';
+type SoundKind = 'notification' | 'message' | 'success' | 'error';
 
 const STORAGE_KEY = 'rst-sound-enabled';
 

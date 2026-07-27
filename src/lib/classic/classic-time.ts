@@ -7,7 +7,7 @@ import type { ActualSlot } from '../timesheet/timesheet-model.ts';
  * how it is written down — a word, plus a tone that is always paired with a
  * symbol so colour is never the only signal.
  */
-export type ClassicSlotTone = 'ok' | 'attention' | 'problem';
+type ClassicSlotTone = 'ok' | 'attention' | 'problem';
 
 const SLOT_LABELS: Record<ActualSlot['status'], string> = {
   empty: 'No activity',

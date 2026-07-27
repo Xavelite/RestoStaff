@@ -75,15 +75,6 @@ select {
   background: var(--rst-ui-action);
 }
 
-.rst-scroll-strip {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.rst-scroll-strip::-webkit-scrollbar {
-  display: none;
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -93,19 +84,6 @@ select {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-}
-
-.spinner {
-  width: 28px;
-  height: 28px;
-  border: 3px solid var(--rst-ui-line);
-  border-top-color: var(--rst-ui-action);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 /* ---- Motion layer -------------------------------------------------
@@ -154,29 +132,6 @@ button:not(:disabled):active, [role='button']:not([aria-disabled='true']):active
   to { opacity: 1; transform: scale(1) rotate(0); }
 }
 
-@keyframes rst-grow-x {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
-}
-
-@keyframes rst-pulse-soft {
-  0%, 100% { opacity: 1; }
-  50% { opacity: .45; }
-}
-
-@keyframes rst-pulse-ring {
-  0% { box-shadow: 0 0 0 0 rgba(var(--rst-ui-action-rgb), .45); }
-  100% { box-shadow: 0 0 0 10px rgba(var(--rst-ui-action-rgb), 0); }
-}
-
-@keyframes rst-wiggle {
-  0%, 100% { transform: rotate(0); }
-  20% { transform: rotate(-12deg); }
-  40% { transform: rotate(10deg); }
-  60% { transform: rotate(-7deg); }
-  80% { transform: rotate(4deg); }
-}
-
 @keyframes rst-check-pop {
   0% { transform: scale(.4); opacity: 0; }
   60% { transform: scale(1.25); opacity: 1; }
@@ -188,26 +143,9 @@ button:not(:disabled):active, [role='button']:not([aria-disabled='true']):active
   animation-delay: calc(var(--rst-i, 0) * 55ms);
 }
 
-.rst-locate-pulse {
-  animation: rst-locate-ring 1.6s var(--rst-ease-out);
-}
-
-@keyframes rst-locate-ring {
-  0% { box-shadow: 0 0 0 0 rgba(240, 100, 35, .9); }
-  15% { box-shadow: 0 0 0 8px rgba(240, 100, 35, 0); }
-  30% { box-shadow: 0 0 0 0 rgba(240, 100, 35, .7); }
-  45% { box-shadow: 0 0 0 8px rgba(240, 100, 35, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(240, 100, 35, 0); }
-}
-
 @keyframes rst-ambient-shift {
   0% { transform: translate3d(-2%, -1%, 0) scale(1); opacity: 0.55; }
   100% { transform: translate3d(2%, 1%, 0) scale(1.04); opacity: 0.85; }
-}
-
-@keyframes rst-breathe-glow {
-  0%, 100% { box-shadow: 0 0 0 1px rgba(66, 216, 132, 0.28), 0 12px 30px rgba(66, 216, 132, 0.16); }
-  50% { box-shadow: 0 0 0 1px rgba(66, 216, 132, 0.42), 0 18px 42px rgba(66, 216, 132, 0.28); }
 }
 
 /* Healthy readiness dials keep a slow living pulse on top of their drop shadow.
@@ -224,6 +162,5 @@ button:not(:disabled):active, [role='button']:not([aria-disabled='true']):active
 
 @media print {
   .topbar, .toolbar { display: none !important; }
-  body, .app, .app__content { color: #111 !important; background: #fff !important; }
-  .app__content { padding: 0 !important; }
+  body { color: #111 !important; background: #fff !important; }
 }

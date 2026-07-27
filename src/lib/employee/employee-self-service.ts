@@ -28,7 +28,7 @@ export function timeOffServiceDrafts(
   }));
 }
 
-export type SimpleAvailabilityDraft = {
+type SimpleAvailabilityDraft = {
   date: string;
   serviceKey: ServiceKey;
   // Legacy states remain readable, but employee input only creates `available`
@@ -94,7 +94,7 @@ export function setAvailabilityOverride(
 
 // One slot, one action: weekly-availability employees declare when they can
 // work, fixed-schedule employees request leave against planned shifts.
-export type EmployeeSlotAction = 'set_availability' | 'request_time_off' | 'none';
+type EmployeeSlotAction = 'set_availability' | 'request_time_off' | 'none';
 
 export function employeeSlotAction(
   mode: EmployeeSelfServiceMode,
@@ -180,7 +180,7 @@ export function employeeSlotActionReason(input: {
   return '';
 }
 
-export type TimeOffRange = {
+type TimeOffRange = {
   startDate: string;
   endDate: string;
   serviceKey: ServiceKey | '';

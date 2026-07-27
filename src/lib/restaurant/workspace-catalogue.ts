@@ -6,8 +6,8 @@
  * Keys are intentionally language-neutral and must never be reused.
  */
 
-export type WorkspaceAreaCategory = 'guest' | 'production' | 'support';
-export type WorkspacePositionCategory =
+type WorkspaceAreaCategory = 'guest' | 'production' | 'support';
+type WorkspacePositionCategory =
   | 'management'
   | 'service'
   | 'bar'
@@ -15,7 +15,7 @@ export type WorkspacePositionCategory =
   | 'takeaway'
   | 'support';
 
-export type WorkspaceAreaCatalogueItem = {
+type WorkspaceAreaCatalogueItem = {
   key: string;
   label: string;
   category: WorkspaceAreaCategory;
@@ -25,7 +25,7 @@ export type WorkspaceAreaCatalogueItem = {
   starter: boolean;
 };
 
-export type WorkspacePositionCatalogueItem = {
+type WorkspacePositionCatalogueItem = {
   key: string;
   label: string;
   category: WorkspacePositionCategory;

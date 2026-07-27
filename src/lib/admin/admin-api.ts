@@ -5,7 +5,6 @@ import { parseAdminDashboard, type JsonRecord } from './admin-model';
 export type {
   AdminDashboard,
   AdminEvent,
-  AdminMembership,
   AdminRestaurant,
   AdminUser
 } from './admin-model';

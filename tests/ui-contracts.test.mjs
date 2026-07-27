@@ -193,7 +193,6 @@ test('people edit contact cells inline while employee identity opens one complet
   assert.match(editor, /<Dialog/);
   assert.match(editor, /section === 'people'/);
   assert.match(editor, /section === 'contract'/);
-  assert.doesNotMatch(editor, /EmployeePayrollDetails/);
   assert.match(editor, /status-readonly/);
   assert.match(editor, /Archive employee/);
   assert.match(editor, /Advanced tax, benefit and regime-evidence settings are parked/);
@@ -237,7 +236,6 @@ test('operational core exposes planning, attendance and payroll as one classic w
     'src/routes/(app)/payroll/advanced/+page.ts',
     'src/routes/(app)/payroll/advanced/configuration/+page.ts'
   ].map((file) => readFile(file, 'utf8')));
-  const experimentalPayroll = await readFile('src/routes/(app)/payroll/advanced/+page.svelte', 'utf8');
   const absences = await readFile('src/routes/(app)/team/absences/+page.svelte', 'utf8');
 
   assert.match(nav, /href: '\/payroll\/employees'/);
@@ -263,7 +261,6 @@ test('operational core exposes planning, attendance and payroll as one classic w
   for (const redirectSource of parkedPayrollRedirects) {
     assert.match(redirectSource, /redirect\(307, '\/payroll\/employees'\)/);
   }
-  assert.match(experimentalPayroll, /<PayrollWorkspace/);
   assert.match(absences, /href="\/settings\/absence-types"/);
   assert.doesNotMatch(absences, /href="\/restaurant\/absence-types"/);
 });
@@ -290,8 +287,6 @@ test('unsaved changes guard routes and context-changing account actions', async 
   const myTime = await readFile('src/routes/(app)/my-time/+page.svelte', 'utf8');
   const timesheetEditor = await readFile('src/lib/timesheet/TimesheetEntryEditor.svelte', 'utf8');
   const timesheet = await readFile('src/routes/(app)/timesheet/+page.svelte', 'utf8');
-  const payrollSetup = await readFile('src/lib/payroll/RestaurantPayrollSetup.svelte', 'utf8');
-  const payrollDetails = await readFile('src/lib/payroll/EmployeePayrollDetails.svelte', 'utf8');
   const access = await readFile('src/routes/(app)/team/access/+page.svelte', 'utf8');
   const reservationFloorPlans = await readFile('src/lib/reservations/ReservationFloorPlansWorkspace.svelte', 'utf8');
   const reservationSetup = await readFile('src/lib/reservations/ReservationSetupWorkspace.svelte', 'utf8');
@@ -312,8 +307,6 @@ test('unsaved changes guard routes and context-changing account actions', async 
   assert.match(timesheetEditor, /id: 'timesheet-entry-editor'/);
   assert.match(timesheet, /selectEntry[\s\S]*unsavedChanges\.runOrRequest/);
   assert.match(timesheet, /closeEntry[\s\S]*unsavedChanges\.runOrRequest/);
-  assert.match(payrollSetup, /id: 'restaurant-payroll-configuration'/);
-  assert.match(payrollDetails, /id: `employee-payroll-details:\$\{employeeId\}`/);
   assert.match(access, /id: 'team-invitation'/);
   assert.match(reservationFloorPlans, /id: mode === 'areas' \? 'restaurant-floor-layout' : 'reservation-table-layout'/);
   assert.match(reservationFloorPlans, /isDirty: \(\) => dirty/);
@@ -360,6 +353,31 @@ test('Team and Restaurant use one route-scoped workspace instead of mounting sta
   assert.match(hoursRedirect, /redirect\(308, '\/restaurant'\)/);
 });
 
+test('Settings owns the canonical time-off policy workspace and redirects the legacy Restaurant URL', async () => {
+  const settingsPage = await readFile(
+    'src/routes/(app)/settings/absence-types/+page.svelte',
+    'utf8'
+  );
+  const workspace = await readFile(
+    'src/lib/team/TimeOffPoliciesWorkspace.svelte',
+    'utf8'
+  );
+  const legacyRedirect = await readFile(
+    'src/routes/(app)/restaurant/absence-types/+page.server.ts',
+    'utf8'
+  );
+
+  assert.match(
+    settingsPage,
+    /import TimeOffPoliciesWorkspace from '\$lib\/team\/TimeOffPoliciesWorkspace\.svelte'/
+  );
+  assert.match(settingsPage, /<TimeOffPoliciesWorkspace \/>/);
+  assert.match(legacyRedirect, /redirect\(308, '\/settings\/absence-types'\)/);
+  assert.match(workspace, /<ClassicPrimaryColMenu/);
+  assert.match(workspace, /rst-time-off-policies-cols-v1/);
+  assert.match(workspace, /rst-restaurant-absence-types-cols-v2/);
+});
+
 test('Coverage inherits the same explicit grid contract as every classic table', async () => {
   const coverage = await readFile('src/routes/(app)/restaurant/coverage/+page.svelte', 'utf8');
   const css = await readFile('src/lib/classic/classic.css', 'utf8');
@@ -374,31 +392,13 @@ test('Coverage inherits the same explicit grid contract as every classic table',
   assert.match(css, /\.cl-table td\s*\{[^}]*border-bottom:\s*1px solid var\(--cl-grid-line\)/s);
 });
 
-test('Home stays a lightweight module portal and Payroll uses the shared compact panel baseline', async () => {
+test('Home stays a lightweight module portal and active Payroll Employees uses the shared compact panel baseline', async () => {
   const home = await readFile('src/routes/(app)/home/+page.svelte', 'utf8');
+  const payrollEmployees = await readFile('src/routes/(app)/payroll/employees/+page.svelte', 'utf8');
   assert.match(home, /modulesForRole/);
   assert.doesNotMatch(home, /loadOperations|setInterval|activeWeek|operationsSnapshot/);
-
-  for (const file of [
-    'src/routes/(app)/payroll/+page.svelte',
-    'src/lib/payroll/PayrollWorkspace.svelte',
-    'src/routes/(app)/payroll/employees/+page.svelte',
-    'src/routes/(app)/payroll/exports/+page.svelte',
-    'src/lib/payroll/RestaurantPayrollSetup.svelte'
-  ]) {
-    const source = await readFile(file, 'utf8');
-    assert.doesNotMatch(source, /<ClassicStat\b|class="cl-stats"/);
-  }
-
-  for (const file of [
-    'src/lib/payroll/PayrollWorkspace.svelte',
-    'src/routes/(app)/payroll/employees/+page.svelte',
-    'src/routes/(app)/payroll/exports/+page.svelte',
-    'src/lib/payroll/RestaurantPayrollSetup.svelte'
-  ]) {
-    const source = await readFile(file, 'utf8');
-    assert.match(source, /<ClassicTablePanel/);
-  }
+  assert.doesNotMatch(payrollEmployees, /<ClassicStat\b|class="cl-stats"/);
+  assert.match(payrollEmployees, /<ClassicTablePanel/);
 });
 
 test('workspace grids share one sticky, searchable grouping and filtering contract', async () => {
@@ -429,7 +429,7 @@ test('Planning, Team, Restaurant and Payroll use the same first-column grouping 
     'src/routes/(app)/team/access/+page.svelte',
     'src/routes/(app)/team/absences/+page.svelte',
     'src/routes/(app)/restaurant/positions/+page.svelte',
-    'src/routes/(app)/restaurant/absence-types/+page.svelte',
+    'src/lib/team/TimeOffPoliciesWorkspace.svelte',
     'src/routes/(app)/restaurant/coverage/+page.svelte',
     'src/routes/(app)/payroll/employees/+page.svelte'
   ];

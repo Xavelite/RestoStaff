@@ -1,4 +1,4 @@
-export type CsvValue = string | number | boolean | null | undefined;
+type CsvValue = string | number | boolean | null | undefined;
 
 function escapeCsv(value: CsvValue): string {
   const text = value == null ? '' : String(value);

@@ -82,7 +82,7 @@
           <h2 id="drawer-title">{t(title)}</h2>
           {#if description}<p>{t(description)}</p>{/if}
         </div>
-        <button type="button" data-tour="drawer-close" aria-label={t('Close panel')} onclick={onclose}>×</button>
+        <button type="button" aria-label={t('Close panel')} onclick={onclose}>×</button>
       </header>
       {#if tabs}<div class="drawer-tabs">{@render tabs()}</div>{/if}
       <div class="drawer-body">{@render children()}</div>

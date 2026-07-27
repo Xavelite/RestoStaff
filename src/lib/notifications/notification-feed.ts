@@ -25,7 +25,7 @@ import type {
 } from './notification-model';
 import { isImplementedNotificationTypeCode, isNotificationTypeCode } from './notification-model';
 
-export type NotificationLoadInput = {
+type NotificationLoadInput = {
   restaurantId: string;
   role: WorkspaceRole;
   employeeId: string | null;

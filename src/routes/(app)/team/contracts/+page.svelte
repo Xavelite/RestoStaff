@@ -160,30 +160,32 @@
   }
 
   function matches(employee: EmployeeDraft, contractName: Map<string, string>, jobName: Map<string, string>): boolean {
-    const positionValue = employee.jobFunctionIds[0] || '__none__';
-    if (excludedContract.has(employee.contractTypeId || '__none__')) return false;
+    const placement = teamDraft.placement(employee);
+    const positionValue = placement.jobFunctionIds[0] || '__none__';
+    if (excludedContract.has(placement.contractTypeId || '__none__')) return false;
     if (excludedPosition.has(positionValue)) return false;
-    if (excludedRegime.has(employee.workRegime)) return false;
-    if (excludedStatus.has(gaps(employee).length ? 'incomplete' : 'complete')) return false;
-    if (startSearch.trim() && !employee.contractStart.includes(startSearch.trim())) return false;
-    if (endSearch.trim() && !employee.contractEnd.includes(endSearch.trim())) return false;
-    if (hoursSearch.trim() && !String(employee.weeklyContractHours).includes(hoursSearch.trim())) return false;
+    if (excludedRegime.has(placement.workRegime)) return false;
+    if (excludedStatus.has(gaps(placement).length ? 'incomplete' : 'complete')) return false;
+    if (startSearch.trim() && !placement.contractStart.includes(startSearch.trim())) return false;
+    if (endSearch.trim() && !placement.contractEnd.includes(endSearch.trim())) return false;
+    if (hoursSearch.trim() && !String(placement.weeklyContractHours).includes(hoursSearch.trim())) return false;
     const term = search.trim().toLowerCase();
-    if (!employee.active) return false;
-    return !term || `${employee.displayName} ${contractName.get(employee.contractTypeId) ?? ''} ${jobName.get(positionValue) ?? ''}`.toLowerCase().includes(term);
+    if (!placement.active) return false;
+    return !term || `${placement.displayName} ${contractName.get(placement.contractTypeId) ?? ''} ${jobName.get(positionValue) ?? ''}`.toLowerCase().includes(term);
   }
 
   function sortValue(employee: EmployeeDraft, key: SortKey, contractName: Map<string, string>, jobName: Map<string, string>): string {
+    const placement = teamDraft.placement(employee);
     switch (key) {
-      case 'employee': return employee.displayName.toLowerCase();
-      case 'position': return (jobName.get(employee.jobFunctionIds[0] ?? '') ?? '~').toLowerCase();
-      case 'contract': return (contractName.get(employee.contractTypeId) ?? '~').toLowerCase();
-      case 'regime': return t(REGIME_LABEL[employee.workRegime] ?? '').toLowerCase();
-      case 'start': return employee.contractStart || '9999-99-99';
-      case 'end': return employee.contractEnd || '9999-99-99';
-      case 'hours': return `${(Number(employee.weeklyContractHours) || 0).toString().padStart(6, '0')}`;
-      case 'status': return gaps(employee).length ? '1' : '0';
-      default: return jobName.get(employee.jobFunctionIds[0] ?? '') ?? '';
+      case 'employee': return placement.displayName.toLowerCase();
+      case 'position': return (jobName.get(placement.jobFunctionIds[0] ?? '') ?? '~').toLowerCase();
+      case 'contract': return (contractName.get(placement.contractTypeId) ?? '~').toLowerCase();
+      case 'regime': return t(REGIME_LABEL[placement.workRegime] ?? '').toLowerCase();
+      case 'start': return placement.contractStart || '9999-99-99';
+      case 'end': return placement.contractEnd || '9999-99-99';
+      case 'hours': return `${(Number(placement.weeklyContractHours) || 0).toString().padStart(6, '0')}`;
+      case 'status': return gaps(placement).length ? '1' : '0';
+      default: return jobName.get(placement.jobFunctionIds[0] ?? '') ?? '';
     }
   }
   function ordered(rows: EmployeeDraft[], contractName: Map<string, string>, jobName: Map<string, string>) {
@@ -195,16 +197,17 @@
     if (groupBy === 'none') return [{ key: 'all', label: '', employees: rows }];
     const map = new Map<string, Group>();
     for (const employee of rows) {
+      const placement = teamDraft.placement(employee);
       let key = '';
       let label = '';
       if (groupBy === 'contract') {
-        key = employee.contractTypeId || '__undefined__';
+        key = placement.contractTypeId || '__undefined__';
         label = key === '__undefined__' ? t('No contract yet') : contractName.get(key) ?? t('Unknown');
       } else if (groupBy === 'position') {
-        key = employee.jobFunctionIds[0] ?? '__undefined__';
+        key = placement.jobFunctionIds[0] ?? '__undefined__';
         label = key === '__undefined__' ? t('No position yet') : jobName.get(key) ?? t('Unknown');
       } else {
-        key = gaps(employee).length ? 'incomplete' : 'complete';
+        key = gaps(placement).length ? 'incomplete' : 'complete';
         label = t(key === 'complete' ? 'Complete' : 'Incomplete');
       }
       const group = map.get(key) ?? { key, label, employees: [] };
@@ -345,7 +348,4 @@
   .hours-field { min-width: 74px; display: inline-grid; grid-template-columns: minmax(0, 1fr) 14px; align-items: center; }
   .hours-field .grid-field { text-align: right; }
   .hours-field > span { color: var(--cl-muted); font-size: 11px; }
-  .chooser-col, .menu-cell { width: 44px; }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-line-strong); display: inline-block; }
-  .dot.is-orange { background: var(--cl-attention); }
 </style>

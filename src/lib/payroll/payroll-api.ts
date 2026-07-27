@@ -1,11 +1,7 @@
 import { supabase } from '$lib/supabase/client';
 import type { Json } from '$lib/supabase/database.types';
 import { toApiError } from '$lib/api/error';
-import {
-  parseEmploymentTerms,
-  parsePayrollCatalogue,
-  parsePayrollWorkspace
-} from './payroll-model';
+import { parseEmploymentTerms, parsePayrollCatalogue } from './payroll-model';
 
 export async function getEmployeeEmploymentTerms(restaurantId: string) {
   const { data, error } = await supabase.rpc('get_employee_employment_terms', {
@@ -37,72 +33,6 @@ export async function getPayrollCatalogue(restaurantId: string) {
   return parsePayrollCatalogue(data);
 }
 
-export async function saveRestaurantPayrollConfiguration(
-  restaurantId: string,
-  configuration: Json
-) {
-  const { data, error } = await supabase.rpc('save_restaurant_payroll_configuration', {
-    p_restaurant_id: restaurantId,
-    p_configuration: configuration
-  });
-  if (error) throw toApiError(error, 'Payroll configuration could not be saved.');
-  return data;
-}
-
-export async function validateRestaurantPayrollConfiguration(
-  restaurantId: string,
-  configurationId: string
-) {
-  const { data, error } = await supabase.rpc('validate_restaurant_payroll_configuration', {
-    p_restaurant_id: restaurantId,
-    p_configuration_id: configurationId
-  });
-  if (error) throw toApiError(error, 'Payroll configuration could not be validated.');
-  return data;
-}
-
-export async function getPayrollWorkspace(
-  restaurantId: string,
-  fromDate: string,
-  toDate: string
-) {
-  const { data, error } = await supabase.rpc('get_payroll_workspace', {
-    p_restaurant_id: restaurantId,
-    p_from_date: fromDate,
-    p_to_date: toDate
-  });
-  if (error) throw toApiError(error, 'Payroll calculations could not be loaded.');
-  return parsePayrollWorkspace(data);
-}
-
-export async function calculatePayrollRun(
-  restaurantId: string,
-  periodStart: string,
-  periodEnd: string
-) {
-  const { data, error } = await supabase.rpc('calculate_payroll_run', {
-    p_restaurant_id: restaurantId,
-    p_period_start: periodStart,
-    p_period_end: periodEnd
-  });
-  if (error) throw toApiError(error, 'Payroll could not be calculated.');
-  return data;
-}
-
-export async function setPayrollRunStatus(
-  restaurantId: string,
-  payrollRunId: string,
-  status: 'reviewed' | 'locked_estimate' | 'reconciled' | 'finalized'
-) {
-  const { data, error } = await supabase.rpc('set_payroll_run_status', {
-    p_restaurant_id: restaurantId,
-    p_payroll_run_id: payrollRunId,
-    p_status: status
-  });
-  if (error) throw toApiError(error, 'Payroll status could not be changed.');
-  return data;
-}
-
 export type InsightsCostRate = {
   employee_id: string;
   estimated_hourly_cost_cents: number | null;
@@ -116,22 +46,7 @@ export type InsightsCostRates = {
   missing_active_employee_count: number;
 };
 
-export async function getInsightsCostRates(restaurantId: string): Promise<InsightsCostRates> {
-  const { data, error } = await supabase.rpc('get_insights_cost_rates', {
-    p_restaurant_id: restaurantId
-  });
-  if (error) throw toApiError(error, 'Estimated labour-cost rates could not be loaded.');
-  const value = data && typeof data === 'object' && !Array.isArray(data)
-    ? (data as Record<string, Json>)
-    : {};
-  return {
-    source: 'estimated_profile_rate',
-    rates: Array.isArray(value.rates) ? (value.rates as unknown as InsightsCostRate[]) : [],
-    missing_active_employee_count: Number(value.missing_active_employee_count ?? 0)
-  };
-}
-
-export type TimeEntryPayrollEvidence = {
+type TimeEntryPayrollEvidence = {
   timeEntryId: string;
   actualJobFunctionId: string;
   actualAreaId: string;
@@ -186,47 +101,5 @@ export async function saveTimeEntryPayrollEvidence(input: {
     p_reason: input.reason
   });
   if (error) throw toApiError(error, 'Payroll evidence could not be saved.');
-  return data;
-}
-
-export async function saveEmployeeTaxProfile(input: {
-  restaurantId: string;
-  employeeId: string;
-  profile: Json;
-}) {
-  const { data, error } = await supabase.rpc('save_employee_tax_profile', {
-    p_restaurant_id: input.restaurantId,
-    p_employee_id: input.employeeId,
-    p_profile: input.profile
-  });
-  if (error) throw toApiError(error, 'Tax profile could not be saved.');
-  return data;
-}
-
-export async function recordEmployeeRegimeEvidence(input: {
-  restaurantId: string;
-  employeeId: string;
-  evidence: Json;
-}) {
-  const { data, error } = await supabase.rpc('record_employee_regime_evidence', {
-    p_restaurant_id: input.restaurantId,
-    p_employee_id: input.employeeId,
-    p_evidence: input.evidence
-  });
-  if (error) throw toApiError(error, 'Payroll evidence could not be recorded.');
-  return data;
-}
-
-export async function saveEmployeePayrollBenefit(input: {
-  restaurantId: string;
-  employeeId: string;
-  benefit: Json;
-}) {
-  const { data, error } = await supabase.rpc('save_employee_payroll_benefit', {
-    p_restaurant_id: input.restaurantId,
-    p_employee_id: input.employeeId,
-    p_benefit: input.benefit
-  });
-  if (error) throw toApiError(error, 'Payroll benefit could not be saved.');
   return data;
 }

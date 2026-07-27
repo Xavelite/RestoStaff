@@ -630,9 +630,9 @@
     <div class="employee-workspace">
       <FeedbackBanner message={feedback} tone={feedbackTone} />
 
-      <section class="agenda" aria-label={t('Weekly agenda')} data-tour="svc-agenda">
-        {#each grid.days as day, dayIndex (day.date)}
-          <article class="agenda-day" class:is-today={day.today} class:is-past={day.past} data-tour={dayIndex === 0 ? 'svc-day' : undefined}>
+      <section class="agenda" aria-label={t('Weekly agenda')}>
+        {#each grid.days as day (day.date)}
+          <article class="agenda-day" class:is-today={day.today} class:is-past={day.past}>
             <div class="agenda-day__date">
               <span>{dayName(day.date)}</span>
               <strong>{dayNumber(day.date)}</strong>

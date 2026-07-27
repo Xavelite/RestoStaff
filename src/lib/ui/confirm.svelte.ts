@@ -7,7 +7,7 @@
 // Labels are plain English and translated at render time, like the rest of the
 // UI copy.
 
-export type ConfirmRequest = {
+type ConfirmRequest = {
   title: string;
   /** One sentence on what happens, and whether it can be undone. */
   body?: string;

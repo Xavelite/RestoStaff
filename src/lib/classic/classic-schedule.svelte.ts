@@ -7,6 +7,7 @@ import {
   type PlanningNoteDraft,
   type PlanningShiftDraft
 } from '$lib/schedule/schedule-model';
+import { StableDraftPlacement } from './stable-draft-placement';
 
 /** What ClassicScheduleWeek hands each Schedule page about the active week. */
 export type ScheduleWeekContext = {
@@ -23,6 +24,17 @@ export type ScheduleWeekContext = {
   selectDate: (date: string) => void;
 };
 
+export type ScheduleRowPlacement = {
+  id: string;
+  conflict: boolean;
+  contractLabel: string;
+  positionLabel: string;
+  positionAreaId: string | null;
+  areaLabel: string;
+  areaId: string | null;
+  statusLabel: string;
+};
+
 /**
  * The week being edited in the classic Schedule module.
  *
@@ -35,12 +47,15 @@ class ClassicScheduleDraft {
   /** Weeks from the current one; negative is the past. */
   weekOffset = $state(0);
   shifts = $state<PlanningShiftDraft[]>([]);
+  /** Last successfully loaded/saved shifts, used only to keep row membership stable. */
+  placementShifts = $state<PlanningShiftDraft[]>([]);
   notes = $state<PlanningNoteDraft[]>([]);
   dirty = $state(false);
   saving = $state(false);
 
   /** Week + revision the draft was built from; plain, so sync() is not reactive. */
   #loadedKey = '';
+  #rowPlacement = new StableDraftPlacement<ScheduleRowPlacement>(structuredClone);
 
   /**
    * Rebuild the draft from the snapshot when the week changes, or when the
@@ -55,8 +70,11 @@ class ClassicScheduleDraft {
     const weekChanged = untrack(() => !this.#loadedKey.startsWith(`${weekStart}|`));
     if (!weekChanged && untrack(() => this.dirty)) return;
     this.#loadedKey = key;
-    this.shifts = planningDraftForWeek(snapshot, weekStart);
+    const shifts = planningDraftForWeek(snapshot, weekStart);
+    this.shifts = shifts;
+    this.placementShifts = shifts.map((shift) => ({ ...shift }));
     this.notes = planningNotesForWeek(snapshot, weekStart);
+    this.#rowPlacement.reset([]);
     this.dirty = false;
   }
 
@@ -95,9 +113,20 @@ class ClassicScheduleDraft {
     );
   }
 
+  /**
+   * Filtering and grouping use the first state seen for the committed week.
+   * Cards and totals still render from the live shift draft; only the employee
+   * row's location is held until save/discard succeeds.
+   */
+  placement(row: ScheduleRowPlacement): ScheduleRowPlacement {
+    return this.#rowPlacement.snapshotFor(row);
+  }
+
   /** After a successful save the server is the truth again. */
   settle(): void {
     this.#loadedKey = '';
+    this.placementShifts = this.shifts.map((shift) => ({ ...shift }));
+    this.#rowPlacement.reset([]);
     this.dirty = false;
   }
 }

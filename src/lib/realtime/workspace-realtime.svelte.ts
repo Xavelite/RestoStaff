@@ -1,7 +1,7 @@
 import { supabase } from '$lib/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
-export type WorkspaceRealtimeEvent =
+type WorkspaceRealtimeEvent =
   | 'planning-saved'
   | 'actuals-updated'
   | 'team-updated'
@@ -9,7 +9,7 @@ export type WorkspaceRealtimeEvent =
   | 'notification-refresh'
   | 'communications-updated';
 
-export type WorkspaceRealtimeEnvelope = {
+type WorkspaceRealtimeEnvelope = {
   restaurantId: string;
   revision?: number | null;
   source: 'planning' | 'actuals' | 'team' | 'restaurant' | 'badge' | 'system' | 'communications';

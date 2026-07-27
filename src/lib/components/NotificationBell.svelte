@@ -431,7 +431,7 @@
   }
 </script>
 
-<div class="notifications-shell" data-tour="notifications">
+<div class="notifications-shell">
   <button
     class="notification-button"
     class:has-alerts={totalCount > 0}

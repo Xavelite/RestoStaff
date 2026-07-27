@@ -1,6 +1,6 @@
 import type { EmployeeOperationsReadModel, TeamReadModel } from '$lib/api/workspace-snapshot';
 
-export type LeaveBalance = {
+type LeaveBalance = {
   entitlement: number;
   approved: number;
   pending: number;

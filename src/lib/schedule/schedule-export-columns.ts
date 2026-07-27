@@ -1,8 +1,7 @@
-// Supported Planning-schedule export columns. Mirrors the shape of
-// payroll-export-columns.ts so the shared ExportDialog can drive either dataset.
+// Supported Planning-schedule export columns.
 // Planning export is built client-side from the loaded snapshot — every field
 // here is real planned data (planned_shifts + lookups), never worked-time truth.
-export const PLANNING_EXPORT_FIELDS = [
+const PLANNING_EXPORT_FIELDS = [
   { key: 'employee', label: 'Employee' },
   { key: 'date', label: 'Date' },
   { key: 'service', label: 'Service' },
@@ -14,7 +13,7 @@ export const PLANNING_EXPORT_FIELDS = [
   { key: 'note', label: 'Note' }
 ] as const;
 
-export type PlanningExportField = (typeof PLANNING_EXPORT_FIELDS)[number]['key'];
+type PlanningExportField = (typeof PLANNING_EXPORT_FIELDS)[number]['key'];
 
 const FIELD_LABELS = new Map(PLANNING_EXPORT_FIELDS.map((field) => [field.key, field.label]));
 

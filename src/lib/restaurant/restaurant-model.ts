@@ -1,5 +1,5 @@
 import { asJsonArray } from '../api/json.ts';
-import { setupItemCode, slug } from './setup-item-code.ts';
+import { slug } from './setup-item-code.ts';
 import type { RestaurantReadModel } from '$lib/api/workspace-snapshot';
 import { defaultAreaColor, readColorOverride } from '../ui/position-color.ts';
 import { catalogueAreaColor } from './workspace-catalogue.ts';
@@ -258,8 +258,6 @@ export function restaurantDraft(snapshot: RestaurantReadModel): RestaurantDraft 
 }
 
 const nullable = (value: string) => value.trim() || null;
-
-export { setupItemCode } from './setup-item-code.ts';
 
 function inheritedOpening(
   draft: RestaurantDraft,

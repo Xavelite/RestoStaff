@@ -1,7 +1,7 @@
 import type { NotificationItem } from './notification-model.ts';
 import { serviceLabel } from '../calendar/date.ts';
 
-export type PushLocale = 'en' | 'fr' | 'nl';
+type PushLocale = 'en' | 'fr' | 'nl';
 
 type Params = Record<string, string | number>;
 

@@ -1,4 +1,4 @@
-export type MoneyCents = bigint;
+type MoneyCents = bigint;
 
 export function cents(value: string | number | bigint | null | undefined): MoneyCents {
   if (typeof value === 'bigint') return value;
@@ -49,4 +49,3 @@ export function formatCents(value: string | number | bigint, locale = 'en-GB'): 
   const grouped = String(whole).replace(/\B(?=(\d{3})+(?!\d))/g, commaDecimal ? '.' : ',');
   return `${negative ? '-' : ''}€${grouped}${commaDecimal ? ',' : '.'}${fraction}`;
 }
-

@@ -3,7 +3,7 @@
 // constraint ...". Server-raised business messages (which are already written
 // for people) pass through unchanged.
 
-export type FriendlyErrorContext = 'badge' | 'planning' | 'actuals' | 'absence' | undefined;
+type FriendlyErrorContext = 'badge' | 'planning' | 'actuals' | 'absence' | undefined;
 
 export function friendlyError(error: unknown, context?: FriendlyErrorContext): string {
   const raw = (error instanceof Error ? error.message : String(error ?? '')).trim();

@@ -1,6 +1,6 @@
 import { goto } from '$app/navigation';
 
-export type UnsavedChangeSource = {
+type UnsavedChangeSource = {
   id: string;
   label: string;
   /** Child editors save before their parent page draft. */

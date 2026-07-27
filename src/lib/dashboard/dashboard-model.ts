@@ -57,7 +57,7 @@ export type InsightTotals = {
   approvedLeaveDays: number;
 };
 
-export type ShiftEvidence = {
+type ShiftEvidence = {
   id: string;
   employeeId: string;
   date: string;
@@ -150,12 +150,6 @@ export type InsightView = {
   fixedHours: number;
   managerHours: number;
   hasData: boolean;
-};
-
-export type InsightFilterOptions = {
-  employees: { id: string; name: string; regime: Regime }[];
-  areas: { id: string; name: string }[];
-  services: { key: string; label: string }[];
 };
 
 type EmployeeAccumulator = {
@@ -306,11 +300,6 @@ export function insightReadRanges(
     }
   }
   return merged.flatMap((span) => dashboardReadRanges(span.from, span.to));
-}
-
-export function moveInsightAnchor(anchor: string, period: InsightPeriod, direction: -1 | 1): string {
-  if (period === 'week') return addDays(anchor, 7 * direction);
-  return addMonths(anchor, (period === 'month' ? 1 : 12) * direction);
 }
 
 function dashboardReadRanges(from: string, to: string): { from: string; to: string }[] {
@@ -802,27 +791,6 @@ function analysePeriod(
       fixed: round1(regimeHours.fixed),
       manager: round1(regimeHours.manager)
     }
-  };
-}
-
-export function insightFilterOptions(model: ManagerOperationsReadModel): InsightFilterOptions {
-  const regimes = currentRegimes(model);
-  return {
-    employees: model.employees
-      .filter((employee) => employee.active)
-      .map((employee) => ({
-        id: employee.id,
-        name: employee.display_name,
-        regime: regimes.get(employee.id) ?? 'fixed'
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name)),
-    areas: model.work_areas
-      .filter((area) => area.active)
-      .map((area) => ({ id: area.id, name: area.name }))
-      .sort((a, b) => a.name.localeCompare(b.name)),
-    services: model.services
-      .filter((service) => service.active)
-      .map((service) => ({ key: service.service_key, label: serviceLabel(service.service_key) }))
   };
 }
 

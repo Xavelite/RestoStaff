@@ -44,16 +44,16 @@ export type SlotContext = {
   workPatternExceptionReason: string;
 };
 
-export type PlanningRequestKind = 'absence' | 'work_pattern_exception';
+type PlanningRequestKind = 'absence' | 'work_pattern_exception';
 
-export type PlanningOverlap = {
+type PlanningOverlap = {
   employeeId: string;
   weekday: number;
   first: PlanningShiftDraft;
   second: PlanningShiftDraft;
 };
 
-export type PlanningContractOverage = {
+type PlanningContractOverage = {
   employeeId: string;
   planned: number;
   target: number;
@@ -68,7 +68,7 @@ export type PlanningOperationalWarningKind =
   | 'unassigned_position'
   | 'closed_service';
 
-export type PlanningOperationalWarning = {
+type PlanningOperationalWarning = {
   kind: PlanningOperationalWarningKind;
   employeeId: string;
   weekday: number;
@@ -222,7 +222,7 @@ export function planningRequestIdentity(
   return context.workPatternException ? context.workPatternExceptionId : null;
 }
 
-export type CoverageIssue = {
+type CoverageIssue = {
   date: string;
   serviceKey: ServiceKey;
   areaId: string;
@@ -404,7 +404,7 @@ export function defaultPlanningShift(
   };
 }
 
-export type PlanningAssignmentOption = {
+type PlanningAssignmentOption = {
   areaId: string;
   jobFunctionId: string;
   recommended: boolean;
@@ -581,6 +581,8 @@ export function buildPlanningWeek(input: {
   weekStart: string;
   today: string;
   draft: PlanningShiftDraft[];
+  /** Committed shifts keep archived employee rows mounted while a removal is unsaved. */
+  placementDraft?: PlanningShiftDraft[];
 }): {
   days: WeekColumn[];
   rows: WeekRow[];
@@ -594,7 +596,9 @@ export function buildPlanningWeek(input: {
     input.snapshot.job_functions.map((job) => [job.id, job.name])
   );
   const slotsByKey = new Map<string, PlanningGridSlot>();
-  const scheduledEmployeeIds = new Set(input.draft.map((shift) => shift.employeeId));
+  const scheduledEmployeeIds = new Set(
+    [...input.draft, ...(input.placementDraft ?? [])].map((shift) => shift.employeeId)
+  );
   const rows: WeekRow[] = input.snapshot.employees
     // Archived people are excluded from new planning, but remain visible in a
     // week that already contains their shifts so published/history data never

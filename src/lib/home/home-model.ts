@@ -2,10 +2,10 @@ import type { WorkspaceRole } from '$lib/api/workspace';
 import type { ManagerOperationsReadModel } from '$lib/api/workspace-snapshot';
 import { isValidBelgianNiss } from '../team/belgian-identifiers.ts';
 
-export type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
+type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
 
-export type HomeLiveRow = {
+type HomeLiveRow = {
   employeeId: string;
   name: string;
   role: string;
@@ -16,7 +16,7 @@ export type HomeLiveRow = {
   liveSince?: string | null;
 };
 
-export type HomeActionRow = {
+type HomeActionRow = {
   key: 'leave' | 'payroll' | 'planning' | 'availability';
   label: string;
   meta: string;
@@ -34,7 +34,7 @@ export type HomeActionRow = {
   }>;
 };
 
-export type HomeModel = {
+type HomeModel = {
   live: {
     working: number;
     late: number;

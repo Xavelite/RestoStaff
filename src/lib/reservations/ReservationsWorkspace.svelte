@@ -944,7 +944,6 @@
   }
   .muted { color: var(--cl-muted); font-size: 12px; }
   .note { max-width: 210px; display: block; overflow: hidden; color: var(--cl-muted); text-overflow: ellipsis; white-space: nowrap; }
-  .menu-cell { width: 44px; }
   .reservation-form { display: grid; gap: 18px; }
   .reservation-form section { display: grid; gap: 10px; }
   .reservation-form h3 { margin: 0; padding-bottom: 7px; border-bottom: 1px solid var(--cl-line); font-size: 13px; }

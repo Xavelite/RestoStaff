@@ -12,23 +12,6 @@ function rows<T>(value: RecordValue, key: string): T[] {
   return Array.isArray(value[key]) ? (value[key] as T[]) : [];
 }
 
-export type PayrollIssue = {
-  code: string;
-  employee_id: string | null;
-  evidence: string;
-  message: string;
-  accepted?: boolean;
-};
-
-export type PayrollReadiness = {
-  restaurant_id: string;
-  period_start: string;
-  period_end: string;
-  ready: boolean;
-  blockers: PayrollIssue[];
-  warnings: PayrollIssue[];
-};
-
 export type PayrollCatalogue = {
   configurations: Tables<'restaurant_payroll_configurations'>[];
   ruleSets: Tables<'payroll_rule_sets'>[];
@@ -43,23 +26,6 @@ export type PayrollCatalogue = {
   providers: Tables<'payroll_providers'>[];
   providerComponents: Tables<'payroll_provider_components'>[];
   providerEmployeeMappings: Tables<'payroll_provider_employee_mappings'>[];
-};
-
-export type PayrollWorkspace = {
-  readiness: PayrollReadiness;
-  periods: Tables<'payroll_periods'>[];
-  runs: Tables<'payroll_runs'>[];
-  employeeResults: Tables<'payroll_employee_results'>[];
-  componentLines: Tables<'payroll_component_lines'>[];
-  componentSources: Tables<'payroll_component_sources'>[];
-  employmentTerms: Tables<'employee_employment_terms'>[];
-  rules: Tables<'payroll_rules'>[];
-  legalSources: Tables<'payroll_legal_sources'>[];
-  providers: Tables<'payroll_providers'>[];
-  providerComponents: Tables<'payroll_provider_components'>[];
-  providerEmployeeMappings: Tables<'payroll_provider_employee_mappings'>[];
-  providerExports: Tables<'payroll_provider_exports'>[];
-  reconciliations: Tables<'payroll_reconciliations'>[];
 };
 
 export function parseEmploymentTerms(value: Json): Tables<'employee_employment_terms'>[] {
@@ -82,33 +48,5 @@ export function parsePayrollCatalogue(value: Json): PayrollCatalogue {
     providers: rows(data, 'providers'),
     providerComponents: rows(data, 'provider_components'),
     providerEmployeeMappings: rows(data, 'provider_employee_mappings')
-  };
-}
-
-export function parsePayrollWorkspace(value: Json): PayrollWorkspace {
-  const data = record(value);
-  const readiness = record((data.readiness ?? {}) as Json);
-  return {
-    readiness: {
-      restaurant_id: String(readiness.restaurant_id ?? ''),
-      period_start: String(readiness.period_start ?? ''),
-      period_end: String(readiness.period_end ?? ''),
-      ready: readiness.ready === true,
-      blockers: rows(readiness, 'blockers'),
-      warnings: rows(readiness, 'warnings')
-    },
-    periods: rows(data, 'periods'),
-    runs: rows(data, 'runs'),
-    employeeResults: rows(data, 'employee_results'),
-    componentLines: rows(data, 'component_lines'),
-    componentSources: rows(data, 'component_sources'),
-    employmentTerms: rows(data, 'employment_terms'),
-    rules: rows(data, 'rules'),
-    legalSources: rows(data, 'legal_sources'),
-    providers: rows(data, 'providers'),
-    providerComponents: rows(data, 'provider_components'),
-    providerEmployeeMappings: rows(data, 'provider_employee_mappings'),
-    providerExports: rows(data, 'provider_exports'),
-    reconciliations: rows(data, 'reconciliations')
   };
 }

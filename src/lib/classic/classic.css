@@ -600,23 +600,7 @@
 }
 
 
-/* A colour swatch that stands for a position or an area. */
-.cl-swatch {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  flex: 0 0 auto;
-  border-radius: 4px;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14);
-}
-
-/* Small coloured chips used to show what a row links to (positions in an area,
-   areas a position covers). Colour carries the identity; the label repeats it. */
-.cl-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
+/* Small coloured chips used to show what a row links to. */
 .cl-chip {
   --chip: var(--cl-line-strong);
   display: inline-flex;
@@ -646,11 +630,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.cl-chips__empty {
-  color: var(--cl-muted);
-  font-size: 12px;
-}
-
 /* A compact count of linked people, with a soft accent disc. */
 .cl-linkcount {
   display: inline-flex;
@@ -721,15 +700,6 @@
 
 .cl-card__body {
   padding: 16px;
-}
-
-.cl-card__foot {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 12px 16px;
-  border-top: 1px solid var(--cl-line);
 }
 
 /* A card that leads with a coloured header rail — used where a card stands for
@@ -1253,59 +1223,6 @@
   text-transform: uppercase;
 }
 
-/* A sortable header fills its cell with a button so the whole header is the
-   click target; the chevron stays faint until the column is the active sort. */
-.cl-table th.is-sortable {
-  padding: 0;
-}
-
-.cl-th {
-  width: 100%;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: var(--cl-grid-head);
-  padding: 0 14px;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: 12px;
-  font-weight: var(--rst-fw-bold);
-  text-align: left;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.cl-table th.is-num .cl-th {
-  justify-content: flex-end;
-}
-
-.cl-th:hover {
-  background: color-mix(in srgb, var(--cl-accent) 14%, var(--cl-surface));
-}
-
-.cl-th__arrow {
-  width: 13px;
-  height: 13px;
-  flex: 0 0 auto;
-  color: var(--cl-accent);
-  opacity: 0;
-  transition: opacity var(--cl-dur) var(--cl-ease), transform var(--cl-dur) var(--cl-ease);
-}
-
-.cl-th:hover .cl-th__arrow {
-  opacity: 0.45;
-}
-
-.cl-th.is-active .cl-th__arrow {
-  opacity: 1;
-}
-
-.cl-th.is-desc .cl-th__arrow {
-  transform: rotate(180deg);
-}
-
 .cl-table td {
   height: var(--cl-row);
   padding: 9px 14px;
@@ -1378,25 +1295,38 @@
   color: var(--cl-muted);
 }
 
-.cl-table__link {
-  color: inherit;
-  font-weight: var(--rst-fw-medium);
-  text-decoration: none;
+.cl-table .chooser-col,
+.cl-table .menu-cell {
+  width: 44px;
 }
 
-.cl-table__link:hover {
-  text-decoration: underline;
+.cl-page .dot {
+  width: 7px;
+  height: 7px;
+  display: inline-block;
+  border-radius: 50%;
+  background: var(--cl-line-strong);
+}
+
+.cl-page .dot.is-green {
+  background: var(--cl-ok);
+}
+
+.cl-page .dot.is-red {
+  background: var(--cl-problem);
+}
+
+.cl-page .dot.is-blue {
+  background: var(--cl-info);
+}
+
+.cl-page .dot.is-orange {
+  background: var(--cl-attention);
 }
 
 /* A whole row that navigates: the chevron is the affordance, not colour. */
 .cl-table tr.is-clickable td {
   cursor: pointer;
-}
-
-.cl-table__chevron {
-  width: 16px;
-  height: 16px;
-  color: var(--cl-muted);
 }
 
 .cl-table__name {
@@ -1505,13 +1435,6 @@
   color: var(--cl-muted);
   font-size: 13px;
   font-weight: var(--rst-fw-medium);
-}
-
-.cl-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
 }
 
 .cl-toolbar__grow {
@@ -1664,7 +1587,6 @@
 .cl-group-row__meta { margin-left: auto; color: var(--cl-muted); font-size: 11px; font-weight: var(--rst-fw-medium); }
 .cl-group-row__icon { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; }
 .cl-group-row__dot { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--group, var(--cl-accent)); }
-.cl-group-row__count { margin-left: 8px; color: var(--cl-muted); font-size: 11px; font-weight: var(--rst-fw-medium); }
 .cl-group-row.is-drop-target td { background: color-mix(in srgb, var(--cl-accent) 9%, var(--cl-surface-muted)) !important; }
 
 
@@ -1725,7 +1647,6 @@
 }
 @media (max-width: 760px) {
   .cl-page__toolbar .toolbar-search { min-width: 180px; }
-  .cl-page__toolbar .cl-action-label { display: none; }
   .cl-formgrid { grid-template-columns: minmax(0, 1fr); }
   .cl-formgrid .is-wide, .cl-form-section { grid-column: 1; }
 }
@@ -1748,17 +1669,6 @@
   height: 15px;
   accent-color: var(--cl-accent);
 }
-/* Expanded employee editors stay inside their owning table row. */
-.cl-editor-row > td {
-  padding: 12px !important;
-  background: var(--cl-bg) !important;
-}
-
-.cl-editor-row:hover > td {
-  background: var(--cl-bg) !important;
-}
-
-
 .colmenu.is-floating {
   position: fixed;
   z-index: 460;
@@ -1783,38 +1693,6 @@
 }
 
 
-
-.cl-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 23px;
-  padding: 2px 8px 2px 6px;
-  border: 1px solid color-mix(in srgb, var(--cl-info) 36%, var(--cl-line));
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--cl-info) 9%, var(--cl-surface));
-  color: color-mix(in srgb, var(--cl-info) 62%, var(--cl-ink));
-  font-size: 11px;
-  font-weight: var(--rst-fw-bold);
-  white-space: nowrap;
-}
-
-.cl-badge::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: var(--cl-info);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--cl-info) 9%, transparent);
-}
-
-.cl-badge.is-neutral {
-  border-color: color-mix(in srgb, var(--cl-ink) 24%, var(--cl-line));
-  background: color-mix(in srgb, var(--cl-ink) 7%, var(--cl-surface));
-  color: color-mix(in srgb, var(--cl-ink) 84%, var(--cl-muted));
-}
-.cl-badge.is-neutral::before { background: color-mix(in srgb, var(--cl-ink) 56%, var(--cl-muted)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--cl-ink) 7%, transparent); }
 
 /* Curated colour picker shared by Areas and Positions. */
 .palette-picker {

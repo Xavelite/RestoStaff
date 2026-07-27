@@ -588,8 +588,7 @@
     font-weight: var(--rst-fw-regular);
   }
 
-  .service-heading i,
-  .dot {
+  .service-heading i {
     width: 7px;
     height: 7px;
     display: inline-block;

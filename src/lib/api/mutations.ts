@@ -13,36 +13,13 @@ function object(value: unknown): JsonObject {
     : {};
 }
 
-export type MutationAck = {
+type MutationAck = {
   ok: true;
   restaurantId: string;
   entityId?: string;
   eventId?: string;
   fromStatus?: string | null;
   toStatus?: string | null;
-};
-
-export type PayrollExportRun = {
-  id: string;
-  restaurantId: string;
-  periodStart: string;
-  periodEnd: string;
-  filename: string;
-  rowCount: number;
-  totalNetMinutes: number;
-  payloadSha256: string;
-  headers: string[];
-  rows: Array<Array<string | number | boolean | null>>;
-  createdAt: string;
-};
-
-export type PayrollExportPreview = {
-  approved: boolean;
-  filename: string;
-  headers: string[];
-  rows: Array<Array<string | number | boolean | null>>;
-  rowCount: number;
-  totalNetMinutes: number;
 };
 
 function mutationAck(value: Json): MutationAck {
@@ -85,126 +62,7 @@ async function rpcJson(name: string, payload: JsonObject): Promise<Json> {
   return result;
 }
 
-function payrollExportRun(value: Json): PayrollExportRun {
-  const result = object(value);
-  const payload = object(result.payload);
-  const headers = Array.isArray(payload.headers)
-    ? payload.headers.map((header) => String(header))
-    : [];
-  const rows = Array.isArray(payload.rows)
-    ? payload.rows.map((row) =>
-        Array.isArray(row)
-          ? row.map((cell) =>
-              typeof cell === 'string' ||
-              typeof cell === 'number' ||
-              typeof cell === 'boolean' ||
-              cell === null
-                ? cell
-                : String(cell ?? '')
-            )
-          : []
-      )
-    : [];
-  const id = String(result.run_id ?? result.id ?? '');
-  const restaurantId = String(result.restaurant_id ?? '');
-  if (!id || !restaurantId || !headers.length) {
-    throw new TypeError('The payroll export response is incomplete.');
-  }
-  return {
-    id,
-    restaurantId,
-    periodStart: String(result.period_start ?? payload.period_start ?? ''),
-    periodEnd: String(result.period_end ?? payload.period_end ?? ''),
-    filename: String(result.filename ?? ''),
-    rowCount: Number(result.row_count ?? rows.length),
-    totalNetMinutes: Number(result.total_net_minutes ?? 0),
-    payloadSha256: String(result.payload_sha256 ?? ''),
-    headers,
-    rows,
-    createdAt: String(result.created_at ?? '')
-  };
-}
-
-export async function createPayrollExportRun(input: {
-  restaurantId: string;
-  periodStart: string;
-  periodEnd: string;
-  columns?: string[];
-}): Promise<PayrollExportRun> {
-  const { data, error } = await supabase.rpc('create_payroll_export_run', {
-    p_restaurant_id: input.restaurantId,
-    p_period_start: input.periodStart,
-    p_period_end: input.periodEnd,
-    p_columns: input.columns ?? null
-  });
-  if (error) throw toApiError(error, 'Payroll export could not be created.');
-  return payrollExportRun(data);
-}
-
-export async function setPayrollExportColumns(
-  restaurantId: string,
-  columns: string[]
-): Promise<void> {
-  const { error } = await supabase.rpc('set_payroll_export_columns', {
-    p_restaurant_id: restaurantId,
-    p_columns: columns
-  });
-  if (error) throw toApiError(error, 'Payroll export columns could not be saved.');
-}
-
-export async function getPayrollExportRun(
-  restaurantId: string,
-  runId: string
-): Promise<PayrollExportRun> {
-  const { data, error } = await supabase.rpc('get_payroll_export_run', {
-    p_restaurant_id: restaurantId,
-    p_run_id: runId
-  });
-  if (error) throw toApiError(error, 'Payroll export could not be opened.');
-  return payrollExportRun(data);
-}
-
-// Draft payroll export — reads the same server projection as the official run
-// but records no lineage. Used when the chosen period is not fully approved.
-export async function previewPayrollExport(input: {
-  restaurantId: string;
-  periodStart: string;
-  periodEnd: string;
-  columns?: string[];
-}): Promise<PayrollExportPreview> {
-  const { data, error } = await supabase.rpc('preview_payroll_export', {
-    p_restaurant_id: input.restaurantId,
-    p_period_start: input.periodStart,
-    p_period_end: input.periodEnd,
-    p_columns: input.columns ?? null
-  });
-  if (error) throw toApiError(error, 'Payroll export could not be prepared.');
-  const result = object(data);
-  const headers = Array.isArray(result.headers) ? result.headers.map((header) => String(header)) : [];
-  const rows = Array.isArray(result.rows)
-    ? result.rows.map((row) =>
-        Array.isArray(row)
-          ? row.map((cell) =>
-              typeof cell === 'string' || typeof cell === 'number' || typeof cell === 'boolean' || cell === null
-                ? cell
-                : String(cell ?? '')
-            )
-          : []
-      )
-    : [];
-  const approved = result.approved === true;
-  const suffix = approved ? 'APPROVED' : 'DRAFT';
-  return {
-    approved,
-    filename: `payroll-${input.periodStart}-${input.periodEnd}-${suffix}.csv`,
-    headers,
-    rows,
-    rowCount: Number(result.row_count ?? rows.length),
-    totalNetMinutes: Number(result.total_net_minutes ?? 0)
-  };
-}
-
-export type PlannedShiftInput = {
+type PlannedShiftInput = {
   employee_id: string;
   weekday: number;
   service_key: string;
@@ -215,7 +73,7 @@ export type PlannedShiftInput = {
   source: OperationalEnums['planned_shift_source'];
 };
 
-export type WeeklyNoteInput = {
+type WeeklyNoteInput = {
   weekday: number;
   service_key: string;
   note: string;
@@ -259,7 +117,7 @@ export async function discardPlanningDraft(input: {
   return mutationAck(data);
 }
 
-export type ActualsAction =
+type ActualsAction =
   | 'manual_entry'
   | 'adjust_entry'
   | 'cancel_entry'
@@ -279,7 +137,7 @@ export async function saveActuals(input: {
   return mutationAck(data);
 }
 
-export type AbsenceAction =
+type AbsenceAction =
   | 'create_by_employee'
   | 'create_by_manager'
   | 'approve'
@@ -307,7 +165,7 @@ export async function saveAbsence(input: {
   return mutationAck(data);
 }
 
-export type WorkPatternExceptionAction =
+type WorkPatternExceptionAction =
   | 'create_by_employee'
   | 'create_by_manager'
   | 'approve'
@@ -521,7 +379,7 @@ export async function getBadgeProofUrl(input: {
   return url;
 }
 
-export type OwnerOnboardingDraft = {
+type OwnerOnboardingDraft = {
   step: number;
   draft: JsonObject;
   updatedAt: string;
@@ -559,7 +417,7 @@ export async function updateOwnProfile(firstName: string, lastName: string): Pro
   });
 }
 
-export type OwnerWorkspaceSetup = {
+type OwnerWorkspaceSetup = {
   ownerFirstName: string;
   ownerLastName: string;
   ownerEmail: string;

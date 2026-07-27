@@ -1,7 +1,7 @@
 import type { Tables } from '../supabase/database.types.ts';
 
 export type WorkPatternException = Tables<'work_pattern_exceptions'>;
-export type WorkPatternExceptionStatus = WorkPatternException['status'];
+type WorkPatternExceptionStatus = WorkPatternException['status'];
 export type WorkPatternExceptionEvent = Tables<'work_pattern_exception_events'>;
 
 export function workPatternExceptionOverlaps(

@@ -24,18 +24,18 @@ type BaseInput = {
   timezone: string;
 };
 
-export type ManagerNotificationInput = BaseInput & {
+type ManagerNotificationInput = BaseInput & {
   role: 'owner' | 'manager';
   operations: ManagerOperationsReadModel;
   team: TeamReadModel | null;
 };
 
-export type EmployeeNotificationInput = BaseInput & {
+type EmployeeNotificationInput = BaseInput & {
   role: 'employee';
   operations: EmployeeOperationsReadModel;
 };
 
-export type NotificationInput = ManagerNotificationInput | EmployeeNotificationInput;
+type NotificationInput = ManagerNotificationInput | EmployeeNotificationInput;
 
 type EmployeeLookup = Pick<ManagerOperationsReadModel, 'employees'> | Pick<EmployeeOperationsReadModel, 'employees'>;
 type PlannedShift = ManagerOperationsReadModel['planned_shifts'][number];

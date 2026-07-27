@@ -3,8 +3,15 @@ import type { RestaurantReadModel } from '$lib/api/workspace-snapshot';
 import { saveRestaurant } from '$lib/api/mutations';
 import { saveRestaurantAreasModel } from '$lib/reservations/reservation-api';
 import type { ReservationFloorPlansDraft } from '$lib/reservations/reservation-types';
-import { restaurantDraft, restaurantSavePayload, type RestaurantDraft } from '$lib/restaurant/restaurant-model';
+import {
+  restaurantDraft,
+  restaurantSavePayload,
+  type AreaDraft,
+  type JobFunctionDraft,
+  type RestaurantDraft
+} from '$lib/restaurant/restaurant-model';
 import { workspace } from '$lib/workspace/workspace.svelte';
+import { StableDraftPlacement } from './stable-draft-placement';
 
 /**
  * The restaurant configuration being edited in the classic Restaurant module.
@@ -16,6 +23,8 @@ import { workspace } from '$lib/workspace/workspace.svelte';
 class ClassicRestaurantDraft {
   draft = $state<RestaurantDraft | null>(null);
   dirty = $state(false);
+  #areaPlacement = new StableDraftPlacement<AreaDraft>(structuredClone);
+  #positionPlacement = new StableDraftPlacement<JobFunctionDraft>(structuredClone);
 
   /** Plain, not $state: sync() must be safe to call from an $effect. */
   #loadedRestaurantId = '';
@@ -40,7 +49,10 @@ class ClassicRestaurantDraft {
     ) return;
     this.#loadedRestaurantId = restaurantId;
     this.#loadedKey = key;
-    this.draft = restaurantDraft(snapshot);
+    const next = restaurantDraft(snapshot);
+    this.#areaPlacement.reset(next.areas);
+    this.#positionPlacement.reset(next.jobFunctions);
+    this.draft = next;
     this.dirty = false;
   }
 
@@ -56,6 +68,22 @@ class ClassicRestaurantDraft {
     this.dirty = true;
   }
 
+  placementArea(area: AreaDraft): AreaDraft {
+    return this.#areaPlacement.snapshotFor(area);
+  }
+
+  placementPosition(position: JobFunctionDraft): JobFunctionDraft {
+    return this.#positionPlacement.snapshotFor(position);
+  }
+
+  removeAreaPlacement(areaId: string): void {
+    this.#areaPlacement.remove(areaId);
+  }
+
+  removePositionPlacement(positionId: string): void {
+    this.#positionPlacement.remove(positionId);
+  }
+
   async save(restaurantId: string, snapshot: RestaurantReadModel): Promise<void> {
     if (!this.draft) return;
     const payload = restaurantSavePayload(snapshot, this.draft);
@@ -64,6 +92,7 @@ class ClassicRestaurantDraft {
     this.#loadedKey = '';
     this.dirty = false;
     await workspace.loadRestaurant(true);
+    if (workspace.restaurant) this.sync(workspace.restaurant, true);
   }
 
   async saveAreas(
@@ -84,6 +113,7 @@ class ClassicRestaurantDraft {
     this.#loadedKey = '';
     this.dirty = false;
     await workspace.loadRestaurant(true);
+    if (workspace.restaurant) this.sync(workspace.restaurant, true);
   }
 }
 

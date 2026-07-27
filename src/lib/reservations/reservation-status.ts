@@ -1,6 +1,6 @@
 import type { ReservationStatus } from './reservation-types';
 
-export type ReservationStatusMeta = {
+type ReservationStatusMeta = {
   label: string;
   tone: 'neutral' | 'pending' | 'confirmed' | 'live' | 'done' | 'problem';
   symbol: string;

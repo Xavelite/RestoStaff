@@ -80,7 +80,7 @@ async function listBadgeRoster(restaurantId: string): Promise<BadgeRosterEmploye
   });
 }
 
-export async function verifyBadgePin(
+async function verifyBadgePin(
   restaurantId: string,
   employeeId: string,
   pin: string

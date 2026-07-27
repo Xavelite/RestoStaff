@@ -3,7 +3,7 @@ import { addDays, clockMinutes, serviceLabel } from '$lib/calendar/date';
 import { planningFieldLabel } from './schedule-export-columns';
 import type { PlanningNoteDraft, PlanningShiftDraft } from './schedule-model';
 
-export type PlanningCsv = {
+type PlanningCsv = {
   filename: string;
   headers: string[];
   rows: string[][];

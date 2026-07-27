@@ -6,6 +6,7 @@
   import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
   import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
   import ClassicCellBadge from '$lib/classic/ClassicCellBadge.svelte';
+  import { StableDraftPlacement } from '$lib/classic/stable-draft-placement';
   import type { ClassicRestaurantContext } from '$lib/classic/classic-workspace-context';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
@@ -55,6 +56,15 @@
   let compactViewport = $state(false);
   let editorView = $state<'plan' | 'list'>('list');
   let tableLayoutMode = $state<'tables' | 'areas'>('tables');
+  type AreaDirectoryPlacement = {
+    id: string;
+    floorOrder: number;
+    positionX: number;
+    positionY: number;
+    name: string;
+  };
+  const areaDirectoryPlacement =
+    new StableDraftPlacement<AreaDirectoryPlacement>(structuredClone);
   const CANONICAL_FLOOR_LEVELS = [-1, 0, 1, 2] as const;
   const ROOM_GRID = 20;
   const TABLE_GRID = 10;
@@ -149,14 +159,17 @@
   );
   const orderedAreaRooms = $derived(
     [...mergedRooms].sort((left, right) => {
-      const leftFloor = draft?.floors.find((floor) => floor.id === left.floor_id);
-      const rightFloor = draft?.floors.find((floor) => floor.id === right.floor_id);
+      const leftPlacement = areaDirectoryPlacement.snapshotFor(
+        directoryPlacement(left)
+      );
+      const rightPlacement = areaDirectoryPlacement.snapshotFor(
+        directoryPlacement(right)
+      );
       return (
-        (leftFloor?.sort_order ?? Number.MAX_SAFE_INTEGER) -
-          (rightFloor?.sort_order ?? Number.MAX_SAFE_INTEGER) ||
-        Number(left.position_y) - Number(right.position_y) ||
-        Number(left.position_x) - Number(right.position_x) ||
-        left.name.localeCompare(right.name)
+        leftPlacement.floorOrder - rightPlacement.floorOrder ||
+        leftPlacement.positionY - rightPlacement.positionY ||
+        leftPlacement.positionX - rightPlacement.positionX ||
+        leftPlacement.name.localeCompare(rightPlacement.name)
       );
     })
   );
@@ -192,6 +205,7 @@
       const next = await getReservationFloorPlans(restaurantId);
       source = next;
       draft = toDraft(next);
+      resetAreaDirectoryPlacement();
       dirty = false;
       if (!selectedFloorId || !draft.floors.some((floor) => floor.id === selectedFloorId && floor.active)) {
         selectedFloorId =
@@ -282,6 +296,39 @@
 
   function touch() {
     dirty = true;
+  }
+
+  function directoryPlacement(
+    room: Pick<
+      ReservationRoomDraft,
+      'id' | 'work_area_id' | 'floor_id' | 'position_x' | 'position_y'
+    >
+  ): AreaDirectoryPlacement {
+    const floor = draft?.floors.find((item) => item.id === room.floor_id);
+    const area = restaurantContext?.draft.areas.find(
+      (item) => item.id === room.work_area_id
+    );
+    const sourceRoom = source?.rooms.find((item) => item.id === room.id);
+    const sourceArea = source?.areas.find((item) => item.id === room.work_area_id);
+    return {
+      id: room.id,
+      floorOrder: floor?.sort_order ?? Number.MAX_SAFE_INTEGER,
+      positionX: Number(room.position_x),
+      positionY: Number(room.position_y),
+      name:
+        (area ? restaurantConfig.placementArea(area).name : '') ||
+        sourceRoom?.name ||
+        sourceArea?.name ||
+        ''
+    };
+  }
+
+  function resetAreaDirectoryPlacement(): void {
+    areaDirectoryPlacement.reset(
+      (draft?.rooms ?? [])
+        .filter((room) => room.active)
+        .map((room) => directoryPlacement(room))
+    );
   }
 
   function clamp(value: number, minimum: number, maximum: number): number {
@@ -420,6 +467,7 @@
       sort_order: draft.rooms.length
     };
     draft.rooms = [...draft.rooms, room];
+    areaDirectoryPlacement.snapshotFor(directoryPlacement(room));
     selectedRoomId = room.id;
     selectedTableId = '';
     restaurantConfig.touch();
@@ -481,6 +529,8 @@
       );
       draft.rooms = draft.rooms.filter((room) => room.id !== roomDraft.id);
       draft.tables = draft.tables.filter((table) => table.room_id !== roomDraft.id);
+      restaurantConfig.removeAreaPlacement(areaDraft.id);
+      areaDirectoryPlacement.remove(roomDraft.id);
     }
     restaurantContext.draft.coverage = restaurantContext.draft.coverage.filter(
       (item) => item.areaId !== archivedAreaId
@@ -965,6 +1015,7 @@
   function discard() {
     if (!source) return;
     draft = toDraft(source);
+    resetAreaDirectoryPlacement();
     dirty = false;
     selectedFloorId =
       draft.floors.find((floor) => floor.active && floor.level === 0)?.id ??
@@ -1361,7 +1412,6 @@
   .area-row-name { min-width: 230px; display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 9px; }
   .area-row-name > strong { font-size: 12px; }
   .floor-select { min-width: 150px; }
-  .menu-cell { width: 44px; }
   .area-editor { min-width: 0; display: grid; gap: 10px; }
   .plan-card { min-width: 0; display: grid; grid-template-columns: minmax(560px, 1fr) 286px; grid-template-rows: minmax(480px, 1fr); overflow: hidden; border-color: var(--cl-line-strong); }
   .area-canvas { min-width: 0; grid-column: 1; grid-row: 1; padding: 0; border-right: 1px solid var(--cl-line); background: var(--cl-surface-muted); }

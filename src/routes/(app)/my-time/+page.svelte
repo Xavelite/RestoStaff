@@ -691,7 +691,7 @@
       <FeedbackBanner message={feedback} tone={feedbackTone} />
 
       <div class="time-layout">
-        <section class="time-month" aria-label={t('Monthly calendar for {month}', { month: monthLabel(activeMonth, i18n.intlLocale) })} data-tour="time-calendar">
+        <section class="time-month" aria-label={t('Monthly calendar for {month}', { month: monthLabel(activeMonth, i18n.intlLocale) })}>
           <div class="weekday-row" aria-hidden="true">
             {#each Array.from({ length: 7 }, (_, index) => new Intl.DateTimeFormat(i18n.intlLocale, { weekday: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2026, 0, 5 + index)))) as weekday}<span>{weekday}</span>{/each}
           </div>
@@ -722,7 +722,7 @@
         </section>
 
         <aside class="time-side-panel" aria-label={t('Selected day')}>
-          <section class="day-panel" data-tour="time-day">
+          <section class="day-panel">
             <div class="day-panel__head">
               <div>
                 <span class="page-kicker">{t('Selected day')}</span>

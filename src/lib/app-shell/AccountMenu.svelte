@@ -30,13 +30,10 @@
 
   let {
     isPlatformAdmin = false,
-    onnotificationsettings,
-    onstarttour
+    onnotificationsettings
   }: {
     isPlatformAdmin?: boolean;
     onnotificationsettings: () => void;
-    /** Present only when the current page has a guided tour. */
-    onstarttour?: () => void;
   } = $props();
 
   let open = $state(false);
@@ -264,7 +261,7 @@
   }
 </script>
 
-<div class="menu-wrap" data-tour="account">
+<div class="menu-wrap">
   <button
     class="account-button"
     type="button"
@@ -332,9 +329,6 @@
         <button type="button" onclick={() => { open = false; pinDialogOpen = true; }}>{t('Change badge PIN')}</button>
         {#if canPreviewEmployees}
           <button type="button" onclick={() => { open = false; previewPickerOpen = true; }}>{t('Preview as employee')}</button>
-        {/if}
-        {#if onstarttour}
-          <button type="button" onclick={() => { open = false; onstarttour(); }}>{t('Show me around')}</button>
         {/if}
         <button type="button" onclick={() => sound.toggle()}>
           {sound.enabled ? t('Sound on') : t('Sound off')}

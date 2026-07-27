@@ -90,7 +90,7 @@
           <h2 id="dialog-title">{t(title)}</h2>
           {#if description}<p>{t(description)}</p>{/if}
         </div>
-        <button type="button" data-tour="dialog-close" aria-label={t('Close dialog')} onclick={onclose}>×</button>
+        <button type="button" aria-label={t('Close dialog')} onclick={onclose}>×</button>
       </header>
       <div class="body">{@render children()}</div>
       {#if footer}<footer>{@render footer()}</footer>{/if}

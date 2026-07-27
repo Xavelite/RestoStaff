@@ -6,7 +6,7 @@
 
 import { catalogueAreaColor } from '../restaurant/workspace-catalogue.ts';
 
-export const POSITION_PALETTE = [
+const POSITION_PALETTE = [
   '#60a5fa', // blue
   '#fb923c', // orange
   '#34d399', // green
@@ -55,7 +55,7 @@ type AreaLike = {
   catalogueKey?: string | null;
 };
 
-export function validWorkspaceColor(value: unknown): value is string {
+function validWorkspaceColor(value: unknown): value is string {
   return typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value);
 }
 
@@ -67,7 +67,7 @@ export function readColorOverride(metadata: unknown): string | null {
   return null;
 }
 
-export function defaultPositionColor(index: number): string {
+function defaultPositionColor(index: number): string {
   return POSITION_PALETTE[index % POSITION_PALETTE.length];
 }
 

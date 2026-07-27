@@ -3,9 +3,9 @@ import type { InsightsCostRates } from '../payroll/payroll-api.ts';
 import { dateForWeekday, serviceLabel } from '../calendar/date.ts';
 import type { DateRange, InsightFilters, InsightPeriod, Regime } from './dashboard-model';
 
-export type CostSource = 'estimated_profile_rate' | 'calculated_payroll' | 'reconciled_provider';
+type CostSource = 'estimated_profile_rate' | 'calculated_payroll' | 'reconciled_provider';
 
-export type CostRow = {
+type CostRow = {
   id: string;
   label: string;
   workedMinutes: number;
@@ -16,14 +16,14 @@ export type CostRow = {
   varianceCents: bigint;
 };
 
-export type CostBucket = {
+type CostBucket = {
   key: string;
   plannedCostCents: bigint;
   workedCostCents: bigint;
   comparisonWorkedCostCents: bigint;
 };
 
-export type CostInsights = {
+type CostInsights = {
   source: CostSource;
   plannedCostCents: bigint;
   workedCostCents: bigint;

@@ -86,20 +86,21 @@
   }
 
   function matches(employee: EmployeeDraft, contractName: Map<string, string>, jobName: Map<string, string>): boolean {
+    const placement = teamDraft.placement(employee);
     const term = search.trim().toLowerCase();
-    const rate = employee.salaryBasis === 'monthly'
-      ? employee.contractualMonthlySalary
-      : employee.contractualHourlyRate;
-    if (!employee.active) return false;
-    if (excludedContract.has(employee.contractTypeId || '__none__')) return false;
-    if (excludedPosition.has(employee.jobFunctionIds[0] || '__none__')) return false;
-    if (excludedWorker.has(employee.workerStatus || '__none__')) return false;
-    if (excludedBasis.has(employee.salaryBasis || '__none__')) return false;
-    if (excludedStatus.has(payrollGaps(employee).length ? 'not_ready' : 'ready')) return false;
-    if (payrollIdSearch.trim() && !employee.payrollEmployeeId.toLowerCase().includes(payrollIdSearch.trim().toLowerCase())) return false;
-    if (functionSearch.trim() && !employee.cp302ReferenceFunctionCode.toLowerCase().includes(functionSearch.trim().toLowerCase())) return false;
+    const rate = placement.salaryBasis === 'monthly'
+      ? placement.contractualMonthlySalary
+      : placement.contractualHourlyRate;
+    if (!placement.active) return false;
+    if (excludedContract.has(placement.contractTypeId || '__none__')) return false;
+    if (excludedPosition.has(placement.jobFunctionIds[0] || '__none__')) return false;
+    if (excludedWorker.has(placement.workerStatus || '__none__')) return false;
+    if (excludedBasis.has(placement.salaryBasis || '__none__')) return false;
+    if (excludedStatus.has(payrollGaps(placement).length ? 'not_ready' : 'ready')) return false;
+    if (payrollIdSearch.trim() && !placement.payrollEmployeeId.toLowerCase().includes(payrollIdSearch.trim().toLowerCase())) return false;
+    if (functionSearch.trim() && !placement.cp302ReferenceFunctionCode.toLowerCase().includes(functionSearch.trim().toLowerCase())) return false;
     if (rateSearch.trim() && !rate.toLowerCase().includes(rateSearch.trim().toLowerCase())) return false;
-    return !term || `${employee.displayName} ${employee.payrollEmployeeId} ${contractName.get(employee.contractTypeId) ?? ''} ${employee.jobFunctionIds.map((id) => jobName.get(id) ?? '').join(' ')}`.toLowerCase().includes(term);
+    return !term || `${placement.displayName} ${placement.payrollEmployeeId} ${contractName.get(placement.contractTypeId) ?? ''} ${placement.jobFunctionIds.map((id) => jobName.get(id) ?? '').join(' ')}`.toLowerCase().includes(term);
   }
 
   function setGroupBy(next: GroupBy): void {
@@ -117,21 +118,22 @@
     if (groupBy === 'none') return [{ key: 'all', label: '', employees: rows }];
     const map = new Map<string, Group>();
     for (const employee of rows) {
+      const placement = teamDraft.placement(employee);
       let key = '';
       let label = '';
       if (groupBy === 'contract') {
-        key = employee.contractTypeId || '__none__';
-        label = employee.contractTypeId ? contractName.get(employee.contractTypeId) ?? t('Unknown') : t('No contract yet');
+        key = placement.contractTypeId || '__none__';
+        label = placement.contractTypeId ? contractName.get(placement.contractTypeId) ?? t('Unknown') : t('No contract yet');
       } else if (groupBy === 'position') {
-        key = employee.jobFunctionIds[0] || '__none__';
-        label = employee.jobFunctionIds[0] ? jobName.get(employee.jobFunctionIds[0]) ?? t('Unknown') : t('No position yet');
+        key = placement.jobFunctionIds[0] || '__none__';
+        label = placement.jobFunctionIds[0] ? jobName.get(placement.jobFunctionIds[0]) ?? t('Unknown') : t('No position yet');
       } else if (groupBy === 'worker') {
-        key = employee.workerStatus || '__none__';
-        label = employee.workerStatus
-          ? t(employee.workerStatus === 'blue_collar' ? 'Blue-collar worker' : 'White-collar employee')
+        key = placement.workerStatus || '__none__';
+        label = placement.workerStatus
+          ? t(placement.workerStatus === 'blue_collar' ? 'Blue-collar worker' : 'White-collar employee')
           : t('Not set');
       } else {
-        key = payrollGaps(employee).length ? 'not_ready' : 'ready';
+        key = payrollGaps(placement).length ? 'not_ready' : 'ready';
         label = t(key === 'ready' ? 'Ready for payroll' : 'Not ready for payroll');
       }
       const group = map.get(key) ?? { key, label, employees: [] };
@@ -155,16 +157,17 @@
   }
 
   function sortValue(employee: EmployeeDraft, key: SortKey): string {
+    const placement = teamDraft.placement(employee);
     switch (key) {
-      case 'employee': return employee.displayName.toLowerCase();
-      case 'contract': return employee.contractTypeId.toLowerCase();
-      case 'position': return (employee.jobFunctionIds[0] ?? '').toLowerCase();
-      case 'payrollId': return employee.payrollEmployeeId.toLowerCase();
-      case 'function': return employee.cp302ReferenceFunctionCode.toLowerCase();
-      case 'worker': return employee.workerStatus.toLowerCase();
-      case 'basis': return employee.salaryBasis.toLowerCase();
-      case 'rate': return employee.salaryBasis === 'monthly' ? employee.contractualMonthlySalary.toLowerCase() : employee.contractualHourlyRate.toLowerCase();
-      case 'status': return payrollGaps(employee).length ? '1' : '0';
+      case 'employee': return placement.displayName.toLowerCase();
+      case 'contract': return placement.contractTypeId.toLowerCase();
+      case 'position': return (placement.jobFunctionIds[0] ?? '').toLowerCase();
+      case 'payrollId': return placement.payrollEmployeeId.toLowerCase();
+      case 'function': return placement.cp302ReferenceFunctionCode.toLowerCase();
+      case 'worker': return placement.workerStatus.toLowerCase();
+      case 'basis': return placement.salaryBasis.toLowerCase();
+      case 'rate': return placement.salaryBasis === 'monthly' ? placement.contractualMonthlySalary.toLowerCase() : placement.contractualHourlyRate.toLowerCase();
+      case 'status': return payrollGaps(placement).length ? '1' : '0';
       default: return '';
     }
   }
@@ -252,6 +255,18 @@
       {#snippet children()}
       <div class="cl-tablewrap">
         <table class="cl-table payroll-table">
+          <colgroup>
+            <col class="col-employee" />
+            {#if shown('contract')}<col class="col-contract" />{/if}
+            {#if shown('position')}<col class="col-position" />{/if}
+            {#if shown('payrollId')}<col class="col-payroll-id" />{/if}
+            {#if shown('function')}<col class="col-function" />{/if}
+            {#if shown('worker')}<col class="col-worker" />{/if}
+            {#if shown('basis')}<col class="col-basis" />{/if}
+            {#if shown('rate')}<col class="col-rate" />{/if}
+            {#if shown('status')}<col class="col-status" />{/if}
+            <col class="col-actions" />
+          </colgroup>
           <thead>
             <tr>
               <th class="has-menu"><ClassicPrimaryColMenu label={t('Employee')} sortable sortDir={sort?.key === 'employee' ? sort.dir : null} onsort={(dir) => (sort = { key: 'employee', dir })} filterKind="text" searchValue={search} onsearch={(value) => (search = value)} groupValue={groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'contract', label: t('Contract type') }, { value: 'position', label: t('Position') }, { value: 'worker', label: t('Worker status') }, { value: 'status', label: t('Status') }]} ongroupchange={(value) => setGroupBy(value as GroupBy)} /></th>
@@ -310,14 +325,21 @@
 </ClassicTeamPage>
 
 <style>
+  .payroll-table { min-width: 1480px; }
+  .col-employee { width: 155px; }
+  .col-contract { width: 120px; }
+  .col-position { width: 130px; }
+  .col-payroll-id { width: 145px; }
+  .col-function { width: 220px; }
+  .col-worker { width: 160px; }
+  .col-basis { width: 150px; }
+  .col-rate { width: 110px; }
+  .col-status { width: 260px; }
+  .col-actions { width: 44px; }
   .employee-name { font-weight: var(--rst-fw-medium); }
   .missing { display: block; color: var(--cl-muted); font-size: 12px; }
   .payrollid { min-width: 120px; height: 34px; }
   .functionfield { min-width: 210px; max-width: 280px; height: 34px; }
   .basisfield { min-width: 108px; height: 34px; }
   .ratefield { width: 105px; height: 34px; }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-line-strong); display: inline-block; }
-  .dot.is-green { background: var(--cl-ok); }
-  .dot.is-red { background: var(--cl-problem); }
-  .chooser-col, .menu-cell { width: 44px; }
 </style>

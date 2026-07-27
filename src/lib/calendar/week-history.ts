@@ -2,7 +2,7 @@ import type { Tables } from '$lib/supabase/database.types';
 import { weekLabel } from './date';
 import { workWeekEventLabel } from './work-week-events';
 
-export type WeekHistoryItem = {
+type WeekHistoryItem = {
   id: string;
   title: string;
   detail?: string;

@@ -120,19 +120,21 @@
     excludedStatus = next;
   }
   function matches(employee: EmployeeDraft) {
-    if (!employee.active || excludedStatus.has(employee.accessState)) return false;
-    if (excludedRole.has(employee.accessRole || '__none__')) return false;
-    if (excludedPin.has(employee.pinStatus || '__none__')) return false;
-    if (emailSearch.trim() && !employee.email.toLowerCase().includes(emailSearch.trim().toLowerCase())) return false;
+    const placement = teamDraft.placement(employee);
+    if (!placement.active || excludedStatus.has(placement.accessState)) return false;
+    if (excludedRole.has(placement.accessRole || '__none__')) return false;
+    if (excludedPin.has(placement.pinStatus || '__none__')) return false;
+    if (emailSearch.trim() && !placement.email.toLowerCase().includes(emailSearch.trim().toLowerCase())) return false;
     const term = search.trim().toLowerCase();
-    return !term || `${employee.displayName} ${employee.email} ${employee.accessRole} ${employee.accessState}`.toLowerCase().includes(term);
+    return !term || `${placement.displayName} ${placement.email} ${placement.accessRole} ${placement.accessState}`.toLowerCase().includes(term);
   }
   function sortValue(employee: EmployeeDraft, key: SortKey) {
-    if (key === 'name') return employee.displayName.toLowerCase();
-    if (key === 'email') return employee.email.toLowerCase();
-    if (key === 'role') return employee.accessRole.toLowerCase();
-    if (key === 'pin') return employee.pinStatus;
-    return employee.accessState;
+    const placement = teamDraft.placement(employee);
+    if (key === 'name') return placement.displayName.toLowerCase();
+    if (key === 'email') return placement.email.toLowerCase();
+    if (key === 'role') return placement.accessRole.toLowerCase();
+    if (key === 'pin') return placement.pinStatus;
+    return placement.accessState;
   }
   function ordered(rows: EmployeeDraft[]) {
     if (!sort) return rows;
@@ -143,9 +145,10 @@
     if (groupBy === 'none') return [{ key: 'all', label: '', employees: rows }];
     const map = new Map<string, Group>();
     for (const employee of rows) {
-      const key = groupBy === 'status' ? employee.accessState : employee.accessRole || '__undefined__';
+      const placement = teamDraft.placement(employee);
+      const key = groupBy === 'status' ? placement.accessState : placement.accessRole || '__undefined__';
       const label = groupBy === 'status'
-        ? t(ACCESS_LABEL[employee.accessState] ?? employee.accessState)
+        ? t(ACCESS_LABEL[placement.accessState] ?? placement.accessState)
         : key === '__undefined__'
           ? t('No role')
           : key === 'manager'
@@ -360,7 +363,4 @@
   .email-editor { min-width: 160px; height: 32px; border-color: var(--cl-accent); box-shadow: 0 0 0 2px var(--cl-accent-wash); }
   .empty-link { justify-self: center; color: var(--cl-accent); font-size: 13px; font-weight: var(--rst-fw-medium); text-decoration: none; }
   .empty-link:hover { text-decoration: underline; }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-line-strong); display: inline-block; }
-  .dot.is-green { background: var(--cl-ok); }
-  .chooser-col, .menu-cell { width: 44px; }
 </style>

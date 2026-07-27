@@ -15,7 +15,12 @@
   type Row = { areaId: string; jobFunctionId: string; serviceKey: ServiceKey };
   type PendingService = ServiceKey | '';
   type NewRow = { tempId: string; areaId: string; jobFunctionId: string; serviceKey: PendingService; counts: Array<number | null> };
-  type CoverageGroup = { key: string; label: string; rows: Row[] };
+  type CoverageGroup = {
+    key: string;
+    label: string;
+    placementLabel: string;
+    rows: Row[];
+  };
 
   let newRows = $state<NewRow[]>([]);
   let search = $state('');
@@ -163,17 +168,39 @@
     restaurantConfig.touch();
   }
 
+  function placementAreaName(areaId: string): string {
+    const area = restaurantConfig.draft?.areas.find((item) => item.id === areaId);
+    return area ? restaurantConfig.placementArea(area).name : '';
+  }
+
+  function placementPositionName(positionId: string): string {
+    const position = restaurantConfig.draft?.jobFunctions.find(
+      (item) => item.id === positionId
+    );
+    return position ? restaurantConfig.placementPosition(position).name : '';
+  }
+
   function groupRows(rows: Row[], areaName: Map<string, string>, jobName: Map<string, string>): CoverageGroup[] {
-    if (groupBy === 'none') return [{ key: 'all', label: '', rows }];
+    if (groupBy === 'none') {
+      return [{ key: 'all', label: '', placementLabel: '', rows }];
+    }
     const map = new Map<string, CoverageGroup>();
     for (const row of rows) {
       const key = groupBy === 'area' ? row.areaId : groupBy === 'position' ? row.jobFunctionId : row.serviceKey;
       const label = groupBy === 'area' ? areaName.get(key) ?? t('Unknown') : groupBy === 'position' ? jobName.get(key) ?? t('Unknown') : t(row.serviceKey === 'evening' ? 'Evening' : 'Lunch');
-      const group = map.get(key) ?? { key, label, rows: [] };
+      const placementLabel =
+        groupBy === 'area'
+          ? placementAreaName(key) || label
+          : groupBy === 'position'
+            ? placementPositionName(key) || label
+            : label;
+      const group = map.get(key) ?? { key, label, placementLabel, rows: [] };
       group.rows.push(row);
       map.set(key, group);
     }
-    return [...map.values()].sort((a, b) => a.label.localeCompare(b.label));
+    return [...map.values()].sort((a, b) =>
+      a.placementLabel.localeCompare(b.placementLabel)
+    );
   }
   function setGroupBy(next: 'area' | 'position' | 'service' | 'none'): void {
     groupBy = next;
@@ -192,20 +219,20 @@
     return next;
   }
 
-  function orderedCoverageRows(rows: Row[], areaName: Map<string, string>, jobName: Map<string, string>): Row[] {
+  function orderedCoverageRows(rows: Row[]): Row[] {
     const activeSort = sort;
     if (!activeSort) return rows;
     const factor = activeSort.dir === 'desc' ? -1 : 1;
     return [...rows].sort((a, b) => {
       const left = activeSort.key === 'area'
-        ? areaName.get(a.areaId) ?? ''
+        ? placementAreaName(a.areaId)
         : activeSort.key === 'position'
-          ? jobName.get(a.jobFunctionId) ?? ''
+          ? placementPositionName(a.jobFunctionId)
           : a.serviceKey;
       const right = activeSort.key === 'area'
-        ? areaName.get(b.areaId) ?? ''
+        ? placementAreaName(b.areaId)
         : activeSort.key === 'position'
-          ? jobName.get(b.jobFunctionId) ?? ''
+          ? placementPositionName(b.jobFunctionId)
           : b.serviceKey;
       return factor * left.localeCompare(right);
     });
@@ -227,8 +254,8 @@
       .filter((row) => !excludedArea.has(row.areaId))
       .filter((row) => !excludedPosition.has(row.jobFunctionId))
       .filter((row) => !excludedService.has(row.serviceKey))
-      .filter((row) => `${areaName.get(row.areaId) ?? ''} ${jobName.get(row.jobFunctionId) ?? ''} ${row.serviceKey}`.toLowerCase().includes(search.trim().toLowerCase()))}
-    {@const ordered = orderedCoverageRows(rows, areaName, jobName)}
+      .filter((row) => `${placementAreaName(row.areaId)} ${placementPositionName(row.jobFunctionId)} ${row.serviceKey}`.toLowerCase().includes(search.trim().toLowerCase()))}
+    {@const ordered = orderedCoverageRows(rows)}
     {@const groups = groupRows(ordered, areaName, jobName)}
     {@const areaValues = activeAreas.map((area) => ({ value: area.id, label: area.name }))}
     {@const positionValues = activePositions.map((job) => ({ value: job.id, label: job.name }))}
@@ -308,6 +335,5 @@
   .num::placeholder { color: var(--cl-line-strong); }
   .remove { min-height: 30px; height: 30px; width: 30px; color: var(--cl-problem); font-size: 18px; }
   .inline-warning td { padding-block: 7px !important; color: var(--cl-attention); background: var(--cl-attention-wash); font-size: 12px; }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-line-strong); display: inline-block; }
   .suggestion-action span { min-width: 20px; height: 20px; display: grid; place-items: center; border-radius: 999px; background: var(--cl-accent-wash); color: var(--cl-accent); font-size: 10px; font-weight: var(--rst-fw-bold); }
 </style>

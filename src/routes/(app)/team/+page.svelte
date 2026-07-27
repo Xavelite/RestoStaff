@@ -262,32 +262,34 @@
   }
 
   function matches(employee: EmployeeDraft, jobName: Map<string, string>, contractName: Map<string, string>): boolean {
-    if (excludedPosition.has(employee.jobFunctionIds[0] || '__none__')) return false;
-    if (excludedContract.has(employee.contractTypeId || '__none__')) return false;
-    if (excludedAccess.has(employee.accessState)) return false;
-    if (excludedStatus.has(employee.active ? 'active' : 'archived')) return false;
-    if (emailSearch.trim() && !employee.email.toLowerCase().includes(emailSearch.trim().toLowerCase())) return false;
-    if (phoneSearch.trim() && !employee.phone.toLowerCase().includes(phoneSearch.trim().toLowerCase())) return false;
+    const placement = teamDraft.placement(employee);
+    if (excludedPosition.has(placement.jobFunctionIds[0] || '__none__')) return false;
+    if (excludedContract.has(placement.contractTypeId || '__none__')) return false;
+    if (excludedAccess.has(placement.accessState)) return false;
+    if (excludedStatus.has(placement.active ? 'active' : 'archived')) return false;
+    if (emailSearch.trim() && !placement.email.toLowerCase().includes(emailSearch.trim().toLowerCase())) return false;
+    if (phoneSearch.trim() && !placement.phone.toLowerCase().includes(phoneSearch.trim().toLowerCase())) return false;
     const term = search.trim().toLowerCase();
-    return !term || searchBlob(employee, jobName, contractName).includes(term);
+    return !term || searchBlob(placement, jobName, contractName).includes(term);
   }
 
   function sortValue(employee: EmployeeDraft, key: SortKey, jobName: Map<string, string>, contractName: Map<string, string>): string {
+    const placement = teamDraft.placement(employee);
     switch (key) {
       case 'employee':
-        return employee.displayName.toLowerCase();
+        return placement.displayName.toLowerCase();
       case 'position':
-        return (jobName.get(employee.jobFunctionIds[0] ?? '') ?? '~').toLowerCase();
+        return (jobName.get(placement.jobFunctionIds[0] ?? '') ?? '~').toLowerCase();
       case 'email':
-        return employee.email.toLowerCase();
+        return placement.email.toLowerCase();
       case 'phone':
-        return employee.phone.toLowerCase();
+        return placement.phone.toLowerCase();
       case 'contract':
-        return (contractName.get(employee.contractTypeId) ?? '~').toLowerCase();
+        return (contractName.get(placement.contractTypeId) ?? '~').toLowerCase();
       case 'access':
-        return employee.accessState;
+        return placement.accessState;
       case 'status':
-        return employee.active ? '0' : '1';
+        return placement.active ? '0' : '1';
       default:
         return '';
     }
@@ -303,24 +305,25 @@
     if (groupBy === 'none') return [{ key: 'all', label: '', employees: rows }];
     const groups = new Map<string, EmployeeGroup>();
     for (const employee of rows) {
+      const placement = teamDraft.placement(employee);
       let key = '';
       let label = '';
       let color: string | undefined;
       if (groupBy === 'position') {
-        key = employee.jobFunctionIds[0] ?? '__undefined__';
+        key = placement.jobFunctionIds[0] ?? '__undefined__';
         label = key === '__undefined__' ? t('No position yet') : jobName.get(key) ?? t('Unknown');
         color = key === '__undefined__' ? undefined : employeeColor.get(employee.id);
       } else if (groupBy === 'contract') {
-        key = employee.contractTypeId || '__undefined__';
+        key = placement.contractTypeId || '__undefined__';
         label = key === '__undefined__' ? t('No contract yet') : contractName.get(key) ?? t('Unknown');
       } else if (groupBy === 'area') {
-        const area = employeeArea(employee);
+        const area = employeeArea(placement);
         key = area.key;
         label = area.label;
         color = area.color;
       } else {
-        key = employee.active ? 'active' : 'archived';
-        label = t(employee.active ? 'Active' : 'Archived');
+        key = placement.active ? 'active' : 'archived';
+        label = t(placement.active ? 'Active' : 'Archived');
       }
       const group = groups.get(key) ?? { key, label, color, employees: [] };
       group.employees.push(employee);
@@ -631,8 +634,6 @@
   .namefield { min-width: 180px; height: 34px; font-weight: var(--rst-fw-medium); }
   .cellfield { min-width: 150px; height: 34px; }
   .phonefield { min-width: 125px; }
-  .chooser-col,
-  .menu-cell { width: 44px; }
   .cell-value { max-width: 260px; display: block; overflow: hidden; padding: 3px 0; border: 0; background: transparent; color: var(--cl-ink); font: inherit; font-size: 13px; font-weight: var(--rst-fw-regular); line-height: 1.35; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
   .cell-value:hover:not(:disabled) { color: var(--cl-accent); text-decoration: underline; text-underline-offset: 2px; }
   .cell-value:disabled { cursor: default; }
@@ -662,8 +663,5 @@
   .contract-select select { min-width: 0; width: 100%; padding: 2px 20px 2px 0; border: 0; outline: 0; color: var(--cl-ink); background: transparent; font: inherit; font-size: 12px; font-weight: var(--rst-fw-medium); text-overflow: ellipsis; cursor: pointer; }
   .contract-select select:disabled { cursor: default; }
   .posmenu__list > span { color: var(--cl-muted); font-size: 12px; }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-line-strong); display: inline-block; }
-  .dot.is-green { background: var(--cl-ok); }
-  .dot.is-blue { background: var(--cl-info); }
   .is-employee { align-items: flex-start; }
 </style>

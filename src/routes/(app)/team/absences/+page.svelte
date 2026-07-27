@@ -202,7 +202,6 @@
 {/if}
 
 <style>
-  .menu-cell { width: 44px; }
   .view-switch { display: inline-flex; overflow: hidden; border: 1px solid var(--cl-line-strong); border-radius: var(--cl-radius); background: var(--cl-surface); }
   .view-switch button { min-height: 32px; padding: 5px 10px; border: 0; border-left: 1px solid var(--cl-line); background: transparent; color: var(--cl-muted); font: inherit; font-size: 12px; font-weight: var(--rst-fw-medium); cursor: pointer; }
   .view-switch button:first-child { border-left: 0; }
@@ -211,6 +210,4 @@
   .settings-link { min-height: 32px; display: inline-flex; align-items: center; padding: 5px 9px; color: var(--cl-muted); font-size: 12px; font-weight: var(--rst-fw-medium); text-decoration: none; }
   .settings-link:hover { color: var(--cl-accent); text-decoration: underline; text-underline-offset: 2px; }
   .period time { color: var(--cl-ink); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-line-strong); display: inline-block; }
-  .dot.is-orange { background: var(--cl-attention); }
 </style>

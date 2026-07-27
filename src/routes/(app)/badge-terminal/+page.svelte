@@ -217,19 +217,6 @@
 </Dialog>
 
 <style>
-  .menu-cell {
-    width: 44px;
-  }
-  .dot {
-    width: 7px;
-    height: 7px;
-    display: inline-block;
-    border-radius: 50%;
-    background: var(--cl-line-strong);
-  }
-  .dot.is-green {
-    background: var(--cl-ok);
-  }
   .device-icon {
     width: 28px;
     height: 28px;

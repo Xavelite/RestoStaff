@@ -24,13 +24,20 @@
   type PositionRow = {
     id: string;
     name: string;
+    code: string;
     estimatedHourlyCost: number;
     active: boolean;
     primaryAreaId: string;
     areaIds: string[];
     catalogueKey: string;
+    iconKey: string;
   };
-  type PositionGroup = { key: string; label: string; rows: PositionRow[] };
+  type PositionGroup = {
+    key: string;
+    label: string;
+    placementLabel: string;
+    rows: PositionRow[];
+  };
 
   $effect(() => {
     if (workspace.activeId && ['owner', 'manager'].includes(workspace.effectiveRole ?? '')) {
@@ -138,7 +145,7 @@
     const draft = restaurantConfig.draft;
     if (!draft) return;
     const id = crypto.randomUUID();
-    draft.jobFunctions = [{
+    const position: PositionRow = {
       id,
       name: '',
       code: '',
@@ -148,7 +155,9 @@
       areaIds: [],
       catalogueKey: '',
       iconKey: ''
-    }, ...draft.jobFunctions];
+    };
+    draft.jobFunctions = [position, ...draft.jobFunctions];
+    restaurantConfig.placementPosition(position);
     restaurantConfig.touch();
     newPositionId = id;
     await tick();
@@ -231,6 +240,7 @@
     } else {
       draft.jobFunctions = draft.jobFunctions.filter((item) => item.id !== positionId);
       draft.coverage = draft.coverage.filter((item) => item.jobFunctionId !== positionId);
+      restaurantConfig.removePositionPlacement(positionId);
     }
     restaurantConfig.touch();
   }
@@ -250,21 +260,27 @@
   }
 
   function matches(position: PositionRow) {
+    const stable = placementForPosition(position);
     const term = search.trim().toLowerCase();
     const headcount = employeesByPosition.get(position.id)?.size ?? 0;
-    if (excludedStatus.has(position.active ? 'active' : 'archived')) return false;
-    if (costSearch.trim() && !`${position.estimatedHourlyCost}`.includes(costSearch.trim())) return false;
+    if (excludedStatus.has(stable.active ? 'active' : 'archived')) return false;
+    if (costSearch.trim() && !`${stable.estimatedHourlyCost}`.includes(costSearch.trim())) return false;
     if (employeeSearch.trim() && !`${headcount}`.includes(employeeSearch.trim())) return false;
-    return !term || position.name.toLowerCase().includes(term);
+    return !term || stable.name.toLowerCase().includes(term);
+  }
+
+  function placementForPosition(position: PositionRow): PositionRow {
+    return restaurantConfig.placementPosition(position);
   }
 
   function sortValue(position: PositionRow) {
+    const stable = placementForPosition(position);
     switch (sort?.key) {
-      case 'name': return position.name.toLowerCase();
-      case 'cost': return `${position.estimatedHourlyCost}`.padStart(8, '0');
+      case 'name': return stable.name.toLowerCase();
+      case 'cost': return `${stable.estimatedHourlyCost}`.padStart(8, '0');
       case 'employees': return `${employeesByPosition.get(position.id)?.size ?? 0}`.padStart(4, '0');
-      case 'active': return position.active ? '0' : '1';
-      default: return position.name.toLowerCase();
+      case 'active': return stable.active ? '0' : '1';
+      default: return stable.name.toLowerCase();
     }
   }
 
@@ -275,28 +291,42 @@
   }
 
   function groupedPositions(rows: PositionRow[]): PositionGroup[] {
-    if (groupBy === 'none') return [{ key: 'all', label: '', rows }];
+    if (groupBy === 'none') {
+      return [{ key: 'all', label: '', placementLabel: '', rows }];
+    }
     const groups = new Map<string, PositionGroup>();
     for (const position of rows) {
+      const stable = placementForPosition(position);
       const headcount = employeesByPosition.get(position.id)?.size ?? 0;
-      const allAreas = workspacePositionByKey.get(position.catalogueKey)?.areaKeys.length === 0;
+      const allAreas = workspacePositionByKey.get(stable.catalogueKey)?.areaKeys.length === 0;
       const key = groupBy === 'area'
-        ? position.primaryAreaId || (allAreas ? 'all-areas' : 'unlinked')
+        ? stable.primaryAreaId || (allAreas ? 'all-areas' : 'unlinked')
         : groupBy === 'status'
-          ? (position.active ? 'active' : 'archived')
+          ? (stable.active ? 'active' : 'archived')
           : (headcount ? 'staffed' : 'unstaffed');
       const label = groupBy === 'area'
-        ? position.primaryAreaId
-          ? restaurantConfig.draft?.areas.find((area) => area.id === position.primaryAreaId)?.name ?? t('No area linked')
+        ? stable.primaryAreaId
+          ? restaurantConfig.draft?.areas.find((area) => area.id === stable.primaryAreaId)?.name ?? t('No area linked')
           : t(allAreas ? 'All areas' : 'No area linked')
         : groupBy === 'status'
-          ? t(position.active ? 'Active' : 'Archived')
+          ? t(stable.active ? 'Active' : 'Archived')
           : t(headcount ? 'Staffed' : 'No staff assigned');
-      const group = groups.get(key) ?? { key, label, rows: [] };
+      const placementLabel =
+        groupBy === 'area' && stable.primaryAreaId
+          ? (() => {
+              const area = context.draft.areas.find(
+                (candidate) => candidate.id === stable.primaryAreaId
+              );
+              return area ? restaurantConfig.placementArea(area).name : label;
+            })()
+          : label;
+      const group = groups.get(key) ?? { key, label, placementLabel, rows: [] };
       group.rows.push(position);
       groups.set(key, group);
     }
-    return [...groups.values()].sort((left, right) => left.label.localeCompare(right.label));
+    return [...groups.values()].sort((left, right) =>
+      left.placementLabel.localeCompare(right.placementLabel)
+    );
   }
 
   const readRestaurantContext = useClassicRestaurantContext();
@@ -314,7 +344,7 @@
   <ClassicTablePanel dirty={context.dirty} saving={context.saving} canSave={context.canSave} onsave={() => void context.save().catch(() => undefined)} ondiscard={context.discard}>
     {#snippet meta()}
       <span><i class="dot"></i>{t('{count} positions', { count: rows.length })}</span>
-      <span><i class="dot is-green"></i>{t('{count} active', { count: rows.filter((position) => position.active).length })}</span>
+      <span><i class="dot is-green"></i>{t('{count} active', { count: rows.filter((position) => placementForPosition(position).active).length })}</span>
     {/snippet}
     {#snippet actions()}
       <button class="cl-btn is-primary" type="button" disabled={workspace.isPreview || !restaurantConfig.draft} onclick={() => void addPosition()}><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>{t('Add position')}</button>
@@ -495,13 +525,9 @@
   .primary-area-field > span { width: 7px; height: 24px; border-radius: 2px; background: var(--area-color); }
   .primary-area-field select { min-width: 145px; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .chooser-col,
-  .menu-cell { width: 44px; }
   .cl-grip { width: 34px; text-align: center; }
   .cl-grip button { border: 0; background: transparent; color: var(--cl-muted); cursor: grab; letter-spacing: -3px; }
   .cl-grip button:disabled { cursor: default; opacity: .35; }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-line-strong); display: inline-block; }
-  .dot.is-green { background: var(--cl-ok); }
   .position-area-list { display: grid; gap: 7px; }
   .position-area-list > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 52px; padding: 8px 10px; border: 1px solid var(--cl-line); border-radius: 5px; background: var(--cl-surface); }
   .position-area-list > div.is-linked { border-color: color-mix(in srgb, var(--cl-accent) 32%, var(--cl-line)); background: color-mix(in srgb, var(--cl-accent) 4%, var(--cl-surface)); }
