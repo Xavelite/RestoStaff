@@ -17,7 +17,7 @@
     position: fixed;
     z-index: var(--rst-z-toast);
     right: 18px;
-    bottom: 18px;
+    bottom: calc(86px + env(safe-area-inset-bottom, 0px));
     width: min(390px, calc(100vw - 28px));
     display: grid;
     gap: 8px;

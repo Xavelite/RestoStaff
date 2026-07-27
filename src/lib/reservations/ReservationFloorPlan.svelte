@@ -47,6 +47,7 @@
     floorEditable = false,
     roomsEditable = editable,
     tablesEditable = editable,
+    tablesSelectable = true,
     showTableCount = true,
     selectedTableId = '',
     selectedRoomId = '',
@@ -70,6 +71,7 @@
     floorEditable?: boolean;
     roomsEditable?: boolean;
     tablesEditable?: boolean;
+    tablesSelectable?: boolean;
     showTableCount?: boolean;
     selectedTableId?: string;
     selectedRoomId?: string;
@@ -286,6 +288,7 @@
   }
 
   function startDrag(event: PointerEvent, table: FloorTable) {
+    if (!tablesSelectable) return;
     onselect(table, reservationFor(table.id));
     if (!tablesEditable || table.blocked) return;
     const stage = event.currentTarget instanceof HTMLElement
@@ -570,7 +573,10 @@
             class:is-small-party={table.maximum_capacity <= 2}
             class:is-selected={selectedTableId === table.id}
             class:is-dragging={dragging?.id === table.id}
+            class:is-passive={!tablesSelectable}
             type="button"
+            tabindex={tablesSelectable ? 0 : -1}
+            aria-hidden={!tablesSelectable}
             style={tableStyle(table)}
             aria-label={reservation
               ? t('Table {label}, {guest}', { label: table.label, guest: reservation.guest.display_name })
@@ -846,6 +852,7 @@
   .floor-table.is-small-party .chair.is-bottom { display: none; }
   .is-editable .floor-table { cursor: grab; }
   .floor-table.is-dragging { z-index: 4; cursor: grabbing; box-shadow: 0 8px 18px rgb(28 35 44 / 18%); }
+  .floor-table.is-passive { pointer-events: none; opacity: .46; }
   .floor-table.is-round { border-radius: 999px; }
   .floor-table.is-rectangle { border-radius: 4px; }
   .floor-table.is-selected { outline: 3px solid color-mix(in srgb, var(--cl-accent) 28%, transparent); outline-offset: 2px; }

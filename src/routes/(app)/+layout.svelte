@@ -206,11 +206,6 @@
 
 
         {#if !workspace.isPreview}
-          <CommunicationCenter
-            restaurantId={workspace.activeId}
-            role={workspace.effectiveRole}
-            employeeId={workspace.effectiveEmployeeId}
-          />
           <NotificationBell
             restaurantId={workspace.activeId}
             role={workspace.effectiveRole}
@@ -309,6 +304,14 @@
           {@render children()}
         {/if}
       </main>
+
+      {#if !workspace.isPreview}
+        <CommunicationCenter
+          restaurantId={workspace.activeId}
+          role={workspace.effectiveRole}
+          employeeId={workspace.effectiveEmployeeId}
+        />
+      {/if}
     </div>
   {/if}
   <ConfirmHost />

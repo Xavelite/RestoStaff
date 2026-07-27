@@ -163,7 +163,7 @@ test('classic workspace chrome pins navigation and derives tabs directly from th
   assert.match(css, /\.cl-brand\s*\{[\s\S]*?position:\s*fixed;/);
 });
 
-test('people and contracts use readable rows while all employee details share one complete dialog', async () => {
+test('people edit contact cells inline while employee identity opens one complete dialog', async () => {
   const people = await readFile('src/routes/(app)/team/+page.svelte', 'utf8');
   const contracts = await readFile('src/routes/(app)/team/contracts/+page.svelte', 'utf8');
   const payrollEmployees = await readFile('src/routes/(app)/payroll/employees/+page.svelte', 'utf8');
@@ -173,7 +173,8 @@ test('people and contracts use readable rows while all employee details share on
   assert.match(people, /let groupBy = \$state<GroupBy>\('position'\)/);
   assert.match(contracts, /let groupBy = \$state<GroupBy>\('contract'\)/);
   assert.match(people, /employee\.id === freshId[\s\S]*teamDraft\.update\(employee\.id, \{ email:/);
-  assert.match(people, /class="cell-value is-secondary"[\s\S]*\{employee\.email \|\| '—'\}/);
+  assert.match(people, /class="inline-cell"[\s\S]*startInlineEdit\(employee, 'email'\)/);
+  assert.match(people, /editingField === 'phone'[\s\S]*onblur=\{commitInlineEdit\}/);
   assert.match(contracts, /class="position-identity"/);
   assert.match(contracts, /formatDate\(employee\.contractStart\)/);
   assert.match(payrollEmployees, /setReferenceFunction\(employee, event\.currentTarget\.value\)/);
@@ -181,8 +182,10 @@ test('people and contracts use readable rows while all employee details share on
     assert.match(source, /<EmployeeInlineEditor/);
     assert.match(source, /detailId/);
   }
-  assert.match(people, />\{t\('Open'\)\}<\/button>/);
-  assert.match(contracts, />\{t\('Open'\)\}<\/button>/);
+  assert.match(people, /<ClassicRowMenu/);
+  assert.doesNotMatch(people, /<th[^>]*>\{t\('Actions'\)\}<\/th>/);
+  assert.doesNotMatch(contracts, /<th[^>]*>\{t\('Actions'\)\}<\/th>/);
+  assert.doesNotMatch(contracts, />\{t\('Open'\)\}<\/button>/);
   assert.match(editor, /<Dialog/);
   assert.match(editor, /section === 'people'/);
   assert.match(editor, /section === 'contract'/);
@@ -292,6 +295,8 @@ test('Team and Restaurant use one route-scoped workspace instead of mounting sta
   const restaurantLayout = await readFile('src/routes/(app)/restaurant/+layout.svelte', 'utf8');
   const teamWrapper = await readFile('src/lib/classic/ClassicTeamPage.svelte', 'utf8');
   const restaurantWrapper = await readFile('src/lib/classic/ClassicRestaurantPage.svelte', 'utf8');
+  const restaurantProfile = await readFile('src/routes/(app)/restaurant/+page.svelte', 'utf8');
+  const hoursRedirect = await readFile('src/routes/(app)/restaurant/hours/+page.ts', 'utf8');
 
   assert.match(teamLayout, /children: routeChildren[\s\S]*<ClassicTeamPage>[\s\S]*\{#key page\.url\.pathname\}[\s\S]*\{@render routeChildren\(\)\}/);
   assert.match(restaurantLayout, /children: routeChildren[\s\S]*<ClassicRestaurantPage>[\s\S]*\{#key page\.url\.pathname\}[\s\S]*\{@render routeChildren\(\)\}/);
@@ -311,7 +316,6 @@ test('Team and Restaurant use one route-scoped workspace instead of mounting sta
 
   for (const file of [
     'src/routes/(app)/restaurant/+page.svelte',
-    'src/routes/(app)/restaurant/hours/+page.svelte',
     'src/routes/(app)/restaurant/areas/+page.svelte',
     'src/routes/(app)/restaurant/positions/+page.svelte',
     'src/routes/(app)/restaurant/coverage/+page.svelte'
@@ -320,6 +324,8 @@ test('Team and Restaurant use one route-scoped workspace instead of mounting sta
     assert.match(source, /useClassicRestaurantContext/);
     assert.doesNotMatch(source, /ClassicRestaurantPage/);
   }
+  assert.match(restaurantProfile, /Weekly service periods/);
+  assert.match(hoursRedirect, /redirect\(308, '\/restaurant'\)/);
 });
 
 test('Coverage inherits the same explicit grid contract as every classic table', async () => {
@@ -415,7 +421,9 @@ test('Restaurant Areas is the direct-manipulation floor canvas instead of a dupl
 
   assert.match(page, /<ReservationFloorPlansWorkspace mode="areas"/);
   assert.doesNotMatch(page, /<ClassicTablePanel|<table/);
-  assert.match(workspace, /function addFloor\(\)/);
+  assert.match(workspace, /const CANONICAL_FLOOR_LEVELS = \[-1, 0, 1, 2\] as const/);
+  assert.match(workspace, /function persistedFloorName\(/);
+  assert.doesNotMatch(workspace, /function addFloor\(\)/);
   assert.match(workspace, /function addArea\(/);
   assert.match(workspace, /onroomresize=/);
   assert.match(workspace, /onfloorresize=/);

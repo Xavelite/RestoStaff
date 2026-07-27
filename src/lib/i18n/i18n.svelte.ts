@@ -5037,3 +5037,33 @@ Object.assign(dutch, {
   'Choose how Restogogo should prepare future declarations and provider mappings.': 'Kies hoe Restogogo toekomstige aangiften en leverancierskoppelingen voorbereidt.',
   'Employer identifiers and external connections are available to restaurant owners only.': 'Werkgeversgegevens en externe koppelingen zijn alleen beschikbaar voor restauranteigenaars.'
 });
+
+Object.assign(french, {
+  'Create at least one active area and position before scheduling.':
+    'Créez au moins une zone et un poste actifs avant de planifier.',
+  'Unplanned': 'Non planifié',
+  'Discard private schedule draft?': 'Supprimer le brouillon privé du planning ?',
+  'The last published schedule stays visible to employees. Your unpublished changes will be removed.':
+    'Le dernier planning publié reste visible par les employés. Vos modifications non publiées seront supprimées.',
+  'Discard draft': 'Supprimer le brouillon',
+  'Private schedule draft discarded.': 'Le brouillon privé du planning a été supprimé.',
+  'Discard private draft': 'Supprimer le brouillon privé',
+  'Manager access required': 'Accès manager requis',
+  'Employer identifiers and external connections are available to restaurant operators.':
+    'Les identifiants employeur et les connexions externes sont accessibles aux responsables du restaurant.'
+});
+
+Object.assign(dutch, {
+  'Create at least one active area and position before scheduling.':
+    'Maak minstens één actieve zone en functie aan voordat je plant.',
+  'Unplanned': 'Ongepland',
+  'Discard private schedule draft?': 'Privéconcept van de planning verwijderen?',
+  'The last published schedule stays visible to employees. Your unpublished changes will be removed.':
+    'De laatst gepubliceerde planning blijft zichtbaar voor medewerkers. Je niet-gepubliceerde wijzigingen worden verwijderd.',
+  'Discard draft': 'Concept verwijderen',
+  'Private schedule draft discarded.': 'Privéconcept van de planning verwijderd.',
+  'Discard private draft': 'Privéconcept verwijderen',
+  'Manager access required': 'Managerstoegang vereist',
+  'Employer identifiers and external connections are available to restaurant operators.':
+    'Werkgeversgegevens en externe koppelingen zijn beschikbaar voor restaurantbeheerders.'
+});

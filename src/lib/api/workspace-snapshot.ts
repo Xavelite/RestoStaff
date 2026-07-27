@@ -70,6 +70,7 @@ export type ManagerOperationsReadModel = WorkspaceBase & {
   employee_legal_profiles: Tables<'employee_legal_profiles'>[];
   employee_payroll_profiles: Tables<'employee_payroll_profiles'>[];
   job_functions: Tables<'job_functions'>[];
+  job_function_areas: JobFunctionArea[];
   employee_job_functions: EmployeeJobFunction[];
   recurring_schedule_slots: RecurringScheduleSlot[];
   contract_types: Tables<'contract_types'>[];
@@ -82,6 +83,7 @@ export type ManagerOperationsReadModel = WorkspaceBase & {
   work_weeks: Tables<'work_weeks'>[];
   work_week_events: Tables<'work_week_events'>[];
   planned_shifts: Tables<'planned_shifts'>[];
+  published_planned_shifts: Tables<'planned_shifts'>[];
   employee_availability_slots: Tables<'employee_availability_slots'>[];
   employee_availability_submissions: Tables<'employee_availability_submissions'>[];
   weekly_notes: Tables<'weekly_notes'>[];
@@ -98,6 +100,7 @@ export type EmployeeOperationsReadModel = WorkspaceBase & {
   employees: Tables<'employees'>[];
   employee_contracts: Tables<'employee_contracts'>[];
   job_functions: Tables<'job_functions'>[];
+  job_function_areas: JobFunctionArea[];
   employee_job_functions: EmployeeJobFunction[];
   recurring_schedule_slots: RecurringScheduleSlot[];
   contract_types: Tables<'contract_types'>[];
@@ -218,6 +221,7 @@ export function parseManagerOperationsReadModel(value: Json): ManagerOperationsR
     employee_legal_profiles: rows(data, 'employee_legal_profiles'),
     employee_payroll_profiles: rows(data, 'employee_payroll_profiles'),
     job_functions: rows(data, 'job_functions'),
+    job_function_areas: rows(data, 'job_function_areas'),
     employee_job_functions: rows(data, 'employee_job_functions'),
     recurring_schedule_slots: rows(data, 'recurring_schedule_slots'),
     contract_types: contractTypes(data),
@@ -230,6 +234,9 @@ export function parseManagerOperationsReadModel(value: Json): ManagerOperationsR
     work_weeks: rows(data, 'work_weeks'),
     work_week_events: rows(data, 'work_week_events'),
     planned_shifts: rows(data, 'planned_shifts'),
+    published_planned_shifts: Array.isArray(data.published_planned_shifts)
+      ? rows(data, 'published_planned_shifts')
+      : rows(data, 'planned_shifts'),
     employee_availability_slots: rows(data, 'employee_availability_slots'),
     employee_availability_submissions: rows(data, 'employee_availability_submissions'),
     weekly_notes: rows(data, 'weekly_notes'),
@@ -250,6 +257,7 @@ export function parseEmployeeOperationsReadModel(value: Json): EmployeeOperation
     employees: rows(data, 'employees'),
     employee_contracts: rows(data, 'employee_contracts'),
     job_functions: rows(data, 'job_functions'),
+    job_function_areas: rows(data, 'job_function_areas'),
     employee_job_functions: rows(data, 'employee_job_functions'),
     recurring_schedule_slots: rows(data, 'recurring_schedule_slots'),
     contract_types: contractTypes(data),

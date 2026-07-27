@@ -246,6 +246,19 @@ export async function savePlanning(input: {
   return mutationAck(data);
 }
 
+export async function discardPlanningDraft(input: {
+  restaurantId: string;
+  weekStart: string;
+  expectedRevision: number;
+}): Promise<MutationAck> {
+  const data = await rpcJson('discard_manager_planning_draft', {
+    p_restaurant_id: input.restaurantId,
+    p_week_start: input.weekStart,
+    p_expected_revision: input.expectedRevision
+  });
+  return mutationAck(data);
+}
+
 export type ActualsAction =
   | 'manual_entry'
   | 'adjust_entry'

@@ -5791,6 +5791,9 @@ export type Database = {
           actuals_revision: number
           actuals_status: Database["public"]["Enums"]["actuals_status"]
           created_at: string
+          planning_draft_updated_at: string | null
+          planning_draft_updated_by_profile_id: string | null
+          planning_has_unpublished_changes: boolean
           planning_revision: number
           planning_status: Database["public"]["Enums"]["planning_status"]
           published_at: string | null
@@ -5809,6 +5812,9 @@ export type Database = {
           actuals_revision?: number
           actuals_status?: Database["public"]["Enums"]["actuals_status"]
           created_at?: string
+          planning_draft_updated_at?: string | null
+          planning_draft_updated_by_profile_id?: string | null
+          planning_has_unpublished_changes?: boolean
           planning_revision?: number
           planning_status?: Database["public"]["Enums"]["planning_status"]
           published_at?: string | null
@@ -5827,6 +5833,9 @@ export type Database = {
           actuals_revision?: number
           actuals_status?: Database["public"]["Enums"]["actuals_status"]
           created_at?: string
+          planning_draft_updated_at?: string | null
+          planning_draft_updated_by_profile_id?: string | null
+          planning_has_unpublished_changes?: boolean
           planning_revision?: number
           planning_status?: Database["public"]["Enums"]["planning_status"]
           published_at?: string | null
@@ -5853,6 +5862,13 @@ export type Database = {
           {
             foreignKeyName: "work_weeks_actuals_reopened_by_profile_id_fkey"
             columns: ["actuals_reopened_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_weeks_planning_draft_updated_by_profile_id_fkey"
+            columns: ["planning_draft_updated_by_profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -6513,6 +6529,14 @@ export type Database = {
           p_restaurant_id: string
           p_week_start: string
           p_weekly_notes?: Json
+        }
+        Returns: Json
+      }
+      discard_manager_planning_draft: {
+        Args: {
+          p_expected_revision: number
+          p_restaurant_id: string
+          p_week_start: string
         }
         Returns: Json
       }

@@ -54,6 +54,8 @@
   let customAreaName = $state('');
   let compactViewport = $state(false);
   let editorView = $state<'plan' | 'list'>('plan');
+  let tableLayoutMode = $state<'tables' | 'areas'>('tables');
+  const CANONICAL_FLOOR_LEVELS = [-1, 0, 1, 2] as const;
   const ROOM_GRID = 20;
   const TABLE_GRID = 10;
   const editorReadOnly = $derived(compactViewport || workspace.isPreview);
@@ -78,6 +80,34 @@
   const selectedFloor = $derived(
     draft?.floors.find((floor) => floor.id === selectedFloorId && floor.active) ?? null
   );
+  const selectableFloors = $derived.by(() => {
+    const occupiedFloorIds = new Set(
+      (draft?.rooms ?? [])
+        .filter((room) => room.active && room.floor_id)
+        .map((room) => room.floor_id)
+    );
+    const active =
+      draft?.floors.filter(
+        (floor) =>
+          floor.active &&
+          (CANONICAL_FLOOR_LEVELS.includes(
+            floor.level as (typeof CANONICAL_FLOOR_LEVELS)[number]
+          ) ||
+            occupiedFloorIds.has(floor.id))
+      ) ?? [];
+    return [...active].sort((left, right) => {
+      const leftCanonical = CANONICAL_FLOOR_LEVELS.indexOf(
+        left.level as (typeof CANONICAL_FLOOR_LEVELS)[number]
+      );
+      const rightCanonical = CANONICAL_FLOOR_LEVELS.indexOf(
+        right.level as (typeof CANONICAL_FLOOR_LEVELS)[number]
+      );
+      if (leftCanonical >= 0 && rightCanonical >= 0) return leftCanonical - rightCanonical;
+      if (leftCanonical >= 0) return -1;
+      if (rightCanonical >= 0) return 1;
+      return left.level - right.level || left.sort_order - right.sort_order;
+    });
+  });
   const mergedRooms = $derived.by(() => {
     if (!draft || !source) return [] as ReservationRoom[];
     return draft.rooms
@@ -163,7 +193,10 @@
       draft = toDraft(next);
       dirty = false;
       if (!selectedFloorId || !draft.floors.some((floor) => floor.id === selectedFloorId && floor.active)) {
-        selectedFloorId = draft.floors.find((floor) => floor.active)?.id ?? '';
+        selectedFloorId =
+          draft.floors.find((floor) => floor.active && floor.level === 0)?.id ??
+          draft.floors.find((floor) => floor.active)?.id ??
+          '';
       }
       selectedRoomId = '';
       selectedTableId = '';
@@ -208,20 +241,25 @@
       }
     }
     const floors = value.floors.map((floor) => ({
-        ...floor,
-        canvas_width: Number(floor.canvas_width),
-        canvas_height: Number(floor.canvas_height)
-      }));
-    if (mode === 'areas' && !floors.some((floor) => floor.active)) {
+      ...floor,
+      canvas_width: Number(floor.canvas_width),
+      canvas_height: Number(floor.canvas_height)
+    }));
+    for (const [index, level] of CANONICAL_FLOOR_LEVELS.entries()) {
+      const existing = floors.find((floor) => floor.level === level);
+      if (existing) {
+        existing.active = true;
+        continue;
+      }
       floors.push({
         id: crypto.randomUUID(),
         restaurant_id: value.restaurantId,
-        name: t('Ground floor'),
-        level: 0,
+        name: persistedFloorName(level),
+        level,
         canvas_width: 1000,
         canvas_height: 600,
         active: true,
-        sort_order: 0
+        sort_order: index
       });
     }
     return {
@@ -275,12 +313,33 @@
     };
   }
 
-  function floorName(level: number): string {
-    if (level === 0) return t('Ground floor');
-    if (level === 1) return t('First floor');
-    if (level === 2) return t('Second floor');
-    if (level === 3) return t('Third floor');
-    return t('Floor {level}', { level });
+  function persistedFloorName(level: number): string {
+    if (level === 0) return 'Ground floor';
+    if (level === 1) return 'First floor';
+    if (level === 2) return 'Second floor';
+    return `Floor ${level}`;
+  }
+
+  function floorLabel(floor: ReservationFloor): string {
+    if (floor.level === 0) return t('Ground floor');
+    if (floor.level === 1) return t('First floor');
+    if (floor.level === 2) return t('Second floor');
+    if (CANONICAL_FLOOR_LEVELS.includes(
+      floor.level as (typeof CANONICAL_FLOOR_LEVELS)[number]
+    )) {
+      return t('Floor {level}', { level: floor.level });
+    }
+    return floor.name;
+  }
+
+  function floorLevel(level: number): string {
+    if (level === 0) return '0';
+    return level > 0 ? `+${level}` : `${level}`;
+  }
+
+  function setTableLayoutMode(next: 'tables' | 'areas'): void {
+    tableLayoutMode = next;
+    selectedTableId = '';
   }
 
   function areaIconFor(areaId: string): string {
@@ -321,55 +380,6 @@
           (position.primaryAreaId === areaId || position.areaIds.includes(areaId))
       ).length ?? 0
     );
-  }
-
-  function addFloor() {
-    if (!draft || !source) return;
-    const level = draft.floors.reduce((highest, floor) => Math.max(highest, floor.level), -1) + 1;
-    const floor: ReservationFloor = {
-      id: crypto.randomUUID(),
-      restaurant_id: source.restaurantId,
-      name: floorName(level),
-      level,
-      canvas_width: 1000,
-      canvas_height: 600,
-      active: true,
-      sort_order: draft.floors.length
-    };
-    draft.floors = [...draft.floors, floor];
-    selectedFloorId = floor.id;
-    selectedRoomId = '';
-    selectedTableId = '';
-    touch();
-  }
-
-  async function archiveFloor() {
-    if (!draft || !source || !selectedFloor || editorReadOnly) return;
-    const activeFloors = draft.floors.filter((floor) => floor.active);
-    if (activeFloors.length <= 1) {
-      toasts.show(t('A restaurant needs at least one floor.'), 'warning');
-      return;
-    }
-    if (floorRooms.length) {
-      toasts.show(t('Move or archive the areas on this floor first.'), 'warning');
-      return;
-    }
-    const confirmed = await confirmAction({
-      title: t('Archive {name}?', { name: selectedFloor.name }),
-      body: t('The floor disappears from the active plan. You can keep its operational areas by moving them first.'),
-      confirmLabel: t('Archive floor')
-    });
-    if (!confirmed) return;
-    const nextFloor = activeFloors.find((floor) => floor.id !== selectedFloor.id);
-    if (source.floors.some((floor) => floor.id === selectedFloor.id)) {
-      selectedFloor.active = false;
-    } else {
-      draft.floors = draft.floors.filter((floor) => floor.id !== selectedFloor.id);
-    }
-    selectedFloorId = nextFloor?.id ?? '';
-    selectedRoomId = '';
-    selectedTableId = '';
-    touch();
   }
 
   function addArea(catalogueKey = '', customName = '') {
@@ -517,16 +527,50 @@
     if (!selectedFloor || !draft) return;
     const target = draft.rooms.find((item) => item.id === room.id);
     if (!target) return;
-    target.position_x = clamp(snap(positionX), 0, selectedFloor.canvas_width - 160);
-    target.position_y = clamp(snap(positionY), 0, selectedFloor.canvas_height - 120);
-    target.width = Math.max(
+    const nextX = clamp(snap(positionX), 0, selectedFloor.canvas_width - 160);
+    const nextY = clamp(snap(positionY), 0, selectedFloor.canvas_height - 120);
+    const nextWidth = Math.max(
       160,
-      Math.min(selectedFloor.canvas_width - Number(target.position_x), width)
+      Math.min(selectedFloor.canvas_width - nextX, width)
     );
-    target.height = Math.max(
+    const nextHeight = Math.max(
       120,
-      Math.min(selectedFloor.canvas_height - Number(target.position_y), height)
+      Math.min(selectedFloor.canvas_height - nextY, height)
     );
+    target.position_x = nextX;
+    target.position_y = nextY;
+    target.width = nextWidth;
+    target.height = nextHeight;
+
+    // Tables use floor coordinates. When an area shrinks or moves from its
+    // top/left edge, keep every table inside the new bounds instead of leaving
+    // an apparently lost table outside the room.
+    const inset = 12;
+    const topInset = 28;
+    draft.tables
+      .filter((table) => table.room_id === room.id && table.active)
+      .forEach((table) => {
+        const minimumX = nextX + inset;
+        const maximumX = Math.max(
+          minimumX,
+          nextX + nextWidth - Number(table.width) - inset
+        );
+        const minimumY = nextY + topInset;
+        const maximumY = Math.max(
+          minimumY,
+          nextY + nextHeight - Number(table.height) - inset
+        );
+        table.position_x = clamp(
+          snap(clamp(Number(table.position_x), minimumX, maximumX), TABLE_GRID),
+          minimumX,
+          maximumX
+        );
+        table.position_y = clamp(
+          snap(clamp(Number(table.position_y), minimumY, maximumY), TABLE_GRID),
+          minimumY,
+          maximumY
+        );
+      });
     touch();
   }
 
@@ -730,7 +774,10 @@
     if (!source) return;
     draft = toDraft(source);
     dirty = false;
-    selectedFloorId = draft.floors.find((floor) => floor.active)?.id ?? '';
+    selectedFloorId =
+      draft.floors.find((floor) => floor.active && floor.level === 0)?.id ??
+      draft.floors.find((floor) => floor.active)?.id ??
+      '';
     selectedRoomId = '';
     selectedTableId = '';
     restaurantContext?.discard();
@@ -759,8 +806,12 @@
           <button class:is-active={editorView === 'plan'} type="button" onclick={() => (editorView = 'plan')}>{t('Plan')}</button>
           <button class:is-active={editorView === 'list'} type="button" onclick={() => (editorView = 'list')}>{t('List')}</button>
         </div>
-        <button class="cl-btn" type="button" disabled={editorReadOnly} onclick={addFloor}>+ {t('Add floor')}</button>
         <button class="cl-btn is-primary" type="button" disabled={!selectedFloor || editorReadOnly} onclick={() => (areaPickerOpen = true)}>+ {t('Add area')}</button>
+      {:else}
+        <div class="view-switch" aria-label={t('View')}>
+          <button class:is-active={tableLayoutMode === 'tables'} type="button" onclick={() => setTableLayoutMode('tables')}>{t('Arrange tables')}</button>
+          <button class:is-active={tableLayoutMode === 'areas'} type="button" title={t('Drag areas; pull an edge or corner to resize.')} onclick={() => setTableLayoutMode('areas')}>{t('Areas')}</button>
+        </div>
       {/if}
     {/snippet}
     {#snippet children()}
@@ -792,7 +843,7 @@
                         <span class="cl-cellstack"><strong>{room.name}</strong><small class="cl-cellsub">{areaType ? t(areaType.reservable ? 'Guest-facing' : 'Operations') : t('Custom area')}</small></span>
                       </span>
                     </td>
-                    <td class:is-quiet={!floor}>{floor?.name ?? t('Not placed')}</td>
+                    <td class:is-quiet={!floor}>{floor ? floorLabel(floor) : t('Not placed')}</td>
                     <td class="is-quiet">{areaType ? t(areaType.label) : t('Custom')}</td>
                     <td class="is-num">{positionCountForArea(room.work_area_id)}</td>
                     <td><ClassicStatus label={floor ? 'Active' : 'Needs placement'} tone={floor ? 'ok' : 'attention'} /></td>
@@ -816,33 +867,29 @@
         <div class="area-editor">
           <nav class="plan-commandbar" aria-label={t('Floors')}>
             <div class="floor-list">
-              {#each draft.floors.filter((floor) => floor.active) as floor (floor.id)}
+              {#each selectableFloors as floor (floor.id)}
                 <button class:is-active={floor.id === selectedFloorId} type="button" onclick={() => {
                   selectedFloorId = floor.id;
                   selectedRoomId = '';
                   selectedTableId = '';
                 }}>
-                  <strong>{floor.name}</strong>
+                  <span>{floorLevel(floor.level)}</span>
+                  <strong>{floorLabel(floor)}</strong>
                   <small>{mergedRooms.filter((room) => room.floor_id === floor.id).length}</small>
                 </button>
               {/each}
             </div>
-            <span class="plan-commandbar__hint">{t(mode === 'areas' ? 'Snap to grid is on' : 'Select an area to arrange its tables')}</span>
+            <span class="plan-commandbar__hint">{t(
+              mode === 'areas'
+                ? 'Snap to grid is on'
+                : tableLayoutMode === 'areas'
+                  ? 'Drag areas; pull an edge or corner to resize.'
+                  : 'Select an area to arrange its tables'
+            )}</span>
           </nav>
 
           <section class="cl-card plan-card">
             {#if selectedFloor}
-              <div class="cl-card__head plan-head">
-                <div class="floor-title">
-                  {#if mode === 'areas'}
-                    <input class="floor-name" aria-label={t('Floor name')} readonly={editorReadOnly} bind:value={selectedFloor.name} oninput={touch} />
-                  {:else}
-                    <h2>{selectedFloor.name}</h2>
-                  {/if}
-                  <p>{mode === 'areas' ? t('Drag and resize areas to match the restaurant.') : t('Add real tables inside the areas defined by Restaurant.')}</p>
-                </div>
-              </div>
-
               {#if selectedRoomDraft && selectedRoom && selectedAreaDraft && mode === 'areas'}
                 <div class="selection-bar room-selection is-above">
                   <header class="inspector-head">
@@ -852,7 +899,7 @@
                   <label class="area-name"><span>{t('Area name')}</span><input class="cl-field" disabled={editorReadOnly} bind:value={selectedAreaDraft.name} oninput={() => restaurantConfig.touch()} /></label>
                   <div class="area-colour"><span>{t('Colour identity')}</span><div><ClassicPalettePicker value={selectedAreaDraft.color} palette={AREA_PALETTE} label={t('Choose area colour')} disabled={editorReadOnly} onselect={(color) => { selectedAreaDraft.color = color; restaurantConfig.touch(); }} /><small>{t('Shared with linked positions and Planning.')}</small></div></div>
                   <dl class="inspector-stats">
-                    <div><dt>{t('Floor')}</dt><dd>{selectedFloor.name}</dd></div>
+                    <div><dt>{t('Floor')}</dt><dd>{floorLabel(selectedFloor)}</dd></div>
                     <div><dt>{t('Positions')}</dt><dd>{positionCountForArea(selectedAreaDraft.id)}</dd></div>
                   </dl>
                   <p class="resize-note">{t('Drag to move. Pull any edge or corner to reshape; nearby areas align automatically.')}</p>
@@ -860,18 +907,25 @@
                 </div>
               {:else if mode === 'areas'}
                 <div class="selection-hint is-above">
-                  <strong>{t('Floor details')}</strong>
-                  <label><span>{t('Floor name')}</span><input class="cl-field" readonly={editorReadOnly} bind:value={selectedFloor.name} oninput={touch} /></label>
+                  <strong>{floorLabel(selectedFloor)}</strong>
                   <p>{t('Select an area on the plan to edit it. Pull any outside edge or corner to reshape this floor.')}</p>
-                  {#if draft.floors.filter((floor) => floor.active).length > 1}
-                    <button class="quiet-danger" type="button" disabled={editorReadOnly || Boolean(floorRooms.length)} onclick={() => void archiveFloor()}>{t('Archive floor')}</button>
-                  {/if}
                 </div>
               {/if}
 
-              {#if mode === 'tables' && selectedTable}
+              {#if mode === 'tables' && tableLayoutMode === 'areas' && selectedRoom}
+                <div class="selection-bar room-selection is-above">
+                  <header class="inspector-head"><WorkspaceAreaIcon icon={areaIconFor(selectedRoom.work_area_id)} color={selectedRoom.area_color} size={20} /><div><strong>{selectedRoom.name}</strong><small>{floorLabel(selectedFloor)}</small></div></header>
+                  <dl class="inspector-stats">
+                    <div><dt>{t('Floor')}</dt><dd>{floorLabel(selectedFloor)}</dd></div>
+                    <div><dt>{t('Tables')}</dt><dd>{floorTables.filter((table) => table.room_id === selectedRoom.id).length}</dd></div>
+                  </dl>
+                  <p class="resize-note">{t('Drag to move. Pull any edge or corner to reshape; nearby areas align automatically.')}</p>
+                </div>
+              {:else if mode === 'tables' && tableLayoutMode === 'areas'}
+                <div class="selection-hint is-above"><strong>{t('Choose an area')}</strong><p>{t('Drag areas; pull an edge or corner to resize.')}</p></div>
+              {:else if mode === 'tables' && selectedTable}
                 <div class="selection-bar table-selection is-above">
-                  <header class="inspector-head"><span class="inspector-glyph" aria-hidden="true">T</span><div><strong>{t('Table details')}</strong><small>{selectedRoom?.name ?? selectedFloor.name}</small></div></header>
+                  <header class="inspector-head"><span class="inspector-glyph" aria-hidden="true">T</span><div><strong>{t('Table details')}</strong><small>{selectedRoom?.name ?? floorLabel(selectedFloor)}</small></div></header>
                   <label><span>{t('Table')}</span><input class="cl-field" disabled={editorReadOnly} bind:value={selectedTable.label} oninput={touch} /></label>
                   <label><span>{t('Minimum')}</span><input class="cl-field" disabled={editorReadOnly} type="number" min="1" max="100" bind:value={selectedTable.minimum_capacity} oninput={touch} /></label>
                   <label><span>{t('Maximum')}</span><input class="cl-field" disabled={editorReadOnly} type="number" min="1" max="500" bind:value={selectedTable.maximum_capacity} oninput={touch} /></label>
@@ -905,14 +959,15 @@
                 <ReservationFloorPlan
                   tables={mode === 'areas' ? [] : floorTables}
                   rooms={floorRooms}
-                  roomName={selectedFloor.name}
+                  roomName={floorLabel(selectedFloor)}
                   floorWidth={selectedFloor.canvas_width}
                   floorHeight={selectedFloor.canvas_height}
                   editable={!editorReadOnly}
                   showHeader={false}
                   floorEditable={mode === 'areas' && !editorReadOnly}
-                  roomsEditable={mode === 'areas' && !editorReadOnly}
-                  tablesEditable={mode === 'tables' && !editorReadOnly}
+                  roomsEditable={(mode === 'areas' || tableLayoutMode === 'areas') && !editorReadOnly}
+                  tablesEditable={mode === 'tables' && tableLayoutMode === 'tables' && !editorReadOnly}
+                  tablesSelectable={mode !== 'tables' || tableLayoutMode === 'tables'}
                   showTableCount={mode === 'tables'}
                   {selectedRoomId}
                   {selectedTableId}
@@ -921,24 +976,22 @@
                     selectedRoomId = room.id;
                     selectedTableId = '';
                   }}
-                  onroommove={mode === 'areas' ? moveRoom : () => {}}
-                  onroomresize={mode === 'areas' ? resizeRoom : () => {}}
+                  onroommove={mode === 'areas' || tableLayoutMode === 'areas' ? moveRoom : () => {}}
+                  onroomresize={mode === 'areas' || tableLayoutMode === 'areas' ? resizeRoom : () => {}}
                   onfloorresize={mode === 'areas' ? resizeFloor : () => {}}
                   onselect={(table) => {
                     selectedTableId = table.id;
                     selectedRoomId = table.room_id;
                   }}
-                  onmove={mode === 'tables' ? moveTable : () => {}}
+                  onmove={mode === 'tables' && tableLayoutMode === 'tables' ? moveTable : () => {}}
                 />
               </div>
 
             {:else}
               <div class="cl-empty">
-                <strong>{t('Create your first floor')}</strong>
-                <span>{mode === 'areas' ? t('Create the physical levels of the restaurant, then place areas.') : t('Set up areas in Restaurant → Areas before adding tables.')}</span>
-                {#if mode === 'areas'}
-                  <button class="cl-btn is-primary" type="button" disabled={editorReadOnly} onclick={addFloor}>{t('Add floor')}</button>
-                {:else}
+                <strong>{t('No floor plan yet')}</strong>
+                <span>{mode === 'areas' ? t('Add a standard area to start shaping your restaurant.') : t('Set up areas in Restaurant → Areas before adding tables.')}</span>
+                {#if mode === 'tables'}
                   <a class="cl-btn is-primary" href="/restaurant/areas">{t('Open Restaurant Areas')}</a>
                 {/if}
               </div>
@@ -1034,29 +1087,16 @@
   }
   .floor-list > button:hover { border-color: var(--cl-line); background: var(--cl-surface-muted); }
   .floor-list > button.is-active { border-color: color-mix(in srgb, var(--cl-accent) 28%, var(--cl-line)); background: var(--cl-accent-wash); color: var(--cl-accent); }
+  .floor-list > button > span { min-width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid var(--cl-line); border-radius: 5px; background: var(--cl-surface-muted); color: var(--cl-muted); font-size: 9.5px; font-weight: var(--rst-fw-bold); }
+  .floor-list > button.is-active > span { border-color: color-mix(in srgb, var(--cl-accent) 34%, var(--cl-line)); background: var(--cl-surface); color: var(--cl-accent); }
   .floor-list strong { font-size: 12px; }
   .floor-list small { min-width: 18px; height: 18px; display: grid; place-items: center; border-radius: 999px; background: color-mix(in srgb, var(--cl-ink) 6%, transparent); color: var(--cl-muted); font-size: 9px; }
-  .plan-card { min-width: 0; display: grid; grid-template-columns: minmax(560px, 1fr) 286px; grid-template-rows: auto minmax(480px, 1fr); overflow: hidden; border-color: var(--cl-line-strong); }
-  .plan-head { align-items: center; gap: 16px; }
-  .plan-card > .plan-head { grid-column: 1 / -1; grid-row: 1; }
-  .floor-title { min-width: 0; flex: 1; }
-  .floor-name {
-    width: min(280px, 100%);
-    padding: 1px 3px;
-    border: 1px solid transparent;
-    border-radius: 4px;
-    background: transparent;
-    color: var(--cl-ink);
-    font: inherit;
-    font-size: 13px;
-    font-weight: var(--rst-fw-bold);
-  }
-  .floor-name:hover, .floor-name:focus { border-color: var(--cl-line); background: var(--cl-surface); outline: none; }
-  .area-canvas { min-width: 0; grid-column: 1; grid-row: 2; padding: 0; border-right: 1px solid var(--cl-line); background: var(--cl-surface-muted); }
+  .plan-card { min-width: 0; display: grid; grid-template-columns: minmax(560px, 1fr) 286px; grid-template-rows: minmax(480px, 1fr); overflow: hidden; border-color: var(--cl-line-strong); }
+  .area-canvas { min-width: 0; grid-column: 1; grid-row: 1; padding: 0; border-right: 1px solid var(--cl-line); background: var(--cl-surface-muted); }
   .selection-bar {
     min-width: 0;
     grid-column: 2;
-    grid-row: 2;
+    grid-row: 1;
     align-self: stretch;
     display: flex;
     flex-direction: column;
@@ -1068,7 +1108,7 @@
   }
   .selection-bar.is-above { border: 0; }
   .selection-bar label { display: grid; gap: 6px; }
-  .selection-bar label span, .area-colour > span, .selection-hint label span { color: var(--cl-muted); font-size: 11px; font-weight: var(--rst-fw-bold); }
+  .selection-bar label span, .area-colour > span { color: var(--cl-muted); font-size: 11px; font-weight: var(--rst-fw-bold); }
   .selection-bar input, .selection-bar select { width: 100%; }
   .selection-bar .cl-btn { width: 100%; }
   .inspector-head { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid var(--cl-line); }
@@ -1085,14 +1125,10 @@
   .inspector-stats dt { color: var(--cl-muted); font-size: 11px; }
   .inspector-stats dd { margin: 0; color: var(--cl-ink); font-size: 12px; font-weight: var(--rst-fw-bold); }
   .resize-note { margin: 0; color: var(--cl-muted); font-size: 10.5px; line-height: 1.5; }
-  .selection-hint { grid-column: 2; grid-row: 2; display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 16px; background: var(--cl-surface); color: var(--cl-muted); font-size: 11px; text-align: left; }
+  .selection-hint { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 16px; background: var(--cl-surface); color: var(--cl-muted); font-size: 11px; text-align: left; }
   .selection-hint.is-above { border: 0; }
   .selection-hint strong { color: var(--cl-ink); font-size: 13px; }
-  .selection-hint label { display: grid; gap: 6px; }
   .selection-hint p { margin: 0; line-height: 1.5; }
-  .quiet-danger { margin-top: auto; padding: 8px; border: 0; background: transparent; color: var(--cl-muted); font: inherit; font-size: 11px; cursor: pointer; }
-  .quiet-danger:hover:not(:disabled) { color: var(--cl-problem); }
-  .quiet-danger:disabled { opacity: .38; cursor: default; }
   .dialog-copy { margin: 0; color: var(--cl-muted); font-size: 12px; }
   .catalogue-picker { display: grid; gap: 16px; }
   .catalogue-search { display: grid; gap: 6px; color: var(--cl-muted); font-size: 11px; font-weight: 700; }

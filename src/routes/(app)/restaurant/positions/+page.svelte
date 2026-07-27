@@ -9,6 +9,7 @@
   import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
   import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
+  import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
   import Dialog from '$lib/components/Dialog.svelte';
   import {
     WORKSPACE_POSITION_CATALOGUE,
@@ -107,8 +108,9 @@
     try { localStorage.setItem(COLS_KEY, JSON.stringify([...next])); } catch {}
   }
 
-  const shown = (key: string) => !hidden.has(key);
-  const colCount = $derived(5 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length);
+  const shown = (key: string) =>
+    (key !== 'cost' || workspace.canViewFinancials) && !hidden.has(key);
+  const colCount = $derived(4 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length);
   const persistedPositionIds = $derived(new Set((workspace.restaurant?.job_functions ?? []).map((position) => position.id)));
   const availableCataloguePositions = $derived.by(() => {
     const areas = restaurantConfig.draft?.areas.filter((area) => area.active) ?? [];
@@ -353,8 +355,7 @@
               {#if shown('cost')}<th class="has-menu"><ClassicColMenu label={t('Estimated hourly cost')} sortable sortDir={sort?.key === 'cost' ? sort.dir : null} onsort={(dir) => (sort = { key: 'cost', dir })} filterKind="text" searchValue={costSearch} onsearch={(value) => (costSearch = value)} /></th>{/if}
               {#if shown('employees')}<th class="has-menu"><ClassicColMenu label={t('Employees')} sortable sortDir={sort?.key === 'employees' ? sort.dir : null} onsort={(dir) => (sort = { key: 'employees', dir })} filterKind="text" searchValue={employeeSearch} onsearch={(value) => (employeeSearch = value)} /></th>{/if}
               {#if shown('active')}<th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={sort?.key === 'active' ? sort.dir : null} onsort={(dir) => (sort = { key: 'active', dir })} filterKind="values" filterValues={[{ value: 'active', label: t('Active') }, { value: 'archived', label: t('Archived') }]} selected={excludedStatus} ontoggle={(value) => { const next = new Set(excludedStatus); next.has(value) ? next.delete(value) : next.add(value); excludedStatus = next; }} onselectall={(on) => (excludedStatus = on ? new Set() : new Set(['active', 'archived']))} /></th>{/if}
-              <th class="actions-col">{t('Actions')}</th>
-              <th class="chooser-col"><ClassicColChooser columns={OPTIONAL_COLUMNS.map((column) => ({ key: column.key, label: t(column.label) }))} {hidden} ontoggle={toggleColumn} /></th>
+              <th class="chooser-col"><ClassicColChooser columns={OPTIONAL_COLUMNS.filter((column) => column.key !== 'cost' || workspace.canViewFinancials).map((column) => ({ key: column.key, label: t(column.label) }))} {hidden} ontoggle={toggleColumn} /></th>
             </tr>
           </thead>
           {#if !ordered.length}
@@ -392,8 +393,16 @@
                       {#if shown('cost')}<td class="is-num"><input class="cl-field cost" type="number" disabled={workspace.isPreview} min="0" step="0.5" bind:value={position.estimatedHourlyCost} oninput={() => restaurantConfig.touch()} /></td>{/if}
                       {#if shown('employees')}<td><span class="cl-linkcount" class:is-zero={!headcount} title={t('{count} people', { count: headcount })}><span class="cl-linkcount__n">{headcount}</span></span></td>{/if}
                       {#if shown('active')}<td><label class="switch"><input type="checkbox" disabled={workspace.isPreview} bind:checked={position.active} onchange={() => restaurantConfig.touch()} /><span>{t(position.active ? 'Active' : 'Archived')}</span></label></td>{/if}
-                      <td class="row-actions"><button class="cl-text-action" type="button" disabled={workspace.isPreview} onclick={() => removeOrTogglePosition(position.id)}>{t(persistedPositionIds.has(position.id) ? (position.active ? 'Archive' : 'Restore') : 'Remove')}</button></td>
-                      <td></td>
+                      <td class="menu-cell">
+                        <ClassicRowMenu
+                          disabled={workspace.isPreview}
+                          items={persistedPositionIds.has(position.id)
+                            ? position.active
+                              ? [{ label: t('Archive'), tone: 'danger', onselect: () => removeOrTogglePosition(position.id) }]
+                              : [{ label: t('Restore'), onselect: () => removeOrTogglePosition(position.id) }]
+                            : [{ label: t('Remove'), tone: 'danger', onselect: () => removeOrTogglePosition(position.id) }]}
+                        />
+                      </td>
                     </tr>
                   {/each}
                 {/if}
@@ -513,12 +522,8 @@
   .area-link-button > span { width: 7px; height: 22px; border-radius: 2px; background: var(--area-color); }
   .area-link-button strong { overflow: hidden; font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .chooser-col { width: 44px; }
-  .actions-col { width: 86px; }
-  .row-actions { text-align: right; }
-  .cl-text-action { border: 0; background: transparent; color: var(--cl-muted); font: inherit; font-size: 13px; cursor: pointer; }
-  .cl-text-action:hover { color: var(--cl-ink); text-decoration: underline; }
-  .cl-text-action:disabled { cursor: default; opacity: .45; text-decoration: none; }
+  .chooser-col,
+  .menu-cell { width: 44px; }
   .cl-grip { width: 34px; text-align: center; }
   .cl-grip button { border: 0; background: transparent; color: var(--cl-muted); cursor: grab; letter-spacing: -3px; }
   .cl-grip button:disabled { cursor: default; opacity: .35; }

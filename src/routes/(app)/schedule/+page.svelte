@@ -20,6 +20,7 @@
   import ScheduleSlotEditor from '$lib/schedule/ScheduleSlotEditor.svelte';
   import {
     exceptionForSlot,
+    discardPrivateScheduleDraft,
     invalidPlanningShift,
     leaveForSlot,
     resolveScheduleException,
@@ -59,7 +60,7 @@
   import { getReservationDemand } from '$lib/reservations/reservation-api';
   import type { ReservationDemand } from '$lib/reservations/reservation-types';
 
-  type GroupMode = 'none' | 'contract' | 'position' | 'area';
+  type GroupMode = 'none' | 'contract' | 'position' | 'area' | 'status';
   type PlanningGrid = ReturnType<typeof buildPlanningWeek>;
   type PlanningRow = PlanningGrid['rows'][number];
   type RowGroup = { key: string; label: string; rows: PlanningRow[]; hours: number };
@@ -101,6 +102,7 @@
   const SERVICES: ServiceKey[] = ['lunch', 'evening'];
 
   const snapshot = $derived(workspace.operations);
+  const canViewFinancials = $derived(workspace.canViewFinancials);
   const weatherLocation = $derived(
     snapshot
       ? {
@@ -184,7 +186,10 @@
     try {
       const storedGroup = localStorage.getItem('rst-schedule-group');
       groupMode =
-        storedGroup === 'contract' || storedGroup === 'position' || storedGroup === 'area'
+        storedGroup === 'contract' ||
+        storedGroup === 'position' ||
+        storedGroup === 'area' ||
+        storedGroup === 'status'
           ? storedGroup
           : 'none';
       compactCards = localStorage.getItem('rst-schedule-card-density') === 'compact';
@@ -348,7 +353,7 @@
     return defaults[0] ?? t('No area');
   }
 
-  function groupLabel(row: PlanningRow): string {
+  function groupLabel(row: PlanningRow, grid: PlanningGrid): string {
     if (groupMode === 'contract') {
       return contractTypeName.get(employeeContract.get(row.id) ?? '') ?? t('No contract');
     }
@@ -356,6 +361,15 @@
       return positionName.get(employeePosition.get(row.id) ?? '') ?? t('No position');
     }
     if (groupMode === 'area') return employeeAreaLabel(row.id);
+    if (groupMode === 'status') {
+      if (employeeActive.get(row.id) === false) return t('Archived');
+      if (hasEmployeeConflict(grid, row.id)) return t('Conflict');
+      const planned = employeeHours(row.id);
+      const target = contractHours.get(row.id) ?? 0;
+      if (planned <= 0) return t('Unplanned');
+      if (target > 0 && planned >= target) return t('Complete');
+      return t('Planned');
+    }
     return '';
   }
 
@@ -371,7 +385,7 @@
     }
     const groups = new Map<string, PlanningRow[]>();
     for (const row of rows) {
-      const label = groupLabel(row);
+      const label = groupLabel(row, grid);
       groups.set(label, [...(groups.get(label) ?? []), row]);
     }
     return [...groups.entries()]
@@ -695,7 +709,11 @@
     dropKey = '';
   }
 
-  async function persistDraft(weekStart: string, revision: number): Promise<void> {
+  async function persistDraft(
+    weekStart: string,
+    revision: number,
+    wasPublished: boolean
+  ): Promise<void> {
     if (!workspace.activeId || saving || scheduleDraft.saving) return;
     if (invalidPlanningShift(scheduleDraft.shifts)) {
       toasts.show(t('Every planned shift needs a valid start and end time.'), 'danger');
@@ -711,10 +729,39 @@
         shifts: scheduleDraft.shifts,
         notes: scheduleDraft.notes,
         expectedRevision: revision,
-        wasPublished: false
+        wasPublished
       });
       scheduleDraft.settle();
-      toasts.show(t('Schedule saved.'), 'success');
+      toasts.show(
+        t(wasPublished ? 'Private schedule draft saved.' : 'Schedule saved.'),
+        'success'
+      );
+    } catch (error) {
+      toasts.show(friendlyError(error), 'danger');
+    } finally {
+      saving = false;
+      scheduleDraft.saving = false;
+    }
+  }
+
+  async function discardSavedDraft(weekStart: string, revision: number): Promise<void> {
+    if (!workspace.activeId || saving || scheduleDraft.saving) return;
+    const confirmed = await confirmAction({
+      title: t('Discard private schedule draft?'),
+      body: t('The last published schedule stays visible to employees. Your unpublished changes will be removed.'),
+      confirmLabel: t('Discard draft')
+    });
+    if (!confirmed) return;
+    saving = true;
+    scheduleDraft.saving = true;
+    try {
+      await discardPrivateScheduleDraft({
+        restaurantId: workspace.activeId,
+        weekStart,
+        expectedRevision: revision
+      });
+      scheduleDraft.settle();
+      toasts.show(t('Private schedule draft discarded.'), 'success');
     } catch (error) {
       toasts.show(friendlyError(error), 'danger');
     } finally {
@@ -890,6 +937,46 @@
             </div>
 
             <div class="schedule-head__right">
+              {#if scheduleDraft.dirty}
+                <span class="cl-inline-save is-visible">
+                  <span class="cl-inline-save__state"><i></i>{t('Unsaved changes')}</span>
+                  <button
+                    class="cl-btn is-icon"
+                    type="button"
+                    disabled={saving}
+                    title={t('Discard')}
+                    aria-label={t('Discard')}
+                    onclick={() => snapshot && scheduleDraft.reset(snapshot, week.weekStart)}
+                  >
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6"/><path d="M4 4v4.6h4.6"/></svg>
+                  </button>
+                  <button
+                    class="cl-btn is-primary"
+                    type="button"
+                    disabled={saving || !week.editable}
+                    onclick={() => void persistDraft(week.weekStart, week.revision, week.published)}
+                  >
+                    {#if saving}
+                      <span aria-hidden="true">…</span>
+                    {:else}
+                      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h12l2 2v14H5z"/><path d="M8 4v6h8V4M8 20v-6h8v6"/></svg>
+                    {/if}
+                    <span>{t(saving ? 'Saving…' : 'Save draft')}</span>
+                  </button>
+                </span>
+              {/if}
+              {#if week.published && week.hasUnpublishedChanges && !scheduleDraft.dirty}
+                <button
+                  class="icon-btn"
+                  type="button"
+                  disabled={saving || !week.editable}
+                  aria-label={t('Discard private draft')}
+                  title={t('Discard private draft')}
+                  onclick={() => void discardSavedDraft(week.weekStart, week.revision)}
+                >
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6"/><path d="M4 4v4.6h4.6"/></svg>
+                </button>
+              {/if}
               <button class="icon-btn" type="button" disabled={saving || !week.editable} aria-label={t('Copy previous week')} title={t('Copy previous week')} onclick={() => void copyPreviousWeek(week.weekStart)}>
                 <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
               </button>
@@ -898,15 +985,15 @@
               </button>
               <button
                 class="publish-btn"
-                class:is-published={week.published && !scheduleDraft.dirty}
-                class:is-republish={week.published && scheduleDraft.dirty}
+                class:is-published={week.published && !scheduleDraft.dirty && !week.hasUnpublishedChanges}
+                class:is-republish={week.published && (scheduleDraft.dirty || week.hasUnpublishedChanges)}
                 type="button"
-                disabled={publishing || !week.editable || (week.published && !scheduleDraft.dirty)}
+                disabled={publishing || !week.editable || (week.published && !scheduleDraft.dirty && !week.hasUnpublishedChanges)}
                 onclick={() => requestPublish(grid, week.weekStart, week.revision, week.published)}
               >
                 {#if publishing}
                   {t('Publishing…')}
-                {:else if week.published && scheduleDraft.dirty}
+                {:else if week.published && (scheduleDraft.dirty || week.hasUnpublishedChanges)}
                   {t('Republish')}
                 {:else if week.published}
                   <span class="publish-btn__dot"></span>{t('Published')}
@@ -917,21 +1004,29 @@
             </div>
           </header>
 
-          {#if week.published && scheduleDraft.dirty}
-            <div class="republish-note">{t('Your changes are private until you republish this week.')}</div>
+          {#if week.published && (scheduleDraft.dirty || week.hasUnpublishedChanges)}
+            <div class="republish-note">
+              {t(
+                scheduleDraft.dirty
+                  ? 'Your changes are private until you save and republish this week.'
+                  : 'Private draft saved. Employees still see the last published schedule.'
+              )}
+            </div>
           {/if}
 
           <div class="schedule-wrap">
             <table class="board">
               <thead>
                 <tr>
-                  <th class="board__staff has-menu">
+                  <th class="board__staff has-menu" scope="col">
                     <ClassicPrimaryColMenu
                       label={`${plannedEmployeeIds.size}/${totalEmployeeIds.size}`}
                       labelIcon="people"
-                      metaParts={compactCards
-                        ? [formatHours(weekHours)]
-                        : [formatHours(weekHours), weekCost > 0 ? `~${money(weekCost)}` : '—']}
+                      metaParts={
+                        compactCards || !canViewFinancials
+                          ? [formatHours(weekHours)]
+                          : [formatHours(weekHours), weekCost > 0 ? `~${money(weekCost)}` : '—']
+                      }
                       align="center"
                       sortable
                       sortDir={employeeSort}
@@ -945,7 +1040,8 @@
                         { value: 'none', label: t('No grouping') },
                         { value: 'contract', label: t('Contract type') },
                         { value: 'position', label: t('Position') },
-                        { value: 'area', label: t('Area') }
+                        { value: 'area', label: t('Area') },
+                        { value: 'status', label: t('Status') }
                       ]}
                       ongroupchange={(value) => setGroupMode(value as GroupMode)}
                     >
@@ -962,7 +1058,7 @@
                     {@const totalCost = shiftsCost(dayEntries)}
                     {@const dayCovers = reservationDemandByDay.get(day.date) ?? 0}
                     {@const weather = restaurantWeather.dailyFor(day.date)}
-                    <th class="board__day" class:is-today={day.today} class:is-weekend={day.weekday >= 6}>
+                    <th class="board__day" scope="col" class:is-today={day.today} class:is-weekend={day.weekday >= 6}>
                       <div class="board__day-date"><b>{t(day.label)}</b> {Number(day.date.slice(-2))}</div>
                       <div class="board__day-lower">
                         <div class="board__day-stat board__day-operations">
@@ -977,7 +1073,7 @@
                           </span>
                           <b class="board__day-metric">
                             {formatHours(total)}
-                            {#if !compactCards}<i>·</i>{totalCost > 0 ? `~${money(totalCost)}` : '—'}{/if}
+                            {#if !compactCards && canViewFinancials}<i>·</i>{totalCost > 0 ? `~${money(totalCost)}` : '—'}{/if}
                           </b>
                         </div>
                         {#if weather}
@@ -1034,7 +1130,7 @@
                                 <span class="staff__hours is-{hoursState}">
                                   <span><b>{formatHours(planned)}</b>{#if target} / {formatHours(target)}{/if}</span>
                                   {#if hoursState === 'over'}<strong class="staff__overage" title={t('Contracted hours exceeded')}>+{formatHours(planned - target)}</strong>{/if}
-                                  {#if !compactCards}<em>{plannedCost > 0 ? `~${money(plannedCost)}` : '—'}</em>{/if}
+                                  {#if !compactCards && canViewFinancials}<em>{plannedCost > 0 ? `~${money(plannedCost)}` : '—'}</em>{/if}
                                 </span>
                                 {#if target}<span class="staff__meter is-{hoursState}" aria-label={`${formatHours(planned)} / ${formatHours(target)}`}><i style={`width:${progress}%`}></i></span>{/if}
                               </span>
@@ -1075,6 +1171,7 @@
 
                                 {#if shifts.length}
                                   {@const card = dayCardView(shifts)}
+                                  {@const compactSpan = card.shifts.find((shift) => shift.spansDay) ?? null}
                                   <div
                                     class="day-card"
                                     class:is-lunch-only={Boolean(lunchShift && !eveningShift && !spanningShift)}
@@ -1131,15 +1228,15 @@
                                     {/if}
 
                                     <span class="day-card__content">
-                                      <span class="day-card__top">
+                                      <span class="day-card__top" class:has-conflict={dayConflict}>
                                         <strong>{card.timeLabel}</strong>
-                                        {#if compactCards}
-                                          <b class="day-card__compact-hours" title={t('Planned hours')}>{card.hours}</b>
-                                        {:else}
+                                        {#if !compactCards}
                                           <span class="day-card__metrics">
                                             <b title={t('Planned hours')}>{card.hours}</b>
-                                            <i>·</i>
-                                            <b title={t('Estimated cost')}>{card.estimatedCost ? `~${card.estimatedCost}` : '—'}</b>
+                                            {#if canViewFinancials}
+                                              <i>·</i>
+                                              <b title={t('Estimated cost')}>{card.estimatedCost ? `~${card.estimatedCost}` : '—'}</b>
+                                            {/if}
                                           </span>
                                         {/if}
                                       </span>
@@ -1152,16 +1249,34 @@
                                         ></span>
                                       {/if}
                                       {#if compactCards}
-                                        <span class="day-card__compact-meta">
+                                        <span class="day-card__compact-metrics">
                                           <span class="day-card__compact-break" title={card.breakLabel} class:is-empty={!card.hasBreak}><i><ClassicServiceIcon name="break" size={13} /></i>{card.breakValue}</span>
-                                          <span class="day-card__compact-areas">
-                                            {#each card.shifts as chip (chip.key)}
-                                              <span class="is-{chip.service}" title={`${t(chip.service === 'evening' ? 'Evening' : 'Lunch')} · ${chip.area}`}>
-                                                <i>{#if chip.spansDay}<ClassicServiceIcon name="span" size={12} />{:else}<ClassicServiceIcon service={chip.service} size={12} />{/if}</i>
-                                                <b>{chip.area}</b>
-                                              </span>
-                                            {/each}
+                                          <span class="day-card__compact-hours" title={t('Planned hours')}>
+                                            <i>
+                                              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 7.5V12l3 1.8"/></svg>
+                                            </i>
+                                            <b>{card.hours}</b>
                                           </span>
+                                        </span>
+                                        <span class="day-card__compact-areas">
+                                          {#if compactSpan}
+                                            <span class="is-{compactSpan.service} is-span" title={`${t('Full day')} · ${compactSpan.area}`}>
+                                              <i><ClassicServiceIcon name="span" size={12} /></i>
+                                              <b>{compactSpan.area}</b>
+                                            </span>
+                                          {:else}
+                                            {#each SERVICES as service (service)}
+                                              {@const chip = card.shifts.find((shift) => shift.service === service)}
+                                              {#if chip}
+                                                <span class="is-{service}" title={`${t(service === 'evening' ? 'Evening' : 'Lunch')} · ${chip.area}`}>
+                                                  <i><ClassicServiceIcon {service} size={12} /></i>
+                                                  <b>{chip.area}</b>
+                                                </span>
+                                              {:else}
+                                                <span class="is-{service} is-empty" aria-hidden="true"></span>
+                                              {/if}
+                                            {/each}
+                                          {/if}
                                         </span>
                                       {:else}
                                         <span class="day-card__break" class:is-empty={!card.hasBreak}>
@@ -1178,7 +1293,7 @@
                                                   <b>{chip.area}</b>
                                                   {#if chip.showPosition}<small>· {chip.position}</small>{/if}
                                                 </span>
-                                                <em>{chip.hours}{#if chip.estimatedCost} · ~{chip.estimatedCost}{/if}</em>
+                                                <em>{chip.hours}{#if canViewFinancials && chip.estimatedCost} · ~{chip.estimatedCost}{/if}</em>
                                               </span>
                                             {:else}
                                               <span class="day-card__service-row is-{service} is-empty">
@@ -1215,15 +1330,6 @@
             <span class="legend__hint">{t('Click a free day or evening half to plan instantly. Drag a shift between halves to move it.')}</span>
           </div>
 
-          {#if scheduleDraft.dirty && !week.published}
-            <div class="draft-save">
-              <span><i></i>{t('Unsaved changes')}</span>
-              <button class="icon-btn" type="button" disabled={saving} aria-label={t('Discard')} title={t('Discard')} onclick={() => snapshot && scheduleDraft.reset(snapshot, week.weekStart)}>
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6"/><path d="M4 4v4.6h4.6"/></svg>
-              </button>
-              <button class="publish-btn is-save" type="button" disabled={saving || !week.editable} onclick={() => void persistDraft(week.weekStart, week.revision)}>{t(saving ? 'Saving…' : 'Save draft')}</button>
-            </div>
-          {/if}
         </section>
 
         <Dialog
@@ -1330,9 +1436,11 @@
 
 <style>
   .schedule-panel { position: relative; display: grid; gap: 0; }
-  .schedule-head { position: relative; display: grid; grid-template-columns: minmax(180px, 1fr) auto minmax(250px, 1fr); align-items: center; gap: 18px; min-height: 50px; padding: 4px 0 6px; }
+  .schedule-head { position: relative; display: grid; grid-template-columns: minmax(180px, 1fr) auto minmax(250px, 1fr); align-items: center; gap: 18px; min-height: 54px; padding: 5px 0 7px; }
   .schedule-head__left { justify-self: start; display: flex; align-items: center; }
   .schedule-head__right { justify-self: end; display: flex; align-items: center; gap: 7px; }
+  .schedule-head__right :global(.cl-inline-save) { min-width: 0; margin-right: 3px; }
+  .schedule-head__right :global(.cl-inline-save__state) { font-size: 11px; }
 
   .week-nav { position: relative; display: flex; align-items: stretch; justify-content: center; gap: 0; overflow: hidden; border: 1px solid var(--cl-line-strong); border-radius: 6px; background: var(--cl-surface); box-shadow: 0 1px 2px rgb(15 23 42 / .035); }
   .week-nav__date { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 176px; min-height: 34px; padding: 4px 12px; border: 0; border-right: 1px solid var(--cl-line); border-left: 1px solid var(--cl-line); border-radius: 0; background: var(--cl-surface); color: var(--cl-ink); font: inherit; font-size: 13px; font-weight: var(--rst-fw-bold); cursor: pointer; }
@@ -1358,17 +1466,17 @@
   .publish-btn:disabled { cursor: default; }
   .publish-btn.is-published { border-color: var(--cl-ok-line); background: var(--cl-ok-wash); color: var(--cl-ok); opacity: 1; }
   .publish-btn.is-republish { border-color: var(--cl-accent); background: var(--cl-accent); }
-  .publish-btn.is-save { min-height: 34px; padding-inline: 12px; }
   .publish-btn__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-ok); }
   .republish-note { justify-self: end; margin: -5px 2px 8px 0; color: var(--cl-attention); font-size: 11px; font-weight: var(--rst-fw-medium); }
 
   .schedule-wrap { max-height: calc(100vh - 188px); overflow: auto; border: 1px solid color-mix(in srgb, var(--cl-ink) 12%, var(--cl-line-strong)); border-radius: 5px; background: var(--cl-surface); box-shadow: 0 1px 2px rgb(0 0 0 / .035); }
   .board { width: 100%; min-width: 1270px; border-spacing: 0; table-layout: fixed; border-collapse: separate; color: var(--cl-ink); font-size: 13px; }
+  .schedule-panel:not(.is-compact) .board { min-width: 1470px; }
   .board thead { position: sticky; top: 0; z-index: 8; }
-  .board th { height: 66px; padding: 5px 9px; border-bottom: 1px solid color-mix(in srgb, var(--cl-accent) 65%, var(--cl-line)); background: var(--cl-thead); text-align: left; }
+  .board th { height: 72px; padding: 6px 10px; border-bottom: 1px solid color-mix(in srgb, var(--cl-accent) 65%, var(--cl-line)); background: var(--cl-thead); text-align: left; }
   .board th.has-menu { padding: 0; }
-  thead .board__staff .colhead { min-height: 66px; }
-  .board td { height: 90px; padding: 0; border-bottom: 1px solid color-mix(in srgb, var(--cl-ink) 14%, var(--cl-grid-line)); background: var(--cl-surface); background-clip: padding-box; vertical-align: middle; }
+  thead .board__staff .colhead { min-height: 72px; }
+  .board td { height: 96px; padding: 0; border-bottom: 1px solid color-mix(in srgb, var(--cl-ink) 14%, var(--cl-grid-line)); background: var(--cl-surface); background-clip: padding-box; vertical-align: middle; }
   .board__staff { position: sticky; left: 0; z-index: 4; width: 230px; border-right: 1px solid var(--cl-grid-line); background: var(--cl-surface) !important; }
   thead .board__staff { z-index: 10; background: var(--cl-thead) !important; }
   thead .board__staff :global(.cl-primary-head) { position: relative; }
@@ -1376,17 +1484,21 @@
   thead .board__staff :global(.colhead__label) { justify-content: center; padding-inline: 0; }
   thead .board__staff :global(.colhead__copy) { width: auto; justify-items: center; }
   thead .board__staff :global(.colhead__meta) { width: auto; justify-content: center; }
+  thead .board__staff :global(.colhead__copy > span) { font-size: 13px; line-height: 1.15; }
+  thead .board__staff :global(.colhead__copy small) { font-size: 10.5px; line-height: 1.2; }
   thead .board__staff :global(.colhead__trigger) { position: absolute; top: 50%; right: 31px; transform: translateY(-50%); }
   thead .board__staff :global(.groupmenu) { position: absolute; top: 0; right: 0; bottom: 0; padding-right: 6px; }
   .board__day { border-left: 1px solid var(--cl-grid-line); text-align: center !important; }
-  .board__day-date { color: var(--cl-ink); font-size: 12px; line-height: 1.05; text-align: center; white-space: nowrap; }
+  .board__day-date { color: var(--cl-ink); font-size: 12.5px; line-height: 1.1; letter-spacing: -.01em; text-align: center; white-space: nowrap; }
   .board__day-date b { font-weight: var(--rst-fw-bold); }
-  .board__day-lower { min-height: 38px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(42px, .72fr); align-items: stretch; gap: 4px; margin-top: 2px; }
-  .board__day-stat { min-width: 0; display: grid; grid-template-rows: 23px 11px; place-items: center; color: var(--cl-muted); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
+  .board__day-lower { min-height: 42px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(52px, .72fr); align-items: stretch; gap: 0; margin-top: 4px; }
+  .board__day-stat { min-width: 0; display: grid; grid-template-rows: 25px 13px; place-items: center; color: var(--cl-muted); font-size: 9px; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
+  .board__weather { position: relative; padding-left: 7px; }
+  .board__weather::before { content: ''; position: absolute; top: 5px; bottom: 4px; left: 0; width: 1px; background: color-mix(in srgb, var(--cl-grid-line) 82%, transparent); }
   .board__day-signal { min-width: 0; max-width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 3px; overflow: hidden; text-overflow: ellipsis; }
   .board__day-signal > svg { flex: 0 0 auto; }
   .board__day-separator { width: 1px; height: 9px; margin-inline: 1px; background: var(--cl-line-strong); }
-  .board__day-metric { min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 3px; overflow: hidden; color: color-mix(in srgb, var(--cl-ink) 78%, var(--cl-muted)); font-size: 8.5px; font-weight: var(--rst-fw-bold); text-overflow: ellipsis; }
+  .board__day-metric { min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 3px; overflow: hidden; color: color-mix(in srgb, var(--cl-ink) 82%, var(--cl-muted)); font-size: 9.5px; font-weight: var(--rst-fw-bold); text-overflow: ellipsis; }
   .board__day-metric i { margin: 0 1px; color: var(--cl-line-strong); font-style: normal; }
   .board__weather-metric svg { color: #3287b8; }
   .board__weather.is-unavailable { opacity: .5; }
@@ -1418,9 +1530,9 @@
   .staff__meter.is-over i { background: var(--cl-problem); }
   tr.is-hours-over > td.board__staff { background: color-mix(in srgb, var(--cl-problem) 3%, var(--cl-surface)) !important; }
 
-  .service-canvas { position: relative; min-height: 89px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: hidden; }
-  .schedule-panel.is-compact .board td { height: 66px; }
-  .schedule-panel.is-compact .service-canvas { min-height: 65px; }
+  .service-canvas { position: relative; min-height: 95px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: hidden; }
+  .schedule-panel.is-compact .board td { height: 70px; }
+  .schedule-panel.is-compact .service-canvas { min-height: 69px; }
   .service-zone { position: relative; min-width: 0; min-height: inherit; padding: 0; border: 0; background: transparent; color: var(--cl-muted); cursor: pointer; transition: box-shadow var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease); }
   .service-zone + .service-zone { border-left: 1px dashed color-mix(in srgb, var(--cl-grid-line) 82%, transparent); }
   .service-zone:disabled { cursor: default; }
@@ -1437,19 +1549,20 @@
 
   /* Area colour owns the card surface and border. Service colour is semantic:
      warm for lunch, cool for evening, orange for breaks. */
-  .day-card { --lunch-color: var(--cl-muted); --evening-color: var(--cl-muted); --day-tone: #a85d08; --night-tone: #4f46a8; --break-tone: #c65a18; position: absolute; z-index: 3; inset: 4px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--lunch-color) 48%, var(--evening-color)); border-radius: 3px; background: var(--cl-surface); box-shadow: 0 1px 3px rgb(15 23 42 / .08), inset 0 0 0 1px rgb(255 255 255 / .45); isolation: isolate; transition: border-color var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease); }
-  .day-card.is-lunch-only { border-color: color-mix(in srgb, var(--lunch-color) 62%, var(--cl-line-strong)); }
-  .day-card.is-evening-only { border-color: color-mix(in srgb, var(--evening-color) 62%, var(--cl-line-strong)); }
-  .day-card.is-full-day { border-color: color-mix(in srgb, var(--lunch-color) 62%, var(--cl-line-strong)); }
-  .day-card:hover { border-color: color-mix(in srgb, var(--lunch-color) 66%, var(--evening-color)); box-shadow: 0 3px 9px rgb(15 23 42 / .13), inset 0 0 0 1px rgb(255 255 255 / .52); }
+  .day-card { --lunch-color: var(--cl-muted); --evening-color: var(--cl-muted); --day-tone: var(--cl-lunch); --night-tone: var(--cl-evening); --break-tone: var(--cl-attention); position: absolute; z-index: 3; inset: 4px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--lunch-color) 72%, var(--cl-line-strong)); border-radius: 3px; background: var(--cl-surface); box-shadow: 0 1px 3px rgb(15 23 42 / .075), inset 0 0 0 1px rgb(255 255 255 / .5); isolation: isolate; transition: border-color var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease); }
+  .day-card.is-lunch-only { border-color: color-mix(in srgb, var(--lunch-color) 72%, var(--cl-line-strong)); }
+  .day-card.is-evening-only { border-color: color-mix(in srgb, var(--evening-color) 72%, var(--cl-line-strong)); }
+  .day-card.is-full-day { border-color: color-mix(in srgb, var(--lunch-color) 72%, var(--cl-line-strong)); }
+  .day-card:hover { border-color: color-mix(in srgb, var(--lunch-color) 84%, var(--cl-line-strong)); box-shadow: 0 3px 9px rgb(15 23 42 / .12), inset 0 0 0 1px rgb(255 255 255 / .58); }
+  .day-card.is-evening-only:hover { border-color: color-mix(in srgb, var(--evening-color) 84%, var(--cl-line-strong)); }
   .day-card.is-readonly { box-shadow: none; }
   .day-card__surface { position: absolute; z-index: 0; inset: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); pointer-events: none; }
-  .day-card__fill { opacity: 1; background: color-mix(in srgb, var(--cl-surface-muted) 62%, var(--cl-surface)); transition: background var(--cl-dur) var(--cl-ease); }
-  .day-card__fill.is-lunch.is-active { background: linear-gradient(180deg, color-mix(in srgb, var(--lunch-color) 15%, var(--cl-surface)), color-mix(in srgb, var(--lunch-color) 9%, var(--cl-surface))); }
-  .day-card__fill.is-evening.is-active { background: linear-gradient(180deg, color-mix(in srgb, var(--evening-color) 15%, var(--cl-surface)), color-mix(in srgb, var(--evening-color) 9%, var(--cl-surface))); }
-  .day-card.is-lunch-only .day-card__fill.is-evening { background: color-mix(in srgb, var(--lunch-color) 3%, var(--cl-surface)); }
-  .day-card.is-evening-only .day-card__fill.is-lunch { background: color-mix(in srgb, var(--evening-color) 3%, var(--cl-surface)); }
-  .day-card.is-full-day .day-card__fill { background: color-mix(in srgb, var(--lunch-color) 11%, var(--cl-surface)); }
+  .day-card__fill { opacity: 1; background: var(--cl-surface); transition: background var(--cl-dur) var(--cl-ease); }
+  .day-card__fill.is-lunch.is-active { background: linear-gradient(180deg, color-mix(in srgb, var(--lunch-color) 8%, var(--cl-surface)), color-mix(in srgb, var(--lunch-color) 5%, var(--cl-surface))); }
+  .day-card__fill.is-evening.is-active { background: linear-gradient(180deg, color-mix(in srgb, var(--evening-color) 8%, var(--cl-surface)), color-mix(in srgb, var(--evening-color) 5%, var(--cl-surface))); }
+  .day-card.is-lunch-only .day-card__fill.is-evening { background: color-mix(in srgb, var(--lunch-color) 1.5%, var(--cl-surface)); }
+  .day-card.is-evening-only .day-card__fill.is-lunch { background: color-mix(in srgb, var(--evening-color) 1.5%, var(--cl-surface)); }
+  .day-card.is-full-day .day-card__fill { background: color-mix(in srgb, var(--lunch-color) 6%, var(--cl-surface)); }
   .day-card__divider { position: absolute; top: 5px; bottom: 5px; left: 50%; width: 1px; background: color-mix(in srgb, var(--cl-line-strong) 72%, transparent); }
   .day-card.is-full-day .day-card__divider { opacity: .3; }
 
@@ -1469,46 +1582,51 @@
   .day-card__add:not(:disabled):hover span, .day-card__add:not(:disabled):focus-visible span { opacity: 1; transform: translateY(0); }
   .day-card__add:disabled { cursor: default; }
 
-  .day-card__content { position: absolute; z-index: 2; inset: 0; display: grid; align-content: center; gap: 3px; min-width: 0; padding: 6px; pointer-events: none; }
-  .day-card__top { display: grid; grid-template-columns: minmax(65px, 1fr) auto; align-items: center; gap: 4px; min-width: 0; }
-  .day-card__top strong { overflow: hidden; color: color-mix(in srgb, var(--cl-ink) 86%, #475569); font-size: 10.5px; font-weight: var(--rst-fw-bold); font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
-  .day-card__metrics { display: inline-flex; align-items: center; justify-content: flex-end; gap: 3px; color: color-mix(in srgb, var(--cl-ink) 67%, var(--cl-muted)); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1; text-align: right; white-space: nowrap; }
+  .day-card__content { position: absolute; z-index: 2; inset: 0; display: grid; align-content: center; gap: 4px; min-width: 0; padding: 8px; pointer-events: none; }
+  .day-card__top { display: grid; grid-template-columns: minmax(70px, 1fr) auto; align-items: center; gap: 6px; min-width: 0; }
+  .day-card__top.has-conflict { padding-right: 9px; }
+  .day-card__top strong { overflow: hidden; color: color-mix(in srgb, var(--cl-ink) 88%, #475569); font-size: 11px; font-weight: var(--rst-fw-bold); font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+  .day-card__metrics { min-width: 0; display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px; color: color-mix(in srgb, var(--cl-ink) 72%, var(--cl-muted)); font-size: 8.5px; font-variant-numeric: tabular-nums; line-height: 1; text-align: right; white-space: nowrap; }
   .day-card__metrics b { font-weight: var(--rst-fw-bold); }
   .day-card__metrics i { color: color-mix(in srgb, var(--cl-muted) 70%, var(--cl-line-strong)); font-style: normal; }
-  .day-card__compact-hours { color: color-mix(in srgb, var(--cl-ink) 70%, var(--cl-muted)); font-size: 9px; font-variant-numeric: tabular-nums; text-align: right; }
   .day-card__break { display: inline-flex; align-items: center; gap: 3px; min-width: 0; overflow: hidden; color: var(--break-tone); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
   .day-card__break b { overflow: hidden; font-weight: var(--rst-fw-medium); text-overflow: ellipsis; }
   .day-card__break.is-empty { color: color-mix(in srgb, var(--break-tone) 42%, var(--cl-muted)); }
   .day-card__coffee { display: inline-flex; color: currentColor; line-height: 1; }
   .day-card__conflict-dot { position: absolute; z-index: 3; top: 3px; right: 3px; width: 7px; height: 7px; border: 1px solid color-mix(in srgb, var(--cl-problem) 76%, white); border-radius: 50%; background: var(--cl-problem); box-shadow: 0 0 0 2px color-mix(in srgb, var(--cl-surface) 86%, transparent), 0 1px 3px color-mix(in srgb, var(--cl-problem) 28%, transparent); pointer-events: none; }
   .day-card__services { display: grid; gap: 2px; min-width: 0; }
-  .day-card__service-row { display: grid; grid-template-columns: 11px minmax(0, 1fr) 54px; align-items: center; gap: 4px; min-width: 0; color: var(--cl-muted); line-height: 1.15; }
+  .day-card__service-row { display: grid; grid-template-columns: 12px minmax(0, 1fr) 62px; align-items: center; gap: 4px; min-width: 0; color: var(--cl-muted); line-height: 1.15; }
   .day-card__service-icon { display: grid; place-items: center; text-align: center; }
   .day-card__service-row.is-lunch { color: var(--day-tone); }
   .day-card__service-row.is-evening { color: var(--night-tone); }
   .day-card__service-name { display: flex; align-items: baseline; gap: 3px; min-width: 0; overflow: hidden; white-space: nowrap; }
   .day-card__service-row b, .day-card__service-row small, .day-card__service-row em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .day-card__service-row b { color: currentColor; font-size: 9px; font-weight: var(--rst-fw-bold); }
-  .day-card__service-row small { color: color-mix(in srgb, currentColor 58%, var(--cl-muted)); font-size: 8px; font-weight: var(--rst-fw-medium); }
-  .day-card__service-row em { color: currentColor; font-size: 8px; font-style: normal; font-variant-numeric: tabular-nums; text-align: right; }
+  .day-card__service-row b { color: currentColor; font-size: 9.5px; font-weight: var(--rst-fw-bold); }
+  .day-card__service-row small { color: color-mix(in srgb, currentColor 58%, var(--cl-muted)); font-size: 8.5px; font-weight: var(--rst-fw-medium); }
+  .day-card__service-row em { color: currentColor; font-size: 8.5px; font-style: normal; font-variant-numeric: tabular-nums; text-align: right; }
   .day-card__service-row.is-empty b,
   .day-card__service-row.is-empty small,
   .day-card__service-row.is-empty em { color: color-mix(in srgb, var(--cl-muted) 78%, var(--cl-line-strong)); font-weight: var(--rst-fw-regular); }
   .day-card__service-row.is-empty .day-card__service-icon { opacity: .48; }
 
-  .day-card__compact-meta { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; min-width: 0; color: color-mix(in srgb, var(--cl-ink) 62%, var(--cl-muted)); font-size: 8px; font-variant-numeric: tabular-nums; line-height: 1.1; }
-  .day-card__compact-meta > span { display: inline-flex; align-items: center; gap: 3px; min-width: 0; white-space: nowrap; }
-  .day-card__compact-meta i { display: inline-flex; color: currentColor; font-style: normal; }
-  .day-card__compact-break { color: color-mix(in srgb, var(--break-tone) 88%, var(--cl-ink)); font-weight: var(--rst-fw-bold); }
+  .day-card__compact-metrics { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; min-width: 0; color: color-mix(in srgb, var(--cl-ink) 68%, var(--cl-muted)); font-size: 9px; font-variant-numeric: tabular-nums; line-height: 1.05; }
+  .day-card__compact-metrics > span { display: inline-flex; align-items: center; gap: 3px; min-width: 0; white-space: nowrap; }
+  .day-card__compact-metrics i { display: inline-flex; color: currentColor; font-style: normal; }
+  .day-card__compact-break { overflow: hidden; color: color-mix(in srgb, var(--break-tone) 88%, var(--cl-ink)); font-weight: var(--rst-fw-bold); text-overflow: ellipsis; }
   .day-card__compact-break.is-empty { color: var(--cl-muted); }
-  .day-card__compact-areas { display: flex !important; justify-content: flex-end; gap: 7px !important; overflow: hidden; }
-  .day-card__compact-areas > span { display: inline-flex; align-items: center; gap: 2px; min-width: 0; overflow: hidden; }
+  .day-card__compact-hours { justify-self: end; color: color-mix(in srgb, var(--cl-ink) 84%, var(--cl-muted)); font-size: 10px; font-weight: var(--rst-fw-bold); text-align: right; }
+  .day-card__compact-hours b { font-weight: inherit; }
+  .day-card__compact-areas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: center; gap: 9px; min-width: 0; overflow: hidden; }
+  .day-card__compact-areas > span { display: inline-flex; align-items: center; gap: 3px; min-width: 0; overflow: hidden; }
   .day-card__compact-areas > span.is-lunch { color: var(--day-tone); }
-  .day-card__compact-areas > span.is-evening { color: var(--night-tone); }
+  .day-card__compact-areas > span.is-evening { justify-content: flex-end; color: var(--night-tone); text-align: right; }
+  .day-card__compact-areas > span.is-span { grid-column: 1 / -1; justify-content: flex-start; }
+  .day-card__compact-areas > span.is-empty { min-height: 12px; }
   .day-card__compact-areas i { flex: 0 0 auto; color: currentColor; }
-  .day-card__compact-areas b { overflow: hidden; font-size: 8px; font-weight: var(--rst-fw-bold); text-overflow: ellipsis; }
-  .schedule-panel.is-compact .day-card__content { gap: 6px; padding: 7px 8px; }
-  .schedule-panel.is-compact .day-card__top strong { font-size: 11px; }
+  .day-card__compact-areas b { overflow: hidden; font-size: 8.5px; font-weight: var(--rst-fw-bold); text-overflow: ellipsis; white-space: nowrap; }
+  .schedule-panel.is-compact .day-card__content { align-content: center; gap: 4px; padding: 6px 8px; }
+  .schedule-panel.is-compact .day-card__top { grid-template-columns: minmax(0, 1fr); }
+  .schedule-panel.is-compact .day-card__top strong { font-size: 11.5px; }
 
   .day-card.is-conflict { border-color: color-mix(in srgb, var(--cl-problem) 76%, var(--cl-line-strong)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--cl-problem) 18%, transparent), 0 4px 10px color-mix(in srgb, var(--cl-problem) 10%, transparent); }
   .day-card.is-published-conflict { border-color: var(--cl-problem); box-shadow: 0 0 0 1px color-mix(in srgb, var(--cl-problem) 22%, transparent), 0 4px 12px color-mix(in srgb, var(--cl-problem) 13%, transparent); }
@@ -1522,10 +1640,6 @@
   .legend i.is-conflict { border-color: var(--cl-problem-line); box-shadow: inset 0 0 0 1px var(--cl-problem); }
   .legend i.is-absence { background: repeating-linear-gradient(-45deg, var(--cl-surface-muted), var(--cl-surface-muted) 3px, var(--cl-surface) 3px, var(--cl-surface) 6px); }
   .legend__hint { margin-left: auto; }
-
-  .draft-save { position: sticky; z-index: 30; bottom: 14px; justify-self: end; display: flex; align-items: center; gap: 7px; margin-top: -38px; margin-right: 12px; padding: 6px; border: 1px solid var(--cl-line-strong); border-radius: 8px; background: color-mix(in srgb, var(--cl-surface) 94%, transparent); box-shadow: 0 10px 28px rgb(0 0 0 / .14); backdrop-filter: blur(8px); }
-  .draft-save > span { display: inline-flex; align-items: center; gap: 6px; padding: 0 5px; color: var(--cl-attention); font-size: 11px; font-weight: var(--rst-fw-bold); }
-  .draft-save > span i { width: 6px; height: 6px; border-radius: 50%; background: var(--cl-attention); }
 
   .publish-review { display: grid; gap: 16px; padding: 16px; }
   .publish-review__stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }

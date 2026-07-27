@@ -386,43 +386,11 @@ export function defaultPlanningShift(
     'employeeId' | 'weekday' | 'date' | 'serviceKey'
   >
 ): PlanningShiftDraft | null {
-  const assignmentPairs = snapshot.coverage_requirements
-    .filter((item) => item.active && item.service_key === slot.serviceKey)
-    .map((item) => ({
-      areaId: item.area_id,
-      jobFunctionId: item.job_function_id
-    }))
-    .filter(
-      (item, index, all) =>
-        item.areaId &&
-        item.jobFunctionId &&
-        all.findIndex(
-          (candidate) =>
-            candidate.areaId === item.areaId &&
-            candidate.jobFunctionId === item.jobFunctionId
-        ) === index
-    );
-  // A planned shift always carries the employee's own position: their primary
-  // job function, else their first active assignment. We never inherit another
-  // role from an unrelated coverage requirement.
-  const employeeJob =
-    snapshot.employee_job_functions.find(
-      (row) => row.employee_id === slot.employeeId && row.is_primary && row.active
-    )?.job_function_id ??
-    snapshot.employee_job_functions.find(
-      (row) => row.employee_id === slot.employeeId && row.active
-    )?.job_function_id ??
-    '';
-  // Prefer the coverage area defined for that position, then any area for the
-  // service, then the first active area.
-  const assignment = {
-    jobFunctionId: employeeJob,
-    areaId:
-      assignmentPairs.find((item) => item.jobFunctionId === employeeJob)?.areaId ??
-      assignmentPairs[0]?.areaId ??
-      snapshot.work_areas.find((area) => area.active)?.id ??
-      ''
-  };
+  const assignment = planningAssignmentOptions(
+    snapshot,
+    slot.employeeId,
+    slot.serviceKey
+  )[0] ?? { jobFunctionId: '', areaId: '' };
   const times = defaultServiceTimes(snapshot, slot.date, slot.serviceKey);
   return {
     employeeId: slot.employeeId,
@@ -436,15 +404,105 @@ export function defaultPlanningShift(
   };
 }
 
+export type PlanningAssignmentOption = {
+  areaId: string;
+  jobFunctionId: string;
+  recommended: boolean;
+};
+
+/**
+ * Scheduling eligibility comes from active employees, positions and areas.
+ * Staffing coverage only ranks useful suggestions; it never removes a valid
+ * operational choice from the planner.
+ */
+export function planningAssignmentOptions(
+  snapshot: ManagerOperationsReadModel,
+  employeeId: string,
+  serviceKey: ServiceKey
+): PlanningAssignmentOption[] {
+  const activeAreas = snapshot.work_areas.filter((area) => area.active);
+  const activeJobs = snapshot.job_functions.filter((job) => job.active);
+  if (!activeAreas.length || !activeJobs.length) return [];
+
+  const employeeAssignments = snapshot.employee_job_functions
+    .filter((row) => row.employee_id === employeeId && row.active)
+    .sort((left, right) => Number(right.is_primary) - Number(left.is_primary));
+  const employeeOrder = new Map(
+    employeeAssignments.map((row, index) => [row.job_function_id, index])
+  );
+  const jobs = [...activeJobs].sort((left, right) => {
+    const leftOrder = employeeOrder.get(left.id);
+    const rightOrder = employeeOrder.get(right.id);
+    if (leftOrder != null || rightOrder != null) {
+      if (leftOrder == null) return 1;
+      if (rightOrder == null) return -1;
+      if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+    }
+    return left.sort_order - right.sort_order || left.name.localeCompare(right.name);
+  });
+
+  const relationOrder = new Map(
+    (snapshot.job_function_areas ?? [])
+      .filter((row) => row.active)
+      .map((row) => [
+        `${row.job_function_id}|${row.area_id}`,
+        row.is_primary ? 0 : 1
+      ])
+  );
+  const recommended = new Set(
+    snapshot.coverage_requirements
+      .filter((row) => row.active && row.service_key === serviceKey)
+      .map((row) => `${row.job_function_id}|${row.area_id}`)
+  );
+  const options = jobs.flatMap((job) => {
+    const areas = [...activeAreas].sort((left, right) => {
+      const leftRelation = relationOrder.get(`${job.id}|${left.id}`);
+      const rightRelation = relationOrder.get(`${job.id}|${right.id}`);
+      if (leftRelation != null || rightRelation != null) {
+        if (leftRelation == null) return 1;
+        if (rightRelation == null) return -1;
+        if (leftRelation !== rightRelation) return leftRelation - rightRelation;
+      }
+      return left.sort_order - right.sort_order || left.name.localeCompare(right.name);
+    });
+    return areas.map((area) => ({
+      jobFunctionId: job.id,
+      areaId: area.id,
+      recommended: recommended.has(`${job.id}|${area.id}`)
+    }));
+  });
+
+  return options.sort((left, right) => {
+    const leftEmployee = employeeOrder.has(left.jobFunctionId);
+    const rightEmployee = employeeOrder.has(right.jobFunctionId);
+    if (leftEmployee !== rightEmployee) return leftEmployee ? -1 : 1;
+    const leftRelated = relationOrder.has(`${left.jobFunctionId}|${left.areaId}`);
+    const rightRelated = relationOrder.has(`${right.jobFunctionId}|${right.areaId}`);
+    if (leftRelated !== rightRelated) return leftRelated ? -1 : 1;
+    if (left.recommended !== right.recommended) return left.recommended ? -1 : 1;
+    const leftJob = jobs.findIndex((job) => job.id === left.jobFunctionId);
+    const rightJob = jobs.findIndex((job) => job.id === right.jobFunctionId);
+    if (leftJob !== rightJob) return leftJob - rightJob;
+    return activeAreas.findIndex((area) => area.id === left.areaId)
+      - activeAreas.findIndex((area) => area.id === right.areaId);
+  });
+}
+
 export function planningStatusForWeek(
   snapshot: ManagerOperationsReadModel,
   weekStart: string
-): { planning: 'draft' | 'published'; actuals: string; revision: number } {
+): {
+  planning: 'draft' | 'published';
+  actuals: string;
+  revision: number;
+  hasUnpublishedChanges: boolean;
+} {
   const week = snapshot.work_weeks.find((item) => item.week_start === weekStart);
   return {
     planning: week?.planning_status === 'published' ? 'published' : 'draft',
     actuals: week?.actuals_status ?? 'open',
-    revision: Number(week?.planning_revision ?? 0)
+    revision: Number(week?.planning_revision ?? 0),
+    hasUnpublishedChanges: week?.planning_has_unpublished_changes === true
   };
 }
 

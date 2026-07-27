@@ -332,7 +332,7 @@ function rowIdentity(row: object): string {
 function mergeRows<T extends object>(models: ManagerOperationsReadModel[], key: keyof ManagerOperationsReadModel): T[] {
   const rows = new Map<string, T>();
   for (const model of models) {
-    for (const row of model[key] as T[]) rows.set(rowIdentity(row), row);
+    for (const row of (model[key] as T[] | undefined) ?? []) rows.set(rowIdentity(row), row);
   }
   return [...rows.values()];
 }
@@ -347,6 +347,13 @@ export function mergeDashboardReadModels(models: ManagerOperationsReadModel[]): 
     employee_job_functions: mergeRows<ManagerOperationsReadModel['employee_job_functions'][number]>(models, 'employee_job_functions'),
     job_functions: mergeRows<ManagerOperationsReadModel['job_functions'][number]>(models, 'job_functions'),
     planned_shifts: mergeRows<ManagerOperationsReadModel['planned_shifts'][number]>(models, 'planned_shifts'),
+    published_planned_shifts: mergeRows<ManagerOperationsReadModel['published_planned_shifts'][number]>(
+      models.map((model) => ({
+        ...model,
+        published_planned_shifts: model.published_planned_shifts ?? model.planned_shifts
+      })),
+      'published_planned_shifts'
+    ),
     time_entries: mergeRows<ManagerOperationsReadModel['time_entries'][number]>(models, 'time_entries'),
     absences: mergeRows<ManagerOperationsReadModel['absences'][number]>(models, 'absences'),
     work_pattern_exceptions: mergeRows<ManagerOperationsReadModel['work_pattern_exceptions'][number]>(
@@ -523,7 +530,8 @@ function analysePeriod(
   const timezone = model.restaurant_settings.timezone || 'Europe/Brussels';
   const employeeNames = new Map(model.employees.map((employee) => [employee.id, employee.display_name]));
   const areaNames = new Map(model.work_areas.map((area) => [area.id, area.name]));
-  const plannedById = new Map(model.planned_shifts.map((shift) => [shift.id, shift]));
+  const publishedShifts = model.published_planned_shifts ?? model.planned_shifts;
+  const plannedById = new Map(publishedShifts.map((shift) => [shift.id, shift]));
   const entriesByPlan = new Map<string, ManagerOperationsReadModel['time_entries'][number]>();
 
   for (const employee of model.employees) {
@@ -555,7 +563,7 @@ function analysePeriod(
     return row;
   };
 
-  for (const shift of model.planned_shifts) {
+  for (const shift of publishedShifts) {
     const date = plannedShiftDate(shift);
     if (!inRange(date, range)) continue;
     if (!insightFiltersMatch(shift.employee_id, shift.area_id, shift.service_key, regimes, filters)) continue;

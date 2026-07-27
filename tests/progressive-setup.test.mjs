@@ -48,7 +48,7 @@ test('Schedule uses one premium week header and one full daily card with interna
   const nav = await readFile('src/lib/classic/classic-nav.ts', 'utf8');
   assert.doesNotMatch(schedule, /<ClassicTablePanel/);
   assert.doesNotMatch(schedule, /type Density|rst-schedule-density|is-detailed/);
-  assert.match(schedule, /type GroupMode = 'none' \| 'contract' \| 'position' \| 'area'/);
+  assert.match(schedule, /type GroupMode = 'none' \| 'contract' \| 'position' \| 'area' \| 'status'/);
   assert.match(schedule, /class="service-canvas"/);
   assert.match(schedule, /class="service-zone is-\{service\} is-\{tone\}"/);
   assert.match(schedule, /class="day-card"/);
@@ -60,7 +60,8 @@ test('Schedule uses one premium week header and one full daily card with interna
   assert.doesNotMatch(schedule, /function compact/);
   assert.match(schedule, /class="day-card__content"/);
   assert.match(schedule, /class="day-card__metrics"/);
-  assert.match(schedule, /class="day-card__compact-meta"/);
+  assert.match(schedule, /class="day-card__compact-metrics"/);
+  assert.match(schedule, /class="day-card__compact-break"/);
   assert.match(schedule, /class="day-card__compact-hours"/);
   assert.match(schedule, /class="day-card__compact-areas"/);
   assert.match(schedule, /rst-schedule-card-density/);
@@ -76,10 +77,13 @@ test('Schedule uses one premium week header and one full daily card with interna
   assert.match(schedule, /const plannedCost = shiftsCost/);
   assert.match(schedule, /restaurantWeather\.dailyFor\(day\.date\)/);
   assert.match(schedule, /<WeatherIcon code=\{weather\.code\}/);
-  assert.match(schedule, /metaParts=\{compactCards[\s\S]*\[formatHours\(weekHours\)\]/);
+  assert.match(
+    schedule,
+    /metaParts=\{[\s\S]*compactCards \|\| !canViewFinancials[\s\S]*\? \[formatHours\(weekHours\)\]/
+  );
   assert.match(schedule, /role="switch"[\s\S]*checked=\{!compactCards\}/);
   assert.match(schedule, /<span>\{t\('Details'\)\}<\/span>/);
-  assert.match(schedule, /\{#if !compactCards\}<em>\{plannedCost/);
+  assert.match(schedule, /\{#if !compactCards && canViewFinancials\}<em>\{plannedCost/);
   assert.match(schedule, /label=\{`\$\{plannedEmployeeIds\.size\}\/\$\{totalEmployeeIds\.size\}`\}/);
   assert.match(schedule, /labelIcon="people"/);
   assert.match(schedule, /const dayEmployees = new Set/);
@@ -94,7 +98,7 @@ test('Schedule uses one premium week header and one full daily card with interna
   assert.match(schedule, /class="board__day-metric board__weather-metric"/);
   assert.doesNotMatch(schedule, /class="today-link"/);
   assert.match(schedule, /\.board__day \{ border-left: 1px solid var\(--cl-grid-line\)/);
-  assert.match(schedule, /\.board th \{ height: 66px/);
+  assert.match(schedule, /\.board th \{ height: 72px/);
   assert.match(schedule, /\.board th\.has-menu \{ padding: 0; \}/);
   assert.match(schedule, /\.day-card \{[^}]*border-radius: 3px/s);
   assert.match(schedule, /editable=\{week\.editable && selectedSlot\.date >= week\.today\}/);
@@ -128,6 +132,27 @@ test('schedule republish migration keeps published weeks auditable and rejects o
   assert.match(migration, /Overlapping shifts must be resolved before publishing/);
   assert.match(migration, /A republish is an audited planning publication/);
   assert.doesNotMatch(migration, /Revert the published plan to draft before publishing it again/);
+});
+
+test('published schedules keep manager edits private until an explicit republish', async () => {
+  const migration = await readFile(
+    'supabase/migrations/20260727020219_private_planning_drafts.sql',
+    'utf8'
+  );
+  const actions = await readFile('src/lib/schedule/schedule-actions.ts', 'utf8');
+  const schedule = await readFile('src/routes/(app)/schedule/+page.svelte', 'utf8');
+
+  assert.match(migration, /create table public\.planning_draft_shifts/);
+  assert.match(migration, /create table public\.planning_draft_notes/);
+  assert.match(migration, /planning_has_unpublished_changes = true/);
+  assert.match(migration, /''published_planned_shifts''/);
+  assert.match(migration, /v_current\.planning_status = 'published'[\s\S]*v_status = 'draft'/);
+  assert.match(migration, /create or replace function public\.discard_manager_planning_draft/);
+  assert.match(migration, /planning_has_unpublished_changes = false/);
+  assert.match(actions, /discardPrivateScheduleDraft/);
+  assert.match(schedule, /Save draft/);
+  assert.match(schedule, /Republish/);
+  assert.match(schedule, /discardPrivateScheduleDraft/);
 });
 
 test('planning operational setup concerns are confirmable warnings, not publication blockers', async () => {

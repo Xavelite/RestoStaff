@@ -76,7 +76,7 @@
     persistHidden(next);
   }
   const shown = (key: string) => !hidden.has(key);
-  const colCount = $derived(2 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length);
+  const colCount = $derived(1 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length);
 
   const employeeColor = $derived(
     workspace.team
@@ -230,7 +230,6 @@
               {#if shown('end')}<th class="has-menu"><ClassicColMenu label={t('End')} sortable sortDir={sort?.key === 'end' ? sort.dir : null} onsort={(dir) => (sort = { key: 'end', dir })} filterKind="text" searchValue={endSearch} onsearch={(value) => (endSearch = value)} /></th>{/if}
               {#if shown('hours')}<th class="has-menu"><ClassicColMenu label={t('Weekly hours')} align="right" sortable sortDir={sort?.key === 'hours' ? sort.dir : null} onsort={(dir) => (sort = { key: 'hours', dir })} filterKind="text" searchValue={hoursSearch} onsearch={(value) => (hoursSearch = value)} /></th>{/if}
               {#if shown('status')}<th class="has-menu"><ClassicColMenu label={t('Setup')} sortable sortDir={sort?.key === 'status' ? sort.dir : null} onsort={(dir) => (sort = { key: 'status', dir })} filterKind="values" filterValues={[{ value: 'complete', label: t('Complete') }, { value: 'incomplete', label: t('Incomplete') }]} selected={excludedStatus} ontoggle={(value) => (excludedStatus = toggleExcluded(excludedStatus, value))} onselectall={(on) => (excludedStatus = on ? new Set() : new Set(['complete', 'incomplete']))} /></th>{/if}
-              <th class="actions-col">{t('Actions')}</th>
               <th class="chooser-col"><ClassicColChooser columns={OPTIONAL_COLUMNS.map((column) => ({ key: column.key, label: t(column.label) }))} {hidden} ontoggle={toggleColumn} /></th>
             </tr>
           </thead>
@@ -247,7 +246,7 @@
                     <td>
                       <span class="cl-table__name is-employee">
                         <span class="cl-avatar" style="--avatar-color:{employeeColor.get(employee.id) ?? 'var(--cl-muted)'}">{personInitials(employee.displayName || '?')}</span>
-                        <button class="cell-value employee-name" type="button" disabled={!team.owner || !team.editable} onclick={() => (detailId = employee.id)}>{employee.displayName || t('New employee')}</button>
+                        <button class="cell-value employee-name" type="button" disabled={!team.canManageOperations || !team.editable} onclick={() => (detailId = employee.id)}>{employee.displayName || t('New employee')}</button>
                       </span>
                     </td>
                     {#if shown('position')}<td>
@@ -262,7 +261,6 @@
                     {#if shown('end')}<td class="date-value"><time datetime={employee.contractEnd}>{formatDate(employee.contractEnd)}</time></td>{/if}
                     {#if shown('hours')}<td class="is-num hours-value">{employee.weeklyContractHours ? `${employee.weeklyContractHours}h` : '—'}</td>{/if}
                     {#if shown('status')}<td>{#if missing.length}<ClassicStatus label={missing.length === 1 ? '1 detail missing' : '{count} details missing'} params={{ count: missing.length }} tone="attention" />{:else}<ClassicStatus label="Complete" tone="ok" />{/if}</td>{/if}
-                    <td class="is-num"><button class="cl-btn edit" type="button" disabled={!team.owner || !team.editable} onclick={() => (detailId = employee.id)}>{t('Open')}</button></td>
                     <td class="menu-cell"></td>
                   </tr>
                 {/each}
@@ -291,8 +289,7 @@
   .position-identity > i { width: 6px; height: 20px; border-radius: 2px; background: var(--position-color); }
   .position-identity > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .date-value, .hours-value { color: var(--cl-muted); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .edit { min-height: 30px; padding: 3px 10px; font-size: 12px; }
-  .actions-col, .chooser-col, .menu-cell { width: 44px; }
+  .chooser-col, .menu-cell { width: 44px; }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-line-strong); display: inline-block; }
   .dot.is-orange { background: var(--cl-attention); }
 </style>

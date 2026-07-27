@@ -16,6 +16,10 @@ import type {
 } from '$lib/api/workspace-snapshot';
 import { untrack } from 'svelte';
 import { preferredMembership } from './workspace-selection';
+import {
+  canManageOperations as roleCanManageOperations,
+  canViewFinancials as roleCanViewFinancials
+} from './capabilities';
 import { getPreviewBootstrap, getPreviewModule, getPreviewOperations } from '$lib/preview/preview-api';
 import type { WorkspaceRole } from '$lib/api/workspace';
 
@@ -94,6 +98,14 @@ class WorkspaceStore {
 
   get effectiveEmployeeId(): string | null {
     return this.preview?.employeeId ?? this.bootstrap?.current_employee?.id ?? this.active?.employee_id ?? null;
+  }
+
+  get canManageOperations(): boolean {
+    return roleCanManageOperations(this.effectiveRole);
+  }
+
+  get canViewFinancials(): boolean {
+    return roleCanViewFinancials(this.effectiveRole);
   }
 
   async startPreview(session: PreviewSession): Promise<void> {

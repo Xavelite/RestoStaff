@@ -152,7 +152,10 @@ function analyseRange(
   );
   const employmentTypes = new Map(rates.rates.map((rate) => [rate.employee_id, rate.employment_type]));
   const regimes = currentRegimes(model);
-  const planById = new Map(model.planned_shifts.map((shift) => [shift.id, shift]));
+  // Older cached/test snapshots predate the explicit publication baseline.
+  // Treat their canonical planning rows as published until they refresh.
+  const publishedShifts = model.published_planned_shifts ?? model.planned_shifts;
+  const planById = new Map(publishedShifts.map((shift) => [shift.id, shift]));
   const overlapping = overlappingEntryIds(model, range);
   const employees = new Map<string, Accumulator>();
   const areas = new Map<string, Accumulator>();
@@ -164,7 +167,7 @@ function analyseRange(
   let eligibleWorkedMinutes = 0;
   let excludedEntryCount = 0;
 
-  for (const shift of model.planned_shifts) {
+  for (const shift of publishedShifts) {
     const date = plannedDate(shift);
     if (!inRange(date, range) || !matchesFilters(shift.employee_id, shift.area_id, shift.service_key, regimes, filters)) continue;
     const rate = rateMap.get(shift.employee_id);

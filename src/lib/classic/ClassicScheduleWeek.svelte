@@ -55,7 +55,12 @@
   const status = $derived(
     snapshot
       ? planningStatusForWeek(snapshot, weekStart)
-      : { planning: 'draft' as const, actuals: 'open', revision: 0 }
+      : {
+          planning: 'draft' as const,
+          actuals: 'open',
+          revision: 0,
+          hasUnpublishedChanges: false
+        }
   );
   function changeWeek(action: () => void): void {
     void unsavedChanges.runOrRequest(action);
@@ -66,6 +71,7 @@
     today,
     label: weekLabel(weekStart, i18n.intlLocale),
     published: status.planning === 'published',
+    hasUnpublishedChanges: status.hasUnpublishedChanges,
     revision: status.revision,
     editable: !workspace.isPreview,
     previous: () => changeWeek(() => (scheduleDraft.weekOffset -= 1)),
@@ -92,7 +98,7 @@
       await saveSchedule({
         restaurantId: workspace.activeId,
         weekStart,
-        status: status.planning === 'published' ? 'published' : 'draft',
+        status: 'draft',
         shifts: scheduleDraft.shifts,
         notes: scheduleDraft.notes,
         expectedRevision: status.revision,
@@ -100,7 +106,11 @@
       });
       scheduleDraft.settle();
       toasts.show(
-        t(status.planning === 'published' ? 'Schedule republished.' : 'Schedule saved.'),
+        t(
+          status.planning === 'published'
+            ? 'Private schedule draft saved.'
+            : 'Schedule saved.'
+        ),
         'success'
       );
     } catch (error) {
@@ -135,9 +145,13 @@
       ontoday={context.todayAction}
       todayLabel="This week"
     />
-    <span class="weekpill" class:is-published={context.published}>
+    <span
+      class="weekpill"
+      class:is-published={context.published && !context.hasUnpublishedChanges}
+      class:has-private-draft={context.hasUnpublishedChanges}
+    >
       <span class="weekpill__dot"></span>
-      {t(context.published ? 'Published' : 'Draft')}
+      {t(context.hasUnpublishedChanges ? 'Private draft' : context.published ? 'Published' : 'Draft')}
     </span>
     {#if scheduleDraft.dirty}
       <span class="weekbar__unsaved">{t('Unsaved changes')}</span>
@@ -184,6 +198,14 @@
   }
   .weekpill.is-published .weekpill__dot {
     background: var(--cl-ok);
+  }
+  .weekpill.has-private-draft {
+    color: var(--cl-attention);
+    border-color: color-mix(in srgb, var(--cl-attention) 34%, var(--cl-line));
+    background: color-mix(in srgb, var(--cl-attention) 7%, var(--cl-surface));
+  }
+  .weekpill.has-private-draft .weekpill__dot {
+    background: var(--cl-attention);
   }
   .weekbar__unsaved {
     display: inline-flex;

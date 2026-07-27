@@ -1,4 +1,9 @@
-import { saveAbsence, savePlanning, saveWorkPatternException } from '$lib/api/mutations';
+import {
+  discardPlanningDraft,
+  saveAbsence,
+  savePlanning,
+  saveWorkPatternException
+} from '$lib/api/mutations';
 import { clockMinutes, mondayFor } from '$lib/calendar/date';
 import { workspaceRealtime } from '$lib/realtime/workspace-realtime.svelte';
 import { workspace } from '$lib/workspace/workspace.svelte';
@@ -90,6 +95,15 @@ export async function saveSchedule(input: {
         : `Weekly schedule reviewed and published.${operationalWarningSuffix}`
       : 'Draft schedule saved.'
   });
+  await refreshSchedule(input.restaurantId, input.weekStart);
+}
+
+export async function discardPrivateScheduleDraft(input: {
+  restaurantId: string;
+  weekStart: string;
+  expectedRevision: number;
+}): Promise<void> {
+  await discardPlanningDraft(input);
   await refreshSchedule(input.restaurantId, input.weekStart);
 }
 

@@ -3,7 +3,7 @@ import test from 'node:test';
 import { employmentTermsPayload, newEmployeeDraft, teamSavePayload } from '../src/lib/team/team-model.ts';
 import { defaultWorkRegime, workRegime } from '../src/lib/domain/operations.ts';
 
-test('manager saves never submit owner-only employee data', () => {
+test('manager saves operational employee data but never owner-only payroll data', () => {
   const employee = {
     ...newEmployeeDraft('employee-1'),
     displayName: 'Alex Morgan',
@@ -12,8 +12,10 @@ test('manager saves never submit owner-only employee data', () => {
     contractStart: '2026-01-01'
   };
   const payload = teamSavePayload('restaurant-1', [employee], 'manager');
-  assert.deepEqual(payload.legalProfiles, []);
-  assert.deepEqual(payload.contracts, []);
+  assert.equal(payload.legalProfiles.length, 1);
+  assert.equal(payload.legalProfiles[0].national_registry_number, 'sensitive');
+  assert.equal(payload.contracts.length, 1);
+  assert.equal(payload.contracts[0].contract_start, '2026-01-01');
   assert.deepEqual(payload.payrollProfiles, []);
   assert.equal(payload.employees.length, 1);
   assert.deepEqual(payload.employeeJobFunctions, []);

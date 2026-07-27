@@ -9,12 +9,14 @@ import {
 import { buildEmployeeWeek, employeeMonth } from '../src/lib/employee/employee-model.ts';
 import {
   buildPlanningWeek,
+  planningAssignmentOptions,
   planningContractOverages,
   planningDraftForWeek,
   planningOperationalWarnings,
   planningOverlapKeys,
   planningOverlaps
 } from '../src/lib/schedule/schedule-model.ts';
+import { parseManagerOperationsReadModel } from '../src/lib/api/workspace-snapshot.ts';
 
 test('service-slot states expose product language instead of database codes', () => {
   assert.equal(serviceSlotStateLabel('missing_badge'), 'Missing badge');
@@ -91,6 +93,59 @@ test('adjacent and overnight shifts are not treated as overlaps', () => {
   ];
 
   assert.deepEqual(planningOverlaps(shifts), []);
+});
+
+test('planning suggests an employee position and its linked area without restricting valid choices', () => {
+  const snapshot = parseManagerOperationsReadModel({
+    restaurant: { id: 'restaurant-1' },
+    restaurant_settings: {},
+    work_areas: [
+      { id: 'hall', name: 'Dining room', active: true, sort_order: 0 },
+      { id: 'bar', name: 'Bar', active: true, sort_order: 1 }
+    ],
+    job_functions: [
+      { id: 'server', name: 'Server', active: true, sort_order: 0 },
+      { id: 'bartender', name: 'Bartender', active: true, sort_order: 1 }
+    ],
+    employee_job_functions: [
+      {
+        employee_id: 'employee-1',
+        job_function_id: 'bartender',
+        active: true,
+        is_primary: true
+      }
+    ],
+    job_function_areas: [
+      {
+        job_function_id: 'bartender',
+        area_id: 'bar',
+        active: true,
+        is_primary: true
+      }
+    ],
+    coverage_requirements: [
+      {
+        job_function_id: 'server',
+        area_id: 'hall',
+        service_key: 'lunch',
+        active: true
+      }
+    ]
+  });
+
+  const options = planningAssignmentOptions(snapshot, 'employee-1', 'lunch');
+
+  assert.deepEqual(options[0], {
+    jobFunctionId: 'bartender',
+    areaId: 'bar',
+    recommended: false
+  });
+  assert.equal(options.length, 4);
+  assert.ok(options.some((option) =>
+    option.jobFunctionId === 'server'
+    && option.areaId === 'hall'
+    && option.recommended
+  ));
 });
 
 test('contract-hour overages ignore undefined regimes and report the exact excess', () => {

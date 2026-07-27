@@ -41,7 +41,8 @@
   let committing = $state(false);
 
   const snapshot = $derived(workspace.team);
-  const owner = $derived(workspace.effectiveRole === 'owner');
+  const canManageOperations = $derived(workspace.canManageOperations);
+  const canViewFinancials = $derived(workspace.canViewFinancials);
   const jobFunctions = $derived(snapshot?.job_functions.filter((item) => item.active) ?? []);
   const contractTypes = $derived(snapshot?.contract_types.filter((item) => item.active) ?? []);
   const catalogue = $derived(teamDraft.payrollCatalogue);
@@ -146,7 +147,7 @@
   }
 
   function startContractRenewal() {
-    if (!form || !owner) return;
+    if (!form || !canManageOperations) return;
     form.contractId = '';
     form.contractStart = form.contractEnd ? addDays(form.contractEnd, 1) : today;
     form.contractEnd = '';
@@ -265,7 +266,7 @@
     <nav class="editor-tabs" aria-label={t('Employee sections')}>
       <button type="button" class:is-active={section === 'people'} onclick={() => (section = 'people')}>{t('Profile')}</button>
       <button type="button" class:is-active={section === 'contract'} onclick={() => (section = 'contract')}>{t('Contract')}</button>
-      {#if owner && payrollContext}<button type="button" class:is-active={section === 'payroll'} onclick={() => (section = 'payroll')}>{t('Payroll preparation')}</button>{/if}
+      {#if canViewFinancials && payrollContext}<button type="button" class:is-active={section === 'payroll'} onclick={() => (section = 'payroll')}>{t('Payroll preparation')}</button>{/if}
     </nav>
 
     {#if section === 'people'}
@@ -312,7 +313,7 @@
         <label class="cl-label"><span>{t('Relationship')}</span><input class="cl-field" bind:value={form.emergencyRelation} /></label>
         <label class="cl-label"><span>{t('Emergency phone')}</span><input class="cl-field" type="tel" bind:value={form.emergencyPhone} /></label>
 
-        {#if owner}
+        {#if canManageOperations}
           <div class="cl-form-section">{t('Legal identity')}</div>
           <label class="cl-label"><span>{t('Birth date')}</span><input class="cl-field" type="date" bind:value={form.birthDate} /></label>
           <label class="cl-label"><span>{t('National registry number')}</span><input class="cl-field" aria-invalid={Boolean(nissIssue)} bind:value={form.nationalRegistryNumber} />{#if nissIssue}<small class="cl-field-warning">{t(nissIssue)} {t('You can still save the employee and complete this later.')}</small>{/if}</label>
@@ -374,7 +375,7 @@
           </div>
         {/if}
 
-        {#if owner && savedEmployee}
+        {#if canManageOperations && savedEmployee}
           <div class="contract-actions is-wide">
             <button class="cl-btn" type="button" onclick={startContractRenewal}>{t('Start contract renewal')}</button>
             <small>{t('Create a new contract version without rewriting the employee history.')}</small>

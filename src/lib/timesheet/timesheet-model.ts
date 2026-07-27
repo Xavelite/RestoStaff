@@ -100,12 +100,10 @@ export function actualSlotsForDate(
   const weekStart = mondayFor(date);
   const day = weekday(date);
   const employees = snapshot.employees.filter((employee) => employee.active);
-  // Count planned shifts whether the week is a published baseline or a draft:
-  // approving Actuals auto-finalizes a draft-with-shifts week server-side, so
-  // the missing-badge / planned-hours truth must include draft shifts to match
-  // what approval will enforce (otherwise the gate says "ready" but approval
-  // fails with "Resolve missing badges").
-  const planned = snapshot.planned_shifts.filter(
+  // Timesheet follows the canonical employee-visible baseline. Older cached
+  // snapshots fall back to their only planning collection until refreshed.
+  const publishedShifts = snapshot.published_planned_shifts ?? snapshot.planned_shifts;
+  const planned = publishedShifts.filter(
     (shift) => shift.week_start === weekStart && shift.weekday === day
   );
   const entries = snapshot.time_entries.filter(
@@ -212,9 +210,8 @@ export function actualsWeekTotals(
   );
   const slots = dates.flatMap((date) => actualSlotsForDate(snapshot, date, today, asOf));
   const actualHours = slots.reduce((sum, slot) => sum + slot.actualHours, 0);
-  // Planned hours follow the same rule as the slot grid: count the week's planned
-  // shifts whether published or a draft-with-shifts (approval auto-finalizes it).
-  const plannedHours = snapshot.planned_shifts
+  const publishedShifts = snapshot.published_planned_shifts ?? snapshot.planned_shifts;
+  const plannedHours = publishedShifts
     .filter((shift) => shift.week_start === weekStart)
     .reduce((sum, shift) => sum + hoursBetweenClocks(shift.starts_at, shift.ends_at), 0);
   return {

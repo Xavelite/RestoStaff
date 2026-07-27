@@ -450,20 +450,6 @@ export function teamSavePayload(
       )
   );
 
-  if (role !== 'owner') {
-    return {
-      employees,
-      employeeJobFunctions,
-      recurringScheduleSlots,
-      contacts,
-      access,
-      legalProfiles: [],
-      contracts: [],
-      payrollProfiles: [],
-      employmentTerms: []
-    };
-  }
-
   const legalProfiles = asJsonArray(
     includedDrafts.map((employee) => ({
       restaurant_id: restaurantId,
@@ -507,7 +493,7 @@ export function teamSavePayload(
   );
 
   const employmentTerms = asJsonArray(
-    employmentTermDrafts
+    (role === 'owner' ? employmentTermDrafts : [])
       .filter((employee) => includedDrafts.some((included) => included.id === employee.id))
       .map((employee) => ({
         employee_id: employee.id,
@@ -516,7 +502,7 @@ export function teamSavePayload(
   );
 
   const payrollProfiles = asJsonArray(
-    includedDrafts.map((employee) => ({
+    (role === 'owner' ? includedDrafts : []).map((employee) => ({
       restaurant_id: restaurantId,
       employee_id: employee.id,
       payroll_employee_id: nullable(employee.payrollEmployeeId),

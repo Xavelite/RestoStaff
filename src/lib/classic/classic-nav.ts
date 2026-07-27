@@ -103,7 +103,6 @@ const CLASSIC_MODULES: ClassicModule[] = [
     roles: MANAGER,
     subNav: [
       { href: '/restaurant', label: 'Profile' },
-      { href: '/restaurant/hours', label: 'Hours' },
       { href: '/restaurant/areas', label: 'Areas' },
       { href: '/restaurant/positions', label: 'Positions' },
       { href: '/restaurant/coverage', label: 'Staffing' }

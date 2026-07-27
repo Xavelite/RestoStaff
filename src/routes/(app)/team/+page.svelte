@@ -13,6 +13,7 @@
   import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
   import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
+  import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
   import EmployeeInlineEditor from '$lib/classic/EmployeeInlineEditor.svelte';
   import { teamDraft } from '$lib/classic/classic-team.svelte';
   import { workspacePositionByKey } from '$lib/restaurant/workspace-catalogue';
@@ -32,8 +33,10 @@
   let excludedStatus = $state(new Set<string>(['archived']));
   let freshId = $state('');
   let detailId = $state('');
-  let dragEmployeeId = $state('');
-  let dropGroupKey = $state('');
+  let editingEmployeeId = $state('');
+  let editingField = $state<'email' | 'phone' | ''>('');
+  let editingValue = $state('');
+  let editingInput = $state<HTMLInputElement | null>(null);
   let collapsedGroups = $state<string[]>([]);
 
   const OPTIONAL_COLUMNS = [
@@ -85,7 +88,7 @@
   }
 
   const shown = (key: string) => !hidden.has(key);
-  const colCount = $derived(2 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length);
+  const colCount = $derived(1 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length);
 
   const employeeColor = $derived(
     workspace.team
@@ -178,6 +181,44 @@
     freshId = '';
   }
 
+  async function startInlineEdit(employee: EmployeeDraft, field: 'email' | 'phone') {
+    if (!team?.editable) return;
+    editingEmployeeId = employee.id;
+    editingField = field;
+    editingValue = employee[field];
+    await tick();
+    editingInput?.focus();
+    editingInput?.select();
+  }
+
+  function commitInlineEdit() {
+    if (!editingEmployeeId || !editingField) return;
+    const employeeId = editingEmployeeId;
+    const field = editingField;
+    const value = editingValue.trim();
+    editingEmployeeId = '';
+    editingField = '';
+    editingValue = '';
+    if (field === 'email') teamDraft.update(employeeId, { email: value });
+    else teamDraft.update(employeeId, { phone: value });
+  }
+
+  function cancelInlineEdit() {
+    editingEmployeeId = '';
+    editingField = '';
+    editingValue = '';
+  }
+
+  function handleInlineKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      commitInlineEdit();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      cancelInlineEdit();
+    }
+  }
+
   function setName(employee: EmployeeDraft, value: string) {
     const patch: Partial<EmployeeDraft> = { displayName: value };
     if (!employee.firstName.trim() && !employee.lastName.trim()) {
@@ -195,11 +236,6 @@
           : [...employee.jobFunctionIds, id]
         : employee.jobFunctionIds.filter((item) => item !== id)
     });
-  }
-
-  function movePrimaryPosition(employee: EmployeeDraft, targetId: string) {
-    const next = [targetId, ...employee.jobFunctionIds.filter((id) => id !== targetId)];
-    teamDraft.update(employee.id, { jobFunctionIds: next });
   }
 
   function toggleExcluded(set: Set<string>, value: string): Set<string> {
@@ -305,19 +341,6 @@
     not_invited: 'attention'
   };
 
-  function startDrag(employeeId: string) {
-    if (groupBy !== 'position') return;
-    dragEmployeeId = employeeId;
-  }
-
-  function dropIntoPosition(groupKey: string) {
-    if (!dragEmployeeId || groupBy !== 'position' || !workspace.team) return;
-    const employee = teamDraft.employees.find((item) => item.id === dragEmployeeId);
-    if (employee && groupKey && groupKey !== '__undefined__') movePrimaryPosition(employee, groupKey);
-    dragEmployeeId = '';
-    dropGroupKey = '';
-  }
-
   const readTeamContext = useClassicTeamContext();
   const team = $derived(readTeamContext());
 </script>
@@ -335,7 +358,7 @@
     {@const activeCount = team.employees.filter((employee) => employee.active).length}
     {@const accessCount = team.employees.filter((employee) => employee.accessState === 'active').length}
 
-    {#if teamDraft.supplementaryError && team.owner}
+    {#if teamDraft.supplementaryError && team.canViewFinancials}
       <div class="cl-notice" role="alert">{teamDraft.supplementaryError}</div>
     {/if}
 
@@ -410,7 +433,6 @@
                     onselectall={(on) => (excludedStatus = on ? new Set() : new Set(['active', 'archived']))} />
                 </th>
               {/if}
-              <th class="actions-col">{t('Actions')}</th>
               <th class="chooser-col"><ClassicColChooser columns={OPTIONAL_COLUMNS.map((column) => ({ key: column.key, label: t(column.label) }))} {hidden} ontoggle={toggleColumn} /></th>
             </tr>
           </thead>
@@ -431,16 +453,12 @@
                     meta={peopleCountLabel(group.employees.length)}
                     color={group.color}
                     collapsed={collapsedGroups.includes(group.key)}
-                    dropTarget={dropGroupKey === group.key}
                     ontoggle={() => toggleGroup(group.key)}
-                    ondragover={(event) => { if (groupBy === 'position') { event.preventDefault(); dropGroupKey = group.key; } }}
-                    ondragleave={() => (dropGroupKey = '')}
-                    ondrop={() => dropIntoPosition(group.key)}
                   />
                 {/if}
                 {#if !collapsedGroups.includes(group.key)}
                 {#each group.employees as employee (employee.id)}
-                  <tr data-employee-id={employee.id} class:is-attention={employee.id === freshId} draggable={groupBy === 'position'} ondragstart={() => startDrag(employee.id)} ondragend={() => { dragEmployeeId = ''; dropGroupKey = ''; }}>
+                  <tr data-employee-id={employee.id} class:is-attention={employee.id === freshId}>
                     <td>
                       <span class="cl-table__name is-employee">
                         <span class="cl-avatar" style="--avatar-color:{employeeColor.get(employee.id) ?? 'var(--cl-muted)'}">{personInitials(employee.displayName || '?')}</span>
@@ -480,22 +498,70 @@
                     {#if shown('email')}<td>
                       {#if employee.id === freshId}
                         <input class="cl-field cellfield" type="email" placeholder={t('Email')} value={employee.email} disabled={!team.editable} oninput={(event) => teamDraft.update(employee.id, { email: event.currentTarget.value })} />
+                      {:else if editingEmployeeId === employee.id && editingField === 'email'}
+                        <input
+                          bind:this={editingInput}
+                          class="cl-field cellfield inline-editor"
+                          type="email"
+                          aria-label={`${t('Email')} · ${employee.displayName}`}
+                          value={editingValue}
+                          oninput={(event) => (editingValue = event.currentTarget.value)}
+                          onkeydown={handleInlineKeydown}
+                          onblur={commitInlineEdit}
+                        />
                       {:else}
-                        <button class="cell-value is-secondary" type="button" disabled={!team.editable} onclick={() => (detailId = employee.id)}>{employee.email || '—'}</button>
+                        <button
+                          class="inline-cell"
+                          class:is-empty={!employee.email}
+                          type="button"
+                          disabled={!team.editable}
+                          aria-label={`${t('Email')} · ${employee.displayName}`}
+                          onclick={() => startInlineEdit(employee, 'email')}
+                        >
+                          <span>{employee.email || t('Add')}</span>
+                          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 20 4.3-1 10.8-10.8a2.1 2.1 0 0 0-3-3L5.3 16zM14.8 6.5l3 3" /></svg>
+                        </button>
                       {/if}
                     </td>{/if}
                     {#if shown('phone')}<td>
                       {#if employee.id === freshId}
                         <input class="cl-field cellfield phonefield" type="tel" placeholder={t('Phone')} value={employee.phone} disabled={!team.editable} oninput={(event) => teamDraft.update(employee.id, { phone: event.currentTarget.value })} />
+                      {:else if editingEmployeeId === employee.id && editingField === 'phone'}
+                        <input
+                          bind:this={editingInput}
+                          class="cl-field cellfield phonefield inline-editor"
+                          type="tel"
+                          aria-label={`${t('Phone')} · ${employee.displayName}`}
+                          value={editingValue}
+                          oninput={(event) => (editingValue = event.currentTarget.value)}
+                          onkeydown={handleInlineKeydown}
+                          onblur={commitInlineEdit}
+                        />
                       {:else}
-                        <button class="cell-value is-secondary" type="button" disabled={!team.editable} onclick={() => (detailId = employee.id)}>{employee.phone || '—'}</button>
+                        <button
+                          class="inline-cell"
+                          class:is-empty={!employee.phone}
+                          type="button"
+                          disabled={!team.editable}
+                          aria-label={`${t('Phone')} · ${employee.displayName}`}
+                          onclick={() => startInlineEdit(employee, 'phone')}
+                        >
+                          <span>{employee.phone || t('Add')}</span>
+                          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 20 4.3-1 10.8-10.8a2.1 2.1 0 0 0-3-3L5.3 16zM14.8 6.5l3 3" /></svg>
+                        </button>
                       {/if}
                     </td>{/if}
                     {#if shown('contract')}<td><span class="cl-badge is-neutral">{team.contractName.get(employee.contractTypeId) ?? t('Not set')}</span></td>{/if}
                     {#if shown('access')}<td><ClassicStatus label={ACCESS_LABEL[employee.accessState] ?? employee.accessState} tone={accessTone[employee.accessState] ?? 'attention'} /></td>{/if}
                     {#if shown('status')}<td><ClassicStatus label={employee.active ? 'Active' : 'Archived'} tone={employee.active ? 'ok' : 'attention'} /></td>{/if}
-                    <td class="is-num">{#if employee.id === freshId}<button class="cl-btn detail is-quiet" type="button" onclick={() => removeDraftEmployee(employee.id)}>{t('Remove')}</button>{:else}<button class="cl-btn detail" type="button" disabled={!team.editable} onclick={() => (detailId = employee.id)}>{t('Open')}</button>{/if}</td>
-                    <td class="menu-cell"></td>
+                    <td class="menu-cell">
+                      <ClassicRowMenu
+                        disabled={!team.editable}
+                        items={employee.id === freshId
+                          ? [{ label: t('Remove'), tone: 'danger', onselect: () => removeDraftEmployee(employee.id) }]
+                          : [{ label: t('Open'), onselect: () => (detailId = employee.id) }]}
+                      />
+                    </td>
                   </tr>
                 {/each}
                 {/if}
@@ -519,14 +585,18 @@
   .phonefield { min-width: 125px; }
   .chooser-col,
   .menu-cell { width: 44px; }
-  .actions-col { width: 90px; }
-  .detail { min-height: 30px; padding: 3px 10px; font-size: 12px; }
-  .detail.is-quiet { border-color: transparent; background: transparent; color: var(--cl-muted); }
   .cell-value { max-width: 260px; display: block; overflow: hidden; padding: 3px 0; border: 0; background: transparent; color: var(--cl-ink); font: inherit; font-size: 13px; font-weight: var(--rst-fw-regular); line-height: 1.35; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
   .cell-value:hover:not(:disabled) { color: var(--cl-accent); text-decoration: underline; text-underline-offset: 2px; }
   .cell-value:disabled { cursor: default; }
   .cell-value.employee-name { color: var(--cl-ink); font-weight: var(--rst-fw-medium); }
-  .cell-value.is-secondary { color: var(--cl-muted); }
+  .inline-cell { max-width: 260px; min-height: 30px; display: inline-flex; align-items: center; gap: 7px; overflow: hidden; margin: -3px -7px; padding: 4px 7px; border: 1px solid transparent; border-radius: 6px; color: var(--cl-muted); background: transparent; font: inherit; font-size: 13px; line-height: 1.35; text-align: left; cursor: text; transition: color var(--cl-dur) var(--cl-ease), border-color var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease); }
+  .inline-cell span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .inline-cell svg { flex: 0 0 auto; opacity: 0; transition: opacity var(--cl-dur) var(--cl-ease); }
+  .inline-cell:hover:not(:disabled), .inline-cell:focus-visible { border-color: color-mix(in srgb, var(--cl-accent) 22%, var(--cl-line)); color: var(--cl-ink); background: var(--cl-accent-wash); }
+  .inline-cell:hover:not(:disabled) svg, .inline-cell:focus-visible svg, .inline-cell.is-empty svg { opacity: .72; }
+  .inline-cell.is-empty { color: var(--cl-accent); font-size: 12px; font-weight: var(--rst-fw-medium); }
+  .inline-cell:disabled { cursor: default; }
+  .inline-editor { border-color: var(--cl-accent); background: var(--cl-surface); box-shadow: 0 0 0 2px var(--cl-accent-wash); }
   .posmenu { position: relative; }
   .posmenu summary { min-width: 118px; max-width: 230px; display: inline-grid; grid-template-columns: 7px minmax(0, 1fr) auto; align-items: center; gap: 7px; list-style: none; padding: 6px 9px; border: 1px solid color-mix(in srgb, var(--position-color) 28%, var(--cl-line)); border-radius: 6px; background: color-mix(in srgb, var(--position-color) 7%, var(--cl-surface)); color: var(--cl-ink); font-size: 13px; cursor: pointer; white-space: nowrap; }
   .posmenu summary:hover { border-color: color-mix(in srgb, var(--position-color) 54%, var(--cl-line)); background: color-mix(in srgb, var(--position-color) 10%, var(--cl-surface)); }

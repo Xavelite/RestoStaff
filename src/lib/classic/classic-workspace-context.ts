@@ -8,7 +8,8 @@ export type ClassicTeamContext = {
   jobName: Map<string, string>;
   contractName: Map<string, string>;
   editable: boolean;
-  owner: boolean;
+  canManageOperations: boolean;
+  canViewFinancials: boolean;
   saving: boolean;
   dirty: boolean;
   canSave: boolean;

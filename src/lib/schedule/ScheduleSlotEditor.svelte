@@ -3,9 +3,11 @@
   import { formatHours, hoursBetweenClocks, serviceLabel } from '$lib/calendar/date';
   import ClassicServiceIcon from '$lib/classic/ClassicServiceIcon.svelte';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
+  import { workspace } from '$lib/workspace/workspace.svelte';
   import {
     blocksPlanningAssignment,
     defaultPlanningShift,
+    planningAssignmentOptions,
     type PlanningGridSlot,
     type PlanningNoteDraft,
     type PlanningShiftDraft
@@ -69,26 +71,11 @@
   );
 
   const assignmentPairs = $derived(
-    snapshot.coverage_requirements
-      .filter((item) => item.active && item.service_key === slot.serviceKey)
-      .map((item) => ({
-        areaId: item.area_id,
-        jobFunctionId: item.job_function_id
-      }))
-      .filter(
-        (item, index, all) =>
-          item.areaId &&
-          item.jobFunctionId &&
-          all.findIndex(
-            (candidate) =>
-              candidate.areaId === item.areaId &&
-              candidate.jobFunctionId === item.jobFunctionId
-          ) === index
-      )
+    planningAssignmentOptions(snapshot, slot.employeeId, slot.serviceKey)
   );
   const emptySlotCopy = $derived(
     !assignmentPairs.length
-      ? t('Configure an area-position assignment for this service before scheduling.')
+      ? t('Create at least one active area and position before scheduling.')
       : planningBlockerLabel
         ? t('This slot has {blocker}. Review it before scheduling.', { blocker: planningBlockerLabel })
         : t('No shift is planned for this slot.')
@@ -286,10 +273,12 @@
           <small>{t('Planned hours')}</small>
           <strong>{formatHours(shiftHours)}</strong>
         </span>
-        <span class="shift-summary__metric">
-          <small>{t('Estimated cost')}</small>
-          <strong>{estimatedCost > 0 ? `~${money(estimatedCost)}` : '—'}</strong>
-        </span>
+        {#if workspace.canViewFinancials}
+          <span class="shift-summary__metric">
+            <small>{t('Estimated cost')}</small>
+            <strong>{estimatedCost > 0 ? `~${money(estimatedCost)}` : '—'}</strong>
+          </span>
+        {/if}
       </header>
 
       <div class="fields">

@@ -14,6 +14,7 @@ export type ScheduleWeekContext = {
   today: string;
   label: string;
   published: boolean;
+  hasUnpublishedChanges: boolean;
   revision: number;
   editable: boolean;
   previous: () => void;

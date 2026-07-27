@@ -59,12 +59,6 @@ class ClassicRestaurantDraft {
   async save(restaurantId: string, snapshot: RestaurantReadModel): Promise<void> {
     if (!this.draft) return;
     const payload = restaurantSavePayload(snapshot, this.draft);
-    // Employment settings are intentionally absent from manager read models.
-    // Omitting the slice prevents a normal operational save from replacing the
-    // owner's private identifiers with the manager draft's empty defaults.
-    if (workspace.effectiveRole !== 'owner') {
-      delete payload.restaurant.employment_settings;
-    }
     await saveRestaurant(restaurantId, payload);
     this.#loadedRestaurantId = '';
     this.#loadedKey = '';
@@ -80,9 +74,6 @@ class ClassicRestaurantDraft {
   ): Promise<void> {
     if (!this.draft) return;
     const payload = restaurantSavePayload(snapshot, this.draft);
-    if (workspace.effectiveRole !== 'owner') {
-      delete payload.restaurant.employment_settings;
-    }
     await saveRestaurantAreasModel(
       restaurantId,
       payload,

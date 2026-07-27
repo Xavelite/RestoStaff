@@ -12,7 +12,7 @@
 
   const readRestaurantContext = useClassicRestaurantContext();
   const context = $derived(readRestaurantContext());
-  const isOwner = $derived(workspace.effectiveRole === 'owner');
+  const canManageOperations = $derived(workspace.canManageOperations);
   const companyIssue = $derived(enterpriseNumberIssue(context?.draft.companyNumber));
   const establishmentIssue = $derived(
     establishmentUnitIssue(context?.draft.establishmentUnitNumber)
@@ -24,7 +24,7 @@
 
 {#if context}
   {@const draft = context.draft}
-  {#if isOwner}
+  {#if canManageOperations}
     <ClassicTablePanel
       dirty={context.dirty}
       saving={context.saving}
@@ -162,8 +162,8 @@
   {:else}
     <section class="cl-card access-card">
       <div class="cl-empty">
-        <strong>{t('Owner access required')}</strong>
-        <span>{t('Employer identifiers and external connections are available to restaurant owners only.')}</span>
+        <strong>{t('Manager access required')}</strong>
+        <span>{t('Employer identifiers and external connections are available to restaurant operators.')}</span>
       </div>
     </section>
   {/if}
