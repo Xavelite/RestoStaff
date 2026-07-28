@@ -25,7 +25,6 @@
     placeholder = '',
     label,
     disabled = false,
-    autoOpen = false,
     recommendedLabel = t('Recommended'),
     allLabel = t('All catalogue items'),
     customLabel = t('Custom item'),
@@ -45,7 +44,6 @@
     placeholder?: string;
     label: string;
     disabled?: boolean;
-    autoOpen?: boolean;
     recommendedLabel?: string;
     allLabel?: string;
     customLabel?: string;
@@ -73,7 +71,6 @@
   let menuLeft = $state(0);
   let menuTop = $state(0);
   let menuWidth = $state(340);
-  let autoOpened = $state(false);
 
   const matchingItems = $derived.by(() => {
     const term = query.trim().toLocaleLowerCase();
@@ -209,20 +206,6 @@
   });
 
   $effect(() => {
-    if (!autoOpen || disabled || autoOpened) return;
-    autoOpened = true;
-    void tick().then(async () => {
-      input?.focus();
-      await show();
-    });
-  });
-
-  $effect(() => {
-    if (autoOpen) return;
-    autoOpened = false;
-  });
-
-  $effect(() => {
     if (!open) return;
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node;
@@ -257,9 +240,6 @@
     {placeholder}
     {disabled}
     {value}
-    onfocus={() => {
-      if (!open) void show();
-    }}
     onclick={() => {
       if (!open) void show();
     }}

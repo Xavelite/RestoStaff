@@ -28,7 +28,9 @@
                   ? 'support'
                   : ['reception'].includes(icon ?? '')
                     ? 'reception'
-                    : 'dining'
+                    : icon === 'contract'
+                      ? 'contract'
+                      : 'dining'
   );
 </script>
 
@@ -72,6 +74,10 @@
     {:else if group === 'reception'}
       <path d="M5 18h14M7 18v-2a5 5 0 0 1 10 0v2" />
       <path d="M12 7v2M9.5 7h5M4 13h16" />
+    {:else if group === 'contract'}
+      <!-- Not an area, but the shared glyph the pickers use for a contract. -->
+      <path d="M6.2 4.2h7.4l4.1 4.1v11.5H6.2z" />
+      <path d="M13.6 4.2v4.1h4.1M9.2 12h5.8M9.2 15.6h5.8" />
     {:else}
       <path d="M5 9h14M7 9v10M17 9v10M4 19h16" />
       <path d="M8 5h8l1 4H7z" />

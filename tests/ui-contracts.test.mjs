@@ -170,16 +170,22 @@ test('people edit contact cells inline while employee identity opens one complet
   const editor = await readFile('src/lib/classic/EmployeeInlineEditor.svelte', 'utf8');
   const teamPage = await readFile('src/lib/classic/ClassicTeamPage.svelte', 'utf8');
 
-  assert.match(people, /let groupBy = \$state<GroupBy>\('position'\)/);
-  assert.match(contracts, /let groupBy = \$state<GroupBy>\('contract'\)/);
-  assert.match(people, /employee\.id === freshId[\s\S]*teamDraft\.update\(employee\.id, \{ email:/);
+  // Both grids take their view state from the shared table-view store.
+  assert.match(people, /createTableView<SortKey, GroupBy>\([\s\S]*defaultGroupBy: 'position'/);
+  assert.match(contracts, /createTableView<SortKey, GroupBy>\([\s\S]*defaultGroupBy: 'contract'/);
+  // Every row added since the last save stays directly editable, not just the
+  // most recent one — the same as adding a position or an area.
+  assert.match(people, /let freshIds = \$state\(new Set<string>\(\)\)/);
+  assert.match(people, /\{@const isFresh = freshIds\.has\(employee\.id\)\}/);
+  assert.match(people, /class:is-new=\{isFresh\}/);
+  assert.match(people, /\{#if isFresh\}[\s\S]*teamDraft\.update\(employee\.id, \{ email:/);
   assert.match(people, /class="inline-cell"[\s\S]*startInlineEdit\(employee, 'email'\)/);
   assert.match(people, /editingField === 'phone'[\s\S]*onblur=\{commitInlineEdit\}/);
   assert.match(contracts, /class="position-identity"/);
-  assert.match(contracts, /class="grid-field contract-field"[\s\S]*updateContractType\(employee, event\.currentTarget\.value\)/);
+  assert.match(contracts, /<ClassicPicker[\s\S]*updateContractType\(employee, next\)/);
   assert.match(contracts, /type="date" value=\{employee\.contractStart\}[\s\S]*teamDraft\.update\(employee\.id, \{ contractStart:/);
   assert.match(contracts, /type="number"[\s\S]*updateHours\(employee\.id, event\.currentTarget\.value\)/);
-  assert.match(payrollEmployees, /setReferenceFunction\(employee, event\.currentTarget\.value\)/);
+  assert.match(payrollEmployees, /setReferenceFunction\(employee, next\)/);
   for (const source of [people, contracts, payrollEmployees]) {
     assert.match(source, /<EmployeeInlineEditor/);
     assert.match(source, /detailId/);
@@ -212,7 +218,7 @@ test('Restaurant Areas is the visible floor editor and Positions edits physical 
   assert.match(floorPlans, /mode\?: 'areas' \| 'tables'/);
   assert.match(floorPlans, /async function addArea\(/);
   assert.match(floorPlans, /<WorkspaceCataloguePicker/);
-  assert.match(floorPlans, /class="cl-field floor-select"/);
+  assert.match(floorPlans, /<ClassicPicker[\s\S]*options=\{floorOptions\}/);
   assert.doesNotMatch(floorPlans, /<th>\{t\('Type'\)\}<\/th>/);
   assert.match(positions, /async function addPosition\(\)/);
   assert.match(positions, /data-position-name=\{position\.id\}/);
@@ -305,16 +311,22 @@ test('Exports is a standalone manager module beside Reports', async () => {
   assert.match(payrollRedirect, /redirect\(307, '\/payroll\/employees'\)/);
 });
 
-test('restaurant coverage materializes only a complete weekday row before shared save', async () => {
+test('restaurant coverage stages only a complete weekday row, in place, before shared save', async () => {
   const coverage = await readFile('src/routes/(app)/restaurant/coverage/+page.svelte', 'utf8');
   assert.match(coverage, /counts: Array<number \| null>/);
-  assert.match(coverage, /if \(!row \|\| !row\.areaId \|\| !row\.jobFunctionId \|\| !row\.serviceKey\) return/);
+  // Only area + position + service together make a row real.
+  assert.match(coverage, /const complete = Boolean\(row\.areaId && row\.jobFunctionId && row\.serviceKey\)/);
   assert.match(coverage, /if \(!raw\.trim\(\)\)/);
   assert.match(coverage, /counts: WEEKDAYS\.map\(\(\) => null\)/);
   assert.match(coverage, /row\.counts\.flatMap\(\(count, index\) =>/);
   assert.match(coverage, /count == null[\s\S]*\? \[\]/);
   assert.match(coverage, /requiredCount: normalizedCount\(count\)/);
   assert.doesNotMatch(coverage, /coverageScope: 'default'/);
+  // A row being filled in keeps its place: it stays in newRows and is hidden
+  // from the grouped rows until a save or discard ends the add.
+  assert.match(coverage, /stagedKey: string/);
+  assert.match(coverage, /pendingKeys\.has\(rowKey\(row\)\)/);
+  assert.match(coverage, /if \(wasDirty && !dirty && newRows\.length\) newRows = \[\]/);
 });
 
 test('unsaved changes guard routes and context-changing account actions', async () => {
@@ -349,7 +361,13 @@ test('unsaved changes guard routes and context-changing account actions', async 
   assert.match(timesheet, /closeEntry[\s\S]*unsavedChanges\.runOrRequest/);
   assert.match(access, /id: 'team-invitation'/);
   assert.match(reservationFloorPlans, /id: mode === 'areas' \? 'restaurant-floor-layout' : 'reservation-table-layout'/);
-  assert.match(reservationFloorPlans, /isDirty: \(\) => dirty/);
+  // The floor-plan draft outlives the view, so its guard is scoped to the tabs
+  // that edit the same plan instead of blocking every navigation.
+  assert.match(reservationFloorPlans, /isDirty: \(\) => floorPlansDraft\.dirty/);
+  assert.match(
+    reservationFloorPlans,
+    /navigationScopes: \['\/restaurant', '\/settings', '\/reservations'\]/
+  );
   assert.match(reservationSetup, /id: 'reservation-setup'/);
   assert.match(reservationSetup, /isDirty: \(\) => dirty/);
 });

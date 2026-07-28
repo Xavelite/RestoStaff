@@ -7,6 +7,7 @@
   import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
   import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
   import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
+  import ClassicPicker from '$lib/classic/ClassicPicker.svelte';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
   import type {
     CoverageDraft,
@@ -14,11 +15,20 @@
   } from '$lib/restaurant/restaurant-model';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { buildAreaColorMap, buildPositionColorMap } from '$lib/ui/position-color';
+  import { createTableView } from '$lib/classic/table-view.svelte';
   import { areaInstanceLabelMap } from '$lib/restaurant/area-instance';
 
   type Row = { areaId: string; jobFunctionId: string; serviceKey: ServiceKey };
   type PendingService = ServiceKey | '';
-  type NewRow = { tempId: string; areaId: string; jobFunctionId: string; serviceKey: PendingService; counts: Array<number | null> };
+  type NewRow = {
+    tempId: string;
+    areaId: string;
+    jobFunctionId: string;
+    serviceKey: PendingService;
+    counts: Array<number | null>;
+    /** Row key this pending row currently owns in the draft, '' while it owns none. */
+    stagedKey: string;
+  };
   type CoverageGroup = {
     key: string;
     label: string;
@@ -27,13 +37,10 @@
   };
 
   let newRows = $state<NewRow[]>([]);
-  let search = $state('');
-  let sort = $state<{ key: 'area' | 'position' | 'service'; dir: 'asc' | 'desc' } | null>(null);
-  let groupBy = $state<'area' | 'position' | 'service' | 'none'>('area');
-  let excludedArea = $state(new Set<string>());
-  let excludedPosition = $state(new Set<string>());
-  let excludedService = $state(new Set<string>());
-  let collapsedGroups = $state<string[]>([]);
+  type SortKey = 'area' | 'position' | 'service';
+  type GroupBy = 'area' | 'position' | 'service' | 'none';
+
+  const view = createTableView<SortKey, GroupBy>({ defaultGroupBy: 'area' });
 
   const areaColor = $derived(buildAreaColorMap(restaurantConfig.draft?.areas ?? []));
   const areaName = $derived(
@@ -132,7 +139,7 @@
 
   function addRow() {
     if (!restaurantConfig.draft || workspace.isPreview) return;
-    newRows = [{ tempId: crypto.randomUUID(), areaId: '', jobFunctionId: '', serviceKey: '', counts: WEEKDAYS.map(() => null) }, ...newRows];
+    newRows = [{ tempId: crypto.randomUUID(), areaId: '', jobFunctionId: '', serviceKey: '', counts: WEEKDAYS.map(() => null), stagedKey: '' }, ...newRows];
   }
 
   function stageSuggestions() {
@@ -145,18 +152,21 @@
       .map((row) => ({
         tempId: crypto.randomUUID(),
         ...row,
-        counts: WEEKDAYS.map(() => null) as Array<number | null>
+        counts: WEEKDAYS.map(() => null) as Array<number | null>,
+        stagedKey: ''
     }));
     newRows = [...rows, ...newRows];
   }
 
   function removeNewRow(tempId: string) {
-    newRows = newRows.filter((row) => row.tempId !== tempId);
+    const row = newRows.find((item) => item.tempId === tempId);
+    if (row?.stagedKey) unstage(row.stagedKey);
+    newRows = newRows.filter((item) => item.tempId !== tempId);
   }
 
   function patchNewRow(tempId: string, patch: Partial<NewRow>) {
     newRows = newRows.map((row) => (row.tempId === tempId ? { ...row, ...patch } : row));
-    materialize(tempId);
+    stagePendingRow(tempId);
   }
 
   function setNewCount(tempId: string, index: number, raw: string) {
@@ -166,33 +176,58 @@
         itemIndex === index ? (raw.trim() ? normalizedCount(raw) : null) : value
       )
     } : row);
-    materialize(tempId);
+    stagePendingRow(tempId);
   }
 
-  function materialize(tempId: string) {
+  function unstage(key: string): void {
     const draft = restaurantConfig.draft;
     if (!draft) return;
-    const row = newRows.find((item) => item.tempId === tempId);
-    if (!row || !row.areaId || !row.jobFunctionId || !row.serviceKey) return;
-    if (exists(row.areaId, row.jobFunctionId, row.serviceKey)) return;
-    const entries: CoverageDraft[] = row.counts.flatMap((count, index) =>
-      count == null
-        ? []
-        : [{
-            id: crypto.randomUUID(),
-            areaId: row.areaId,
-            jobFunctionId: row.jobFunctionId,
-            serviceKey: row.serviceKey as ServiceKey,
-            coverageScope: 'weekday' as const,
-            weekday: index + 1,
-            requiredCount: normalizedCount(count)
-          }]
-    );
-    if (!entries.length) return;
-    draft.coverage = [...entries, ...draft.coverage];
-    newRows = newRows.filter((item) => item.tempId !== tempId);
-    restaurantConfig.touch();
+    draft.coverage = draft.coverage.filter((item) => rowKey(item) !== key);
   }
+
+  /**
+   * Write a pending row into the draft while leaving it where it was added.
+   * Staging in place is what keeps a half-filled row from teleporting into its
+   * group mid-edit; it joins the grouped rows once the draft is saved.
+   */
+  function stagePendingRow(tempId: string): void {
+    const draft = restaurantConfig.draft;
+    const row = newRows.find((item) => item.tempId === tempId);
+    if (!draft || !row) return;
+    // Clear what this row staged before, so re-picking an area leaves no orphan.
+    const hadStaged = Boolean(row.stagedKey);
+    if (row.stagedKey) unstage(row.stagedKey);
+    const complete = Boolean(row.areaId && row.jobFunctionId && row.serviceKey);
+    const taken = complete && exists(row.areaId, row.jobFunctionId, row.serviceKey as ServiceKey);
+    const entries: CoverageDraft[] = complete && !taken
+      ? row.counts.flatMap((count, index) =>
+          count == null
+            ? []
+            : [{
+                id: crypto.randomUUID(),
+                areaId: row.areaId,
+                jobFunctionId: row.jobFunctionId,
+                serviceKey: row.serviceKey as ServiceKey,
+                coverageScope: 'weekday' as const,
+                weekday: index + 1,
+                requiredCount: normalizedCount(count)
+              }]
+        )
+      : [];
+    if (entries.length) draft.coverage = [...entries, ...draft.coverage];
+    const stagedKey = entries.length ? `${row.areaId}|${row.jobFunctionId}|${row.serviceKey}` : '';
+    newRows = newRows.map((item) => (item.tempId === tempId ? { ...item, stagedKey } : item));
+    // Picking values for a row that stages nothing yet is not a change to save.
+    if (hadStaged || entries.length) restaurantConfig.touch();
+  }
+
+  // A save or a discard ends the add: the rows are real now, or they are gone.
+  let wasDirty = false;
+  $effect(() => {
+    const dirty = restaurantConfig.dirty;
+    if (wasDirty && !dirty && newRows.length) newRows = [];
+    wasDirty = dirty;
+  });
 
   function placementAreaName(areaId: string): string {
     const area = restaurantConfig.draft?.areas.find((item) => item.id === areaId);
@@ -207,17 +242,17 @@
   }
 
   function groupRows(rows: Row[], areaName: Map<string, string>, jobName: Map<string, string>): CoverageGroup[] {
-    if (groupBy === 'none') {
+    if (!view.grouping) {
       return [{ key: 'all', label: '', placementLabel: '', rows }];
     }
     const map = new Map<string, CoverageGroup>();
     for (const row of rows) {
-      const key = groupBy === 'area' ? row.areaId : groupBy === 'position' ? row.jobFunctionId : row.serviceKey;
-      const label = groupBy === 'area' ? areaName.get(key) ?? t('Unknown') : groupBy === 'position' ? jobName.get(key) ?? t('Unknown') : t(row.serviceKey === 'evening' ? 'Evening' : 'Lunch');
+      const key = view.groupBy === 'area' ? row.areaId : view.groupBy === 'position' ? row.jobFunctionId : row.serviceKey;
+      const label = view.groupBy === 'area' ? areaName.get(key) ?? t('Unknown') : view.groupBy === 'position' ? jobName.get(key) ?? t('Unknown') : t(row.serviceKey === 'evening' ? 'Evening' : 'Lunch');
       const placementLabel =
-        groupBy === 'area'
+        view.groupBy === 'area'
           ? placementAreaName(key) || label
-          : groupBy === 'position'
+          : view.groupBy === 'position'
             ? placementPositionName(key) || label
             : label;
       const group = map.get(key) ?? { key, label, placementLabel, rows: [] };
@@ -228,25 +263,8 @@
       a.placementLabel.localeCompare(b.placementLabel)
     );
   }
-  function setGroupBy(next: 'area' | 'position' | 'service' | 'none'): void {
-    groupBy = next;
-    collapsedGroups = [];
-  }
-
-  function toggleGroup(key: string): void {
-    collapsedGroups = collapsedGroups.includes(key)
-      ? collapsedGroups.filter((item) => item !== key)
-      : [...collapsedGroups, key];
-  }
-
-  function toggleExcluded(set: Set<string>, value: string): Set<string> {
-    const next = new Set(set);
-    next.has(value) ? next.delete(value) : next.add(value);
-    return next;
-  }
-
   function orderedCoverageRows(rows: Row[]): Row[] {
-    const activeSort = sort;
+    const activeSort = view.sort;
     if (!activeSort) return rows;
     const factor = activeSort.dir === 'desc' ? -1 : 1;
     return [...rows].sort((a, b) => {
@@ -275,11 +293,13 @@
     {@const jobName = new Map(draft.jobFunctions.map((job) => [job.id, job.name]))}
     {@const activeAreas = draft.areas.filter((area) => area.active && area.name.trim())}
     {@const activePositions = draft.jobFunctions.filter((job) => job.active && job.name.trim())}
+    {@const pendingKeys = new Set(newRows.map((row) => row.stagedKey).filter(Boolean))}
     {@const rows = [...new Map(draft.coverage.map((item) => [`${item.areaId}|${item.jobFunctionId}|${item.serviceKey}`, { areaId: item.areaId, jobFunctionId: item.jobFunctionId, serviceKey: item.serviceKey }])).values()]
-      .filter((row) => !excludedArea.has(row.areaId))
-      .filter((row) => !excludedPosition.has(row.jobFunctionId))
-      .filter((row) => !excludedService.has(row.serviceKey))
-      .filter((row) => `${placementAreaName(row.areaId)} ${placementPositionName(row.jobFunctionId)} ${row.serviceKey}`.toLowerCase().includes(search.trim().toLowerCase()))}
+      .filter((row) => !pendingKeys.has(rowKey(row)))
+      .filter((row) => !view.isExcluded('area', row.areaId))
+      .filter((row) => !view.isExcluded('position', row.jobFunctionId))
+      .filter((row) => !view.isExcluded('service', row.serviceKey))
+      .filter((row) => view.matchesSearch('area', `${placementAreaName(row.areaId)} ${placementPositionName(row.jobFunctionId)} ${row.serviceKey}`))}
     {@const ordered = orderedCoverageRows(rows)}
     {@const groups = groupRows(ordered, areaName, jobName)}
     {@const areaValues = activeAreas.map((area) => ({ value: area.id, label: areaName.get(area.id) ?? area.name }))}
@@ -287,7 +307,7 @@
     {@const serviceValues = [{ value: 'lunch', label: t('Lunch') }, { value: 'evening', label: t('Evening') }]}
 
     <ClassicTablePanel dirty={context.dirty} saving={context.saving} canSave={context.canSave} onsave={() => void context.save().catch(() => undefined)} ondiscard={context.discard}>
-      {#snippet meta()}<span><i class="dot"></i>{t('{count} staffing rules', { count: rows.length })}</span>{/snippet}
+      {#snippet meta()}<span><i class="dot"></i>{t('{count} staffing rules', { count: rows.length + pendingKeys.size })}</span>{/snippet}
       {#snippet actions()}
         {#if suggestedRows.length}
           <button class="cl-btn suggestion-action" type="button" disabled={workspace.isPreview} onclick={stageSuggestions}>
@@ -301,20 +321,21 @@
           <table class="cl-table cov">
             <thead>
               <tr>
-                <th class="has-menu"><ClassicPrimaryColMenu label={t('Area')} sortable sortDir={sort?.key === 'area' ? sort.dir : null} onsort={(dir) => (sort = { key: 'area', dir })} filterKind="values" filterValues={areaValues} selected={excludedArea} ontoggle={(value) => (excludedArea = toggleExcluded(excludedArea, value))} onselectall={(on) => (excludedArea = on ? new Set() : new Set(areaValues.map((item) => item.value)))} groupValue={groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'area', label: t('Area') }, { value: 'position', label: t('Position') }, { value: 'service', label: t('Service') }]} ongroupchange={(value) => setGroupBy(value as 'area' | 'position' | 'service' | 'none')} /></th>
-                <th class="has-menu"><ClassicColMenu label={t('Position')} sortable sortDir={sort?.key === 'position' ? sort.dir : null} onsort={(dir) => (sort = { key: 'position', dir })} filterKind="values" filterValues={positionValues} selected={excludedPosition} ontoggle={(value) => (excludedPosition = toggleExcluded(excludedPosition, value))} onselectall={(on) => (excludedPosition = on ? new Set() : new Set(positionValues.map((item) => item.value)))} /></th>
-                <th class="has-menu"><ClassicColMenu label={t('Service')} sortable sortDir={sort?.key === 'service' ? sort.dir : null} onsort={(dir) => (sort = { key: 'service', dir })} filterKind="values" filterValues={serviceValues} selected={excludedService} ontoggle={(value) => (excludedService = toggleExcluded(excludedService, value))} onselectall={(on) => (excludedService = on ? new Set() : new Set(serviceValues.map((item) => item.value)))} /></th>
+                <th class="has-menu"><ClassicPrimaryColMenu label={t('Area')} sortable sortDir={view.sortDir('area')} onsort={(dir) => view.setSort('area', dir)} filterKind="values" filterValues={areaValues} selected={view.excluded('area')} ontoggle={(value) => view.toggleValue('area', value)} onselectall={(on) => view.selectAll('area', on, areaValues)} groupValue={view.groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'area', label: t('Area') }, { value: 'position', label: t('Position') }, { value: 'service', label: t('Service') }]} ongroupchange={(value) => view.setGroupBy(value as GroupBy)} /></th>
+                <th class="has-menu"><ClassicColMenu label={t('Position')} sortable sortDir={view.sortDir('position')} onsort={(dir) => view.setSort('position', dir)} filterKind="values" filterValues={positionValues} selected={view.excluded('position')} ontoggle={(value) => view.toggleValue('position', value)} onselectall={(on) => view.selectAll('position', on, positionValues)} /></th>
+                <th class="has-menu"><ClassicColMenu label={t('Service')} sortable sortDir={view.sortDir('service')} onsort={(dir) => view.setSort('service', dir)} filterKind="values" filterValues={serviceValues} selected={view.excluded('service')} ontoggle={(value) => view.toggleValue('service', value)} onselectall={(on) => view.selectAll('service', on, serviceValues)} /></th>
                 {#each WEEKDAYS as day (day)}<th class="cov__day">{t(day)}</th>{/each}
                 <th></th>
               </tr>
             </thead>
             <tbody>
               {#each newRows as row (row.tempId)}
-                {@const duplicate = Boolean(row.areaId && row.jobFunctionId && row.serviceKey && exists(row.areaId, row.jobFunctionId, row.serviceKey as ServiceKey))}
-                <tr class="is-attention">
-                  <td><select class="cl-field" aria-label={t('Area')} value={row.areaId} onchange={(event) => patchNewRow(row.tempId, { areaId: event.currentTarget.value })}><option value="">{t('Choose area')}</option>{#each activeAreas as area (area.id)}<option value={area.id}>{areaName.get(area.id) ?? area.name}</option>{/each}</select></td>
-                  <td><select class="cl-field" aria-label={t('Position')} value={row.jobFunctionId} onchange={(event) => patchNewRow(row.tempId, { jobFunctionId: event.currentTarget.value })}><option value="">{t('Choose position')}</option>{#each activePositions.filter((job) => positionSupportsArea(job, row.areaId)) as job (job.id)}<option value={job.id}>{job.name}</option>{/each}</select></td>
-                  <td><select class="cl-field" aria-label={t('Service')} value={row.serviceKey} onchange={(event) => patchNewRow(row.tempId, { serviceKey: event.currentTarget.value as PendingService })}><option value="">{t('Choose service')}</option><option value="lunch">{t('Lunch')}</option><option value="evening">{t('Evening')}</option></select></td>
+                {@const pendingKey = row.areaId && row.jobFunctionId && row.serviceKey ? `${row.areaId}|${row.jobFunctionId}|${row.serviceKey}` : ''}
+                {@const duplicate = Boolean(pendingKey) && pendingKey !== row.stagedKey && exists(row.areaId, row.jobFunctionId, row.serviceKey as ServiceKey)}
+                <tr class="is-new">
+                  <td><ClassicPicker value={row.areaId} placeholder="Choose area" ariaLabel={t('Area')} options={activeAreas.map((area) => ({ value: area.id, label: areaName.get(area.id) ?? area.name, color: areaColor.get(area.id), dot: true }))} onchange={(next) => patchNewRow(row.tempId, { areaId: next })} /></td>
+                  <td><ClassicPicker value={row.jobFunctionId} placeholder="Choose position" ariaLabel={t('Position')} options={activePositions.filter((job) => positionSupportsArea(job, row.areaId)).map((job) => ({ value: job.id, label: job.name, color: positionColor.get(job.id), dot: true }))} onchange={(next) => patchNewRow(row.tempId, { jobFunctionId: next })} /></td>
+                  <td><ClassicPicker value={row.serviceKey} placeholder="Choose service" ariaLabel={t('Service')} options={[{ value: 'lunch', label: t('Lunch'), color: 'var(--cl-lunch)', dot: true }, { value: 'evening', label: t('Evening'), color: 'var(--cl-evening)', dot: true }]} onchange={(next) => patchNewRow(row.tempId, { serviceKey: next as PendingService })} /></td>
                   {#each WEEKDAYS as day, index (day)}<td class="cov__day"><input class="cl-field num" class:is-set={row.counts[index] != null} type="number" min="0" step="1" placeholder="—" aria-label={`${t(day)} ${t('required people')}`} value={row.counts[index] ?? ''} oninput={(event) => setNewCount(row.tempId, index, event.currentTarget.value)} /></td>{/each}
                   <td class="is-num"><button class="cl-btn is-icon remove" type="button" title={t('Remove')} aria-label={t('Remove')} onclick={() => removeNewRow(row.tempId)}>×</button></td>
                 </tr>
@@ -327,8 +348,8 @@
             {:else}
               {#each groups as group (group.key)}
                 <tbody>
-                  {#if groupBy !== 'none'}<ClassicGroupRow colspan={WEEKDAYS.length + 4} label={group.label} meta={t('{count} staffing rules', { count: group.rows.length })} color={groupBy === 'area' ? areaColor.get(group.key) : groupBy === 'position' ? positionColor.get(group.key) : ''} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />{/if}
-                  {#if !collapsedGroups.includes(group.key)}
+                  {#if view.grouping}<ClassicGroupRow colspan={WEEKDAYS.length + 4} label={group.label} meta={t('{count} staffing rules', { count: group.rows.length })} color={view.groupBy === 'area' ? areaColor.get(group.key) : view.groupBy === 'position' ? positionColor.get(group.key) : ''} collapsed={view.isCollapsed(group.key)} ontoggle={() => view.toggleGroup(group.key)} />{/if}
+                  {#if !view.isCollapsed(group.key)}
                   {#each group.rows as row (rowKey(row))}
                     <tr>
                       <td><span class="cl-chip" style="--chip:{areaColor.get(row.areaId) ?? 'var(--cl-line-strong)'}"><span>{areaName.get(row.areaId) ?? '—'}</span></span></td>

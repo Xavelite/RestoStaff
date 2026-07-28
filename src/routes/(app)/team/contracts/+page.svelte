@@ -18,26 +18,17 @@
   import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
   import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
+  import ClassicPicker from '$lib/classic/ClassicPicker.svelte';
   import EmployeeInlineEditor from '$lib/classic/EmployeeInlineEditor.svelte';
   import { teamDraft } from '$lib/classic/classic-team.svelte';
+  import { createTableView, peopleCountLabel } from '$lib/classic/table-view.svelte';
   import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
 
   type GroupBy = 'contract' | 'position' | 'status' | 'none';
   type Group = { key: string; label: string; employees: EmployeeDraft[] };
   type SortKey = 'employee' | 'position' | 'contract' | 'regime' | 'start' | 'end' | 'hours' | 'status';
 
-  let search = $state('');
-  let groupBy = $state<GroupBy>('contract');
-  let sort = $state<{ key: SortKey; dir: 'asc' | 'desc' } | null>(null);
   let detailId = $state('');
-  let excludedContract = $state(new Set<string>());
-  let excludedPosition = $state(new Set<string>());
-  let excludedStatus = $state(new Set<string>());
-  let excludedRegime = $state(new Set<string>());
-  let startSearch = $state('');
-  let endSearch = $state('');
-  let hoursSearch = $state('');
-  let collapsedGroups = $state<string[]>([]);
 
   const OPTIONAL_COLUMNS = [
     { key: 'position', label: 'Position' },
@@ -48,43 +39,15 @@
     { key: 'hours', label: 'Weekly hours' },
     { key: 'status', label: 'Setup' }
   ] as const;
-  const COLS_KEY = 'rst-team-contract-cols-v2';
-  let hidden = $state(new Set<string>());
 
-  onMount(() => {
-    try {
-      const raw = localStorage.getItem(COLS_KEY);
-      if (raw) hidden = new Set(JSON.parse(raw) as string[]);
-    } catch {
-      hidden = new Set();
-    }
+  const view = createTableView<SortKey, GroupBy>({
+    storageKey: 'rst-team-contract-cols-v2',
+    columns: OPTIONAL_COLUMNS,
+    defaultGroupBy: 'contract'
   });
-  function persistHidden(next: Set<string>) {
-    hidden = next;
-    try { localStorage.setItem(COLS_KEY, JSON.stringify([...next])); } catch {}
-  }
-  function toggleColumn(key: string) {
-    const next = new Set(hidden);
-    next.has(key) ? next.delete(key) : next.add(key);
-    const hiding = next.has(key);
-    if (hiding && sort?.key === key) sort = null;
-    if (key === 'contract' && hiding) {
-      if (groupBy === 'contract') groupBy = 'none';
-      excludedContract = new Set();
-    }
-    if (key === 'position' && hiding) {
-      if (groupBy === 'position') groupBy = 'none';
-      excludedPosition = new Set();
-    }
-    if (key === 'regime' && hiding) excludedRegime = new Set();
-    if (key === 'start' && hiding) startSearch = '';
-    if (key === 'end' && hiding) endSearch = '';
-    if (key === 'hours' && hiding) hoursSearch = '';
-    if (key === 'status' && hiding) excludedStatus = new Set();
-    persistHidden(next);
-  }
-  const shown = (key: string) => !hidden.has(key);
-  const colCount = $derived(1 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length);
+  onMount(view.restore);
+  const shown = view.shown;
+  const colCount = $derived(view.colCount);
 
   const employeeColor = $derived(
     workspace.team
@@ -112,7 +75,8 @@
       positionId,
       workspace.restaurant?.work_areas ?? [],
       workspace.restaurant?.job_function_areas ?? [],
-      areaColor
+      areaColor,
+      positionColor.get(positionId)
     );
     return identity ? { icon: identity.icon, color: identity.color } : null;
   }
@@ -122,17 +86,6 @@
     fixed_schedule: 'Fixed schedule',
     manager_only: 'Manager planned'
   };
-
-  function setGroupBy(next: GroupBy): void {
-    groupBy = next;
-    collapsedGroups = [];
-  }
-
-  function toggleGroup(key: string): void {
-    collapsedGroups = collapsedGroups.includes(key)
-      ? collapsedGroups.filter((item) => item !== key)
-      : [...collapsedGroups, key];
-  }
 
   async function savePage(save: () => Promise<void>) {
     await save();
@@ -160,12 +113,6 @@
   }
 
 
-  function toggleExcluded(set: Set<string>, value: string): Set<string> {
-    const next = new Set(set);
-    next.has(value) ? next.delete(value) : next.add(value);
-    return next;
-  }
-
   function gaps(employee: EmployeeDraft): string[] {
     const missing: string[] = [];
     if (!employee.contractTypeId) missing.push('Contract type');
@@ -177,16 +124,18 @@
   function matches(employee: EmployeeDraft, contractName: Map<string, string>, jobName: Map<string, string>): boolean {
     const placement = teamDraft.placement(employee);
     const positionValue = placement.jobFunctionIds[0] || '__none__';
-    if (excludedContract.has(placement.contractTypeId || '__none__')) return false;
-    if (excludedPosition.has(positionValue)) return false;
-    if (excludedRegime.has(placement.workRegime)) return false;
-    if (excludedStatus.has(gaps(placement).length ? 'incomplete' : 'complete')) return false;
-    if (startSearch.trim() && !placement.contractStart.includes(startSearch.trim())) return false;
-    if (endSearch.trim() && !placement.contractEnd.includes(endSearch.trim())) return false;
-    if (hoursSearch.trim() && !String(placement.weeklyContractHours).includes(hoursSearch.trim())) return false;
-    const term = search.trim().toLowerCase();
     if (!placement.active) return false;
-    return !term || `${placement.displayName} ${contractName.get(placement.contractTypeId) ?? ''} ${jobName.get(positionValue) ?? ''}`.toLowerCase().includes(term);
+    if (view.isExcluded('contract', placement.contractTypeId || '__none__')) return false;
+    if (view.isExcluded('position', positionValue)) return false;
+    if (view.isExcluded('regime', placement.workRegime)) return false;
+    if (view.isExcluded('status', gaps(placement).length ? 'incomplete' : 'complete')) return false;
+    if (!view.matchesSearch('start', placement.contractStart)) return false;
+    if (!view.matchesSearch('end', placement.contractEnd)) return false;
+    if (!view.matchesSearch('hours', String(placement.weeklyContractHours))) return false;
+    return view.matchesSearch(
+      'employee',
+      `${placement.displayName} ${contractName.get(placement.contractTypeId) ?? ''} ${jobName.get(positionValue) ?? ''}`
+    );
   }
 
   function sortValue(employee: EmployeeDraft, key: SortKey, contractName: Map<string, string>, jobName: Map<string, string>): string {
@@ -204,21 +153,19 @@
     }
   }
   function ordered(rows: EmployeeDraft[], contractName: Map<string, string>, jobName: Map<string, string>) {
-    if (!sort) return rows;
-    const factor = sort.dir === 'desc' ? -1 : 1;
-    return [...rows].sort((a, b) => factor * sortValue(a, sort!.key, contractName, jobName).localeCompare(sortValue(b, sort!.key, contractName, jobName)));
+    return view.ordered(rows, (row, key) => sortValue(row, key, contractName, jobName));
   }
   function grouped(rows: EmployeeDraft[], contractName: Map<string, string>, jobName: Map<string, string>): Group[] {
-    if (groupBy === 'none') return [{ key: 'all', label: '', employees: rows }];
+    if (!view.grouping) return [{ key: 'all', label: '', employees: rows }];
     const map = new Map<string, Group>();
     for (const employee of rows) {
       const placement = teamDraft.placement(employee);
       let key = '';
       let label = '';
-      if (groupBy === 'contract') {
+      if (view.groupBy === 'contract') {
         key = placement.contractTypeId || '__undefined__';
         label = key === '__undefined__' ? t('No contract yet') : contractName.get(key) ?? t('Unknown');
-      } else if (groupBy === 'position') {
+      } else if (view.groupBy === 'position') {
         key = placement.jobFunctionIds[0] ?? '__undefined__';
         label = key === '__undefined__' ? t('No position yet') : jobName.get(key) ?? t('Unknown');
       } else {
@@ -230,9 +177,6 @@
       map.set(key, group);
     }
     return [...map.values()].sort((l, r) => l.key.startsWith('__') ? -1 : r.key.startsWith('__') ? 1 : l.label.localeCompare(r.label));
-  }
-  function peopleCountLabel(count: number): string {
-    return count === 1 ? t('1 person') : t('{count} people', { count });
   }
 
   const readTeamContext = useClassicTeamContext();
@@ -248,6 +192,9 @@
     {@const contractValues = [{ value: '__none__', label: t('No contract') }, ...[...team.contractName].map(([id, name]) => ({ value: id, label: name }))]}
     {@const positionValues = [{ value: '__none__', label: t('No position') }, ...[...team.jobName].map(([id, name]) => ({ value: id, label: name }))]}
     {@const regimeValues = Object.entries(REGIME_LABEL).map(([value, label]) => ({ value, label: t(label) }))}
+    {@const statusValues = [{ value: 'complete', label: t('Complete') }, { value: 'incomplete', label: t('Incomplete') }]}
+    {@const contractOptions = [{ value: '', label: t('Not set') }, ...[...team.contractName].map(([id, name]) => ({ value: id, label: name, icon: 'contract' }))]}
+    {@const regimeOptions = Object.entries(REGIME_LABEL).map(([value, label]) => ({ value, label: t(label) }))}
 
     <ClassicTablePanel dirty={team.dirty} saving={team.saving} canSave={team.canSave} onsave={() => void savePage(team.save).catch(() => undefined)} ondiscard={() => discardPage(team.discard)}>
       {#snippet meta()}
@@ -259,15 +206,15 @@
         <table class="cl-table contract-table">
           <thead>
             <tr>
-              <th class="has-menu"><ClassicPrimaryColMenu label={t('Employee')} sortable sortDir={sort?.key === 'employee' ? sort.dir : null} onsort={(dir) => (sort = { key: 'employee', dir })} filterKind="text" searchValue={search} onsearch={(value) => (search = value)} groupValue={groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'contract', label: t('Contract type') }, { value: 'position', label: t('Position') }, { value: 'status', label: t('Setup') }]} ongroupchange={(value) => setGroupBy(value as GroupBy)} /></th>
-              {#if shown('position')}<th class="has-menu"><ClassicColMenu label={t('Position')} sortable sortDir={sort?.key === 'position' ? sort.dir : null} onsort={(dir) => (sort = { key: 'position', dir })} filterKind="values" filterValues={positionValues} selected={excludedPosition} ontoggle={(value) => (excludedPosition = toggleExcluded(excludedPosition, value))} onselectall={(on) => (excludedPosition = on ? new Set() : new Set(positionValues.map((item) => item.value)))} /></th>{/if}
-              {#if shown('contract')}<th class="has-menu"><ClassicColMenu label={t('Contract')} sortable sortDir={sort?.key === 'contract' ? sort.dir : null} onsort={(dir) => (sort = { key: 'contract', dir })} filterKind="values" filterValues={contractValues} selected={excludedContract} ontoggle={(value) => (excludedContract = toggleExcluded(excludedContract, value))} onselectall={(on) => (excludedContract = on ? new Set() : new Set(contractValues.map((item) => item.value)))} /></th>{/if}
-              {#if shown('regime')}<th class="has-menu"><ClassicColMenu label={t('Planning mode')} sortable sortDir={sort?.key === 'regime' ? sort.dir : null} onsort={(dir) => (sort = { key: 'regime', dir })} filterKind="values" filterValues={regimeValues} selected={excludedRegime} ontoggle={(value) => (excludedRegime = toggleExcluded(excludedRegime, value))} onselectall={(on) => (excludedRegime = on ? new Set() : new Set(regimeValues.map((item) => item.value)))} /></th>{/if}
-              {#if shown('start')}<th class="has-menu"><ClassicColMenu label={t('Start')} sortable sortDir={sort?.key === 'start' ? sort.dir : null} onsort={(dir) => (sort = { key: 'start', dir })} filterKind="text" searchValue={startSearch} onsearch={(value) => (startSearch = value)} /></th>{/if}
-              {#if shown('end')}<th class="has-menu"><ClassicColMenu label={t('End')} sortable sortDir={sort?.key === 'end' ? sort.dir : null} onsort={(dir) => (sort = { key: 'end', dir })} filterKind="text" searchValue={endSearch} onsearch={(value) => (endSearch = value)} /></th>{/if}
-              {#if shown('hours')}<th class="has-menu"><ClassicColMenu label={t('Weekly hours')} align="right" sortable sortDir={sort?.key === 'hours' ? sort.dir : null} onsort={(dir) => (sort = { key: 'hours', dir })} filterKind="text" searchValue={hoursSearch} onsearch={(value) => (hoursSearch = value)} /></th>{/if}
-              {#if shown('status')}<th class="has-menu"><ClassicColMenu label={t('Setup')} sortable sortDir={sort?.key === 'status' ? sort.dir : null} onsort={(dir) => (sort = { key: 'status', dir })} filterKind="values" filterValues={[{ value: 'complete', label: t('Complete') }, { value: 'incomplete', label: t('Incomplete') }]} selected={excludedStatus} ontoggle={(value) => (excludedStatus = toggleExcluded(excludedStatus, value))} onselectall={(on) => (excludedStatus = on ? new Set() : new Set(['complete', 'incomplete']))} /></th>{/if}
-              <th class="chooser-col"><ClassicColChooser columns={OPTIONAL_COLUMNS.map((column) => ({ key: column.key, label: t(column.label) }))} {hidden} ontoggle={toggleColumn} /></th>
+              <th class="has-menu"><ClassicPrimaryColMenu label={t('Employee')} sortable sortDir={view.sortDir('employee')} onsort={(dir) => view.setSort('employee', dir)} filterKind="text" searchValue={view.search('employee')} onsearch={(value) => view.setSearch('employee', value)} groupValue={view.groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'contract', label: t('Contract type') }, { value: 'position', label: t('Position') }, { value: 'status', label: t('Setup') }]} ongroupchange={(value) => view.setGroupBy(value as GroupBy)} /></th>
+              {#if shown('position')}<th class="has-menu"><ClassicColMenu label={t('Position')} sortable sortDir={view.sortDir('position')} onsort={(dir) => view.setSort('position', dir)} filterKind="values" filterValues={positionValues} selected={view.excluded('position')} ontoggle={(value) => view.toggleValue('position', value)} onselectall={(on) => view.selectAll('position', on, positionValues)} /></th>{/if}
+              {#if shown('contract')}<th class="has-menu"><ClassicColMenu label={t('Contract')} sortable sortDir={view.sortDir('contract')} onsort={(dir) => view.setSort('contract', dir)} filterKind="values" filterValues={contractValues} selected={view.excluded('contract')} ontoggle={(value) => view.toggleValue('contract', value)} onselectall={(on) => view.selectAll('contract', on, contractValues)} /></th>{/if}
+              {#if shown('regime')}<th class="has-menu"><ClassicColMenu label={t('Planning mode')} sortable sortDir={view.sortDir('regime')} onsort={(dir) => view.setSort('regime', dir)} filterKind="values" filterValues={regimeValues} selected={view.excluded('regime')} ontoggle={(value) => view.toggleValue('regime', value)} onselectall={(on) => view.selectAll('regime', on, regimeValues)} /></th>{/if}
+              {#if shown('start')}<th class="has-menu"><ClassicColMenu label={t('Start')} sortable sortDir={view.sortDir('start')} onsort={(dir) => view.setSort('start', dir)} filterKind="text" searchValue={view.search('start')} onsearch={(value) => view.setSearch('start', value)} /></th>{/if}
+              {#if shown('end')}<th class="has-menu"><ClassicColMenu label={t('End')} sortable sortDir={view.sortDir('end')} onsort={(dir) => view.setSort('end', dir)} filterKind="text" searchValue={view.search('end')} onsearch={(value) => view.setSearch('end', value)} /></th>{/if}
+              {#if shown('hours')}<th class="has-menu"><ClassicColMenu label={t('Weekly hours')} align="right" sortable sortDir={view.sortDir('hours')} onsort={(dir) => view.setSort('hours', dir)} filterKind="text" searchValue={view.search('hours')} onsearch={(value) => view.setSearch('hours', value)} /></th>{/if}
+              {#if shown('status')}<th class="has-menu"><ClassicColMenu label={t('Setup')} sortable sortDir={view.sortDir('status')} onsort={(dir) => view.setSort('status', dir)} filterKind="values" filterValues={statusValues} selected={view.excluded('status')} ontoggle={(value) => view.toggleValue('status', value)} onselectall={(on) => view.selectAll('status', on, statusValues)} /></th>{/if}
+              <th class="chooser-col"><ClassicColChooser columns={view.columns} hidden={view.hidden} ontoggle={view.toggleColumn} /></th>
             </tr>
           </thead>
           {#if !filtered.length}
@@ -275,14 +222,14 @@
           {:else}
             {#each groups as group (group.key)}
               <tbody>
-                {#if groupBy !== 'none'}
-                  {@const groupArea = groupBy === 'position' ? positionArea(group.key) : null}
+                {#if view.grouping}
+                  {@const groupArea = view.groupBy === 'position' ? positionArea(group.key) : null}
                   {#snippet groupIcon()}
                     {#if groupArea}<WorkspaceAreaIcon icon={groupArea.icon} color={groupArea.color} size={15} compact />{/if}
                   {/snippet}
-                  <ClassicGroupRow colspan={colCount + 1} label={group.label} meta={peopleCountLabel(group.employees.length)} icon={groupArea ? groupIcon : undefined} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />
+                  <ClassicGroupRow colspan={colCount + 1} label={group.label} meta={peopleCountLabel(group.employees.length)} icon={groupArea ? groupIcon : undefined} collapsed={view.isCollapsed(group.key)} ontoggle={() => view.toggleGroup(group.key)} />
                 {/if}
-                {#if !collapsedGroups.includes(group.key)}
+                {#if !view.isCollapsed(group.key)}
                 {#each group.employees as employee (employee.id)}
                   {@const missing = gaps(employee)}
                   {@const linkedArea = positionArea(employee.jobFunctionIds[0] ?? '')}
@@ -305,15 +252,22 @@
                       </span>
                     </td>{/if}
                     {#if shown('contract')}<td>
-                      <select class="grid-field contract-field" aria-label={`${t('Contract')} · ${employee.displayName}`} value={employee.contractTypeId} disabled={!team.editable} onchange={(event) => updateContractType(employee, event.currentTarget.value)}>
-                        <option value="">{t('Not set')}</option>
-                        {#each [...team.contractName] as [id, name] (id)}<option value={id}>{name}</option>{/each}
-                      </select>
+                      <ClassicPicker
+                        value={employee.contractTypeId}
+                        options={contractOptions}
+                        disabled={!team.editable}
+                        ariaLabel={`${t('Contract')} · ${employee.displayName}`}
+                        onchange={(next) => updateContractType(employee, next)}
+                      />
                     </td>{/if}
                     {#if shown('regime')}<td>
-                      <select class="grid-field regime-field" aria-label={`${t('Planning mode')} · ${employee.displayName}`} value={employee.workRegime} disabled={!team.editable} onchange={(event) => teamDraft.update(employee.id, { workRegime: event.currentTarget.value as EmployeeDraft['workRegime'] })}>
-                        {#each Object.entries(REGIME_LABEL) as [value, label] (value)}<option {value}>{t(label)}</option>{/each}
-                      </select>
+                      <ClassicPicker
+                        value={employee.workRegime}
+                        options={regimeOptions}
+                        disabled={!team.editable}
+                        ariaLabel={`${t('Planning mode')} · ${employee.displayName}`}
+                        onchange={(next) => teamDraft.update(employee.id, { workRegime: next as EmployeeDraft['workRegime'] })}
+                      />
                     </td>{/if}
                     {#if shown('start')}<td><input class="grid-field date-field" aria-label={`${t('Start')} · ${employee.displayName}`} type="date" value={employee.contractStart} disabled={!team.editable} oninput={(event) => teamDraft.update(employee.id, { contractStart: event.currentTarget.value })} /></td>{/if}
                     {#if shown('end')}<td>
@@ -356,9 +310,6 @@
   .grid-field:hover:not(:disabled) { border-color: var(--cl-line); background: var(--cl-surface-muted); }
   .grid-field:focus { border-color: var(--cl-accent); background: var(--cl-surface); box-shadow: 0 0 0 2px var(--cl-accent-wash); }
   .grid-field:disabled { color: var(--cl-muted); opacity: 1; }
-  select.grid-field { cursor: pointer; }
-  .contract-field { min-width: 130px; }
-  .regime-field { min-width: 150px; }
   .date-field { min-width: 126px; }
   .hours-field { min-width: 74px; display: inline-grid; grid-template-columns: minmax(0, 1fr) 14px; align-items: center; }
   .hours-field .grid-field { text-align: right; }

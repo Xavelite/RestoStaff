@@ -157,9 +157,11 @@ test('position area icons stay shared for duplicate locations and neutral for mi
     positionAreaVisualIdentity('bartender', areas, duplicateBars),
     { areaId: 'bar-ground', icon: 'bar', color: '#3b82f6' }
   );
-  assert.equal(
+  // Mixed areas share no single look, so the position falls back to a neutral
+  // glyph rather than nothing — no row is left showing a bare colour bar.
+  assert.deepEqual(
     positionAreaVisualIdentity('bartender', areas, mixedAreas),
-    null
+    { areaId: '', icon: '', color: 'var(--cl-muted)' }
   );
 });
 

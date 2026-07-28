@@ -8,6 +8,7 @@
   import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
   import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
+  import { createTableView } from '$lib/classic/table-view.svelte';
 
   type SortKey = 'name' | 'payment' | 'approval' | 'status';
   type GroupBy = 'payment' | 'approval' | 'status' | 'none';
@@ -15,78 +16,33 @@
   type TypeGroup = { key: string; label: string; rows: AbsenceType[] };
 
   const snapshot = $derived(workspace.restaurant);
-  let search = $state('');
-  let sort = $state<{ key: SortKey; dir: 'asc' | 'desc' } | null>(null);
-  let excludedPayment = $state(new Set<string>());
-  let excludedApproval = $state(new Set<string>());
-  let excludedStatus = $state(new Set<string>());
-  let groupBy = $state<GroupBy>('none');
-  let collapsedGroups = $state<string[]>([]);
 
   const OPTIONAL_COLUMNS = [
     { key: 'payment', label: 'Payment' },
     { key: 'approval', label: 'Needs approval' },
     { key: 'status', label: 'Status' }
   ] as const;
-  const COLS_KEY = 'rst-time-off-policies-cols-v1';
-  const LEGACY_COLS_KEY = 'rst-restaurant-absence-types-cols-v2';
-  let hidden = $state(new Set<string>());
+  const view = createTableView<SortKey, GroupBy>({
+    storageKey: 'rst-time-off-policies-cols-v1',
+    legacyStorageKey: 'rst-restaurant-absence-types-cols-v2',
+    columns: OPTIONAL_COLUMNS
+  });
+  const shown = view.shown;
+  const colCount = $derived(view.colCount + 1);
 
   const PAID_LABEL: Record<string, string> = { paid: 'Paid', unpaid: 'Unpaid', neutral: 'Neutral' };
 
-  onMount(() => {
-    try {
-      const raw =
-        localStorage.getItem(COLS_KEY) ??
-        localStorage.getItem(LEGACY_COLS_KEY);
-      if (raw) hidden = new Set(JSON.parse(raw) as string[]);
-    } catch {
-      hidden = new Set();
-    }
-  });
-
-  function setGroupBy(next: GroupBy): void {
-    groupBy = next;
-    collapsedGroups = [];
-  }
-
-  function toggleGroup(key: string): void {
-    collapsedGroups = collapsedGroups.includes(key)
-      ? collapsedGroups.filter((item) => item !== key)
-      : [...collapsedGroups, key];
-  }
-
-  function toggleExcluded(set: Set<string>, value: string): Set<string> {
-    const next = new Set(set);
-    next.has(value) ? next.delete(value) : next.add(value);
-    return next;
-  }
-
-  function toggleColumn(key: string) {
-    const next = new Set(hidden);
-    next.has(key) ? next.delete(key) : next.add(key);
-    const hiding = next.has(key);
-    if (hiding && sort?.key === key) sort = null;
-    if (key === 'payment' && hiding) excludedPayment = new Set();
-    if (key === 'approval' && hiding) excludedApproval = new Set();
-    if (key === 'status' && hiding) excludedStatus = new Set();
-    hidden = next;
-    try { localStorage.setItem(COLS_KEY, JSON.stringify([...next])); } catch {}
-  }
-
-  const shown = (key: string) => !hidden.has(key);
-  const colCount = $derived(2 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length);
+  onMount(view.restore);
 
   function matches(type: AbsenceType): boolean {
-    if (excludedPayment.has(type.paid_policy ?? 'neutral')) return false;
-    if (excludedApproval.has(type.requires_approval ? 'approval' : 'automatic')) return false;
-    if (excludedStatus.has(type.active ? 'active' : 'archived')) return false;
-    return !search.trim() || `${type.name} ${type.paid_policy ?? ''}`.toLowerCase().includes(search.trim().toLowerCase());
+    if (view.isExcluded('payment', type.paid_policy ?? 'neutral')) return false;
+    if (view.isExcluded('approval', type.requires_approval ? 'approval' : 'automatic')) return false;
+    if (view.isExcluded('status', type.active ? 'active' : 'archived')) return false;
+    return view.matchesSearch('name', `${type.name} ${type.paid_policy ?? ''}`);
   }
 
-  function sortValue(type: AbsenceType): string {
-    switch (sort?.key) {
-      case 'name': return type.name.toLowerCase();
+  function sortValue(type: AbsenceType, key: SortKey): string {
+    switch (key) {
       case 'payment': return type.paid_policy ?? '';
       case 'approval': return type.requires_approval ? '1' : '0';
       case 'status': return type.active ? '0' : '1';
@@ -95,23 +51,23 @@
   }
 
   function orderedTypes(rows: AbsenceType[]): AbsenceType[] {
-    if (!sort) return [...rows].sort((left, right) => left.name.localeCompare(right.name));
-    const factor = sort.dir === 'desc' ? -1 : 1;
-    return [...rows].sort((left, right) => factor * sortValue(left).localeCompare(sortValue(right)));
+    // Unsorted still means alphabetical here — a policy list has no natural order.
+    if (!view.sort) return [...rows].sort((left, right) => left.name.localeCompare(right.name));
+    return view.ordered(rows, sortValue);
   }
 
   function groupedTypes(rows: AbsenceType[]): TypeGroup[] {
-    if (groupBy === 'none') return [{ key: 'all', label: '', rows }];
+    if (!view.grouping) return [{ key: 'all', label: '', rows }];
     const groups = new Map<string, TypeGroup>();
     for (const type of rows) {
-      const key = groupBy === 'payment'
+      const key = view.groupBy === 'payment'
         ? (type.paid_policy ?? 'neutral')
-        : groupBy === 'approval'
+        : view.groupBy === 'approval'
           ? (type.requires_approval ? 'approval' : 'automatic')
           : (type.active ? 'active' : 'archived');
-      const label = groupBy === 'payment'
+      const label = view.groupBy === 'payment'
         ? t(PAID_LABEL[key] ?? key)
-        : groupBy === 'approval'
+        : view.groupBy === 'approval'
           ? t(key === 'approval' ? 'Approval required' : 'No approval required')
           : t(key === 'active' ? 'Active' : 'Archived');
       const group = groups.get(key) ?? { key, label, rows: [] };
@@ -136,6 +92,7 @@
     { value: 'approval', label: t('Approval required') },
     { value: 'automatic', label: t('No approval required') }
   ]}
+  {@const statusValues = [{ value: 'active', label: t('Active') }, { value: 'archived', label: t('Archived') }]}
 
   <ClassicTablePanel>
     {#snippet meta()}<span><i class="dot"></i>{t('{count} types', { count: types.length })}</span>{/snippet}
@@ -147,33 +104,33 @@
               <ClassicPrimaryColMenu
                 label={t('Name')}
                 sortable
-                sortDir={sort?.key === 'name' ? sort.dir : null}
-                onsort={(dir) => (sort = { key: 'name', dir })}
+                sortDir={view.sortDir('name')}
+                onsort={(dir) => view.setSort('name', dir)}
                 filterKind="text"
-                searchValue={search}
-                onsearch={(value) => (search = value)}
-                groupValue={groupBy}
+                searchValue={view.search('name')}
+                onsearch={(value) => view.setSearch('name', value)}
+                groupValue={view.groupBy}
                 groupOptions={[
                   { value: 'none', label: t('No grouping') },
                   { value: 'payment', label: t('Payment') },
                   { value: 'approval', label: t('Needs approval') },
                   { value: 'status', label: t('Status') }
                 ]}
-                ongroupchange={(value) => setGroupBy(value as GroupBy)}
+                ongroupchange={(value) => view.setGroupBy(value as GroupBy)}
               />
             </th>
-            {#if shown('payment')}<th class="has-menu"><ClassicColMenu label={t('Payment')} sortable sortDir={sort?.key === 'payment' ? sort.dir : null} onsort={(dir) => (sort = { key: 'payment', dir })} filterKind="values" filterValues={paymentValues} selected={excludedPayment} ontoggle={(value) => (excludedPayment = toggleExcluded(excludedPayment, value))} onselectall={(on) => (excludedPayment = on ? new Set() : new Set(paymentValues.map((item) => item.value)))} /></th>{/if}
-            {#if shown('approval')}<th class="has-menu"><ClassicColMenu label={t('Needs approval')} sortable sortDir={sort?.key === 'approval' ? sort.dir : null} onsort={(dir) => (sort = { key: 'approval', dir })} filterKind="values" filterValues={approvalValues} selected={excludedApproval} ontoggle={(value) => (excludedApproval = toggleExcluded(excludedApproval, value))} onselectall={(on) => (excludedApproval = on ? new Set() : new Set(approvalValues.map((item) => item.value)))} /></th>{/if}
-            {#if shown('status')}<th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={sort?.key === 'status' ? sort.dir : null} onsort={(dir) => (sort = { key: 'status', dir })} filterKind="values" filterValues={[{ value: 'active', label: t('Active') }, { value: 'archived', label: t('Archived') }]} selected={excludedStatus} ontoggle={(value) => (excludedStatus = toggleExcluded(excludedStatus, value))} onselectall={(on) => (excludedStatus = on ? new Set() : new Set(['active', 'archived']))} /></th>{/if}
-            <th class="chooser-col"><ClassicColChooser columns={OPTIONAL_COLUMNS.map((column) => ({ key: column.key, label: t(column.label) }))} {hidden} ontoggle={toggleColumn} /></th>
+            {#if shown('payment')}<th class="has-menu"><ClassicColMenu label={t('Payment')} sortable sortDir={view.sortDir('payment')} onsort={(dir) => view.setSort('payment', dir)} filterKind="values" filterValues={paymentValues} selected={view.excluded('payment')} ontoggle={(value) => view.toggleValue('payment', value)} onselectall={(on) => view.selectAll('payment', on, paymentValues)} /></th>{/if}
+            {#if shown('approval')}<th class="has-menu"><ClassicColMenu label={t('Needs approval')} sortable sortDir={view.sortDir('approval')} onsort={(dir) => view.setSort('approval', dir)} filterKind="values" filterValues={approvalValues} selected={view.excluded('approval')} ontoggle={(value) => view.toggleValue('approval', value)} onselectall={(on) => view.selectAll('approval', on, approvalValues)} /></th>{/if}
+            {#if shown('status')}<th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={view.sortDir('status')} onsort={(dir) => view.setSort('status', dir)} filterKind="values" filterValues={statusValues} selected={view.excluded('status')} ontoggle={(value) => view.toggleValue('status', value)} onselectall={(on) => view.selectAll('status', on, statusValues)} /></th>{/if}
+            <th class="chooser-col"><ClassicColChooser columns={view.columns} hidden={view.hidden} ontoggle={view.toggleColumn} /></th>
           </tr></thead>
           {#if !types.length}
             <tbody><tr><td colspan={colCount}><div class="cl-empty"><strong>{t('No absence types yet')}</strong><span>{t('Without a leave type, employees cannot request time off.')}</span></div></td></tr></tbody>
           {:else}
             {#each groups as group (group.key)}
               <tbody>
-                {#if groupBy !== 'none'}<ClassicGroupRow colspan={colCount} label={group.label} meta={t('{count} types', { count: group.rows.length })} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />{/if}
-                {#if !collapsedGroups.includes(group.key)}
+                {#if view.grouping}<ClassicGroupRow colspan={colCount} label={group.label} meta={t('{count} types', { count: group.rows.length })} collapsed={view.isCollapsed(group.key)} ontoggle={() => view.toggleGroup(group.key)} />{/if}
+                {#if !view.isCollapsed(group.key)}
                   {#each group.rows as type (type.id)}
                     <tr>
                       <td>{type.name}</td>

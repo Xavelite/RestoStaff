@@ -4,6 +4,7 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import ClassicPage from '$lib/classic/ClassicPage.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
+  import ClassicPicker from '$lib/classic/ClassicPicker.svelte';
   import { getReservationSetup, saveReservationSetup } from '$lib/reservations/reservation-api';
   import type { ReservationSetup, ReservationSetupDraft } from '$lib/reservations/reservation-types';
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
@@ -20,6 +21,10 @@
   const enabledServices = $derived(
     draft?.services.filter((service) => service.booking_enabled).length ?? 0
   );
+  const confirmationOptions = $derived([
+    { value: 'automatic', label: t('Automatic') },
+    { value: 'manual', label: t('Manual') }
+  ]);
 
   $effect(() => {
     const restaurantId = workspace.activeId;
@@ -204,10 +209,15 @@
                   </td>
                   <td><input class="cl-field cover-field" type="number" min="1" max="10000" placeholder="—" bind:value={service.maximum_covers} oninput={touch} /></td>
                   <td>
-                    <select class="cl-field compact-select" bind:value={service.automatic_confirmation} onchange={touch}>
-                      <option value={true}>{t('Automatic')}</option>
-                      <option value={false}>{t('Manual')}</option>
-                    </select>
+                    <ClassicPicker
+                      value={service.automatic_confirmation ? 'automatic' : 'manual'}
+                      options={confirmationOptions}
+                      ariaLabel={t('Confirmation')}
+                      onchange={(next) => {
+                        service.automatic_confirmation = next === 'automatic';
+                        touch();
+                      }}
+                    />
                   </td>
                 </tr>
               {/each}
@@ -246,6 +256,5 @@
   .cover-field { width: 78px; text-align: right; }
   .range-field { display: inline-flex; align-items: center; gap: 4px; }
   .range-field i { color: var(--cl-muted); font-style: normal; }
-  .compact-select { min-width: 104px; }
   .cl-switch { white-space: nowrap; }
 </style>

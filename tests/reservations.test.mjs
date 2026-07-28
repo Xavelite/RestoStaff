@@ -154,11 +154,15 @@ test('restaurant area catalogue creates physical instances without hiding repeat
   assert.doesNotMatch(workspace, /disabled:\s*Boolean\(existing/);
   assert.match(workspace, /async function addArea\(\)/);
   assert.match(workspace, /restaurantContext\.draft\.areas = \[area, \.\.\.areas\]/);
-  assert.match(workspace, /let pendingAreaIds = \$state<string\[\]>\(\[\]\)/);
+  // The plan lives in a store, so a tab change keeps a new area's placement.
+  assert.match(workspace, /const pendingAreaIds = \$derived\(floorPlansDraft\.pendingAreaIds\)/);
+  assert.match(workspace, /floorPlansDraft\.pendingAreaIds = \[id, \.\.\.pendingAreaIds\]/);
   assert.match(workspace, /pendingAreaIds = \[id, \.\.\.pendingAreaIds\]/);
-  assert.match(workspace, /autoOpen=\{autoOpenAreaId === areaDraft\.id\}/);
+  // Adding an area puts the cursor in the new row but never opens the
+  // catalogue over it — every grid welcomes a new row the same way.
+  assert.doesNotMatch(workspace, /autoOpen/);
+  assert.match(workspace, /field\?\.focus\(\)/);
   assert.match(workspace, /class:is-new=\{pendingAreaIds\.includes\(room\.work_area_id\)\}/);
-  assert.match(workspace, /onclose=\{\(\) => closePendingAreaPicker\(areaDraft\.id\)\}/);
   assert.doesNotMatch(workspace, /removeEmptyNewArea/);
   assert.doesNotMatch(workspace, /Boolean\(newAreaId\)/);
   assert.match(workspace, /nextAreaInstanceNumber\(/);

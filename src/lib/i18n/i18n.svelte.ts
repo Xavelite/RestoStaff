@@ -4169,7 +4169,10 @@ Object.assign(french, {
   'Clear grouping to reorder': 'Supprimez le regroupement pour réordonner',
   Staffing: 'Effectif',
   'Clear grouping and sorting to reorder': 'Supprimez le regroupement et le tri pour réordonner',
-  'No type': 'Aucun type'
+  'No type': 'Aucun type',
+  'Filter column': 'Filtrer la colonne',
+  'Opening hours': 'Heures d’ouverture',
+  'Restaurant name': 'Nom du restaurant'
 });
 
 Object.assign(dutch, {
@@ -4185,7 +4188,10 @@ Object.assign(dutch, {
   'Clear grouping to reorder': 'Groepering wissen om te herordenen',
   Staffing: 'Bezetting',
   'Clear grouping and sorting to reorder': 'Groepering en sortering wissen om te herordenen',
-  'No type': 'Geen type'
+  'No type': 'Geen type',
+  'Filter column': 'Kolom filteren',
+  'Opening hours': 'Openingsuren',
+  'Restaurant name': 'Naam restaurant'
 });
 
 // Planning header alignment and contracted-hours guardrail.

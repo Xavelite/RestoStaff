@@ -6,9 +6,11 @@
   import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
   import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
   import ClassicCellBadge from '$lib/classic/ClassicCellBadge.svelte';
+  import ClassicPicker from '$lib/classic/ClassicPicker.svelte';
   import { StableDraftPlacement } from '$lib/classic/stable-draft-placement';
   import type { ClassicRestaurantContext } from '$lib/classic/classic-workspace-context';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
+  import { floorPlansDraft } from './floor-plans-draft.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import {
     getReservationFloorPlans,
@@ -59,11 +61,14 @@
     restaurantContext?: ClassicRestaurantContext | null;
   } = $props();
 
-  let source = $state<ReservationFloorPlans | null>(null);
-  let draft = $state<ReservationFloorPlansDraft | null>(null);
+  // The plan itself lives in a store so it survives a tab change; only the
+  // selection and request state below belong to this view.
+  const source = $derived(floorPlansDraft.source);
+  const draft = $derived(floorPlansDraft.draft);
+  const dirty = $derived(floorPlansDraft.dirty);
+  const pendingAreaIds = $derived(floorPlansDraft.pendingAreaIds);
   let loading = $state(false);
   let saving = $state(false);
-  let dirty = $state(false);
   let error = $state('');
   let selectedFloorId = $state('');
   let selectedRoomId = $state('');
@@ -79,8 +84,6 @@
     isNew: boolean;
   };
   let combinationEditor = $state<CombinationEditor | null>(null);
-  let pendingAreaIds = $state<string[]>([]);
-  let autoOpenAreaId = $state('');
   let compactViewport = $state(false);
   let editorView = $state<'plan' | 'list'>('list');
   type AreaDirectoryPlacement = {
@@ -149,6 +152,9 @@
   });
   const selectedFloorIndex = $derived(
     selectableFloors.findIndex((floor) => floor.id === selectedFloorId)
+  );
+  const floorOptions = $derived(
+    selectableFloors.map((floor) => ({ value: floor.id, label: floorLabel(floor) }))
   );
   const mergedRooms = $derived.by(() => {
     if (!draft || !source) return [] as ReservationRoom[];
@@ -330,7 +336,9 @@
   });
   $effect(() => {
     const restaurantId = workspace.activeId;
-    if (!restaurantId || source?.restaurantId === restaurantId) return;
+    // Coming back to this view reuses the draft in the store — a reload here
+    // would throw away work the user can still see in the other tab.
+    if (!restaurantId || floorPlansDraft.holds(restaurantId)) return;
     void load(restaurantId);
   });
 
@@ -339,21 +347,18 @@
     error = '';
     try {
       const next = await getReservationFloorPlans(restaurantId);
-      source = next;
-      draft = toDraft(next);
+      floorPlansDraft.adopt(next, toDraft(next));
       resetAreaDirectoryPlacement();
-      dirty = false;
-      if (!selectedFloorId || !draft.floors.some((floor) => floor.id === selectedFloorId && floor.active)) {
+      const loaded = floorPlansDraft.draft!;
+      if (!selectedFloorId || !loaded.floors.some((floor) => floor.id === selectedFloorId && floor.active)) {
         selectedFloorId =
-          draft.floors.find((floor) => floor.active && floor.level === 0)?.id ??
-          draft.floors.find((floor) => floor.active)?.id ??
+          loaded.floors.find((floor) => floor.active && floor.level === 0)?.id ??
+          loaded.floors.find((floor) => floor.active)?.id ??
           '';
       }
       selectedRoomId = '';
       selectedTableId = '';
       combinationEditor = null;
-      pendingAreaIds = [];
-      autoOpenAreaId = '';
     } catch (cause) {
       error = friendlyError(cause);
     } finally {
@@ -434,7 +439,7 @@
   }
 
   function touch() {
-    dirty = true;
+    floorPlansDraft.touch();
   }
 
   function directoryPlacement(
@@ -647,14 +652,14 @@
     selectedTableId = '';
     restaurantConfig.touch();
     touch();
-    pendingAreaIds = [id, ...pendingAreaIds];
-    autoOpenAreaId = id;
+    floorPlansDraft.pendingAreaIds = [id, ...pendingAreaIds];
     editorView = 'list';
     await tick();
-    document.getElementById(`area-picker-${id}`)?.scrollIntoView({
-      block: 'nearest',
-      inline: 'nearest'
-    });
+    // Cursor in the new row, catalogue closed — the same welcome every grid
+    // gives a freshly added row.
+    const field = document.getElementById(`area-picker-${id}`);
+    field?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    field?.focus();
   }
 
   function selectAreaCatalogue(
@@ -716,10 +721,6 @@
     restaurantConfig.touch();
   }
 
-  function closePendingAreaPicker(areaId: string): void {
-    if (autoOpenAreaId === areaId) autoOpenAreaId = '';
-  }
-
   async function archiveArea(roomId = selectedRoomId) {
     if (!draft || !restaurantContext || workspace.isPreview) return;
     const roomDraft = draft.rooms.find((room) => room.id === roomId);
@@ -768,8 +769,7 @@
     for (const position of restaurantContext.draft.jobFunctions) {
       position.areaIds = position.areaIds.filter((areaId) => areaId !== archivedAreaId);
     }
-    pendingAreaIds = pendingAreaIds.filter((areaId) => areaId !== archivedAreaId);
-    if (autoOpenAreaId === archivedAreaId) autoOpenAreaId = '';
+    floorPlansDraft.pendingAreaIds = pendingAreaIds.filter((areaId) => areaId !== archivedAreaId);
     restaurantConfig.touch();
     selectedRoomId = '';
     touch();
@@ -1647,18 +1647,16 @@
 
   function discard() {
     if (!source) return;
-    draft = toDraft(source);
+    floorPlansDraft.restore(toDraft(source));
     resetAreaDirectoryPlacement();
-    dirty = false;
+    const restored = floorPlansDraft.draft!;
     selectedFloorId =
-      draft.floors.find((floor) => floor.active && floor.level === 0)?.id ??
-      draft.floors.find((floor) => floor.active)?.id ??
+      restored.floors.find((floor) => floor.active && floor.level === 0)?.id ??
+      restored.floors.find((floor) => floor.active)?.id ??
       '';
     selectedRoomId = '';
     selectedTableId = '';
     combinationEditor = null;
-    pendingAreaIds = [];
-    autoOpenAreaId = '';
     restaurantContext?.discard();
   }
 
@@ -1667,7 +1665,10 @@
       id: mode === 'areas' ? 'restaurant-floor-layout' : 'reservation-table-layout',
       label: mode === 'areas' ? 'Restaurant floor layout' : 'Reservation table layout',
       priority: 20,
-      isDirty: () => dirty,
+      // The draft outlives this view, so moving between the tabs that edit the
+      // same plan costs nothing. Only leaving them is worth a question.
+      navigationScopes: ['/restaurant', '/settings', '/reservations'],
+      isDirty: () => floorPlansDraft.dirty,
       save,
       discard
     })
@@ -1778,7 +1779,6 @@
                               label={t('Area')}
                               placeholder={t('Select or type an area')}
                               disabled={editorReadOnly}
-                              autoOpen={autoOpenAreaId === areaDraft.id}
                               recommendedLabel={t('Suggested areas')}
                               allLabel={t('All system areas')}
                               customLabel={t('Custom area')}
@@ -1789,7 +1789,6 @@
                               onvaluechange={(value) => typeAreaName(areaDraft.id, value)}
                               onselect={(item) => selectAreaCatalogue(areaDraft.id, item)}
                               oncustom={(name) => selectCustomArea(areaDraft.id, name)}
-                              onclose={() => closePendingAreaPicker(areaDraft.id)}
                             />
                             {#if areaInstanceLocatorFor(areaDraft.id, room.floor_id)}
                               <small class="area-instance-locator">{areaInstanceLocatorFor(areaDraft.id, room.floor_id)}</small>
@@ -1801,22 +1800,14 @@
                       </span>
                     </td>
                     <td>
-                      <select
-                        class="cl-field floor-select"
-                        aria-label={t('Floor')}
-                        disabled={editorReadOnly}
+                      <ClassicPicker
                         value={room.floor_id ?? ''}
-                        onchange={(event) =>
-                          moveAreaToFloor(
-                            room.id,
-                            (event.currentTarget as HTMLSelectElement).value
-                          )}
-                      >
-                        <option value="" disabled>{t('Not placed')}</option>
-                        {#each selectableFloors as floorOption (floorOption.id)}
-                          <option value={floorOption.id}>{floorLabel(floorOption)}</option>
-                        {/each}
-                      </select>
+                        options={floorOptions}
+                        disabled={editorReadOnly}
+                        placeholder="Not placed"
+                        ariaLabel={t('Floor')}
+                        onchange={(next) => moveAreaToFloor(room.id, next)}
+                      />
                     </td>
                     <td class="is-num">{positionCountForArea(room.work_area_id)}</td>
                     <td><ClassicCellBadge label={floor ? 'Active' : 'Needs placement'} tone={floor ? 'success' : 'warning'} icon={floor ? 'check' : 'warning'} /></td>
@@ -2212,13 +2203,10 @@
   .view-switch button.is-active { background: var(--cl-surface); color: var(--cl-ink); box-shadow: 0 1px 3px rgb(15 23 42 / 10%); }
   .area-directory { --cl-grid-max-height: calc(100dvh - 190px); }
   .area-directory .cl-table { min-width: 680px; }
-  .area-directory tr.is-new > td { background: color-mix(in srgb, var(--cl-accent) 6%, var(--cl-surface)); }
-  .area-directory tr.is-new > td:first-child { box-shadow: inset 3px 0 0 var(--cl-accent); }
   .area-row-name { min-width: 230px; display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 9px; }
   .area-row-name > strong { font-size: 12px; }
   .area-name-editor { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 7px; }
   .area-instance-locator { padding: 2px 5px; border: 1px solid var(--cl-line); border-radius: 4px; color: var(--cl-muted); background: var(--cl-surface-muted); font-size: 10px; font-weight: var(--rst-fw-semibold); white-space: nowrap; }
-  .floor-select { min-width: 150px; }
   .area-editor { min-width: 0; display: grid; gap: 10px; }
   .plan-card { min-width: 0; display: grid; grid-template-columns: minmax(560px, 1fr) 286px; grid-template-rows: minmax(480px, 1fr); overflow: hidden; border-color: var(--cl-line-strong); }
   .area-canvas { min-width: 0; grid-column: 1; grid-row: 1; padding: 0; border-right: 1px solid var(--cl-line); background: var(--cl-surface-muted); }

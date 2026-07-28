@@ -57,11 +57,6 @@
     filterValues.filter((item) => item.label.toLowerCase().includes(filterSearch.trim().toLowerCase()))
   );
 
-  function sort(dir: 'asc' | 'desc') {
-    onsort?.(dir);
-    open = false;
-  }
-
   function toggleSort() {
     if (!sortable) return;
     onsort?.(sortDir === 'asc' ? 'desc' : 'asc');
@@ -128,32 +123,22 @@
     {/if}
   </button>
 
-  {#if sortable || filterKind || extra}
-    <button bind:this={trigger} class="colhead__trigger" class:is-active={active} type="button" aria-haspopup="menu" aria-expanded={open} aria-label={t('Column options')} onclick={toggleMenu}>
+  <!-- Sorting is the header label itself, so the menu holds only what the label
+       cannot express: searching and picking values. -->
+  {#if filterKind || extra}
+    <button bind:this={trigger} class="colhead__trigger" class:is-active={active} type="button" aria-haspopup="menu" aria-expanded={open} aria-label={t('Filter column')} title={t('Filter column')} onclick={toggleMenu}>
       <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" /></svg>
     </button>
   {/if}
 
   {#if open}
     <div class="colmenu is-floating" class:is-right={menuRight} style={`left:${menuLeft}px;top:${menuTop}px`} role="menu">
-      {#if sortable}
-        <button class="colmenu__item" class:is-on={sortDir === 'asc'} type="button" role="menuitem" onclick={() => sort('asc')}>
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M6 11l6-6 6 6" /></svg>{t('Sort ascending')}
-        </button>
-        <button class="colmenu__item" class:is-on={sortDir === 'desc'} type="button" role="menuitem" onclick={() => sort('desc')}>
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 13l6 6 6-6" /></svg>{t('Sort descending')}
-        </button>
-      {/if}
-
-
       {#if filterKind === 'text'}
-        <div class="colmenu__sep"></div>
         <div class="colmenu__search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.2-3.2" /></svg>
           <input class="cl-field" type="search" placeholder={t('Search')} value={searchValue} oninput={(event) => onsearch?.(event.currentTarget.value)} />
         </div>
       {:else if filterKind === 'values'}
-        <div class="colmenu__sep"></div>
         <div class="colmenu__search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.2-3.2" /></svg>
           <input class="cl-field" type="search" placeholder={t('Search')} bind:value={filterSearch} />

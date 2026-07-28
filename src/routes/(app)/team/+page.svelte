@@ -21,7 +21,9 @@
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
   import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
   import EmployeeInlineEditor from '$lib/classic/EmployeeInlineEditor.svelte';
+  import ClassicPicker from '$lib/classic/ClassicPicker.svelte';
   import { teamDraft } from '$lib/classic/classic-team.svelte';
+  import { createTableView, peopleCountLabel } from '$lib/classic/table-view.svelte';
   import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
   import { areaInstanceLabelMap } from '$lib/restaurant/area-instance';
 
@@ -29,22 +31,13 @@
   type GroupBy = 'position' | 'contract' | 'area' | 'status' | 'none';
   type EmployeeGroup = { key: string; label: string; color?: string; employees: EmployeeDraft[] };
 
-  let sort = $state<{ key: SortKey; dir: 'asc' | 'desc' } | null>(null);
-  let groupBy = $state<GroupBy>('position');
-  let search = $state('');
-  let emailSearch = $state('');
-  let phoneSearch = $state('');
-  let excludedPosition = $state(new Set<string>());
-  let excludedContract = $state(new Set<string>());
-  let excludedAccess = $state(new Set<string>());
-  let excludedStatus = $state(new Set<string>(['archived']));
-  let freshId = $state('');
+  /** Every row added since the last save. They all stay directly editable. */
+  let freshIds = $state(new Set<string>());
   let detailId = $state('');
   let editingEmployeeId = $state('');
   let editingField = $state<'email' | 'phone' | ''>('');
   let editingValue = $state('');
   let editingInput = $state<HTMLInputElement | null>(null);
-  let collapsedGroups = $state<string[]>([]);
   let positionMenuEmployeeId = $state('');
   let positionMenuTrigger = $state<HTMLButtonElement | null>(null);
   let positionMenuElement = $state<HTMLElement | null>(null);
@@ -60,47 +53,16 @@
     { key: 'status', label: 'Status' }
   ] as const;
 
-  const COLS_KEY = 'rst-team-people-cols-v2';
-  let hidden = $state(new Set<string>());
-
-  onMount(() => {
-    try {
-      const raw = localStorage.getItem(COLS_KEY);
-      if (raw) hidden = new Set(JSON.parse(raw) as string[]);
-    } catch {
-      hidden = new Set();
-    }
+  const view = createTableView<SortKey, GroupBy>({
+    storageKey: 'rst-team-people-cols-v2',
+    columns: OPTIONAL_COLUMNS,
+    defaultGroupBy: 'position',
+    defaultExcluded: { status: ['archived'] }
   });
+  const shown = view.shown;
+  const colCount = $derived(view.colCount + 1);
 
-  function setHidden(next: Set<string>) {
-    hidden = next;
-    try {
-      localStorage.setItem(COLS_KEY, JSON.stringify([...next]));
-    } catch {
-      // ignore devices without local storage
-    }
-  }
-
-  function toggleColumn(key: string) {
-    const next = new Set(hidden);
-    next.has(key) ? next.delete(key) : next.add(key);
-    const hiding = next.has(key);
-    if (hiding && sort?.key === key) sort = null;
-    if (key === 'position' && hiding) {
-      if (groupBy === 'position') groupBy = 'none';
-      excludedPosition = new Set();
-    }
-    if (key === 'contract' && hiding) {
-      if (groupBy === 'contract') groupBy = 'none';
-      excludedContract = new Set();
-    }
-    if (key === 'access' && hiding) excludedAccess = new Set();
-    if (key === 'status' && hiding) excludedStatus = new Set();
-    setHidden(next);
-  }
-
-  const shown = (key: string) => !hidden.has(key);
-  const colCount = $derived(1 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length);
+  onMount(view.restore);
 
   const employeeColor = $derived(
     workspace.team
@@ -143,20 +105,10 @@
       positionId,
       workspace.restaurant?.work_areas ?? [],
       workspace.restaurant?.job_function_areas ?? [],
-      restaurantAreaColor
+      restaurantAreaColor,
+      positionColor.get(positionId)
     );
     return identity ? { icon: identity.icon, color: identity.color } : null;
-  }
-
-  function setGroupBy(next: GroupBy): void {
-    groupBy = next;
-    collapsedGroups = [];
-  }
-
-  function toggleGroup(key: string): void {
-    collapsedGroups = collapsedGroups.includes(key)
-      ? collapsedGroups.filter((item) => item !== key)
-      : [...collapsedGroups, key];
   }
 
   function employeeArea(employee: EmployeeDraft): { key: string; label: string; color?: string } {
@@ -194,48 +146,44 @@
     };
   }
 
-  function peopleCountLabel(count: number): string {
-    return count === 1 ? t('1 person') : t('{count} people', { count });
-  }
-
   async function addEmployee() {
     if (workspace.isPreview || !workspace.team) return;
     const draft = newEmployeeDraft(crypto.randomUUID());
     draft.displayName = '';
     teamDraft.employees = [draft, ...teamDraft.employees];
-    freshId = draft.id;
-    search = '';
-    emailSearch = '';
-    phoneSearch = '';
-    excludedPosition = new Set();
-    excludedContract = new Set();
-    excludedAccess = new Set();
-    excludedStatus = new Set(['archived']);
+    freshIds = new Set([...freshIds, draft.id]);
+    view.resetFilters();
+    view.expandAll();
     await tick();
     document.querySelector<HTMLInputElement>(`[data-employee-id="${draft.id}"] .namefield`)?.focus();
   }
 
   async function savePage(save: () => Promise<void>) {
     await save();
-    freshId = '';
+    freshIds = new Set();
   }
 
   function discardPage(discard: () => void) {
     discard();
-    freshId = '';
+    freshIds = new Set();
     detailId = '';
   }
 
   function closeDetails() {
     detailId = '';
-    freshId = '';
+    // The editor removes a new employee when it is cancelled, so drop any id
+    // that no longer has a row. The other added rows stay editable.
+    const live = new Set(teamDraft.employees.map((employee) => employee.id));
+    freshIds = new Set([...freshIds].filter((id) => live.has(id)));
   }
 
   function removeDraftEmployee(employeeId: string) {
-    if (employeeId !== freshId) return;
+    if (!freshIds.has(employeeId)) return;
     teamDraft.remove(employeeId);
+    const next = new Set(freshIds);
+    next.delete(employeeId);
+    freshIds = next;
     detailId = '';
-    freshId = '';
   }
 
   async function startInlineEdit(employee: EmployeeDraft, field: 'email' | 'phone') {
@@ -391,12 +339,6 @@
     };
   });
 
-  function toggleExcluded(set: Set<string>, value: string): Set<string> {
-    const next = new Set(set);
-    next.has(value) ? next.delete(value) : next.add(value);
-    return next;
-  }
-
   function searchBlob(employee: EmployeeDraft, jobName: Map<string, string>, contractName: Map<string, string>) {
     const positions = employee.jobFunctionIds.map((id) => jobName.get(id) ?? '').join(' ');
     const contract = contractName.get(employee.contractTypeId) ?? '';
@@ -405,14 +347,13 @@
 
   function matches(employee: EmployeeDraft, jobName: Map<string, string>, contractName: Map<string, string>): boolean {
     const placement = teamDraft.placement(employee);
-    if (excludedPosition.has(placement.jobFunctionIds[0] || '__none__')) return false;
-    if (excludedContract.has(placement.contractTypeId || '__none__')) return false;
-    if (excludedAccess.has(placement.accessState)) return false;
-    if (excludedStatus.has(placement.active ? 'active' : 'archived')) return false;
-    if (emailSearch.trim() && !placement.email.toLowerCase().includes(emailSearch.trim().toLowerCase())) return false;
-    if (phoneSearch.trim() && !placement.phone.toLowerCase().includes(phoneSearch.trim().toLowerCase())) return false;
-    const term = search.trim().toLowerCase();
-    return !term || searchBlob(placement, jobName, contractName).includes(term);
+    if (view.isExcluded('position', placement.jobFunctionIds[0] || '__none__')) return false;
+    if (view.isExcluded('contract', placement.contractTypeId || '__none__')) return false;
+    if (view.isExcluded('access', placement.accessState)) return false;
+    if (view.isExcluded('status', placement.active ? 'active' : 'archived')) return false;
+    if (!view.matchesSearch('email', placement.email)) return false;
+    if (!view.matchesSearch('phone', placement.phone)) return false;
+    return view.matchesSearch('employee', searchBlob(placement, jobName, contractName));
   }
 
   function sortValue(employee: EmployeeDraft, key: SortKey, jobName: Map<string, string>, contractName: Map<string, string>): string {
@@ -438,27 +379,25 @@
   }
 
   function ordered(rows: EmployeeDraft[], jobName: Map<string, string>, contractName: Map<string, string>) {
-    if (!sort) return rows;
-    const factor = sort.dir === 'desc' ? -1 : 1;
-    return [...rows].sort((left, right) => factor * sortValue(left, sort!.key, jobName, contractName).localeCompare(sortValue(right, sort!.key, jobName, contractName)));
+    return view.ordered(rows, (employee, key) => sortValue(employee, key, jobName, contractName));
   }
 
   function grouped(rows: EmployeeDraft[], jobName: Map<string, string>, contractName: Map<string, string>): EmployeeGroup[] {
-    if (groupBy === 'none') return [{ key: 'all', label: '', employees: rows }];
+    if (!view.grouping) return [{ key: 'all', label: '', employees: rows }];
     const groups = new Map<string, EmployeeGroup>();
     for (const employee of rows) {
       const placement = teamDraft.placement(employee);
       let key = '';
       let label = '';
       let color: string | undefined;
-      if (groupBy === 'position') {
+      if (view.groupBy === 'position') {
         key = placement.jobFunctionIds[0] ?? '__undefined__';
         label = key === '__undefined__' ? t('No position yet') : jobName.get(key) ?? t('Unknown');
         color = key === '__undefined__' ? undefined : employeeColor.get(employee.id);
-      } else if (groupBy === 'contract') {
+      } else if (view.groupBy === 'contract') {
         key = placement.contractTypeId || '__undefined__';
         label = key === '__undefined__' ? t('No contract yet') : contractName.get(key) ?? t('Unknown');
-      } else if (groupBy === 'area') {
+      } else if (view.groupBy === 'area') {
         const area = employeeArea(placement);
         key = area.key;
         label = area.label;
@@ -512,6 +451,8 @@
     {@const positionValues = [{ value: '__none__', label: t('No position') }, ...[...team.jobName].map(([id, name]) => ({ value: id, label: name }))]}
     {@const contractValues = [{ value: '__none__', label: t('No contract') }, ...[...team.contractName].map(([id, name]) => ({ value: id, label: name }))]}
     {@const accessValues = [...new Set(team.employees.map((employee) => employee.accessState))].map((state) => ({ value: state, label: state.replace('_', ' ') }))}
+    {@const statusValues = [{ value: 'active', label: t('Active') }, { value: 'archived', label: t('Archived') }]}
+    {@const contractOptions = [{ value: '', label: t('Not set') }, ...[...team.contractName].map(([id, name]) => ({ value: id, label: name, icon: 'contract' }))]}
     {@const total = filtered.length}
     {@const rosterTotal = team.employees.length}
     {@const activeCount = team.employees.filter((employee) => employee.active).length}
@@ -542,12 +483,12 @@
                 <ClassicPrimaryColMenu
                   label={t('Employee')}
                   sortable
-                  sortDir={sort?.key === 'employee' ? sort.dir : null}
-                  onsort={(dir) => (sort = { key: 'employee', dir })}
+                  sortDir={view.sortDir('employee')}
+                  onsort={(dir) => view.setSort('employee', dir)}
                   filterKind="text"
-                  searchValue={search}
-                  onsearch={(value) => (search = value)}
-                  groupValue={groupBy}
+                  searchValue={view.search('employee')}
+                  onsearch={(value) => view.setSearch('employee', value)}
+                  groupValue={view.groupBy}
                   groupOptions={[
                     { value: 'none', label: t('No grouping') },
                     { value: 'contract', label: t('Contract type') },
@@ -555,48 +496,48 @@
                     { value: 'area', label: t('Area') },
                     { value: 'status', label: t('Status') }
                   ]}
-                  ongroupchange={(value) => setGroupBy(value as GroupBy)}
+                  ongroupchange={(value) => view.setGroupBy(value as GroupBy)}
                 />
               </th>
               {#if shown('position')}
                 <th class="has-menu">
-                  <ClassicColMenu label={t('Position')} sortable sortDir={sort?.key === 'position' ? sort.dir : null} onsort={(dir) => (sort = { key: 'position', dir })}
-                    filterKind="values" filterValues={positionValues} selected={excludedPosition}
-                    ontoggle={(value) => (excludedPosition = toggleExcluded(excludedPosition, value))}
-                    onselectall={(on) => (excludedPosition = on ? new Set() : new Set(positionValues.map((item) => item.value)))} />
+                  <ClassicColMenu label={t('Position')} sortable sortDir={view.sortDir('position')} onsort={(dir) => view.setSort('position', dir)}
+                    filterKind="values" filterValues={positionValues} selected={view.excluded('position')}
+                    ontoggle={(value) => view.toggleValue('position', value)}
+                    onselectall={(on) => view.selectAll('position', on, positionValues)} />
                 </th>
               {/if}
-              {#if shown('email')}<th class="has-menu"><ClassicColMenu label={t('Email')} sortable sortDir={sort?.key === 'email' ? sort.dir : null} onsort={(dir) => (sort = { key: 'email', dir })} filterKind="text" searchValue={emailSearch} onsearch={(value) => (emailSearch = value)} /></th>{/if}
-              {#if shown('phone')}<th class="has-menu"><ClassicColMenu label={t('Phone')} sortable sortDir={sort?.key === 'phone' ? sort.dir : null} onsort={(dir) => (sort = { key: 'phone', dir })} filterKind="text" searchValue={phoneSearch} onsearch={(value) => (phoneSearch = value)} /></th>{/if}
+              {#if shown('email')}<th class="has-menu"><ClassicColMenu label={t('Email')} sortable sortDir={view.sortDir('email')} onsort={(dir) => view.setSort('email', dir)} filterKind="text" searchValue={view.search('email')} onsearch={(value) => view.setSearch('email', value)} /></th>{/if}
+              {#if shown('phone')}<th class="has-menu"><ClassicColMenu label={t('Phone')} sortable sortDir={view.sortDir('phone')} onsort={(dir) => view.setSort('phone', dir)} filterKind="text" searchValue={view.search('phone')} onsearch={(value) => view.setSearch('phone', value)} /></th>{/if}
               {#if shown('contract')}
                 <th class="has-menu">
-                  <ClassicColMenu label={t('Contract')} sortable sortDir={sort?.key === 'contract' ? sort.dir : null} onsort={(dir) => (sort = { key: 'contract', dir })}
-                    filterKind="values" filterValues={contractValues} selected={excludedContract}
-                    ontoggle={(value) => (excludedContract = toggleExcluded(excludedContract, value))}
-                    onselectall={(on) => (excludedContract = on ? new Set() : new Set(contractValues.map((item) => item.value)))} />
+                  <ClassicColMenu label={t('Contract')} sortable sortDir={view.sortDir('contract')} onsort={(dir) => view.setSort('contract', dir)}
+                    filterKind="values" filterValues={contractValues} selected={view.excluded('contract')}
+                    ontoggle={(value) => view.toggleValue('contract', value)}
+                    onselectall={(on) => view.selectAll('contract', on, contractValues)} />
                 </th>
               {/if}
               {#if shown('access')}
                 <th class="has-menu">
-                  <ClassicColMenu label={t('App access')} sortable sortDir={sort?.key === 'access' ? sort.dir : null} onsort={(dir) => (sort = { key: 'access', dir })}
-                    filterKind="values" filterValues={accessValues} selected={excludedAccess}
-                    ontoggle={(value) => (excludedAccess = toggleExcluded(excludedAccess, value))}
-                    onselectall={(on) => (excludedAccess = on ? new Set() : new Set(accessValues.map((item) => item.value)))} />
+                  <ClassicColMenu label={t('App access')} sortable sortDir={view.sortDir('access')} onsort={(dir) => view.setSort('access', dir)}
+                    filterKind="values" filterValues={accessValues} selected={view.excluded('access')}
+                    ontoggle={(value) => view.toggleValue('access', value)}
+                    onselectall={(on) => view.selectAll('access', on, accessValues)} />
                 </th>
               {/if}
               {#if shown('status')}
                 <th class="has-menu">
-                  <ClassicColMenu label={t('Status')} sortable sortDir={sort?.key === 'status' ? sort.dir : null} onsort={(dir) => (sort = { key: 'status', dir })}
-                    filterKind="values" filterValues={[{ value: 'active', label: t('Active') }, { value: 'archived', label: t('Archived') }]} selected={excludedStatus}
-                    ontoggle={(value) => (excludedStatus = toggleExcluded(excludedStatus, value))}
-                    onselectall={(on) => (excludedStatus = on ? new Set() : new Set(['active', 'archived']))} />
+                  <ClassicColMenu label={t('Status')} sortable sortDir={view.sortDir('status')} onsort={(dir) => view.setSort('status', dir)}
+                    filterKind="values" filterValues={statusValues} selected={view.excluded('status')}
+                    ontoggle={(value) => view.toggleValue('status', value)}
+                    onselectall={(on) => view.selectAll('status', on, statusValues)} />
                 </th>
               {/if}
-              <th class="chooser-col"><ClassicColChooser columns={OPTIONAL_COLUMNS.map((column) => ({ key: column.key, label: t(column.label) }))} {hidden} ontoggle={toggleColumn} /></th>
+              <th class="chooser-col"><ClassicColChooser columns={view.columns} hidden={view.hidden} ontoggle={view.toggleColumn} /></th>
             </tr>
           </thead>
           {#if !total}
-            <tbody><tr><td colspan={colCount + 1}>
+            <tbody><tr><td colspan={colCount}>
               <div class="cl-empty">
                 <strong>{t(rosterTotal ? 'No employees match' : 'No active employees')}</strong>
                 <span>{t('Change the filter, or add someone to the team.')}</span>
@@ -605,10 +546,10 @@
           {:else}
             {#each rows as group (group.key)}
               <tbody>
-                {#if groupBy !== 'none'}
-                  {@const groupArea = groupBy === 'position'
+                {#if view.grouping}
+                  {@const groupArea = view.groupBy === 'position'
                     ? positionArea(group.key)
-                    : groupBy === 'area'
+                    : view.groupBy === 'area'
                       ? workspace.restaurant?.work_areas.find((area) => area.id === group.key)
                       : null}
                   {#snippet groupIcon()}
@@ -617,23 +558,24 @@
                     {/if}
                   {/snippet}
                   <ClassicGroupRow
-                    colspan={colCount + 1}
+                    colspan={colCount}
                     label={group.label}
                     meta={peopleCountLabel(group.employees.length)}
                     color={group.color}
                     icon={groupArea ? groupIcon : undefined}
-                    collapsed={collapsedGroups.includes(group.key)}
-                    ontoggle={() => toggleGroup(group.key)}
+                    collapsed={view.isCollapsed(group.key)}
+                    ontoggle={() => view.toggleGroup(group.key)}
                   />
                 {/if}
-                {#if !collapsedGroups.includes(group.key)}
+                {#if !view.isCollapsed(group.key)}
                 {#each group.employees as employee (employee.id)}
                   {@const primaryPositionArea = positionArea(employee.jobFunctionIds[0] ?? '')}
-                  <tr data-employee-id={employee.id} class:is-attention={employee.id === freshId}>
+                  {@const isFresh = freshIds.has(employee.id)}
+                  <tr data-employee-id={employee.id} class:is-new={isFresh}>
                     <td>
                       <span class="cl-table__name is-employee">
                         <span class="cl-avatar" style="--avatar-color:{employeeColor.get(employee.id) ?? 'var(--cl-muted)'}">{personInitials(employee.displayName || '?')}</span>
-                        {#if employee.id === freshId}
+                        {#if isFresh}
                           <input class="cl-field namefield" placeholder={t('Full name')} value={employee.displayName} disabled={!team.editable} oninput={(event) => setName(employee, event.currentTarget.value)} />
                         {:else}
                           <button class="cell-value employee-name" type="button" disabled={!team.editable} onclick={() => (detailId = employee.id)}>
@@ -671,7 +613,7 @@
                       </td>
                     {/if}
                     {#if shown('email')}<td>
-                      {#if employee.id === freshId}
+                      {#if isFresh}
                         <input class="cl-field cellfield" type="email" placeholder={t('Email')} value={employee.email} disabled={!team.editable} oninput={(event) => teamDraft.update(employee.id, { email: event.currentTarget.value })} />
                       {:else if editingEmployeeId === employee.id && editingField === 'email'}
                         <input
@@ -699,7 +641,7 @@
                       {/if}
                     </td>{/if}
                     {#if shown('phone')}<td>
-                      {#if employee.id === freshId}
+                      {#if isFresh}
                         <input class="cl-field cellfield phonefield" type="tel" placeholder={t('Phone')} value={employee.phone} disabled={!team.editable} oninput={(event) => teamDraft.update(employee.id, { phone: event.currentTarget.value })} />
                       {:else if editingEmployeeId === employee.id && editingField === 'phone'}
                         <input
@@ -727,25 +669,20 @@
                       {/if}
                     </td>{/if}
                     {#if shown('contract')}<td>
-                      <label class="contract-select">
-                        <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.2 3.5h6.2l3.4 3.4v9.6H5.2z" /><path d="M11.4 3.5v3.4h3.4M7.7 10h4.8M7.7 13h4.8" /></svg>
-                        <select
-                          aria-label={`${t('Contract')} · ${employee.displayName}`}
-                          value={employee.contractTypeId}
-                          disabled={!team.editable}
-                          onchange={(event) => teamDraft.update(employee.id, { contractTypeId: event.currentTarget.value })}
-                        >
-                          <option value="">{t('Not set')}</option>
-                          {#each [...team.contractName] as [id, name] (id)}<option value={id}>{name}</option>{/each}
-                        </select>
-                      </label>
+                      <ClassicPicker
+                        value={employee.contractTypeId}
+                        options={contractOptions}
+                        disabled={!team.editable}
+                        ariaLabel={`${t('Contract')} · ${employee.displayName}`}
+                        onchange={(next) => teamDraft.update(employee.id, { contractTypeId: next })}
+                      />
                     </td>{/if}
                     {#if shown('access')}<td><ClassicCellBadge label={ACCESS_LABEL[employee.accessState] ?? employee.accessState} tone={accessTone[employee.accessState] ?? 'warning'} icon={accessIcon(employee.accessState)} /></td>{/if}
                     {#if shown('status')}<td><ClassicCellBadge label={employee.active ? 'Active' : 'Archived'} tone={employee.active ? 'success' : 'warning'} icon={employee.active ? 'check' : 'clock'} /></td>{/if}
                     <td class="menu-cell">
                       <ClassicRowMenu
                         disabled={!team.editable}
-                        items={employee.id === freshId
+                        items={isFresh
                           ? [{ label: t('Remove'), tone: 'danger', onselect: () => removeDraftEmployee(employee.id) }]
                           : [{ label: t('Open'), onselect: () => (detailId = employee.id) }]}
                       />
@@ -804,22 +741,21 @@
                 <span>{name}</span>
               </label>
               {#if positionSelected && compatibleAreas.length}
-                <select
-                  aria-label={`${t('Preferred area')} · ${name}`}
-                  disabled={!team.editable}
+                <ClassicPicker
                   value={positionMenuEmployee.jobFunctionAreaIds[id] ?? ''}
-                  onchange={(event) =>
-                    setEmployeePositionArea(
-                      positionMenuEmployee,
-                      id,
-                      event.currentTarget.value
-                    )}
-                >
-                  <option value="">{t('Any linked area')}</option>
-                  {#each compatibleAreas as area (area.id)}
-                    <option value={area.id}>{restaurantAreaName.get(area.id) ?? area.name}</option>
-                  {/each}
-                </select>
+                  options={[
+                    { value: '', label: t('Any linked area') },
+                    ...compatibleAreas.map((area) => ({
+                      value: area.id,
+                      label: restaurantAreaName.get(area.id) ?? area.name,
+                      color: restaurantAreaColor.get(area.id),
+                      icon: area.icon_key ?? ''
+                    }))
+                  ]}
+                  disabled={!team.editable}
+                  ariaLabel={`${t('Preferred area')} · ${name}`}
+                  onchange={(next) => setEmployeePositionArea(positionMenuEmployee, id, next)}
+                />
               {/if}
             </div>
           {/each}
@@ -830,7 +766,7 @@
     {/if}
 
     {#if detailId}
-      <EmployeeInlineEditor employeeId={detailId} mode="people" saving={team.saving} isNew={detailId === freshId} onclose={closeDetails} onsave={team.saveEmployee} />
+      <EmployeeInlineEditor employeeId={detailId} mode="people" saving={team.saving} isNew={freshIds.has(detailId)} onclose={closeDetails} onsave={team.saveEmployee} />
     {/if}
 
 {/if}
@@ -871,11 +807,6 @@
   .posmenu__list label { display: grid; grid-template-columns: 15px 16px minmax(0, 1fr); align-items: center; gap: 8px; font-size: 13px; }
   .posmenu__list input { width: 15px; height: 15px; accent-color: var(--cl-accent); }
   .posmenu__list label > i { width: 6px; height: 20px; border-radius: 2px; background: var(--position-color); }
-  .posmenu__option select { min-width: 0; height: 28px; padding: 0 24px 0 8px; border: 1px solid var(--cl-line); border-radius: 5px; background: var(--cl-surface); color: var(--cl-ink); font: inherit; font-size: 10.5px; }
-  .contract-select { max-width: 190px; min-height: 30px; display: grid; grid-template-columns: 17px minmax(0, 1fr); align-items: center; gap: 6px; margin: -3px -7px; padding: 3px 6px; border: 1px solid transparent; border-radius: 6px; color: var(--cl-muted); transition: border-color var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease), color var(--cl-dur) var(--cl-ease); }
-  .contract-select:hover, .contract-select:focus-within { border-color: color-mix(in srgb, var(--cl-info) 24%, var(--cl-line)); color: var(--cl-info); background: color-mix(in srgb, var(--cl-info) 7%, var(--cl-surface)); }
-  .contract-select select { min-width: 0; width: 100%; padding: 2px 20px 2px 0; border: 0; outline: 0; color: var(--cl-ink); background: transparent; font: inherit; font-size: 12px; font-weight: var(--rst-fw-medium); text-overflow: ellipsis; cursor: pointer; }
-  .contract-select select:disabled { cursor: default; }
   .posmenu__empty { padding: 8px; color: var(--cl-muted); font-size: 12px; }
   .is-employee { align-items: flex-start; }
 </style>

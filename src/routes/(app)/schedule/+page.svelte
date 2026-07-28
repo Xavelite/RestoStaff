@@ -405,7 +405,8 @@
     const linkedPositionAreaId =
       preferredAreaIsEligible(defaultAreaId, linkedAreas)
         ? defaultAreaId
-        : positionIdentity?.areaId ?? null;
+        // An empty areaId means "not tied to one area" — same as none here.
+        : positionIdentity?.areaId || null;
     const areaId = employeeAreaId(row.id);
     const planned = employeeHours(row.id);
     const target = contractHours.get(row.id) ?? 0;

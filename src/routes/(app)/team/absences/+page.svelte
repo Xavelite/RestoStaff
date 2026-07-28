@@ -15,6 +15,7 @@
   import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
   import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
+  import { createTableView } from '$lib/classic/table-view.svelte';
   import type { ManagerOperationsReadModel } from '$lib/api/workspace-snapshot';
 
   const employeeColor = $derived(
@@ -32,44 +33,34 @@
     return value === 'lunch' || value === 'evening' ? value : null;
   }
 
-  let excludedStatus = $state(new Set<string>());
   let busy = $state('');
-  let search = $state('');
-  let view = $state<'review' | 'all'>('review');
-  let sort = $state<{ key: 'employee' | 'type' | 'period' | 'service' | 'status'; dir: 'asc' | 'desc' } | null>(null);
-  let groupBy = $state<'status' | 'employee' | 'type' | 'none'>('none');
-  let excludedType = $state(new Set<string>());
-  let excludedService = $state(new Set<string>());
-  let periodSearch = $state('');
-  let collapsedGroups = $state<string[]>([]);
   const team = $derived(workspace.team);
+
+  type SortKey = 'employee' | 'type' | 'period' | 'service' | 'status';
+  type GroupBy = 'status' | 'employee' | 'type' | 'none';
+
+  // "Needs review" is simply the Status column filtered to pending, so this page
+  // filters the same way as every other table instead of owning a segmented
+  // control of its own.
+  const view = createTableView<SortKey, GroupBy>({
+    defaultExcluded: { status: ['approved', 'rejected', 'cancelled'] }
+  });
 
 
   type AbsenceRow = ManagerOperationsReadModel['absences'][number];
   type AbsenceGroup = { key: string; label: string; rows: AbsenceRow[] };
 
   function groupedRows(rows: AbsenceRow[], employeeName: Map<string, string>, typeNameForGroup: Map<string, string>): AbsenceGroup[] {
-    if (groupBy === 'none') return [{ key: 'all', label: '', rows }];
+    if (!view.grouping) return [{ key: 'all', label: '', rows }];
     const map = new Map<string, AbsenceGroup>();
     for (const absence of rows) {
-      const key = groupBy === 'status' ? absence.status : groupBy === 'employee' ? absence.employee_id : absence.absence_type_id ?? '__none__';
-      const label = groupBy === 'status' ? t(absence.status) : groupBy === 'employee' ? employeeName.get(absence.employee_id) ?? t('Unknown') : key === '__none__' ? t('No type') : typeNameForGroup.get(key) ?? t('Unknown');
+      const key = view.groupBy === 'status' ? absence.status : view.groupBy === 'employee' ? absence.employee_id : absence.absence_type_id ?? '__none__';
+      const label = view.groupBy === 'status' ? t(absence.status) : view.groupBy === 'employee' ? employeeName.get(absence.employee_id) ?? t('Unknown') : key === '__none__' ? t('No type') : typeNameForGroup.get(key) ?? t('Unknown');
       const group = map.get(key) ?? { key, label, rows: [] };
       group.rows.push(absence);
       map.set(key, group);
     }
     return [...map.values()].sort((a, b) => a.label.localeCompare(b.label));
-  }
-
-  function setGroupBy(next: 'status' | 'employee' | 'type' | 'none'): void {
-    groupBy = next;
-    collapsedGroups = [];
-  }
-
-  function toggleGroup(key: string): void {
-    collapsedGroups = collapsedGroups.includes(key)
-      ? collapsedGroups.filter((item) => item !== key)
-      : [...collapsedGroups, key];
   }
 
   function toneFor(status: string): 'success' | 'warning' | 'danger' {
@@ -122,25 +113,29 @@
 {@const employeeName = new Map(teamContext.employees.map((employee) => [employee.id, employee.displayName]))}
     {@const typeName = new Map((team?.absence_types ?? []).map((type) => [type.id, type.name]))}
     {@const allAbsences = team?.absences ?? []}
-    {@const rows = allAbsences
-      .filter((absence) => view === 'all' || absence.status === 'pending')
-      .filter((absence) => !excludedStatus.has(absence.status))
-      .filter((absence) => !excludedType.has(absence.absence_type_id ?? '__none__'))
-      .filter((absence) => !excludedService.has(asService(absence.service_key) ?? 'full_day'))
-      .filter((absence) => !periodSearch.trim() || absence.start_date.includes(periodSearch.trim()) || absence.end_date.includes(periodSearch.trim()))
-      .filter((absence) => `${employeeName.get(absence.employee_id) ?? ''} ${typeName.get(absence.absence_type_id ?? '') ?? ''} ${absence.status}`.toLowerCase().includes(search.trim().toLowerCase()))
-      .sort((left, right) => {
-        if (!sort) return right.start_date.localeCompare(left.start_date);
-        const factor = sort.dir === 'desc' ? -1 : 1;
-        const serviceLeft = asService(left.service_key) ?? '';
-        const serviceRight = asService(right.service_key) ?? '';
-        const valueLeft = sort.key === 'employee' ? (employeeName.get(left.employee_id) ?? '') : sort.key === 'type' ? (typeName.get(left.absence_type_id ?? '') ?? '') : sort.key === 'period' ? left.start_date : sort.key === 'service' ? serviceLeft : left.status;
-        const valueRight = sort.key === 'employee' ? (employeeName.get(right.employee_id) ?? '') : sort.key === 'type' ? (typeName.get(right.absence_type_id ?? '') ?? '') : sort.key === 'period' ? right.start_date : sort.key === 'service' ? serviceRight : right.status;
-        return factor * valueLeft.localeCompare(valueRight);
-      })}
+    {@const filteredAbsences = allAbsences
+      .filter((absence) => !view.isExcluded('status', absence.status))
+      .filter((absence) => !view.isExcluded('type', absence.absence_type_id ?? '__none__'))
+      .filter((absence) => !view.isExcluded('service', asService(absence.service_key) ?? 'full_day'))
+      .filter((absence) => view.matchesSearch('period', `${absence.start_date} ${absence.end_date}`))
+      .filter((absence) => view.matchesSearch('employee', `${employeeName.get(absence.employee_id) ?? ''} ${typeName.get(absence.absence_type_id ?? '') ?? ''} ${absence.status}`))}
+    {@const rows = view.sort
+      ? view.ordered(filteredAbsences, (absence: AbsenceRow, key: SortKey) =>
+          key === 'employee'
+            ? employeeName.get(absence.employee_id) ?? ''
+            : key === 'type'
+              ? typeName.get(absence.absence_type_id ?? '') ?? ''
+              : key === 'period'
+                ? absence.start_date
+                : key === 'service'
+                  ? asService(absence.service_key) ?? ''
+                  : absence.status
+        )
+      : [...filteredAbsences].sort((left, right) => right.start_date.localeCompare(left.start_date))}
     {@const groups = groupedRows(rows, employeeName, typeName)}
     {@const typeValues = [{ value: '__none__', label: t('No type') }, ...[...typeName].map(([value, label]) => ({ value, label }))]}
     {@const serviceValues = [{ value: 'lunch', label: t('Lunch') }, { value: 'evening', label: t('Evening') }, { value: 'full_day', label: t('Full day') }]}
+    {@const statusValues = [{ value: 'pending', label: t('pending') }, { value: 'approved', label: t('approved') }, { value: 'rejected', label: t('rejected') }, { value: 'cancelled', label: t('cancelled') }]}
 
     <ClassicTablePanel>
       {#snippet meta()}
@@ -148,22 +143,18 @@
         <span><i class="dot is-orange"></i>{t('{count} pending', { count: allAbsences.filter((absence) => absence.status === 'pending').length })}</span>
       {/snippet}
       {#snippet actions()}
-        <div class="view-switch" aria-label={t('Absences')}>
-          <button type="button" class:is-active={view === 'review'} aria-pressed={view === 'review'} onclick={() => (view = 'review')}>{t('Needs review')}</button>
-          <button type="button" class:is-active={view === 'all'} aria-pressed={view === 'all'} onclick={() => (view = 'all')}>{t('All')}</button>
-        </div>
-        <a class="settings-link" href="/settings/absence-types">{t('Absence types')}</a>
+        <a class="cl-btn" href="/settings/absence-types">{t('Absence types')}</a>
       {/snippet}
       {#snippet children()}
       <div class="cl-tablewrap">
         <table class="cl-table">
           <thead>
             <tr>
-              <th class="has-menu"><ClassicPrimaryColMenu label={t('Employee')} sortable sortDir={sort?.key === 'employee' ? sort.dir : null} onsort={(dir) => (sort = { key: 'employee', dir })} filterKind="text" searchValue={search} onsearch={(value) => (search = value)} groupValue={groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'status', label: t('Status') }, { value: 'employee', label: t('Employee') }, { value: 'type', label: t('Type') }]} ongroupchange={(value) => setGroupBy(value as 'status' | 'employee' | 'type' | 'none')} /></th>
-              <th class="has-menu"><ClassicColMenu label={t('Type')} sortable sortDir={sort?.key === 'type' ? sort.dir : null} onsort={(dir) => (sort = { key: 'type', dir })} filterKind="values" filterValues={typeValues} selected={excludedType} ontoggle={(value) => { const next = new Set(excludedType); next.has(value) ? next.delete(value) : next.add(value); excludedType = next; }} onselectall={(on) => (excludedType = on ? new Set() : new Set(typeValues.map((item) => item.value)))} /></th>
-              <th class="has-menu"><ClassicColMenu label={t('Period')} sortable sortDir={sort?.key === 'period' ? sort.dir : null} onsort={(dir) => (sort = { key: 'period', dir })} filterKind="text" searchValue={periodSearch} onsearch={(value) => (periodSearch = value)} /></th>
-              <th class="has-menu"><ClassicColMenu label={t('Service')} sortable sortDir={sort?.key === 'service' ? sort.dir : null} onsort={(dir) => (sort = { key: 'service', dir })} filterKind="values" filterValues={serviceValues} selected={excludedService} ontoggle={(value) => { const next = new Set(excludedService); next.has(value) ? next.delete(value) : next.add(value); excludedService = next; }} onselectall={(on) => (excludedService = on ? new Set() : new Set(serviceValues.map((item) => item.value)))} /></th>
-              <th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={sort?.key === 'status' ? sort.dir : null} onsort={(dir) => (sort = { key: 'status', dir })} filterKind="values" filterValues={[{ value: 'pending', label: t('pending') }, { value: 'approved', label: t('approved') }, { value: 'rejected', label: t('rejected') }, { value: 'cancelled', label: t('cancelled') }]} selected={excludedStatus} ontoggle={(value) => { const next = new Set(excludedStatus); next.has(value) ? next.delete(value) : next.add(value); excludedStatus = next; }} onselectall={(on) => (excludedStatus = on ? new Set() : new Set(['pending', 'approved', 'rejected', 'cancelled']))} /></th>
+              <th class="has-menu"><ClassicPrimaryColMenu label={t('Employee')} sortable sortDir={view.sortDir('employee')} onsort={(dir) => view.setSort('employee', dir)} filterKind="text" searchValue={view.search('employee')} onsearch={(value) => view.setSearch('employee', value)} groupValue={view.groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'status', label: t('Status') }, { value: 'employee', label: t('Employee') }, { value: 'type', label: t('Type') }]} ongroupchange={(value) => view.setGroupBy(value as GroupBy)} /></th>
+              <th class="has-menu"><ClassicColMenu label={t('Type')} sortable sortDir={view.sortDir('type')} onsort={(dir) => view.setSort('type', dir)} filterKind="values" filterValues={typeValues} selected={view.excluded('type')} ontoggle={(value) => view.toggleValue('type', value)} onselectall={(on) => view.selectAll('type', on, typeValues)} /></th>
+              <th class="has-menu"><ClassicColMenu label={t('Period')} sortable sortDir={view.sortDir('period')} onsort={(dir) => view.setSort('period', dir)} filterKind="text" searchValue={view.search('period')} onsearch={(value) => view.setSearch('period', value)} /></th>
+              <th class="has-menu"><ClassicColMenu label={t('Service')} sortable sortDir={view.sortDir('service')} onsort={(dir) => view.setSort('service', dir)} filterKind="values" filterValues={serviceValues} selected={view.excluded('service')} ontoggle={(value) => view.toggleValue('service', value)} onselectall={(on) => view.selectAll('service', on, serviceValues)} /></th>
+              <th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={view.sortDir('status')} onsort={(dir) => view.setSort('status', dir)} filterKind="values" filterValues={statusValues} selected={view.excluded('status')} ontoggle={(value) => view.toggleValue('status', value)} onselectall={(on) => view.selectAll('status', on, statusValues)} /></th>
               <th></th>
             </tr>
           </thead>
@@ -172,8 +163,8 @@
           {:else}
             {#each groups as group (group.key)}
               <tbody>
-                {#if groupBy !== 'none'}<ClassicGroupRow colspan={6} label={group.label} meta={t('{count} requests', { count: group.rows.length })} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />{/if}
-                {#if !collapsedGroups.includes(group.key)}
+                {#if view.grouping}<ClassicGroupRow colspan={6} label={group.label} meta={t('{count} requests', { count: group.rows.length })} collapsed={view.isCollapsed(group.key)} ontoggle={() => view.toggleGroup(group.key)} />{/if}
+                {#if !view.isCollapsed(group.key)}
                 {#each group.rows as absence (absence.id)}
                   {@const service = asService(absence.service_key)}
                   <tr class:is-attention={absence.status === 'pending'}>
@@ -207,12 +198,5 @@
 {/if}
 
 <style>
-  .view-switch { display: inline-flex; overflow: hidden; border: 1px solid var(--cl-line-strong); border-radius: var(--cl-radius); background: var(--cl-surface); }
-  .view-switch button { min-height: 32px; padding: 5px 10px; border: 0; border-left: 1px solid var(--cl-line); background: transparent; color: var(--cl-muted); font: inherit; font-size: 12px; font-weight: var(--rst-fw-medium); cursor: pointer; }
-  .view-switch button:first-child { border-left: 0; }
-  .view-switch button:hover { color: var(--cl-ink); background: var(--cl-surface-muted); }
-  .view-switch button.is-active { color: var(--cl-accent); background: var(--cl-accent-wash); font-weight: var(--rst-fw-bold); }
-  .settings-link { min-height: 32px; display: inline-flex; align-items: center; padding: 5px 9px; color: var(--cl-muted); font-size: 12px; font-weight: var(--rst-fw-medium); text-decoration: none; }
-  .settings-link:hover { color: var(--cl-accent); text-decoration: underline; text-underline-offset: 2px; }
   .period time { color: var(--cl-ink); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 </style>

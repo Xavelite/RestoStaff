@@ -147,7 +147,6 @@ test('Positions keeps every pending row and gives Linked areas the shared column
     'utf8'
   );
 
-  assert.match(positions, /let autoOpenPositionId = \$state\(''\)/);
   assert.doesNotMatch(positions, /let newPositionId = \$state/);
   assert.match(
     positions,
@@ -165,13 +164,16 @@ test('Positions keeps every pending row and gives Linked areas the shared column
     positions,
     /canSave=\{context\.canSave && rows\.every\(\(position\) => position\.name\.trim\(\)\)\}/
   );
+  // Adding a position focuses the new row's field without opening the
+  // catalogue over it — the same welcome every grid gives a new row.
+  assert.doesNotMatch(positions, /autoOpen/);
   assert.match(
     positions,
-    /autoOpen=\{autoOpenPositionId === position\.id\}/
+    /document\.getElementById\(`position-catalogue-\$\{id\}`\)\?\.focus\(\)/
   );
   assert.match(
     positions,
-    /<ClassicColMenu[\s\S]*label=\{t\('Linked areas'\)\}[\s\S]*sortDir=\{sort\?\.key === 'areas'[\s\S]*searchValue=\{linkedAreaSearch\}/
+    /<ClassicColMenu[\s\S]*label=\{t\('Linked areas'\)\}[\s\S]*sortDir=\{view\.sortDir\('areas'\)\}[\s\S]*searchValue=\{view\.search\('areas'\)\}/
   );
   assert.match(
     positions,

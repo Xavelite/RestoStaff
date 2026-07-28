@@ -125,11 +125,18 @@ export function positionAreaVisualIdentity(
   positionId: string,
   areas: readonly AreaLike[],
   relationships: readonly JobFunctionAreaLike[],
-  colors: ReadonlyMap<string, string> = buildAreaColorMap([...areas])
+  colors: ReadonlyMap<string, string> = buildAreaColorMap([...areas]),
+  fallbackColor = ''
 ): { areaId: string; icon: string; color: string } | null {
+  // A position always gets a glyph. When it spans areas that do not share one
+  // look — or is tied to none — it falls back to the default icon rather than
+  // rendering nothing, so a roster never shows a bare colour bar where every
+  // other row has an icon. The fallback wears the position's own colour, so the
+  // glyph stays keyed to the same identity the rest of the row uses.
+  const neutral = { areaId: '', icon: '', color: fallbackColor || 'var(--cl-muted)' };
   const linkedAreas = linkedAreasForPosition(positionId, areas, relationships);
   const first = linkedAreas[0];
-  if (!first) return null;
+  if (!first) return neutral;
   const iconFor = (area: AreaLike) =>
     area.icon_key ||
     workspaceAreaByKey.get(area.catalogueKey ?? area.catalogue_key ?? '')?.icon ||
@@ -143,7 +150,7 @@ export function positionAreaVisualIdentity(
   );
   return hasOneVisualIdentity
     ? { areaId: first.id, icon: firstIcon, color: firstColor }
-    : null;
+    : neutral;
 }
 
 function readAreaIds(

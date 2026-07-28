@@ -24,6 +24,7 @@
   } from '$lib/restaurant/workspace-catalogue';
   import { areaInstanceLabelMap } from '$lib/restaurant/area-instance';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
+  import { createTableView } from '$lib/classic/table-view.svelte';
 
   type SortKey = 'name' | 'areas' | 'cost' | 'employees' | 'active';
   type GroupBy = 'area' | 'status' | 'staffing' | 'none';
@@ -72,60 +73,27 @@
     areaInstanceLabelMap(restaurantConfig.draft?.areas ?? [])
   );
 
-  let search = $state('');
-  let linkedAreaSearch = $state('');
-  let costSearch = $state('');
-  let employeeSearch = $state('');
-  let sort = $state<{ key: SortKey; dir: 'asc' | 'desc' } | null>(null);
-  let excludedStatus = $state(new Set<string>());
-  let groupBy = $state<GroupBy>('none');
-  let collapsedGroups = $state<string[]>([]);
   let dragId = $state('');
-  let autoOpenPositionId = $state('');
 
   const OPTIONAL_COLUMNS = [
     { key: 'cost', label: 'Estimated hourly cost' },
     { key: 'employees', label: 'Employees' },
     { key: 'active', label: 'Status' }
   ] as const;
-  const COLS_KEY = 'rst-restaurant-positions-cols-v3';
-  const DEFAULT_HIDDEN_COLUMNS = ['cost'];
-  let hidden = $state(new Set<string>(DEFAULT_HIDDEN_COLUMNS));
-
-  onMount(() => {
-    try {
-      const raw = localStorage.getItem(COLS_KEY);
-      if (raw) hidden = new Set(JSON.parse(raw) as string[]);
-    } catch {
-      hidden = new Set(DEFAULT_HIDDEN_COLUMNS);
-    }
+  const view = createTableView<SortKey, GroupBy>({
+    storageKey: 'rst-restaurant-positions-cols-v3',
+    columns: OPTIONAL_COLUMNS,
+    defaultHidden: ['cost']
   });
 
-  function setGroupBy(next: GroupBy): void {
-    groupBy = next;
-    collapsedGroups = [];
-  }
+  onMount(view.restore);
 
-  function toggleGroup(key: string): void {
-    collapsedGroups = collapsedGroups.includes(key)
-      ? collapsedGroups.filter((item) => item !== key)
-      : [...collapsedGroups, key];
-  }
-
-  function toggleColumn(key: string) {
-    const next = new Set(hidden);
-    next.has(key) ? next.delete(key) : next.add(key);
-    const hiding = next.has(key);
-    if (hiding && sort?.key === key) sort = null;
-    if (key === 'cost' && hiding) costSearch = '';
-    if (key === 'employees' && hiding) employeeSearch = '';
-    if (key === 'active' && hiding) excludedStatus = new Set();
-    hidden = next;
-    try { localStorage.setItem(COLS_KEY, JSON.stringify([...next])); } catch {}
-  }
-
+  /** Cost is a financial detail, so the column exists only for those who may see it. */
   const shown = (key: string) =>
-    (key !== 'cost' || workspace.canViewFinancials) && !hidden.has(key);
+    (key !== 'cost' || workspace.canViewFinancials) && view.shown(key);
+  const chooserColumns = $derived(
+    view.columns.filter((column) => column.key !== 'cost' || workspace.canViewFinancials)
+  );
   const colCount = $derived(4 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length);
   const persistedPositionIds = $derived(new Set((workspace.restaurant?.job_functions ?? []).map((position) => position.id)));
   const linkedAreaOptions = $derived(
@@ -158,9 +126,11 @@
     draft.jobFunctions = [position, ...draft.jobFunctions];
     restaurantConfig.placementPosition(position);
     restaurantConfig.touch();
-    autoOpenPositionId = id;
-    collapsedGroups = [];
+    view.expandAll();
     await tick();
+    // Put the cursor in the new row without opening the catalogue over it —
+    // the same welcome every grid gives a freshly added row.
+    document.getElementById(`position-catalogue-${id}`)?.focus();
   }
 
   function positionCategoryIcon(category: string): string {
@@ -246,7 +216,6 @@
     position.catalogueKey = match.key;
     position.iconKey = positionCategoryIcon(match.category);
     position.areaIds = areaIds;
-    if (autoOpenPositionId === position.id) autoOpenPositionId = '';
     restaurantConfig.touch();
   }
 
@@ -254,7 +223,6 @@
     position.name = value;
     position.catalogueKey = '';
     position.iconKey = '';
-    if (value && autoOpenPositionId === position.id) autoOpenPositionId = '';
     restaurantConfig.touch();
   }
 
@@ -330,14 +298,13 @@
       draft.jobFunctions = draft.jobFunctions.filter((item) => item.id !== positionId);
       draft.coverage = draft.coverage.filter((item) => item.jobFunctionId !== positionId);
       restaurantConfig.removePositionPlacement(positionId);
-      if (autoOpenPositionId === positionId) autoOpenPositionId = '';
     }
     restaurantConfig.touch();
   }
 
   function movePosition(targetId: string) {
     const draft = restaurantConfig.draft;
-    if (!draft || !dragId || dragId === targetId || sort || groupBy !== 'none') return;
+    if (!draft || !dragId || dragId === targetId || view.sort || view.grouping) return;
     const from = draft.jobFunctions.findIndex((item) => item.id === dragId);
     const to = draft.jobFunctions.findIndex((item) => item.id === targetId);
     if (from < 0 || to < 0) return;
@@ -352,56 +319,43 @@
   function matches(position: PositionRow) {
     if (!persistedPositionIds.has(position.id)) return true;
     const stable = placementForPosition(position);
-    const term = search.trim().toLowerCase();
     const headcount = employeesByPosition.get(position.id)?.size ?? 0;
-    if (excludedStatus.has(stable.active ? 'active' : 'archived')) return false;
-    if (
-      linkedAreaSearch.trim() &&
-      !linkedAreaSetLabel(linkedPositionAreaIds(stable))
-        .toLowerCase()
-        .includes(linkedAreaSearch.trim().toLowerCase())
-    ) {
-      return false;
-    }
-    if (costSearch.trim() && !`${stable.estimatedHourlyCost}`.includes(costSearch.trim())) return false;
-    if (employeeSearch.trim() && !`${headcount}`.includes(employeeSearch.trim())) return false;
-    return !term || stable.name.toLowerCase().includes(term);
+    if (view.isExcluded('active', stable.active ? 'active' : 'archived')) return false;
+    if (!view.matchesSearch('areas', linkedAreaSetLabel(linkedPositionAreaIds(stable)))) return false;
+    if (!view.matchesSearch('cost', `${stable.estimatedHourlyCost}`)) return false;
+    if (!view.matchesSearch('employees', `${headcount}`)) return false;
+    return view.matchesSearch('name', stable.name);
   }
 
   function placementForPosition(position: PositionRow): PositionRow {
     return restaurantConfig.placementPosition(position);
   }
 
-  function sortValue(position: PositionRow) {
+  function sortValue(position: PositionRow, key: SortKey): string | number {
     const stable = placementForPosition(position);
-    switch (sort?.key) {
-      case 'name': return stable.name.toLowerCase();
+    switch (key) {
       case 'areas': return linkedAreaSetLabel(linkedPositionAreaIds(stable)).toLowerCase();
-      case 'cost': return `${stable.estimatedHourlyCost}`.padStart(8, '0');
-      case 'employees': return `${employeesByPosition.get(position.id)?.size ?? 0}`.padStart(4, '0');
+      case 'cost': return stable.estimatedHourlyCost;
+      case 'employees': return employeesByPosition.get(position.id)?.size ?? 0;
       case 'active': return stable.active ? '0' : '1';
       default: return stable.name.toLowerCase();
     }
   }
 
   function orderedPositions(rows: PositionRow[]): PositionRow[] {
-    if (!sort) return rows;
-    const factor = sort.dir === 'desc' ? -1 : 1;
-    return [...rows].sort((a, b) => factor * sortValue(a).localeCompare(sortValue(b)));
+    return view.ordered(rows, sortValue);
   }
 
   async function savePositions(save: () => Promise<void>): Promise<void> {
     await save();
-    autoOpenPositionId = '';
   }
 
   function discardPositions(discard: () => void): void {
     discard();
-    autoOpenPositionId = '';
   }
 
   function groupedPositions(rows: PositionRow[]): PositionGroup[] {
-    if (groupBy === 'none') {
+    if (!view.grouping) {
       return [{ key: 'all', label: '', placementLabel: '', color: '', rows }];
     }
     const groups = new Map<string, PositionGroup>();
@@ -410,20 +364,20 @@
       const headcount = employeesByPosition.get(position.id)?.size ?? 0;
       const linkedAreaIds = linkedPositionAreaIds(stable);
       const linkedAreaLabel = linkedAreaSetLabel(linkedAreaIds);
-      const key = groupBy === 'area'
+      const key = view.groupBy === 'area'
         ? linkedAreaIds.length
           ? `areas:${linkedAreaIds.join(':')}`
           : 'all-areas'
-        : groupBy === 'status'
+        : view.groupBy === 'status'
           ? (stable.active ? 'active' : 'archived')
           : (headcount ? 'staffed' : 'unstaffed');
-      const label = groupBy === 'area'
+      const label = view.groupBy === 'area'
         ? linkedAreaLabel
-        : groupBy === 'status'
+        : view.groupBy === 'status'
           ? t(stable.active ? 'Active' : 'Archived')
           : t(headcount ? 'Staffed' : 'No staff assigned');
       const placementLabel =
-        groupBy === 'area'
+        view.groupBy === 'area'
           ? linkedAreaIds
               .map((areaId) => {
                 const area = context.draft.areas.find((candidate) => candidate.id === areaId);
@@ -434,7 +388,7 @@
               .join('|')
           : label;
       const color =
-        groupBy === 'area' && linkedAreaIds.length === 1
+        view.groupBy === 'area' && linkedAreaIds.length === 1
           ? areaColor.get(linkedAreaIds[0]) ?? ''
           : '';
       const group = groups.get(key) ?? { key, label, placementLabel, color, rows: [] };
@@ -457,6 +411,7 @@
   {@const rows = [...draft.jobFunctions].filter(matches)}
   {@const ordered = orderedPositions(rows)}
   {@const groups = groupedPositions(ordered)}
+  {@const statusValues = [{ value: 'active', label: t('Active') }, { value: 'archived', label: t('Archived') }]}
 
   <ClassicTablePanel
     dirty={context.dirty}
@@ -482,36 +437,36 @@
                 <ClassicPrimaryColMenu
                   label={t('Name')}
                   sortable
-                  sortDir={sort?.key === 'name' ? sort.dir : null}
-                  onsort={(dir) => (sort = { key: 'name', dir })}
+                  sortDir={view.sortDir('name')}
+                  onsort={(dir) => view.setSort('name', dir)}
                   filterKind="text"
-                  searchValue={search}
-                  onsearch={(value) => (search = value)}
-                  groupValue={groupBy}
+                  searchValue={view.search('name')}
+                  onsearch={(value) => view.setSearch('name', value)}
+                  groupValue={view.groupBy}
                   groupOptions={[
                     { value: 'none', label: t('No grouping') },
                     { value: 'area', label: t('Linked areas') },
                     { value: 'status', label: t('Status') },
                     { value: 'staffing', label: t('Staffing') }
                   ]}
-                  ongroupchange={(value) => setGroupBy(value as GroupBy)}
+                  ongroupchange={(value) => view.setGroupBy(value as GroupBy)}
                 />
               </th>
               <th class="has-menu">
                 <ClassicColMenu
                   label={t('Linked areas')}
                   sortable
-                  sortDir={sort?.key === 'areas' ? sort.dir : null}
-                  onsort={(dir) => (sort = { key: 'areas', dir })}
+                  sortDir={view.sortDir('areas')}
+                  onsort={(dir) => view.setSort('areas', dir)}
                   filterKind="text"
-                  searchValue={linkedAreaSearch}
-                  onsearch={(value) => (linkedAreaSearch = value)}
+                  searchValue={view.search('areas')}
+                  onsearch={(value) => view.setSearch('areas', value)}
                 />
               </th>
-              {#if shown('cost')}<th class="has-menu"><ClassicColMenu label={t('Estimated hourly cost')} sortable sortDir={sort?.key === 'cost' ? sort.dir : null} onsort={(dir) => (sort = { key: 'cost', dir })} filterKind="text" searchValue={costSearch} onsearch={(value) => (costSearch = value)} /></th>{/if}
-              {#if shown('employees')}<th class="has-menu"><ClassicColMenu label={t('Employees')} sortable sortDir={sort?.key === 'employees' ? sort.dir : null} onsort={(dir) => (sort = { key: 'employees', dir })} filterKind="text" searchValue={employeeSearch} onsearch={(value) => (employeeSearch = value)} /></th>{/if}
-              {#if shown('active')}<th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={sort?.key === 'active' ? sort.dir : null} onsort={(dir) => (sort = { key: 'active', dir })} filterKind="values" filterValues={[{ value: 'active', label: t('Active') }, { value: 'archived', label: t('Archived') }]} selected={excludedStatus} ontoggle={(value) => { const next = new Set(excludedStatus); next.has(value) ? next.delete(value) : next.add(value); excludedStatus = next; }} onselectall={(on) => (excludedStatus = on ? new Set() : new Set(['active', 'archived']))} /></th>{/if}
-              <th class="chooser-col"><ClassicColChooser columns={OPTIONAL_COLUMNS.filter((column) => column.key !== 'cost' || workspace.canViewFinancials).map((column) => ({ key: column.key, label: t(column.label) }))} {hidden} ontoggle={toggleColumn} /></th>
+              {#if shown('cost')}<th class="has-menu"><ClassicColMenu label={t('Estimated hourly cost')} sortable sortDir={view.sortDir('cost')} onsort={(dir) => view.setSort('cost', dir)} filterKind="text" searchValue={view.search('cost')} onsearch={(value) => view.setSearch('cost', value)} /></th>{/if}
+              {#if shown('employees')}<th class="has-menu"><ClassicColMenu label={t('Employees')} sortable sortDir={view.sortDir('employees')} onsort={(dir) => view.setSort('employees', dir)} filterKind="text" searchValue={view.search('employees')} onsearch={(value) => view.setSearch('employees', value)} /></th>{/if}
+              {#if shown('active')}<th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={view.sortDir('active')} onsort={(dir) => view.setSort('active', dir)} filterKind="values" filterValues={statusValues} selected={view.excluded('active')} ontoggle={(value) => view.toggleValue('active', value)} onselectall={(on) => view.selectAll('active', on, statusValues)} /></th>{/if}
+              <th class="chooser-col"><ClassicColChooser columns={chooserColumns} hidden={view.hidden} ontoggle={view.toggleColumn} /></th>
             </tr>
           </thead>
           {#if !ordered.length}
@@ -519,12 +474,13 @@
           {:else}
             {#each groups as group (group.key)}
               <tbody>
-                {#if groupBy !== 'none'}<ClassicGroupRow colspan={colCount} label={group.label} meta={t('{count} positions', { count: group.rows.length })} color={group.color} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />{/if}
-                {#if !collapsedGroups.includes(group.key)}
+                {#if view.grouping}<ClassicGroupRow colspan={colCount} label={group.label} meta={t('{count} positions', { count: group.rows.length })} color={group.color} collapsed={view.isCollapsed(group.key)} ontoggle={() => view.toggleGroup(group.key)} />{/if}
+                {#if !view.isCollapsed(group.key)}
                   {#each group.rows as position (position.id)}
                     {@const headcount = employeesByPosition.get(position.id)?.size ?? 0}
-                    <tr class:is-new={!persistedPositionIds.has(position.id)} draggable={!sort && groupBy === 'none' && !workspace.isPreview} ondragstart={() => (dragId = position.id)} ondragend={() => (dragId = '')} ondragover={(event) => { if (!sort && groupBy === 'none') event.preventDefault(); }} ondrop={() => movePosition(position.id)}>
-                      <td class="cl-grip"><button type="button" disabled={Boolean(sort) || groupBy !== 'none' || workspace.isPreview} title={sort || groupBy !== 'none' ? t('Clear grouping and sorting to reorder') : t('Drag to reorder')} aria-label={t('Drag to reorder')}>⋮⋮</button></td>
+                    {@const reorderable = !view.sort && !view.grouping}
+                    <tr class:is-new={!persistedPositionIds.has(position.id)} draggable={reorderable && !workspace.isPreview} ondragstart={() => (dragId = position.id)} ondragend={() => (dragId = '')} ondragover={(event) => { if (reorderable) event.preventDefault(); }} ondrop={() => movePosition(position.id)}>
+                      <td class="cl-grip"><button type="button" disabled={!reorderable || workspace.isPreview} title={reorderable ? t('Drag to reorder') : t('Clear grouping and sorting to reorder')} aria-label={t('Drag to reorder')}>⋮⋮</button></td>
                       <td>
                         <div class="position-identity" data-position-name={position.id}>
                           <WorkspaceAreaIcon
@@ -540,7 +496,6 @@
                             placeholder={t('Select or type a position')}
                             label={t('Select or type a position')}
                             disabled={workspace.isPreview}
-                            autoOpen={autoOpenPositionId === position.id}
                             recommendedLabel={t('Recommended')}
                             allLabel={t('All positions')}
                             customLabel={t('Custom position')}
@@ -552,14 +507,6 @@
                             onvaluechange={(value) => typePositionName(position, value)}
                             onselect={(item) => selectPositionCatalogue(position, item)}
                             oncustom={(value) => makePositionCustom(position, value)}
-                            onclose={() => {
-                              if (
-                                position.name.trim() &&
-                                autoOpenPositionId === position.id
-                              ) {
-                                autoOpenPositionId = '';
-                              }
-                            }}
                           />
                         </div>
                       </td>
@@ -604,7 +551,6 @@
   .cost { width: 120px; text-align: right; }
   .position-identity { min-width: 200px; display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 9px; }
   .position-identity :global(.area-icon) { width: 30px; height: 30px; border-radius: 6px; }
-  .cl-table tr.is-new td { background: color-mix(in srgb, var(--cl-accent) 4%, var(--cl-surface)); }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .cl-grip { width: 34px; text-align: center; }
   .cl-grip button { border: 0; background: transparent; color: var(--cl-muted); cursor: grab; letter-spacing: -3px; }

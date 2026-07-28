@@ -12,29 +12,19 @@
   import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
   import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
   import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
+  import ClassicPicker from '$lib/classic/ClassicPicker.svelte';
   import ClassicTeamPage from '$lib/classic/ClassicTeamPage.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import EmployeeInlineEditor from '$lib/classic/EmployeeInlineEditor.svelte';
   import { teamDraft } from '$lib/classic/classic-team.svelte';
+  import { createTableView, peopleCountLabel } from '$lib/classic/table-view.svelte';
 
   type GroupBy = 'contract' | 'position' | 'worker' | 'status' | 'none';
   type Group = { key: string; label: string; employees: EmployeeDraft[] };
   type SortKey = 'employee' | 'contract' | 'position' | 'payrollId' | 'function' | 'worker' | 'basis' | 'rate' | 'status';
 
-  let search = $state('');
-  let groupBy = $state<GroupBy>('contract');
   let detailId = $state('');
   let lastEmployeeParam = $state<string | null>(null);
-  let sort = $state<{ key: SortKey; dir: 'asc' | 'desc' } | null>(null);
-  let excludedStatus = $state(new Set<string>());
-  let excludedContract = $state(new Set<string>());
-  let excludedPosition = $state(new Set<string>());
-  let excludedWorker = $state(new Set<string>());
-  let excludedBasis = $state(new Set<string>());
-  let payrollIdSearch = $state('');
-  let functionSearch = $state('');
-  let rateSearch = $state('');
-  let collapsedGroups = $state<string[]>([]);
 
   const OPTIONAL_COLUMNS = [
     { key: 'contract', label: 'Contract' },
@@ -46,8 +36,15 @@
     { key: 'rate', label: 'Rate' },
     { key: 'status', label: 'Status' }
   ] as const;
-  const COLS_KEY = 'rst-payroll-employee-cols-v2';
-  let hidden = $state(new Set<string>());
+  const view = createTableView<SortKey, GroupBy>({
+    storageKey: 'rst-payroll-employee-cols-v2',
+    columns: OPTIONAL_COLUMNS,
+    defaultGroupBy: 'contract'
+  });
+  const shown = view.shown;
+  const colCount = $derived(view.colCount + 1);
+
+  onMount(view.restore);
 
   const employeeColor = $derived(
     workspace.team
@@ -71,6 +68,18 @@
   const referenceFunctions = $derived(
     teamDraft.payrollCatalogue?.referenceFunctions.filter((item) => item.status === 'effective' || item.status === 'verified') ?? []
   );
+  const functionOptions = $derived([
+    { value: '', label: t('Not set') },
+    ...referenceFunctions.map((item) => ({
+      value: item.code,
+      label: `${item.code} · ${item.name_en || item.name_fr || item.name_nl}`
+    }))
+  ]);
+  const basisOptions = $derived([
+    { value: '', label: t('Not set') },
+    { value: 'hourly', label: t('Hourly') },
+    { value: 'monthly', label: t('Monthly') }
+  ]);
 
   const TERMS_STATUS: Record<string, { label: string; tone: 'ok' | 'attention' | 'problem' }> = {
     verified: { label: 'Verified', tone: 'ok' },
@@ -92,47 +101,38 @@
 
   function matches(employee: EmployeeDraft, contractName: Map<string, string>, jobName: Map<string, string>): boolean {
     const placement = teamDraft.placement(employee);
-    const term = search.trim().toLowerCase();
     const rate = placement.salaryBasis === 'monthly'
       ? placement.contractualMonthlySalary
       : placement.contractualHourlyRate;
     if (!placement.active) return false;
-    if (excludedContract.has(placement.contractTypeId || '__none__')) return false;
-    if (excludedPosition.has(placement.jobFunctionIds[0] || '__none__')) return false;
-    if (excludedWorker.has(placement.workerStatus || '__none__')) return false;
-    if (excludedBasis.has(placement.salaryBasis || '__none__')) return false;
-    if (excludedStatus.has(payrollGaps(placement).length ? 'not_ready' : 'ready')) return false;
-    if (payrollIdSearch.trim() && !placement.payrollEmployeeId.toLowerCase().includes(payrollIdSearch.trim().toLowerCase())) return false;
-    if (functionSearch.trim() && !placement.cp302ReferenceFunctionCode.toLowerCase().includes(functionSearch.trim().toLowerCase())) return false;
-    if (rateSearch.trim() && !rate.toLowerCase().includes(rateSearch.trim().toLowerCase())) return false;
-    return !term || `${placement.displayName} ${placement.payrollEmployeeId} ${contractName.get(placement.contractTypeId) ?? ''} ${placement.jobFunctionIds.map((id) => jobName.get(id) ?? '').join(' ')}`.toLowerCase().includes(term);
-  }
-
-  function setGroupBy(next: GroupBy): void {
-    groupBy = next;
-    collapsedGroups = [];
-  }
-
-  function toggleGroup(key: string): void {
-    collapsedGroups = collapsedGroups.includes(key)
-      ? collapsedGroups.filter((item) => item !== key)
-      : [...collapsedGroups, key];
+    if (view.isExcluded('contract', placement.contractTypeId || '__none__')) return false;
+    if (view.isExcluded('position', placement.jobFunctionIds[0] || '__none__')) return false;
+    if (view.isExcluded('worker', placement.workerStatus || '__none__')) return false;
+    if (view.isExcluded('basis', placement.salaryBasis || '__none__')) return false;
+    if (view.isExcluded('status', payrollGaps(placement).length ? 'not_ready' : 'ready')) return false;
+    if (!view.matchesSearch('payrollId', placement.payrollEmployeeId)) return false;
+    if (!view.matchesSearch('function', placement.cp302ReferenceFunctionCode)) return false;
+    if (!view.matchesSearch('rate', rate)) return false;
+    return view.matchesSearch(
+      'employee',
+      `${placement.displayName} ${placement.payrollEmployeeId} ${contractName.get(placement.contractTypeId) ?? ''} ${placement.jobFunctionIds.map((id) => jobName.get(id) ?? '').join(' ')}`
+    );
   }
 
   function grouped(rows: EmployeeDraft[], contractName: Map<string, string>, jobName: Map<string, string>): Group[] {
-    if (groupBy === 'none') return [{ key: 'all', label: '', employees: rows }];
+    if (!view.grouping) return [{ key: 'all', label: '', employees: rows }];
     const map = new Map<string, Group>();
     for (const employee of rows) {
       const placement = teamDraft.placement(employee);
       let key = '';
       let label = '';
-      if (groupBy === 'contract') {
+      if (view.groupBy === 'contract') {
         key = placement.contractTypeId || '__none__';
         label = placement.contractTypeId ? contractName.get(placement.contractTypeId) ?? t('Unknown') : t('No contract yet');
-      } else if (groupBy === 'position') {
+      } else if (view.groupBy === 'position') {
         key = placement.jobFunctionIds[0] || '__none__';
         label = placement.jobFunctionIds[0] ? jobName.get(placement.jobFunctionIds[0]) ?? t('Unknown') : t('No position yet');
-      } else if (groupBy === 'worker') {
+      } else if (view.groupBy === 'worker') {
         key = placement.workerStatus || '__none__';
         label = placement.workerStatus
           ? t(placement.workerStatus === 'blue_collar' ? 'Blue-collar worker' : 'White-collar employee')
@@ -177,59 +177,8 @@
     }
   }
   function ordered(rows: EmployeeDraft[]) {
-    if (!sort) return rows;
-    const factor = sort.dir === 'desc' ? -1 : 1;
-    return [...rows].sort((a, b) => factor * sortValue(a, sort!.key).localeCompare(sortValue(b, sort!.key)));
+    return view.ordered(rows, sortValue);
   }
-
-  function toggleExcluded(set: Set<string>, value: string): Set<string> {
-    const next = new Set(set);
-    next.has(value) ? next.delete(value) : next.add(value);
-    return next;
-  }
-
-  function persistHidden(next: Set<string>) {
-    hidden = next;
-    try { localStorage.setItem(COLS_KEY, JSON.stringify([...next])); } catch {}
-  }
-  function toggleColumn(key: string) {
-    const next = new Set(hidden);
-    next.has(key) ? next.delete(key) : next.add(key);
-    const hiding = next.has(key);
-    if (hiding && sort?.key === key) sort = null;
-    if (key === 'contract' && hiding) {
-      if (groupBy === 'contract') groupBy = 'none';
-      excludedContract = new Set();
-    }
-    if (key === 'position' && hiding) {
-      if (groupBy === 'position') groupBy = 'none';
-      excludedPosition = new Set();
-    }
-    if (key === 'worker' && hiding) {
-      if (groupBy === 'worker') groupBy = 'none';
-      excludedWorker = new Set();
-    }
-    if (key === 'basis' && hiding) excludedBasis = new Set();
-    if (key === 'status' && hiding) {
-      if (groupBy === 'status') groupBy = 'none';
-      excludedStatus = new Set();
-    }
-    if (key === 'payrollId' && hiding) payrollIdSearch = '';
-    if (key === 'function' && hiding) functionSearch = '';
-    if (key === 'rate' && hiding) rateSearch = '';
-    persistHidden(next);
-  }
-  const shown = (key: string) => !hidden.has(key);
-  const colCount = $derived(2 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length);
-
-  onMount(() => {
-    try {
-      const raw = localStorage.getItem(COLS_KEY);
-      if (raw) hidden = new Set(JSON.parse(raw) as string[]);
-    } catch {
-      hidden = new Set();
-    }
-  });
 </script>
 
 <svelte:head><title>{t('Payroll')} &middot; restogogo</title></svelte:head>
@@ -243,6 +192,7 @@
     {@const positionValues = [{ value: '__none__', label: t('No position') }, ...[...team.jobName].map(([id, name]) => ({ value: id, label: name }))]}
     {@const workerValues = [{ value: '__none__', label: t('Not set') }, { value: 'blue_collar', label: t('Blue-collar worker') }, { value: 'white_collar', label: t('White-collar employee') }]}
     {@const basisValues = [{ value: '__none__', label: t('Not set') }, { value: 'hourly', label: t('Hourly') }, { value: 'monthly', label: t('Monthly') }]}
+    {@const statusValues = [{ value: 'ready', label: t('Ready for payroll') }, { value: 'not_ready', label: t('Not ready for payroll') }]}
 
     {#if teamDraft.supplementaryLoading}
       <div class="cl-notice" role="status">{t('Loading payroll configuration…')}</div>
@@ -274,16 +224,16 @@
           </colgroup>
           <thead>
             <tr>
-              <th class="has-menu"><ClassicPrimaryColMenu label={t('Employee')} sortable sortDir={sort?.key === 'employee' ? sort.dir : null} onsort={(dir) => (sort = { key: 'employee', dir })} filterKind="text" searchValue={search} onsearch={(value) => (search = value)} groupValue={groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'contract', label: t('Contract type') }, { value: 'position', label: t('Position') }, { value: 'worker', label: t('Worker status') }, { value: 'status', label: t('Status') }]} ongroupchange={(value) => setGroupBy(value as GroupBy)} /></th>
-              {#if shown('contract')}<th class="has-menu"><ClassicColMenu label={t('Contract')} sortable sortDir={sort?.key === 'contract' ? sort.dir : null} onsort={(dir) => (sort = { key: 'contract', dir })} filterKind="values" filterValues={contractValues} selected={excludedContract} ontoggle={(value) => (excludedContract = toggleExcluded(excludedContract, value))} onselectall={(on) => (excludedContract = on ? new Set() : new Set(contractValues.map((item) => item.value)))} /></th>{/if}
-              {#if shown('position')}<th class="has-menu"><ClassicColMenu label={t('Position')} sortable sortDir={sort?.key === 'position' ? sort.dir : null} onsort={(dir) => (sort = { key: 'position', dir })} filterKind="values" filterValues={positionValues} selected={excludedPosition} ontoggle={(value) => (excludedPosition = toggleExcluded(excludedPosition, value))} onselectall={(on) => (excludedPosition = on ? new Set() : new Set(positionValues.map((item) => item.value)))} /></th>{/if}
-              {#if shown('payrollId')}<th class="has-menu"><ClassicColMenu label={t('Payroll ID')} sortable sortDir={sort?.key === 'payrollId' ? sort.dir : null} onsort={(dir) => (sort = { key: 'payrollId', dir })} filterKind="text" searchValue={payrollIdSearch} onsearch={(value) => (payrollIdSearch = value)} /></th>{/if}
-              {#if shown('function')}<th class="has-menu"><ClassicColMenu label={t('CP 302 function')} sortable sortDir={sort?.key === 'function' ? sort.dir : null} onsort={(dir) => (sort = { key: 'function', dir })} filterKind="text" searchValue={functionSearch} onsearch={(value) => (functionSearch = value)} /></th>{/if}
-              {#if shown('worker')}<th class="has-menu"><ClassicColMenu label={t('Worker status')} sortable sortDir={sort?.key === 'worker' ? sort.dir : null} onsort={(dir) => (sort = { key: 'worker', dir })} filterKind="values" filterValues={workerValues} selected={excludedWorker} ontoggle={(value) => (excludedWorker = toggleExcluded(excludedWorker, value))} onselectall={(on) => (excludedWorker = on ? new Set() : new Set(workerValues.map((item) => item.value)))} /></th>{/if}
-              {#if shown('basis')}<th class="has-menu"><ClassicColMenu label={t('Salary basis')} sortable sortDir={sort?.key === 'basis' ? sort.dir : null} onsort={(dir) => (sort = { key: 'basis', dir })} filterKind="values" filterValues={basisValues} selected={excludedBasis} ontoggle={(value) => (excludedBasis = toggleExcluded(excludedBasis, value))} onselectall={(on) => (excludedBasis = on ? new Set() : new Set(basisValues.map((item) => item.value)))} /></th>{/if}
-              {#if shown('rate')}<th class="has-menu"><ClassicColMenu label={t('Rate')} sortable sortDir={sort?.key === 'rate' ? sort.dir : null} onsort={(dir) => (sort = { key: 'rate', dir })} filterKind="text" searchValue={rateSearch} onsearch={(value) => (rateSearch = value)} /></th>{/if}
-              {#if shown('status')}<th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={sort?.key === 'status' ? sort.dir : null} onsort={(dir) => (sort = { key: 'status', dir })} filterKind="values" filterValues={[{ value: 'ready', label: t('Ready for payroll') }, { value: 'not_ready', label: t('Not ready for payroll') }]} selected={excludedStatus} ontoggle={(value) => (excludedStatus = toggleExcluded(excludedStatus, value))} onselectall={(on) => (excludedStatus = on ? new Set() : new Set(['ready', 'not_ready']))} /></th>{/if}
-              <th class="chooser-col"><ClassicColChooser columns={OPTIONAL_COLUMNS.map((column) => ({ key: column.key, label: t(column.label) }))} {hidden} ontoggle={toggleColumn} /></th>
+              <th class="has-menu"><ClassicPrimaryColMenu label={t('Employee')} sortable sortDir={view.sortDir('employee')} onsort={(dir) => view.setSort('employee', dir)} filterKind="text" searchValue={view.search('employee')} onsearch={(value) => view.setSearch('employee', value)} groupValue={view.groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'contract', label: t('Contract type') }, { value: 'position', label: t('Position') }, { value: 'worker', label: t('Worker status') }, { value: 'status', label: t('Status') }]} ongroupchange={(value) => view.setGroupBy(value as GroupBy)} /></th>
+              {#if shown('contract')}<th class="has-menu"><ClassicColMenu label={t('Contract')} sortable sortDir={view.sortDir('contract')} onsort={(dir) => view.setSort('contract', dir)} filterKind="values" filterValues={contractValues} selected={view.excluded('contract')} ontoggle={(value) => view.toggleValue('contract', value)} onselectall={(on) => view.selectAll('contract', on, contractValues)} /></th>{/if}
+              {#if shown('position')}<th class="has-menu"><ClassicColMenu label={t('Position')} sortable sortDir={view.sortDir('position')} onsort={(dir) => view.setSort('position', dir)} filterKind="values" filterValues={positionValues} selected={view.excluded('position')} ontoggle={(value) => view.toggleValue('position', value)} onselectall={(on) => view.selectAll('position', on, positionValues)} /></th>{/if}
+              {#if shown('payrollId')}<th class="has-menu"><ClassicColMenu label={t('Payroll ID')} sortable sortDir={view.sortDir('payrollId')} onsort={(dir) => view.setSort('payrollId', dir)} filterKind="text" searchValue={view.search('payrollId')} onsearch={(value) => view.setSearch('payrollId', value)} /></th>{/if}
+              {#if shown('function')}<th class="has-menu"><ClassicColMenu label={t('CP 302 function')} sortable sortDir={view.sortDir('function')} onsort={(dir) => view.setSort('function', dir)} filterKind="text" searchValue={view.search('function')} onsearch={(value) => view.setSearch('function', value)} /></th>{/if}
+              {#if shown('worker')}<th class="has-menu"><ClassicColMenu label={t('Worker status')} sortable sortDir={view.sortDir('worker')} onsort={(dir) => view.setSort('worker', dir)} filterKind="values" filterValues={workerValues} selected={view.excluded('worker')} ontoggle={(value) => view.toggleValue('worker', value)} onselectall={(on) => view.selectAll('worker', on, workerValues)} /></th>{/if}
+              {#if shown('basis')}<th class="has-menu"><ClassicColMenu label={t('Salary basis')} sortable sortDir={view.sortDir('basis')} onsort={(dir) => view.setSort('basis', dir)} filterKind="values" filterValues={basisValues} selected={view.excluded('basis')} ontoggle={(value) => view.toggleValue('basis', value)} onselectall={(on) => view.selectAll('basis', on, basisValues)} /></th>{/if}
+              {#if shown('rate')}<th class="has-menu"><ClassicColMenu label={t('Rate')} sortable sortDir={view.sortDir('rate')} onsort={(dir) => view.setSort('rate', dir)} filterKind="text" searchValue={view.search('rate')} onsearch={(value) => view.setSearch('rate', value)} /></th>{/if}
+              {#if shown('status')}<th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={view.sortDir('status')} onsort={(dir) => view.setSort('status', dir)} filterKind="values" filterValues={statusValues} selected={view.excluded('status')} ontoggle={(value) => view.toggleValue('status', value)} onselectall={(on) => view.selectAll('status', on, statusValues)} /></th>{/if}
+              <th class="chooser-col"><ClassicColChooser columns={view.columns} hidden={view.hidden} ontoggle={view.toggleColumn} /></th>
             </tr>
           </thead>
           {#if !rows.length}
@@ -291,8 +241,8 @@
           {:else}
             {#each groups as group (group.key)}
               <tbody>
-                {#if groupBy !== 'none'}<ClassicGroupRow colspan={colCount} label={group.label} meta={t('{count} people', { count: group.employees.length })} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />{/if}
-                {#if !collapsedGroups.includes(group.key)}
+                {#if view.grouping}<ClassicGroupRow colspan={colCount} label={group.label} meta={peopleCountLabel(group.employees.length)} collapsed={view.isCollapsed(group.key)} ontoggle={() => view.toggleGroup(group.key)} />{/if}
+                {#if !view.isCollapsed(group.key)}
                 {#each group.employees as employee (employee.id)}
                   {@const missing = payrollGaps(employee)}
                   {@const terms = TERMS_STATUS[employee.employmentSourceStatus]}
@@ -301,9 +251,9 @@
                     {#if shown('contract')}<td>{team.contractName.get(employee.contractTypeId) ?? t('No contract yet')}</td>{/if}
                     {#if shown('position')}<td>{team.jobName.get(employee.jobFunctionIds[0] ?? '') ?? t('No position yet')}</td>{/if}
                     {#if shown('payrollId')}<td><input class="cl-field payrollid" value={employee.payrollEmployeeId} disabled={!team.canViewFinancials || !team.editable} oninput={(event) => teamDraft.update(employee.id, { payrollEmployeeId: event.currentTarget.value })} /></td>{/if}
-                    {#if shown('function')}<td><select class="cl-field functionfield" value={employee.cp302ReferenceFunctionCode} disabled={!team.canViewFinancials || !team.editable || teamDraft.supplementaryLoading} onchange={(event) => setReferenceFunction(employee, event.currentTarget.value)}><option value="">{t('Not set')}</option>{#each referenceFunctions as item (item.id)}<option value={item.code}>{item.code} · {item.name_en || item.name_fr || item.name_nl}</option>{/each}</select></td>{/if}
+                    {#if shown('function')}<td><ClassicPicker value={employee.cp302ReferenceFunctionCode} options={functionOptions} disabled={!team.canViewFinancials || !team.editable || teamDraft.supplementaryLoading} ariaLabel={`${t('CP 302 function')} · ${employee.displayName}`} onchange={(next) => setReferenceFunction(employee, next)} /></td>{/if}
                     {#if shown('worker')}<td class="is-quiet">{employee.workerStatus ? t(employee.workerStatus === 'blue_collar' ? 'Blue-collar worker' : 'White-collar employee') : '—'}</td>{/if}
-                    {#if shown('basis')}<td><select class="cl-field basisfield" value={employee.salaryBasis} disabled={!team.canViewFinancials || !team.editable} onchange={(event) => teamDraft.update(employee.id, { salaryBasis: event.currentTarget.value as EmployeeDraft['salaryBasis'] })}><option value="">{t('Not set')}</option><option value="hourly">{t('Hourly')}</option><option value="monthly">{t('Monthly')}</option></select></td>{/if}
+                    {#if shown('basis')}<td><ClassicPicker value={employee.salaryBasis} options={basisOptions} disabled={!team.canViewFinancials || !team.editable} ariaLabel={`${t('Salary basis')} · ${employee.displayName}`} onchange={(next) => teamDraft.update(employee.id, { salaryBasis: next as EmployeeDraft['salaryBasis'] })} /></td>{/if}
                     {#if shown('rate')}<td>{#if employee.salaryBasis === 'monthly'}<input class="cl-field ratefield" inputmode="decimal" value={employee.contractualMonthlySalary} disabled={!team.canViewFinancials || !team.editable} oninput={(event) => teamDraft.update(employee.id, { contractualMonthlySalary: event.currentTarget.value })} />{:else}<input class="cl-field ratefield" inputmode="decimal" value={employee.contractualHourlyRate} disabled={!team.canViewFinancials || !team.editable} oninput={(event) => teamDraft.update(employee.id, { contractualHourlyRate: event.currentTarget.value })} />{/if}</td>{/if}
                     {#if shown('status')}<td>{#if missing.length}<ClassicStatus label={missing.length === 1 ? '1 detail missing' : '{count} details missing'} params={{ count: missing.length }} tone="problem" /><span class="missing">{missing.map((item) => t(item)).join(', ')}</span>{:else}<ClassicStatus label={terms?.label ?? 'Ready for payroll'} tone={terms?.tone ?? 'ok'} />{/if}</td>{/if}
                     <td class="menu-cell">
@@ -344,7 +294,5 @@
   .employee-name { font-weight: var(--rst-fw-medium); }
   .missing { display: block; color: var(--cl-muted); font-size: 12px; }
   .payrollid { min-width: 120px; height: 34px; }
-  .functionfield { min-width: 210px; max-width: 280px; height: 34px; }
-  .basisfield { min-width: 108px; height: 34px; }
   .ratefield { width: 105px; height: 34px; }
 </style>
