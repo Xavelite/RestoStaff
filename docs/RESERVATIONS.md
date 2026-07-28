@@ -2,7 +2,7 @@
 
 Reservations is a native restaurant workspace, not a separate booking
 prototype. It shares the restaurant tenant, services, opening hours and work
-areas already used by Restaurant and Planning.
+areas already used by Restaurant and Schedule.
 
 ## Domain boundaries
 
@@ -44,7 +44,7 @@ are feedback only and never replace this transaction.
   and edits real table objects.
 - `/reservations/setup` configures service rules and chooses which Restaurant
   areas accept reservations.
-- Planning reads `get_reservation_demand` for daily expected-cover context. It
+- Schedule reads `get_reservation_demand` for daily expected-cover context. It
   does not read reservation tables directly.
 
 ## Deliberately later

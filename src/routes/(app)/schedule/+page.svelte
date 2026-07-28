@@ -62,7 +62,7 @@
     scheduleDraft,
     type ScheduleRowPlacement
   } from '$lib/classic/classic-schedule.svelte';
-  import { downloadCsv } from '$lib/export/csv';
+  import { downloadCsv } from '$lib/exports/csv';
   import { planningCsv } from '$lib/schedule/schedule-export';
   import { DEFAULT_PLANNING_EXPORT_COLUMNS } from '$lib/schedule/schedule-export-columns';
   import { getReservationDemand } from '$lib/reservations/reservation-api';

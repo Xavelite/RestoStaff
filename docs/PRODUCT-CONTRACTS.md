@@ -38,10 +38,10 @@ Persisted identifiers such as `planning_status`, `actuals_status`, and
   Opening a roster slot is non-destructive; removal is an explicit editor action.
 - Time & attendance preserves badge truth, corrections, cancellations, live monitoring, approval, and reopening. Calendar and Live monitor deep-link into the same entry editor.
 - Payroll starts from employee identity and current employment facts. The standalone Exports module produces operational files and an owner-only social-secretariat draft from complete weeks. Immutable official payroll lineage remains available in the backend for the later finalized payroll workflow; official gross-to-net calculation, declarations, settlement and payslips remain the social secretariat's responsibility.
-- Flexible employees positively mark a service Available or leave it unselected.
+- Weekly-availability employees can mark a service Available or Not available.
   Time off is a separate, mutually exclusive action whose default type is
-  Holiday. Historical `unavailable` and `partial` values remain readable but
-  require replacement and are never selectable.
+  Holiday. Availability and time off cannot occupy the same service slot.
+  Historical `partial` values remain readable but are not selectable.
 - Fixed-schedule employees request schedule changes; weekly-availability
   employees submit availability. Both regimes share leave actions.
 - Invitations are expiring and one-use. A badge PIN authorizes terminal actions
@@ -50,7 +50,7 @@ Persisted identifiers such as `planning_status`, `actuals_status`, and
   and receipts are directly writable, under owner-row RLS.
 - Reservations reuse Restaurant services, opening hours, and work areas.
   Availability and table assignment are decided transactionally on the server,
-  every lifecycle change appends immutable history, and Planning consumes only
+  every lifecycle change appends immutable history, and Schedule consumes only
   the restaurant-scoped demand aggregate.
 - Managers can send concise operational messages to all active employees or a
   selected group. Read and acknowledgement receipts are per recipient and phone
@@ -72,6 +72,11 @@ provider-neutral and complete-week only.
 
 ## Workspace presentation
 
-The authenticated product uses one classic workspace shell. Module tabs live in the fixed topbar; filters, period controls, add actions, Save, and Discard stay in the page toolbar. Planning, Time & attendance, Restaurant, Team, Payroll and Exports use compact shared surfaces, while complete evidence is opened through Details. Unsaved drafts are guarded before route, period, restaurant, preview, terminal, or sign-out changes.
+The authenticated product uses one compact workspace shell. Module tabs live in
+the fixed topbar; filters, period controls, add actions, Save, and Discard stay
+in the page toolbar. Schedule, Time & attendance, Restaurant, Team, Payroll,
+and Exports use shared workspace surfaces, while complete evidence is opened
+through Details. Unsaved drafts are guarded before route, period, restaurant,
+preview, terminal, or sign-out changes.
 
 Inventory, Recipes, Purchasing & suppliers, Menu costing, Tasks & checklists, and Food safety are Home-only later modules. They do not appear in the everyday sidebar until their operational contracts exist.

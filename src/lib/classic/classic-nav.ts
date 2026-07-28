@@ -70,7 +70,7 @@ const CLASSIC_MODULES: ClassicModule[] = [
     roles: MANAGER,
     navSection: 'operations',
     subNav: [
-      { href: '/schedule', label: 'Planning' },
+      { href: '/schedule', label: 'Roster' },
       { href: '/schedule/history', label: 'History' }
     ]
   },
@@ -120,7 +120,7 @@ const CLASSIC_MODULES: ClassicModule[] = [
   },
   {
     key: 'inventory',
-    href: '/inventory',
+    href: '/coming-soon/inventory',
     label: 'Inventory',
     summary: 'Stock counts and item management',
     icon: 'inventory',

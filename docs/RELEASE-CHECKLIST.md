@@ -12,14 +12,16 @@ reports zero errors and warnings, and the static production build succeeds.
 
 ## Database and Edge Function gate
 
-1. Follow `docs/DATABASE-MIGRATION.md`, including before/after identity snapshots.
+1. Follow `docs/DATABASE-MIGRATION.md`, including migration-ledger and identity
+   checks before and after deployment.
 2. Before applying reservation identity migrations to an existing database, run
    the read-only `supabase/tests/reservation_identity_preflight.sql` and resolve
    any duplicate floor levels or normalized active table/combination names.
 3. Run `supabase/tests/security_contract.sql`.
 4. Regenerate `src/lib/supabase/database.types.ts`.
-5. Deploy `send-employee-invitation` and `upload-badge-proof` with the exact
-   staging/production `APP_ORIGIN`.
+5. Deploy `send-employee-invitation`, `upload-badge-proof`, `get-badge-proof`,
+   `dispatch-push`, and `reservation-public` with the exact environment secrets
+   and `APP_ORIGIN`.
 6. Configure Auth redirect URLs for `/onboarding`, `/accept-invite` and
    `/reset-password`.
 
@@ -27,12 +29,13 @@ reports zero errors and warnings, and the static production build succeeds.
 
 Create disposable fixtures using `supabase/seed/create-role-fixtures.ts`.
 
-- Owner: onboarding, Restaurant, Team private fields, invitation, Planning
-  publish/revert, Actuals approve/reopen, exports and Badge terminal.
+- Owner: onboarding, Restaurant, Team private fields, invitation, Schedule
+  publish/revert, Time & attendance approve/reopen, exports, reservations, and
+  Badge terminal.
 - Manager: Restaurant and Team operations are available; costs, payroll data
   and payroll exports remain owner-only. Team invitation cannot grant manager
   unless caller is owner.
-- Employee: only Shifts and Calendar; only own published shifts, entries,
+- Employee: only My service and My time; only own published shifts, entries,
   availability and leave.
 
 ## Failure and boundary checks
@@ -41,17 +44,17 @@ Create disposable fixtures using `supabase/seed/create-role-fixtures.ts`.
 - A badge token expires after two minutes and cannot be replayed.
 - Invitation token expires after seven days and cannot be reused.
 - Offline banner appears; reconnect refreshes the workspace.
-- Stale planning revision produces a clear conflict instead of overwriting.
+- Stale Schedule revision produces a clear conflict instead of overwriting.
 - Overnight shifts and Europe/Brussels date boundaries reconcile.
 - Cancelled/corrected time entries retain their original audit records.
 
 ## Responsive and accessibility
 
-Check 1440×900, 1024×768, 390×844 and 360×800:
+Check 1440x900, 1024x768, 390x844 and 360x800:
 
 - No page-level horizontal overflow.
 - Mobile weekly boards use selected-day cards.
-- Calendar retains a readable month plus selected-day detail.
+- My time retains a readable month plus selected-day detail.
 - Dialog focus remains trapped, Escape closes, and focus returns to its trigger.
 - Every workflow is keyboard operable with visible focus.
 - Screen-reader names identify navigation, metrics, grids and dialogs.

@@ -518,11 +518,13 @@
 }
 
 .cl-tablepanel {
+  min-width: 0;
   display: grid;
   gap: 10px;
 }
 
 .cl-tablepanel__head {
+  min-width: 0;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -547,7 +549,10 @@
 }
 
 .cl-tablepanel__actions {
+  min-width: 0;
+  max-width: 100%;
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   margin-left: auto;
@@ -843,6 +848,9 @@
 .cl-tablewrap {
   position: relative;
   isolation: isolate;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   max-height: var(--cl-grid-max-height, calc(100dvh - 220px));
   overflow: auto;
   overscroll-behavior: contain;
@@ -1920,6 +1928,17 @@
 
   .cl-tablepanel__actions {
     width: 100%;
+    margin-left: 0;
     justify-content: flex-end;
+  }
+
+  .cl-inline-save:not(.is-visible) {
+    display: none;
+  }
+
+  .cl-inline-save.is-visible {
+    min-width: 0;
+    flex: 1 1 100%;
+    order: -1;
   }
 }

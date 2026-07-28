@@ -1,9 +1,10 @@
 # Restogogo
 
-Restogogo is a typed SvelteKit restaurant-operations application for schedules,
-worked time, employee self-service, team setup, payroll evidence, and PIN-based
-time clock workflows. It also includes operational team messages, read-only
-role previews, and contextual pilot feedback.
+Restogogo is a typed SvelteKit restaurant-operations application for Schedule,
+Time & attendance, employee self-service, restaurant and team setup, payroll
+evidence, reservations, and PIN-based time clock workflows. It also includes
+operational team messages, read-only role previews, Web Push notifications, and
+contextual pilot feedback.
 
 ## Start
 
@@ -33,9 +34,9 @@ comparison. Database bootstrap and hosted acceptance are documented in
 ## Deploy
 
 This repository is the canonical Vercel source and uses the official SvelteKit
-Vercel adapter. Connect this Git repository to Vercel and set the five
+Vercel adapter. Connect this Git repository to Vercel and set the required
 `PUBLIC_*` values from `.env.example` for Preview and Production. Before opening
-a production environment, apply its database migrations, deploy the four Edge
+a production environment, apply its database migrations, deploy the five Edge
 Functions, provision the platform operator, and configure the push scheduler as
 described in [`docs/PRODUCTION-READINESS.md`](docs/PRODUCTION-READINESS.md).
 
@@ -44,8 +45,10 @@ described in [`docs/PRODUCTION-READINESS.md`](docs/PRODUCTION-READINESS.md).
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): code and runtime ownership.
 - [`docs/PRODUCT-CONTRACTS.md`](docs/PRODUCT-CONTRACTS.md): roles and workflows.
 - [`docs/DATABASE.md`](docs/DATABASE.md): baseline, migrations, and verification.
+- [`docs/DATABASE-MIGRATION.md`](docs/DATABASE-MIGRATION.md): existing-project deployment procedure.
 - [`docs/QUALITY.md`](docs/QUALITY.md): tests, browser matrix, and guardrails.
 - [`docs/PAYROLL.md`](docs/PAYROLL.md): CP 302 rules, evidence, calculations, and unresolved gates.
+- [`docs/RESERVATIONS.md`](docs/RESERVATIONS.md): booking and floor-plan contracts.
 - [`docs/PRODUCTION-READINESS.md`](docs/PRODUCTION-READINESS.md): remaining gates.
 
 ## Source archive

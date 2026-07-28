@@ -148,16 +148,18 @@
       {#snippet children()}
       <div class="cl-tablewrap">
         <table class="cl-table">
-          <thead>
-            <tr>
-              <th class="has-menu"><ClassicPrimaryColMenu label={t('Employee')} sortable sortDir={view.sortDir('employee')} onsort={(dir) => view.setSort('employee', dir)} filterKind="text" searchValue={view.search('employee')} onsearch={(value) => view.setSearch('employee', value)} groupValue={view.groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'status', label: t('Status') }, { value: 'employee', label: t('Employee') }, { value: 'type', label: t('Type') }]} ongroupchange={(value) => view.setGroupBy(value as GroupBy)} /></th>
-              <th class="has-menu"><ClassicColMenu label={t('Type')} sortable sortDir={view.sortDir('type')} onsort={(dir) => view.setSort('type', dir)} filterKind="values" filterValues={typeValues} selected={view.excluded('type')} ontoggle={(value) => view.toggleValue('type', value)} onselectall={(on) => view.selectAll('type', on, typeValues)} /></th>
-              <th class="has-menu"><ClassicColMenu label={t('Period')} sortable sortDir={view.sortDir('period')} onsort={(dir) => view.setSort('period', dir)} filterKind="text" searchValue={view.search('period')} onsearch={(value) => view.setSearch('period', value)} /></th>
-              <th class="has-menu"><ClassicColMenu label={t('Service')} sortable sortDir={view.sortDir('service')} onsort={(dir) => view.setSort('service', dir)} filterKind="values" filterValues={serviceValues} selected={view.excluded('service')} ontoggle={(value) => view.toggleValue('service', value)} onselectall={(on) => view.selectAll('service', on, serviceValues)} /></th>
-              <th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={view.sortDir('status')} onsort={(dir) => view.setSort('status', dir)} filterKind="values" filterValues={statusValues} selected={view.excluded('status')} ontoggle={(value) => view.toggleValue('status', value)} onselectall={(on) => view.selectAll('status', on, statusValues)} /></th>
-              <th></th>
-            </tr>
-          </thead>
+          {#if allAbsences.length}
+            <thead>
+              <tr>
+                <th class="has-menu"><ClassicPrimaryColMenu label={t('Employee')} sortable sortDir={view.sortDir('employee')} onsort={(dir) => view.setSort('employee', dir)} filterKind="text" searchValue={view.search('employee')} onsearch={(value) => view.setSearch('employee', value)} groupValue={view.groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'status', label: t('Status') }, { value: 'employee', label: t('Employee') }, { value: 'type', label: t('Type') }]} ongroupchange={(value) => view.setGroupBy(value as GroupBy)} /></th>
+                <th class="has-menu"><ClassicColMenu label={t('Type')} sortable sortDir={view.sortDir('type')} onsort={(dir) => view.setSort('type', dir)} filterKind="values" filterValues={typeValues} selected={view.excluded('type')} ontoggle={(value) => view.toggleValue('type', value)} onselectall={(on) => view.selectAll('type', on, typeValues)} /></th>
+                <th class="has-menu"><ClassicColMenu label={t('Period')} sortable sortDir={view.sortDir('period')} onsort={(dir) => view.setSort('period', dir)} filterKind="text" searchValue={view.search('period')} onsearch={(value) => view.setSearch('period', value)} /></th>
+                <th class="has-menu"><ClassicColMenu label={t('Service')} sortable sortDir={view.sortDir('service')} onsort={(dir) => view.setSort('service', dir)} filterKind="values" filterValues={serviceValues} selected={view.excluded('service')} ontoggle={(value) => view.toggleValue('service', value)} onselectall={(on) => view.selectAll('service', on, serviceValues)} /></th>
+                <th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={view.sortDir('status')} onsort={(dir) => view.setSort('status', dir)} filterKind="values" filterValues={statusValues} selected={view.excluded('status')} ontoggle={(value) => view.toggleValue('status', value)} onselectall={(on) => view.selectAll('status', on, statusValues)} /></th>
+                <th></th>
+              </tr>
+            </thead>
+          {/if}
           {#if !rows.length}
             <tbody><tr><td colspan="6"><div class="cl-empty"><strong>{t('Nothing to review')}</strong><span>{t('Time-off requests appear here as employees send them.')}</span></div></td></tr></tbody>
           {:else}

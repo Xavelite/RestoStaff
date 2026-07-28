@@ -31,8 +31,6 @@
   type GroupBy = 'position' | 'contract' | 'area' | 'status' | 'none';
   type EmployeeGroup = { key: string; label: string; color?: string; employees: EmployeeDraft[] };
 
-  /** Every row added since the last save. They all stay directly editable. */
-  let freshIds = $state(new Set<string>());
   let detailId = $state('');
   let editingEmployeeId = $state('');
   let editingField = $state<'email' | 'phone' | ''>('');
@@ -150,8 +148,7 @@
     if (workspace.isPreview || !workspace.team) return;
     const draft = newEmployeeDraft(crypto.randomUUID());
     draft.displayName = '';
-    teamDraft.employees = [draft, ...teamDraft.employees];
-    freshIds = new Set([...freshIds, draft.id]);
+    teamDraft.add(draft);
     view.resetFilters();
     view.expandAll();
     await tick();
@@ -160,29 +157,20 @@
 
   async function savePage(save: () => Promise<void>) {
     await save();
-    freshIds = new Set();
   }
 
   function discardPage(discard: () => void) {
     discard();
-    freshIds = new Set();
     detailId = '';
   }
 
   function closeDetails() {
     detailId = '';
-    // The editor removes a new employee when it is cancelled, so drop any id
-    // that no longer has a row. The other added rows stay editable.
-    const live = new Set(teamDraft.employees.map((employee) => employee.id));
-    freshIds = new Set([...freshIds].filter((id) => live.has(id)));
   }
 
   function removeDraftEmployee(employeeId: string) {
-    if (!freshIds.has(employeeId)) return;
+    if (!teamDraft.isPending(employeeId)) return;
     teamDraft.remove(employeeId);
-    const next = new Set(freshIds);
-    next.delete(employeeId);
-    freshIds = next;
     detailId = '';
   }
 
@@ -570,7 +558,7 @@
                 {#if !view.isCollapsed(group.key)}
                 {#each group.employees as employee (employee.id)}
                   {@const primaryPositionArea = positionArea(employee.jobFunctionIds[0] ?? '')}
-                  {@const isFresh = freshIds.has(employee.id)}
+                  {@const isFresh = teamDraft.isPending(employee.id)}
                   <tr data-employee-id={employee.id} class:is-new={isFresh}>
                     <td>
                       <span class="cl-table__name is-employee">
@@ -766,7 +754,7 @@
     {/if}
 
     {#if detailId}
-      <EmployeeInlineEditor employeeId={detailId} mode="people" saving={team.saving} isNew={freshIds.has(detailId)} onclose={closeDetails} onsave={team.saveEmployee} />
+      <EmployeeInlineEditor employeeId={detailId} mode="people" saving={team.saving} isNew={teamDraft.isPending(detailId)} onclose={closeDetails} onsave={team.saveEmployee} />
     {/if}
 
 {/if}

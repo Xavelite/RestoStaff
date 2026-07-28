@@ -16,6 +16,7 @@ import type { PayrollCatalogue } from '$lib/payroll/payroll-model';
 import { parseHourlyRate } from '$lib/payroll-engine/money';
 import type { Tables } from '$lib/supabase/database.types';
 import { workspace } from '$lib/workspace/workspace.svelte';
+import { PendingDraftIds } from './pending-draft-ids';
 import { StableDraftPlacement } from './stable-draft-placement';
 
 function cloneEmployee(employee: EmployeeDraft): EmployeeDraft {
@@ -44,6 +45,7 @@ class ClassicTeamDraft {
   #preparedSnapshot: TeamReadModel | null = null;
   #preparedRole: WorkspaceRole | null = null;
   #placement = new StableDraftPlacement<EmployeeDraft>(cloneEmployee);
+  #pending = new PendingDraftIds();
 
   async prepare(
     snapshot: TeamReadModel,
@@ -163,6 +165,7 @@ class ClassicTeamDraft {
     this.#loadedKey = key;
     this.employees = employeeDrafts(snapshot, this.employmentTerms);
     this.#placement.reset(this.employees);
+    this.#pending.reset();
     this.#baseline = JSON.stringify(this.employees);
   }
 
@@ -186,9 +189,20 @@ class ClassicTeamDraft {
     );
   }
 
+  add(employee: EmployeeDraft): void {
+    this.employees = [employee, ...this.employees];
+    this.#placement.snapshotFor(employee);
+    this.#pending.add(employee.id);
+  }
+
+  isPending(id: string): boolean {
+    return this.#pending.has(id);
+  }
+
   remove(id: string): void {
     this.employees = this.employees.filter((employee) => employee.id !== id);
     this.#placement.remove(id);
+    this.#pending.remove(id);
   }
 
   clone(id: string): EmployeeDraft | null {

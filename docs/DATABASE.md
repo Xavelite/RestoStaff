@@ -93,6 +93,21 @@ Never run `supabase db reset --linked`, bootstrap development or production,
 load disposable fixtures outside an acceptance project, or hand-edit generated
 types to imitate a deployment.
 
+## Advisor posture
+
+Supabase advisors are reviewed, not applied mechanically. Direct table access is
+deliberately narrow and many tables are reachable only through exact-grant,
+security-definer RPCs whose tenant and role checks are exercised by the SQL
+contracts. An RLS-enabled table with no direct policy can therefore be an
+intentional deny-by-default boundary.
+
+Moving extension-owned objects, changing function security mode, or adding
+indexes can alter generated types, grants, query plans, and bootstrap behavior.
+Make those changes only for a demonstrated security or performance need and
+validate the complete disposable replay afterward. Hosted Auth leaked-password
+protection, backup retention, and recovery guarantees are environment settings,
+not migration substitutes.
+
 ## Pilot tenant promotion
 
 The production bootstrap intentionally contains no development identities or

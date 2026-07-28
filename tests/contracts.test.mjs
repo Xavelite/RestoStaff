@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { csvText } from '../src/lib/export/csv.ts';
+import { csvText } from '../src/lib/exports/csv.ts';
 import {
   parseManagerOperationsReadModel,
   parseRestaurantReadModel,

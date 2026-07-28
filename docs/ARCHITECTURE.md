@@ -6,12 +6,16 @@ transactional RPCs.
 
 ## Repository map
 
-- `src/routes`: pages and route-owned orchestration.
+- `src/routes`: pages, loading, mutations, and route-owned orchestration.
 - `src/lib/api`: typed RPC calls and read-model validation.
-- `src/lib/<domain>`: shared business projections for Schedule, Timesheet,
-  Team, employee self-service, notifications, payroll, and calendar behavior.
-- `src/lib/operations`: manager operation boards, coverage lenses, and shared
-  Schedule/Timesheet workflow presentation.
+- `src/lib/<domain>`: shared business projections and domain UI for Schedule,
+  Time & attendance, Team, Restaurant, employee self-service, reservations,
+  notifications, payroll, and calendar behavior.
+- `src/lib/classic`: the current compact-workspace component set, navigation,
+  draft models, and shared visual contract. The name is an internal namespace,
+  not a second or legacy product shell.
+- `src/lib/app-shell` and `src/lib/workspace`: authenticated navigation, page
+  framing, toolbars, drawers, and workspace-level behavior.
 - `src/lib/communications`: operational messages, delivery receipts, and their
   phone-notification projection.
 - `src/lib/preview` and `src/lib/feedback`: read-only role projection and
@@ -37,17 +41,17 @@ operator mutation is audited. Restaurant roles never imply platform access.
 Its preview picker reads dedicated reduced models; it never changes the Auth
 session or adopts another person's authorization.
 
-Normal authenticated pages use the app topbar, `PageHero`, an optional header
-command or toolbar, and a focused workspace. Mobile uses a role-aware bottom
-navigation bar while retaining the same route and authorization contracts.
-`PageScaffold` provides the flex boundary for pages whose header and operational
-body need one; full-width native flows use the same shell spacing directly.
-`OperationsBoard`, `BoardFocus`, and `CoverageLensFrame` in
-`src/lib/operations` keep Schedule and Timesheet geometry aligned while each
-route retains its own lifecycle rules. `EmployeeSlotDrawer` in
-`src/lib/employee` owns shared employee service-slot actions. Onboarding,
-authentication, Badge, and platform administration remain purpose-built
-because their interaction models are not normal restaurant modules.
+Normal authenticated pages use one app topbar, role-aware navigation, a
+compact module toolbar, and a focused workspace. Route groups own related
+subtabs without creating another shell. Mobile keeps the same routes and
+authorization contracts while selected-day views replace wide weekly boards
+where that improves the workflow. Dense editable setup grids use bounded local
+scrolling rather than forcing page-level overflow.
+
+`EmployeeSlotDrawer` in `src/lib/employee` owns shared employee service-slot
+actions. Onboarding, authentication, Badge, public reservation booking, station
+mode, and platform administration remain purpose-built because their
+interaction models are not normal restaurant workspaces.
 
 Components under a domain folder are domain-shared. Components under
 `src/lib/components` are global primitives. Markup that serves only one route

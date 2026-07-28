@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { page } from '$app/state';
   import { beforeNavigate, goto } from '$app/navigation';
   import { auth } from '$lib/auth/session.svelte';
@@ -121,6 +121,16 @@
   $effect(() => {
     void page.url.pathname;
     sidebarOpen = false;
+  });
+
+  $effect(() => {
+    const href = activeTabHref;
+    if (!href) return;
+    void tick().then(() => {
+      const activeTab = [...document.querySelectorAll<HTMLAnchorElement>('.cl-topbar__tab')]
+        .find((tab) => tab.getAttribute('href') === href);
+      activeTab?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    });
   });
 
   async function resendVerification() {
@@ -378,6 +388,9 @@
   .cl-main.is-preview :global(select),
   .cl-main.is-preview :global(textarea) {
     pointer-events: none;
+  }
+  .cl-main.is-preview .cl-notice button {
+    pointer-events: auto;
   }
   .cl-scrim,
   .cl-drawer {

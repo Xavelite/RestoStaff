@@ -158,9 +158,20 @@ test('restaurant area catalogue creates physical instances without hiding repeat
   assert.match(workspace, /const pendingAreaIds = \$derived\(floorPlansDraft\.pendingAreaIds\)/);
   assert.match(workspace, /floorPlansDraft\.pendingAreaIds = \[id, \.\.\.pendingAreaIds\]/);
   assert.match(workspace, /pendingAreaIds = \[id, \.\.\.pendingAreaIds\]/);
-  // Adding an area puts the cursor in the new row but never opens the
-  // catalogue over it — every grid welcomes a new row the same way.
+  // Adding an area keeps the user's current view. The same focused editor is
+  // available in the list row and in the plan's selected-area rail.
   assert.doesNotMatch(workspace, /autoOpen/);
+  assert.doesNotMatch(workspace, /editorView = 'list';\s*await tick\(\)/);
+  // Compact screens can edit details; only freeform plan geometry remains
+  // read-only because drag positioning needs a precise pointer workspace.
+  assert.match(workspace, /const editorReadOnly = \$derived\(workspace\.isPreview\)/);
+  assert.match(
+    workspace,
+    /const planGeometryReadOnly = \$derived\(compactViewport \|\| workspace\.isPreview\)/
+  );
+  assert.match(workspace, /editable=\{!planGeometryReadOnly\}/);
+  assert.match(workspace, /roomsEditable=\{!planGeometryReadOnly\}/);
+  assert.match(workspace, /selectedRoomId = room\.id;[\s\S]*field\?\.focus\(\)/);
   assert.match(workspace, /field\?\.focus\(\)/);
   assert.match(workspace, /class:is-new=\{pendingAreaIds\.includes\(room\.work_area_id\)\}/);
   assert.doesNotMatch(workspace, /removeEmptyNewArea/);

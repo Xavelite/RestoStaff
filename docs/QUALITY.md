@@ -28,11 +28,11 @@ Review Owner, Manager, and Employee routes at 1440x900, 1024x768, 768x1024,
 states, dialogs and drawers, keyboard focus, page overflow, mobile navigation,
 and the primary workflow for each role.
 
-The shared maximum-width ladder is 1180, 980, 760, and 520 pixels. On phones,
-Schedule and Timesheet use the shared selected-day roster: a weather-aware day
-strip, daily operational summary, and one employee row with Lunch and Evening
-side by side. Desktop and tablet retain the full roster ledger. Local scrolling
-is reserved for day strips, dense boards, calendars, dialogs, and bounded
+The shared maximum-width ladder is 1180, 980, 760, and 520 pixels. Schedule and
+Time & attendance retain their complete weekly ledger inside a bounded
+horizontal workspace with a sticky employee column; mobile never widens the
+document itself. Employee My service and My time use phone-focused cards.
+Local scrolling is reserved for dense boards, calendars, dialogs, and bounded
 previews.
 
 Before committing, inspect the complete diff, run all validation layers relevant

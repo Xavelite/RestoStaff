@@ -33,7 +33,7 @@
   const OPTIONAL_COLUMNS = [
     { key: 'position', label: 'Position' },
     { key: 'contract', label: 'Contract' },
-    { key: 'regime', label: 'Planning mode' },
+    { key: 'regime', label: 'Availability mode' },
     { key: 'start', label: 'Start' },
     { key: 'end', label: 'End' },
     { key: 'hours', label: 'Weekly hours' },
@@ -209,7 +209,7 @@
               <th class="has-menu"><ClassicPrimaryColMenu label={t('Employee')} sortable sortDir={view.sortDir('employee')} onsort={(dir) => view.setSort('employee', dir)} filterKind="text" searchValue={view.search('employee')} onsearch={(value) => view.setSearch('employee', value)} groupValue={view.groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'contract', label: t('Contract type') }, { value: 'position', label: t('Position') }, { value: 'status', label: t('Setup') }]} ongroupchange={(value) => view.setGroupBy(value as GroupBy)} /></th>
               {#if shown('position')}<th class="has-menu"><ClassicColMenu label={t('Position')} sortable sortDir={view.sortDir('position')} onsort={(dir) => view.setSort('position', dir)} filterKind="values" filterValues={positionValues} selected={view.excluded('position')} ontoggle={(value) => view.toggleValue('position', value)} onselectall={(on) => view.selectAll('position', on, positionValues)} /></th>{/if}
               {#if shown('contract')}<th class="has-menu"><ClassicColMenu label={t('Contract')} sortable sortDir={view.sortDir('contract')} onsort={(dir) => view.setSort('contract', dir)} filterKind="values" filterValues={contractValues} selected={view.excluded('contract')} ontoggle={(value) => view.toggleValue('contract', value)} onselectall={(on) => view.selectAll('contract', on, contractValues)} /></th>{/if}
-              {#if shown('regime')}<th class="has-menu"><ClassicColMenu label={t('Planning mode')} sortable sortDir={view.sortDir('regime')} onsort={(dir) => view.setSort('regime', dir)} filterKind="values" filterValues={regimeValues} selected={view.excluded('regime')} ontoggle={(value) => view.toggleValue('regime', value)} onselectall={(on) => view.selectAll('regime', on, regimeValues)} /></th>{/if}
+              {#if shown('regime')}<th class="has-menu"><ClassicColMenu label={t('Availability mode')} sortable sortDir={view.sortDir('regime')} onsort={(dir) => view.setSort('regime', dir)} filterKind="values" filterValues={regimeValues} selected={view.excluded('regime')} ontoggle={(value) => view.toggleValue('regime', value)} onselectall={(on) => view.selectAll('regime', on, regimeValues)} /></th>{/if}
               {#if shown('start')}<th class="has-menu"><ClassicColMenu label={t('Start')} sortable sortDir={view.sortDir('start')} onsort={(dir) => view.setSort('start', dir)} filterKind="text" searchValue={view.search('start')} onsearch={(value) => view.setSearch('start', value)} /></th>{/if}
               {#if shown('end')}<th class="has-menu"><ClassicColMenu label={t('End')} sortable sortDir={view.sortDir('end')} onsort={(dir) => view.setSort('end', dir)} filterKind="text" searchValue={view.search('end')} onsearch={(value) => view.setSearch('end', value)} /></th>{/if}
               {#if shown('hours')}<th class="has-menu"><ClassicColMenu label={t('Weekly hours')} align="right" sortable sortDir={view.sortDir('hours')} onsort={(dir) => view.setSort('hours', dir)} filterKind="text" searchValue={view.search('hours')} onsearch={(value) => view.setSearch('hours', value)} /></th>{/if}
@@ -265,7 +265,7 @@
                         value={employee.workRegime}
                         options={regimeOptions}
                         disabled={!team.editable}
-                        ariaLabel={`${t('Planning mode')} · ${employee.displayName}`}
+                        ariaLabel={`${t('Availability mode')} · ${employee.displayName}`}
                         onchange={(next) => teamDraft.update(employee.id, { workRegime: next as EmployeeDraft['workRegime'] })}
                       />
                     </td>{/if}

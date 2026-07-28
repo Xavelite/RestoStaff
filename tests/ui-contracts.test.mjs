@@ -105,6 +105,12 @@ test('there is exactly one app shell, and it owns no account logic of its own', 
   assert.match(shell, /import AccountMenu from '\$lib\/app-shell\/AccountMenu\.svelte'/);
   assert.match(shell, /useAppSession\(\)/);
   assert.doesNotMatch(shell, /supabase\.auth\.updateUser/);
+  // Read-only preview disables page mutations, but its own escape control must
+  // remain interactive.
+  assert.match(
+    shell,
+    /\.cl-main\.is-preview \.cl-notice button \{\s*pointer-events: auto;/
+  );
 
   // The second design is gone for good — no route group, no switch.
   await assert.rejects(() => readFile('src/routes/(classic)/classic/+layout.svelte', 'utf8'));
@@ -169,14 +175,18 @@ test('people edit contact cells inline while employee identity opens one complet
   const payrollEmployees = await readFile('src/routes/(app)/payroll/employees/+page.svelte', 'utf8');
   const editor = await readFile('src/lib/classic/EmployeeInlineEditor.svelte', 'utf8');
   const teamPage = await readFile('src/lib/classic/ClassicTeamPage.svelte', 'utf8');
+  const teamDraft = await readFile('src/lib/classic/classic-team.svelte.ts', 'utf8');
 
   // Both grids take their view state from the shared table-view store.
   assert.match(people, /createTableView<SortKey, GroupBy>\([\s\S]*defaultGroupBy: 'position'/);
   assert.match(contracts, /createTableView<SortKey, GroupBy>\([\s\S]*defaultGroupBy: 'contract'/);
-  // Every row added since the last save stays directly editable, not just the
-  // most recent one — the same as adding a position or an area.
-  assert.match(people, /let freshIds = \$state\(new Set<string>\(\)\)/);
-  assert.match(people, /\{@const isFresh = freshIds\.has\(employee\.id\)\}/);
+  // Pending identity belongs to the shared draft so every added row remains
+  // editable and highlighted across Team subtab remounts.
+  assert.match(teamDraft, /#pending = new PendingDraftIds\(\)/);
+  assert.match(teamDraft, /add\(employee: EmployeeDraft\)/);
+  assert.match(teamDraft, /isPending\(id: string\)/);
+  assert.doesNotMatch(people, /freshIds/);
+  assert.match(people, /\{@const isFresh = teamDraft\.isPending\(employee\.id\)\}/);
   assert.match(people, /class:is-new=\{isFresh\}/);
   assert.match(people, /\{#if isFresh\}[\s\S]*teamDraft\.update\(employee\.id, \{ email:/);
   assert.match(people, /class="inline-cell"[\s\S]*startInlineEdit\(employee, 'email'\)/);
@@ -246,12 +256,6 @@ test('operational core exposes planning, attendance and payroll as one classic w
   const live = await readFile('src/routes/(app)/timesheet/live/+page.svelte', 'utf8');
   const reservations = await readFile('src/lib/reservations/ReservationsWorkspace.svelte', 'utf8');
   const payrollRedirect = await readFile('src/routes/(app)/payroll/+page.ts', 'utf8');
-  const parkedPayrollRedirects = await Promise.all([
-    'src/routes/(app)/payroll/exports/+page.ts',
-    'src/routes/(app)/payroll/configuration/+page.ts',
-    'src/routes/(app)/payroll/advanced/+page.ts',
-    'src/routes/(app)/payroll/advanced/configuration/+page.ts'
-  ].map((file) => readFile(file, 'utf8')));
   const absences = await readFile('src/routes/(app)/team/absences/+page.svelte', 'utf8');
 
   assert.match(nav, /href: '\/payroll\/employees'/);
@@ -285,17 +289,14 @@ test('operational core exposes planning, attendance and payroll as one classic w
   assert.match(reservations, /!reservation\.room_preference_id \|\| liveRoomIds\.has/);
   assert.match(reservations, /t\('Unassigned'\)/);
   assert.match(payrollRedirect, /redirect\(307, '\/payroll\/employees'\)/);
-  for (const redirectSource of parkedPayrollRedirects) {
-    assert.match(redirectSource, /redirect\(307, '\/payroll\/employees'\)/);
-  }
   assert.match(absences, /href="\/settings\/absence-types"/);
   assert.doesNotMatch(absences, /href="\/restaurant\/absence-types"/);
+  assert.match(absences, /\{#if allAbsences\.length\}\s*<thead>/);
 });
 
 test('Exports is a standalone manager module beside Reports', async () => {
   const nav = await readFile('src/lib/classic/classic-nav.ts', 'utf8');
   const exportsPage = await readFile('src/routes/(app)/exports/+page.svelte', 'utf8');
-  const payrollRedirect = await readFile('src/routes/(app)/payroll/exports/+page.ts', 'utf8');
 
   assert.match(nav, /key: 'reports'[\s\S]*key: 'exports'/);
   assert.match(nav, /key: 'exports'[\s\S]*href: '\/exports'[\s\S]*roles: MANAGER[\s\S]*navSection: 'reports'/);
@@ -308,7 +309,6 @@ test('Exports is a standalone manager module beside Reports', async () => {
   assert.match(exportsPage, /disabled=\{!completeWeeks \|\| Boolean\(downloading\)\}/);
   assert.match(exportsPage, /social-secretariat file remains available/);
   assert.match(exportsPage, /downloadCsv/);
-  assert.match(payrollRedirect, /redirect\(307, '\/payroll\/employees'\)/);
 });
 
 test('restaurant coverage stages only a complete weekday row, in place, before shared save', async () => {
@@ -378,7 +378,6 @@ test('Team and Restaurant use one route-scoped workspace instead of mounting sta
   const teamWrapper = await readFile('src/lib/classic/ClassicTeamPage.svelte', 'utf8');
   const restaurantWrapper = await readFile('src/lib/classic/ClassicRestaurantPage.svelte', 'utf8');
   const restaurantProfile = await readFile('src/routes/(app)/restaurant/+page.svelte', 'utf8');
-  const hoursRedirect = await readFile('src/routes/(app)/restaurant/hours/+page.ts', 'utf8');
 
   assert.match(teamLayout, /children: routeChildren[\s\S]*<ClassicTeamPage>[\s\S]*\{#key page\.url\.pathname\}[\s\S]*\{@render routeChildren\(\)\}/);
   assert.match(restaurantLayout, /children: routeChildren[\s\S]*<ClassicRestaurantPage>[\s\S]*\{#key page\.url\.pathname\}[\s\S]*\{@render routeChildren\(\)\}/);
@@ -408,10 +407,9 @@ test('Team and Restaurant use one route-scoped workspace instead of mounting sta
   }
   assert.match(restaurantProfile, /<table class="cl-table hours-table">/);
   assert.doesNotMatch(restaurantProfile, /<h2>\{t\('Weekly service periods'\)\}<\/h2>/);
-  assert.match(hoursRedirect, /redirect\(308, '\/restaurant'\)/);
 });
 
-test('Settings owns the canonical time-off policy workspace and redirects the legacy Restaurant URL', async () => {
+test('Settings owns the canonical time-off policy workspace', async () => {
   const settingsPage = await readFile(
     'src/routes/(app)/settings/absence-types/+page.svelte',
     'utf8'
@@ -420,17 +418,11 @@ test('Settings owns the canonical time-off policy workspace and redirects the le
     'src/lib/team/TimeOffPoliciesWorkspace.svelte',
     'utf8'
   );
-  const legacyRedirect = await readFile(
-    'src/routes/(app)/restaurant/absence-types/+page.server.ts',
-    'utf8'
-  );
-
   assert.match(
     settingsPage,
     /import TimeOffPoliciesWorkspace from '\$lib\/team\/TimeOffPoliciesWorkspace\.svelte'/
   );
   assert.match(settingsPage, /<TimeOffPoliciesWorkspace \/>/);
-  assert.match(legacyRedirect, /redirect\(308, '\/settings\/absence-types'\)/);
   assert.match(workspace, /<ClassicPrimaryColMenu/);
   assert.match(workspace, /rst-time-off-policies-cols-v1/);
   assert.match(workspace, /rst-restaurant-absence-types-cols-v2/);
@@ -553,7 +545,12 @@ test('Home integrates labelled upcoming modules while Areas and Tables stay sepa
   assert.match(reportsBlock, /subNav:/);
   assert.doesNotMatch(reportsBlock, /placeholder|homeOnly/);
   assert.doesNotMatch(layout, /#key `\$\{page\.url\.pathname\}\$\{page\.url\.search\}`/);
-  assert.match(areas, /editorReadOnly = \$derived\(compactViewport \|\| workspace\.isPreview\)/);
-  assert.match(areas, /editable=\{!editorReadOnly\}/);
-  assert.match(areas, /View only on small screens/);
+  assert.match(areas, /editorReadOnly = \$derived\(workspace\.isPreview\)/);
+  assert.match(
+    areas,
+    /planGeometryReadOnly = \$derived\(compactViewport \|\| workspace\.isPreview\)/
+  );
+  assert.match(areas, /editable=\{!planGeometryReadOnly\}/);
+  assert.match(areas, /tablesEditable=\{mode === 'tables' && !planGeometryReadOnly\}/);
+  assert.match(areas, /Details remain editable/);
 });

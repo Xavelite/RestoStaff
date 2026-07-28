@@ -99,7 +99,8 @@
   const ROOM_GRID = 20;
   const TABLE_GRID = 10;
   const TABLE_COLLISION_GAP = 6;
-  const editorReadOnly = $derived(compactViewport || workspace.isPreview);
+  const editorReadOnly = $derived(workspace.isPreview);
+  const planGeometryReadOnly = $derived(compactViewport || workspace.isPreview);
   function catalogueAreaItems(): WorkspaceCataloguePickerItem[] {
     return WORKSPACE_AREA_CATALOGUE.map((area) => ({
       key: area.key,
@@ -653,10 +654,9 @@
     restaurantConfig.touch();
     touch();
     floorPlansDraft.pendingAreaIds = [id, ...pendingAreaIds];
-    editorView = 'list';
     await tick();
-    // Cursor in the new row, catalogue closed — the same welcome every grid
-    // gives a freshly added row.
+    // Keep the current view. List users edit the new row; plan users edit the
+    // selected area in the details rail without losing the floor context.
     const field = document.getElementById(`area-picker-${id}`);
     field?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     field?.focus();
@@ -735,7 +735,7 @@
     const confirmed = await confirmAction({
       title: t('Archive {name}?', { name: areaDraft.name }),
       body: t(
-        'This removes the area from Planning and Staffing, unlinks {positions} positions and archives {tables} reservation tables.',
+        'This removes the area from Schedule and Staffing, unlinks {positions} positions and archives {tables} reservation tables.',
         { positions: linkedPositions, tables: linkedTables }
       ),
       confirmLabel: t('Archive area')
@@ -1895,16 +1895,20 @@
                       {/each}
                     </select>
                   </label>
-                  <div class="area-colour"><span>{t('Colour identity')}</span><div><ClassicPalettePicker value={selectedAreaDraft.color} palette={AREA_PALETTE} label={t('Choose area colour')} disabled={editorReadOnly} onselect={(color) => { selectedAreaDraft.color = color; restaurantConfig.touch(); }} /><small>{t('Shared with linked positions and Planning.')}</small></div></div>
+                  <div class="area-colour"><span>{t('Colour identity')}</span><div><ClassicPalettePicker value={selectedAreaDraft.color} palette={AREA_PALETTE} label={t('Choose area colour')} disabled={editorReadOnly} onselect={(color) => { selectedAreaDraft.color = color; restaurantConfig.touch(); }} /><small>{t('Shared with linked positions and Schedule.')}</small></div></div>
                   <dl class="inspector-stats">
                     <div><dt>{t('Positions')}</dt><dd>{positionCountForArea(selectedAreaDraft.id)}</dd></div>
                   </dl>
-                  <p class="resize-note">{t('Drag to move. Pull any edge or corner to reshape; nearby areas align automatically.')}</p>
+                  {#if !compactViewport}
+                    <p class="resize-note">{t('Drag to move. Pull any edge or corner to reshape; nearby areas align automatically.')}</p>
+                  {/if}
                 </div>
               {:else if mode === 'areas'}
                 <div class="selection-hint is-above">
                   {@render floorNavigator()}
-                  <p>{t('Select an area on the plan to edit it. Pull any outside edge or corner to reshape this floor.')}</p>
+                  <p>{t(compactViewport
+                    ? 'Select an area on the plan to edit its details.'
+                    : 'Select an area on the plan to edit it. Pull any outside edge or corner to reshape this floor.')}</p>
                 </div>
               {/if}
 
@@ -2098,7 +2102,9 @@
                     <input type="checkbox" disabled={editorReadOnly} bind:checked={selectedTable.blocked} onchange={touch} />
                     <span><strong>{t('Temporarily unavailable')}</strong><small>{t('Keep this table off the live seating plan.')}</small></span>
                   </label>
-                  <p class="resize-note">{t('Drag to move. Pull any edge or corner to resize; nearby tables align automatically.')}</p>
+                  {#if !compactViewport}
+                    <p class="resize-note">{t('Drag to move. Pull any edge or corner to resize; nearby tables align automatically.')}</p>
+                  {/if}
                   {#if selectedTable.shape === 'rectangle'}
                     <button class="cl-btn" type="button" disabled={editorReadOnly} onclick={() => turnTable(selectedTable)}>{t('Turn table')}</button>
                   {/if}
@@ -2118,7 +2124,7 @@
                       <span>{t('This operational area stays on the floor plan but cannot hold reservation tables.')}</span>
                     </div>
                   {/if}
-                  <button class="cl-btn" type="button" disabled={editorReadOnly || !selectedRoomReservable} onclick={() => arrangeTables()}>{t('Arrange tables')}</button>
+                  <button class="cl-btn" type="button" disabled={planGeometryReadOnly || !selectedRoomReservable} onclick={() => arrangeTables()}>{t('Arrange tables')}</button>
                   <button class="cl-btn is-primary" type="button" disabled={editorReadOnly || !selectedRoomReservable} onclick={addTable}>+ {t('Add table')}</button>
                 </div>
               {:else if mode === 'tables'}
@@ -2127,8 +2133,8 @@
 
               {#if compactViewport}
                 <div class="compact-notice" role="status">
-                  <strong>{t('View only on small screens')}</strong>
-                  <span>{t('Use a tablet or desktop to move, resize or add areas.')}</span>
+                  <strong>{t('Layout fixed on small screens')}</strong>
+                  <span>{t('Details remain editable. Use a tablet or desktop to move or resize the plan.')}</span>
                 </div>
               {/if}
 
@@ -2139,11 +2145,11 @@
                   roomName={floorLabel(selectedFloor)}
                   floorWidth={selectedFloor.canvas_width}
                   floorHeight={selectedFloor.canvas_height}
-                  editable={!editorReadOnly}
+                  editable={!planGeometryReadOnly}
                   showHeader={false}
-                  floorEditable={mode === 'areas' && !editorReadOnly}
-                  roomsEditable={!editorReadOnly}
-                  tablesEditable={mode === 'tables' && !editorReadOnly}
+                  floorEditable={mode === 'areas' && !planGeometryReadOnly}
+                  roomsEditable={!planGeometryReadOnly}
+                  tablesEditable={mode === 'tables' && !planGeometryReadOnly}
                   tablesSelectable
                   showTableCount={mode === 'tables'}
                   selectedRoomId={selectedTableId ? '' : selectedRoomId}

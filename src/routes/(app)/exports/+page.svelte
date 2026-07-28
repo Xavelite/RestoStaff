@@ -9,7 +9,7 @@
     MAX_EXPORT_DAYS
   } from '$lib/exports/export-read-model';
   import { planningPeriodCsv, workedTimeCsv } from '$lib/exports/export-recipes';
-  import { downloadCsv } from '$lib/export/csv';
+  import { downloadCsv } from '$lib/exports/csv';
   import { t } from '$lib/i18n/i18n.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
@@ -247,7 +247,7 @@
                   <span class="recipe-icon is-planning" aria-hidden="true">
                     <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9.5h16M9 3v4M15 3v4M8 14h3M13 14h3M8 17h5"/></svg>
                   </span>
-                  <span><strong>{t('Planning CSV')}</strong><small>{t('Current saved planning')}</small></span>
+                  <span><strong>{t('Schedule CSV')}</strong><small>{t('Current saved schedule')}</small></span>
                 </div>
               </td>
               <td>{t('Employees, services, times, areas and positions.')}</td>
