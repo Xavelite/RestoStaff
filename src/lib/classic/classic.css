@@ -1699,8 +1699,25 @@
 .cl-group-row__button:hover { background: color-mix(in srgb, var(--cl-accent) 4%, transparent); }
 .cl-group-row__chevron { flex: 0 0 auto; transform: rotate(90deg); transition: transform var(--cl-dur) var(--cl-ease); }
 .cl-group-row__chevron.is-collapsed { transform: rotate(0deg); }
-.cl-group-row__button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: var(--rst-fw-bold); letter-spacing: 0; }
-.cl-group-row__meta { margin-left: auto; color: var(--cl-muted); font-size: 11px; font-weight: var(--rst-fw-medium); }
+.cl-group-row__button strong { white-space: nowrap; font-size: 12px; font-weight: var(--rst-fw-bold); letter-spacing: 0; }
+/* The label sits in the first column but may run past it, over the separators,
+   rather than being clipped to one column's width. */
+.cl-group-row__label { position: relative; z-index: 1; }
+.cl-group-row__label > .cl-group-row__button { width: max-content; min-width: 100%; }
+/* The count belongs at the row's right edge, but the last column is often a
+   narrow actions column — so it is pinned there and allowed to run left. */
+.cl-group-row__meta-cell { position: relative; padding: 0 !important; }
+.cl-group-row__meta {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  z-index: 1;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  color: var(--cl-muted);
+  font-size: 11px;
+  font-weight: var(--rst-fw-medium);
+}
 .cl-group-row__icon { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; }
 .cl-group-row__dot { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--group, var(--cl-accent)); }
 .cl-group-row.is-drop-target td { background: color-mix(in srgb, var(--cl-accent) 9%, var(--cl-surface-muted)) !important; }

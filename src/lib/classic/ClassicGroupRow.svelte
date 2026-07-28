@@ -26,6 +26,12 @@
     ondragleave?: (event: DragEvent) => void;
     ondrop?: (event: DragEvent) => void;
   } = $props();
+
+  // One cell per column instead of a single spanning cell, so the vertical
+  // separators run unbroken down the table and it reads as one sheet rather
+  // than a stack of bands. The label spills across the empties when it needs
+  // the room; the count sits in the last column.
+  const fillers = $derived(Array.from({ length: Math.max(0, colspan - 2) }));
 </script>
 
 <tr
@@ -35,7 +41,7 @@
   {ondragleave}
   {ondrop}
 >
-  <td {colspan}>
+  <td class="cl-group-row__label">
     <button
       class="cl-group-row__button"
       type="button"
@@ -64,7 +70,14 @@
         <span class="cl-group-row__icon">{@render icon()}</span>
       {/if}
       <strong>{label}</strong>
-      {#if meta}<span class="cl-group-row__meta">{meta}</span>{/if}
     </button>
   </td>
+  {#each fillers as _filler, index (index)}
+    <td></td>
+  {/each}
+  {#if colspan > 1}
+    <td class="cl-group-row__meta-cell">
+      {#if meta}<span class="cl-group-row__meta">{meta}</span>{/if}
+    </td>
+  {/if}
 </tr>
