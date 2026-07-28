@@ -80,114 +80,98 @@
     ondiscard={context.discard}
   >
     {#snippet meta()}
-      <span>{draft.displayName || t('Restaurant profile')}</span>
       <span><i class="dot is-lunch"></i>{t('{count} lunch days', { count: lunchDays })}</span>
       <span><i class="dot is-evening"></i>{t('{count} evening days', { count: eveningDays })}</span>
     {/snippet}
     {#snippet children()}
       <div class="restaurant-workspace">
-        <section class="cl-card profile-card">
-          <div class="profile-layout">
-            <section class="brand-panel" aria-label={t('Restaurant identity')}>
-              <div class="brand-panel__top">
-                <div class="logo-field__preview" class:is-empty={!logoUrl}>
-                  {#if logoUrl}
-                    <img src={logoUrl} alt={t('Restaurant logo')} />
-                  {:else}
-                    <span aria-hidden="true">{(draft.displayName || 'R').charAt(0).toUpperCase()}</span>
-                  {/if}
-                </div>
-                <div class="brand-panel__copy">
-                  <strong>{draft.displayName || t('Restaurant profile')}</strong>
-                  <small>{t('Restaurant identity')}</small>
-                </div>
-              </div>
+        <section class="cl-card identity-card">
+          <div class="identity-head">
+            <div class="logo-tile" class:is-empty={!logoUrl}>
+              {#if logoUrl}
+                <img src={logoUrl} alt={t('Restaurant logo')} />
+              {:else}
+                <span aria-hidden="true">{(draft.displayName || 'R').charAt(0).toUpperCase()}</span>
+              {/if}
+            </div>
 
-              <div class="brand-panel__meta">
+            <div class="identity-head__main">
+              <input
+                class="name-field"
+                aria-label={t('Display name')}
+                placeholder={t('Restaurant name')}
+                bind:value={draft.displayName}
+                oninput={() => restaurantConfig.touch()}
+              />
+              <div class="identity-head__meta">
                 <span>{t('Belgium')}</span>
                 <span>{snapshot?.restaurant_settings.timezone || 'Europe/Brussels'}</span>
                 <span>{snapshot?.restaurant_settings.currency_code || 'EUR'}</span>
               </div>
+            </div>
 
-              {#if canManageLogo}
-                <div class="logo-field__actions">
-                  <input id="restaurant-logo-input" type="file" accept={LOGO_ACCEPT} disabled={logoBusy} onchange={handleLogoChange} />
-                  <label class="cl-btn" for="restaurant-logo-input">{t(logoBusy ? 'Uploading…' : logoUrl ? 'Replace' : 'Upload logo')}</label>
-                  {#if logoUrl}
-                    <button class="cl-btn is-icon" type="button" disabled={logoBusy} title={t('Remove logo')} aria-label={t('Remove logo')} onclick={removeLogo}>×</button>
-                  {/if}
-                </div>
-              {/if}
-              {#if logoError}<em class="logo-error">{logoError}</em>{/if}
+            {#if canManageLogo}
+              <div class="logo-actions">
+                <input id="restaurant-logo-input" type="file" accept={LOGO_ACCEPT} disabled={logoBusy} onchange={handleLogoChange} />
+                <label class="cl-btn" for="restaurant-logo-input">{t(logoBusy ? 'Uploading…' : logoUrl ? 'Replace' : 'Upload logo')}</label>
+                {#if logoUrl}
+                  <button class="cl-btn is-icon" type="button" disabled={logoBusy} title={t('Remove logo')} aria-label={t('Remove logo')} onclick={removeLogo}>×</button>
+                {/if}
+              </div>
+            {/if}
+          </div>
+
+          {#if logoError}<em class="logo-error">{logoError}</em>{/if}
+
+          <div class="identity-fields">
+            <section class="field-group">
+              <span class="field-group__title">{t('Contact')}</span>
+              <div class="field-row is-contact">
+                <label class="cl-label">
+                  <span>{t('Email')}</span>
+                  <input class="cl-field" type="email" bind:value={draft.email} oninput={() => restaurantConfig.touch()} />
+                </label>
+                <label class="cl-label">
+                  <span>{t('Phone')}</span>
+                  <input class="cl-field" bind:value={draft.phone} oninput={() => restaurantConfig.touch()} />
+                </label>
+              </div>
             </section>
 
-            <div class="profile-details">
-              <section class="profile-section">
-                <div class="profile-section__head">
-                  <span class="section-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20v-9l8-6 8 6v9"/><path d="M9 20v-6h6v6"/></svg>
-                  </span>
-                  <strong>{t('Identity and contact')}</strong>
-                </div>
-                <div class="form is-identity">
-                  <label class="cl-label">
-                    <span>{t('Display name')}</span>
-                    <input class="cl-field" bind:value={draft.displayName} oninput={() => restaurantConfig.touch()} />
-                  </label>
-                  <label class="cl-label">
-                    <span>{t('Email')}</span>
-                    <input class="cl-field" type="email" bind:value={draft.email} oninput={() => restaurantConfig.touch()} />
-                  </label>
-                  <label class="cl-label">
-                    <span>{t('Phone')}</span>
-                    <input class="cl-field" bind:value={draft.phone} oninput={() => restaurantConfig.touch()} />
-                  </label>
-                </div>
-              </section>
-
-              <section class="profile-section">
-                <div class="profile-section__head">
-                  <span class="section-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.4"/></svg>
-                  </span>
-                  <strong>{t('Address')}</strong>
-                </div>
-                <div class="form is-address">
-                  <label class="cl-label">
-                    <span>{t('Street and number')}</span>
-                    <input class="cl-field" bind:value={draft.address} oninput={() => restaurantConfig.touch()} />
-                  </label>
-                  <label class="cl-label">
-                    <span>{t('Postal code')}</span>
-                    <input class="cl-field" bind:value={draft.postalCode} oninput={() => restaurantConfig.touch()} />
-                  </label>
-                  <label class="cl-label">
-                    <span>{t('City')}</span>
-                    <input class="cl-field" bind:value={draft.city} oninput={() => restaurantConfig.touch()} />
-                  </label>
-                </div>
-              </section>
-            </div>
+            <section class="field-group">
+              <span class="field-group__title">{t('Address')}</span>
+              <div class="field-row is-address">
+                <label class="cl-label">
+                  <span>{t('Street and number')}</span>
+                  <input class="cl-field" bind:value={draft.address} oninput={() => restaurantConfig.touch()} />
+                </label>
+                <label class="cl-label">
+                  <span>{t('Postal code')}</span>
+                  <input class="cl-field" bind:value={draft.postalCode} oninput={() => restaurantConfig.touch()} />
+                </label>
+                <label class="cl-label">
+                  <span>{t('City')}</span>
+                  <input class="cl-field" bind:value={draft.city} oninput={() => restaurantConfig.touch()} />
+                </label>
+              </div>
+            </section>
           </div>
         </section>
 
         <section class="cl-card hours-card">
+          <div class="cl-card__head">
+            <h3>{t('Opening hours')}</h3>
+          </div>
           <div class="cl-tablewrap hours-wrap">
             <table class="cl-table hours-table">
               <thead>
                 <tr>
                   <th>{t('Day')}</th>
                   <th>
-                    <span class="service-heading">
-                      <i class="is-lunch"></i>
-                      <span>{t('Lunch')}<small>{t('{count} lunch days', { count: lunchDays })}</small></span>
-                    </span>
+                    <span class="service-heading"><i class="is-lunch"></i>{t('Lunch')}</span>
                   </th>
                   <th>
-                    <span class="service-heading">
-                      <i class="is-evening"></i>
-                      <span>{t('Evening')}<small>{t('{count} evening days', { count: eveningDays })}</small></span>
-                    </span>
+                    <span class="service-heading"><i class="is-evening"></i>{t('Evening')}</span>
                   </th>
                 </tr>
               </thead>
@@ -243,75 +227,102 @@
     background: var(--cl-bg);
   }
 
-  .profile-card,
+  .identity-card,
   .hours-card {
     min-width: 0;
     overflow: hidden;
     border-color: var(--cl-line-strong);
   }
 
-  .profile-layout {
+  /* The restaurant leads with its own name and mark, so the identity reads as a
+     heading rather than as one more form field competing with the others. */
+  .identity-head {
     min-width: 0;
     display: grid;
-    grid-template-columns: 224px minmax(0, 1fr);
-  }
-
-  .brand-panel {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    padding: 16px;
-    border-right: 1px solid var(--cl-line);
-    background: linear-gradient(
-      145deg,
-      color-mix(in srgb, var(--cl-accent) 7%, var(--cl-surface-muted)),
-      var(--cl-surface-muted) 68%
-    );
-    box-shadow: inset 3px 0 0 var(--cl-accent);
-  }
-
-  .brand-panel__top {
-    min-width: 0;
-    display: flex;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    gap: 11px;
+    gap: 14px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--cl-line);
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--cl-accent) 4%, var(--cl-surface)),
+      var(--cl-surface) 78%
+    );
   }
 
-  .brand-panel__copy {
+  .identity-head__main {
     min-width: 0;
     display: grid;
     gap: 3px;
   }
 
-  .brand-panel__copy strong {
+  .logo-tile {
+    flex: 0 0 auto;
+    width: 54px;
+    height: 54px;
+    display: grid;
+    place-items: center;
     overflow: hidden;
-    font-size: 14px;
+    border: 1px solid color-mix(in srgb, var(--cl-accent) 22%, var(--cl-line));
+    border-radius: var(--cl-radius);
+    background: color-mix(in srgb, var(--cl-accent) 7%, var(--cl-surface));
+    color: var(--cl-accent);
+    font-size: 22px;
+    font-weight: var(--rst-fw-display);
+  }
+
+  .logo-tile img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  /* Quiet until touched, like every editable cell in the workspace grids. */
+  .name-field {
+    min-width: 0;
+    width: 100%;
+    margin: -4px -8px;
+    padding: 4px 8px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    outline: 0;
+    color: var(--cl-ink);
+    background: transparent;
+    font: inherit;
+    font-size: 19px;
+    font-weight: var(--rst-fw-display);
     text-overflow: ellipsis;
-    white-space: nowrap;
+    transition: border-color var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease);
   }
 
-  .brand-panel__copy small {
-    color: var(--cl-muted);
-    font-size: 10.5px;
+  .name-field:hover {
+    border-color: var(--cl-line);
+    background: var(--cl-surface-muted);
   }
 
-  .brand-panel__meta {
+  .name-field:focus {
+    border-color: var(--cl-accent);
+    background: var(--cl-surface);
+    box-shadow: 0 0 0 2px var(--cl-accent-wash);
+  }
+
+  .identity-head__meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px 10px;
+    gap: 3px 12px;
     color: var(--cl-muted);
-    font-size: 10px;
+    font-size: 11px;
   }
 
-  .brand-panel__meta span {
+  .identity-head__meta span {
     position: relative;
   }
 
-  .brand-panel__meta span + span::before {
+  .identity-head__meta span + span::before {
     content: '';
     position: absolute;
-    left: -6px;
+    left: -7px;
     top: 50%;
     width: 2px;
     height: 2px;
@@ -319,117 +330,13 @@
     background: var(--cl-line-strong);
   }
 
-  .profile-details {
-    min-width: 0;
-    display: grid;
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
-  }
-
-  .profile-section {
-    min-width: 0;
-    display: grid;
-    align-content: start;
-    gap: 10px;
-    padding: 14px 16px 16px;
-  }
-
-  .profile-section + .profile-section {
-    border-left: 1px solid var(--cl-line);
-  }
-
-  .profile-section__head {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    min-height: 22px;
-  }
-
-  .profile-section__head strong {
-    font-size: 11px;
-    letter-spacing: .02em;
-  }
-
-  .section-icon {
-    width: 22px;
-    height: 22px;
-    display: grid;
-    place-items: center;
-    border: 1px solid color-mix(in srgb, var(--cl-accent) 20%, var(--cl-line));
-    border-radius: 6px;
-    background: color-mix(in srgb, var(--cl-accent) 7%, var(--cl-surface));
-    color: var(--cl-accent);
-  }
-
-  .form {
-    display: grid;
-    gap: 9px;
-  }
-
-  .form.is-identity {
-    grid-template-columns: minmax(150px, 1fr) minmax(180px, 1.15fr) minmax(128px, .75fr);
-  }
-
-  .form.is-address {
-    grid-template-columns: minmax(150px, 1.3fr) minmax(92px, .55fr) minmax(120px, .85fr);
-  }
-
-  .profile-details :global(.cl-label > span) {
-    color: color-mix(in srgb, var(--cl-ink) 70%, var(--cl-muted));
-    font-size: 9.5px;
-    font-weight: var(--rst-fw-bold);
-    letter-spacing: .035em;
-    text-transform: uppercase;
-  }
-
-  .profile-details :global(.cl-field) {
-    min-height: 35px;
-    padding-inline: 10px;
-    border-color: color-mix(in srgb, var(--cl-line-strong) 82%, transparent);
-    background: color-mix(in srgb, var(--cl-surface-muted) 62%, var(--cl-surface));
-    font-size: 12px;
-  }
-
-  .profile-details :global(.cl-field:hover) {
-    border-color: color-mix(in srgb, var(--cl-accent) 34%, var(--cl-line-strong));
-    background: var(--cl-surface);
-  }
-
-  .profile-details :global(.cl-field:focus) {
-    border-color: var(--cl-accent);
-    background: var(--cl-surface);
-    outline: 2px solid color-mix(in srgb, var(--cl-accent) 12%, transparent);
-    outline-offset: 1px;
-  }
-
-  .logo-field__preview {
-    flex: 0 0 auto;
-    width: 46px;
-    height: 46px;
-    display: grid;
-    place-items: center;
-    overflow: hidden;
-    border: 1px solid color-mix(in srgb, var(--cl-accent) 26%, var(--cl-line));
-    border-radius: var(--cl-radius);
-    background: color-mix(in srgb, var(--cl-accent) 8%, var(--cl-surface));
-    color: var(--cl-accent);
-    font-size: 19px;
-    font-weight: var(--rst-fw-display);
-  }
-
-  .logo-field__preview img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-  }
-
-  .logo-field__actions {
+  .logo-actions {
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-top: auto;
   }
 
-  .logo-field__actions input {
+  .logo-actions input {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -437,14 +344,67 @@
     clip-path: inset(50%);
   }
 
-  .logo-field__actions .cl-btn:not(.is-icon) {
-    flex: 1;
-    justify-content: center;
+  .identity-fields {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
+  }
+
+  .field-group {
+    min-width: 0;
+    display: grid;
+    align-content: start;
+    gap: 9px;
+    padding: 14px 16px 16px;
+  }
+
+  .field-group + .field-group {
+    border-left: 1px solid var(--cl-line);
+  }
+
+  .field-group__title {
+    color: var(--cl-muted);
+    font-size: 10px;
+    font-weight: var(--rst-fw-bold);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+
+  /* Collapsible minimums: an input's intrinsic width must not hold the track
+     open, or the last field is clipped by the card's hidden overflow. */
+  .field-row {
+    display: grid;
+    gap: 9px;
+  }
+
+  .field-row.is-contact {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, .75fr);
+  }
+
+  .field-row.is-address {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, .5fr) minmax(0, .9fr);
+  }
+
+  .identity-fields :global(.cl-label) {
+    gap: 5px;
+  }
+
+  .identity-fields :global(.cl-label > span) {
+    font-size: 11.5px;
+    font-weight: var(--rst-fw-regular);
+  }
+
+  .identity-fields :global(.cl-field) {
+    min-width: 0;
+    min-height: 35px;
+    padding-inline: 10px;
+    font-size: 12.5px;
   }
 
   .logo-error {
+    margin: 10px 16px 0;
     color: var(--cl-problem);
-    font-size: 10px;
+    font-size: 11px;
     font-style: normal;
     line-height: 1.35;
   }
@@ -577,17 +537,6 @@
     gap: 9px;
   }
 
-  .service-heading > span {
-    display: grid;
-    gap: 1px;
-  }
-
-  .service-heading small {
-    color: var(--cl-muted);
-    font-size: 9px;
-    font-weight: var(--rst-fw-regular);
-  }
-
   .service-heading i {
     width: 7px;
     height: 7px;
@@ -609,22 +558,13 @@
   }
 
   @media (max-width: 1180px) {
-    .profile-layout {
-      grid-template-columns: 190px minmax(0, 1fr);
-    }
-
-    .profile-details {
+    .identity-fields {
       grid-template-columns: minmax(0, 1fr);
     }
 
-    .profile-section + .profile-section {
+    .field-group + .field-group {
       border-top: 1px solid var(--cl-line);
       border-left: 0;
-    }
-
-    .form.is-identity,
-    .form.is-address {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
     .service-hours {
@@ -638,17 +578,17 @@
       padding: 8px;
     }
 
-    .profile-layout {
-      grid-template-columns: minmax(0, 1fr);
+    .identity-head {
+      grid-template-columns: auto minmax(0, 1fr);
+      row-gap: 12px;
     }
 
-    .brand-panel {
-      border-right: 0;
-      border-bottom: 1px solid var(--cl-line);
+    .logo-actions {
+      grid-column: 1 / -1;
     }
 
-    .form.is-identity,
-    .form.is-address {
+    .field-row.is-contact,
+    .field-row.is-address {
       grid-template-columns: minmax(0, 1fr);
     }
 
