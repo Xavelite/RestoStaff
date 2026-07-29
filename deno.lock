@@ -27,6 +27,7 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:@lucide/svelte@^1.27.0",
         "npm:@supabase/supabase-js@^2.108.2",
         "npm:@sveltejs/adapter-static@^3.0.10",
         "npm:@sveltejs/adapter-vercel@^6.3.4",
@@ -35,13 +36,16 @@
         "npm:@types/node@^25.9.3",
         "npm:@types/web-push@^3.6.4",
         "npm:deno@^2.9.3",
+        "npm:jspdf-autotable@^5.0.8",
+        "npm:jspdf@^4.2.1",
         "npm:knip@^5.88.1",
         "npm:pg@^8.22.0",
         "npm:svelte-check@^4.6.0",
         "npm:svelte@^5.56.1",
         "npm:typescript@^6.0.3",
         "npm:vite@^8.0.16",
-        "npm:web-push@^3.6.7"
+        "npm:web-push@^3.6.7",
+        "npm:write-excel-file@^4.1.1"
       ],
       "overrides": {
         "cookie": "0.7.2"

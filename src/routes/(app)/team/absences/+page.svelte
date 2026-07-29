@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Inbox } from '@lucide/svelte';
   import { saveAbsence } from '$lib/api/mutations';
   import { friendlyError } from '$lib/api/error-messages';
   import { type ServiceKey } from '$lib/calendar/date';
@@ -161,7 +162,7 @@
             </thead>
           {/if}
           {#if !rows.length}
-            <tbody><tr><td colspan="6"><div class="cl-empty"><strong>{t('Nothing to review')}</strong><span>{t('Time-off requests appear here as employees send them.')}</span></div></td></tr></tbody>
+            <tbody><tr><td colspan="6"><div class="cl-empty"><span class="cl-empty__icon" aria-hidden="true"><Inbox size={18} /></span><strong>{t('Nothing to review')}</strong><span>{t('Time-off requests appear here as employees send them.')}</span></div></td></tr></tbody>
           {:else}
             {#each groups as group (group.key)}
               <tbody>

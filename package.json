@@ -49,7 +49,11 @@
 		"web-push": "^3.6.7"
 	},
 	"dependencies": {
-		"@supabase/supabase-js": "^2.108.2"
+		"@lucide/svelte": "^1.27.0",
+		"@supabase/supabase-js": "^2.108.2",
+		"jspdf": "^4.2.1",
+		"jspdf-autotable": "^5.0.8",
+		"write-excel-file": "^4.1.1"
 	},
 	"overrides": {
 		"cookie": "0.7.2"

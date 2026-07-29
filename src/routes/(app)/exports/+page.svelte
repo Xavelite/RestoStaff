@@ -1,21 +1,38 @@
 <script lang="ts">
+  import {
+    ArrowRight,
+    CalendarDays,
+    Clock3,
+    FileLock2,
+    LoaderCircle,
+    ShieldCheck
+  } from '@lucide/svelte';
   import { getManagerOperationsReadModel } from '$lib/api/workspace';
   import type { ManagerOperationsReadModel } from '$lib/api/workspace-snapshot';
-  import { addDays, addMonths, dateForWeekday, mondayFor, monthStart, todayInTimezone, weekday } from '$lib/calendar/date';
+  import {
+    addDays,
+    addMonths,
+    dateForWeekday,
+    mondayFor,
+    monthStart,
+    todayInTimezone,
+    weekday
+  } from '$lib/calendar/date';
   import ClassicPage from '$lib/classic/ClassicPage.svelte';
+  import ExportWizard from '$lib/exports/ExportWizard.svelte';
   import { previewSocialSecretariatCsv } from '$lib/exports/export-api';
+  import type { PreparedExport } from '$lib/exports/export-download';
   import {
     getExportOperationsReadModel,
     MAX_EXPORT_DAYS
   } from '$lib/exports/export-read-model';
   import { planningPeriodCsv, workedTimeCsv } from '$lib/exports/export-recipes';
-  import { downloadCsv } from '$lib/exports/csv';
   import { t } from '$lib/i18n/i18n.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
 
   type PeriodPreset = 'this_week' | 'previous_week' | 'this_month' | 'custom';
-  type DownloadKind = 'planning' | 'worked' | 'social' | '';
+  type ExportKind = 'planning' | 'worked' | 'social';
 
   const initialToday = todayInTimezone(
     workspace.bootstrap?.restaurant_settings.timezone || 'Europe/Brussels'
@@ -26,7 +43,9 @@
   let snapshot = $state<ManagerOperationsReadModel | null>(null);
   let loading = $state(false);
   let errorMessage = $state('');
-  let downloading = $state<DownloadKind>('');
+  let preparing = $state<ExportKind | ''>('');
+  let wizardFile = $state<PreparedExport | null>(null);
+  let wizardOpen = $state(false);
 
   const timezone = $derived(
     workspace.bootstrap?.restaurant_settings.timezone || 'Europe/Brussels'
@@ -45,6 +64,7 @@
     );
   });
   const validRange = $derived(validDates && rangeDays <= MAX_EXPORT_DAYS);
+  const periodLabel = $derived(`${fromDate} → ${toDate}`);
   const planningCount = $derived(
     snapshot?.planned_shifts.filter((shift) => {
       const date = dateForWeekday(shift.week_start, shift.weekday);
@@ -124,100 +144,131 @@
     periodPreset = 'custom';
   }
 
-  function downloadPlanning() {
-    if (!snapshot || downloading) return;
-    const file = planningPeriodCsv({
-      snapshot,
-      range: { from: fromDate, to: toDate },
-      translate: t
-    });
-    downloadCsv(file.filename, file.headers, file.rows);
+  function openWizard(file: PreparedExport) {
+    wizardFile = file;
+    wizardOpen = true;
   }
 
-  function downloadWorkedTime() {
-    if (!snapshot || downloading) return;
-    const file = workedTimeCsv({
-      snapshot,
-      range: { from: fromDate, to: toDate },
-      timezone,
-      translate: t
-    });
-    downloadCsv(file.filename, file.headers, file.rows);
-  }
-
-  async function downloadSocialSecretariat() {
-    const restaurantId = workspace.activeId;
-    if (!restaurantId || !owner || !completeWeeks || downloading) return;
-    downloading = 'social';
+  async function configureExport(kind: ExportKind) {
+    if (preparing || !validRange) return;
+    preparing = kind;
     try {
+      if (kind === 'planning') {
+        if (!snapshot) return;
+        openWizard({
+          ...planningPeriodCsv({
+            snapshot,
+            range: { from: fromDate, to: toDate },
+            translate: t
+          }),
+          title: t('Schedule export'),
+          periodLabel
+        });
+        return;
+      }
+      if (kind === 'worked') {
+        if (!snapshot) return;
+        openWizard({
+          ...workedTimeCsv({
+            snapshot,
+            range: { from: fromDate, to: toDate },
+            timezone,
+            translate: t
+          }),
+          title: t('Time and attendance export'),
+          periodLabel
+        });
+        return;
+      }
+
+      const restaurantId = workspace.activeId;
+      if (!restaurantId || !owner || !completeWeeks) return;
       const file = await previewSocialSecretariatCsv({
         restaurantId,
         periodStart: fromDate,
         periodEnd: toDate
       });
-      downloadCsv(file.filename, file.headers, file.rows);
+      openWizard({
+        ...file,
+        title: t('Social-secretariat export'),
+        periodLabel
+      });
       if (!file.approved) {
         toasts.show(
-          t('Draft payroll export downloaded. It has no official lineage until every included week is approved.'),
+          t('This is a draft because one or more included weeks are not approved.'),
           'info'
         );
       }
     } catch (error) {
       toasts.show(error instanceof Error ? error.message : String(error), 'danger');
     } finally {
-      downloading = '';
+      preparing = '';
     }
   }
 </script>
 
 <svelte:head><title>{t('Exports')} &middot; restogogo</title></svelte:head>
 
-{#snippet pageActions()}
-  <label class="period-control">
-    <span>{t('Period')}</span>
-    <select class="cl-field" value={periodPreset} onchange={applyPreset}>
-      <option value="this_week">{t('This week')}</option>
-      <option value="previous_week">{t('Previous week')}</option>
-      <option value="this_month">{t('This month')}</option>
-      <option value="custom">{t('Custom')}</option>
-    </select>
-  </label>
-  <span class="period-divider" aria-hidden="true"></span>
-  <label class="date-control">
-    <span>{t('From')}</span>
-    <input class="cl-field" type="date" bind:value={fromDate} onchange={markCustom} />
-  </label>
-  <span class="date-arrow" aria-hidden="true">&rarr;</span>
-  <label class="date-control">
-    <span>{t('To')}</span>
-    <input class="cl-field" type="date" bind:value={toDate} onchange={markCustom} />
-  </label>
-  {#if loading}<span class="load-state">{t('Refreshing…')}</span>{/if}
-{/snippet}
-
-<ClassicPage actions={pageActions}>
-  {#if !validDates}
-    <div class="cl-card">
-      <div class="cl-empty">
-        <strong>{t('Choose a valid date range')}</strong>
-        <span>{t('The end date must be on or after the start date.')}</span>
-      </div>
-    </div>
-  {:else if !validRange}
-    <div class="cl-card">
-      <div class="cl-empty">
-        <strong>{t('Choose a shorter export period')}</strong>
-        <span>{t('Exports can cover at most 53 weeks.')}</span>
-      </div>
-    </div>
-  {:else}
-    <section class="exports-panel" aria-label={t('Available exports')}>
-      <header class="exports-panel__head">
+<ClassicPage>
+  <section class="export-studio" aria-label={t('Export workspace')}>
+    <aside class="scope-panel">
+      <div class="scope-heading">
+        <span class="scope-icon"><CalendarDays size={18} aria-hidden="true" /></span>
         <div>
-          <strong>{t('Operational files')}</strong>
-          <span>{t('Choose the file you need. Every export uses the selected period.')}</span>
+          <strong>{t('Export period')}</strong>
+          <span>{t('One date range applies to every file.')}</span>
         </div>
-        <span class="range-label">{fromDate} &rarr; {toDate}</span>
+      </div>
+
+      <label class="scope-field quick-range">
+        <span>{t('Quick range')}</span>
+        <select class="cl-field" value={periodPreset} onchange={applyPreset}>
+          <option value="this_week">{t('This week')}</option>
+          <option value="previous_week">{t('Previous week')}</option>
+          <option value="this_month">{t('This month')}</option>
+          <option value="custom">{t('Custom')}</option>
+        </select>
+      </label>
+
+      <div class="date-pair">
+        <label class="scope-field">
+          <span>{t('From')}</span>
+          <input class="cl-field" type="date" bind:value={fromDate} onchange={markCustom} />
+        </label>
+        <label class="scope-field">
+          <span>{t('To')}</span>
+          <input class="cl-field" type="date" bind:value={toDate} onchange={markCustom} />
+        </label>
+      </div>
+
+      <div class="range-summary" class:is-invalid={!validRange}>
+        {#if !validDates}
+          <strong>{t('Check the dates')}</strong>
+          <span>{t('The end date must follow the start date.')}</span>
+        {:else if !validRange}
+          <strong>{t('Range too long')}</strong>
+          <span>{t('Exports can cover at most 53 weeks.')}</span>
+        {:else}
+          <strong>{periodLabel}</strong>
+          <span>{rangeDays} {rangeDays === 1 ? t('day') : t('days')} {t('selected')}</span>
+        {/if}
+      </div>
+
+      <div class="scope-note">
+        <ShieldCheck size={15} aria-hidden="true" />
+        <span>{t('Files are created on your device and are not stored by Restogogo.')}</span>
+      </div>
+    </aside>
+
+    <div class="export-catalog">
+      <header class="catalog-heading">
+        <div>
+          <h2>{t('Choose an export')}</h2>
+          <p>{t('Configure the columns and file format before anything downloads.')}</p>
+        </div>
+        {#if loading}
+          <span class="refreshing"><LoaderCircle size={14} aria-hidden="true" />{t('Refreshing…')}</span>
+        {/if}
       </header>
 
       {#if errorMessage}
@@ -230,214 +281,337 @@
         </div>
       {/if}
 
-      <div class="cl-tablewrap is-unbounded">
-        <table class="cl-table export-table">
-          <thead>
-            <tr>
-              <th>{t('File')}</th>
-              <th>{t('Includes')}</th>
-              <th class="is-num">{t('Records')}</th>
-              <th class="action-col"><span class="sr-only">{t('Action')}</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>
-                <div class="recipe-title">
-                  <span class="recipe-icon is-planning" aria-hidden="true">
-                    <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9.5h16M9 3v4M15 3v4M8 14h3M13 14h3M8 17h5"/></svg>
-                  </span>
-                  <span><strong>{t('Schedule CSV')}</strong><small>{t('Current saved schedule')}</small></span>
-                </div>
-              </td>
-              <td>{t('Employees, services, times, areas and positions.')}</td>
-              <td class="is-num"><span class="record-count">{loading ? '…' : planningCount}</span></td>
-              <td class="action-col">
-                <button
-                  class="cl-btn"
-                  type="button"
-                  disabled={!snapshot || loading || planningCount === 0 || Boolean(downloading)}
-                  onclick={downloadPlanning}
-                >{t('Download CSV')}</button>
-              </td>
-            </tr>
-            <tr>
-              <td>
-                <div class="recipe-title">
-                  <span class="recipe-icon is-worked" aria-hidden="true">
-                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 7.5V12l3 1.8M8 19.2l1.1-2.4M16 19.2l-1.1-2.4"/></svg>
-                  </span>
-                  <span><strong>{t('Worked-time CSV')}</strong><small>{t('Badge and corrected time')}</small></span>
-                </div>
-              </td>
-              <td>{t('Clock times, breaks, net hours and actual assignments.')}</td>
-              <td class="is-num"><span class="record-count">{loading ? '…' : workedCount}</span></td>
-              <td class="action-col">
-                <button
-                  class="cl-btn"
-                  type="button"
-                  disabled={!snapshot || loading || workedCount === 0 || Boolean(downloading)}
-                  onclick={downloadWorkedTime}
-                >{t('Download CSV')}</button>
-              </td>
-            </tr>
-            {#if owner}
-              <tr>
-                <td>
-                  <div class="recipe-title">
-                    <span class="recipe-icon is-payroll" aria-hidden="true">
-                      <svg viewBox="0 0 24 24"><path d="M5 3.8h11l3 3V20H5zM15.5 3.8V8H19M8 12h8M8 15h8M8 18h5"/></svg>
-                    </span>
-                    <span><strong>{t('Social-secretariat CSV')}</strong><small>{t('Owner-only draft')}</small></span>
-                  </div>
-                </td>
-                <td>
-                  {#if completeWeeks}
-                    {t('Payroll identities and worked-time handoff.')}
-                  {:else}
-                    <span class="requirement">{t('Select complete Monday-to-Sunday weeks.')}</span>
-                  {/if}
-                </td>
-                <td class="is-num"><span class="record-count is-neutral">—</span></td>
-                <td class="action-col">
-                  <button
-                    class="cl-btn"
-                    type="button"
-                    disabled={!completeWeeks || Boolean(downloading)}
-                    onclick={downloadSocialSecretariat}
-                  >{downloading === 'social' ? t('Preparing…') : t('Download CSV')}</button>
-                </td>
-              </tr>
-            {/if}
-          </tbody>
-        </table>
+      <div class="recipe-list">
+        <article class="recipe">
+          <span class="recipe-icon is-planning"><CalendarDays size={20} aria-hidden="true" /></span>
+          <div class="recipe-copy">
+            <div class="recipe-title">
+              <strong>{t('Schedule')}</strong>
+              <span class="record-count">{loading ? '…' : planningCount} {t('records')}</span>
+            </div>
+            <p>{t('Employees, service times, areas, positions and planned hours.')}</p>
+            <div class="format-tags" aria-label={t('Available formats')}>
+              <span>XLSX</span><span>PDF</span><span>CSV</span>
+            </div>
+          </div>
+          <button
+            class="configure-button"
+            type="button"
+            disabled={!snapshot || loading || planningCount === 0 || !validRange || Boolean(preparing)}
+            onclick={() => configureExport('planning')}
+          >
+            {preparing === 'planning' ? t('Preparing…') : t('Configure')}
+            {#if preparing === 'planning'}<LoaderCircle class="spin" size={15} aria-hidden="true" />{:else}<ArrowRight size={15} aria-hidden="true" />{/if}
+          </button>
+        </article>
+
+        <article class="recipe">
+          <span class="recipe-icon is-worked"><Clock3 size={20} aria-hidden="true" /></span>
+          <div class="recipe-copy">
+            <div class="recipe-title">
+              <strong>{t('Time and attendance')}</strong>
+              <span class="record-count">{loading ? '…' : workedCount} {t('records')}</span>
+            </div>
+            <p>{t('Clock times, breaks, net hours and actual assignments.')}</p>
+            <div class="format-tags" aria-label={t('Available formats')}>
+              <span>XLSX</span><span>PDF</span><span>CSV</span>
+            </div>
+          </div>
+          <button
+            class="configure-button"
+            type="button"
+            disabled={!snapshot || loading || workedCount === 0 || !validRange || Boolean(preparing)}
+            onclick={() => configureExport('worked')}
+          >
+            {preparing === 'worked' ? t('Preparing…') : t('Configure')}
+            {#if preparing === 'worked'}<LoaderCircle class="spin" size={15} aria-hidden="true" />{:else}<ArrowRight size={15} aria-hidden="true" />{/if}
+          </button>
+        </article>
+
+        {#if owner}
+          <article class="recipe">
+            <span class="recipe-icon is-payroll"><FileLock2 size={20} aria-hidden="true" /></span>
+            <div class="recipe-copy">
+              <div class="recipe-title">
+                <strong>{t('Social secretariat')}</strong>
+                <span class="owner-tag">{t('Owner only')}</span>
+              </div>
+              <p>
+                {#if completeWeeks}
+                  {t('Payroll identities and worked-time handoff for complete approved weeks.')}
+                {:else}
+                  <span class="requirement">{t('Select complete Monday-to-Sunday weeks to prepare this file.')}</span>
+                {/if}
+              </p>
+              <div class="format-tags" aria-label={t('Available formats')}>
+                <span>XLSX</span><span>PDF</span><span>CSV</span>
+              </div>
+            </div>
+            <button
+              class="configure-button"
+              type="button"
+              disabled={!completeWeeks || Boolean(preparing)}
+              onclick={() => configureExport('social')}
+            >
+              {preparing === 'social' ? t('Preparing…') : t('Configure')}
+              {#if preparing === 'social'}<LoaderCircle class="spin" size={15} aria-hidden="true" />{:else}<ArrowRight size={15} aria-hidden="true" />{/if}
+            </button>
+          </article>
+        {/if}
       </div>
-    </section>
-  {/if}
+    </div>
+  </section>
 </ClassicPage>
 
+<ExportWizard
+  open={wizardOpen}
+  file={wizardFile}
+  onclose={() => {
+    wizardOpen = false;
+    wizardFile = null;
+  }}
+/>
+
 <style>
-  .period-control,
-  .date-control {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    color: var(--cl-muted);
-    font-size: 11px;
-    font-weight: var(--rst-fw-bold);
-  }
-  .period-control .cl-field { width: 136px; }
-  .date-control .cl-field { width: 142px; font-variant-numeric: tabular-nums; }
-  .period-divider { width: 1px; height: 20px; margin-inline: 3px; background: var(--cl-line); }
-  .date-arrow { color: var(--cl-line-strong); font-size: 13px; }
-  .load-state {
-    margin-left: auto;
-    color: var(--cl-muted);
-    font-size: 11px;
-    font-weight: var(--rst-fw-medium);
-  }
-  .exports-panel {
+  .export-studio {
+    min-height: min(650px, calc(100dvh - 148px));
     display: grid;
-    gap: 10px;
-  }
-  .exports-panel__head {
-    min-height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-  }
-  .exports-panel__head > div { display: grid; gap: 2px; }
-  .exports-panel__head strong { color: var(--cl-ink); font-size: 14px; }
-  .exports-panel__head span { color: var(--cl-muted); font-size: 12px; }
-  .operational-error {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 5px 10px;
-    padding: 9px 12px;
-    border: 1px solid color-mix(in srgb, var(--cl-problem) 32%, var(--cl-line));
-    border-radius: var(--cl-radius);
-    background: color-mix(in srgb, var(--cl-problem) 4%, var(--cl-surface));
-    color: var(--cl-muted);
-    font-size: 11.5px;
-  }
-  .operational-error strong { color: var(--cl-problem); }
-  .range-label {
-    padding: 5px 8px;
+    grid-template-columns: minmax(240px, 278px) minmax(0, 1fr);
+    overflow: hidden;
     border: 1px solid var(--cl-line);
-    border-radius: 6px;
+    border-radius: var(--cl-radius);
     background: var(--cl-surface);
-    color: var(--cl-muted) !important;
-    font-size: 11px !important;
-    font-variant-numeric: tabular-nums;
-    font-weight: var(--rst-fw-medium);
   }
-  .export-table td { height: 68px; vertical-align: middle; }
-  .export-table td:nth-child(2) { color: var(--cl-muted); }
-  .export-table .action-col { width: 146px; text-align: right; }
-  .recipe-title {
+  .scope-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 24px 20px;
+    border-right: 1px solid var(--cl-line);
+    background: color-mix(in srgb, var(--cl-surface-muted) 62%, var(--cl-surface));
+  }
+  .scope-heading {
     display: flex;
     align-items: center;
-    gap: 11px;
-    min-width: 220px;
+    gap: 10px;
+    padding-bottom: 4px;
   }
-  .recipe-title > span:last-child { display: grid; gap: 2px; }
-  .recipe-title strong { color: var(--cl-ink); font-size: 13px; }
-  .recipe-title small { color: var(--cl-muted); font-size: 10.5px; }
-  .recipe-icon {
-    --recipe-color: var(--cl-muted);
-    width: 34px;
-    height: 34px;
+  .scope-icon {
+    width: 36px;
+    height: 36px;
     flex: 0 0 auto;
     display: grid;
     place-items: center;
-    border: 1px solid color-mix(in srgb, var(--recipe-color) 24%, var(--cl-line));
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--recipe-color) 8%, var(--cl-surface));
-    color: var(--recipe-color);
+    border-radius: 7px;
+    color: var(--cl-accent);
+    background: color-mix(in srgb, var(--cl-accent) 10%, var(--cl-surface));
   }
-  .recipe-icon svg {
-    width: 18px;
-    height: 18px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.65;
-    stroke-linecap: round;
-    stroke-linejoin: round;
+  .scope-heading > div { display: grid; gap: 2px; }
+  .scope-heading strong { color: var(--cl-ink); font-size: 13px; }
+  .scope-heading span { color: var(--cl-muted); font-size: 10.5px; line-height: 1.35; }
+  .scope-field { display: grid; gap: 6px; }
+  .scope-field > span {
+    color: var(--cl-muted);
+    font-size: 10.5px;
+    font-weight: var(--rst-fw-bold);
+    text-transform: uppercase;
+  }
+  .scope-field .cl-field { width: 100%; min-width: 0; font-size: 12.5px; }
+  .date-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .date-pair .cl-field { padding-inline: 8px; font-size: 11.5px; }
+  .range-summary {
+    display: grid;
+    gap: 3px;
+    padding: 11px 12px;
+    border-left: 3px solid var(--cl-accent);
+    background: color-mix(in srgb, var(--cl-accent) 5%, var(--cl-surface));
+  }
+  .range-summary strong {
+    color: var(--cl-ink);
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .range-summary span { color: var(--cl-muted); font-size: 10.5px; }
+  .range-summary.is-invalid {
+    border-left-color: var(--cl-problem);
+    background: color-mix(in srgb, var(--cl-problem) 5%, var(--cl-surface));
+  }
+  .scope-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid var(--cl-line);
+    color: var(--cl-muted);
+    font-size: 10.5px;
+    line-height: 1.45;
+  }
+  .scope-note :global(svg) { flex: 0 0 auto; margin-top: 1px; color: var(--cl-positive); }
+  .export-catalog {
+    min-width: 0;
+    display: grid;
+    align-content: start;
+    gap: 18px;
+    padding: 26px 28px;
+  }
+  .catalog-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .catalog-heading h2, .catalog-heading p { margin: 0; }
+  .catalog-heading h2 { color: var(--cl-ink); font-size: 17px; }
+  .catalog-heading p { margin-top: 4px; color: var(--cl-muted); font-size: 12px; }
+  .refreshing {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--cl-muted);
+    font-size: 10.5px;
+  }
+  .refreshing :global(svg), :global(.spin) { animation: spin 800ms linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .operational-error {
+    display: grid;
+    gap: 4px;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--cl-problem) 30%, var(--cl-line));
+    border-radius: var(--cl-radius);
+    background: color-mix(in srgb, var(--cl-problem) 4%, var(--cl-surface));
+    color: var(--cl-muted);
+    font-size: 11px;
+  }
+  .operational-error strong { color: var(--cl-problem); }
+  .recipe-list { border-top: 1px solid var(--cl-line); }
+  .recipe {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    min-height: 126px;
+    padding: 18px 2px;
+    border-bottom: 1px solid var(--cl-line);
+  }
+  .recipe-icon {
+    --recipe-color: var(--cl-muted);
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--recipe-color) 20%, var(--cl-line));
+    border-radius: 8px;
+    color: var(--recipe-color);
+    background: color-mix(in srgb, var(--recipe-color) 7%, var(--cl-surface));
   }
   .recipe-icon.is-planning { --recipe-color: var(--cl-mod-schedule); }
   .recipe-icon.is-worked { --recipe-color: var(--cl-mod-time); }
   .recipe-icon.is-payroll { --recipe-color: var(--cl-mod-payroll); }
-  .record-count {
-    display: inline-grid;
-    min-width: 28px;
-    height: 24px;
-    place-items: center;
-    padding-inline: 7px;
-    border-radius: 999px;
-    background: var(--cl-surface-muted);
-    color: var(--cl-ink);
-    font-size: 12px;
-    font-weight: var(--rst-fw-bold);
-    font-variant-numeric: tabular-nums;
+  .recipe-copy { min-width: 0; display: grid; gap: 5px; }
+  .recipe-title { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .recipe-title strong { color: var(--cl-ink); font-size: 14px; }
+  .recipe-copy p {
+    margin: 0;
+    color: var(--cl-muted);
+    font-size: 11.5px;
+    line-height: 1.4;
   }
-  .record-count.is-neutral { color: var(--cl-muted); }
+  .record-count, .owner-tag {
+    color: var(--cl-muted);
+    font-size: 10px;
+    font-weight: var(--rst-fw-bold);
+  }
+  .record-count::before { content: '·'; margin-right: 8px; color: var(--cl-line-strong); }
+  .owner-tag {
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--cl-mod-payroll);
+    background: color-mix(in srgb, var(--cl-mod-payroll) 9%, var(--cl-surface));
+  }
+  .format-tags { display: flex; gap: 5px; margin-top: 3px; }
+  .format-tags span {
+    padding: 2px 5px;
+    border: 1px solid var(--cl-line);
+    border-radius: 3px;
+    color: var(--cl-muted);
+    background: var(--cl-surface);
+    font-size: 8.5px;
+    font-weight: var(--rst-fw-bold);
+  }
   .requirement { color: var(--cl-attention); font-weight: var(--rst-fw-medium); }
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
+  .configure-button {
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 11px;
+    border: 1px solid var(--cl-line-strong);
+    border-radius: var(--cl-radius);
+    color: var(--cl-ink);
+    background: var(--cl-surface);
+    font: inherit;
+    font-size: 11.5px;
+    font-weight: var(--rst-fw-bold);
+    cursor: pointer;
+  }
+  .configure-button:hover:not(:disabled) {
+    border-color: var(--cl-accent);
+    color: var(--cl-accent);
+    background: color-mix(in srgb, var(--cl-accent) 4%, var(--cl-surface));
+  }
+  .configure-button:disabled {
+    border-color: var(--cl-line);
+    color: var(--cl-muted);
+    background: var(--cl-surface-muted);
+    cursor: default;
+  }
+  @media (max-width: 980px) {
+    .export-studio { grid-template-columns: minmax(0, 1fr); }
+    .scope-panel {
+      display: grid;
+      grid-template-columns: minmax(180px, 1.2fr) minmax(150px, .8fr) minmax(260px, 1.2fr);
+      align-items: end;
+      padding: 16px;
+      border-right: 0;
+      border-bottom: 1px solid var(--cl-line);
+    }
+    .scope-heading { align-self: center; }
+    .scope-note, .range-summary { display: none; }
   }
   @media (max-width: 760px) {
-    .exports-panel__head { align-items: flex-start; }
-    .range-label { display: none; }
-    .export-table td:nth-child(2), .export-table th:nth-child(2) { display: none; }
+    .export-studio {
+      min-height: 0;
+      margin: -8px;
+      overflow: visible;
+      border: 0;
+      background: transparent;
+    }
+    .scope-panel {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid var(--cl-line);
+      border-radius: var(--cl-radius);
+    }
+    .scope-heading { padding-bottom: 2px; }
+    .scope-field.quick-range { display: none; }
+    .date-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .range-summary { display: grid; }
+    .export-catalog { gap: 12px; padding: 20px 4px 0; }
+    .catalog-heading h2 { font-size: 15px; }
+    .recipe {
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 10px;
+      min-height: 0;
+      padding: 16px 2px;
+    }
+    .recipe-icon { width: 38px; height: 38px; }
+    .configure-button {
+      grid-column: 1 / -1;
+      width: 100%;
+      justify-content: center;
+    }
   }
 </style>

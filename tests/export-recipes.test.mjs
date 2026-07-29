@@ -13,6 +13,14 @@ const snapshot = {
   ],
   work_areas: [{ id: 'area-1', name: 'Dining room' }],
   job_functions: [{ id: 'position-1', name: 'Waiter' }],
+  weekly_notes: [
+    {
+      week_start: '2026-07-27',
+      weekday: 2,
+      service_key: 'lunch',
+      note: 'Private event'
+    }
+  ],
   planned_shifts: [
     {
       id: 'shift-1',
@@ -82,10 +90,11 @@ test('planning period export uses the saved plan and filters by business date', 
     'Planned end',
     'Planned hours',
     'Area',
-    'Position'
+    'Position',
+    'Note'
   ]);
   assert.deepEqual(file.rows, [
-    ['Amélie Laurent', '2026-07-28', 'Lunch', '12:00', '20:00', '8.00', 'Dining room', 'Waiter']
+    ['Amélie Laurent', '2026-07-28', 'Lunch', '12:00', '20:00', '8.00', 'Dining room', 'Waiter', 'Private event']
   ]);
 });
 

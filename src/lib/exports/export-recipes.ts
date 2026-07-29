@@ -52,7 +52,23 @@ export function planningPeriodCsv(input: {
   const positionName = new Map(
     input.snapshot.job_functions.map((position) => [position.id, position.name])
   );
-  const columns = ['employee', 'date', 'service', 'start', 'end', 'hours', 'area', 'position'];
+  const noteFor = new Map(
+    input.snapshot.weekly_notes.map((note) => [
+      `${note.week_start}|${note.weekday}|${note.service_key}`,
+      note.note
+    ])
+  );
+  const columns = [
+    'employee',
+    'date',
+    'service',
+    'start',
+    'end',
+    'hours',
+    'area',
+    'position',
+    'note'
+  ];
   const shifts = input.snapshot.planned_shifts
     .map((shift) => ({ shift, date: plannedDate(shift) }))
     .filter(({ date }) => inRange(date, input.range))
@@ -76,7 +92,8 @@ export function planningPeriodCsv(input: {
       String(shift.ends_at ?? '').slice(0, 5),
       decimalHours(hoursBetweenClocks(shift.starts_at, shift.ends_at)),
       areaName.get(shift.area_id ?? '') ?? '',
-      positionName.get(shift.job_function_id ?? '') ?? ''
+      positionName.get(shift.job_function_id ?? '') ?? '',
+      noteFor.get(`${shift.week_start}|${shift.weekday}|${shift.service_key}`) ?? ''
     ])
   };
 }

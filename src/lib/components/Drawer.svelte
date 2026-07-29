@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { X } from '@lucide/svelte';
   import { tick } from 'svelte';
   import type { Snippet } from 'svelte';
   import { portal } from '$lib/actions/portal';
@@ -82,7 +83,9 @@
           <h2 id="drawer-title">{t(title)}</h2>
           {#if description}<p>{t(description)}</p>{/if}
         </div>
-        <button type="button" aria-label={t('Close panel')} onclick={onclose}>×</button>
+        <button type="button" aria-label={t('Close panel')} title={t('Close panel')} onclick={onclose}>
+          <X size={19} strokeWidth={1.8} aria-hidden="true" />
+        </button>
       </header>
       {#if tabs}<div class="drawer-tabs">{@render tabs()}</div>{/if}
       <div class="drawer-body">{@render children()}</div>
@@ -134,7 +137,7 @@
     gap: 20px;
     padding: 18px 22px;
     border-bottom: 1px solid var(--rst-ui-divider-soft);
-    background: var(--rst-ui-surface-panel-head);
+    background: var(--rst-ui-surface-panel);
   }
 
   h2, p { margin: 0; }
@@ -142,22 +145,28 @@
   p { margin-top: 4px; color: var(--rst-ui-muted); font-size: 12px; }
 
   header button {
-    width: 34px;
-    height: 34px;
+    width: 32px;
+    height: 32px;
     flex: 0 0 auto;
-    border: 1px solid var(--rst-ui-line);
-    border-radius: var(--rst-ui-radius-md);
-    color: var(--rst-ui-text);
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    color: var(--rst-ui-muted);
     background: transparent;
     font: inherit;
-    font-size: 22px;
     cursor: pointer;
+  }
+  header button:hover {
+    color: var(--rst-ui-text);
+    background: var(--rst-ui-hover-bg);
   }
 
   .drawer-tabs {
     padding: 0 22px;
     border-bottom: 1px solid var(--rst-ui-divider-soft);
-    background: var(--rst-ui-surface-panel-head);
+    background: var(--rst-ui-surface-panel);
   }
 
   .drawer-body {
@@ -173,12 +182,16 @@
     padding: 12px 22px;
     padding-bottom: max(12px, env(safe-area-inset-bottom));
     border-top: 1px solid var(--rst-ui-divider-soft);
-    background: var(--rst-ui-surface-panel-head);
+    background: var(--rst-ui-surface-panel);
   }
 
   @media (max-width: 760px) {
     .drawer {
       width: 100%;
     }
+    header { padding: 15px 16px; }
+    .drawer-tabs { padding-inline: 16px; }
+    .drawer-body { padding: 16px; }
+    footer { padding-inline: 16px; }
   }
 </style>

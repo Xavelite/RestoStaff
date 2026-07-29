@@ -306,9 +306,12 @@ test('Exports is a standalone manager module beside Reports', async () => {
   assert.match(exportsPage, /MAX_EXPORT_DAYS/);
   assert.match(exportsPage, /previewSocialSecretariatCsv/);
   assert.match(exportsPage, /workspace\.effectiveRole === 'owner'/);
-  assert.match(exportsPage, /disabled=\{!completeWeeks \|\| Boolean\(downloading\)\}/);
+  assert.match(exportsPage, /disabled=\{!completeWeeks \|\| Boolean\(preparing\)\}/);
   assert.match(exportsPage, /social-secretariat file remains available/);
-  assert.match(exportsPage, /downloadCsv/);
+  assert.match(exportsPage, /ExportWizard/);
+  assert.match(exportsPage, /configureExport\('planning'\)/);
+  assert.match(exportsPage, /configureExport\('worked'\)/);
+  assert.match(exportsPage, /configureExport\('social'\)/);
 });
 
 test('restaurant coverage stages only a complete weekday row, in place, before shared save', async () => {

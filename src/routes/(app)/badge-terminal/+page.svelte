@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { TabletSmartphone } from '@lucide/svelte';
   import ActionButton from '$lib/components/ActionButton.svelte';
   import Dialog from '$lib/components/Dialog.svelte';
   import {
@@ -138,6 +139,7 @@
               <tr>
                 <td colspan="5">
                   <div class="cl-empty">
+                    <span class="cl-empty__icon" aria-hidden="true"><TabletSmartphone size={18} /></span>
                     <strong>{t('No paired devices')}</strong>
                     <span>{t('Pair a tablet to run the badge terminal without signing anyone in.')}</span>
                   </div>

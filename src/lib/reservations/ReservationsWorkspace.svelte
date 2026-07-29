@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { CalendarX2, MapPinned } from '@lucide/svelte';
   import { onMount } from 'svelte';
   import { addDays, clockLabel, serviceLabel, todayInTimezone } from '$lib/calendar/date';
   import Dialog from '$lib/components/Dialog.svelte';
@@ -726,6 +727,7 @@
           </div>
         {:else}
           <div class="cl-empty">
+            <span class="cl-empty__icon" aria-hidden="true"><MapPinned size={18} /></span>
             <strong>{t('No reservable room yet')}</strong>
             <span>{t('Set up areas in Restaurant → Areas, then add tables in Reservations → Tables.')}</span>
             <a class="cl-btn is-primary" href="/reservations/floor-plans">{t('Open Tables')}</a>
@@ -826,6 +828,7 @@
             <tr>
               <td colspan="8">
                 <div class="cl-empty">
+                  <span class="cl-empty__icon" aria-hidden="true"><CalendarX2 size={18} /></span>
                   <strong>{t('No reservations for this view')}</strong>
                   <span>{t('Add a phone booking or change the service, status or search filter.')}</span>
                 </div>

@@ -5105,3 +5105,157 @@ Object.assign(dutch, {
   'This joinable table set already exists.':
     'Deze koppelbare tafelset bestaat al.'
 });
+
+Object.assign(french, {
+  'Export workspace': "Espace d'export",
+  'Export period': "Période d'export",
+  'One date range applies to every file.': 'Une seule période s’applique à tous les fichiers.',
+  'Quick range': 'Période rapide',
+  'Check the dates': 'Vérifiez les dates',
+  'The end date must follow the start date.': 'La date de fin doit suivre la date de début.',
+  'Range too long': 'Période trop longue',
+  day: 'jour',
+  days: 'jours',
+  selected: 'sélectionnés',
+  'Files are created on your device and are not stored by Restogogo.':
+    'Les fichiers sont créés sur votre appareil et ne sont pas conservés par Restogogo.',
+  'Choose an export': 'Choisissez un export',
+  'Configure the columns and file format before anything downloads.':
+    'Configurez les colonnes et le format avant tout téléchargement.',
+  records: 'enregistrements',
+  'Employees, service times, areas, positions and planned hours.':
+    'Employés, horaires de service, zones, fonctions et heures planifiées.',
+  'Available formats': 'Formats disponibles',
+  Configure: 'Configurer',
+  'Time and attendance': 'Temps et présences',
+  'Social secretariat': 'Secrétariat social',
+  'Owner only': 'Propriétaire uniquement',
+  'Payroll identities and worked-time handoff for complete approved weeks.':
+    'Identités de paie et heures prestées pour les semaines complètes approuvées.',
+  'Select complete Monday-to-Sunday weeks to prepare this file.':
+    'Sélectionnez des semaines complètes du lundi au dimanche pour préparer ce fichier.',
+  'Time and attendance export': 'Export des temps et présences',
+  'Social-secretariat export': 'Export pour le secrétariat social',
+  'This is a draft because one or more included weeks are not approved.':
+    'Ceci est un brouillon car une ou plusieurs semaines ne sont pas approuvées.',
+  'Your export is ready.': 'Votre export est prêt.',
+  'The export could not be created.': "L’export n’a pas pu être créé.",
+  'Configure export': "Configurer l'export",
+  'Export steps': "Étapes de l'export",
+  'Choose columns': 'Choisir les colonnes',
+  'Content and order': 'Contenu et ordre',
+  'Format and preview': 'Format et aperçu',
+  'Check the final file': 'Vérifier le fichier final',
+  'What should the file include?': 'Que doit contenir le fichier ?',
+  'Choose the columns to export and arrange them in the order you need.':
+    'Choisissez les colonnes à exporter et placez-les dans l’ordre souhaité.',
+  Reset: 'Réinitialiser',
+  'columns selected': 'colonnes sélectionnées',
+  'records in the selected period': 'enregistrements dans la période sélectionnée',
+  'Clear all': 'Tout effacer',
+  'Select all': 'Tout sélectionner',
+  Column: 'Colonne',
+  'How will you use this file?': 'Comment utiliserez-vous ce fichier ?',
+  'Choose a format, then review a sample before downloading.':
+    'Choisissez un format, puis vérifiez un aperçu avant le téléchargement.',
+  Excel: 'Excel',
+  'Editable spreadsheet with styled headers.':
+    'Tableur modifiable avec des en-têtes mis en forme.',
+  PDF: 'PDF',
+  'Polished document for printing or sharing.':
+    'Document soigné pour l’impression ou le partage.',
+  CSV: 'CSV',
+  'Universal data file for other systems.':
+    'Fichier de données universel pour les autres systèmes.',
+  'File preview': 'Aperçu du fichier',
+  columns: 'colonnes',
+  'There are no records in this period.': 'Aucun enregistrement pour cette période.',
+  'Showing the first 6 records. The download includes all records.':
+    'Les 6 premiers enregistrements sont affichés. Le téléchargement les inclut tous.',
+  'Nothing is downloaded until the final step.':
+    'Aucun fichier n’est téléchargé avant la dernière étape.',
+  'Ready to create': 'Prêt à créer',
+  Back: 'Retour',
+  Continue: 'Continuer',
+  'Creating file…': 'Création du fichier…',
+  'Download file': 'Télécharger le fichier',
+  'This action needs confirmation': 'Cette action doit être confirmée',
+  'Confirm this action': 'Confirmez cette action'
+});
+
+Object.assign(dutch, {
+  'Export workspace': 'Exportwerkruimte',
+  'Export period': 'Exportperiode',
+  'One date range applies to every file.': 'Eén datumbereik geldt voor elk bestand.',
+  'Quick range': 'Snelle periode',
+  'Check the dates': 'Controleer de datums',
+  'The end date must follow the start date.': 'De einddatum moet na de begindatum liggen.',
+  'Range too long': 'Periode te lang',
+  day: 'dag',
+  days: 'dagen',
+  selected: 'geselecteerd',
+  'Files are created on your device and are not stored by Restogogo.':
+    'Bestanden worden op je toestel gemaakt en niet door Restogogo bewaard.',
+  'Choose an export': 'Kies een export',
+  'Configure the columns and file format before anything downloads.':
+    'Stel de kolommen en het bestandsformaat in voor er iets wordt gedownload.',
+  records: 'registraties',
+  'Employees, service times, areas, positions and planned hours.':
+    'Medewerkers, diensttijden, zones, functies en geplande uren.',
+  'Available formats': 'Beschikbare formaten',
+  Configure: 'Instellen',
+  'Time and attendance': 'Tijd en aanwezigheid',
+  'Social secretariat': 'Sociaal secretariaat',
+  'Owner only': 'Alleen eigenaar',
+  'Payroll identities and worked-time handoff for complete approved weeks.':
+    'Loonidentiteiten en gewerkte tijd voor volledige goedgekeurde weken.',
+  'Select complete Monday-to-Sunday weeks to prepare this file.':
+    'Selecteer volledige weken van maandag tot zondag om dit bestand voor te bereiden.',
+  'Time and attendance export': 'Export tijd en aanwezigheid',
+  'Social-secretariat export': 'Export sociaal secretariaat',
+  'This is a draft because one or more included weeks are not approved.':
+    'Dit is een concept omdat één of meer opgenomen weken niet zijn goedgekeurd.',
+  'Your export is ready.': 'Je export is klaar.',
+  'The export could not be created.': 'De export kon niet worden gemaakt.',
+  'Configure export': 'Export instellen',
+  'Export steps': 'Exportstappen',
+  'Choose columns': 'Kolommen kiezen',
+  'Content and order': 'Inhoud en volgorde',
+  'Format and preview': 'Formaat en voorbeeld',
+  'Check the final file': 'Controleer het uiteindelijke bestand',
+  'What should the file include?': 'Wat moet het bestand bevatten?',
+  'Choose the columns to export and arrange them in the order you need.':
+    'Kies de kolommen en zet ze in de gewenste volgorde.',
+  Reset: 'Herstellen',
+  'columns selected': 'kolommen geselecteerd',
+  'records in the selected period': 'registraties in de geselecteerde periode',
+  'Clear all': 'Alles wissen',
+  'Select all': 'Alles selecteren',
+  Column: 'Kolom',
+  'How will you use this file?': 'Hoe ga je dit bestand gebruiken?',
+  'Choose a format, then review a sample before downloading.':
+    'Kies een formaat en controleer een voorbeeld vóór het downloaden.',
+  Excel: 'Excel',
+  'Editable spreadsheet with styled headers.':
+    'Bewerkbaar rekenblad met opgemaakte kolomkoppen.',
+  PDF: 'PDF',
+  'Polished document for printing or sharing.':
+    'Verzorgd document om af te drukken of te delen.',
+  CSV: 'CSV',
+  'Universal data file for other systems.':
+    'Universeel gegevensbestand voor andere systemen.',
+  'File preview': 'Bestandsvoorbeeld',
+  columns: 'kolommen',
+  'There are no records in this period.': 'Er zijn geen registraties in deze periode.',
+  'Showing the first 6 records. The download includes all records.':
+    'De eerste 6 registraties worden getoond. De download bevat alle registraties.',
+  'Nothing is downloaded until the final step.':
+    'Er wordt niets gedownload vóór de laatste stap.',
+  'Ready to create': 'Klaar om te maken',
+  Back: 'Terug',
+  Continue: 'Doorgaan',
+  'Creating file…': 'Bestand maken…',
+  'Download file': 'Bestand downloaden',
+  'This action needs confirmation': 'Deze actie moet worden bevestigd',
+  'Confirm this action': 'Bevestig deze actie'
+});

@@ -36,11 +36,10 @@
   button:hover:not(:disabled) {
     border-color: var(--rst-ui-line-strong);
     background: var(--rst-ui-hover-bg);
-    transform: translateY(-1px);
   }
 
   button:active:not(:disabled) {
-    transform: translateY(0) scale(.97);
+    filter: brightness(.98);
   }
 
   button.is-primary {
@@ -50,7 +49,8 @@
   }
 
   button.is-primary:hover:not(:disabled) {
-    box-shadow: 0 6px 18px rgba(var(--rst-ui-action-rgb), .38);
+    border-color: color-mix(in srgb, var(--rst-ui-action) 88%, #000);
+    background: color-mix(in srgb, var(--rst-ui-action) 88%, #000);
   }
 
   button.is-danger {

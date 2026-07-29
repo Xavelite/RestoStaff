@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { X } from '@lucide/svelte';
   import { tick } from 'svelte';
   import type { Snippet } from 'svelte';
   import { portal } from '$lib/actions/portal';
@@ -56,6 +57,10 @@
     if (!open) return;
     let cancelled = false;
     let focusFrame = 0;
+    const previousDocumentOverflow = document.documentElement.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
     returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     void tick().then(async () => {
       await tick();
@@ -74,6 +79,8 @@
     return () => {
       cancelled = true;
       cancelAnimationFrame(focusFrame);
+      document.documentElement.style.overflow = previousDocumentOverflow;
+      document.body.style.overflow = previousBodyOverflow;
       returnFocus?.focus();
       returnFocus = null;
     };
@@ -90,7 +97,9 @@
           <h2 id="dialog-title">{t(title)}</h2>
           {#if description}<p>{t(description)}</p>{/if}
         </div>
-        <button type="button" aria-label={t('Close dialog')} onclick={onclose}>×</button>
+        <button type="button" aria-label={t('Close dialog')} title={t('Close dialog')} onclick={onclose}>
+          <X size={18} strokeWidth={1.8} aria-hidden="true" />
+        </button>
       </header>
       <div class="body">{@render children()}</div>
       {#if footer}<footer>{@render footer()}</footer>{/if}
@@ -105,68 +114,118 @@
     inset: 0;
     display: grid;
     place-items: center;
-    padding: 20px;
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+      max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
     background: var(--rst-overlay-bg);
     background: color-mix(in srgb, var(--rst-overlay-bg) 92%, transparent);
-    backdrop-filter: blur(2px);
+    backdrop-filter: blur(4px);
+    animation: rst-dialog-backdrop-in 160ms ease-out backwards;
   }
   .dialog {
     position: static;
     margin: 0;
     padding: 0;
     width: min(100%, 620px);
-    max-height: min(88vh, 900px);
-    overflow: auto;
+    max-height: min(90dvh, 900px);
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    overflow: hidden;
     border: 1px solid var(--cl-line-strong, var(--rst-ui-line-strong));
-    border-radius: 7px;
+    border-radius: 8px;
     background: var(--cl-surface, var(--rst-ui-surface-panel));
-    box-shadow: 0 24px 70px rgb(15 23 42 / .24), 0 2px 8px rgb(15 23 42 / .1);
+    box-shadow: 0 30px 80px rgb(15 23 42 / .28), 0 3px 12px rgb(15 23 42 / .12);
+    animation: rst-dialog-in 190ms cubic-bezier(.16, 1, .3, 1) backwards;
   }
   .dialog.is-small { width: min(100%, 440px); }
   .dialog.is-large { width: min(100%, 1040px); }
   header {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    min-height: 58px;
+    min-height: 64px;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 20px;
-    padding: 12px 16px;
+    padding: 16px 20px;
     border-bottom: 1px solid var(--cl-line, var(--rst-ui-divider-soft));
-    background: var(--cl-thead, var(--rst-ui-surface-panel-head));
+    background: var(--cl-surface, var(--rst-ui-surface-panel));
   }
   h2, p { margin: 0; }
-  h2 { color: var(--cl-ink, var(--rst-ui-text)); font-size: 17px; line-height: 1.2; }
-  p { margin-top: 3px; color: var(--cl-muted, var(--rst-ui-muted)); font-size: 11.5px; }
+  h2 {
+    color: var(--cl-ink, var(--rst-ui-text));
+    font-size: 17px;
+    font-weight: var(--rst-fw-display);
+    line-height: 1.2;
+  }
+  p {
+    margin-top: 4px;
+    color: var(--cl-muted, var(--rst-ui-muted));
+    font-size: 12px;
+    line-height: 1.4;
+  }
   header button {
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     flex: 0 0 auto;
-    border: 1px solid var(--cl-line, var(--rst-ui-line));
-    border-radius: 5px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
     color: var(--cl-muted, var(--rst-ui-text));
-    background: var(--cl-surface, transparent);
+    background: transparent;
     font: inherit;
-    font-size: 19px;
     cursor: pointer;
+  }
+  header button:hover {
+    color: var(--cl-ink, var(--rst-ui-text));
+    background: var(--cl-surface-muted, var(--rst-ui-hover-bg));
   }
   header button:focus-visible {
     border-color: var(--cl-accent, var(--rst-ui-action));
     outline: 2px solid color-mix(in srgb, var(--cl-accent, var(--rst-ui-action)) 18%, transparent);
     outline-offset: 1px;
   }
-  .body { padding: 16px; }
+  .body {
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: 20px;
+    scrollbar-gutter: stable;
+  }
   .dialog.is-flush .body { padding: 0; }
   footer {
-    position: sticky;
-    bottom: 0;
     display: flex;
     justify-content: flex-end;
     gap: 8px;
-    padding: 12px 16px;
+    padding: 12px 20px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
     border-top: 1px solid var(--cl-line, var(--rst-ui-divider-soft));
-    background: var(--cl-thead, var(--rst-ui-surface-panel-head));
+    background: var(--cl-surface, var(--rst-ui-surface-panel));
+  }
+  @keyframes rst-dialog-backdrop-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes rst-dialog-in {
+    from { opacity: 0; transform: translateY(8px) scale(.985); }
+    to { opacity: 1; transform: none; }
+  }
+  @media (max-width: 760px) {
+    .backdrop {
+      place-items: end center;
+      padding: max(12px, env(safe-area-inset-top)) 0 0;
+    }
+    .dialog,
+    .dialog.is-small,
+    .dialog.is-large {
+      width: 100%;
+      max-height: calc(100dvh - max(12px, env(safe-area-inset-top)));
+      border-right: 0;
+      border-bottom: 0;
+      border-left: 0;
+      border-radius: 8px 8px 0 0;
+    }
+    header { padding: 14px 16px; }
+    .body { padding: 16px; scrollbar-gutter: auto; }
+    footer { padding-inline: 16px; }
   }
 </style>

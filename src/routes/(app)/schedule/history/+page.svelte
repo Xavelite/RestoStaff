@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { History } from '@lucide/svelte';
   import { workWeekHistoryItems } from '$lib/calendar/week-history';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
@@ -43,6 +44,7 @@
               <tr>
                 <td colspan="3">
                   <div class="cl-empty">
+                    <span class="cl-empty__icon" aria-hidden="true"><History size={18} /></span>
                     <strong>{t('No schedule history for this week')}</strong>
                     <span>{t('Saving and publishing a week records an audited event here.')}</span>
                   </div>
@@ -63,4 +65,3 @@
     {/snippet}
   </ClassicScheduleWeek>
 </ClassicPage>
-
