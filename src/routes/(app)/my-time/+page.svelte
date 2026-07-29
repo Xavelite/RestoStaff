@@ -683,8 +683,8 @@
   <ClassicPage actions={pageActions}>
     <div class="cl-stats employee-stats">
       <div class="cl-stat"><span class="cl-stat__label">{t('Worked')}</span><span class="cl-stat__value">{formatHours(workedHours)}</span></div>
-      <div class="cl-stat"><span class="cl-stat__label">{t('Leave remaining')}</span><span class="cl-stat__value">{leaveBalance.remaining}</span></div>
-      <div class="cl-stat"><span class="cl-stat__label">{t('Pending')}</span><span class="cl-stat__value">{leaveBalance.pending}</span></div>
+      <div class="cl-stat"><span class="cl-stat__label">{t('Leave remaining')}</span><span class="cl-stat__value has-unit">{leaveBalance.remaining}<small>{t('days')}</small></span></div>
+      <div class="cl-stat"><span class="cl-stat__label">{t('Pending')}</span><span class="cl-stat__value has-unit">{leaveBalance.pending}<small>{t('requests')}</small></span></div>
     </div>
 
     <div class="employee-workspace">
@@ -718,6 +718,13 @@
                 </button>
               {/each}
             {/each}
+          </div>
+          <div class="calendar-legend" aria-label={t('Calendar legend')}>
+            <span><i class="is-available"></i>{t('Available')}</span>
+            <span><i class="is-planned"></i>{t('Planned')}</span>
+            <span><i class="is-worked"></i>{t('Worked')}</span>
+            <span><i class="is-leave"></i>{t('Time off')}</span>
+            <span><i class="is-danger"></i>{t('Needs review')}</span>
           </div>
         </section>
 
@@ -911,6 +918,8 @@
   .pending-copy { color: var(--cl-attention); font-size: 12px; font-weight: var(--rst-fw-bold); }
   .employee-workspace { display: grid; gap: 16px; }
   .employee-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .has-unit { display: flex; align-items: baseline; gap: 5px; }
+  .has-unit small { color: var(--cl-muted); font-size: 10px; font-weight: var(--rst-fw-medium); }
 
   .time-layout {
     display: grid;
@@ -1022,6 +1031,23 @@
     font-size: 9px;
     font-weight: var(--rst-fw-bold);
   }
+
+  .calendar-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    padding: 9px 12px;
+    border-top: 1px solid var(--rst-ui-divider-soft);
+    color: var(--cl-muted);
+    font-size: 9px;
+  }
+  .calendar-legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .calendar-legend i { width: 7px; height: 7px; border-radius: 50%; background: var(--rst-ui-quiet); }
+  .calendar-legend i.is-available { background: var(--rst-state-success); }
+  .calendar-legend i.is-planned { background: var(--rst-state-info); }
+  .calendar-legend i.is-worked { background: var(--rst-green); }
+  .calendar-legend i.is-leave { background: var(--rst-state-absence); }
+  .calendar-legend i.is-danger { background: var(--rst-state-danger); }
 
   .time-side-panel {
     display: grid;
@@ -1179,9 +1205,39 @@
   .day-list p { margin: 0; padding: 18px 14px; }
 
   @media (max-width: 1180px) {
-    .employee-stats { grid-template-columns: 1fr; }
     .time-layout {
       grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .employee-stats {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .employee-stats .cl-stat {
+      min-width: 0;
+      gap: 3px;
+      padding: 10px 7px 10px 10px;
+    }
+    .employee-stats .cl-stat__label {
+      overflow: hidden;
+      font-size: 9px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .employee-stats .cl-stat__value {
+      font-size: 17px;
+    }
+    .has-unit {
+      display: grid;
+      gap: 0;
+    }
+    .has-unit small {
+      font-size: 8px;
+    }
+    .calendar-legend {
+      gap: 6px 10px;
     }
   }
 </style>

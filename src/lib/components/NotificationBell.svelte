@@ -20,7 +20,7 @@
   import type { WorkspaceRole } from '$lib/api/workspace';
   import { workspaceRealtime } from '$lib/realtime/workspace-realtime.svelte';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
-  import { serviceLabel } from '$lib/calendar/date';
+  import { addDays, serviceLabel, todayInTimezone } from '$lib/calendar/date';
   import {
     disablePhonePush,
     enablePhonePush,
@@ -68,6 +68,7 @@
   let pushError = $state('');
   let handledPushKey = '';
   let handledSettingsRequest = 0;
+  let markingAll = $state(false);
 
   $effect(() => {
     if (!settingsRequest || settingsRequest === handledSettingsRequest) return;
@@ -89,9 +90,44 @@
     if (feed.items.length > 0) return t(feed.items.length === 1 ? '{count} recent item' : '{count} recent items', { count: feed.items.length });
     return t('No notifications');
   });
+  const notificationGroups = $derived.by(() => {
+    const groups = new Map<string, NotificationItem[]>();
+    for (const item of feed.items) {
+      const date = notificationDay(item.createdAt);
+      groups.set(date, [...(groups.get(date) ?? []), item]);
+    }
+    const today = todayInTimezone(timezone, new Date());
+    const yesterday = addDays(today, -1);
+    return [...groups].map(([date, items]) => ({
+      date,
+      label:
+        date === today
+          ? t('Today')
+          : date === yesterday
+            ? t('Yesterday')
+            : new Intl.DateTimeFormat(i18n.intlLocale, {
+                day: 'numeric',
+                month: 'long',
+                timeZone: 'UTC'
+              }).format(new Date(`${date}T00:00:00Z`)),
+      items
+    }));
+  });
 
   function contextKey(): string {
     return `${restaurantId ?? ''}|${role ?? ''}|${employeeId ?? ''}|${timezone}`;
+  }
+
+  function notificationDay(instant: string): string {
+    const parts = new Intl.DateTimeFormat('en', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      timeZone: timezone
+    }).formatToParts(new Date(instant));
+    const value = (type: Intl.DateTimeFormatPartTypes) =>
+      parts.find((part) => part.type === type)?.value ?? '';
+    return `${value('year')}-${value('month')}-${value('day')}`;
   }
 
   function notificationTitle(item: NotificationItem): string {
@@ -300,6 +336,41 @@
     }
   }
 
+  async function markAllRead(): Promise<void> {
+    if (!restaurantId || !settings || markingAll) return;
+    const unread = feed.items.filter((item) => !item.readAt);
+    if (!unread.length) return;
+    markingAll = true;
+    try {
+      const results = await Promise.allSettled(
+        unread.map((item) =>
+          markNotificationRead({
+            restaurantId: restaurantId!,
+            profileId: settings!.profileId,
+            item
+          })
+        )
+      );
+      const completed = new Set(
+        unread
+          .filter((_item, index) => results[index]?.status === 'fulfilled')
+          .map((item) => item.key)
+      );
+      const markedAt = new Date().toISOString();
+      feed = {
+        items: feed.items.map((item) =>
+          completed.has(item.key) ? { ...item, readAt: item.readAt ?? markedAt } : item
+        ),
+        unreadCount: feed.items.filter((item) => !item.readAt && !completed.has(item.key)).length
+      };
+      if (completed.size !== unread.length) {
+        toasts.show(t('Some notifications could not be marked as read.'), 'danger');
+      }
+    } finally {
+      markingAll = false;
+    }
+  }
+
   async function openItem(item: NotificationItem) {
     await read(item);
     if (item.actionMode === 'route') {
@@ -454,7 +525,12 @@
           <strong>{t('Notifications')}</strong>
           <small>{feedSummary}</small>
         </div>
-        <button class="notification-settings-trigger" type="button" onclick={openSettings}>{t('Settings')}</button>
+        <div class="notification-header-actions">
+          {#if feed.unreadCount}
+            <button type="button" disabled={markingAll} onclick={markAllRead}>{t('Mark all read')}</button>
+          {/if}
+          <button class="notification-settings-trigger" type="button" onclick={openSettings}>{t('Settings')}</button>
+        </div>
       </header>
 
       {#if loading}
@@ -478,18 +554,20 @@
         {/if}
 
         {#if feed.items.length}
-          <div class="notification-group">
-            <span>{t('Recent')}</span>
-            {#each feed.items as item (item.key)}
-              <article class="notification-row" class:is-unread={!item.readAt} class:is-critical={item.severity === 'critical'}>
-                <button type="button" onclick={() => openItem(item)}>
-                  <strong>{notificationTitle(item)}</strong>
-                  <small>{notificationBody(item)}</small>
-                </button>
-                <button class="dismiss" type="button" aria-label={t('Dismiss notification')} onclick={() => dismiss(item)}>×</button>
-              </article>
-            {/each}
-          </div>
+          {#each notificationGroups as group (group.date)}
+            <div class="notification-group">
+              <span>{group.label}</span>
+              {#each group.items as item (item.key)}
+                <article class="notification-row" class:is-unread={!item.readAt} class:is-critical={item.severity === 'critical'}>
+                  <button type="button" onclick={() => openItem(item)}>
+                    <strong>{notificationTitle(item)}</strong>
+                    <small>{notificationBody(item)}</small>
+                  </button>
+                  <button class="dismiss" type="button" aria-label={t('Dismiss notification')} onclick={() => dismiss(item)}>×</button>
+                </article>
+              {/each}
+            </div>
+          {/each}
         {:else if !setupNotifications.length}
           <p class="notification-empty">{t('Nothing needs your attention.')}</p>
         {/if}
@@ -653,6 +731,7 @@
     overflow: auto;
     border: 1px solid var(--rst-ui-line-strong);
     border-radius: var(--rst-ui-radius-lg);
+    color: var(--rst-ui-text);
     background: var(--rst-ui-bg-2);
     box-shadow: 0 16px 50px rgba(0,0,0,.38);
     transform-origin: top right;
@@ -690,6 +769,7 @@
     font-size: 12px;
   }
   .notification-settings-trigger,
+  .notification-header-actions button,
   .notification-error button {
     min-height: 32px;
     padding: 6px 10px;
@@ -701,6 +781,17 @@
     font-size: 12px;
     cursor: pointer;
   }
+  .notification-header-actions {
+    display: flex !important;
+    align-items: center;
+    gap: 5px !important;
+  }
+  .notification-header-actions button:first-child:not(.notification-settings-trigger) {
+    border-color: transparent;
+    color: var(--rst-ui-action);
+    background: transparent;
+  }
+  .notification-header-actions button:disabled { cursor: wait; opacity: .55; }
   .notification-group > span {
     padding: 10px 14px 4px;
     font-weight: var(--rst-fw-bold);
@@ -833,5 +924,7 @@
     .phone-channel > :global(button) { grid-column: 1 / -1; width: 100%; }
     .notification-settings__head,
     .notification-setting { grid-template-columns: minmax(0, 1fr) 46px 46px; gap: 6px; }
+    .notification-menu header { align-items: flex-start; }
+    .notification-header-actions { align-items: flex-end; flex-direction: column; }
   }
 </style>

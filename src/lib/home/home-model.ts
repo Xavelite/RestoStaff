@@ -190,15 +190,24 @@ export function buildHomeModel(
     return (id && jobFunctionsById.get(id)?.name) || 'Team';
   };
 
-  const planned = snapshot.planned_shifts
-    .filter((shift) => shift.week_start === weekStart)
-    .map((shift) => ({
-      ...shift,
-      date: addDays(shift.week_start, shift.weekday - 1),
-      startMinutes: clockMinutes(shift.starts_at) ?? 0,
-      range: clockRange(shift.starts_at, shift.ends_at)
-    }))
-    .filter((shift) => employeesById.has(shift.employee_id));
+  const normalizedPlan = (
+    shifts: ManagerOperationsReadModel['planned_shifts']
+  ) =>
+    shifts
+      .filter((shift) => shift.week_start === weekStart)
+      .map((shift) => ({
+        ...shift,
+        date: addDays(shift.week_start, shift.weekday - 1),
+        startMinutes: clockMinutes(shift.starts_at) ?? 0,
+        range: clockRange(shift.starts_at, shift.ends_at)
+      }))
+      .filter((shift) => employeesById.has(shift.employee_id));
+  // Draft planning drives manager decisions such as coverage. Live operations
+  // follow the published employee-visible baseline, matching Timesheet.
+  const planned = normalizedPlan(snapshot.planned_shifts);
+  const operationalPlanned = normalizedPlan(
+    snapshot.published_planned_shifts ?? snapshot.planned_shifts
+  );
 
   const actuals = snapshot.time_entries.filter(
     (entry) =>
@@ -213,7 +222,7 @@ export function buildHomeModel(
     ])
   );
   const plannedBySlot = new Map(
-    planned.map((shift) => [
+    operationalPlanned.map((shift) => [
       `${shift.employee_id}|${shift.date}|${shift.service_key}`,
       shift
     ])
@@ -252,7 +261,7 @@ export function buildHomeModel(
       };
     });
 
-  const todayPlanned = planned.filter((shift) => shift.date === localNow.date);
+  const todayPlanned = operationalPlanned.filter((shift) => shift.date === localNow.date);
   const lateRows: HomeLiveRow[] = todayPlanned
     .filter((shift) => {
       const actual = actualsBySlot.get(

@@ -520,9 +520,9 @@
   .status-readonly { min-height: 2.5rem; display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); background: var(--cl-surface-muted); }
   .position-field { padding: 12px; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); }
   .position-field legend { padding: 0 5px; color: var(--cl-muted); font-size: 13px; font-weight: var(--rst-fw-medium); }
-  .position-grid { display: grid; gap: 7px; }
-  .position-grid > div { min-height: 40px; display: grid; grid-template-columns: minmax(150px, 1fr) minmax(150px, .9fr) auto; align-items: center; gap: 8px; padding: 7px 9px; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); background: var(--cl-surface-muted); font-size: 13px; }
-  .position-grid > div.is-selected { border-color: var(--cl-line-strong); background: var(--cl-accent-wash); }
+  .position-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+  .position-grid > div { min-height: 40px; display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; gap: 8px; padding: 7px 9px; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); background: var(--cl-surface-muted); font-size: 13px; }
+  .position-grid > div.is-selected { grid-column: 1 / -1; grid-template-columns: minmax(150px, 1fr) minmax(150px, .9fr) auto; border-color: var(--cl-line-strong); background: var(--cl-accent-wash); }
   .position-grid label { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: center; gap: 8px; cursor: pointer; }
   .position-grid select { min-width: 0; height: 30px; padding: 0 28px 0 9px; border: 1px solid var(--cl-line); border-radius: 5px; background: var(--cl-surface); color: var(--cl-ink); font: inherit; font-size: 11px; }
   .position-grid button { padding: 3px 7px; border: 0; border-radius: 4px; color: var(--cl-muted); background: transparent; font: inherit; font-size: 11px; cursor: pointer; }
@@ -545,7 +545,9 @@
 
   @media (max-width: 760px) {
     .editor-tabs { overflow-x: auto; }
+    .position-grid { grid-template-columns: minmax(0, 1fr); }
     .position-grid > div { grid-template-columns: minmax(0, 1fr); }
+    .position-grid > div.is-selected { grid-column: 1; grid-template-columns: minmax(0, 1fr); }
     .position-grid button { justify-self: start; }
   }
 </style>

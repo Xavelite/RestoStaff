@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { WEEKDAYS, type ServiceKey } from '$lib/calendar/date';
+  import { serviceLabel, WEEKDAYS, type ServiceKey } from '$lib/calendar/date';
   import { t } from '$lib/i18n/i18n.svelte';
   import { useClassicRestaurantContext } from '$lib/classic/classic-workspace-context';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
@@ -39,6 +39,8 @@
   };
 
   let newRows = $state<NewRow[]>([]);
+  let mobileWeekday = $state(1);
+  let mobileService = $state<ServiceKey>('lunch');
   type SortKey = 'area' | 'position' | 'service';
   type GroupBy = 'area' | 'position' | 'service' | 'none';
 
@@ -261,7 +263,7 @@
     const map = new Map<string, CoverageGroup>();
     for (const row of rows) {
       const key = view.groupBy === 'area' ? row.areaId : view.groupBy === 'position' ? row.jobFunctionId : row.serviceKey;
-      const label = view.groupBy === 'area' ? areaName.get(key) ?? t('Unknown') : view.groupBy === 'position' ? jobName.get(key) ?? t('Unknown') : t(row.serviceKey === 'evening' ? 'Evening' : 'Lunch');
+      const label = view.groupBy === 'area' ? areaName.get(key) ?? t('Unknown') : view.groupBy === 'position' ? jobName.get(key) ?? t('Unknown') : t(serviceLabel(row.serviceKey));
       const placementLabel =
         view.groupBy === 'area'
           ? placementAreaName(key) || label
@@ -317,20 +319,97 @@
     {@const groups = groupRows(ordered, areaName, jobName)}
     {@const areaValues = activeAreas.map((area) => ({ value: area.id, label: areaName.get(area.id) ?? area.name }))}
     {@const positionValues = activePositions.map((job) => ({ value: job.id, label: job.name }))}
-    {@const serviceValues = [{ value: 'lunch', label: t('Lunch') }, { value: 'evening', label: t('Evening') }]}
+    {@const serviceValues = [
+      { value: 'lunch', label: t(serviceLabel('lunch')), service: 'lunch' as const },
+      { value: 'evening', label: t(serviceLabel('evening')), service: 'evening' as const }
+    ]}
 
     <ClassicTablePanel dirty={context.dirty} saving={context.saving} canSave={context.canSave} onsave={() => void context.save().catch(() => undefined)} ondiscard={context.discard}>
       {#snippet meta()}<span><i class="dot"></i>{t('{count} staffing rules', { count: rows.length + pendingKeys.size })}</span>{/snippet}
       {#snippet actions()}
         {#if suggestedRows.length}
-          <button class="cl-btn suggestion-action" type="button" disabled={workspace.isPreview} onclick={stageSuggestions}>
-            {t('Add suggested rules')} <span>{suggestedRows.length}</span>
+          <button
+            class="cl-btn suggestion-action"
+            type="button"
+            title={t('Create lunch and evening rules for linked areas and positions.')}
+            disabled={workspace.isPreview}
+            onclick={stageSuggestions}
+          >
+            {t('Add recommendations')} <span>{suggestedRows.length}</span>
           </button>
         {/if}
         <button class="cl-btn is-primary" type="button" disabled={workspace.isPreview || !restaurantConfig.draft} onclick={addRow}><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>{t('Add rule')}</button>
       {/snippet}
       {#snippet children()}
-        <div class="cl-tablewrap">
+        <div class="coverage-mobile">
+          <div class="coverage-mobile__controls">
+            <div class="coverage-mobile__services" aria-label={t('Service')}>
+              {#each ['lunch', 'evening'] as service (service)}
+                <button
+                  class:is-active={mobileService === service}
+                  type="button"
+                  onclick={() => (mobileService = service as ServiceKey)}
+                >
+                  <ClassicServiceIcon service={service as ServiceKey} size={15} />
+                  {t(serviceLabel(service))}
+                </button>
+              {/each}
+            </div>
+            <div class="coverage-mobile__days" aria-label={t('Day')}>
+              {#each WEEKDAYS as day, index (day)}
+                <button
+                  class:is-active={mobileWeekday === index + 1}
+                  type="button"
+                  aria-label={t(day)}
+                  title={t(day)}
+                  onclick={() => (mobileWeekday = index + 1)}
+                >{t(day).slice(0, 2)}</button>
+              {/each}
+            </div>
+          </div>
+
+          {#each newRows as row (row.tempId)}
+            {@const pendingKey = row.areaId && row.jobFunctionId && row.serviceKey ? `${row.areaId}|${row.jobFunctionId}|${row.serviceKey}` : ''}
+            {@const duplicate = Boolean(pendingKey) && pendingKey !== row.stagedKey && exists(row.areaId, row.jobFunctionId, row.serviceKey as ServiceKey)}
+            <article class="coverage-mobile__rule is-new">
+              <div class="coverage-mobile__new-fields">
+                <ClassicPicker value={row.areaId} placeholder="Choose area" ariaLabel={t('Area')} options={activeAreas.map((area) => ({ value: area.id, label: areaName.get(area.id) ?? area.name, color: areaColor.get(area.id), icon: areaIcon(area.id) }))} onchange={(next) => patchNewRow(row.tempId, { areaId: next })} />
+                <ClassicPicker value={row.jobFunctionId} placeholder="Choose position" ariaLabel={t('Position')} options={activePositions.filter((job) => positionSupportsArea(job, row.areaId)).map((job) => ({ value: job.id, label: job.name, color: positionColor.get(job.id), icon: positionIcon(job.id) }))} onchange={(next) => patchNewRow(row.tempId, { jobFunctionId: next })} />
+                <ClassicPicker value={row.serviceKey} placeholder="Choose service" ariaLabel={t('Service')} options={serviceValues} onchange={(next) => patchNewRow(row.tempId, { serviceKey: next as PendingService })} />
+              </div>
+              <label class="coverage-mobile__target">
+                <span>{t(WEEKDAYS[mobileWeekday - 1])}</span>
+                <input class="cl-field num" class:is-set={row.counts[mobileWeekday - 1] != null} type="number" min="0" step="1" placeholder="—" aria-label={`${t(WEEKDAYS[mobileWeekday - 1])} ${t('required people')}`} value={row.counts[mobileWeekday - 1] ?? ''} oninput={(event) => setNewCount(row.tempId, mobileWeekday - 1, event.currentTarget.value)} />
+              </label>
+              <button class="cl-btn is-icon remove" type="button" title={t('Remove')} aria-label={t('Remove')} onclick={() => removeNewRow(row.tempId)}>×</button>
+              {#if duplicate}<p class="coverage-mobile__warning">{t('This area, position and service already has a coverage row.')}</p>{/if}
+            </article>
+          {/each}
+
+          {#each ordered.filter((row) => row.serviceKey === mobileService) as row (rowKey(row))}
+            {@const value = entry(draft, row, mobileWeekday)}
+            <article class="coverage-mobile__rule">
+              <div class="coverage-mobile__identity">
+                <span class="cl-chip has-glyph" style="--chip:{areaColor.get(row.areaId) ?? 'var(--cl-line-strong)'}"><span class="cl-chip__glyph"><WorkspaceAreaIcon icon={areaIcon(row.areaId)} color="currentColor" size={13} compact /></span><span>{areaName.get(row.areaId) ?? '—'}</span></span>
+                <span class="cl-chip has-glyph" style="--chip:{positionColor.get(row.jobFunctionId) ?? 'var(--cl-line-strong)'}"><span class="cl-chip__glyph"><WorkspaceAreaIcon icon={positionIcon(row.jobFunctionId)} color="currentColor" size={13} compact /></span><span>{jobName.get(row.jobFunctionId) ?? '—'}</span></span>
+              </div>
+              <label class="coverage-mobile__target">
+                <span>{t(WEEKDAYS[mobileWeekday - 1])}</span>
+                <input class="cl-field num" class:is-set={Boolean(value)} type="number" min="0" step="1" placeholder="—" value={value?.requiredCount ?? ''} disabled={workspace.isPreview} aria-label={`${t(WEEKDAYS[mobileWeekday - 1])} ${t('required people')}`} oninput={(event) => setCount(row, mobileWeekday, event.currentTarget.value)} />
+              </label>
+              <button class="cl-btn is-icon remove" type="button" disabled={workspace.isPreview} title={t('Remove requirement')} aria-label={t('Remove requirement')} onclick={() => removeRow(row)}>×</button>
+            </article>
+          {:else}
+            {#if !newRows.length}
+              <div class="cl-empty coverage-mobile__empty">
+                <strong>{t('No staffing rules for this service')}</strong>
+                <span>{t('Add a rule or create the recommended set from your linked areas and positions.')}</span>
+              </div>
+            {/if}
+          {/each}
+        </div>
+
+        <div class="cl-tablewrap coverage-desktop">
           <table class="cl-table cov">
             <thead>
               <tr>
@@ -348,7 +427,7 @@
                 <tr class="is-new">
                   <td><ClassicPicker value={row.areaId} placeholder="Choose area" ariaLabel={t('Area')} options={activeAreas.map((area) => ({ value: area.id, label: areaName.get(area.id) ?? area.name, color: areaColor.get(area.id), icon: areaIcon(area.id) }))} onchange={(next) => patchNewRow(row.tempId, { areaId: next })} /></td>
                   <td><ClassicPicker value={row.jobFunctionId} placeholder="Choose position" ariaLabel={t('Position')} options={activePositions.filter((job) => positionSupportsArea(job, row.areaId)).map((job) => ({ value: job.id, label: job.name, color: positionColor.get(job.id), icon: positionIcon(job.id) }))} onchange={(next) => patchNewRow(row.tempId, { jobFunctionId: next })} /></td>
-                  <td><ClassicPicker value={row.serviceKey} placeholder="Choose service" ariaLabel={t('Service')} options={[{ value: 'lunch', label: t('Lunch'), service: 'lunch' }, { value: 'evening', label: t('Evening'), service: 'evening' }]} onchange={(next) => patchNewRow(row.tempId, { serviceKey: next as PendingService })} /></td>
+                  <td><ClassicPicker value={row.serviceKey} placeholder="Choose service" ariaLabel={t('Service')} options={serviceValues} onchange={(next) => patchNewRow(row.tempId, { serviceKey: next as PendingService })} /></td>
                   {#each WEEKDAYS as day, index (day)}<td class="cov__day"><input class="cl-field num" class:is-set={row.counts[index] != null} type="number" min="0" step="1" placeholder="—" aria-label={`${t(day)} ${t('required people')}`} value={row.counts[index] ?? ''} oninput={(event) => setNewCount(row.tempId, index, event.currentTarget.value)} /></td>{/each}
                   <td class="is-num"><button class="cl-btn is-icon remove" type="button" title={t('Remove')} aria-label={t('Remove')} onclick={() => removeNewRow(row.tempId)}>×</button></td>
                 </tr>
@@ -357,7 +436,7 @@
             </tbody>
 
             {#if !ordered.length && !newRows.length}
-              <tbody><tr><td colspan={WEEKDAYS.length + 4}><div class="cl-empty"><strong>{t('No staffing rules yet')}</strong><span>{t('Start from linked areas and positions, then enter only the days that need a target.')}</span>{#if suggestedRows.length}<button class="cl-btn suggestion-action" type="button" onclick={stageSuggestions}>{t('Add suggested rules')} <span>{suggestedRows.length}</span></button>{/if}</div></td></tr></tbody>
+              <tbody><tr><td colspan={WEEKDAYS.length + 4}><div class="cl-empty"><strong>{t('No staffing rules yet')}</strong><span>{t('Start from linked areas and positions, then enter only the days that need a target.')}</span>{#if suggestedRows.length}<button class="cl-btn suggestion-action" type="button" onclick={stageSuggestions}>{t('Add recommendations')} <span>{suggestedRows.length}</span></button>{/if}</div></td></tr></tbody>
             {:else}
               {#each groups as group (group.key)}
                 <tbody>
@@ -408,4 +487,84 @@
   .group-service.is-lunch { color: var(--cl-lunch); }
   .group-service.is-evening { color: var(--cl-evening); }
   .suggestion-action span { min-width: 21px; height: 21px; display: grid; place-items: center; padding-inline: 4px; border: 1px solid color-mix(in srgb, var(--cl-accent) 25%, var(--cl-line)); border-radius: 5px; background: var(--cl-accent-wash); color: var(--cl-accent); font-size: 10px; font-weight: var(--rst-fw-bold); }
+  .coverage-mobile { display: none; }
+  @media (max-width: 760px) {
+    .coverage-desktop { display: none; }
+    .coverage-mobile { display: grid; gap: 9px; }
+    .coverage-mobile__controls {
+      position: sticky;
+      top: 0;
+      z-index: 8;
+      display: grid;
+      gap: 8px;
+      padding: 8px 0 10px;
+      background: var(--cl-canvas);
+    }
+    .coverage-mobile__services,
+    .coverage-mobile__days {
+      display: grid;
+      padding: 3px;
+      border: 1px solid var(--cl-line);
+      border-radius: 7px;
+      background: var(--cl-surface);
+    }
+    .coverage-mobile__services { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .coverage-mobile__days { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+    .coverage-mobile__services button,
+    .coverage-mobile__days button {
+      min-width: 0;
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 4px;
+      border: 0;
+      border-radius: 5px;
+      background: transparent;
+      color: var(--cl-muted);
+      font: inherit;
+      font-size: 11px;
+      font-weight: var(--rst-fw-medium);
+      cursor: pointer;
+    }
+    .coverage-mobile__services button.is-active,
+    .coverage-mobile__days button.is-active {
+      background: var(--cl-accent-wash);
+      color: var(--cl-accent);
+      font-weight: var(--rst-fw-bold);
+    }
+    .coverage-mobile__rule {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 74px 32px;
+      align-items: center;
+      gap: 9px;
+      padding: 10px;
+      border: 1px solid var(--cl-line);
+      border-radius: var(--cl-radius-surface);
+      background: var(--cl-surface);
+    }
+    .coverage-mobile__rule.is-new {
+      border-color: var(--cl-accent-line);
+      box-shadow: inset 3px 0 0 var(--cl-accent);
+    }
+    .coverage-mobile__identity { min-width: 0; display: flex; flex-wrap: wrap; gap: 5px; }
+    .coverage-mobile__new-fields { min-width: 0; display: grid; gap: 6px; }
+    .coverage-mobile__target { display: grid; justify-items: center; gap: 3px; }
+    .coverage-mobile__target > span {
+      color: var(--cl-muted);
+      font-size: 9px;
+      font-weight: var(--rst-fw-bold);
+      text-transform: uppercase;
+    }
+    .coverage-mobile__target .num { width: 62px; }
+    .coverage-mobile__warning {
+      grid-column: 1 / -1;
+      margin: 0;
+      color: var(--cl-attention);
+      font-size: 11px;
+    }
+    .coverage-mobile__empty { border: 1px solid var(--cl-line); border-radius: var(--cl-radius-surface); }
+  }
 </style>

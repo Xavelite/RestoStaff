@@ -84,7 +84,8 @@
   const view = createTableView<SortKey, GroupBy>({
     storageKey: 'rst-restaurant-positions-cols-v3',
     columns: OPTIONAL_COLUMNS,
-    defaultHidden: ['cost']
+    defaultHidden: ['cost'],
+    defaultExcluded: { active: ['archived'] }
   });
 
   onMount(view.restore);
@@ -430,7 +431,7 @@
     {/snippet}
     {#snippet children()}
       <div class="cl-tablewrap">
-        <table class="cl-table">
+        <table class="cl-table cl-mobile-rows">
           <thead>
             <tr>
               <th class="cl-grip"><span class="sr-only">{t('Reorder')}</span></th>
@@ -471,7 +472,7 @@
             </tr>
           </thead>
           {#if !ordered.length}
-            <tbody><tr><td colspan={colCount}><div class="cl-empty"><strong>{t('No positions yet')}</strong><span>{t('Add the jobs people do on a shift, such as Server, Cook or Bartender.')}</span></div></td></tr></tbody>
+            <tbody><tr class="cl-mobile-empty"><td colspan={colCount}><div class="cl-empty"><strong>{t('No positions yet')}</strong><span>{t('Add the jobs people do on a shift, such as Server, Cook or Bartender.')}</span></div></td></tr></tbody>
           {:else}
             {#each groups as group (group.key)}
               <tbody>
@@ -482,7 +483,7 @@
                     {@const reorderable = !view.sort && !view.grouping}
                     <tr class:is-new={!persistedPositionIds.has(position.id)} draggable={reorderable && !workspace.isPreview} ondragstart={() => (dragId = position.id)} ondragend={() => (dragId = '')} ondragover={(event) => { if (reorderable) event.preventDefault(); }} ondrop={() => movePosition(position.id)}>
                       <td class="cl-grip"><button type="button" disabled={!reorderable || workspace.isPreview} title={reorderable ? t('Drag to reorder') : t('Clear grouping and sorting to reorder')} aria-label={t('Drag to reorder')}><GripVertical size={16} /></button></td>
-                      <td>
+                      <td class="cl-mobile-primary">
                         <div class="position-identity" data-position-name={position.id}>
                           <WorkspaceAreaIcon
                             icon={positionAreaIcon(position)}
@@ -510,6 +511,11 @@
                             oncustom={(value) => makePositionCustom(position, value)}
                           />
                         </div>
+                        <span class="cl-mobile-summary">
+                          <span>{linkedAreaSetLabel(linkedPositionAreaIds(position))}</span>
+                          <span>{t('{count} people', { count: headcount })}</span>
+                          {#if !position.active}<span>{t('Archived')}</span>{/if}
+                        </span>
                       </td>
                       <td>
                         <PositionLinkedAreasField

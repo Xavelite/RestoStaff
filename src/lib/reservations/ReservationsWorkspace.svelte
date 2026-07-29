@@ -736,7 +736,7 @@
       </section>
     {:else}
     <div class="cl-tablewrap">
-      <table class="cl-table reservation-table">
+      <table class="cl-table cl-mobile-rows reservation-table">
         <thead>
           <tr>
             <th class="has-menu">
@@ -820,12 +820,12 @@
         <tbody>
           {#if loading && !currentData}
             {#each Array(6) as _}
-              <tr>
+              <tr class="cl-mobile-empty">
                 <td colspan="8"><span class="cl-skel"></span></td>
               </tr>
             {/each}
           {:else if !reservations.length}
-            <tr>
+            <tr class="cl-mobile-empty">
               <td colspan="8">
                 <div class="cl-empty">
                   <span class="cl-empty__icon" aria-hidden="true"><CalendarX2 size={18} /></span>
@@ -837,11 +837,17 @@
           {:else}
             {#each reservations as reservation (reservation.id)}
               <tr class:is-muted={['cancelled', 'no_show'].includes(reservation.status)}>
-                <td>
+                <td class="cl-mobile-primary">
                   <button class="guest-cell" type="button" onclick={() => openReservation(reservation)}>
                     <span class="guest-cell__name">{reservation.guest.display_name}</span>
                     <small>{reservation.guest.phone || reservation.guest.email || t('No contact details')}</small>
                   </button>
+                  <span class="cl-mobile-summary">
+                    <span>{timeLabel(reservation.starts_at)}</span>
+                    <span>{reservation.party_size} {t('guests')}</span>
+                    <span>{reservation.table_labels.join(' + ') || t('Unassigned')}</span>
+                    <span>{t(reservationStatusMeta(reservation.status).label)}</span>
+                  </span>
                 </td>
                 <td>
                   <strong class="time-cell">{timeLabel(reservation.starts_at)}</strong>

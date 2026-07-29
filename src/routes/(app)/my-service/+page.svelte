@@ -546,13 +546,15 @@
     }
     if (slot.shift) return `${slot.shift.jobFunction} · ${formatHours(slot.shift.hours)}`;
     if (slot.state === 'partial' || slot.state === 'unavailable') return t('Mark available or request time off');
+    if (slot.editReason === 'Past availability is read-only.') return '';
     if (slot.editReason) return t(slot.editReason);
     if (slot.availability === 'available') return t('You can work');
     return slot.editable ? t('Tap to mark available') : (slot.editReason || t('Tap ⋯ for options'));
   }
 
   function slotAriaLabel(slot: EmployeeWeekSlot) {
-    return `${dayName(slot.date)} ${slot.date}, ${t(serviceLabel(slot.serviceKey))}: ${slotTitle(slot)}, ${slotTime(slot)}, ${slotMeta(slot)}`;
+    const meta = slotMeta(slot);
+    return `${dayName(slot.date)} ${slot.date}, ${t(serviceLabel(slot.serviceKey))}: ${slotTitle(slot)}, ${slotTime(slot)}${meta ? `, ${meta}` : ''}`;
   }
 
   function slotVisual(slot: EmployeeWeekSlot) {
@@ -645,7 +647,7 @@
                     <b>{serviceDisplay(slot.serviceKey).icon}</b>
                     <span>
                       <strong>{slotTitle(slot)}</strong>
-                      <small>{slotTime(slot)} · {slotMeta(slot)}</small>
+                      <small>{slotTime(slot)}{#if slotMeta(slot)} · {slotMeta(slot)}{/if}</small>
                     </span>
                   </button>
                   {#if availabilityMode === 'weekly_availability'}
@@ -733,7 +735,32 @@
   .agenda-slot.is-selected .agenda-slot__tap { box-shadow: inset 0 0 0 2px rgba(var(--cl-attention-rgb), .28); }
 
   @media (max-width: 760px) {
-    .employee-stats { grid-template-columns: 1fr; }
+    .employee-stats {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .employee-stats .cl-stat {
+      min-width: 0;
+      gap: 3px;
+      padding: 10px 8px 10px 11px;
+    }
+    .employee-stats .cl-stat__label {
+      overflow: hidden;
+      font-size: 9px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .employee-stats .cl-stat__value {
+      font-size: 18px;
+    }
+    .summary-stat__value {
+      display: -webkit-box;
+      overflow: hidden;
+      font-size: 10px;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+    }
     .agenda-day { grid-template-columns: 1fr; gap: 10px; }
     .agenda-day__date { grid-auto-flow: column; align-items: baseline; justify-content: start; gap: 8px; }
     .pending-copy { display: none; }

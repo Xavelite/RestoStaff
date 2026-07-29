@@ -243,7 +243,7 @@
       {/snippet}
       {#snippet children()}
         <div class="cl-tablewrap">
-          <table class="cl-table">
+          <table class="cl-table cl-mobile-rows">
             <thead><tr>
               <th class="has-menu"><ClassicPrimaryColMenu label={t('Employee')} sortable sortDir={view.sortDir('name')} onsort={(dir) => view.setSort('name', dir)} filterKind="text" searchValue={view.search('name')} onsearch={(value) => view.setSearch('name', value)} groupValue={view.groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'status', label: t('Status') }, { value: 'role', label: t('Role') }]} ongroupchange={(value) => view.setGroupBy(value as GroupBy)} /></th>
               {#if shown('email')}<th class="has-menu"><ClassicColMenu label={t('Email')} sortable sortDir={view.sortDir('email')} onsort={(dir) => view.setSort('email', dir)} filterKind="text" searchValue={view.search('email')} onsearch={(value) => view.setSearch('email', value)} /></th>{/if}
@@ -253,7 +253,7 @@
               <th class="chooser-col"><ClassicColChooser columns={view.columns} hidden={view.hidden} ontoggle={view.toggleColumn} /></th>
             </tr></thead>
             {#if !filtered.length}
-              <tbody><tr><td colspan={colCount}>
+              <tbody><tr class="cl-mobile-empty"><td colspan={colCount}>
                 <div class="cl-empty">
                   <strong>{t(activeEmployees.length ? 'No employees match' : 'No active employees')}</strong>
                   <span>{t('Change the filter, or add someone to the team.')}</span>
@@ -267,7 +267,14 @@
                   {#if !view.isCollapsed(group.key)}
                   {#each group.employees as employee (employee.id)}
                     <tr>
-                      <td><span class="cl-table__name"><span class="cl-avatar" style="--avatar-color:{employeeColor.get(employee.id) ?? 'var(--cl-muted)'}">{personInitials(employee.displayName)}</span><button class="employee-link" type="button" disabled={!team.editable} onclick={() => (detailId = employee.id)}>{employee.displayName}</button></span></td>
+                      <td class="cl-mobile-primary">
+                        <span class="cl-table__name"><span class="cl-avatar" style="--avatar-color:{employeeColor.get(employee.id) ?? 'var(--cl-muted)'}">{personInitials(employee.displayName)}</span><button class="employee-link" type="button" disabled={!team.editable} onclick={() => (detailId = employee.id)}>{employee.displayName}</button></span>
+                        <span class="cl-mobile-summary">
+                          <span>{t(roleLabel(employee.accessRole))}</span>
+                          <span>{t(ACCESS_LABEL[employee.accessState] ?? employee.accessState)}</span>
+                          {#if employee.email}<span>{employee.email}</span>{/if}
+                        </span>
+                      </td>
                       {#if shown('email')}<td>
                         {#if editingEmployeeId === employee.id}
                           <input bind:this={editingInput} class="cl-field email-editor" type="email" aria-label={`${t('Email')} · ${employee.displayName}`} value={editingValue} oninput={(event) => (editingValue = event.currentTarget.value)} onkeydown={handleEmailKeydown} onblur={commitEmailEdit} />

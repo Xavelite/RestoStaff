@@ -94,3 +94,37 @@ test('no-show pressure and coverage decisions remain visible together', () => {
   assert.equal(model.live.rows[0]?.tone, 'danger');
   assert.equal(model.actions.rows.find((row) => row.key === 'planning')?.count, 1);
 });
+
+test('live operations follow the published schedule while coverage still reviews the draft', () => {
+  const draftShift = {
+    employee_id: 'e1',
+    week_start: '2026-06-15',
+    weekday: 4,
+    service_key: 'lunch',
+    starts_at: '11:00:00',
+    ends_at: '15:00:00',
+    area_id: 'a1',
+    job_function_id: 'j1'
+  };
+  const model = buildHomeModel(
+    snapshot({
+      opening_hours: [{ is_open: true, weekday: 4, service_key: 'lunch' }],
+      coverage_requirements: [{
+        active: true,
+        required_count: 2,
+        coverage_scope: 'default',
+        weekday: null,
+        area_id: 'a1',
+        job_function_id: 'j1',
+        service_key: 'lunch'
+      }],
+      planned_shifts: [draftShift],
+      published_planned_shifts: []
+    }),
+    'manager',
+    thursdayAfternoon
+  );
+
+  assert.equal(model.live.late, 0);
+  assert.equal(model.actions.rows.find((row) => row.key === 'planning')?.count, 1);
+});

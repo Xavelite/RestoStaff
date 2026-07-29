@@ -463,16 +463,15 @@
     display: grid;
     place-items: start center;
     padding: clamp(10px, 4vw, 36px);
-    background:
-      radial-gradient(circle at 12% 0%, rgba(241,90,36,.11), transparent 34%),
-      radial-gradient(circle at 88% 100%, rgba(43,102,208,.08), transparent 38%),
-      #eef2f6;
+    background: #eef2f6;
   }
   .booking-card {
     width: min(100%, 720px);
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
     overflow: hidden;
     border: 1px solid rgba(31,48,72,.13);
-    border-radius: 20px;
+    border-radius: 8px;
     background: #fff;
     box-shadow: 0 22px 70px rgba(25,42,67,.12), 0 2px 8px rgba(25,42,67,.05);
   }
@@ -525,9 +524,9 @@
   .primary-action {
     min-height: 46px;
     border: 1px solid var(--book-accent-deep);
-    border-radius: 10px;
+    border-radius: 8px;
     color: #fff;
-    background: linear-gradient(180deg, #fb6a34, var(--book-accent));
+    background: var(--book-accent);
     box-shadow: 0 7px 18px rgba(241,90,36,.2);
     font: inherit;
     font-size: 12px;
@@ -564,7 +563,7 @@
   .held-summary button { border: 0; color: var(--book-accent-deep); background: transparent; font: inherit; font-size: 10px; font-weight: 800; cursor: pointer; }
   .two-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .contact-hint { margin-top: -8px; color: var(--book-muted); font-size: 9.5px; }
-  .empty-state, .success-state { min-height: 420px; display: grid; place-items: center; align-content: center; gap: 9px; text-align: center; }
+  .empty-state, .success-state { min-height: 280px; display: grid; place-items: center; align-content: center; gap: 9px; text-align: center; }
   .empty-state p, .success-copy { color: var(--book-muted); font-size: 11.5px; }
   .state-icon, .success-ring { display: grid; place-items: center; width: 54px; height: 54px; margin-bottom: 7px; border-radius: 50%; }
   .state-icon { color: #9f3418; background: #fff0eb; font-size: 20px; font-weight: 850; }

@@ -108,21 +108,22 @@
     if (!snapshot || !model) return signals;
 
     const activePeople = snapshot.employees.filter((employee) => employee.active).length;
+    const activeAreas = snapshot.work_areas.filter((area) => area.active).length;
     const scheduleIssues = model.actions.rows.find((row) => row.key === 'planning')?.count ?? 0;
     const payrollIssues = model.actions.rows.find((row) => row.key === 'payroll')?.count ?? 0;
 
     signals.restaurant = {
-      label: t('{count} areas', { count: snapshot.work_areas.length })
+      label: t('{count} active areas', { count: activeAreas })
     };
     signals.team = {
-      label: t('{count} active people', { count: activePeople })
+      label: t('{count} active employees', { count: activePeople })
     };
     signals.schedule = scheduleIssues
-      ? { label: t('{count} conflicts', { count: scheduleIssues }), tone: 'problem' }
+      ? { label: t('{count} understaffed services', { count: scheduleIssues }), tone: 'problem' }
       : { label: t('{count} shifts this week', { count: snapshot.planned_shifts.length }), tone: 'ok' };
     signals.time = model.live.late
-      ? { label: t('{count} late today', { count: model.live.late }), tone: 'problem' }
-      : { label: t('{count} working now', { count: model.live.working }), tone: model.live.working ? 'ok' : undefined };
+      ? { label: t('{count} services waiting for a badge', { count: model.live.late }), tone: 'problem' }
+      : { label: t('{count} people working now', { count: model.live.working }), tone: model.live.working ? 'ok' : undefined };
     signals['badge-terminal'] = {
       label: t('{count} open clock-ins', { count: model.live.working }),
       tone: model.live.working ? 'ok' : undefined
@@ -212,15 +213,15 @@
         </div>
         <dl class="today-stats">
           <div class:is-positive={model.live.working > 0}>
-            <dt>{t('Working now')}</dt>
+            <dt>{t('People working now')}</dt>
             <dd>{model.live.working}</dd>
           </div>
           <div class:is-problem={model.live.late > 0}>
-            <dt>{t('Late')}</dt>
+            <dt>{t('Waiting for a badge')}</dt>
             <dd>{model.live.late}</dd>
           </div>
           <div>
-            <dt>{t('Starting soon')}</dt>
+            <dt>{t('Services starting soon')}</dt>
             <dd>{model.live.upcoming}</dd>
           </div>
         </dl>
@@ -636,11 +637,38 @@
 
   @media (max-width: 520px) {
     .module-grid {
-      grid-template-columns: minmax(0, 1fr);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
     }
 
     .module-tile {
-      min-height: 118px;
+      min-height: 102px;
+      grid-template-rows: auto auto 1fr;
+      gap: 8px;
+      padding: 10px 11px;
+    }
+
+    .module-tile__icon {
+      width: 32px;
+      height: 32px;
+    }
+
+    .module-tile__copy strong {
+      font-size: 12.5px;
+    }
+
+    .module-tile__copy > span {
+      display: none;
+    }
+
+    .module-tile__signal {
+      align-self: end;
+      font-size: 10px;
+      line-height: 1.25;
+    }
+
+    .module-tile__arrow {
+      font-size: 15px;
     }
 
     .upcoming-grid {

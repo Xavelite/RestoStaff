@@ -238,8 +238,19 @@
             <label class="check"><input type="checkbox" bind:checked={acknowledgementRequired} /> {t('Ask for confirmation')}</label>
           </div>
           <details class="recipients">
-            <summary>{selectedRecipients.length ? t('{count} selected', { count: selectedRecipients.length }) : t('Everyone active')}</summary>
+            <summary>
+              <span>
+                <strong>{t('Recipients')}</strong>
+                <small>{selectedRecipients.length ? t('{count} selected', { count: selectedRecipients.length }) : t('Everyone active')}</small>
+              </span>
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+            </summary>
             <div>
+              <button class="everyone-recipient" class:is-active={!selectedRecipients.length} type="button" onclick={() => (selectedRecipients = [])}>
+                <span>{t('Everyone active')}</span>
+                <small>{t('Send to the whole restaurant team.')}</small>
+              </button>
+              <p>{t('Or choose employees')}</p>
               {#each model?.employees ?? [] as employee (employee.id)}
                 <label><input type="checkbox" checked={selectedRecipients.includes(employee.id)} onchange={() => selectedRecipients = selectedRecipients.includes(employee.id) ? selectedRecipients.filter((id) => id !== employee.id) : [...selectedRecipients, employee.id]} /> {employee.display_name}</label>
               {/each}
@@ -250,6 +261,7 @@
       {/if}
 
       <section class="feed">
+        <header class="feed-head"><strong>{t('Message history')}</strong><span>{messages.length}</span></header>
         {#each messages as message (message.id)}
           {@const receipt = recipientFor(message.id)}
           {@const summary = messageRecipientSummary(message.id)}
@@ -271,7 +283,11 @@
             </div>
           </article>
         {:else}
-          <div class="empty-state">{t('No messages yet.')}</div>
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M5 17.5 3.8 21l4-2.1A9.5 9.5 0 1 0 5 17.5Z" /><path d="M8 10h8M8 14h5" /></svg>
+            <strong>{t('No messages yet')}</strong>
+            <span>{t(isManager ? 'Send an update when the team needs shared context.' : 'Restaurant updates will appear here.')}</span>
+          </div>
         {/each}
       </section>
     </div>
@@ -302,12 +318,53 @@
   .segmented button.is-active { color: var(--rst-ui-text); background: var(--rst-ui-hover-bg); }
   .check, .recipients label { display: flex; align-items: center; gap: 6px; font-size: 11px; }
   .check input, .recipients input { min-height: auto; accent-color: var(--rst-ui-action); }
-  .recipients summary { color: var(--rst-ui-muted); font-size: 11px; cursor: pointer; }
-  .recipients > div { max-height: 150px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; overflow: auto; padding-top: 9px; }
+  .recipients {
+    overflow: hidden;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: var(--rst-ui-radius-md);
+    background: var(--rst-ui-surface-panel);
+  }
+  .recipients summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 10px;
+    color: var(--rst-ui-muted);
+    font-size: 11px;
+    cursor: pointer;
+    list-style: none;
+  }
+  .recipients summary::-webkit-details-marker { display: none; }
+  .recipients summary > span { display: grid; gap: 1px; }
+  .recipients summary strong { color: var(--rst-ui-text); font-size: 11px; }
+  .recipients summary svg { transition: transform .16s ease; }
+  .recipients[open] summary svg { transform: rotate(90deg); }
+  .recipients > div { max-height: 190px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; overflow: auto; padding: 9px 10px 10px; border-top: 1px solid var(--rst-ui-divider-soft); }
+  .recipients > div > p { grid-column: 1 / -1; margin: 3px 0 0; color: var(--rst-ui-muted); font-size: 9px; font-weight: var(--rst-fw-bold); text-transform: uppercase; }
+  .everyone-recipient {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: 1px;
+    padding: 8px 9px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: 6px;
+    color: var(--rst-ui-text);
+    background: transparent;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .everyone-recipient.is-active { border-color: var(--rst-ui-action); background: var(--rst-ui-action-soft); }
+  .everyone-recipient span { font-size: 11px; font-weight: var(--rst-fw-bold); }
+  .everyone-recipient small { color: var(--rst-ui-muted); font-size: 9px; }
   button.primary { border-color: var(--rst-ui-action); color: var(--rst-on-accent-text); background: var(--rst-ui-action); }
   .composer > .primary { min-height: 38px; justify-self: end; padding: 7px 14px; border-radius: var(--rst-ui-radius-md); font: inherit; font-size: 12px; font-weight: 750; cursor: pointer; }
   button:disabled { opacity: .5; cursor: default; }
   .feed { display: grid; border-top: 1px solid var(--rst-ui-divider-soft); }
+  .feed-head { min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 4px; border-bottom: 1px solid var(--rst-ui-divider-soft); }
+  .feed-head strong { font-size: 11px; text-transform: uppercase; }
+  .feed-head span { min-width: 20px; height: 20px; display: grid; place-items: center; border-radius: 10px; color: var(--rst-ui-muted); background: var(--rst-ui-surface-field-strong); font-size: 9px; }
   .feed article { position: relative; display: grid; grid-template-columns: 4px minmax(0, 1fr); gap: 11px; padding: 14px 4px; border-bottom: 1px solid var(--rst-ui-divider-soft); }
   .message-mark { width: 3px; border-radius: 2px; background: var(--rst-ui-line); }
   .feed article.unread .message-mark { background: var(--rst-ui-action); }
@@ -318,7 +375,10 @@
   .message-copy time { color: var(--rst-ui-muted); font-size: 10px; }
   .message-copy p { margin: 0; font-size: 13px; line-height: 1.45; white-space: pre-wrap; }
   .confirm-read { justify-self: start; min-height: 30px; padding: 4px 9px; border: 1px solid var(--rst-ui-line); border-radius: var(--rst-ui-radius-md); color: var(--rst-ui-action); background: transparent; font: inherit; font-size: 10px; font-weight: 750; cursor: pointer; }
-  .empty-state { padding: 32px 12px; color: var(--rst-ui-muted); text-align: center; font-size: 12px; }
+  .empty-state { display: grid; justify-items: center; gap: 5px; padding: 30px 16px; color: var(--rst-ui-muted); text-align: center; font-size: 12px; }
+  .empty-state svg { margin-bottom: 3px; color: var(--rst-ui-action); }
+  .empty-state strong { color: var(--rst-ui-text); font-size: 13px; }
+  .empty-state span { max-width: 270px; font-size: 11px; line-height: 1.45; }
   @media (max-width: 520px) {
     .communications-button {
       right: max(14px, env(safe-area-inset-right, 0px));

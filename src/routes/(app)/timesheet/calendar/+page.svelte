@@ -225,5 +225,58 @@
     opacity: 0.7;
     border-top-right-radius: 2px;
   }
-</style>
 
+  @media (max-width: 760px) {
+    .monthwrap {
+      overflow: hidden;
+    }
+    .month {
+      min-width: 0;
+    }
+    .month__head {
+      min-width: 0;
+      padding: 8px 1px;
+      font-size: 9px;
+      text-align: center;
+    }
+    .month__day {
+      min-width: 0;
+      min-height: 62px;
+      gap: 2px;
+      padding: 7px 3px 10px;
+      text-align: center;
+    }
+    .month__top {
+      justify-content: center;
+    }
+    .month__num {
+      font-size: 12px;
+    }
+    .month__hours {
+      font-size: 9px;
+    }
+    .month__meta {
+      display: none;
+    }
+    .month__flag {
+      position: absolute;
+      top: 4px;
+      right: 3px;
+      width: 7px;
+      height: 7px;
+      overflow: hidden;
+      padding: 0;
+      border-radius: 50%;
+      color: transparent;
+      background: var(--cl-attention);
+    }
+    .month__day.is-today .month__num {
+      min-width: 21px;
+      height: 21px;
+      padding-inline: 4px;
+    }
+    .month__bar {
+      height: 3px;
+    }
+  }
+</style>

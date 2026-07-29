@@ -51,7 +51,12 @@
     const step = (now: number) => {
       const p = Math.min(1, (now - t0) / 600);
       const eased = 1 - Math.pow(1 - p, 3);
-      display = format(Math.round(start + (to - start) * eased));
+      const frame = start + (to - start) * eased;
+      // Integer counters should still tick through whole values, while hours,
+      // money and percentages must retain their real precision.
+      display = format(
+        p === 1 ? to : Number.isInteger(start) && Number.isInteger(to) ? Math.round(frame) : frame
+      );
       if (p < 1) raf = requestAnimationFrame(step);
     };
     raf = requestAnimationFrame(step);

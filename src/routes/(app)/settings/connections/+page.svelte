@@ -20,7 +20,7 @@
   const committeeIssue = $derived(jointCommitteeIssue(context?.draft.jointCommitteeCode));
 </script>
 
-<svelte:head><title>{t('Connections')} &middot; restogogo</title></svelte:head>
+<svelte:head><title>{t('Payroll setup')} &middot; restogogo</title></svelte:head>
 
 {#if context}
   {@const draft = context.draft}

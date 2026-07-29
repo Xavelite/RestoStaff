@@ -464,7 +464,7 @@
       {/snippet}
       {#snippet children()}
       <div class="cl-tablewrap">
-        <table class="cl-table people-table">
+        <table class="cl-table cl-mobile-rows people-table">
           <thead>
             <tr>
               <th class="has-menu">
@@ -525,7 +525,7 @@
             </tr>
           </thead>
           {#if !total}
-            <tbody><tr><td colspan={colCount}>
+            <tbody><tr class="cl-mobile-empty"><td colspan={colCount}>
               <div class="cl-empty">
                 <strong>{t(rosterTotal ? 'No employees match' : 'No active employees')}</strong>
                 <span>{t('Change the filter, or add someone to the team.')}</span>
@@ -560,7 +560,7 @@
                   {@const primaryPositionArea = positionArea(employee.jobFunctionIds[0] ?? '')}
                   {@const isFresh = teamDraft.isPending(employee.id)}
                   <tr data-employee-id={employee.id} class:is-new={isFresh}>
-                    <td>
+                    <td class="cl-mobile-primary">
                       <span class="cl-table__name is-employee">
                         <span class="cl-avatar" style="--avatar-color:{employeeColor.get(employee.id) ?? 'var(--cl-muted)'}">{personInitials(employee.displayName || '?')}</span>
                         {#if isFresh}
@@ -570,6 +570,11 @@
                             {employee.displayName || t('New employee')}
                           </button>
                         {/if}
+                      </span>
+                      <span class="cl-mobile-summary">
+                        <span>{team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position yet')}</span>
+                        <span>{team.contractName.get(employee.contractTypeId) || t('No contract')}</span>
+                        {#if employee.email}<span>{employee.email}</span>{/if}
                       </span>
                     </td>
                     {#if shown('position')}

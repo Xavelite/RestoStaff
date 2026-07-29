@@ -246,8 +246,8 @@ const CLASSIC_MODULES: ClassicModule[] = [
     roles: MANAGER,
     utility: true,
     subNav: [
-      { href: '/settings/connections', label: 'Connections' },
-      { href: '/settings/absence-types', label: 'Time-off policies' }
+      { href: '/settings/connections', label: 'Payroll setup' },
+      { href: '/settings/absence-types', label: 'Time-off types' }
     ]
   },
   // Employees share the same shell; their two screens are simply the only

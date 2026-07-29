@@ -961,6 +961,13 @@
   line-height: 1.35;
 }
 
+/* Directory grids keep their spreadsheet form on desktop and opt into a
+   compact record list on phones. The first cell owns the mobile identity and
+   summary; all editing still routes through the same row action/editor. */
+.cl-mobile-summary {
+  display: none;
+}
+
 .cl-table th {
   height: var(--cl-grid-head);
   padding: 0 14px;
@@ -1488,6 +1495,146 @@
 .cl-table .chooser-col,
 .cl-table .menu-cell {
   width: 44px;
+}
+
+@media (max-width: 760px) {
+  .cl-tablewrap:has(.cl-mobile-rows) {
+    max-height: none;
+    overflow: visible;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    scrollbar-gutter: auto;
+  }
+
+  .cl-table.cl-mobile-rows {
+    min-width: 0 !important;
+    display: block;
+  }
+
+  .cl-mobile-rows thead {
+    display: none;
+  }
+
+  .cl-mobile-rows tbody {
+    display: grid;
+    gap: 8px;
+  }
+
+  .cl-mobile-rows tbody + tbody {
+    margin-top: 10px;
+  }
+
+  .cl-mobile-rows tr:not(.cl-group-row, .cl-mobile-empty) {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 42px;
+    align-items: center;
+    border: 1px solid var(--cl-line);
+    border-radius: var(--cl-radius-surface);
+    background: var(--cl-surface);
+    box-shadow: 0 1px 2px rgba(17, 24, 39, 0.035);
+  }
+
+  .cl-mobile-rows tr:not(.cl-group-row, .cl-mobile-empty):not(:has(> .menu-cell)) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cl-mobile-rows tr:not(.cl-group-row, .cl-mobile-empty) > td {
+    display: none;
+  }
+
+  .cl-mobile-rows tr:not(.cl-group-row, .cl-mobile-empty) > td.cl-mobile-primary {
+    min-width: 0;
+    height: auto;
+    display: grid;
+    gap: 5px;
+    padding: 11px 12px;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .cl-mobile-rows tr:not(.cl-group-row, .cl-mobile-empty) > td.menu-cell {
+    width: 42px;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-left: 1px solid var(--cl-grid-line);
+    background: transparent;
+  }
+
+  .cl-mobile-rows tr.is-new > td.cl-mobile-primary {
+    box-shadow: inset 3px 0 0 var(--cl-accent);
+  }
+
+  .cl-mobile-summary {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    overflow: hidden;
+    color: var(--cl-muted);
+    font-size: 11px;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cl-mobile-summary > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .cl-mobile-summary > span + span::before {
+    content: '·';
+    margin-right: 5px;
+    color: var(--cl-line-strong);
+  }
+
+  .cl-mobile-rows .cl-group-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    margin: 2px 0 -2px;
+  }
+
+  .cl-mobile-rows .cl-group-row > td {
+    display: none;
+    height: 34px;
+    border: 0;
+    background: transparent;
+  }
+
+  .cl-mobile-rows .cl-group-row > td.cl-group-row__label,
+  .cl-mobile-rows .cl-group-row > td.cl-group-row__meta-cell {
+    display: block;
+  }
+
+  .cl-mobile-rows .cl-group-row__button {
+    min-width: 0;
+    padding-left: 2px;
+  }
+
+  .cl-mobile-rows .cl-group-row__meta {
+    position: static;
+    height: 34px;
+    display: flex;
+    align-items: center;
+  }
+
+  .cl-mobile-rows .cl-mobile-empty {
+    display: block;
+  }
+
+  .cl-mobile-rows .cl-mobile-empty > td {
+    display: block;
+    height: auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
 }
 
 .cl-page .dot {

@@ -203,7 +203,7 @@
       {/snippet}
       {#snippet children()}
       <div class="cl-tablewrap">
-        <table class="cl-table contract-table">
+        <table class="cl-table cl-mobile-rows contract-table">
           <thead>
             <tr>
               <th class="has-menu"><ClassicPrimaryColMenu label={t('Employee')} sortable sortDir={view.sortDir('employee')} onsort={(dir) => view.setSort('employee', dir)} filterKind="text" searchValue={view.search('employee')} onsearch={(value) => view.setSearch('employee', value)} groupValue={view.groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'contract', label: t('Contract type') }, { value: 'position', label: t('Position') }, { value: 'status', label: t('Setup') }]} ongroupchange={(value) => view.setGroupBy(value as GroupBy)} /></th>
@@ -218,7 +218,7 @@
             </tr>
           </thead>
           {#if !filtered.length}
-            <tbody><tr><td colspan={colCount + 1}><div class="cl-empty"><strong>{t('No active employees')}</strong><span>{t('Add someone to define their contract and payroll setup.')}</span></div></td></tr></tbody>
+            <tbody><tr class="cl-mobile-empty"><td colspan={colCount + 1}><div class="cl-empty"><strong>{t('No active employees')}</strong><span>{t('Add someone to define their contract and payroll setup.')}</span></div></td></tr></tbody>
           {:else}
             {#each groups as group (group.key)}
               <tbody>
@@ -235,10 +235,15 @@
                   {@const linkedArea = positionArea(employee.jobFunctionIds[0] ?? '')}
                   {@const contractCode = workspace.team?.contract_types.find((item) => item.id === employee.contractTypeId)?.code ?? ''}
                   <tr data-employee-id={employee.id} class:is-attention={missing.length > 0}>
-                    <td>
+                    <td class="cl-mobile-primary">
                       <span class="cl-table__name is-employee">
                         <span class="cl-avatar" style="--avatar-color:{employeeColor.get(employee.id) ?? 'var(--cl-muted)'}">{personInitials(employee.displayName || '?')}</span>
                         <button class="cell-value employee-name" type="button" disabled={!team.canManageOperations || !team.editable} onclick={() => (detailId = employee.id)}>{employee.displayName || t('New employee')}</button>
+                      </span>
+                      <span class="cl-mobile-summary">
+                        <span>{team.contractName.get(employee.contractTypeId) || t('No contract')}</span>
+                        <span>{t(REGIME_LABEL[employee.workRegime] ?? employee.workRegime)}</span>
+                        {#if missing.length}<span>{t('{count} details missing', { count: missing.length })}</span>{/if}
                       </span>
                     </td>
                     {#if shown('position')}<td>

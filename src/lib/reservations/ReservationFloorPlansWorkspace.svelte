@@ -1761,7 +1761,7 @@
       {:else if draft}
         {#if mode === 'areas' && editorView === 'list'}
           <div class="cl-tablewrap area-directory">
-            <table class="cl-table">
+            <table class="cl-table cl-mobile-rows">
               <thead>
                 <tr>
                   <th>{t('Area')}</th>
@@ -1779,7 +1779,7 @@
                     class:is-attention={!room.floor_id}
                     class:is-new={pendingAreaIds.includes(room.work_area_id)}
                   >
-                    <td>
+                    <td class="cl-mobile-primary">
                       <span class="area-row-name">
                         <WorkspaceAreaIcon icon={areaIconFor(room.work_area_id)} color={room.area_color} size={18} />
                         {#if areaDraft}
@@ -1810,6 +1810,10 @@
                         {:else}
                           <strong>{room.name}</strong>
                         {/if}
+                      </span>
+                      <span class="cl-mobile-summary">
+                        <span>{floor ? floorLabel(floor) : t('Not placed')}</span>
+                        <span>{t('{count} positions', { count: positionCountForArea(room.work_area_id) })}</span>
                       </span>
                     </td>
                     <td>
@@ -1842,7 +1846,7 @@
                     </td>
                   </tr>
                 {:else}
-                  <tr><td colspan="5"><div class="cl-empty"><strong>{t('No areas yet')}</strong><span>{t('Add an area to start shaping your restaurant.')}</span></div></td></tr>
+                  <tr class="cl-mobile-empty"><td colspan="5"><div class="cl-empty"><strong>{t('No areas yet')}</strong><span>{t('Add an area to start shaping your restaurant.')}</span></div></td></tr>
                 {/each}
               </tbody>
             </table>

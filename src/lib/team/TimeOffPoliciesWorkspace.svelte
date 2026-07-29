@@ -78,7 +78,7 @@
   }
 </script>
 
-<svelte:head><title>{t('Absence types')} &middot; restogogo</title></svelte:head>
+<svelte:head><title>{t('Time-off types')} &middot; restogogo</title></svelte:head>
 
 {#if snapshot}
   {@const types = orderedTypes((snapshot.absence_types ?? []).filter(matches))}
@@ -98,7 +98,7 @@
     {#snippet meta()}<span><i class="dot"></i>{t('{count} types', { count: types.length })}</span>{/snippet}
     {#snippet children()}
       <div class="cl-tablewrap">
-        <table class="cl-table">
+        <table class="cl-table cl-mobile-rows">
           <thead><tr>
             <th class="has-menu">
               <ClassicPrimaryColMenu
@@ -125,7 +125,7 @@
             <th class="chooser-col"><ClassicColChooser columns={view.columns} hidden={view.hidden} ontoggle={view.toggleColumn} /></th>
           </tr></thead>
           {#if !types.length}
-            <tbody><tr><td colspan={colCount}><div class="cl-empty"><strong>{t('No absence types yet')}</strong><span>{t('Without a leave type, employees cannot request time off.')}</span></div></td></tr></tbody>
+            <tbody><tr class="cl-mobile-empty"><td colspan={colCount}><div class="cl-empty"><strong>{t('No absence types yet')}</strong><span>{t('Without a leave type, employees cannot request time off.')}</span></div></td></tr></tbody>
           {:else}
             {#each groups as group (group.key)}
               <tbody>
@@ -133,7 +133,14 @@
                 {#if !view.isCollapsed(group.key)}
                   {#each group.rows as type (type.id)}
                     <tr>
-                      <td>{type.name}</td>
+                      <td class="cl-mobile-primary">
+                        <strong>{type.name}</strong>
+                        <span class="cl-mobile-summary">
+                          <span>{t(PAID_LABEL[type.paid_policy ?? 'neutral'] ?? type.paid_policy ?? '—')}</span>
+                          <span>{t(type.requires_approval ? 'Approval required' : 'No approval required')}</span>
+                          {#if !type.active}<span>{t('Archived')}</span>{/if}
+                        </span>
+                      </td>
                       {#if shown('payment')}<td class="is-quiet">{t(PAID_LABEL[type.paid_policy ?? 'neutral'] ?? type.paid_policy ?? '—')}</td>{/if}
                       {#if shown('approval')}<td class="is-quiet">{t(type.requires_approval ? 'Yes' : 'No')}</td>{/if}
                       {#if shown('status')}<td><ClassicStatus label={type.active ? 'Active' : 'Archived'} tone={type.active ? 'ok' : 'attention'} /></td>{/if}
