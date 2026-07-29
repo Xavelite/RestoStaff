@@ -145,6 +145,7 @@
     "20260727163538_harden_logo_and_reservation_room_identity.sql": "729fe3613145d67fe39d78b5b6641f1171e8974f8dd2c06cf2d62a5e69340dac",
     "20260727163604_preserve_public_guest_identity.sql": "fc6b963c2f9b95692f6379a0a8129f4f6624fc9e11c7668d188f2f586db37fda",
     "20260727170604_floor_aware_area_labels_and_position_links.sql": "5c5de60ab1d7b3ffb0dd10e43ff1991f8a16a65466e3f978519ee08c2496d9bb",
-    "20260727174708_reconcile_position_area_preferences.sql": "a2da0c906cbf8f37ddabd18cc2730fa25d2f5f14917c99105b0579939daf886c"
+    "20260727174708_reconcile_position_area_preferences.sql": "a2da0c906cbf8f37ddabd18cc2730fa25d2f5f14917c99105b0579939daf886c",
+    "20260729192250_restaurant_document_library.sql": "41aee719bfe14256f3e5675aba5802e3fa71ae88286a3cf413f3c96577b6ae1b"
   }
 }

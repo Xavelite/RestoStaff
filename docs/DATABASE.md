@@ -76,6 +76,14 @@ Workspace Realtime uses the RLS-protected `workspace_realtime_events` table and
 Supabase's platform-owned `realtime` schema.
 Browser QA remains a separate human acceptance layer.
 
+Private restaurant documents use the `restaurant-documents` Storage bucket.
+`begin_restaurant_document_upload` reserves restaurant quota and an exact object
+path; Storage policies accept only that signed-in Owner/Manager reservation;
+`finalize_restaurant_document_upload` verifies the completed size and MIME type
+before publication. The included defaults are 10 MB per file and 250 MB per
+restaurant. Paid capacity changes are explicit setting changes after commercial
+confirmation, never a client-side quota bypass.
+
 ## Consolidation
 
 With PostgreSQL 17 `pg_dump.exe` available:

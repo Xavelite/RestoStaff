@@ -38,6 +38,7 @@ export type ClassicIcon =
   | 'schedule'
   | 'time'
   | 'team'
+  | 'documents'
   | 'restaurant'
   | 'reservations'
   | 'inventory'
@@ -117,6 +118,15 @@ const CLASSIC_MODULES: ClassicModule[] = [
       { href: '/restaurant/positions', label: 'Positions' },
       { href: '/restaurant/coverage', label: 'Staffing' }
     ]
+  },
+  {
+    key: 'documents',
+    href: '/documents',
+    label: 'Documents',
+    summary: 'Contracts, certificates and restaurant records',
+    icon: 'documents',
+    roles: MANAGER,
+    navSection: 'setup'
   },
   {
     key: 'inventory',
@@ -276,6 +286,7 @@ const MODULE_ORDER = [
   'home',
   'restaurant',
   'team',
+  'documents',
   'schedule',
   'time',
   'badge-terminal',

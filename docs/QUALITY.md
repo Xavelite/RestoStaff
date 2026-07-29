@@ -19,7 +19,8 @@ runtime unit test is not the right layer.
 
 The SQL contract filenames describe the boundary they execute: badge and
 operations, work patterns, access, Schedule/Timesheet lifecycle, read models,
-payroll, model integrity, and notification/payroll integration.
+payroll, model integrity, private document storage, and notification/payroll
+integration.
 
 ## Browser matrix
 

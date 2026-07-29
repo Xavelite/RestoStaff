@@ -5063,6 +5063,198 @@ export type Database = {
           },
         ]
       }
+      restaurant_document_events: {
+        Row: {
+          actor_profile_id: string | null
+          details: Json
+          document_id: string
+          event_type: string
+          id: string
+          occurred_at: string
+          restaurant_id: string
+        }
+        Insert: {
+          actor_profile_id?: string | null
+          details?: Json
+          document_id: string
+          event_type: string
+          id?: string
+          occurred_at?: string
+          restaurant_id: string
+        }
+        Update: {
+          actor_profile_id?: string | null
+          details?: Json
+          document_id?: string
+          event_type?: string
+          id?: string
+          occurred_at?: string
+          restaurant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_document_events_actor_profile_id_fkey"
+            columns: ["actor_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "restaurant_document_events_restaurant_id_document_id_fkey"
+            columns: ["restaurant_id", "document_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_documents"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+          {
+            foreignKeyName: "restaurant_document_events_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      restaurant_document_storage_settings: {
+        Row: {
+          created_at: string
+          max_file_bytes: number
+          plan_code: string
+          restaurant_id: string
+          total_limit_bytes: number
+          updated_at: string
+          updated_by_profile_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          max_file_bytes?: number
+          plan_code?: string
+          restaurant_id: string
+          total_limit_bytes?: number
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          max_file_bytes?: number
+          plan_code?: string
+          restaurant_id?: string
+          total_limit_bytes?: number
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_document_storage_settings_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: true
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "restaurant_document_storage_settings_updated_by_profile_id_fkey"
+            columns: ["updated_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      restaurant_documents: {
+        Row: {
+          access_scope: string
+          archived_at: string | null
+          category: string
+          created_at: string
+          created_by_profile_id: string | null
+          document_date: string | null
+          employee_id: string | null
+          expires_on: string | null
+          id: string
+          mime_type: string
+          note: string | null
+          object_path: string
+          original_filename: string
+          restaurant_id: string
+          size_bytes: number
+          status: string
+          title: string
+          updated_at: string
+          updated_by_profile_id: string | null
+        }
+        Insert: {
+          access_scope?: string
+          archived_at?: string | null
+          category: string
+          created_at?: string
+          created_by_profile_id?: string | null
+          document_date?: string | null
+          employee_id?: string | null
+          expires_on?: string | null
+          id?: string
+          mime_type: string
+          note?: string | null
+          object_path: string
+          original_filename: string
+          restaurant_id: string
+          size_bytes: number
+          status?: string
+          title: string
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Update: {
+          access_scope?: string
+          archived_at?: string | null
+          category?: string
+          created_at?: string
+          created_by_profile_id?: string | null
+          document_date?: string | null
+          employee_id?: string | null
+          expires_on?: string | null
+          id?: string
+          mime_type?: string
+          note?: string | null
+          object_path?: string
+          original_filename?: string
+          restaurant_id?: string
+          size_bytes?: number
+          status?: string
+          title?: string
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_documents_created_by_profile_id_fkey"
+            columns: ["created_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "restaurant_documents_restaurant_id_employee_id_fkey"
+            columns: ["restaurant_id", "employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["restaurant_id", "id"]
+          },
+          {
+            foreignKeyName: "restaurant_documents_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "restaurant_documents_updated_by_profile_id_fkey"
+            columns: ["updated_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       restaurant_employment_settings: {
         Row: {
           created_at: string
@@ -6444,9 +6636,29 @@ export type Database = {
         Returns: Json
       }
       am_i_platform_admin: { Args: never; Returns: boolean }
+      archive_restaurant_document: {
+        Args: { p_document_id: string; p_restaurant_id: string }
+        Returns: undefined
+      }
       badge_photo_status_to_db: {
         Args: { p_photo_url?: string; p_status: string }
         Returns: string
+      }
+      begin_restaurant_document_upload: {
+        Args: {
+          p_access_scope?: string
+          p_category: string
+          p_document_date?: string
+          p_employee_id?: string
+          p_expires_on?: string
+          p_mime_type: string
+          p_note?: string
+          p_original_filename: string
+          p_restaurant_id: string
+          p_size_bytes: number
+          p_title: string
+        }
+        Returns: Json
       }
       build_communications_read_model: {
         Args: { p_employee_id: string; p_restaurant_id: string; p_role: string }
@@ -6489,6 +6701,10 @@ export type Database = {
           p_restaurant_id: string
         }
         Returns: Json
+      }
+      cancel_restaurant_document_upload: {
+        Args: { p_document_id: string; p_restaurant_id: string }
+        Returns: undefined
       }
       check_reservation_availability: {
         Args: {
@@ -6550,12 +6766,25 @@ export type Database = {
         }
         Returns: Json
       }
+      document_storage_object_access: {
+        Args: {
+          p_mime_type?: string
+          p_object_path: string
+          p_operation: string
+          p_size_bytes?: number
+        }
+        Returns: boolean
+      }
       employee_invitation_states_for_restaurant: {
         Args: { p_restaurant_id: string }
         Returns: Json
       }
       ensure_reservation_public_channel: {
         Args: { p_default_origin: string; p_restaurant_id: string }
+        Returns: Json
+      }
+      finalize_restaurant_document_upload: {
+        Args: { p_document_id: string; p_restaurant_id: string }
         Returns: Json
       }
       gen_salt:
@@ -6689,6 +6918,10 @@ export type Database = {
       }
       get_reservation_workspace: {
         Args: { p_business_date: string; p_restaurant_id: string }
+        Returns: Json
+      }
+      get_restaurant_documents: {
+        Args: { p_restaurant_id: string }
         Returns: Json
       }
       get_restaurant_read_model: {
@@ -6826,6 +7059,10 @@ export type Database = {
           p_restaurant_id: string
         }
         Returns: Json
+      }
+      record_restaurant_document_download: {
+        Args: { p_document_id: string; p_restaurant_id: string }
+        Returns: undefined
       }
       register_employee_invitation: {
         Args: {
@@ -7342,6 +7579,20 @@ export type Database = {
       update_own_profile: {
         Args: { p_first_name: string; p_last_name: string }
         Returns: Json
+      }
+      update_restaurant_document: {
+        Args: {
+          p_access_scope?: string
+          p_category: string
+          p_document_date?: string
+          p_document_id: string
+          p_employee_id?: string
+          p_expires_on?: string
+          p_note?: string
+          p_restaurant_id: string
+          p_title: string
+        }
+        Returns: undefined
       }
       validate_employee_employment_terms: {
         Args: {

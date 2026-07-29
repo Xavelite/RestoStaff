@@ -31,6 +31,9 @@
     <circle cx="9" cy="8" r="3.2" />
     <path d="M3.6 19a5.4 5.4 0 0 1 10.8 0" />
     <path d="M16.2 5.6a3.2 3.2 0 0 1 0 4.8M17.4 13.4a5.4 5.4 0 0 1 3 5" />
+  {:else if name === 'documents'}
+    <path d="M7 3.5h7l4 4V20H7z" />
+    <path d="M14 3.5V8h4M4 7v13h10M10 12h5M10 15.5h5" />
   {:else if name === 'restaurant'}
     <path d="M4 9h16l-1.2-4H5.2z" />
     <path d="M5 9v10h14V9" />

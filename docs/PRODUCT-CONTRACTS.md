@@ -9,6 +9,7 @@
 | `/timesheet` | Time & attendance | Owner, Manager | Reconcile badge truth, correct entries, monitor service, and approve weeks |
 | `/team` | Team | Owner, Manager | Employees, contracts, access, and leave; payroll data stays owner-only |
 | `/restaurant` | Restaurant | Owner, Manager | Areas, positions, services, hours, coverage, and policy |
+| `/documents` | Documents | Owner, Manager | Keep private restaurant and employee records with expiry, access, and audit context |
 | `/reservations` | Reservations | Owner, Manager | Configure booking rules and floor plans; manage bookings, tables, covers, guests, and service status |
 | `/payroll/employees` | Payroll | Owner | Review employee payroll identity and readiness data |
 | `/reports` | Reports | Owner, Manager | Analyse hours, attendance and operational trends |
@@ -48,6 +49,12 @@ Persisted identifiers such as `planning_status`, `actuals_status`, and
   only and never signs a user into the application.
 - Notifications are derived from operational truth. Only personal preferences
   and receipts are directly writable, under owner-row RLS.
+- Documents use a private Storage bucket and an atomic database reservation
+  before upload. Each file is limited to 10 MB, the included restaurant quota
+  is 250 MB, and completed object metadata is verified before the file becomes
+  readable. Managers can use management files; owner-only files remain hidden
+  from them. Explicit archives keep immutable activity history after the object
+  is removed, while cancelled reservations stay out of the visible archive.
 - Reservations reuse Restaurant services, opening hours, and work areas.
   Availability and table assignment are decided transactionally on the server,
   every lifecycle change appends immutable history, and Schedule consumes only
