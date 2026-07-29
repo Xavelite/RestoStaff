@@ -6,6 +6,7 @@
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
+  import { personInitials } from '$lib/ui/person';
 
   let {
     open,
@@ -91,7 +92,7 @@
       <div class="persona-list">
         {#each filtered as persona (persona.key)}
           <button type="button" disabled={Boolean(openingKey)} onclick={() => openPersona(persona)}>
-            <span class="avatar">{persona.displayName.slice(0, 1).toUpperCase()}</span>
+            <span class="avatar">{personInitials(persona.displayName)}</span>
             <span class="identity"><strong>{persona.displayName}</strong><small>{persona.detail}</small></span>
             <span class="role">{t(persona.role)}</span>
             <span class="arrow" aria-hidden="true">&gt;</span>

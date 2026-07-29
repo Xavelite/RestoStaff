@@ -207,7 +207,8 @@ const CLASSIC_MODULES: ClassicModule[] = [
   {
     key: 'badge-terminal',
     href: '/badge-terminal',
-    label: 'Badge terminal',
+    // The page manages the devices; the terminal is what you open from one.
+    label: 'Badge devices',
     summary: 'Paired devices and the clock-in terminal',
     icon: 'badge',
     roles: MANAGER,

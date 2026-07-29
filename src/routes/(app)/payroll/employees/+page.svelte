@@ -248,7 +248,10 @@
                   {@const terms = TERMS_STATUS[employee.employmentSourceStatus]}
                   <tr class:is-problem={missing.length > 0}>
                     <td><span class="cl-table__name is-employee"><span class="cl-avatar" style="--avatar-color:{employeeColor.get(employee.id) ?? 'var(--cl-muted)'}">{personInitials(employee.displayName)}</span><span class="employee-name">{employee.displayName}</span></span></td>
-                    {#if shown('status')}<td>{#if missing.length}<ClassicStatus label={missing.length === 1 ? '1 detail missing' : '{count} details missing'} params={{ count: missing.length }} tone="problem" /><span class="missing">{missing.map((item) => t(item)).join(', ')}</span>{:else}<ClassicStatus label={terms?.label ?? 'Ready for payroll'} tone={terms?.tone ?? 'ok'} />{/if}</td>{/if}
+                    <!-- The count is the signal; the row's own columns already
+                         say which fields are empty, so the list is not repeated
+                         on every line. The full list stays on hover. -->
+                    {#if shown('status')}<td title={missing.length ? missing.map((item) => t(item)).join(', ') : undefined}>{#if missing.length}<ClassicStatus label={missing.length === 1 ? '1 detail missing' : '{count} details missing'} params={{ count: missing.length }} tone="problem" />{:else}<ClassicStatus label={terms?.label ?? 'Ready for payroll'} tone={terms?.tone ?? 'ok'} />{/if}</td>{/if}
                     {#if shown('contract')}<td>{team.contractName.get(employee.contractTypeId) ?? t('No contract yet')}</td>{/if}
                     {#if shown('position')}<td>{team.jobName.get(employee.jobFunctionIds[0] ?? '') ?? t('No position yet')}</td>{/if}
                     {#if shown('payrollId')}<td><input class="cl-field payrollid" value={employee.payrollEmployeeId} disabled={!team.canViewFinancials || !team.editable} oninput={(event) => teamDraft.update(employee.id, { payrollEmployeeId: event.currentTarget.value })} /></td>{/if}
@@ -292,7 +295,6 @@
   .col-status { width: 260px; }
   .col-actions { width: 44px; }
   .employee-name { font-weight: var(--rst-fw-medium); }
-  .missing { display: block; color: var(--cl-muted); font-size: 12px; }
   .payrollid { min-width: 120px; height: 34px; }
   .ratefield { width: 105px; height: 34px; }
 </style>

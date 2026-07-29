@@ -10,6 +10,7 @@
   import { sound } from '$lib/sound/sound.svelte';
   import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
+  import { personInitials } from '$lib/ui/person';
 
   // The badge clock, decoupled from how it authenticates: a manager session and
   // a paired station both hand in an api + restaurant identity.
@@ -261,7 +262,7 @@
             style={`--person-index: ${index}`}
             onclick={() => selectEmployee(employee.employeeId)}
           >
-            <span class="avatar">{employee.displayName.charAt(0).toUpperCase()}</span>
+            <span class="avatar">{personInitials(employee.displayName)}</span>
             <span class="person-copy">
               <strong>{employee.displayName}</strong>
               <small class:is-active={employee.clockedIn}>
@@ -276,7 +277,7 @@
 
     <section class="challenge" aria-labelledby="challenge-title">
       <div class="selected-person">
-        <span class="selected-avatar">{selected?.displayName.charAt(0).toUpperCase() ?? '?'}</span>
+        <span class="selected-avatar">{selected ? personInitials(selected.displayName) : '?'}</span>
         <div>
           <span class="eyebrow">{t('Selected')}</span>
           <strong id="challenge-title">{selected?.displayName ?? t('Select an employee')}</strong>
