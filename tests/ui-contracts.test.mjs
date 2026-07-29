@@ -445,11 +445,16 @@ test('Coverage inherits the same explicit grid contract as every classic table',
   assert.match(css, /\.cl-table td\s*\{[^}]*border-bottom:\s*1px solid var\(--cl-grid-line\)/s);
 });
 
-test('Home stays a lightweight module portal and active Payroll Employees uses the shared compact panel baseline', async () => {
+test('Home leads with the shift day and active Payroll Employees uses the shared compact panel baseline', async () => {
   const home = await readFile('src/routes/(app)/home/+page.svelte', 'utf8');
   const payrollEmployees = await readFile('src/routes/(app)/payroll/employees/+page.svelte', 'utf8');
+  // Home answers "what needs me today" from this week's operations, and keeps
+  // the module list only as a launcher under it.
+  assert.match(home, /buildHomeModel/);
+  assert.match(home, /workspace\.loadOperations\(activeWeek, addDays\(activeWeek, 6\)\)/);
+  assert.match(home, /\{t\('Needs you'\)\}/);
+  assert.match(home, /\{t\('On today'\)\}/);
   assert.match(home, /modulesForRole/);
-  assert.doesNotMatch(home, /loadOperations|setInterval|activeWeek|operationsSnapshot/);
   assert.doesNotMatch(payrollEmployees, /<ClassicStat\b|class="cl-stats"/);
   assert.match(payrollEmployees, /<ClassicTablePanel/);
 });
@@ -538,10 +543,12 @@ test('Home integrates labelled upcoming modules while Areas and Tables stay sepa
   const layout = await readFile('src/routes/(app)/+layout.svelte', 'utf8');
   const areas = await readFile('src/lib/reservations/ReservationFloorPlansWorkspace.svelte', 'utf8');
 
-  assert.match(home, /available\.filter\(\(module\) => !module\.placeholder\)/);
-  assert.match(home, /available\.filter\(\(module\) => module\.placeholder\)/);
-  assert.match(home, /<article class="tile tile--upcoming"/);
-  assert.match(home, /\{t\('Upcoming'\)\}/);
+  // Modules that do not exist yet are named in one quiet line rather than
+  // taking half of Home as placeholder tiles.
+  assert.match(home, /module\.key !== 'home' && !module\.placeholder/);
+  assert.match(home, /modulesForRole\(role\)\.filter\(\(module\) => module\.placeholder\)/);
+  assert.match(home, /\{t\('Coming next'\)\}/);
+  assert.doesNotMatch(home, /tile--upcoming/);
   assert.match(nav, /\/restaurant\/areas', label: 'Areas'/);
   assert.match(nav, /\/reservations\/floor-plans', label: 'Tables'/);
   const reportsBlock = nav.match(/key: 'reports'[\s\S]*?  \},/)?.[0] ?? '';

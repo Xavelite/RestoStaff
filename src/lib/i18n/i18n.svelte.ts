@@ -5259,3 +5259,22 @@ Object.assign(dutch, {
   'This action needs confirmation': 'Deze actie moet worden bevestigd',
   'Confirm this action': 'Bevestig deze actie'
 });
+
+// Home as a shift-day overview rather than a module menu.
+Object.assign(french, {
+  'Needs you': 'Ce qui vous attend',
+  'Nothing is waiting on you. The week is in good shape.':
+    'Rien ne vous attend. La semaine est en ordre.',
+  'On today': "Aujourd'hui",
+  'Nobody is scheduled today.': "Personne n'est planifié aujourd'hui.",
+  'Coming next': 'Bientôt'
+});
+
+Object.assign(dutch, {
+  'Needs you': 'Vraagt uw aandacht',
+  'Nothing is waiting on you. The week is in good shape.':
+    'Er wacht niets op u. De week ziet er goed uit.',
+  'On today': 'Vandaag',
+  'Nobody is scheduled today.': 'Er is vandaag niemand ingepland.',
+  'Coming next': 'Binnenkort'
+});
