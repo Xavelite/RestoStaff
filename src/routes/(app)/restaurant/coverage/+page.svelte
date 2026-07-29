@@ -8,6 +8,8 @@
   import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
   import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
   import ClassicPicker from '$lib/classic/ClassicPicker.svelte';
+  import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
+  import ClassicServiceIcon from '$lib/classic/ClassicServiceIcon.svelte';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
   import type {
     CoverageDraft,
@@ -97,6 +99,17 @@
 
   function rowKey(row: Row): string {
     return `${row.areaId}|${row.jobFunctionId}|${row.serviceKey}`;
+  }
+
+  /** An area and a position wear the same glyph here as on their own pages. */
+  function areaIcon(areaId: string): string {
+    return restaurantConfig.draft?.areas.find((area) => area.id === areaId)?.iconKey || '';
+  }
+
+  function positionIcon(positionId: string): string {
+    const position = restaurantConfig.draft?.jobFunctions.find((job) => job.id === positionId);
+    if (!position) return '';
+    return areaIcon(position.areaIds[0] ?? '') || position.iconKey || '';
   }
 
   function entry(draft: { coverage: CoverageDraft[] }, row: Row, weekday: number): CoverageDraft | undefined {
@@ -333,9 +346,9 @@
                 {@const pendingKey = row.areaId && row.jobFunctionId && row.serviceKey ? `${row.areaId}|${row.jobFunctionId}|${row.serviceKey}` : ''}
                 {@const duplicate = Boolean(pendingKey) && pendingKey !== row.stagedKey && exists(row.areaId, row.jobFunctionId, row.serviceKey as ServiceKey)}
                 <tr class="is-new">
-                  <td><ClassicPicker value={row.areaId} placeholder="Choose area" ariaLabel={t('Area')} options={activeAreas.map((area) => ({ value: area.id, label: areaName.get(area.id) ?? area.name, color: areaColor.get(area.id), dot: true }))} onchange={(next) => patchNewRow(row.tempId, { areaId: next })} /></td>
-                  <td><ClassicPicker value={row.jobFunctionId} placeholder="Choose position" ariaLabel={t('Position')} options={activePositions.filter((job) => positionSupportsArea(job, row.areaId)).map((job) => ({ value: job.id, label: job.name, color: positionColor.get(job.id), dot: true }))} onchange={(next) => patchNewRow(row.tempId, { jobFunctionId: next })} /></td>
-                  <td><ClassicPicker value={row.serviceKey} placeholder="Choose service" ariaLabel={t('Service')} options={[{ value: 'lunch', label: t('Lunch'), color: 'var(--cl-lunch)', dot: true }, { value: 'evening', label: t('Evening'), color: 'var(--cl-evening)', dot: true }]} onchange={(next) => patchNewRow(row.tempId, { serviceKey: next as PendingService })} /></td>
+                  <td><ClassicPicker value={row.areaId} placeholder="Choose area" ariaLabel={t('Area')} options={activeAreas.map((area) => ({ value: area.id, label: areaName.get(area.id) ?? area.name, color: areaColor.get(area.id), icon: areaIcon(area.id) }))} onchange={(next) => patchNewRow(row.tempId, { areaId: next })} /></td>
+                  <td><ClassicPicker value={row.jobFunctionId} placeholder="Choose position" ariaLabel={t('Position')} options={activePositions.filter((job) => positionSupportsArea(job, row.areaId)).map((job) => ({ value: job.id, label: job.name, color: positionColor.get(job.id), icon: positionIcon(job.id) }))} onchange={(next) => patchNewRow(row.tempId, { jobFunctionId: next })} /></td>
+                  <td><ClassicPicker value={row.serviceKey} placeholder="Choose service" ariaLabel={t('Service')} options={[{ value: 'lunch', label: t('Lunch'), service: 'lunch' }, { value: 'evening', label: t('Evening'), service: 'evening' }]} onchange={(next) => patchNewRow(row.tempId, { serviceKey: next as PendingService })} /></td>
                   {#each WEEKDAYS as day, index (day)}<td class="cov__day"><input class="cl-field num" class:is-set={row.counts[index] != null} type="number" min="0" step="1" placeholder="—" aria-label={`${t(day)} ${t('required people')}`} value={row.counts[index] ?? ''} oninput={(event) => setNewCount(row.tempId, index, event.currentTarget.value)} /></td>{/each}
                   <td class="is-num"><button class="cl-btn is-icon remove" type="button" title={t('Remove')} aria-label={t('Remove')} onclick={() => removeNewRow(row.tempId)}>×</button></td>
                 </tr>
@@ -348,12 +361,22 @@
             {:else}
               {#each groups as group (group.key)}
                 <tbody>
-                  {#if view.grouping}<ClassicGroupRow colspan={WEEKDAYS.length + 4} label={group.label} meta={t('{count} staffing rules', { count: group.rows.length })} color={view.groupBy === 'area' ? areaColor.get(group.key) : view.groupBy === 'position' ? positionColor.get(group.key) : ''} collapsed={view.isCollapsed(group.key)} ontoggle={() => view.toggleGroup(group.key)} />{/if}
+                  {#if view.grouping}
+                    {@const groupColor = view.groupBy === 'area' ? areaColor.get(group.key) : view.groupBy === 'position' ? positionColor.get(group.key) : ''}
+                    {#snippet groupGlyph()}
+                      {#if view.groupBy === 'service'}
+                        <span class="group-service is-{group.key}"><ClassicServiceIcon service={group.key === 'evening' ? 'evening' : 'lunch'} size={14} /></span>
+                      {:else}
+                        <WorkspaceAreaIcon icon={view.groupBy === 'area' ? areaIcon(group.key) : positionIcon(group.key)} color={groupColor} size={14} compact />
+                      {/if}
+                    {/snippet}
+                    <ClassicGroupRow colspan={WEEKDAYS.length + 4} label={group.label} meta={t('{count} staffing rules', { count: group.rows.length })} color={groupColor} icon={groupGlyph} collapsed={view.isCollapsed(group.key)} ontoggle={() => view.toggleGroup(group.key)} />
+                  {/if}
                   {#if !view.isCollapsed(group.key)}
                   {#each group.rows as row (rowKey(row))}
                     <tr>
-                      <td><span class="cl-chip" style="--chip:{areaColor.get(row.areaId) ?? 'var(--cl-line-strong)'}"><span>{areaName.get(row.areaId) ?? '—'}</span></span></td>
-                      <td><span class="cl-chip" style="--chip:{positionColor.get(row.jobFunctionId) ?? 'var(--cl-line-strong)'}"><span>{jobName.get(row.jobFunctionId) ?? '—'}</span></span></td>
+                      <td><span class="cl-chip has-glyph" style="--chip:{areaColor.get(row.areaId) ?? 'var(--cl-line-strong)'}"><span class="cl-chip__glyph"><WorkspaceAreaIcon icon={areaIcon(row.areaId)} color="currentColor" size={13} compact /></span><span>{areaName.get(row.areaId) ?? '—'}</span></span></td>
+                      <td><span class="cl-chip has-glyph" style="--chip:{positionColor.get(row.jobFunctionId) ?? 'var(--cl-line-strong)'}"><span class="cl-chip__glyph"><WorkspaceAreaIcon icon={positionIcon(row.jobFunctionId)} color="currentColor" size={13} compact /></span><span>{jobName.get(row.jobFunctionId) ?? '—'}</span></span></td>
                       <td><ClassicService service={row.serviceKey} /></td>
                       {#each WEEKDAYS as _day, index (index)}
                         {@const value = entry(draft, row, index + 1)}
@@ -381,5 +404,8 @@
   .num::placeholder { color: var(--cl-line-strong); }
   .remove { min-height: 30px; height: 30px; width: 30px; color: var(--cl-problem); font-size: 18px; }
   .inline-warning td { padding-block: 7px !important; color: var(--cl-attention); background: var(--cl-attention-wash); font-size: 12px; }
+  .group-service { display: inline-flex; }
+  .group-service.is-lunch { color: var(--cl-lunch); }
+  .group-service.is-evening { color: var(--cl-evening); }
   .suggestion-action span { min-width: 21px; height: 21px; display: grid; place-items: center; padding-inline: 4px; border: 1px solid color-mix(in srgb, var(--cl-accent) 25%, var(--cl-line)); border-radius: 5px; background: var(--cl-accent-wash); color: var(--cl-accent); font-size: 10px; font-weight: var(--rst-fw-bold); }
 </style>

@@ -1,6 +1,8 @@
 <script lang="ts">
   import { t } from '$lib/i18n/i18n.svelte';
+  import type { ServiceKey } from '$lib/calendar/date';
   import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
+  import ClassicServiceIcon from './ClassicServiceIcon.svelte';
 
   /**
    * The one picker used by every grid cell that chooses a value.
@@ -17,6 +19,8 @@
     color?: string;
     /** Workspace area icon key. Falls back to the generic glyph. */
     icon?: string;
+    /** A service, drawn with the same sun/moon glyph the grids use. */
+    service?: ServiceKey;
     /** Renders as a plain dot rather than an icon tile. */
     dot?: boolean;
   };
@@ -100,7 +104,9 @@
 </script>
 
 {#snippet mark(option: Option)}
-  {#if option.dot}
+  {#if option.service}
+    <span class="cl-picker__service is-{option.service}"><ClassicServiceIcon service={option.service} size={13} /></span>
+  {:else if option.dot}
     <i class="cl-picker__dot" style={`--mark:${option.color || 'var(--cl-line-strong)'}`}></i>
   {:else if option.icon !== undefined}
     <WorkspaceAreaIcon icon={option.icon} color={option.color} size={15} compact />

@@ -3,6 +3,7 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import ClassicMeter from '$lib/classic/ClassicMeter.svelte';
   import ClassicReportsPage from '$lib/classic/ClassicReportsPage.svelte';
+  import ClassicService from '$lib/classic/ClassicService.svelte';
   import ClassicStat from '$lib/classic/ClassicStat.svelte';
 
   function percent(value: number | null): string {
@@ -107,7 +108,7 @@
           <tbody>
             {#each view.services as service (service.key)}
               <tr>
-                <td>{t(service.label)}</td>
+                <td><ClassicService service={service.key === 'evening' ? 'evening' : 'lunch'} variant="text" /></td>
                 <td class="is-num">{formatHours(service.planned)}</td>
                 <td class="is-num">{formatHours(service.worked)}</td>
                 <td class="meter-cell"><ClassicMeter value={service.adherence} label={percent(service.adherence)} /></td>

@@ -5,6 +5,7 @@
   import ClassicPage from '$lib/classic/ClassicPage.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import ClassicPicker from '$lib/classic/ClassicPicker.svelte';
+  import ClassicServiceIcon from '$lib/classic/ClassicServiceIcon.svelte';
   import ClassicToggle from '$lib/classic/ClassicToggle.svelte';
   import { getReservationSetup, saveReservationSetup } from '$lib/reservations/reservation-api';
   import type { ReservationSetup, ReservationSetupDraft } from '$lib/reservations/reservation-types';
@@ -187,8 +188,8 @@
               {#each draft.services as service (service.service_key)}
                 <tr>
                   <td>
-                    <span class="service-name">
-                      <i class:is-evening={service.service_key === 'evening'}></i>
+                    <span class="service-name is-{service.service_key}">
+                      <ClassicServiceIcon service={service.service_key === 'evening' ? 'evening' : 'lunch'} size={13} />
                       <strong>{t(serviceName(service.service_key))}</strong>
                     </span>
                   </td>
@@ -248,14 +249,9 @@
   .services-grid td { height: 54px; }
   .services-grid th:first-child { min-width: 130px; }
   .service-name { display: inline-flex; align-items: center; gap: 8px; }
-  .service-name > i {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--cl-lunch);
-    box-shadow: 0 0 0 3px var(--cl-lunch-wash);
-  }
-  .service-name > i.is-evening { background: var(--cl-evening); box-shadow: 0 0 0 3px var(--cl-evening-wash); }
+  .service-name.is-lunch { color: var(--cl-lunch); }
+  .service-name.is-evening { color: var(--cl-evening); }
+  .service-name > strong { color: var(--cl-ink); }
   td > small { margin-left: 4px; color: var(--cl-muted); font-size: 10px; }
   .number-field { width: 62px; text-align: right; font-variant-numeric: tabular-nums; }
   .cover-field { width: 78px; text-align: right; }

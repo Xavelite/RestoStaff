@@ -7,6 +7,8 @@
   import { useClassicRestaurantContext } from '$lib/classic/classic-workspace-context';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
+  import ClassicService from '$lib/classic/ClassicService.svelte';
+  import ClassicServiceIcon from '$lib/classic/ClassicServiceIcon.svelte';
   import {
     LOGO_ACCEPT,
     removeRestaurantLogo,
@@ -80,8 +82,8 @@
     ondiscard={context.discard}
   >
     {#snippet meta()}
-      <span><i class="dot is-lunch"></i>{t('{count} lunch days', { count: lunchDays })}</span>
-      <span><i class="dot is-evening"></i>{t('{count} evening days', { count: eveningDays })}</span>
+      <span class="svc-meta is-lunch"><ClassicServiceIcon service="lunch" size={13} />{t('{count} lunch days', { count: lunchDays })}</span>
+      <span class="svc-meta is-evening"><ClassicServiceIcon service="evening" size={13} />{t('{count} evening days', { count: eveningDays })}</span>
     {/snippet}
     {#snippet children()}
       <div class="restaurant-workspace">
@@ -168,10 +170,10 @@
                 <tr>
                   <th>{t('Day')}</th>
                   <th>
-                    <span class="service-heading"><i class="is-lunch"></i>{t('Lunch')}</span>
+                    <ClassicService service="lunch" variant="text" />
                   </th>
                   <th>
-                    <span class="service-heading"><i class="is-evening"></i>{t('Evening')}</span>
+                    <ClassicService service="evening" variant="text" />
                   </th>
                 </tr>
               </thead>
@@ -531,31 +533,16 @@
     background: var(--cl-surface);
   }
 
-  .service-heading {
+  /* The meta strip names the same two services the table below does, so it
+     wears the same glyph rather than an anonymous coloured dot. */
+  .svc-meta {
     display: inline-flex;
     align-items: center;
-    gap: 9px;
+    gap: 6px;
   }
 
-  .service-heading i {
-    width: 7px;
-    height: 7px;
-    display: inline-block;
-    border-radius: 50%;
-    background: var(--cl-line-strong);
-  }
-
-  .service-heading i.is-lunch,
-  .dot.is-lunch {
-    background: var(--cl-lunch);
-    box-shadow: 0 0 0 3px var(--cl-lunch-wash);
-  }
-
-  .service-heading i.is-evening,
-  .dot.is-evening {
-    background: var(--cl-evening);
-    box-shadow: 0 0 0 3px var(--cl-evening-wash);
-  }
+  .svc-meta.is-lunch { color: var(--cl-lunch); }
+  .svc-meta.is-evening { color: var(--cl-evening); }
 
   @media (max-width: 1180px) {
     .identity-fields {

@@ -636,6 +636,14 @@
   background: var(--chip);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--chip) 10%, transparent);
 }
+/* An entity that owns a glyph shows it instead of the anonymous dot, so the
+   same area or position looks the same here as it does on its own page. */
+.cl-chip.has-glyph::before { display: none; }
+.cl-chip__glyph {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--chip);
+}
 .cl-chip > span {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1266,6 +1274,13 @@
   border-radius: 50%;
   background: var(--mark);
 }
+/* A service in a picker wears the same sun/moon it wears in the grids. */
+.cl-picker__service {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+.cl-picker__service.is-lunch { color: var(--cl-lunch); }
+.cl-picker__service.is-evening { color: var(--cl-evening); }
 .cl-picker__options {
   display: grid;
   gap: 1px;
