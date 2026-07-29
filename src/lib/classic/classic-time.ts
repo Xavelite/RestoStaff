@@ -7,10 +7,10 @@ import type { ActualSlot } from '../timesheet/timesheet-model.ts';
  * how it is written down — a word, plus a tone that is always paired with a
  * symbol so colour is never the only signal.
  */
-type ClassicSlotTone = 'ok' | 'attention' | 'problem';
+type ClassicSlotTone = 'info' | 'ok' | 'attention' | 'problem';
 
 const SLOT_LABELS: Record<ActualSlot['status'], string> = {
-  empty: 'No activity',
+  empty: 'Scheduled',
   missing: 'Missing badge',
   live: 'Working now',
   recorded: 'Worked',
@@ -22,7 +22,7 @@ const SLOT_LABELS: Record<ActualSlot['status'], string> = {
 };
 
 const SLOT_TONES: Record<ActualSlot['status'], ClassicSlotTone> = {
-  empty: 'ok',
+  empty: 'info',
   missing: 'problem',
   live: 'ok',
   recorded: 'ok',
@@ -52,5 +52,10 @@ export function isTimesheetRow(slot: ActualSlot): boolean {
 
 /** Rows that stop the week being approved, or that a manager should look at. */
 export function needsAttention(slot: ActualSlot): boolean {
-  return slotTone(slot.status) !== 'ok';
+  return (
+    slot.status === 'missing' ||
+    slot.status === 'adjusted' ||
+    slot.status === 'pending' ||
+    slot.status === 'conflict'
+  );
 }

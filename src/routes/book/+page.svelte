@@ -478,7 +478,7 @@
   }
   header, footer { display: flex; align-items: center; justify-content: space-between; }
   header { min-height: 70px; padding: 14px 22px; border-bottom: 1px solid var(--book-line); }
-  .brand { display: inline-flex; align-items: center; gap: 7px; color: var(--book-ink); text-decoration: none; font-size: 13px; font-weight: 800; letter-spacing: -.02em; }
+  .brand { display: inline-flex; align-items: center; gap: 7px; color: var(--book-ink); text-decoration: none; font-size: 13px; font-weight: 800; letter-spacing: 0; }
   .brand i {
     display: grid;
     place-items: center;
@@ -499,7 +499,7 @@
   .intro { display: grid; gap: 5px; }
   .kicker { color: var(--book-accent); font-size: 10px; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
   h1, p { margin: 0; }
-  h1 { color: var(--book-ink); font-size: clamp(23px, 5vw, 34px); line-height: 1.12; letter-spacing: -.045em; }
+  h1 { color: var(--book-ink); font-size: clamp(23px, 5vw, 34px); line-height: 1.12; letter-spacing: 0; }
   .intro p { color: var(--book-muted); font-size: 12px; line-height: 1.55; }
   .booking-error { margin-top: 18px; padding: 10px 12px; border: 1px solid #efc7bb; border-left: 3px solid #d84c27; border-radius: 9px; color: #9e3519; background: #fff5f1; font-size: 11px; line-height: 1.45; }
   .search-form, .guest-form { display: grid; gap: 17px; margin-top: 26px; }

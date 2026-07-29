@@ -160,10 +160,7 @@ test('Positions keeps every pending row and gives Linked areas the shared column
     positions,
     /class:is-new=\{!persistedPositionIds\.has\(position\.id\)\}/
   );
-  assert.match(
-    positions,
-    /canSave=\{context\.canSave && rows\.every\(\(position\) => position\.name\.trim\(\)\)\}/
-  );
+  assert.match(positions, /canSave=\{context\.canSave\}/);
   // Adding a position focuses the new row's field without opening the
   // catalogue over it — the same welcome every grid gives a new row.
   assert.doesNotMatch(positions, /autoOpen/);

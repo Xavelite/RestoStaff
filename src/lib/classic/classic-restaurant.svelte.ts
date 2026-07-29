@@ -2,6 +2,7 @@ import { untrack } from 'svelte';
 import type { RestaurantReadModel } from '$lib/api/workspace-snapshot';
 import { saveRestaurant } from '$lib/api/mutations';
 import { saveRestaurantAreasModel } from '$lib/reservations/reservation-api';
+import { floorPlanDraftWithoutBlankAreas } from '$lib/reservations/floor-plan-draft';
 import type { ReservationFloorPlansDraft } from '$lib/reservations/reservation-types';
 import {
   restaurantDraft,
@@ -111,10 +112,14 @@ class ClassicRestaurantDraft {
   ): Promise<void> {
     if (!this.draft) return;
     const payload = restaurantSavePayload(snapshot, this.draft);
+    const persistedFloorPlans = floorPlanDraftWithoutBlankAreas(
+      floorPlans,
+      this.draft.areas
+    );
     await saveRestaurantAreasModel(
       restaurantId,
       payload,
-      floorPlans,
+      persistedFloorPlans,
       expectedRevision
     );
     this.#loadedRestaurantId = '';

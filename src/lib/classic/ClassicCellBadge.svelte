@@ -71,25 +71,26 @@
     --badge-line: var(--cl-line);
     display: inline-flex;
     align-items: center;
-    gap: 7px;
-    min-height: 24px;
-    color: color-mix(in srgb, var(--badge-color) 55%, var(--cl-ink));
+    gap: 6px;
+    min-height: 26px;
+    padding: 3px 9px 3px 7px;
+    border: 1px solid var(--badge-line);
+    border-radius: 6px;
+    color: color-mix(in srgb, var(--badge-color) 76%, var(--cl-ink));
+    background: var(--badge-wash);
     font-size: 12px;
-    font-weight: var(--rst-fw-medium);
+    font-weight: var(--rst-fw-bold);
     line-height: 1.2;
     white-space: nowrap;
   }
 
   .cell-badge__icon {
-    width: 22px;
-    height: 22px;
+    width: 16px;
+    height: 16px;
     flex: 0 0 auto;
     display: grid;
     place-items: center;
-    border: 1px solid var(--badge-line);
-    border-radius: 6px;
     color: var(--badge-color);
-    background: var(--badge-wash);
   }
 
   .cell-badge.is-info {

@@ -1649,7 +1649,7 @@
   thead .board__staff :global(.colhead__trigger) { position: absolute; top: 50%; right: 31px; transform: translateY(-50%); }
   thead .board__staff :global(.groupmenu) { position: absolute; top: 0; right: 0; bottom: 0; padding-right: 6px; }
   .board__day { border-left: 1px solid var(--cl-grid-line); text-align: center !important; }
-  .board__day-date { color: var(--cl-ink); font-size: 12.5px; line-height: 1.1; letter-spacing: -.01em; text-align: center; white-space: nowrap; }
+  .board__day-date { color: var(--cl-ink); font-size: 12.5px; line-height: 1.1; letter-spacing: 0; text-align: center; white-space: nowrap; }
   .board__day-date b { font-weight: var(--rst-fw-bold); }
   .board__day-lower { min-height: 42px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(52px, .72fr); align-items: stretch; gap: 0; margin-top: 4px; }
   .board__day-stat { min-width: 0; display: grid; grid-template-rows: 25px 13px; place-items: center; color: var(--cl-muted); font-size: 9px; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }

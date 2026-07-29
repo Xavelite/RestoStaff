@@ -260,7 +260,7 @@
 .cl-brand__word {
   display: inline-flex;
   align-items: baseline;
-  letter-spacing: -0.045em;
+  letter-spacing: 0;
 }
 
 .cl-brand__word i {
@@ -473,7 +473,7 @@
   margin: 0;
   font-size: 18px;
   font-weight: var(--rst-fw-display);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   color: var(--cl-shell-text);
   white-space: nowrap;
 }
@@ -534,7 +534,7 @@
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 16px;
+  gap: 7px;
   color: var(--cl-muted);
   font-size: 13px;
   font-weight: var(--rst-fw-medium);
@@ -543,7 +543,13 @@
 .cl-tablepanel__meta span {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 1px solid var(--cl-line);
+  border-radius: 6px;
+  background: var(--cl-surface);
+  font-size: 12px;
 }
 
 .cl-tablepanel__actions {
@@ -827,7 +833,7 @@
   font-size: 25px;
   font-weight: var(--rst-fw-display);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 /* A muted value: a zero or an empty measure recedes so real numbers lead. */
@@ -953,7 +959,7 @@
   align-items: center;
   gap: 6px;
   padding: 10px 0;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   border: 0;
   background: transparent;
   color: inherit;
@@ -1656,6 +1662,52 @@
 
   .cl-topbar {
     padding-inline: 14px;
+  }
+
+  .cl-app:has(.cl-topbar.has-tabs) {
+    --cl-topbar: 106px;
+  }
+
+  .cl-topbar.has-tabs {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr) 36px 36px;
+    grid-template-rows: 60px 46px;
+    gap: 0 6px;
+    align-items: center;
+  }
+
+  .cl-topbar.has-tabs .cl-menu-toggle {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .cl-topbar.has-tabs .cl-topbar__spacer {
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0;
+  }
+
+  .cl-topbar.has-tabs > .notifications-shell {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .cl-topbar.has-tabs > .menu-wrap {
+    grid-column: 4;
+    grid-row: 1;
+  }
+
+  .cl-topbar.has-tabs .cl-topbar__tabs {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: auto;
+    margin: 0 -4px;
+    padding: 0 4px;
+    border-top: 1px solid var(--cl-shell-line);
+  }
+
+  .cl-topbar.has-tabs .cl-topbar__tab {
+    padding-inline: 12px;
   }
 }
 

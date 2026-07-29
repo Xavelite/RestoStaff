@@ -187,7 +187,7 @@
         <span class="cl-brand__word" aria-hidden="true"><i>esto</i><i>gogo</i></span>
       </a>
 
-      <header class="cl-topbar">
+      <header class="cl-topbar" class:has-tabs={activeTabs.length > 0}>
         <button
           class="cl-btn is-icon cl-menu-toggle"
           type="button"

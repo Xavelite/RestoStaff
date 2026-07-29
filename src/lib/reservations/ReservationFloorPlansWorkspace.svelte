@@ -1536,10 +1536,24 @@
   function canSave(): boolean {
     if (!draft) return false;
     const activeFloors = draft.floors.filter((floor) => floor.active);
-    const activeRooms = draft.rooms.filter((room) => room.active);
-    const activeTables = draft.tables.filter((table) => table.active);
-    const activeAreas = restaurantContext?.draft.areas.filter((area) => area.active) ?? [];
-    if (overlappingTableIds.size > 0) return false;
+    const blankAreaIds = new Set(
+      restaurantContext?.draft.areas
+        .filter((area) => area.active && !area.name.trim())
+        .map((area) => area.id) ?? []
+    );
+    const activeRooms = draft.rooms.filter(
+      (room) => room.active && !blankAreaIds.has(room.work_area_id)
+    );
+    const activeRoomIds = new Set(activeRooms.map((room) => room.id));
+    const activeTables = draft.tables.filter(
+      (table) => table.active && activeRoomIds.has(table.room_id)
+    );
+    const activeTableIds = new Set(activeTables.map((table) => table.id));
+    const activeAreas =
+      restaurantContext?.draft.areas.filter(
+        (area) => area.active && area.name.trim()
+      ) ?? [];
+    if ([...overlappingTableIds].some((tableId) => activeTableIds.has(tableId))) return false;
     if (
       !activeFloors.every(
         (floor) =>
@@ -1554,11 +1568,10 @@
           activeFloors.some((floor) => floor.id === room.floor_id)
       ) ||
       (restaurantContext &&
-        (!activeAreas.every((area) => area.name.trim()) ||
-          activeAreas.some(
+        activeAreas.some(
             (area) =>
               activeRooms.filter((room) => room.work_area_id === area.id).length !== 1
-          )))
+          ))
     ) {
       return false;
     }
@@ -1608,7 +1621,7 @@
     const combinationNames = new Set<string>();
     const combinationMembers = new Set<string>();
     for (const combination of draft.combinations.filter(
-      (candidate) => candidate.active
+      (candidate) => candidate.active && activeRoomIds.has(candidate.room_id)
     )) {
       if (!isValidTableCombination(combination, activeTables)) return false;
       const nameKey = `${combination.room_id}:${combination.name.trim().toLocaleLowerCase()}`;

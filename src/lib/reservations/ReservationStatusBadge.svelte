@@ -15,15 +15,15 @@
 <style>
   .reservation-status {
     display: inline-flex;
-    min-height: 22px;
+    min-height: 26px;
     align-items: center;
     gap: 5px;
-    padding: 2px 8px 2px 5px;
+    padding: 3px 9px 3px 6px;
     border: 1px solid var(--cl-line-strong);
-    border-radius: 999px;
+    border-radius: 6px;
     background: var(--cl-surface);
     color: var(--cl-muted);
-    font-size: 11px;
+    font-size: 11.5px;
     font-weight: var(--rst-fw-bold);
     line-height: 1;
     white-space: nowrap;

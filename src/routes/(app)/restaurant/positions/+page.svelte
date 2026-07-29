@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import { GripVertical } from '@lucide/svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { buildAreaColorMap, buildPositionColorMap } from '$lib/ui/position-color';
   import { workspace } from '$lib/workspace/workspace.svelte';
@@ -416,7 +417,7 @@
   <ClassicTablePanel
     dirty={context.dirty}
     saving={context.saving}
-    canSave={context.canSave && rows.every((position) => position.name.trim())}
+    canSave={context.canSave}
     onsave={() => void savePositions(context.save).catch(() => undefined)}
     ondiscard={() => discardPositions(context.discard)}
   >
@@ -480,7 +481,7 @@
                     {@const headcount = employeesByPosition.get(position.id)?.size ?? 0}
                     {@const reorderable = !view.sort && !view.grouping}
                     <tr class:is-new={!persistedPositionIds.has(position.id)} draggable={reorderable && !workspace.isPreview} ondragstart={() => (dragId = position.id)} ondragend={() => (dragId = '')} ondragover={(event) => { if (reorderable) event.preventDefault(); }} ondrop={() => movePosition(position.id)}>
-                      <td class="cl-grip"><button type="button" disabled={!reorderable || workspace.isPreview} title={reorderable ? t('Drag to reorder') : t('Clear grouping and sorting to reorder')} aria-label={t('Drag to reorder')}>⋮⋮</button></td>
+                      <td class="cl-grip"><button type="button" disabled={!reorderable || workspace.isPreview} title={reorderable ? t('Drag to reorder') : t('Clear grouping and sorting to reorder')} aria-label={t('Drag to reorder')}><GripVertical size={16} /></button></td>
                       <td>
                         <div class="position-identity" data-position-name={position.id}>
                           <WorkspaceAreaIcon
@@ -553,6 +554,7 @@
   .position-identity :global(.area-icon) { width: 30px; height: 30px; border-radius: 6px; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .cl-grip { width: 34px; text-align: center; }
-  .cl-grip button { border: 0; background: transparent; color: var(--cl-muted); cursor: grab; letter-spacing: -3px; }
+  .cl-grip button { display: inline-grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 5px; background: transparent; color: var(--cl-muted); cursor: grab; }
+  .cl-grip button:hover:not(:disabled) { color: var(--cl-ink); background: var(--cl-surface-muted); }
   .cl-grip button:disabled { cursor: default; opacity: .35; }
 </style>

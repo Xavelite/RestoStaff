@@ -102,15 +102,28 @@ test('restaurant hours preserve lunch and evening opening states independently',
   assert.equal(draft.onssEmployerNumber, 'ONSS-42');
   assert.equal(draft.dimonaSubmissionMode, 'social_secretariat');
 
+  draft.jobFunctions.unshift({
+    ...draft.jobFunctions[0],
+    id: 'blank-position',
+    name: '',
+    areaIds: ['area-1']
+  });
+  draft.areas.unshift({
+    ...draft.areas[0],
+    id: 'blank-area',
+    name: ''
+  });
   const payload = restaurantSavePayload(snapshot, draft);
   const mondayLunch = payload.openingHours.find((row) => row.weekday === 1 && row.service_key === 'lunch');
   const mondayEvening = payload.openingHours.find((row) => row.weekday === 1 && row.service_key === 'evening');
   assert.equal(mondayLunch.is_open, false);
   assert.equal(mondayEvening.is_open, true);
   assert.deepEqual(payload.jobFunctions[0].area_ids, ['area-1']);
+  assert.equal(payload.jobFunctions.length, 1);
   assert.deepEqual(payload.jobFunctions[0].metadata, {});
   assert.equal(payload.areas[0].color, '#16a34a');
   assert.equal(payload.areas[0].instance_number, 1);
+  assert.equal(payload.areas.length, 1);
   assert.deepEqual(payload.areas[0].metadata, { reservable: true });
   assert.equal(payload.restaurant.name, 'Demo');
   assert.equal(payload.restaurant.legal_name, 'Demo');

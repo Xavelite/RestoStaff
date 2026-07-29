@@ -3,6 +3,7 @@
   import { PUBLIC_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_URL } from '$env/static/public';
   import ClassicPage from '$lib/classic/ClassicPage.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
+  import ClassicToggle from '$lib/classic/ClassicToggle.svelte';
   import { friendlyError } from '$lib/api/error-messages';
   import { t } from '$lib/i18n/i18n.svelte';
   import {
@@ -285,11 +286,13 @@
                 <h2>{t('Website widget')}</h2>
                 <p>{t('The widget searches live capacity, holds exact tables for five minutes, then confirms the guest.')}</p>
               </div>
-              <label class="cl-switch channel-switch">
-                <input type="checkbox" bind:checked={enabled} />
-                <span aria-hidden="true"></span>
-                <em>{enabled ? t('Active') : t('Off')}</em>
-              </label>
+              <span class="channel-switch">
+                <ClassicToggle
+                  checked={enabled}
+                  label={enabled ? 'Active' : 'Off'}
+                  onchange={(next) => (enabled = next)}
+                />
+              </span>
             </div>
 
             <div class="field-grid">
@@ -416,7 +419,7 @@
     stroke-linejoin: round;
   }
   h1, h2, h3, p { margin: 0; }
-  .activation h1 { margin-top: 6px; font-size: clamp(22px, 3vw, 30px); letter-spacing: -.04em; }
+  .activation h1 { margin-top: 6px; font-size: clamp(22px, 3vw, 30px); letter-spacing: 0; }
   .activation p { margin-top: 9px; color: var(--cl-muted); font-size: 13px; line-height: 1.6; }
   .eyebrow {
     color: var(--cl-accent);
@@ -448,7 +451,7 @@
     border: 1px solid color-mix(in srgb, var(--cl-positive) 22%, var(--cl-line));
   }
   .section-icon svg { width: 18px; }
-  .section-title h2 { margin-top: 2px; font-size: 18px; letter-spacing: -.02em; }
+  .section-title h2 { margin-top: 2px; font-size: 18px; letter-spacing: 0; }
   .section-title p { margin-top: 3px; max-width: 620px; color: var(--cl-muted); font-size: 11.5px; line-height: 1.45; }
   .channel-switch { margin-top: 5px; white-space: nowrap; }
   .field-grid {
@@ -508,7 +511,7 @@
     background:
       linear-gradient(180deg, color-mix(in srgb, var(--cl-accent) 5%, var(--cl-surface)), var(--cl-surface));
   }
-  .security-card h3 { margin-top: 5px; font-size: 16px; letter-spacing: -.02em; }
+  .security-card h3 { margin-top: 5px; font-size: 16px; letter-spacing: 0; }
   .security-card ul { display: grid; gap: 20px; margin: 24px 0 0; padding: 0; list-style: none; }
   .security-card li { display: grid; grid-template-columns: 26px 1fr; gap: 9px; align-items: start; }
   .security-card li > i {

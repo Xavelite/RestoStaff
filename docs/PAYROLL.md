@@ -14,7 +14,7 @@ Restogogo can calculate CP 302-oriented estimates from approved Timesheet eviden
 6. The owner reviews an estimate and may lock it for operational reference. Only provider-reconciled evidence can become finalized payroll.
 7. Provider-neutral components can be mapped, exported, imported, and reconciled when the pilot social-secretariat specification is available.
 
-Payroll remains inside the current product architecture: employee setup in Team, restaurant setup in Restaurant, calculation/review in Timesheet, and temporary owner-only labour-cost analysis in Insights.
+Payroll remains inside the current product architecture: employee setup in Team, restaurant setup in Restaurant, calculation/review in Time & attendance, and temporary owner-only labour-cost analysis in Reports.
 
 ## Team employment model
 
@@ -69,7 +69,7 @@ Money uses PostgreSQL `numeric` and integer euro cents. TypeScript accepts and f
 
 A run cannot calculate while there are open entries, unresolved overlaps, unapproved Timesheet weeks, aggregate-only breaks, unconfirmed function/area, unverified effective terms, missing classification or wage data, or missing verified flexi/student/occasional evidence. Monthly-paid employees are blocked because lawful monthly proration is not implemented; badge minutes are never used as a substitute monthly base. Missing verified tax data remains a visible warning because net salary is still estimated.
 
-## Insights cost estimate
+## Reports cost estimate
 
 The owner-only Cost tab uses `employee_payroll_profiles.estimated_hourly_cost` as the explicit `estimated_profile_rate` source. Planned cost uses scheduled duration because planned breaks are not recorded. Worked cost uses only closed or adjusted entries, deducts recorded break minutes, and excludes open, cancelled, invalid, duplicate, and overlapping entries. Missing rates are excluded and reported through worked-hour coverage and active-employee counts. These values are pre-payroll estimates, not calculated or reconciled payroll.
 

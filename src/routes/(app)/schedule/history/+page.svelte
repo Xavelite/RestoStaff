@@ -30,38 +30,96 @@
         'planning_'
       )}
 
-      <div class="cl-tablewrap">
-        <table class="cl-table">
-          <thead>
-            <tr>
-              <th>{t('When')}</th>
-              <th>{t('Event')}</th>
-              <th>{t('Detail')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#if !items.length}
-              <tr>
-                <td colspan="3">
-                  <div class="cl-empty">
-                    <span class="cl-empty__icon" aria-hidden="true"><History size={18} /></span>
-                    <strong>{t('No schedule history for this week')}</strong>
-                    <span>{t('Saving and publishing a week records an audited event here.')}</span>
+      <section class="history-surface" aria-label={t('History')}>
+        {#if !items.length}
+          <div class="cl-empty">
+            <span class="cl-empty__icon" aria-hidden="true"><History size={18} /></span>
+            <strong>{t('No schedule history for this week')}</strong>
+            <span>{t('Saving and publishing a week records an audited event here.')}</span>
+          </div>
+        {:else}
+          <ol class="history-list">
+            {#each items as item (item.id)}
+              <li>
+                <span class="history-marker" aria-hidden="true"><History size={15} /></span>
+                <div class="history-event">
+                  <div class="history-event__head">
+                    <strong>{t(item.title)}</strong>
+                    <time datetime={item.when}>{stamp(item.when)}</time>
                   </div>
-                </td>
-              </tr>
-            {:else}
-              {#each items as item (item.id)}
-                <tr>
-                  <td class="is-quiet">{stamp(item.when)}</td>
-                  <td>{t(item.title)}</td>
-                  <td class="is-quiet">{item.detail ?? ''}</td>
-                </tr>
-              {/each}
-            {/if}
-          </tbody>
-        </table>
-      </div>
+                  {#if item.detail}<p>{item.detail}</p>{/if}
+                </div>
+              </li>
+            {/each}
+          </ol>
+        {/if}
+      </section>
     {/snippet}
   </ClassicScheduleWeek>
 </ClassicPage>
+
+<style>
+  .history-surface {
+    border: 1px solid var(--cl-line);
+    border-radius: var(--cl-radius-surface);
+    background: var(--cl-surface);
+  }
+  .history-list {
+    margin: 0;
+    padding: 8px 22px;
+    list-style: none;
+  }
+  .history-list li {
+    position: relative;
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr);
+    gap: 11px;
+    padding: 15px 0;
+  }
+  .history-list li + li {
+    border-top: 1px solid var(--cl-line);
+  }
+  .history-marker {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--cl-info-line);
+    border-radius: 6px;
+    color: var(--cl-info);
+    background: var(--cl-info-wash);
+  }
+  .history-event {
+    min-width: 0;
+    display: grid;
+    align-content: center;
+    gap: 4px;
+  }
+  .history-event__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .history-event strong {
+    color: var(--cl-ink);
+    font-size: 13px;
+  }
+  .history-event time,
+  .history-event p {
+    color: var(--cl-muted);
+    font-size: 12px;
+  }
+  .history-event time {
+    flex: 0 0 auto;
+    font-variant-numeric: tabular-nums;
+  }
+  .history-event p {
+    margin: 0;
+    line-height: 1.45;
+  }
+  @media (max-width: 520px) {
+    .history-list { padding-inline: 14px; }
+    .history-event__head { display: grid; gap: 3px; }
+  }
+</style>

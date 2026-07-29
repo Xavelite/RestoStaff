@@ -5,6 +5,7 @@
   import ClassicPage from '$lib/classic/ClassicPage.svelte';
   import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
   import ClassicPicker from '$lib/classic/ClassicPicker.svelte';
+  import ClassicToggle from '$lib/classic/ClassicToggle.svelte';
   import { getReservationSetup, saveReservationSetup } from '$lib/reservations/reservation-api';
   import type { ReservationSetup, ReservationSetupDraft } from '$lib/reservations/reservation-types';
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
@@ -192,11 +193,14 @@
                     </span>
                   </td>
                   <td>
-                    <label class="cl-switch">
-                      <input type="checkbox" bind:checked={service.booking_enabled} onchange={touch} />
-                      <span aria-hidden="true"></span>
-                      <em>{t(service.booking_enabled ? 'Open' : 'Closed')}</em>
-                    </label>
+                    <ClassicToggle
+                      checked={service.booking_enabled}
+                      label={service.booking_enabled ? 'Open' : 'Closed'}
+                      onchange={(next) => {
+                        service.booking_enabled = next;
+                        touch();
+                      }}
+                    />
                   </td>
                   <td><input class="cl-field number-field" type="number" min="15" max="720" step="15" bind:value={service.default_duration_minutes} oninput={touch} /><small>min</small></td>
                   <td><input class="cl-field number-field" type="number" min="5" max="120" step="5" bind:value={service.slot_interval_minutes} oninput={touch} /><small>min</small></td>
@@ -240,6 +244,7 @@
     font-size: 12px;
   }
   .setup-loading { display: grid; gap: 16px; padding: 24px; }
+  .services-grid { min-width: 820px; }
   .services-grid td { height: 54px; }
   .services-grid th:first-child { min-width: 130px; }
   .service-name { display: inline-flex; align-items: center; gap: 8px; }
@@ -256,5 +261,4 @@
   .cover-field { width: 78px; text-align: right; }
   .range-field { display: inline-flex; align-items: center; gap: 4px; }
   .range-field i { color: var(--cl-muted); font-style: normal; }
-  .cl-switch { white-space: nowrap; }
 </style>

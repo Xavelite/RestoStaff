@@ -311,7 +311,7 @@
       {#snippet actions()}
         {#if suggestedRows.length}
           <button class="cl-btn suggestion-action" type="button" disabled={workspace.isPreview} onclick={stageSuggestions}>
-            {t('Use linked positions')} <span>{suggestedRows.length}</span>
+            {t('Add suggested rules')} <span>{suggestedRows.length}</span>
           </button>
         {/if}
         <button class="cl-btn is-primary" type="button" disabled={workspace.isPreview || !restaurantConfig.draft} onclick={addRow}><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>{t('Add rule')}</button>
@@ -344,7 +344,7 @@
             </tbody>
 
             {#if !ordered.length && !newRows.length}
-              <tbody><tr><td colspan={WEEKDAYS.length + 4}><div class="cl-empty"><strong>{t('No staffing rules yet')}</strong><span>{t('Start from linked areas and positions, then enter only the days that need a target.')}</span>{#if suggestedRows.length}<button class="cl-btn" type="button" onclick={stageSuggestions}>{t('Use linked positions')}</button>{/if}</div></td></tr></tbody>
+              <tbody><tr><td colspan={WEEKDAYS.length + 4}><div class="cl-empty"><strong>{t('No staffing rules yet')}</strong><span>{t('Start from linked areas and positions, then enter only the days that need a target.')}</span>{#if suggestedRows.length}<button class="cl-btn suggestion-action" type="button" onclick={stageSuggestions}>{t('Add suggested rules')} <span>{suggestedRows.length}</span></button>{/if}</div></td></tr></tbody>
             {:else}
               {#each groups as group (group.key)}
                 <tbody>
@@ -381,5 +381,5 @@
   .num::placeholder { color: var(--cl-line-strong); }
   .remove { min-height: 30px; height: 30px; width: 30px; color: var(--cl-problem); font-size: 18px; }
   .inline-warning td { padding-block: 7px !important; color: var(--cl-attention); background: var(--cl-attention-wash); font-size: 12px; }
-  .suggestion-action span { min-width: 20px; height: 20px; display: grid; place-items: center; border-radius: 999px; background: var(--cl-accent-wash); color: var(--cl-accent); font-size: 10px; font-weight: var(--rst-fw-bold); }
+  .suggestion-action span { min-width: 21px; height: 21px; display: grid; place-items: center; padding-inline: 4px; border: 1px solid color-mix(in srgb, var(--cl-accent) 25%, var(--cl-line)); border-radius: 5px; background: var(--cl-accent-wash); color: var(--cl-accent); font-size: 10px; font-weight: var(--rst-fw-bold); }
 </style>
