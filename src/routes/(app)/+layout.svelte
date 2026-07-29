@@ -164,6 +164,7 @@
       <a
         class="cl-sidebar__link"
         class:is-active={module.key === activeModule?.key}
+        data-module-key={module.key}
         aria-current={module.key === activeModule?.key ? 'page' : undefined}
         title={t(module.label)}
         href={module.href}
@@ -181,7 +182,7 @@
       {@render children()}
     </div>
   {:else}
-    <div class="cl-app" class:is-rail={sidebarCollapsed}>
+    <div class="cl-app" class:is-rail={sidebarCollapsed} data-module={activeModule?.key ?? 'home'}>
       <a class="cl-brand" href="/home" aria-label="Restogogo">
         <span class="cl-brand__mark" style="--brand-mark:url('/brand/restogogo-mark.png')" aria-hidden="true"></span>
         <span class="cl-brand__word" aria-hidden="true"><i>esto</i><i>gogo</i></span>
@@ -199,7 +200,12 @@
         </button>
 
         {#if activeModule}
-          <h1 class="cl-pagetitle">{t(activeModule.label)}</h1>
+          <h1 class="cl-pagetitle">
+            <span class="cl-pagetitle__icon" aria-hidden="true">
+              <ClassicIcon name={activeModule.icon} size={17} />
+            </span>
+            <span>{t(activeModule.label)}</span>
+          </h1>
         {/if}
 
         {#if activeTabs.length}

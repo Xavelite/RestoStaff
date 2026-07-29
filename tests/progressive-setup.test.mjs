@@ -41,8 +41,9 @@ test('DEV migration makes identifiers nonblocking and archives safely', async ()
   assert.match(migration, /status = 'revoked'/);
 });
 
-test('Schedule uses one premium week header and one full daily card with internal service occupancy', async () => {
+test('Schedule keeps the weekly planning board and adds a focused mobile day workflow', async () => {
   const schedule = await readFile('src/routes/(app)/schedule/+page.svelte', 'utf8');
+  const mobilePicker = await readFile('src/lib/classic/ClassicMobileDayPicker.svelte', 'utf8');
   const editor = await readFile('src/lib/schedule/ScheduleSlotEditor.svelte', 'utf8');
   const dialog = await readFile('src/lib/components/Dialog.svelte', 'utf8');
   const nav = await readFile('src/lib/classic/classic-nav.ts', 'utf8');
@@ -53,6 +54,12 @@ test('Schedule uses one premium week header and one full daily card with interna
   assert.match(schedule, /class="service-zone is-\{service\} is-\{tone\}"/);
   assert.match(schedule, /class="day-card"/);
   assert.match(schedule, /class="day-card__surface"/);
+  assert.match(schedule, /class="mobile-board"/);
+  assert.match(schedule, /<ClassicMobileDayPicker/);
+  assert.match(schedule, /aria-label=\{t\('Daily schedule'\)\}/);
+  assert.match(schedule, /@media \(max-width: 760px\)/);
+  assert.match(mobilePicker, /aria-label=\{t\('Choose day'\)\}/);
+  assert.match(mobilePicker, /aria-pressed=\{day\.date === selected\}/);
   assert.match(schedule, /class="day-card__fill is-lunch"/);
   assert.match(schedule, /class="day-card__fill is-evening"/);
   assert.match(schedule, /--lunch-color:\$\{lunchColor\};--evening-color:\$\{eveningColor\}/);

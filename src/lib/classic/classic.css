@@ -173,7 +173,11 @@
   --cl-mod-inventory: #65a30d;
   --cl-mod-payroll: #0891b2;
   --cl-mod-badge: #4f46e5;
+  --cl-mod-reservations: #059669;
   --cl-mod-reports: #c026d3;
+  --cl-mod-exports: #475569;
+  --cl-mod-settings: #64748b;
+  --cl-module: var(--cl-mod-home);
 
   /* ---- motion ----------------------------------------------------------
      Everything is short and explains a change; nothing performs. Honoured by
@@ -225,6 +229,19 @@
   color: var(--cl-ink);
   background: var(--cl-bg);
 }
+
+.cl-app[data-module='restaurant'] { --cl-module: var(--cl-mod-restaurant); }
+.cl-app[data-module='team'] { --cl-module: var(--cl-mod-team); }
+.cl-app[data-module='schedule'],
+.cl-app[data-module='my-service'] { --cl-module: var(--cl-mod-schedule); }
+.cl-app[data-module='time'],
+.cl-app[data-module='my-time'] { --cl-module: var(--cl-mod-time); }
+.cl-app[data-module='badge-terminal'] { --cl-module: var(--cl-mod-badge); }
+.cl-app[data-module='reservations'] { --cl-module: var(--cl-mod-reservations); }
+.cl-app[data-module='payroll'] { --cl-module: var(--cl-mod-payroll); }
+.cl-app[data-module='reports'] { --cl-module: var(--cl-mod-reports); }
+.cl-app[data-module='exports'] { --cl-module: var(--cl-mod-exports); }
+.cl-app[data-module='settings'] { --cl-module: var(--cl-mod-settings); }
 
 .cl-brand {
   grid-area: brand;
@@ -395,6 +412,7 @@
 }
 
 .cl-sidebar__link {
+  --nav-module: var(--cl-muted);
   position: relative;
   min-height: var(--cl-nav-row);
   display: grid;
@@ -407,6 +425,20 @@
   font-weight: var(--rst-fw-medium);
   text-decoration: none;
 }
+
+.cl-sidebar__link[data-module-key='home'] { --nav-module: var(--cl-mod-home); }
+.cl-sidebar__link[data-module-key='restaurant'] { --nav-module: var(--cl-mod-restaurant); }
+.cl-sidebar__link[data-module-key='team'] { --nav-module: var(--cl-mod-team); }
+.cl-sidebar__link[data-module-key='schedule'],
+.cl-sidebar__link[data-module-key='my-service'] { --nav-module: var(--cl-mod-schedule); }
+.cl-sidebar__link[data-module-key='time'],
+.cl-sidebar__link[data-module-key='my-time'] { --nav-module: var(--cl-mod-time); }
+.cl-sidebar__link[data-module-key='badge-terminal'] { --nav-module: var(--cl-mod-badge); }
+.cl-sidebar__link[data-module-key='reservations'] { --nav-module: var(--cl-mod-reservations); }
+.cl-sidebar__link[data-module-key='payroll'] { --nav-module: var(--cl-mod-payroll); }
+.cl-sidebar__link[data-module-key='reports'] { --nav-module: var(--cl-mod-reports); }
+.cl-sidebar__link[data-module-key='exports'] { --nav-module: var(--cl-mod-exports); }
+.cl-sidebar__link[data-module-key='settings'] { --nav-module: var(--cl-mod-settings); }
 
 .cl-sidebar__link svg {
   width: 20px;
@@ -426,11 +458,11 @@
 
 .cl-sidebar__link.is-active {
   font-weight: var(--rst-fw-bold);
-  background: color-mix(in srgb, var(--cl-accent) 7%, var(--cl-rail-bg));
+  background: color-mix(in srgb, var(--nav-module) 8%, var(--cl-rail-bg));
 }
 
 .cl-sidebar__link.is-active svg {
-  color: var(--cl-accent);
+  color: var(--nav-module);
 }
 
 .cl-sidebar__link.is-active::before {
@@ -440,7 +472,7 @@
   top: 6px;
   bottom: 6px;
   width: 2px;
-  background: var(--cl-accent);
+  background: var(--nav-module);
 }
 
 .cl-main {
@@ -471,11 +503,26 @@
 /* The page title, rendered in the topbar. */
 .cl-pagetitle {
   margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
   font-size: 18px;
   font-weight: var(--rst-fw-display);
   letter-spacing: 0;
   color: var(--cl-shell-text);
   white-space: nowrap;
+}
+
+.cl-pagetitle__icon {
+  width: 29px;
+  height: 29px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--cl-module) 42%, var(--cl-shell-line));
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--cl-module) 17%, var(--cl-shell));
+  color: color-mix(in srgb, var(--cl-module) 64%, white);
 }
 
 .cl-page__toolbar {
@@ -1762,7 +1809,7 @@
   right: 10px;
   bottom: 0;
   height: 2px;
-  background: var(--cl-accent);
+  background: color-mix(in srgb, var(--cl-module) 72%, white);
 }
 .cl-group-row td {
   height: 34px !important;

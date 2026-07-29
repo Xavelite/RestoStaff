@@ -86,6 +86,10 @@
   {:else}
     <div class="pair">
       <div class="pair-card">
+        <span class="pair-brand" aria-label="Restogogo">
+          <i style="--brand-mark:url('/brand/restogogo-mark.png')" aria-hidden="true"></i>
+          <b aria-hidden="true"><em>esto</em><em>gogo</em></b>
+        </span>
         <span class="pair-eyebrow">{t('Badge station')}</span>
         <h1>{t('Pair this device')}</h1>
         <p>{t('Enter the code from a manager (Restaurant → Badge devices) to turn this screen into a badge terminal. This device stays signed out of the app.')}</p>
@@ -110,25 +114,24 @@
 
 <Dialog
   open={unpairOpen}
-  title="Unpair badge station"
-  description="This will stop badging on this device until a manager pairs it again."
+  title={t('Unpair badge station')}
+  description={t('This will stop badging on this device until a manager pairs it again.')}
   size="small"
   onclose={() => { unpairOpen = false; }}
 >
   <p class="unpair-warning">{t('Only unpair this device when a manager is ready to reconnect it.')}</p>
   {#snippet footer()}
-    <ActionButton label="Keep paired" onclick={() => { unpairOpen = false; }} />
-    <ActionButton label="Unpair device" tone="danger" onclick={unpair} />
+    <ActionButton label={t('Keep paired')} onclick={() => { unpairOpen = false; }} />
+    <ActionButton label={t('Unpair device')} tone="danger" onclick={unpair} />
   {/snippet}
 </Dialog>
 
 <style>
   .station {
-    min-height: 100vh;
+    min-height: 100dvh;
     padding: clamp(16px, 4vw, 40px);
-    background:
-      radial-gradient(circle at 15% 0%, rgba(240, 100, 35, 0.07), transparent 46%),
-      var(--rst-ui-bg);
+    color: #17212f;
+    background: #f5f7fb;
   }
 
   .station-loading {
@@ -151,7 +154,7 @@
   }
 
   .pair {
-    min-height: 100vh;
+    min-height: calc(100dvh - clamp(32px, 8vw, 80px));
     display: grid;
     place-items: center;
   }
@@ -159,31 +162,58 @@
   .pair-card {
     width: min(100%, 440px);
     display: grid;
-    gap: 8px;
-    padding: 30px 28px;
-    border: 1px solid var(--rst-ui-line);
-    border-radius: var(--rst-ui-radius-lg);
-    background: var(--rst-ui-surface-panel);
-    box-shadow: 0 24px 60px rgba(38, 27, 18, 0.12);
+    gap: 9px;
+    padding: 28px;
+    border: 1px solid #dfe5ed;
+    border-top: 3px solid #ff5a1f;
+    border-radius: 6px;
+    background: #fff;
+    box-shadow: 0 14px 34px rgb(15 23 42 / 9%);
     text-align: center;
   }
 
+  .pair-brand {
+    justify-self: center;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 14px;
+  }
+  .pair-brand > i {
+    width: 27px;
+    height: 27px;
+    background: #ff5a1f;
+    -webkit-mask: var(--brand-mark) center / contain no-repeat;
+    mask: var(--brand-mark) center / contain no-repeat;
+  }
+  .pair-brand > b {
+    display: inline-flex;
+    font-size: 16px;
+    font-weight: var(--rst-fw-display);
+  }
+  .pair-brand em {
+    color: #ff5a1f;
+    font-style: normal;
+  }
+  .pair-brand em + em { color: #17212f; }
+
   .pair-eyebrow {
-    color: var(--rst-ui-panel-title);
+    color: #667085;
     font-size: 10px;
     font-weight: var(--rst-fw-bold);
-    letter-spacing: 0;
+    letter-spacing: .06em;
     text-transform: uppercase;
   }
 
   .pair-card h1 {
     margin: 2px 0 0;
-    font-size: 26px;
+    color: #17212f;
+    font-size: 24px;
   }
 
   .pair-card p {
     margin: 0 0 8px;
-    color: var(--rst-ui-muted);
+    color: #667085;
     font-size: 13px;
     line-height: 1.5;
   }
@@ -196,22 +226,27 @@
   .pair-card input {
     min-height: 50px;
     padding: 12px 14px;
-    border: 1px solid var(--rst-ui-line);
-    border-radius: var(--rst-ui-radius-md);
-    color: var(--rst-ui-text);
-    background: var(--rst-ui-surface-field-strong);
+    border: 1px solid #cdd5df;
+    border-radius: 6px;
+    color: #17212f;
+    background: #fff;
     font: inherit;
     font-size: 16px;
     letter-spacing: 0;
     text-align: center;
   }
+  .pair-card input:focus {
+    border-color: #315efb;
+    outline: 0;
+    box-shadow: 0 0 0 3px rgb(49 94 251 / 18%);
+  }
 
   .pair-submit {
     min-height: 50px;
-    border: 1px solid var(--rst-ui-action);
-    border-radius: var(--rst-ui-radius-md);
-    color: var(--rst-on-accent-text);
-    background: var(--rst-ui-action);
+    border: 1px solid #315efb;
+    border-radius: 6px;
+    color: #fff;
+    background: #315efb;
     font: inherit;
     font-size: 15px;
     font-weight: var(--rst-fw-display);
@@ -222,6 +257,7 @@
     opacity: 0.55;
     cursor: default;
   }
+  .pair-submit:hover:not(:disabled) { background: #2448d8; }
 
   .pair-error {
     margin: 4px 0 0 !important;

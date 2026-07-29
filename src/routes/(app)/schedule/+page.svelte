@@ -58,6 +58,7 @@
   import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
   import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
   import ClassicServiceIcon from '$lib/classic/ClassicServiceIcon.svelte';
+  import ClassicMobileDayPicker from '$lib/classic/ClassicMobileDayPicker.svelte';
   import {
     scheduleDraft,
     type ScheduleRowPlacement
@@ -211,6 +212,7 @@
   let dropKey = $state('');
   let weekPicker = $state<HTMLInputElement | null>(null);
   let compactCards = $state(false);
+  let mobileDate = $state('');
   let reservationDemand = $state<ReservationDemand[]>([]);
   let demandRequestId = 0;
 
@@ -246,6 +248,13 @@
       scheduleDraft.weekOffset * 7
     )
   );
+
+  $effect(() => {
+    const start = demandWeekStart;
+    const today = todayInTimezone(planningTimezone);
+    const end = addDays(start, 6);
+    mobileDate = today >= start && today <= end ? today : start;
+  });
   const reservationDemandByDay = $derived.by(() => {
     const map = new Map<string, number>();
     for (const row of reservationDemand) {
@@ -1047,6 +1056,13 @@
         {@const publishOperationalGroups = operationalWarningCounts(publishOperationalWarnings)}
         {@const publishPending = pendingRequestCount(grid)}
         {@const publishContractOverages = contractOverages(scheduleDraft.shifts)}
+        {@const mobileDay = grid.days.find((day) => day.date === mobileDate) ?? grid.days[0]}
+        {@const mobileDayEntries = scheduleDraft.shifts.filter((shift) => shift.weekday === mobileDay.weekday)}
+        {@const mobileDayEmployees = new Set(mobileDayEntries.map((shift) => shift.employeeId)).size}
+        {@const mobileDayHours = mobileDayEntries.reduce((sum, shift) => sum + hoursBetweenClocks(shift.startsAt, shift.endsAt), 0)}
+        {@const mobileDayCost = shiftsCost(mobileDayEntries)}
+        {@const mobileDayCovers = reservationDemandByDay.get(mobileDay.date) ?? 0}
+        {@const mobileWeather = restaurantWeather.dailyFor(mobileDay.date)}
         <section class="schedule-panel" class:is-compact={compactCards}>
           <header class="schedule-head">
             <div class="schedule-head__left">
@@ -1161,6 +1177,114 @@
               )}
             </div>
           {/if}
+
+          <section class="mobile-board" aria-label={t('Daily schedule')}>
+            <ClassicMobileDayPicker
+              days={grid.days}
+              selected={mobileDay.date}
+              onselect={(date) => (mobileDate = date)}
+            />
+
+            <div class="mobile-day-summary">
+              <span><b>{mobileDayEmployees}</b>{t('people')}</span>
+              <span><b>{formatHours(mobileDayHours)}</b>{t('planned')}</span>
+              {#if canViewFinancials}<span><b>{mobileDayCost > 0 ? `~${money(mobileDayCost)}` : '—'}</b>{t('cost')}</span>{/if}
+              {#if mobileDayCovers}<span><b>{mobileDayCovers}</b>{t('covers')}</span>{/if}
+              {#if mobileWeather}
+                <span class="mobile-day-summary__weather" title={t(weatherCondition(mobileWeather.code))}>
+                  <WeatherIcon code={mobileWeather.code} size={20} />
+                  <b>{Math.round(mobileWeather.highC)}°</b>
+                </span>
+              {/if}
+            </div>
+
+            <label class="mobile-search">
+              <span>{t('Find employee')}</span>
+              <input class="cl-field" type="search" bind:value={search} placeholder={t('Search by name')} />
+            </label>
+
+            <div class="mobile-roster">
+              {#if !groups.some((group) => group.rows.length)}
+                <div class="cl-empty">
+                  <strong>{t('No employees match these filters')}</strong>
+                  <span>{t('Clear a filter to show the full planning team.')}</span>
+                </div>
+              {:else}
+                {#each groups as group (group.key)}
+                  {#if groupMode !== 'none' && group.rows.length}
+                    <div class="mobile-roster__group">
+                      <WorkspaceAreaIcon icon={group.icon} color={group.color} size={13} compact />
+                      <strong>{group.label}</strong>
+                      <span>{group.rows.length}</span>
+                    </div>
+                  {/if}
+                  {#if !collapsedGroups.includes(group.key)}
+                    {#each group.rows as row (row.id)}
+                      {@const active = employeeActive.get(row.id) !== false}
+                      {@const shifts = dayShifts(grid, row.id, mobileDay.date)}
+                      {@const spanning = shifts.find((shift) => shift.spansDay) ?? null}
+                      {@const dayHours = shifts.reduce((sum, shift) => sum + shift.hoursValue, 0)}
+                      <article class="mobile-employee" class:is-archived={!active}>
+                        <header>
+                          <span class="cl-avatar" style="--avatar-color:{employeeColor.get(row.id) ?? 'var(--cl-muted)'}">{personInitials(row.name)}</span>
+                          <span>
+                            <strong>{row.name}</strong>
+                            <small>{dayHours ? formatHours(dayHours) : t('Not planned')}</small>
+                          </span>
+                          {#if shifts.some((shift) => shift.conflict)}
+                            <em>{t('Conflict')}</em>
+                          {/if}
+                        </header>
+
+                        <div class="mobile-slots">
+                          {#if spanning}
+                            <button
+                              class="mobile-slot has-shift is-spanning"
+                              class:is-conflict={spanning.conflict}
+                              type="button"
+                              style={`--slot-color:${spanning.color}`}
+                              onclick={() => (selectedKey = spanning.key)}
+                            >
+                              <span><ClassicServiceIcon name="span" size={15} />{t('Full day')}</span>
+                              <strong>{spanning.label}</strong>
+                              <small>{spanning.area}{spanning.showPosition ? ` · ${spanning.position}` : ''}</small>
+                            </button>
+                          {:else}
+                            {#each SERVICES as service (service)}
+                              {@const shift = shifts.find((item) => item.service === service) ?? null}
+                              {@const slot = grid.slotsByKey.get(slotKey(row.id, mobileDay.date, service))}
+                              {@const tone = zoneTone(slot)}
+                              {@const state = zoneLabel(slot)}
+                              <button
+                                class="mobile-slot is-{tone}"
+                                class:has-shift={Boolean(shift)}
+                                class:is-conflict={Boolean(shift?.conflict)}
+                                type="button"
+                                disabled={!shift && (!week.editable || mobileDay.date < week.today || !active)}
+                                style={shift ? `--slot-color:${shift.color}` : undefined}
+                                onclick={() => shift
+                                  ? (selectedKey = shift.key)
+                                  : void quickPlan(grid, row.id, mobileDay.date, service)}
+                              >
+                                <span><ClassicServiceIcon {service} size={14} />{t(service === 'evening' ? 'Evening' : 'Lunch')}</span>
+                                {#if shift}
+                                  <strong>{shift.label}</strong>
+                                  <small>{shift.area}{shift.showPosition ? ` · ${shift.position}` : ''}</small>
+                                {:else}
+                                  <strong>{state || (slot?.context.availability === 'available' ? t('Available') : t('Plan shift'))}</strong>
+                                  <small>{t(mobileDay.date < week.today ? 'Past day' : 'No shift')}</small>
+                                {/if}
+                              </button>
+                            {/each}
+                          {/if}
+                        </div>
+                      </article>
+                    {/each}
+                  {/if}
+                {/each}
+              {/if}
+            </div>
+          </section>
 
           <div class="schedule-wrap">
             <table class="board">
@@ -1815,12 +1939,212 @@
   .publish-review__actions { display: flex; justify-content: flex-end; gap: 8px; }
   .shift-dialog__hint { margin-right: auto; align-self: center; color: var(--cl-muted); font-size: 11px; }
 
+  .mobile-board { display: none; }
+
   @media (max-width: 980px) {
     .schedule-head { grid-template-columns: 1fr auto; }
     .week-nav { grid-column: 1 / -1; grid-row: 1; }
     .schedule-head__left { grid-row: 2; }
     .schedule-head__right { grid-row: 2; }
     .schedule-wrap { max-height: none; }
+  }
+  @media (max-width: 760px) {
+    .schedule-head__left { display: none; }
+    .schedule-wrap, .legend { display: none; }
+    .republish-note { justify-self: stretch; margin: 0 0 8px; text-align: center; line-height: 1.35; }
+
+    .mobile-board {
+      display: grid;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .mobile-day-summary {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 0;
+      overflow-x: auto;
+      border: 1px solid var(--cl-line);
+      border-radius: var(--cl-radius);
+      background: var(--cl-surface);
+      scrollbar-width: none;
+    }
+    .mobile-day-summary::-webkit-scrollbar { display: none; }
+    .mobile-day-summary > span {
+      min-width: 72px;
+      display: grid;
+      gap: 1px;
+      padding: 9px 11px;
+      border-right: 1px solid var(--cl-grid-line);
+      color: var(--cl-muted);
+      font-size: 9px;
+      white-space: nowrap;
+    }
+    .mobile-day-summary > span:last-child { border-right: 0; }
+    .mobile-day-summary b {
+      color: var(--cl-ink);
+      font-size: 12px;
+      font-weight: var(--rst-fw-bold);
+      font-variant-numeric: tabular-nums;
+    }
+    .mobile-day-summary__weather {
+      min-width: 62px !important;
+      grid-template-columns: auto auto;
+      align-items: center;
+      color: #3287b8 !important;
+    }
+
+    .mobile-search {
+      display: grid;
+      gap: 4px;
+    }
+    .mobile-search > span {
+      color: var(--cl-muted);
+      font-size: 10px;
+      font-weight: var(--rst-fw-bold);
+      text-transform: uppercase;
+    }
+
+    .mobile-roster {
+      display: grid;
+      gap: 8px;
+    }
+
+    .mobile-roster__group {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-top: 4px;
+      padding: 6px 2px 2px;
+      color: var(--cl-muted);
+      font-size: 11px;
+    }
+    .mobile-roster__group strong { color: var(--cl-ink); font-weight: var(--rst-fw-bold); }
+    .mobile-roster__group span:last-child { margin-left: auto; }
+
+    .mobile-employee {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--cl-line);
+      border-radius: var(--cl-radius);
+      background: var(--cl-surface);
+    }
+    .mobile-employee.is-archived { opacity: .65; }
+
+    .mobile-employee > header {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: 30px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 9px;
+      padding: 9px 10px 8px;
+      border-bottom: 1px solid var(--cl-grid-line);
+    }
+    .mobile-employee > header > span:nth-child(2) {
+      min-width: 0;
+      display: grid;
+    }
+    .mobile-employee > header strong {
+      overflow: hidden;
+      color: var(--cl-ink);
+      font-size: 12.5px;
+      font-weight: var(--rst-fw-bold);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .mobile-employee > header small {
+      color: var(--cl-muted);
+      font-size: 10px;
+    }
+    .mobile-employee > header em {
+      padding: 3px 6px;
+      border: 1px solid var(--cl-problem-line);
+      border-radius: 5px;
+      background: var(--cl-problem-wash);
+      color: var(--cl-problem);
+      font-size: 9px;
+      font-style: normal;
+      font-weight: var(--rst-fw-bold);
+      text-transform: uppercase;
+    }
+
+    .mobile-slots {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .mobile-slot {
+      min-width: 0;
+      min-height: 82px;
+      display: grid;
+      align-content: center;
+      gap: 4px;
+      padding: 10px;
+      border: 0;
+      border-left: 3px solid transparent;
+      border-right: 1px solid var(--cl-grid-line);
+      background: var(--cl-surface);
+      color: var(--cl-muted);
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    .mobile-slot:last-child { border-right: 0; }
+    .mobile-slot > span {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--cl-muted);
+      font-size: 9.5px;
+      font-weight: var(--rst-fw-bold);
+      text-transform: uppercase;
+    }
+    .mobile-slot > strong,
+    .mobile-slot > small {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .mobile-slot > strong {
+      color: var(--cl-ink);
+      font-size: 12px;
+      font-weight: var(--rst-fw-bold);
+    }
+    .mobile-slot > small {
+      color: var(--cl-muted);
+      font-size: 10px;
+    }
+    .mobile-slot:not(:disabled):hover {
+      background: var(--cl-surface-muted);
+    }
+    .mobile-slot:disabled {
+      cursor: default;
+      opacity: .68;
+    }
+    .mobile-slot.is-available:not(.has-shift) {
+      background: color-mix(in srgb, var(--cl-ok) 7%, var(--cl-surface));
+    }
+    .mobile-slot.is-partial:not(.has-shift),
+    .mobile-slot.is-pending:not(.has-shift) {
+      background: color-mix(in srgb, var(--cl-attention) 7%, var(--cl-surface));
+    }
+    .mobile-slot.is-leave:not(.has-shift),
+    .mobile-slot.is-unavailable:not(.has-shift) {
+      background: var(--cl-surface-muted);
+    }
+    .mobile-slot.has-shift {
+      border-left-color: var(--slot-color);
+      background: color-mix(in srgb, var(--slot-color) 6%, var(--cl-surface));
+    }
+    .mobile-slot.is-conflict {
+      border-left-color: var(--cl-problem);
+      background: var(--cl-problem-wash);
+    }
+    .mobile-slot.is-spanning {
+      grid-column: 1 / -1;
+      border-right: 0;
+    }
   }
   @media (max-width: 520px) {
     .schedule-head { display: flex; flex-wrap: wrap; justify-content: center; }

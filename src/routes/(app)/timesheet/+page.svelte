@@ -40,6 +40,7 @@
   import ClassicPage from '$lib/classic/ClassicPage.svelte';
   import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
   import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
+  import ClassicMobileDayPicker from '$lib/classic/ClassicMobileDayPicker.svelte';
   import TimesheetDayCard from '$lib/timesheet/TimesheetDayCard.svelte';
   import { isTimesheetRow, needsAttention } from '$lib/classic/classic-time';
   import { areaInstanceLabelMap } from '$lib/restaurant/area-instance';
@@ -82,10 +83,22 @@
   let weekAction = $state<'approve_week' | 'reopen_week'>('approve_week');
   let weekReason = $state('');
   let weekPicker = $state<HTMLInputElement>();
+  let mobileDate = $state('');
 
   const weekDates = $derived(
     Array.from({ length: 7 }, (_, index) => dateForWeekday(activeWeek, index + 1))
   );
+
+  $effect(() => {
+    const requested = page.url.searchParams.get('date');
+    const weekEnd = addDays(activeWeek, 6);
+    mobileDate =
+      requested && requested >= activeWeek && requested <= weekEnd
+        ? requested
+        : today >= activeWeek && today <= weekEnd
+          ? today
+          : activeWeek;
+  });
   const slots = $derived(
     snapshot
       ? weekDates.flatMap((date) => actualSlotsForDate(snapshot, date, today, currentInstant))
@@ -258,6 +271,13 @@
       .map((service) => slotByKey.get(`${employeeId}|${date}|${service}`))
       .filter((slot): slot is ActualSlot => Boolean(slot && isTimesheetRow(slot)));
   }
+
+  const mobileDayIndex = $derived(Math.max(0, weekDates.indexOf(mobileDate)));
+  const mobileRows = $derived(
+    gridRows
+      .map((row) => ({ row, slots: cellSlots(row.id, mobileDate) }))
+      .filter((item) => item.slots.length > 0)
+  );
 
   function groupedRows(rows: GridRow[]): { key: string; label: string; rows: GridRow[] }[] {
     if (groupMode === 'none') return [{ key: 'all', label: '', rows }];
@@ -480,6 +500,53 @@
         {/if}
       </div>
     </header>
+
+    <section class="mobile-timesheet" aria-label={t('Daily timesheet')}>
+      <ClassicMobileDayPicker
+        {days}
+        selected={mobileDate}
+        tone="time"
+        onselect={(date) => (mobileDate = date)}
+      />
+
+      <div class="mobile-day-summary">
+        <span><b>{dayEmployees[mobileDayIndex]}</b>{t('people')}</span>
+        <span><b>{formatHours(dayPlanned[mobileDayIndex])}</b>{t('planned')}</span>
+        <span><b>{formatHours(dayWorked[mobileDayIndex])}</b>{t('worked')}</span>
+        <span class:is-problem={dayIssues[mobileDayIndex] > 0}>
+          <b>{dayIssues[mobileDayIndex]}</b>{t('issues')}
+        </span>
+      </div>
+
+      <label class="mobile-search">
+        <span>{t('Find employee')}</span>
+        <input class="cl-field" type="search" bind:value={search} placeholder={t('Search by name')} />
+      </label>
+
+      <div class="mobile-attendance-list">
+        {#if mobileRows.length}
+          {#each mobileRows as item (item.row.id)}
+            {@const rowNeedsReview = item.slots.some((slot) => needsAttention(slot))}
+            <article class="mobile-attendance" class:needs-review={rowNeedsReview}>
+              <header>
+                <span class="cl-avatar" style="--avatar-color:{employeeColor.get(item.row.id) ?? 'var(--cl-muted)'}">{personInitials(item.row.name)}</span>
+                <span>
+                  <strong>{item.row.name}</strong>
+                  <small>{item.row.position}</small>
+                </span>
+                <em class:is-ready={!rowNeedsReview}>{t(rowNeedsReview ? 'Review' : 'Ready')}</em>
+              </header>
+              <TimesheetDayCard slots={item.slots} {areaName} {positionName} onopen={selectEntry} />
+            </article>
+          {/each}
+        {:else}
+          <div class="cl-empty">
+            <strong>{t(search ? 'No employees match these filters' : onlyIssues ? 'Nothing to review' : 'No recorded time on this day')}</strong>
+            <span>{t('Badge entries and planned shifts appear here as the day runs.')}</span>
+          </div>
+        {/if}
+      </div>
+    </section>
 
     <div class="timesheet-wrap">
       <table class="board">
@@ -981,9 +1048,125 @@
   .staff__meter.is-complete > i { background: var(--cl-ok); }
   .staff__meter.is-over > i { background: var(--cl-problem); }
   .timesheet-wrap tr.is-hours-over > td.board__staff { background: color-mix(in srgb, var(--cl-problem) 3%, var(--cl-surface)) !important; }
+  .mobile-timesheet { display: none; }
+
   @media (max-width: 980px) {
     .timesheet-head { grid-template-columns: 1fr auto; }
     .week-nav { grid-column: 1 / -1; grid-row: 1; }
     .timesheet-head__left, .timesheet-head__right { grid-row: 2; }
+  }
+  @media (max-width: 760px) {
+    .timesheet-wrap { display: none; }
+
+    .mobile-timesheet {
+      display: grid;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .mobile-day-summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      overflow: hidden;
+      border: 1px solid var(--cl-line);
+      border-radius: var(--cl-radius);
+      background: var(--cl-surface);
+    }
+    .mobile-day-summary > span {
+      min-width: 0;
+      display: grid;
+      gap: 1px;
+      padding: 9px 8px;
+      border-right: 1px solid var(--cl-grid-line);
+      color: var(--cl-muted);
+      font-size: 9px;
+      white-space: nowrap;
+    }
+    .mobile-day-summary > span:last-child { border-right: 0; }
+    .mobile-day-summary b {
+      color: var(--cl-ink);
+      font-size: 12px;
+      font-weight: var(--rst-fw-bold);
+      font-variant-numeric: tabular-nums;
+    }
+    .mobile-day-summary .is-problem b { color: var(--cl-problem); }
+
+    .mobile-search {
+      display: grid;
+      gap: 4px;
+    }
+    .mobile-search > span {
+      color: var(--cl-muted);
+      font-size: 10px;
+      font-weight: var(--rst-fw-bold);
+      text-transform: uppercase;
+    }
+
+    .mobile-attendance-list {
+      display: grid;
+      gap: 9px;
+    }
+    .mobile-attendance {
+      min-width: 0;
+      display: grid;
+      overflow: hidden;
+      border-radius: var(--cl-radius);
+    }
+    .mobile-attendance > header {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: 30px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 9px;
+      padding: 9px 10px 8px;
+      border: 1px solid var(--cl-line);
+      border-bottom: 0;
+      border-radius: var(--cl-radius) var(--cl-radius) 0 0;
+      background: var(--cl-surface);
+    }
+    .mobile-attendance.needs-review > header {
+      box-shadow: inset 3px 0 0 var(--cl-problem);
+    }
+    .mobile-attendance > header > span:nth-child(2) {
+      min-width: 0;
+      display: grid;
+    }
+    .mobile-attendance > header strong {
+      overflow: hidden;
+      color: var(--cl-ink);
+      font-size: 12.5px;
+      font-weight: var(--rst-fw-bold);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .mobile-attendance > header small {
+      overflow: hidden;
+      color: var(--cl-muted);
+      font-size: 10px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .mobile-attendance > header em {
+      padding: 3px 6px;
+      border: 1px solid var(--cl-problem-line);
+      border-radius: 5px;
+      background: var(--cl-problem-wash);
+      color: var(--cl-problem);
+      font-size: 9px;
+      font-style: normal;
+      font-weight: var(--rst-fw-bold);
+      text-transform: uppercase;
+    }
+    .mobile-attendance > header em.is-ready {
+      border-color: var(--cl-ok-line);
+      background: var(--cl-ok-wash);
+      color: var(--cl-ok);
+    }
+    .mobile-attendance :global(.attendance-card) {
+      width: 100%;
+      min-height: 86px;
+      margin: 0;
+      border-radius: 0 0 var(--cl-radius) var(--cl-radius);
+    }
   }
 </style>

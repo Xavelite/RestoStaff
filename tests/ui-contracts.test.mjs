@@ -445,16 +445,22 @@ test('Coverage inherits the same explicit grid contract as every classic table',
   assert.match(css, /\.cl-table td\s*\{[^}]*border-bottom:\s*1px solid var\(--cl-grid-line\)/s);
 });
 
-test('Home leads with the shift day and active Payroll Employees uses the shared compact panel baseline', async () => {
+test('Home leads with the module workspace and keeps operations as a compact pulse', async () => {
   const home = await readFile('src/routes/(app)/home/+page.svelte', 'utf8');
   const payrollEmployees = await readFile('src/routes/(app)/payroll/employees/+page.svelte', 'utf8');
-  // Home answers "what needs me today" from this week's operations, and keeps
-  // the module list only as a launcher under it.
   assert.match(home, /buildHomeModel/);
   assert.match(home, /workspace\.loadOperations\(activeWeek, addDays\(activeWeek, 6\)\)/);
+  assert.match(home, /\{t\('Restaurant modules'\)\}/);
+  assert.match(home, /label: 'Run today'/);
+  assert.match(home, /label: 'People & setup'/);
+  assert.match(home, /label: 'Review & handoff'/);
   assert.match(home, /\{t\('Needs you'\)\}/);
-  assert.match(home, /\{t\('On today'\)\}/);
+  assert.match(home, /\{t\('Floor status'\)\}/);
   assert.match(home, /modulesForRole/);
+  assert.ok(
+    home.indexOf('<section class="workspace"') < home.indexOf('<div class="home-secondary">'),
+    'module workspace should appear before the operational pulse'
+  );
   assert.doesNotMatch(payrollEmployees, /<ClassicStat\b|class="cl-stats"/);
   assert.match(payrollEmployees, /<ClassicTablePanel/);
 });
