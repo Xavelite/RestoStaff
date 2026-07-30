@@ -21,7 +21,7 @@
     Upload,
     UsersRound
   } from '@lucide/svelte';
-  import ClassicPage from '$lib/classic/ClassicPage.svelte';
+  import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
   import Dialog from '$lib/components/Dialog.svelte';
   import ActionButton from '$lib/components/ActionButton.svelte';
   import DocumentDetailsDrawer from '$lib/documents/DocumentDetailsDrawer.svelte';
@@ -211,7 +211,7 @@
 
 <svelte:head><title>{t('Documents')} &middot; restogogo</title></svelte:head>
 
-<ClassicPage>
+<WorkspacePage>
   {#if snapshot}
     <section class="document-overview" aria-label={t('Document storage overview')}>
       <div class="storage-summary">
@@ -429,7 +429,7 @@
       </section>
     </div>
   {/if}
-</ClassicPage>
+</WorkspacePage>
 
 {#if snapshot}
   <DocumentUploadDialog

@@ -2,21 +2,21 @@
   import { Inbox } from '@lucide/svelte';
   import { saveAbsence } from '$lib/api/mutations';
   import { friendlyError } from '$lib/api/error-messages';
-  import { type ServiceKey } from '$lib/calendar/date';
+  import { activeServicePeriods, serviceLabel, type ServiceKey } from '$lib/calendar/date';
   import { t } from '$lib/i18n/i18n.svelte';
   import { personInitials } from '$lib/ui/person';
   import { buildEmployeeColorMap } from '$lib/ui/position-color';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
-  import { useClassicTeamContext } from '$lib/classic/classic-workspace-context';
-  import ClassicService from '$lib/classic/ClassicService.svelte';
-  import ClassicCellBadge from '$lib/classic/ClassicCellBadge.svelte';
-  import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
-  import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
-  import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
-  import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
-  import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
-  import { createTableView } from '$lib/classic/table-view.svelte';
+  import { useWorkspaceTeamContext } from '$lib/workspace-ui/workspace-context';
+  import WorkspaceService from '$lib/workspace-ui/WorkspaceService.svelte';
+  import WorkspaceCellBadge from '$lib/workspace-ui/WorkspaceCellBadge.svelte';
+  import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
+  import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
+  import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
+  import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
+  import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
+  import { createTableView } from '$lib/workspace-ui/table-view.svelte';
   import type { ManagerOperationsReadModel } from '$lib/api/workspace-snapshot';
 
   const employeeColor = $derived(
@@ -31,11 +31,16 @@
   );
 
   function asService(value: string | null): ServiceKey | null {
-    return value === 'lunch' || value === 'evening' ? value : null;
+    return value?.trim() || null;
   }
 
   let busy = $state('');
   const team = $derived(workspace.team);
+  const services = $derived(activeServicePeriods(workspace.operations?.services));
+
+  function serviceName(serviceKey: ServiceKey): string {
+    return serviceLabel(serviceKey, workspace.operations?.services);
+  }
 
   type SortKey = 'employee' | 'type' | 'period' | 'service' | 'status';
   type GroupBy = 'status' | 'employee' | 'type' | 'none';
@@ -104,11 +109,11 @@
     }
   }
 
-  const readTeamContext = useClassicTeamContext();
+  const readTeamContext = useWorkspaceTeamContext();
   const teamContext = $derived(readTeamContext());
 </script>
 
-<svelte:head><title>{t('Absences')} &middot; restogogo</title></svelte:head>
+<svelte:head><title>{t('Time off')} &middot; restogogo</title></svelte:head>
 
 {#if teamContext}
 {@const employeeName = new Map(teamContext.employees.map((employee) => [employee.id, employee.displayName]))}
@@ -135,16 +140,19 @@
       : [...filteredAbsences].sort((left, right) => right.start_date.localeCompare(left.start_date))}
     {@const groups = groupedRows(rows, employeeName, typeName)}
     {@const typeValues = [{ value: '__none__', label: t('No type') }, ...[...typeName].map(([value, label]) => ({ value, label }))]}
-    {@const serviceValues = [{ value: 'lunch', label: t('Lunch') }, { value: 'evening', label: t('Evening') }, { value: 'full_day', label: t('Full day') }]}
+    {@const serviceValues = [
+      ...services.map((service) => ({ value: service.service_key, label: t(service.name) })),
+      { value: 'full_day', label: t('Full day') }
+    ]}
     {@const statusValues = [{ value: 'pending', label: t('pending') }, { value: 'approved', label: t('approved') }, { value: 'rejected', label: t('rejected') }, { value: 'cancelled', label: t('cancelled') }]}
 
-    <ClassicTablePanel>
+    <WorkspaceTablePanel>
       {#snippet meta()}
         <span><i class="dot"></i>{t('{count} requests', { count: rows.length })}</span>
         <span><i class="dot is-orange"></i>{t('{count} pending', { count: allAbsences.filter((absence) => absence.status === 'pending').length })}</span>
       {/snippet}
       {#snippet actions()}
-        <a class="cl-btn" href="/settings/absence-types">{t('Absence types')}</a>
+        <a class="cl-btn" href="/settings/absence-types">{t('Time-off types')}</a>
       {/snippet}
       {#snippet children()}
       <div class="cl-tablewrap">
@@ -152,11 +160,11 @@
           {#if allAbsences.length}
             <thead>
               <tr>
-                <th class="has-menu"><ClassicPrimaryColMenu label={t('Employee')} sortable sortDir={view.sortDir('employee')} onsort={(dir) => view.setSort('employee', dir)} filterKind="text" searchValue={view.search('employee')} onsearch={(value) => view.setSearch('employee', value)} groupValue={view.groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'status', label: t('Status') }, { value: 'employee', label: t('Employee') }, { value: 'type', label: t('Type') }]} ongroupchange={(value) => view.setGroupBy(value as GroupBy)} /></th>
-                <th class="has-menu"><ClassicColMenu label={t('Type')} sortable sortDir={view.sortDir('type')} onsort={(dir) => view.setSort('type', dir)} filterKind="values" filterValues={typeValues} selected={view.excluded('type')} ontoggle={(value) => view.toggleValue('type', value)} onselectall={(on) => view.selectAll('type', on, typeValues)} /></th>
-                <th class="has-menu"><ClassicColMenu label={t('Period')} sortable sortDir={view.sortDir('period')} onsort={(dir) => view.setSort('period', dir)} filterKind="text" searchValue={view.search('period')} onsearch={(value) => view.setSearch('period', value)} /></th>
-                <th class="has-menu"><ClassicColMenu label={t('Service')} sortable sortDir={view.sortDir('service')} onsort={(dir) => view.setSort('service', dir)} filterKind="values" filterValues={serviceValues} selected={view.excluded('service')} ontoggle={(value) => view.toggleValue('service', value)} onselectall={(on) => view.selectAll('service', on, serviceValues)} /></th>
-                <th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={view.sortDir('status')} onsort={(dir) => view.setSort('status', dir)} filterKind="values" filterValues={statusValues} selected={view.excluded('status')} ontoggle={(value) => view.toggleValue('status', value)} onselectall={(on) => view.selectAll('status', on, statusValues)} /></th>
+                <th class="has-menu"><WorkspacePrimaryColMenu label={t('Employee')} sortable sortDir={view.sortDir('employee')} onsort={(dir) => view.setSort('employee', dir)} filterKind="text" searchValue={view.search('employee')} onsearch={(value) => view.setSearch('employee', value)} groupValue={view.groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'status', label: t('Status') }, { value: 'employee', label: t('Employee') }, { value: 'type', label: t('Type') }]} ongroupchange={(value) => view.setGroupBy(value as GroupBy)} /></th>
+                <th class="has-menu"><WorkspaceColMenu label={t('Type')} sortable sortDir={view.sortDir('type')} onsort={(dir) => view.setSort('type', dir)} filterKind="values" filterValues={typeValues} selected={view.excluded('type')} ontoggle={(value) => view.toggleValue('type', value)} onselectall={(on) => view.selectAll('type', on, typeValues)} /></th>
+                <th class="has-menu"><WorkspaceColMenu label={t('Period')} sortable sortDir={view.sortDir('period')} onsort={(dir) => view.setSort('period', dir)} filterKind="text" searchValue={view.search('period')} onsearch={(value) => view.setSearch('period', value)} /></th>
+                <th class="has-menu"><WorkspaceColMenu label={t('Service')} sortable sortDir={view.sortDir('service')} onsort={(dir) => view.setSort('service', dir)} filterKind="values" filterValues={serviceValues} selected={view.excluded('service')} ontoggle={(value) => view.toggleValue('service', value)} onselectall={(on) => view.selectAll('service', on, serviceValues)} /></th>
+                <th class="has-menu"><WorkspaceColMenu label={t('Status')} sortable sortDir={view.sortDir('status')} onsort={(dir) => view.setSort('status', dir)} filterKind="values" filterValues={statusValues} selected={view.excluded('status')} ontoggle={(value) => view.toggleValue('status', value)} onselectall={(on) => view.selectAll('status', on, statusValues)} /></th>
                 <th></th>
               </tr>
             </thead>
@@ -166,7 +174,7 @@
           {:else}
             {#each groups as group (group.key)}
               <tbody>
-                {#if view.grouping}<ClassicGroupRow colspan={6} label={group.label} meta={t('{count} requests', { count: group.rows.length })} collapsed={view.isCollapsed(group.key)} ontoggle={() => view.toggleGroup(group.key)} />{/if}
+                {#if view.grouping}<WorkspaceGroupRow colspan={6} label={group.label} meta={t('{count} requests', { count: group.rows.length })} collapsed={view.isCollapsed(group.key)} ontoggle={() => view.toggleGroup(group.key)} />{/if}
                 {#if !view.isCollapsed(group.key)}
                 {#each group.rows as absence (absence.id)}
                   {@const service = asService(absence.service_key)}
@@ -174,11 +182,11 @@
                     <td><span class="cl-table__name is-employee"><span class="cl-avatar" style="--avatar-color:{employeeColor.get(absence.employee_id) ?? 'var(--cl-muted)'}">{personInitials(employeeName.get(absence.employee_id) ?? '?')}</span>{employeeName.get(absence.employee_id) ?? '—'}</span></td>
                     <td><span class="cl-cellstack"><span class="is-quiet">{typeName.get(absence.absence_type_id ?? '') ?? '—'}</span>{#if absence.employee_comment}<small class="cl-cellsub">{absence.employee_comment}</small>{/if}</span></td>
                     <td><span class="cl-cellstack period"><time datetime={absence.start_date}>{formatDate(absence.start_date)}{#if absence.end_date !== absence.start_date} → {formatDate(absence.end_date)}{/if}</time><small class="cl-cellsub">{durationLabel(absence)}</small></span></td>
-                    <td>{#if service}<ClassicService {service} />{:else}<span class="is-quiet">{t('Full day')}</span>{/if}</td>
-                    <td><ClassicCellBadge label={absence.status} tone={toneFor(absence.status)} icon={iconFor(absence.status)} /></td>
+                    <td>{#if service}<WorkspaceService {service} label={serviceName(service)} />{:else}<span class="is-quiet">{t('Full day')}</span>{/if}</td>
+                    <td><WorkspaceCellBadge label={absence.status} tone={toneFor(absence.status)} icon={iconFor(absence.status)} /></td>
                     <td class="menu-cell">
                       {#if absence.status === 'pending'}
-                        <ClassicRowMenu
+                        <WorkspaceRowMenu
                           disabled={!teamContext.editable || busy === absence.id}
                           items={[
                             { label: t('Approve'), onselect: () => void resolve(absence.id, absence.employee_id, 'approve') },
@@ -196,7 +204,7 @@
         </table>
       </div>
       {/snippet}
-    </ClassicTablePanel>
+    </WorkspaceTablePanel>
 
 {/if}
 

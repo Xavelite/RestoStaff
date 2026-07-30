@@ -15,10 +15,17 @@
     return cells.find((item) => item.serviceKey === serviceKey && item.weekday === weekday);
   }
 
+  function configuredServiceLabel(serviceKey: string): string {
+    return cells.find((item) => item.serviceKey === serviceKey)?.serviceLabel ??
+      serviceLabel(serviceKey);
+  }
+
   function background(intensity: number): string {
     const amount = Math.max(5, Math.min(72, Math.round(intensity * 72)));
     return `color-mix(in srgb, var(--cl-info) ${amount}%, var(--cl-surface-muted))`;
   }
+
+  const services = $derived([...new Set(cells.map((item) => item.serviceKey))]);
 </script>
 
 <figure class="report-pulse">
@@ -30,8 +37,8 @@
     <div class="report-pulse__grid">
       <span></span>
       {#each WEEKDAYS as day (day)}<strong class="report-pulse__day">{t(day).slice(0, 3)}</strong>{/each}
-      {#each ['lunch', 'evening'] as service (service)}
-        <strong class="report-pulse__service">{t(serviceLabel(service))}</strong>
+      {#each services as service (service)}
+        <strong class="report-pulse__service">{t(configuredServiceLabel(service))}</strong>
         {#each WEEKDAYS as _day, index (_day)}
           {@const item = cell(service, index + 1)}
           <span

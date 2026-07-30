@@ -39,7 +39,7 @@ export async function getCurrentMemberships(): Promise<Membership[]> {
 }
 
 export async function getWorkspaceBootstrap(restaurantId: string) {
-  const { data, error } = await supabase.rpc('get_workspace_bootstrap', {
+  const { data, error } = await supabase.rpc('get_workspace_bootstrap_v2', {
     p_restaurant_id: restaurantId
   });
   if (error) throw toApiError(error, 'Workspace context could not be loaded.');
@@ -75,7 +75,7 @@ export async function getEmployeeOperationsReadModel(
 }
 
 export async function getTeamReadModel(restaurantId: string) {
-  const { data, error } = await supabase.rpc('get_team_read_model', {
+  const { data, error } = await supabase.rpc('get_team_read_model_v2', {
     p_restaurant_id: restaurantId
   });
   if (error) throw toApiError(error, 'Team data could not be loaded.');
@@ -83,7 +83,7 @@ export async function getTeamReadModel(restaurantId: string) {
 }
 
 export async function getRestaurantReadModel(restaurantId: string) {
-  const { data, error } = await supabase.rpc('get_restaurant_read_model', {
+  const { data, error } = await supabase.rpc('get_restaurant_read_model_v2', {
     p_restaurant_id: restaurantId
   });
   if (error) throw toApiError(error, 'Restaurant setup could not be loaded.');

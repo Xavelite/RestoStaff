@@ -82,7 +82,7 @@ test('Positions exposes linked areas and sends them as a top-level relation set'
   assert.doesNotMatch(model, /area_id: nullable\(primaryAreaId\)/);
   assert.match(
     positions,
-    /<ClassicColMenu[\s\S]*label=\{t\('Linked areas'\)\}/
+    /<WorkspaceColMenu[\s\S]*label=\{t\('Linked areas'\)\}/
   );
   assert.match(positions, /<PositionLinkedAreasField/);
   assert.doesNotMatch(positions, /Primary area/);
@@ -170,7 +170,7 @@ test('Positions keeps every pending row and gives Linked areas the shared column
   );
   assert.match(
     positions,
-    /<ClassicColMenu[\s\S]*label=\{t\('Linked areas'\)\}[\s\S]*sortDir=\{view\.sortDir\('areas'\)\}[\s\S]*searchValue=\{view\.search\('areas'\)\}/
+    /<WorkspaceColMenu[\s\S]*label=\{t\('Linked areas'\)\}[\s\S]*sortDir=\{view\.sortDir\('areas'\)\}[\s\S]*searchValue=\{view\.search\('areas'\)\}/
   );
   assert.match(
     positions,

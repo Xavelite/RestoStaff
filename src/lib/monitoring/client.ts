@@ -1,4 +1,5 @@
 import { env } from '$env/dynamic/public';
+import { redactMonitoringMessage } from './redact';
 
 type ClientErrorContext = {
   source: 'svelte' | 'window' | 'promise';
@@ -8,15 +9,9 @@ type ClientErrorContext = {
 
 let started = false;
 
-function message(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === 'string') return error;
-  return 'Unknown client error';
-}
-
 export function reportClientError(error: unknown, context: ClientErrorContext): void {
   const payload = JSON.stringify({
-    message: message(error).slice(0, 500),
+    message: redactMonitoringMessage(error),
     source: context.source,
     route: context.route ?? (typeof location === 'undefined' ? '' : location.pathname),
     status: context.status ?? null,

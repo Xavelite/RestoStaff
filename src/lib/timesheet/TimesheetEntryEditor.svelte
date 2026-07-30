@@ -2,7 +2,11 @@
   import { onMount, untrack } from 'svelte';
   import type { ManagerOperationsReadModel } from '$lib/api/workspace-snapshot';
   import type { ActualSlot } from '$lib/timesheet/timesheet-model';
-  import { instantToLocalInput, localInputToInstant } from '$lib/calendar/date';
+  import {
+    instantToLocalInput,
+    localInputToInstant,
+    serviceDefaultHours
+  } from '$lib/calendar/date';
   import ActionButton from '$lib/components/ActionButton.svelte';
   import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
@@ -43,6 +47,7 @@
     editable,
     jobFunctions,
     workAreas,
+    services,
     adjustments,
     onsave,
     oncancel,
@@ -56,6 +61,7 @@
     editable: boolean;
     jobFunctions: Array<{ id: string; name: string; active: boolean }>;
     workAreas: ManagerOperationsReadModel['work_areas'];
+    services: ManagerOperationsReadModel['services'];
     adjustments: ManagerOperationsReadModel['time_entry_adjustments'];
     onsave: (values: ActualsEntrySave) => Promise<boolean>;
     oncancel: (values: { reason: string }) => Promise<boolean>;
@@ -128,9 +134,10 @@
   }
 
   $effect(() => {
+    const defaults = serviceDefaultHours(slot.serviceKey, services);
     clockIn =
       instantToLocalInput(slot.clockInAt, timezone) ||
-      `${slot.date}T${slot.serviceKey === 'lunch' ? '12:00' : '18:00'}`;
+      `${slot.date}T${defaults.start}`;
     clockOut =
       instantToLocalInput(slot.clockOutAt, timezone) ||
       (slot.plannedRange ? `${slot.date}T${slot.plannedRange.slice(-5)}` : '');

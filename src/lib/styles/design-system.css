@@ -2,8 +2,8 @@
    restogogo shared component styles
    ==========================================================================
    Cross-route form and setup primitives that are still used outside the
-   authenticated classic workspace, notably onboarding and detailed editors.
-   The authenticated shell and table workspace live in classic/classic.css.
+   authenticated workspace, notably onboarding and detailed editors.
+   The authenticated shell and table workspace live in workspace/workspace.css.
    ========================================================================== */
 
 /* -------------------------------------------------- setup headings ------- */

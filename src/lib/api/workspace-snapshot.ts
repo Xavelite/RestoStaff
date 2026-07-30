@@ -15,6 +15,8 @@ import type {
 type RestaurantSettings = Partial<Tables<'restaurant_settings'>>;
 type RestaurantEmploymentSettings = Partial<Tables<'restaurant_employment_settings'>>;
 type RestaurantOnboardingState = Partial<Tables<'restaurant_onboarding_state'>>;
+export type ModuleEntitlementState = 'enabled' | 'preview' | 'disabled';
+export type ModuleEntitlements = Record<string, ModuleEntitlementState>;
 
 export type EmployeeInvitationState = {
   id: string;
@@ -62,6 +64,7 @@ type WorkspaceBase = {
 export type WorkspaceBootstrap = WorkspaceBase & {
   current_employee: Tables<'employees'> | null;
   readiness: WorkspaceReadiness;
+  module_entitlements: ModuleEntitlements;
 };
 
 export type ManagerOperationsReadModel = WorkspaceBase & {
@@ -118,6 +121,7 @@ export type EmployeeOperationsReadModel = WorkspaceBase & {
 };
 
 export type TeamReadModel = WorkspaceBase & {
+  workspace_revision: number;
   restaurant_memberships: Tables<'restaurant_memberships'>[];
   employees: Tables<'employees'>[];
   employee_access: Tables<'employee_access'>[];
@@ -139,6 +143,7 @@ export type TeamReadModel = WorkspaceBase & {
 };
 
 export type RestaurantReadModel = WorkspaceBase & {
+  workspace_revision: number;
   restaurant_employment_settings: RestaurantEmploymentSettings;
   restaurant_onboarding_state: RestaurantOnboardingState;
   job_functions: Tables<'job_functions'>[];
@@ -170,6 +175,24 @@ function source(value: Json): UnknownRecord {
 
 function rows<T>(value: UnknownRecord, key: string): T[] {
   return Array.isArray(value[key]) ? (value[key] as T[]) : [];
+}
+
+function revision(value: UnknownRecord): number {
+  return typeof value.workspace_revision === 'number' &&
+    Number.isSafeInteger(value.workspace_revision) &&
+    value.workspace_revision >= 0
+    ? value.workspace_revision
+    : 0;
+}
+
+function moduleEntitlements(value: UnknownRecord): ModuleEntitlements {
+  if (!isRecord(value.module_entitlements)) return {};
+  return Object.fromEntries(
+    Object.entries(value.module_entitlements).filter(
+      (entry): entry is [string, ModuleEntitlementState] =>
+        entry[1] === 'enabled' || entry[1] === 'preview' || entry[1] === 'disabled'
+    )
+  );
 }
 
 function base(value: UnknownRecord): WorkspaceBase {
@@ -208,7 +231,8 @@ export function parseWorkspaceBootstrap(value: Json): WorkspaceBootstrap {
       has_open_services: readiness.has_open_services === true,
       has_coverage_rules: readiness.has_coverage_rules === true,
       has_absence_policy: readiness.has_absence_policy === true
-    }
+    },
+    module_entitlements: moduleEntitlements(data)
   };
 }
 
@@ -279,6 +303,7 @@ export function parseTeamReadModel(value: Json): TeamReadModel {
   const data = source(value);
   return {
     ...base(data),
+    workspace_revision: revision(data),
     restaurant_memberships: rows(data, 'restaurant_memberships'),
     employees: rows(data, 'employees'),
     employee_access: rows(data, 'employee_access'),
@@ -304,6 +329,7 @@ export function parseRestaurantReadModel(value: Json): RestaurantReadModel {
   const data = source(value);
   return {
     ...base(data),
+    workspace_revision: revision(data),
     restaurant_employment_settings: isRecord(data.restaurant_employment_settings)
       ? (data.restaurant_employment_settings as RestaurantEmploymentSettings)
       : {},

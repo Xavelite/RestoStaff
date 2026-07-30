@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { PUBLIC_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_URL } from '$env/static/public';
-  import ClassicPage from '$lib/classic/ClassicPage.svelte';
-  import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
-  import ClassicToggle from '$lib/classic/ClassicToggle.svelte';
+  import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
+  import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
+  import WorkspaceToggle from '$lib/workspace-ui/WorkspaceToggle.svelte';
   import { friendlyError } from '$lib/api/error-messages';
   import { t } from '$lib/i18n/i18n.svelte';
   import {
@@ -233,12 +233,12 @@
 
 <svelte:head><title>{t('Reservation API')} &middot; restogogo</title></svelte:head>
 
-<ClassicPage>
+<WorkspacePage>
   {#if error}
     <div class="api-alert" role="alert">{error}</div>
   {/if}
 
-  <ClassicTablePanel
+  <WorkspaceTablePanel
     {dirty}
     {saving}
     canSave={originRows.length > 0}
@@ -287,7 +287,7 @@
                 <p>{t('The widget searches live capacity, holds exact tables for five minutes, then confirms the guest.')}</p>
               </div>
               <span class="channel-switch">
-                <ClassicToggle
+                <WorkspaceToggle
                   checked={enabled}
                   label={enabled ? 'Active' : 'Off'}
                   onchange={(next) => (enabled = next)}
@@ -359,8 +359,8 @@
         </div>
       {/if}
     {/snippet}
-  </ClassicTablePanel>
-</ClassicPage>
+  </WorkspaceTablePanel>
+</WorkspacePage>
 
 <style>
   .api-alert {

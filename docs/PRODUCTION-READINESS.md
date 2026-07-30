@@ -18,7 +18,8 @@ enough. For a new environment:
    `DATABASE.md`.
 2. Configure the exact Auth site URL and allowed redirects. Provision platform
    operators explicitly with `npm run provision:platform-admin`; a restaurant
-   role never grants platform access.
+   role never grants platform access. Enroll a TOTP authenticator and verify the
+   resulting AAL2 session before opening `/admin`.
 3. Set `APP_ORIGIN` and function secrets, then deploy all five Edge Functions.
    Generate Web Push keys with `npm run generate:push-keys`. Build only the
    public key into the frontend; keep private and dispatch secrets in Supabase.
@@ -32,13 +33,21 @@ enough. For a new environment:
 7. Configure the push scheduler and verify delivery plus expired-subscription
    cleanup on real Android and iOS Home Screen installations.
 
-Before release, exercise Schedule publish/revert, Time & attendance
+Before release, verify the deployed HSTS, CSP, frame, referrer, and permissions
+headers rather than assuming source configuration reached the edge. Exercise
+Schedule publish/revert, Time & attendance
 correction/approve/reopen, payroll export, invitation acceptance, message
-read/acknowledgement, notification lifecycle, reservations, role preview,
-feedback, and proof handling with representative data. Also test overnight
+read/acknowledgement, notification lifecycle, role preview, feedback, and proof
+handling with representative data. Test Reservations only if that separate
+entitlement is intentionally opened. Also test overnight
 services, timezone boundaries, stale revisions, reconnects, expiry, PIN
 lockout, token replay, accessibility, monitoring, backup/restore, rollback,
 retention, privacy, and support ownership.
+
+Reports remains disabled until its elapsed-window comparisons have approved
+metric definitions and representative business acceptance. The payroll pilot
+is preparation/export only. See `PILOT.md` for the settled scope and the
+external gates that source validation cannot close.
 
 Production credentials must never be used by baseline, fixture, or hosted
 acceptance tooling.

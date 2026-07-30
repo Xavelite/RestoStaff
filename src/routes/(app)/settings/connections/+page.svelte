@@ -1,16 +1,16 @@
 <script lang="ts">
   import { t } from '$lib/i18n/i18n.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
-  import { useClassicRestaurantContext } from '$lib/classic/classic-workspace-context';
-  import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
-  import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
+  import { useWorkspaceRestaurantContext } from '$lib/workspace-ui/workspace-context';
+  import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
+  import { restaurantConfig } from '$lib/workspace-ui/workspace-restaurant.svelte';
   import {
     enterpriseNumberIssue,
     establishmentUnitIssue,
     jointCommitteeIssue
   } from '$lib/restaurant/belgian-identifiers';
 
-  const readRestaurantContext = useClassicRestaurantContext();
+  const readRestaurantContext = useWorkspaceRestaurantContext();
   const context = $derived(readRestaurantContext());
   const canManageOperations = $derived(workspace.canManageOperations);
   const companyIssue = $derived(enterpriseNumberIssue(context?.draft.companyNumber));
@@ -25,7 +25,7 @@
 {#if context}
   {@const draft = context.draft}
   {#if canManageOperations}
-    <ClassicTablePanel
+    <WorkspaceTablePanel
       dirty={context.dirty}
       saving={context.saving}
       canSave={context.canSave}
@@ -158,7 +158,7 @@
           </section>
         </div>
       {/snippet}
-    </ClassicTablePanel>
+    </WorkspaceTablePanel>
   {:else}
     <section class="cl-card access-card">
       <div class="cl-empty">

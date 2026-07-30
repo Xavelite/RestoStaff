@@ -34,6 +34,7 @@
     availabilityState,
     isTimeOffSelected,
     isChangeSelected,
+    services = [],
     absenceTypes = [],
     absenceTypeId = $bindable(),
     comment = $bindable(),
@@ -52,6 +53,7 @@
     availabilityState: '' | 'available' | 'partial' | 'unavailable';
     isTimeOffSelected: boolean;
     isChangeSelected: boolean;
+    services?: EmployeeOperationsReadModel['services'];
     absenceTypes?: EmployeeOperationsReadModel['absence_types'];
     absenceTypeId: string;
     comment: string;
@@ -96,7 +98,7 @@
 
 <Drawer
   open={open && Boolean(truth)}
-  title={truth ? `${t(serviceLabel(truth.serviceKey))} · ${truth.date}` : t('Service details')}
+  title={truth ? `${t(serviceLabel(truth.serviceKey, services))} · ${truth.date}` : t('Service details')}
   description={t('Your schedule, worked time and requests for this service.')}
   {onclose}
 >

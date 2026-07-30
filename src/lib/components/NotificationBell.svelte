@@ -14,6 +14,10 @@
     setNotificationTypeChannels,
     type NotificationSettings
   } from '$lib/notifications/notification-feed';
+  import {
+    groupNotificationIncidents,
+    type NotificationIncident
+  } from '$lib/notifications/notification-incidents';
   import type { NotificationFeed, NotificationItem, NotificationType } from '$lib/notifications/notification-model';
   import { sound } from '$lib/sound/sound.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
@@ -80,21 +84,25 @@
     if (!settings || !role) return [];
     return settings.types.filter((type) => type.audience === 'both' || (role === 'employee' ? type.audience === 'employee' : type.audience === 'manager'));
   });
-  const totalCount = $derived(feed.unreadCount + setupNotifications.length);
+  const incidents = $derived(groupNotificationIncidents(feed.items));
+  const unresolvedIncidentCount = $derived(
+    incidents.filter((incident) => incident.unreadCount > 0).length
+  );
+  const totalCount = $derived(unresolvedIncidentCount + setupNotifications.length);
   const feedSummary = $derived.by(() => {
-    if (feed.unreadCount && setupNotifications.length) {
-      return t('{newCount} new · {setupCount} setup', { newCount: feed.unreadCount, setupCount: setupNotifications.length });
+    if (unresolvedIncidentCount && setupNotifications.length) {
+      return t('{newCount} new · {setupCount} setup', { newCount: unresolvedIncidentCount, setupCount: setupNotifications.length });
     }
-    if (feed.unreadCount) return t('{count} new', { count: feed.unreadCount });
+    if (unresolvedIncidentCount) return t('{count} new', { count: unresolvedIncidentCount });
     if (setupNotifications.length) return t('{count} setup', { count: setupNotifications.length });
-    if (feed.items.length > 0) return t(feed.items.length === 1 ? '{count} recent item' : '{count} recent items', { count: feed.items.length });
+    if (incidents.length > 0) return t(incidents.length === 1 ? '{count} recent item' : '{count} recent items', { count: incidents.length });
     return t('No notifications');
   });
   const notificationGroups = $derived.by(() => {
-    const groups = new Map<string, NotificationItem[]>();
-    for (const item of feed.items) {
-      const date = notificationDay(item.createdAt);
-      groups.set(date, [...(groups.get(date) ?? []), item]);
+    const groups = new Map<string, NotificationIncident[]>();
+    for (const incident of incidents) {
+      const date = notificationDay(incident.primary.createdAt);
+      groups.set(date, [...(groups.get(date) ?? []), incident]);
     }
     const today = todayInTimezone(timezone, new Date());
     const yesterday = addDays(today, -1);
@@ -143,6 +151,25 @@
 
   function notificationTypeLabel(item: NotificationItem): string {
     return t(settings?.types.find((type) => type.code === item.type)?.label ?? 'Notification');
+  }
+
+  function incidentTitle(incident: NotificationIncident): string {
+    if (incident.items.length === 1) return notificationTitle(incident.primary);
+    const params = { count: incident.items.length };
+    switch (incident.primary.type) {
+      case 'employee_no_show':
+        return t('{count} missing badge-ins', params);
+      case 'employee_forgot_badge_out':
+        return t('{count} open clock-ins need review', params);
+      case 'employee_badged_late':
+        return t('{count} late badge-ins', params);
+      case 'employee_unavailable_on_planned_shift':
+        return t('{count} planned shifts conflict with time off', params);
+      case 'worked_during_approved_absence':
+        return t('{count} worked entries conflict with approved time off', params);
+      default:
+        return notificationTitle(incident.primary);
+    }
   }
 
   async function refreshSettings(force = false): Promise<NotificationSettings | null> {
@@ -383,6 +410,33 @@
     detailOpen = true;
   }
 
+  async function readIncident(incident: NotificationIncident): Promise<void> {
+    if (!restaurantId || !settings) return;
+    const unread = incident.items.filter((item) => !item.readAt);
+    const results = await Promise.allSettled(
+      unread.map((item) =>
+        markNotificationRead({
+          restaurantId: restaurantId!,
+          profileId: settings!.profileId,
+          item
+        })
+      )
+    );
+    unread.forEach((item, index) => {
+      if (results[index]?.status === 'fulfilled') markLocalRead(item);
+    });
+  }
+
+  async function openIncident(incident: NotificationIncident): Promise<void> {
+    if (incident.items.length === 1) {
+      await openItem(incident.primary);
+      return;
+    }
+    await readIncident(incident);
+    open = false;
+    await goto(incident.primary.targetUrl);
+  }
+
   async function dismiss(item: NotificationItem) {
     if (!restaurantId || !settings) return;
     try {
@@ -393,6 +447,37 @@
       };
     } catch (reason) {
       toasts.show(reason instanceof Error ? reason.message : String(reason), 'danger');
+    }
+  }
+
+  async function dismissIncident(incident: NotificationIncident): Promise<void> {
+    if (!restaurantId || !settings) return;
+    if (incident.items.length === 1) {
+      await dismiss(incident.primary);
+      return;
+    }
+    const results = await Promise.allSettled(
+      incident.items.map((item) =>
+        dismissNotification({
+          restaurantId: restaurantId!,
+          profileId: settings!.profileId,
+          item
+        })
+      )
+    );
+    const completed = new Set(
+      incident.items
+        .filter((_item, index) => results[index]?.status === 'fulfilled')
+        .map((item) => item.key)
+    );
+    feed = {
+      items: feed.items.filter((item) => !completed.has(item.key)),
+      unreadCount: feed.items.filter(
+        (item) => !completed.has(item.key) && !item.readAt
+      ).length
+    };
+    if (completed.size !== incident.items.length) {
+      toasts.show(t('Some notifications could not be dismissed.'), 'danger');
     }
   }
 
@@ -553,17 +638,26 @@
           </div>
         {/if}
 
-        {#if feed.items.length}
+        {#if incidents.length}
           {#each notificationGroups as group (group.date)}
             <div class="notification-group">
               <span>{group.label}</span>
-              {#each group.items as item (item.key)}
-                <article class="notification-row" class:is-unread={!item.readAt} class:is-critical={item.severity === 'critical'}>
-                  <button type="button" onclick={() => openItem(item)}>
-                    <strong>{notificationTitle(item)}</strong>
-                    <small>{notificationBody(item)}</small>
+              {#each group.items as incident (incident.key)}
+                <article
+                  class="notification-row"
+                  class:is-unread={incident.unreadCount > 0}
+                  class:is-critical={incident.primary.severity === 'critical'}
+                >
+                  <button type="button" onclick={() => openIncident(incident)}>
+                    <strong>{incidentTitle(incident)}</strong>
+                    <small>{notificationBody(incident.primary)}</small>
                   </button>
-                  <button class="dismiss" type="button" aria-label={t('Dismiss notification')} onclick={() => dismiss(item)}>×</button>
+                  <button
+                    class="dismiss"
+                    type="button"
+                    aria-label={t('Dismiss notification')}
+                    onclick={() => dismissIncident(incident)}
+                  >×</button>
                 </article>
               {/each}
             </div>

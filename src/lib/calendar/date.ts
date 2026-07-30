@@ -1,21 +1,110 @@
 export const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
-export const SERVICES = ['lunch', 'evening'] as const;
-export type ServiceKey = (typeof SERVICES)[number];
+export const DEFAULT_SERVICE_KEYS = ['lunch', 'evening'] as const;
+export type ServiceKey = string;
 
-const SERVICE_DISPLAY: Record<ServiceKey, { label: string; icon: string }> = {
+export type ServicePeriod = {
+  service_key: string;
+  name: string;
+  active: boolean;
+  sort_order: number;
+  metadata?: unknown;
+};
+
+const SERVICE_DISPLAY: Record<string, { label: string; icon: string }> = {
   lunch: { label: 'Lunch', icon: '☀' },
   evening: { label: 'Evening', icon: '☾' }
 };
 
-export function serviceDisplay(serviceKey: ServiceKey): { label: string; icon: string } {
-  return SERVICE_DISPLAY[serviceKey];
+const DEFAULT_PERIODS: ServicePeriod[] = [
+  {
+    service_key: 'lunch',
+    name: 'Lunch',
+    active: true,
+    sort_order: 0,
+    metadata: { default_start: '12:00', default_end: '15:00' }
+  },
+  {
+    service_key: 'evening',
+    name: 'Evening',
+    active: true,
+    sort_order: 1,
+    metadata: { default_start: '18:00', default_end: '23:00' }
+  }
+];
+
+function metadataClock(metadata: unknown, key: 'default_start' | 'default_end'): string {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return '';
+  const value = (metadata as Record<string, unknown>)[key];
+  return typeof value === 'string' && /^\d{2}:\d{2}/.test(value) ? value.slice(0, 5) : '';
 }
 
-// Display label for a service key from any source (typed or raw string). The one
-// place service keys become human labels — use this instead of inline
-// `serviceKey === 'lunch' ? 'Lunch' : 'Evening'` ternaries.
-export function serviceLabel(serviceKey: string): string {
-  return SERVICE_DISPLAY[serviceKey as ServiceKey]?.label ?? serviceKey;
+export function activeServicePeriods(
+  services: readonly ServicePeriod[] | null | undefined
+): ServicePeriod[] {
+  const configured = (services ?? [])
+    .filter((service) => service.active && service.service_key.trim())
+    .sort((left, right) =>
+      left.sort_order - right.sort_order ||
+      left.name.localeCompare(right.name)
+    );
+  return configured.length ? configured : DEFAULT_PERIODS.map((service) => ({ ...service }));
+}
+
+export function configuredServiceKeys(
+  services: readonly ServicePeriod[] | null | undefined
+): ServiceKey[] {
+  const configured = (services ?? [])
+    .filter((service) => service.service_key.trim())
+    .sort((left, right) =>
+      left.sort_order - right.sort_order ||
+      left.name.localeCompare(right.name)
+    )
+    .map((service) => service.service_key);
+  return configured.length ? configured : [...DEFAULT_SERVICE_KEYS];
+}
+
+export function activeServiceKeys(
+  services: readonly ServicePeriod[] | null | undefined
+): ServiceKey[] {
+  return activeServicePeriods(services).map((service) => service.service_key);
+}
+
+export function serviceDefaultHours(
+  serviceKey: ServiceKey,
+  services?: readonly ServicePeriod[] | null
+): { start: string; end: string } {
+  const service = services?.find((item) => item.service_key === serviceKey);
+  const start = metadataClock(service?.metadata, 'default_start');
+  const end = metadataClock(service?.metadata, 'default_end');
+  if (start && end) return { start, end };
+  if (serviceKey === 'lunch') return { start: '12:00', end: '15:00' };
+  if (serviceKey === 'evening') return { start: '18:00', end: '23:00' };
+  return { start: '09:00', end: '17:00' };
+}
+
+export function serviceDisplay(
+  serviceKey: ServiceKey,
+  services?: readonly ServicePeriod[] | null
+): { label: string; icon: string } {
+  const configured = services?.find((service) => service.service_key === serviceKey);
+  const fallback = SERVICE_DISPLAY[serviceKey];
+  const start = serviceDefaultHours(serviceKey, services).start;
+  return {
+    label: configured?.name || fallback?.label || humanizeServiceKey(serviceKey),
+    icon: fallback?.icon ?? (start < '16:00' ? '☀' : '☾')
+  };
+}
+
+function humanizeServiceKey(serviceKey: string): string {
+  const label = serviceKey.trim().replace(/[-_]+/g, ' ');
+  return label ? label.charAt(0).toUpperCase() + label.slice(1) : 'Service';
+}
+
+export function serviceLabel(
+  serviceKey: string,
+  services?: readonly ServicePeriod[] | null
+): string {
+  return serviceDisplay(serviceKey, services).label;
 }
 
 const DAY_MS = 86_400_000;

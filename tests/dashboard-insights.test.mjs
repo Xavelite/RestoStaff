@@ -60,13 +60,21 @@ test('Insights derives planned dates from week and weekday clock fields', () => 
     ],
     job_functions: [{ id: 'job-1', name: 'Server' }],
     work_areas: [{ id: 'hall', name: 'Hall', active: true }],
-    services: [{ id: 'lunch', service_key: 'lunch', active: true }],
+    services: [
+      {
+        id: 'breakfast',
+        service_key: 'breakfast',
+        name: 'Breakfast',
+        sort_order: 5,
+        active: true
+      }
+    ],
     planned_shifts: [
       {
         id: shiftId,
         employee_id: employeeId,
         area_id: 'hall',
-        service_key: 'lunch',
+        service_key: 'breakfast',
         week_start: '2026-07-13',
         weekday: 2,
         starts_at: '12:00:00',
@@ -76,7 +84,7 @@ test('Insights derives planned dates from week and weekday clock fields', () => 
         id: 'shift-missing',
         employee_id: employeeId,
         area_id: 'hall',
-        service_key: 'lunch',
+        service_key: 'breakfast',
         week_start: '2026-07-13',
         weekday: 1,
         starts_at: '12:00:00',
@@ -86,7 +94,7 @@ test('Insights derives planned dates from week and weekday clock fields', () => 
         id: 'shift-on-leave',
         employee_id: employeeId,
         area_id: 'hall',
-        service_key: 'lunch',
+        service_key: 'breakfast',
         week_start: '2026-07-13',
         weekday: 3,
         starts_at: '12:00:00',
@@ -99,7 +107,7 @@ test('Insights derives planned dates from week and weekday clock fields', () => 
         employee_id: employeeId,
         planned_shift_id: shiftId,
         business_date: '2026-07-14',
-        service_key: 'lunch',
+        service_key: 'breakfast',
         status: 'closed',
         clock_in_at: '2026-07-14T10:07:00Z',
         clock_out_at: '2026-07-14T13:00:00Z',
@@ -111,7 +119,7 @@ test('Insights derives planned dates from week and weekday clock fields', () => 
       {
         id: 'absence-1',
         employee_id: employeeId,
-        service_key: 'lunch',
+        service_key: 'breakfast',
         start_date: '2026-07-15',
         end_date: '2026-07-15',
         status: 'approved'
@@ -134,6 +142,9 @@ test('Insights derives planned dates from week and weekday clock fields', () => 
   assert.equal(view.current.lateCount, 1);
   assert.equal(view.current.missingBadges, 1);
   assert.equal(view.employees[0].lateCount, 1);
+  assert.equal(view.services[0].label, 'Breakfast');
+  assert.equal(view.pulse.length, 7);
+  assert.ok(view.pulse.every((cell) => cell.serviceKey === 'breakfast'));
   const workedEvidence = view.employees[0].shiftsEvidence.find((row) => row.id === shiftId);
   assert.equal(workedEvidence?.date, '2026-07-14');
   assert.equal(workedEvidence?.lateMinutes, 7);

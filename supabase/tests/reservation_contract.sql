@@ -35,6 +35,34 @@ begin
   end loop;
 
   foreach v_rpc in array array[
+    'get_reservation_workspace_v2(uuid,date)',
+    'get_reservation_setup_v2(uuid)',
+    'get_reservation_floor_plans_v2(uuid)',
+    'save_reservation_setup_v2(uuid,jsonb,jsonb,jsonb,jsonb,jsonb,integer)',
+    'save_reservation_floor_plans_v2(uuid,jsonb,jsonb,jsonb,jsonb,integer)',
+    'check_reservation_availability_v2(uuid,date,text,time without time zone,integer,uuid,uuid,uuid)',
+    'save_reservation_v2(uuid,jsonb)',
+    'set_reservation_status_v2(uuid,uuid,text,text,integer)',
+    'get_reservation_demand_v2(uuid,date,date)'
+  ]
+  loop
+    if has_function_privilege('anon', 'public.' || v_rpc, 'EXECUTE') then
+      raise exception 'Anonymous role can execute reservation RPC %.', v_rpc;
+    end if;
+    if not has_function_privilege('authenticated', 'public.' || v_rpc, 'EXECUTE') then
+      raise exception 'Authenticated role cannot execute reservation RPC %.', v_rpc;
+    end if;
+  end loop;
+
+  v_rpc := 'save_venue_model_v2(uuid,bigint,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,integer)';
+  if has_function_privilege('authenticated', 'public.' || v_rpc, 'EXECUTE') then
+    raise exception 'Retired combined venue save remains browser-exposed.';
+  end if;
+  if not has_function_privilege('service_role', 'public.' || v_rpc, 'EXECUTE') then
+    raise exception 'Retired combined venue save is unavailable to trusted maintenance.';
+  end if;
+
+  foreach v_rpc in array array[
     'get_reservation_workspace(uuid,date)',
     'get_reservation_setup(uuid)',
     'get_reservation_floor_plans(uuid)',
@@ -47,11 +75,8 @@ begin
     'get_reservation_demand(uuid,date,date)'
   ]
   loop
-    if has_function_privilege('anon', 'public.' || v_rpc, 'EXECUTE') then
-      raise exception 'Anonymous role can execute reservation RPC %.', v_rpc;
-    end if;
-    if not has_function_privilege('authenticated', 'public.' || v_rpc, 'EXECUTE') then
-      raise exception 'Authenticated role cannot execute reservation RPC %.', v_rpc;
+    if has_function_privilege('authenticated', 'public.' || v_rpc, 'EXECUTE') then
+      raise exception 'Legacy reservation RPC remains browser-exposed: %.', v_rpc;
     end if;
   end loop;
 

@@ -1,4 +1,9 @@
-import { addDays, mondayFor, type ServiceKey } from '../calendar/date.ts';
+import {
+  DEFAULT_SERVICE_KEYS,
+  addDays,
+  mondayFor,
+  type ServiceKey
+} from '../calendar/date.ts';
 import type { ServiceSlotTruth } from '../calendar/service-slot.ts';
 import type { WorkRegime } from '../domain/operations.ts';
 
@@ -192,7 +197,10 @@ type TimeOffRange = {
 // time off accept any selection the board allows — the same freedom as
 // availability — instead of silently dropping anything that is not one tidy
 // contiguous range.
-export function groupTimeOffRanges(selected: EmployeeSlotSelection[]): TimeOffRange[] {
+export function groupTimeOffRanges(
+  selected: EmployeeSlotSelection[],
+  serviceKeys: readonly ServiceKey[] = DEFAULT_SERVICE_KEYS
+): TimeOffRange[] {
   const servicesByDate = new Map<string, Set<ServiceKey>>();
   for (const slot of selected) {
     const set = servicesByDate.get(slot.date) ?? new Set<ServiceKey>();
@@ -201,8 +209,13 @@ export function groupTimeOffRanges(selected: EmployeeSlotSelection[]): TimeOffRa
   }
   const lanes = new Map<ServiceKey | '', string[]>();
   for (const [date, set] of servicesByDate) {
-    const lane: ServiceKey | '' = set.has('lunch') && set.has('evening') ? '' : [...set][0];
-    lanes.set(lane, [...(lanes.get(lane) ?? []), date]);
+    const fullDay =
+      serviceKeys.length > 0 &&
+      serviceKeys.every((serviceKey) => set.has(serviceKey));
+    const dayLanes: Array<ServiceKey | ''> = fullDay ? [''] : [...set];
+    for (const lane of dayLanes) {
+      lanes.set(lane, [...(lanes.get(lane) ?? []), date]);
+    }
   }
   const ranges: TimeOffRange[] = [];
   for (const [serviceKey, dates] of lanes) {

@@ -17,17 +17,18 @@
   import { supabase } from '$lib/supabase/client';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspaceTheme } from '$lib/ui/theme.svelte';
-  import ClassicIcon from '$lib/classic/ClassicIcon.svelte';
+  import WorkspaceIcon from '$lib/workspace-ui/WorkspaceIcon.svelte';
   
   import {
     moduleForPath,
+    moduleIsEntitled,
     modulesForRole,
     subNavItemForPath,
-    type ClassicModule
-  } from '$lib/classic/classic-nav';
+    type WorkspaceModule
+  } from '$lib/workspace-ui/workspace-nav';
   import { roleHome } from '$lib/workspace/workspace-selection';
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
-  import '$lib/classic/classic.css';
+  import '$lib/workspace-ui/workspace.css';
 
   let { children } = $props();
   const session = useAppSession();
@@ -61,7 +62,7 @@
 
   onMount(() => {
     try {
-      sidebarCollapsed = localStorage.getItem('rst-classic-rail') === 'on';
+      sidebarCollapsed = localStorage.getItem('rst-workspace-rail') === 'on';
     } catch {
       sidebarCollapsed = false;
     }
@@ -70,13 +71,16 @@
   function toggleRail() {
     sidebarCollapsed = !sidebarCollapsed;
     try {
-      localStorage.setItem('rst-classic-rail', sidebarCollapsed ? 'on' : 'off');
+      localStorage.setItem('rst-workspace-rail', sidebarCollapsed ? 'on' : 'off');
     } catch {
       // A device that refuses storage still toggles for this session.
     }
   }
 
-  const modules = $derived(modulesForRole(workspace.effectiveRole).filter((module) => !module.homeOnly));
+  const modules = $derived(
+    modulesForRole(workspace.effectiveRole, workspace.moduleEntitlements)
+      .filter((module) => !module.homeOnly)
+  );
   const primaryModules = $derived(modules.filter((module) => !module.utility));
   const utilityModules = $derived(modules.filter((module) => module.utility));
   const activeModule = $derived(moduleForPath(page.url.pathname));
@@ -89,10 +93,10 @@
     page.url.pathname === '/badge-terminal/terminal' || kiosk.locked
   );
 
-  // The palette is scoped under [data-design='classic'] so that dialogs and
+  // The palette is scoped under [data-design='workspace'] so that dialogs and
   // toasts, which portal to <body>, inherit it too.
   onMount(() => {
-    document.documentElement.dataset.design = 'classic';
+    document.documentElement.dataset.design = 'workspace';
     workspaceTheme.init();
     return () => {
       delete document.documentElement.dataset.design;
@@ -107,7 +111,13 @@
     const role = workspace.effectiveRole;
     if (!role) return;
     const module = moduleForPath(page.url.pathname);
-    if (module && !module.roles.includes(role)) {
+    if (
+      module &&
+      (
+        !module.roles.includes(role) ||
+        !moduleIsEntitled(module.key, workspace.moduleEntitlements)
+      )
+    ) {
       goto(roleHome(role), { replaceState: true });
     }
   });
@@ -155,7 +165,7 @@
   }
 </script>
 
-{#snippet moduleNav(items: ClassicModule[], label: string)}
+{#snippet moduleNav(items: WorkspaceModule[], label: string)}
   <nav class="cl-sidebar__nav" aria-label={t(label)}>
     {#each items as module, index (module.key)}
       {#if index > 0 && module.navSection !== items[index - 1]?.navSection}
@@ -169,7 +179,7 @@
         title={t(module.label)}
         href={module.href}
       >
-        <ClassicIcon name={module.icon} />
+        <WorkspaceIcon name={module.icon} />
         <span>{t(module.label)}</span>
       </a>
     {/each}
@@ -202,7 +212,7 @@
         {#if activeModule}
           <h1 class="cl-pagetitle">
             <span class="cl-pagetitle__icon" aria-hidden="true">
-              <ClassicIcon name={activeModule.icon} size={17} />
+              <WorkspaceIcon name={activeModule.icon} size={17} />
             </span>
             <span>{t(activeModule.label)}</span>
           </h1>

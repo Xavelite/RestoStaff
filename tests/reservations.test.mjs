@@ -16,7 +16,7 @@ const {
   reservationNextStatuses,
   reservationStatusMeta
 } = await import('../src/lib/reservations/reservation-status.ts');
-const { moduleForPath, subNavItemForPath } = await import('../src/lib/classic/classic-nav.ts');
+const { moduleForPath, subNavItemForPath } = await import('../src/lib/workspace-ui/workspace-nav.ts');
 
 test('reservation navigation is a live workspace with setup beneath it', () => {
   const reservations = moduleForPath('/reservations');

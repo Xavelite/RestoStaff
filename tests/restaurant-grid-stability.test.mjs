@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { StableDraftPlacement } from '../src/lib/classic/stable-draft-placement.ts';
+import { StableDraftPlacement } from '../src/lib/workspace-ui/stable-draft-placement.ts';
 
 const clone = (value) => structuredClone(value);
 
@@ -55,7 +55,7 @@ test('an Area floor edit keeps its committed list order until save resets placem
 
 test('Restaurant grids consume stable placement for filters, sorting and grouping', async () => {
   const [config, positions, coverage, areas] = await Promise.all([
-    readFile('src/lib/classic/classic-restaurant.svelte.ts', 'utf8'),
+    readFile('src/lib/workspace-ui/workspace-restaurant.svelte.ts', 'utf8'),
     readFile('src/routes/(app)/restaurant/positions/+page.svelte', 'utf8'),
     readFile('src/routes/(app)/restaurant/coverage/+page.svelte', 'utf8'),
     readFile('src/lib/reservations/ReservationFloorPlansWorkspace.svelte', 'utf8')

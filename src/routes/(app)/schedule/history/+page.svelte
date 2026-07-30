@@ -3,8 +3,8 @@
   import { workWeekHistoryItems } from '$lib/calendar/week-history';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
-  import ClassicPage from '$lib/classic/ClassicPage.svelte';
-  import ClassicScheduleWeek from '$lib/classic/ClassicScheduleWeek.svelte';
+  import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
+  import WorkspaceScheduleWeek from '$lib/workspace-ui/WorkspaceScheduleWeek.svelte';
 
   const snapshot = $derived(workspace.operations);
 
@@ -20,8 +20,8 @@
 
 <svelte:head><title>{t('History')} &middot; restogogo</title></svelte:head>
 
-<ClassicPage>
-  <ClassicScheduleWeek>
+<WorkspacePage>
+  <WorkspaceScheduleWeek>
     {#snippet children(week)}
       {@const items = workWeekHistoryItems(
         (snapshot?.work_week_events ?? []).filter(
@@ -55,8 +55,8 @@
         {/if}
       </section>
     {/snippet}
-  </ClassicScheduleWeek>
-</ClassicPage>
+  </WorkspaceScheduleWeek>
+</WorkspacePage>
 
 <style>
   .history-surface {

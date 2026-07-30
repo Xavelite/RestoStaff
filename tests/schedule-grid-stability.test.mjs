@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { StableDraftPlacement } from '../src/lib/classic/stable-draft-placement.ts';
+import { StableDraftPlacement } from '../src/lib/workspace-ui/stable-draft-placement.ts';
 import { parseManagerOperationsReadModel } from '../src/lib/api/workspace-snapshot.ts';
 import { buildPlanningWeek } from '../src/lib/schedule/schedule-model.ts';
 
@@ -36,7 +36,7 @@ test('Planning row placement stays committed while live shift facts change', () 
 
 test('Planning uses stable placement for conflict filtering and every mutable group', async () => {
   const page = await readFile('src/routes/(app)/schedule/+page.svelte', 'utf8');
-  const draft = await readFile('src/lib/classic/classic-schedule.svelte.ts', 'utf8');
+  const draft = await readFile('src/lib/workspace-ui/workspace-schedule.svelte.ts', 'utf8');
 
   assert.match(draft, /StableDraftPlacement<ScheduleRowPlacement>/);
   assert.match(draft, /settle\(\)[\s\S]*?#rowPlacement\.reset\(\[\]\)/);

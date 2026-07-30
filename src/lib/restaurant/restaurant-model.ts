@@ -9,9 +9,10 @@ import {
 import { uniqueAreaTechnicalCode } from './area-instance.ts';
 import type { RestaurantSavePayload } from '$lib/api/mutations';
 import {
-  SERVICES,
   WEEKDAYS,
+  activeServicePeriods,
   mondayFor,
+  serviceDefaultHours,
   todayInTimezone,
   type ServiceKey
 } from '../calendar/date.ts';
@@ -36,10 +37,7 @@ export type AreaDraft = {
   code: string;
   notes: string;
   active: boolean;
-  lunchStart: string;
-  lunchEnd: string;
-  eveningStart: string;
-  eveningEnd: string;
+  serviceHours: Record<ServiceKey, { start: string; end: string }>;
   color: string;
   catalogueKey: string;
   iconKey: string;
@@ -49,12 +47,17 @@ export type AreaDraft = {
 
 export type OpeningDraft = {
   weekday: number;
-  lunchOpen: boolean;
-  eveningOpen: boolean;
-  lunchStart: string;
-  lunchEnd: string;
-  eveningStart: string;
-  eveningEnd: string;
+  services: Record<ServiceKey, { open: boolean; start: string; end: string }>;
+};
+
+export type ServiceDraft = {
+  id: string;
+  serviceKey: ServiceKey;
+  name: string;
+  active: boolean;
+  sortOrder: number;
+  defaultStart: string;
+  defaultEnd: string;
 };
 
 export type CoverageDraft = {
@@ -84,6 +87,7 @@ export type RestaurantDraft = {
   address: string;
   postalCode: string;
   city: string;
+  services: ServiceDraft[];
   jobFunctions: JobFunctionDraft[];
   areas: AreaDraft[];
   opening: OpeningDraft[];
@@ -118,6 +122,7 @@ function openingValue(
 
 export function restaurantDraft(snapshot: RestaurantReadModel): RestaurantDraft {
   const employment = snapshot.restaurant_employment_settings ?? {};
+  const services = activeServicePeriods(snapshot.services);
   return {
     displayName: snapshot.restaurant.name,
     legalName: snapshot.restaurant.legal_name || snapshot.restaurant.name,
@@ -136,6 +141,18 @@ export function restaurantDraft(snapshot: RestaurantReadModel): RestaurantDraft 
     address: snapshot.restaurant.address_line1 ?? '',
     postalCode: snapshot.restaurant.postal_code ?? '',
     city: snapshot.restaurant.city ?? '',
+    services: services.map((service, index) => {
+      const defaults = serviceDefaultHours(service.service_key, snapshot.services);
+      return {
+        id: 'id' in service && typeof service.id === 'string' ? service.id : service.service_key,
+        serviceKey: service.service_key,
+        name: service.name,
+        active: service.active,
+        sortOrder: service.sort_order ?? index,
+        defaultStart: defaults.start,
+        defaultEnd: defaults.end
+      };
+    }),
     jobFunctions: snapshot.job_functions.map((row) => {
       const relations = (snapshot.job_function_areas ?? [])
         .filter((relation) => relation.job_function_id === row.id && relation.active);
@@ -187,10 +204,15 @@ export function restaurantDraft(snapshot: RestaurantReadModel): RestaurantDraft 
         code: row.code,
         notes: row.notes ?? '',
         active: row.active,
-        lunchStart: areaDefault(snapshot, row.id, 'lunch', 'start_time'),
-        lunchEnd: areaDefault(snapshot, row.id, 'lunch', 'end_time'),
-        eveningStart: areaDefault(snapshot, row.id, 'evening', 'start_time'),
-        eveningEnd: areaDefault(snapshot, row.id, 'evening', 'end_time'),
+        serviceHours: Object.fromEntries(
+          services.map((service) => [
+            service.service_key,
+            {
+              start: areaDefault(snapshot, row.id, service.service_key, 'start_time'),
+              end: areaDefault(snapshot, row.id, service.service_key, 'end_time')
+            }
+          ])
+        ),
         color:
           row.color ??
           readColorOverride(row.metadata) ??
@@ -203,20 +225,34 @@ export function restaurantDraft(snapshot: RestaurantReadModel): RestaurantDraft 
       })),
     opening: WEEKDAYS.map((_, index) => {
       const weekday = index + 1;
-      const lunch = snapshot.opening_hours.find((row) => row.weekday === weekday && row.service_key === 'lunch');
-      const evening = snapshot.opening_hours.find((row) => row.weekday === weekday && row.service_key === 'evening');
       return {
         weekday,
-        lunchOpen: lunch?.is_open === true,
-        eveningOpen: evening?.is_open === true,
-        lunchStart: openingValue(snapshot, weekday, 'lunch', 'opens_at'),
-        lunchEnd: openingValue(snapshot, weekday, 'lunch', 'closes_at'),
-        eveningStart: openingValue(snapshot, weekday, 'evening', 'opens_at'),
-        eveningEnd: openingValue(snapshot, weekday, 'evening', 'closes_at')
+        services: Object.fromEntries(
+          services.map((service) => {
+            const row = snapshot.opening_hours.find(
+              (item) =>
+                item.weekday === weekday &&
+                item.service_key === service.service_key
+            );
+            const defaults = serviceDefaultHours(service.service_key, snapshot.services);
+            return [
+              service.service_key,
+              {
+                open: row?.is_open === true,
+                start:
+                  openingValue(snapshot, weekday, service.service_key, 'opens_at') ||
+                  defaults.start,
+                end:
+                  openingValue(snapshot, weekday, service.service_key, 'closes_at') ||
+                  defaults.end
+              }
+            ];
+          })
+        )
       };
     }),
     coverage: (() => {
-      // The classic workspace edits coverage explicitly per weekday. Existing
+      // The workspace edits coverage explicitly per weekday. Existing
       // legacy default rows are expanded in memory so no staffing value is
       // lost when the restaurant next saves its setup.
       const explicit = new Map<string, CoverageDraft>();
@@ -225,7 +261,7 @@ export function restaurantDraft(snapshot: RestaurantReadModel): RestaurantDraft 
       );
       for (const row of snapshot.coverage_requirements) {
         if (row.coverage_scope !== 'weekday' || row.weekday == null) continue;
-        const serviceKey = row.service_key === 'evening' ? 'evening' : 'lunch';
+        const serviceKey = row.service_key;
         const key = `${row.area_id}|${row.job_function_id}|${serviceKey}|${row.weekday}`;
         explicit.set(key, {
           id: row.id,
@@ -238,7 +274,7 @@ export function restaurantDraft(snapshot: RestaurantReadModel): RestaurantDraft 
         });
       }
       for (const row of defaults) {
-        const serviceKey = row.service_key === 'evening' ? 'evening' : 'lunch';
+        const serviceKey = row.service_key;
         for (let weekday = 1; weekday <= 7; weekday += 1) {
           const key = `${row.area_id}|${row.job_function_id}|${serviceKey}|${weekday}`;
           if (explicit.has(key)) continue;
@@ -265,9 +301,10 @@ function inheritedOpening(
   service: ServiceKey
 ): { start: string; end: string } | null {
   for (const row of draft.opening) {
-    const start = service === 'lunch' ? row.lunchStart : row.eveningStart;
-    const end = service === 'lunch' ? row.lunchEnd : row.eveningEnd;
-    const open = service === 'lunch' ? row.lunchOpen : row.eveningOpen;
+    const period = row.services[service];
+    const start = period?.start ?? '';
+    const end = period?.end ?? '';
+    const open = period?.open === true;
     if (open && start && end) return { start, end };
   }
   return null;
@@ -279,6 +316,11 @@ export function restaurantDraftValidationError(draft: RestaurantDraft): string |
   // opening hours, areas, positions and coverage can all be completed later;
   // only the workspace-facing restaurant name is structurally required.
   if (!draft.displayName.trim()) return 'Restaurant display name is required.';
+  const activeServices = draft.services.filter((service) => service.active && service.name.trim());
+  if (!activeServices.length) return 'At least one active service period is required.';
+  if (new Set(activeServices.map((service) => service.serviceKey)).size !== activeServices.length) {
+    return 'Each service period needs a unique key.';
+  }
   return null;
 }
 
@@ -330,6 +372,22 @@ export function restaurantSavePayload(
       settings: snapshot.restaurant_settings.settings ?? {},
       payroll_settings: snapshot.restaurant_settings.payroll_settings ?? {}
     },
+    services: asJsonArray(
+      draft.services
+        .filter((service) => service.name.trim())
+        .map((service, index) => ({
+          id: service.id,
+          restaurant_id: restaurantId,
+          service_key: service.serviceKey,
+          name: service.name.trim(),
+          active: service.active,
+          sort_order: index,
+          metadata: {
+            default_start: service.defaultStart,
+            default_end: service.defaultEnd
+          }
+        }))
+    ),
     jobFunctions: asJsonArray(
       draft.jobFunctions
         .map((item, index) => {
@@ -384,30 +442,31 @@ export function restaurantSavePayload(
     ),
     openingHours: asJsonArray(
       draft.opening.flatMap((item) =>
-        SERVICES.map((service) => ({
+        draft.services.map((service) => ({
           restaurant_id: restaurantId,
           weekday: item.weekday,
-          service_key: service,
-          is_open: service === 'lunch' ? item.lunchOpen : item.eveningOpen,
-          opens_at: nullable(service === 'lunch' ? item.lunchStart : item.eveningStart),
-          closes_at: nullable(service === 'lunch' ? item.lunchEnd : item.eveningEnd)
+          service_key: service.serviceKey,
+          is_open: item.services[service.serviceKey]?.open === true,
+          opens_at: nullable(item.services[service.serviceKey]?.start ?? ''),
+          closes_at: nullable(item.services[service.serviceKey]?.end ?? '')
         }))
       )
     ),
     areaServiceDefaults: asJsonArray(
       draft.areas.filter((area) => area.name.trim()).flatMap((area) =>
-        SERVICES.map((service) => {
-          const inherited = inheritedOpening(draft, service);
+        draft.services.map((service) => {
+          const inherited = inheritedOpening(draft, service.serviceKey);
+          const areaHours = area.serviceHours[service.serviceKey];
           return {
             restaurant_id: restaurantId,
             area_id: area.id,
-            service_key: service,
+            service_key: service.serviceKey,
             start_time:
-              nullable(service === 'lunch' ? area.lunchStart : area.eveningStart) ??
+              nullable(areaHours?.start ?? '') ??
               inherited?.start ??
               null,
             end_time:
-              nullable(service === 'lunch' ? area.lunchEnd : area.eveningEnd) ??
+              nullable(areaHours?.end ?? '') ??
               inherited?.end ??
               null
           };

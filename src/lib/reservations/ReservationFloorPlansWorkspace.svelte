@@ -2,14 +2,14 @@
   import { onMount, tick } from 'svelte';
   import { friendlyError } from '$lib/api/error-messages';
   import Dialog from '$lib/components/Dialog.svelte';
-  import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
-  import ClassicPalettePicker from '$lib/classic/ClassicPalettePicker.svelte';
-  import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
-  import ClassicCellBadge from '$lib/classic/ClassicCellBadge.svelte';
-  import ClassicPicker from '$lib/classic/ClassicPicker.svelte';
-  import { StableDraftPlacement } from '$lib/classic/stable-draft-placement';
-  import type { ClassicRestaurantContext } from '$lib/classic/classic-workspace-context';
-  import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
+  import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
+  import WorkspacePalettePicker from '$lib/workspace-ui/WorkspacePalettePicker.svelte';
+  import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
+  import WorkspaceCellBadge from '$lib/workspace-ui/WorkspaceCellBadge.svelte';
+  import WorkspacePicker from '$lib/workspace-ui/WorkspacePicker.svelte';
+  import { StableDraftPlacement } from '$lib/workspace-ui/stable-draft-placement';
+  import type { WorkspaceRestaurantContext } from '$lib/workspace-ui/workspace-context';
+  import { restaurantConfig } from '$lib/workspace-ui/workspace-restaurant.svelte';
   import { floorPlansDraft } from './floor-plans-draft.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import {
@@ -58,7 +58,7 @@
     restaurantContext = null
   }: {
     mode?: 'areas' | 'tables';
-    restaurantContext?: ClassicRestaurantContext | null;
+    restaurantContext?: WorkspaceRestaurantContext | null;
   } = $props();
 
   // The plan itself lives in a store so it survives a tab change; only the
@@ -618,10 +618,12 @@
       code: '',
       notes: '',
       active: true,
-      lunchStart: '',
-      lunchEnd: '',
-      eveningStart: '',
-      eveningEnd: '',
+      serviceHours: Object.fromEntries(
+        restaurantContext.draft.services.map((service) => [
+          service.serviceKey,
+          { start: '', end: '' }
+        ])
+      ),
       color: defaultAreaColor(areas.length),
       catalogueKey: '',
       iconKey: '',
@@ -1644,7 +1646,7 @@
     error = '';
     try {
       if (restaurantContext) {
-        await restaurantContext.saveAreas(draft, source?.revision ?? 0);
+        throw new Error('Operational areas must be saved from Restaurant, not Reservations.');
       } else if (dirty) {
         await saveReservationFloorPlans(workspace.activeId, draft, source?.revision ?? 0);
       }
@@ -1726,7 +1728,7 @@
 
 {#if error}<div class="floor-error" role="alert">{error}</div>{/if}
 
-<ClassicTablePanel
+<WorkspaceTablePanel
     dirty={dirty || Boolean(restaurantContext?.dirty)}
     saving={saving || Boolean(restaurantContext?.saving)}
     canSave={!editorReadOnly && canSave() && (restaurantContext?.canSave ?? true)}
@@ -1817,7 +1819,7 @@
                       </span>
                     </td>
                     <td>
-                      <ClassicPicker
+                      <WorkspacePicker
                         value={room.floor_id ?? ''}
                         options={floorOptions}
                         disabled={editorReadOnly}
@@ -1827,9 +1829,9 @@
                       />
                     </td>
                     <td class="is-num">{positionCountForArea(room.work_area_id)}</td>
-                    <td><ClassicCellBadge label={floor ? 'Active' : 'Needs placement'} tone={floor ? 'success' : 'warning'} icon={floor ? 'check' : 'warning'} /></td>
+                    <td><WorkspaceCellBadge label={floor ? 'Active' : 'Needs placement'} tone={floor ? 'success' : 'warning'} icon={floor ? 'check' : 'warning'} /></td>
                     <td class="menu-cell">
-                      <ClassicRowMenu
+                      <WorkspaceRowMenu
                         disabled={editorReadOnly}
                         items={[
                           {
@@ -1860,7 +1862,7 @@
                   <header class="inspector-head">
                     <WorkspaceAreaIcon icon={areaIconFor(selectedRoom.work_area_id)} color={selectedRoom.area_color} size={20} />
                     <div><strong>{t('Area details')}</strong><small>{floorLabel(selectedFloor)}</small></div>
-                    <ClassicRowMenu
+                    <WorkspaceRowMenu
                       disabled={editorReadOnly}
                       items={[
                         {
@@ -1912,7 +1914,7 @@
                       {/each}
                     </select>
                   </label>
-                  <div class="area-colour"><span>{t('Colour identity')}</span><div><ClassicPalettePicker value={selectedAreaDraft.color} palette={AREA_PALETTE} label={t('Choose area colour')} disabled={editorReadOnly} onselect={(color) => { selectedAreaDraft.color = color; restaurantConfig.touch(); }} /><small>{t('Shared with linked positions and Schedule.')}</small></div></div>
+                  <div class="area-colour"><span>{t('Colour identity')}</span><div><WorkspacePalettePicker value={selectedAreaDraft.color} palette={AREA_PALETTE} label={t('Choose area colour')} disabled={editorReadOnly} onselect={(color) => { selectedAreaDraft.color = color; restaurantConfig.touch(); }} /><small>{t('Shared with linked positions and Schedule.')}</small></div></div>
                   <dl class="inspector-stats">
                     <div><dt>{t('Positions')}</dt><dd>{positionCountForArea(selectedAreaDraft.id)}</dd></div>
                   </dl>
@@ -1934,7 +1936,7 @@
                   <header class="inspector-head">
                     <span class="inspector-glyph table-glyph is-{selectedTable.shape}" aria-hidden="true"></span>
                     <div><strong>{t('Table details')}</strong><small>{selectedRoom?.name ?? floorLabel(selectedFloor)}</small></div>
-                    <ClassicRowMenu
+                    <WorkspaceRowMenu
                       disabled={editorReadOnly}
                       items={[
                         {
@@ -2203,7 +2205,7 @@
       {/if}
       {/if}
     {/snippet}
-</ClassicTablePanel>
+</WorkspaceTablePanel>
 
 <Dialog open={Boolean(tableToArchive)} title="Archive table" description="Past reservations keep their table history." size="small" onclose={() => (tableToArchive = null)}>
   {#snippet children()}<p class="dialog-copy">{t('Archive table {label}?', { label: tableToArchive?.label ?? '' })}</p>{/snippet}

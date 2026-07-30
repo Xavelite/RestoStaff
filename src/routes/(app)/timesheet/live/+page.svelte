@@ -5,6 +5,7 @@
     formatHours,
     localInputToInstant,
     mondayFor,
+    serviceLabel,
     todayInTimezone,
     weekdayDateLabel
   } from '$lib/calendar/date';
@@ -14,12 +15,12 @@
   import { actualSlotsForDate } from '$lib/timesheet/timesheet-model';
   import { buildEmployeeColorMap } from '$lib/ui/position-color';
   import { personInitials } from '$lib/ui/person';
-  import ClassicPage from '$lib/classic/ClassicPage.svelte';
-  import ClassicService from '$lib/classic/ClassicService.svelte';
-  import ClassicStat from '$lib/classic/ClassicStat.svelte';
-  import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
-  import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
-  import { isTimesheetRow, slotLabel, slotTone } from '$lib/classic/classic-time';
+  import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
+  import WorkspaceService from '$lib/workspace-ui/WorkspaceService.svelte';
+  import WorkspaceStat from '$lib/workspace-ui/WorkspaceStat.svelte';
+  import WorkspaceStatus from '$lib/workspace-ui/WorkspaceStatus.svelte';
+  import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
+  import { isTimesheetRow, slotLabel, slotTone } from '$lib/workspace-ui/workspace-time';
 
   const employeeColor = $derived(
     workspace.operations
@@ -108,14 +109,14 @@
 
 <svelte:head><title>{t('Live monitor')} &middot; restogogo</title></svelte:head>
 
-<ClassicPage>
+<WorkspacePage>
   <p class="daynote">{weekdayDateLabel(today, i18n.intlLocale)}</p>
 
   <div class="cl-stats">
-    <ClassicStat label="People on shift now" value={workingNow} tone={workingNow ? 'ok' : undefined} mutedZero={false} />
-    <ClassicStat label="Scheduled services today" value={scheduledToday} accent="var(--cl-info)" mutedZero={false} />
-    <ClassicStat label="Late clock-ins today" value={lateClockIns} tone={lateClockIns ? 'problem' : undefined} />
-    <ClassicStat label="Services missing a badge" value={missingBadges} tone={missingBadges ? 'problem' : undefined} />
+    <WorkspaceStat label="People on shift now" value={workingNow} tone={workingNow ? 'ok' : undefined} mutedZero={false} />
+    <WorkspaceStat label="Scheduled services today" value={scheduledToday} accent="var(--cl-info)" mutedZero={false} />
+    <WorkspaceStat label="Late clock-ins today" value={lateClockIns} tone={lateClockIns ? 'problem' : undefined} />
+    <WorkspaceStat label="Services missing a badge" value={missingBadges} tone={missingBadges ? 'problem' : undefined} />
   </div>
 
   <section class="cl-section" aria-label={t('Today')}>
@@ -170,12 +171,12 @@
                     {slot.employeeName}
                   </span>
                   <span class="cl-mobile-summary">
-                    <span>{t(slot.serviceKey === 'evening' ? 'Evening' : 'Lunch')}</span>
+                    <span>{t(serviceLabel(slot.serviceKey, snapshot?.services))}</span>
                     <span>{slot.plannedRange || t('Not planned')}</span>
                     <span>{t(slotLabel(slot.status))}</span>
                   </span>
                 </td>
-                <td><ClassicService service={slot.serviceKey} /></td>
+                <td><WorkspaceService service={slot.serviceKey} /></td>
                 <td class="is-quiet">{slot.plannedRange || '—'}</td>
                 <td>
                   {slot.actualRange || '—'}
@@ -184,9 +185,9 @@
                   {/if}
                 </td>
                 <td class="is-num">{slot.actualHours ? formatHours(slot.actualHours) : '—'}</td>
-                <td><ClassicStatus label={slotLabel(slot.status)} {tone} /></td>
+                <td><WorkspaceStatus label={slotLabel(slot.status)} {tone} /></td>
                 <td class="menu-cell">
-                  <ClassicRowMenu
+                  <WorkspaceRowMenu
                     items={[
                       {
                         label: t('Details'),
@@ -205,7 +206,7 @@
       </table>
     </div>
   </section>
-</ClassicPage>
+</WorkspacePage>
 
 <style>
   .daynote {

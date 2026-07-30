@@ -43,11 +43,11 @@ test('DEV migration makes identifiers nonblocking and archives safely', async ()
 
 test('Schedule keeps the weekly planning board and adds a focused mobile day workflow', async () => {
   const schedule = await readFile('src/routes/(app)/schedule/+page.svelte', 'utf8');
-  const mobilePicker = await readFile('src/lib/classic/ClassicMobileDayPicker.svelte', 'utf8');
+  const mobilePicker = await readFile('src/lib/workspace-ui/WorkspaceMobileDayPicker.svelte', 'utf8');
   const editor = await readFile('src/lib/schedule/ScheduleSlotEditor.svelte', 'utf8');
   const dialog = await readFile('src/lib/components/Dialog.svelte', 'utf8');
-  const nav = await readFile('src/lib/classic/classic-nav.ts', 'utf8');
-  assert.doesNotMatch(schedule, /<ClassicTablePanel/);
+  const nav = await readFile('src/lib/workspace-ui/workspace-nav.ts', 'utf8');
+  assert.doesNotMatch(schedule, /<WorkspaceTablePanel/);
   assert.doesNotMatch(schedule, /type Density|rst-schedule-density|is-detailed/);
   assert.match(schedule, /type GroupMode = 'none' \| 'contract' \| 'position' \| 'area' \| 'status'/);
   assert.match(schedule, /class="service-canvas"/);
@@ -55,14 +55,15 @@ test('Schedule keeps the weekly planning board and adds a focused mobile day wor
   assert.match(schedule, /class="day-card"/);
   assert.match(schedule, /class="day-card__surface"/);
   assert.match(schedule, /class="mobile-board"/);
-  assert.match(schedule, /<ClassicMobileDayPicker/);
+  assert.match(schedule, /<WorkspaceMobileDayPicker/);
   assert.match(schedule, /aria-label=\{t\('Daily schedule'\)\}/);
   assert.match(schedule, /@media \(max-width: 760px\)/);
   assert.match(mobilePicker, /aria-label=\{t\('Choose day'\)\}/);
   assert.match(mobilePicker, /aria-pressed=\{day\.date === selected\}/);
-  assert.match(schedule, /class="day-card__fill is-lunch"/);
-  assert.match(schedule, /class="day-card__fill is-evening"/);
-  assert.match(schedule, /--lunch-color:\$\{lunchColor\};--evening-color:\$\{eveningColor\}/);
+  assert.match(schedule, /activeServiceKeys\(snapshot\?\.services\)/);
+  assert.match(schedule, /\{#each serviceKeys as service \(service\)\}/);
+  assert.match(schedule, /grid-template-columns:repeat\(\$\{serviceKeys\.length\}/);
+  assert.match(schedule, /--primary-color:\$\{primaryColor\}/);
   assert.match(schedule, /<WorkspaceAreaIcon icon=\{chip\.icon\} color=\{chip\.color\}/);
   assert.match(schedule, /function dayCardView/);
   assert.match(schedule, /`\$\{clockLabel\(first\.startsAt\)\}–\$\{clockLabel\(last\.endsAt\)\}`/);
@@ -178,23 +179,23 @@ test('planning operational setup concerns are confirmable warnings, not publicat
   );
 });
 
-test('area saves preserve one stable reservation room per work area', async () => {
-  const migration = await readFile(
-    'supabase/migrations/20260726230651_restore_venue_room_identity.sql',
+test('operational area saves do not require the optional Reservations module', async () => {
+  const areas = await readFile(
+    'src/lib/restaurant/OperationalAreasWorkspace.svelte',
     'utf8'
   );
-  const editor = await readFile(
-    'src/lib/reservations/ReservationFloorPlansWorkspace.svelte',
+  const context = await readFile(
+    'src/lib/workspace-ui/workspace-context.ts',
     'utf8'
   );
-  assert.match(migration, /and area\.active/);
-  assert.match(migration, /on conflict \(restaurant_id, work_area_id\) do update/);
-  assert.match(migration, /Reservation floor-plan room upsert contract drifted/);
-  assert.match(editor, /const activeAreaIds = new Set/);
-  assert.match(
-    editor,
-    /mode === 'areas' && activeAreaIds\.has\(room\.work_area_id\) \? true : room\.active/
+  const restaurantDraft = await readFile(
+    'src/lib/workspace-ui/workspace-restaurant.svelte.ts',
+    'utf8'
   );
+  assert.match(areas, /context\.save/);
+  assert.doesNotMatch(areas, /ReservationFloorPlans|saveAreas/);
+  assert.doesNotMatch(context, /ReservationFloorPlans|saveAreas/);
+  assert.doesNotMatch(restaurantDraft, /saveRestaurantAreasModel|floorPlanDraftWithoutBlankAreas/);
 });
 
 test('workspace catalogue normalizes position links and preserves multi-restaurant ownership', async () => {

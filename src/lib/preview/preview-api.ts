@@ -46,7 +46,7 @@ export async function getPreviewBootstrap(
   role: WorkspaceRole,
   employeeId: string | null
 ) {
-  const { data, error } = await supabase.rpc('get_preview_bootstrap', {
+  const { data, error } = await supabase.rpc('get_preview_bootstrap_v2', {
     p_restaurant_id: restaurantId,
     p_role: role,
     p_employee_id: employeeId as string

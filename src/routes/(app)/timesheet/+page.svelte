@@ -2,6 +2,7 @@
   import { page } from '$app/state';
   import {
     addDays,
+    activeServiceKeys,
     dateForWeekday,
     formatHours,
     hoursBetweenClocks,
@@ -37,17 +38,18 @@
     actualsWeekTotals,
     type ActualSlot
   } from '$lib/timesheet/timesheet-model';
-  import ClassicPage from '$lib/classic/ClassicPage.svelte';
-  import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
-  import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
-  import ClassicMobileDayPicker from '$lib/classic/ClassicMobileDayPicker.svelte';
+  import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
+  import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
+  import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
+  import WorkspaceMobileDayPicker from '$lib/workspace-ui/WorkspaceMobileDayPicker.svelte';
   import TimesheetDayCard from '$lib/timesheet/TimesheetDayCard.svelte';
-  import { isTimesheetRow, needsAttention } from '$lib/classic/classic-time';
+  import { isTimesheetRow, needsAttention } from '$lib/workspace-ui/workspace-time';
   import { areaInstanceLabelMap } from '$lib/restaurant/area-instance';
 
   type GroupMode = 'none' | 'contract' | 'position' | 'status';
 
   const snapshot = $derived(workspace.operations);
+  const serviceKeys = $derived(activeServiceKeys(snapshot?.services));
   const role = $derived(workspace.effectiveRole);
   const timezone = $derived(
     snapshot?.restaurant_settings.timezone ||
@@ -267,7 +269,7 @@
   });
 
   function cellSlots(employeeId: string, date: string): ActualSlot[] {
-    return (['lunch', 'evening'] as ServiceKey[])
+    return serviceKeys
       .map((service) => slotByKey.get(`${employeeId}|${date}|${service}`))
       .filter((slot): slot is ActualSlot => Boolean(slot && isTimesheetRow(slot)));
   }
@@ -340,7 +342,7 @@
   }
 
   function serviceName(slot: ActualSlot): string {
-    return t(serviceLabel(slot.serviceKey));
+    return t(serviceLabel(slot.serviceKey, snapshot?.services));
   }
 
   function openWeekAction(action: 'approve_week' | 'reopen_week') {
@@ -444,7 +446,7 @@
 
 <svelte:head><title>{t('Timesheet')} &middot; restogogo</title></svelte:head>
 
-<ClassicPage>
+<WorkspacePage>
   <section class="timesheet-panel">
     <header class="timesheet-head">
       <div class="timesheet-head__left">
@@ -502,7 +504,7 @@
     </header>
 
     <section class="mobile-timesheet" aria-label={t('Daily timesheet')}>
-      <ClassicMobileDayPicker
+      <WorkspaceMobileDayPicker
         {days}
         selected={mobileDate}
         tone="time"
@@ -536,7 +538,7 @@
                 </span>
                 <em class:is-ready={!rowNeedsReview}>{t(rowNeedsReview ? 'Review' : 'Ready')}</em>
               </header>
-              <TimesheetDayCard slots={item.slots} {areaName} {positionName} onopen={selectEntry} />
+              <TimesheetDayCard slots={item.slots} {areaName} {positionName} services={snapshot?.services ?? []} onopen={selectEntry} />
             </article>
           {/each}
         {:else}
@@ -553,7 +555,7 @@
         <thead>
           <tr>
             <th class="board__staff has-menu">
-              <ClassicPrimaryColMenu
+              <WorkspacePrimaryColMenu
                 label={`${gridRows.length}`}
                 labelIcon="people"
                 meta={`${formatHours(totals.plannedHours)} → ${formatHours(totals.actualHours)}`}
@@ -585,7 +587,7 @@
                     </select>
                   </label>
                 {/snippet}
-              </ClassicPrimaryColMenu>
+              </WorkspacePrimaryColMenu>
             </th>
             {#each days as day, index (day.date)}
               <th class="board__day" class:is-today={day.today} class:is-weekend={index >= 5}>
@@ -608,7 +610,7 @@
           {#each groupedRows(gridRows) as group (group.key)}
             <tbody>
               {#if groupMode !== 'none'}
-                <ClassicGroupRow colspan={days.length + 1} label={group.label} meta={`${group.rows.length} · ${formatHours(group.rows.reduce((sum, row) => sum + row.worked, 0))}`} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />
+                <WorkspaceGroupRow colspan={days.length + 1} label={group.label} meta={`${group.rows.length} · ${formatHours(group.rows.reduce((sum, row) => sum + row.worked, 0))}`} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />
               {/if}
               {#if !collapsedGroups.includes(group.key)}
                 {#each group.rows as row (row.id)}
@@ -628,7 +630,7 @@
                     {#each days as day (day.date)}
                       {@const daySlots = cellSlots(row.id, day.date)}
                       <td class="board__cell" class:is-past={day.past}>
-                        {#if daySlots.length}<TimesheetDayCard slots={daySlots} {areaName} {positionName} onopen={selectEntry} />{/if}
+                        {#if daySlots.length}<TimesheetDayCard slots={daySlots} {areaName} {positionName} services={snapshot?.services ?? []} onopen={selectEntry} />{/if}
                       </td>
                     {/each}
                   </tr>
@@ -640,7 +642,7 @@
       </table>
     </div>
   </section>
-</ClassicPage>
+</WorkspacePage>
 
 <Dialog
   open={Boolean(selectedSlot)}
@@ -658,6 +660,7 @@
       {editable}
       jobFunctions={snapshot.job_functions}
       workAreas={snapshot.work_areas ?? []}
+      services={snapshot.services}
       adjustments={snapshot.time_entry_adjustments}
       onsave={saveEntry}
       oncancel={cancelEntry}

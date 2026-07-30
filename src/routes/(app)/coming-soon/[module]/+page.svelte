@@ -1,23 +1,23 @@
 <script lang="ts">
   import { page } from '$app/state';
   import { t } from '$lib/i18n/i18n.svelte';
-  import ClassicPage from '$lib/classic/ClassicPage.svelte';
-  import ClassicIcon from '$lib/classic/ClassicIcon.svelte';
-  import { moduleForPath } from '$lib/classic/classic-nav';
+  import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
+  import WorkspaceIcon from '$lib/workspace-ui/WorkspaceIcon.svelte';
+  import { moduleForPath } from '$lib/workspace-ui/workspace-nav';
 
   const module = $derived(moduleForPath(page.url.pathname));
 </script>
 
 <svelte:head><title>{module ? t(module.label) : t('Coming soon')} &middot; restogogo</title></svelte:head>
 
-<ClassicPage>
+<WorkspacePage>
   <section class="cl-card placeholder">
     {#if module}
-      <span class="icon"><ClassicIcon name={module.icon} size={28} /></span>
+      <span class="icon"><WorkspaceIcon name={module.icon} size={28} /></span>
       <div><small>{t('Coming soon')}</small><h2>{t(module.label)}</h2><p>{t(module.summary)}</p></div>
     {/if}
   </section>
-</ClassicPage>
+</WorkspacePage>
 
 <style>
   .placeholder { min-height: 280px; display: grid; place-content: center; grid-template-columns: 52px minmax(0, 420px); align-items: center; gap: 18px; padding: 40px; }

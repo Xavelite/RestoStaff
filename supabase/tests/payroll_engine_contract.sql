@@ -18,13 +18,16 @@ begin
       raise exception 'Payroll table % must remain RPC-only.', t;
     end if;
   end loop;
-  if not has_function_privilege('authenticated', 'public.calculate_payroll_run(uuid,date,date)', 'EXECUTE')
-      or not has_function_privilege('authenticated', 'public.get_payroll_workspace(uuid,date,date)', 'EXECUTE')
-      or not has_function_privilege('authenticated', 'public.get_insights_cost_rates(uuid)', 'EXECUTE')
+  if has_function_privilege('authenticated', 'public.calculate_payroll_run(uuid,date,date)', 'EXECUTE')
+      or has_function_privilege('authenticated', 'public.get_payroll_workspace(uuid,date,date)', 'EXECUTE')
+      or has_function_privilege('authenticated', 'public.set_payroll_run_status(uuid,uuid,text)', 'EXECUTE') then
+    raise exception 'Experimental payroll engine must remain quarantined from browser roles.';
+  end if;
+  if not has_function_privilege('authenticated', 'public.get_insights_cost_rates(uuid)', 'EXECUTE')
       or not has_function_privilege('authenticated', 'public.validate_employee_employment_terms(uuid,uuid,uuid)', 'EXECUTE')
       or not has_function_privilege('authenticated', 'public.get_time_entry_payroll_evidence(uuid,uuid)', 'EXECUTE')
       or not has_function_privilege('authenticated', 'public.save_time_entry_payroll_evidence(uuid,uuid,uuid,uuid,jsonb,text)', 'EXECUTE') then
-    raise exception 'Owner payroll RPC grants are incomplete.';
+    raise exception 'Payroll-preparation and evidence RPC grants are incomplete.';
   end if;
   if (select count(*) from public.cp302_salary_scales s join public.payroll_rule_sets r on r.id = s.rule_set_id where r.version = '2026.1') <> 414 then
     raise exception 'The official 2026 CP 302 scale must contain 46 years x 9 categories.';

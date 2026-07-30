@@ -6,18 +6,18 @@
   import { buildEmployeeColorMap } from '$lib/ui/position-color';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import type { EmployeeDraft } from '$lib/team/team-model';
-  import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
-  import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
-  import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
-  import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
-  import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
-  import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
-  import ClassicPicker from '$lib/classic/ClassicPicker.svelte';
-  import ClassicTeamPage from '$lib/classic/ClassicTeamPage.svelte';
-  import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
-  import EmployeeInlineEditor from '$lib/classic/EmployeeInlineEditor.svelte';
-  import { teamDraft } from '$lib/classic/classic-team.svelte';
-  import { createTableView, peopleCountLabel } from '$lib/classic/table-view.svelte';
+  import WorkspaceStatus from '$lib/workspace-ui/WorkspaceStatus.svelte';
+  import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
+  import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
+  import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
+  import WorkspaceColChooser from '$lib/workspace-ui/WorkspaceColChooser.svelte';
+  import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
+  import WorkspacePicker from '$lib/workspace-ui/WorkspacePicker.svelte';
+  import WorkspaceTeamPage from '$lib/workspace-ui/WorkspaceTeamPage.svelte';
+  import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
+  import EmployeeInlineEditor from '$lib/workspace-ui/EmployeeInlineEditor.svelte';
+  import { teamDraft } from '$lib/workspace-ui/workspace-team.svelte';
+  import { createTableView, peopleCountLabel } from '$lib/workspace-ui/table-view.svelte';
 
   type GroupBy = 'contract' | 'position' | 'worker' | 'status' | 'none';
   type Group = { key: string; label: string; employees: EmployeeDraft[] };
@@ -181,9 +181,9 @@
   }
 </script>
 
-<svelte:head><title>{t('Payroll')} &middot; restogogo</title></svelte:head>
+<svelte:head><title>{t('Payroll preparation')} &middot; restogogo</title></svelte:head>
 
-<ClassicTeamPage>
+<WorkspaceTeamPage>
   {#snippet children(team)}
     {@const rows = team.employees.filter((employee) => matches(employee, team.contractName, team.jobName))}
     {@const blocked = rows.filter((employee) => payrollGaps(employee).length).length}
@@ -201,7 +201,7 @@
     {/if}
 
 
-    <ClassicTablePanel dirty={team.dirty} saving={team.saving} canSave={team.canSave} onsave={() => void team.save().catch(() => undefined)} ondiscard={team.discard}>
+    <WorkspaceTablePanel dirty={team.dirty} saving={team.saving} canSave={team.canSave} onsave={() => void team.save().catch(() => undefined)} ondiscard={team.discard}>
       {#snippet meta()}
         <span><i class="dot"></i>{t('{count} employees', { count: rows.length })}</span>
         <span><i class="dot is-green"></i>{t('{count} ready', { count: rows.length - blocked })}</span>
@@ -224,16 +224,16 @@
           </colgroup>
           <thead>
             <tr>
-              <th class="has-menu"><ClassicPrimaryColMenu label={t('Employee')} sortable sortDir={view.sortDir('employee')} onsort={(dir) => view.setSort('employee', dir)} filterKind="text" searchValue={view.search('employee')} onsearch={(value) => view.setSearch('employee', value)} groupValue={view.groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'contract', label: t('Contract type') }, { value: 'position', label: t('Position') }, { value: 'worker', label: t('Worker status') }, { value: 'status', label: t('Status') }]} ongroupchange={(value) => view.setGroupBy(value as GroupBy)} /></th>
-              {#if shown('status')}<th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={view.sortDir('status')} onsort={(dir) => view.setSort('status', dir)} filterKind="values" filterValues={statusValues} selected={view.excluded('status')} ontoggle={(value) => view.toggleValue('status', value)} onselectall={(on) => view.selectAll('status', on, statusValues)} /></th>{/if}
-              {#if shown('contract')}<th class="has-menu"><ClassicColMenu label={t('Contract')} sortable sortDir={view.sortDir('contract')} onsort={(dir) => view.setSort('contract', dir)} filterKind="values" filterValues={contractValues} selected={view.excluded('contract')} ontoggle={(value) => view.toggleValue('contract', value)} onselectall={(on) => view.selectAll('contract', on, contractValues)} /></th>{/if}
-              {#if shown('position')}<th class="has-menu"><ClassicColMenu label={t('Position')} sortable sortDir={view.sortDir('position')} onsort={(dir) => view.setSort('position', dir)} filterKind="values" filterValues={positionValues} selected={view.excluded('position')} ontoggle={(value) => view.toggleValue('position', value)} onselectall={(on) => view.selectAll('position', on, positionValues)} /></th>{/if}
-              {#if shown('payrollId')}<th class="has-menu"><ClassicColMenu label={t('Payroll ID')} sortable sortDir={view.sortDir('payrollId')} onsort={(dir) => view.setSort('payrollId', dir)} filterKind="text" searchValue={view.search('payrollId')} onsearch={(value) => view.setSearch('payrollId', value)} /></th>{/if}
-              {#if shown('function')}<th class="has-menu"><ClassicColMenu label={t('CP 302 function')} sortable sortDir={view.sortDir('function')} onsort={(dir) => view.setSort('function', dir)} filterKind="text" searchValue={view.search('function')} onsearch={(value) => view.setSearch('function', value)} /></th>{/if}
-              {#if shown('worker')}<th class="has-menu"><ClassicColMenu label={t('Worker status')} sortable sortDir={view.sortDir('worker')} onsort={(dir) => view.setSort('worker', dir)} filterKind="values" filterValues={workerValues} selected={view.excluded('worker')} ontoggle={(value) => view.toggleValue('worker', value)} onselectall={(on) => view.selectAll('worker', on, workerValues)} /></th>{/if}
-              {#if shown('basis')}<th class="has-menu"><ClassicColMenu label={t('Salary basis')} sortable sortDir={view.sortDir('basis')} onsort={(dir) => view.setSort('basis', dir)} filterKind="values" filterValues={basisValues} selected={view.excluded('basis')} ontoggle={(value) => view.toggleValue('basis', value)} onselectall={(on) => view.selectAll('basis', on, basisValues)} /></th>{/if}
-              {#if shown('rate')}<th class="has-menu"><ClassicColMenu label={t('Rate')} sortable sortDir={view.sortDir('rate')} onsort={(dir) => view.setSort('rate', dir)} filterKind="text" searchValue={view.search('rate')} onsearch={(value) => view.setSearch('rate', value)} /></th>{/if}
-              <th class="chooser-col"><ClassicColChooser columns={view.columns} hidden={view.hidden} ontoggle={view.toggleColumn} /></th>
+              <th class="has-menu"><WorkspacePrimaryColMenu label={t('Employee')} sortable sortDir={view.sortDir('employee')} onsort={(dir) => view.setSort('employee', dir)} filterKind="text" searchValue={view.search('employee')} onsearch={(value) => view.setSearch('employee', value)} groupValue={view.groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'contract', label: t('Contract type') }, { value: 'position', label: t('Position') }, { value: 'worker', label: t('Worker status') }, { value: 'status', label: t('Status') }]} ongroupchange={(value) => view.setGroupBy(value as GroupBy)} /></th>
+              {#if shown('status')}<th class="has-menu"><WorkspaceColMenu label={t('Status')} sortable sortDir={view.sortDir('status')} onsort={(dir) => view.setSort('status', dir)} filterKind="values" filterValues={statusValues} selected={view.excluded('status')} ontoggle={(value) => view.toggleValue('status', value)} onselectall={(on) => view.selectAll('status', on, statusValues)} /></th>{/if}
+              {#if shown('contract')}<th class="has-menu"><WorkspaceColMenu label={t('Contract')} sortable sortDir={view.sortDir('contract')} onsort={(dir) => view.setSort('contract', dir)} filterKind="values" filterValues={contractValues} selected={view.excluded('contract')} ontoggle={(value) => view.toggleValue('contract', value)} onselectall={(on) => view.selectAll('contract', on, contractValues)} /></th>{/if}
+              {#if shown('position')}<th class="has-menu"><WorkspaceColMenu label={t('Position')} sortable sortDir={view.sortDir('position')} onsort={(dir) => view.setSort('position', dir)} filterKind="values" filterValues={positionValues} selected={view.excluded('position')} ontoggle={(value) => view.toggleValue('position', value)} onselectall={(on) => view.selectAll('position', on, positionValues)} /></th>{/if}
+              {#if shown('payrollId')}<th class="has-menu"><WorkspaceColMenu label={t('Payroll ID')} sortable sortDir={view.sortDir('payrollId')} onsort={(dir) => view.setSort('payrollId', dir)} filterKind="text" searchValue={view.search('payrollId')} onsearch={(value) => view.setSearch('payrollId', value)} /></th>{/if}
+              {#if shown('function')}<th class="has-menu"><WorkspaceColMenu label={t('CP 302 function')} sortable sortDir={view.sortDir('function')} onsort={(dir) => view.setSort('function', dir)} filterKind="text" searchValue={view.search('function')} onsearch={(value) => view.setSearch('function', value)} /></th>{/if}
+              {#if shown('worker')}<th class="has-menu"><WorkspaceColMenu label={t('Worker status')} sortable sortDir={view.sortDir('worker')} onsort={(dir) => view.setSort('worker', dir)} filterKind="values" filterValues={workerValues} selected={view.excluded('worker')} ontoggle={(value) => view.toggleValue('worker', value)} onselectall={(on) => view.selectAll('worker', on, workerValues)} /></th>{/if}
+              {#if shown('basis')}<th class="has-menu"><WorkspaceColMenu label={t('Salary basis')} sortable sortDir={view.sortDir('basis')} onsort={(dir) => view.setSort('basis', dir)} filterKind="values" filterValues={basisValues} selected={view.excluded('basis')} ontoggle={(value) => view.toggleValue('basis', value)} onselectall={(on) => view.selectAll('basis', on, basisValues)} /></th>{/if}
+              {#if shown('rate')}<th class="has-menu"><WorkspaceColMenu label={t('Rate')} sortable sortDir={view.sortDir('rate')} onsort={(dir) => view.setSort('rate', dir)} filterKind="text" searchValue={view.search('rate')} onsearch={(value) => view.setSearch('rate', value)} /></th>{/if}
+              <th class="chooser-col"><WorkspaceColChooser columns={view.columns} hidden={view.hidden} ontoggle={view.toggleColumn} /></th>
             </tr>
           </thead>
           {#if !rows.length}
@@ -241,7 +241,7 @@
           {:else}
             {#each groups as group (group.key)}
               <tbody>
-                {#if view.grouping}<ClassicGroupRow colspan={colCount} label={group.label} meta={peopleCountLabel(group.employees.length)} collapsed={view.isCollapsed(group.key)} ontoggle={() => view.toggleGroup(group.key)} />{/if}
+                {#if view.grouping}<WorkspaceGroupRow colspan={colCount} label={group.label} meta={peopleCountLabel(group.employees.length)} collapsed={view.isCollapsed(group.key)} ontoggle={() => view.toggleGroup(group.key)} />{/if}
                 {#if !view.isCollapsed(group.key)}
                 {#each group.employees as employee (employee.id)}
                   {@const missing = payrollGaps(employee)}
@@ -251,16 +251,16 @@
                     <!-- The count is the signal; the row's own columns already
                          say which fields are empty, so the list is not repeated
                          on every line. The full list stays on hover. -->
-                    {#if shown('status')}<td title={missing.length ? missing.map((item) => t(item)).join(', ') : undefined}>{#if missing.length}<ClassicStatus label={missing.length === 1 ? '1 detail missing' : '{count} details missing'} params={{ count: missing.length }} tone="problem" />{:else}<ClassicStatus label={terms?.label ?? 'Ready for payroll'} tone={terms?.tone ?? 'ok'} />{/if}</td>{/if}
+                    {#if shown('status')}<td title={missing.length ? missing.map((item) => t(item)).join(', ') : undefined}>{#if missing.length}<WorkspaceStatus label={missing.length === 1 ? '1 detail missing' : '{count} details missing'} params={{ count: missing.length }} tone="problem" />{:else}<WorkspaceStatus label={terms?.label ?? 'Ready for payroll'} tone={terms?.tone ?? 'ok'} />{/if}</td>{/if}
                     {#if shown('contract')}<td>{team.contractName.get(employee.contractTypeId) ?? t('No contract yet')}</td>{/if}
                     {#if shown('position')}<td>{team.jobName.get(employee.jobFunctionIds[0] ?? '') ?? t('No position yet')}</td>{/if}
                     {#if shown('payrollId')}<td><input class="cl-field payrollid" value={employee.payrollEmployeeId} disabled={!team.canViewFinancials || !team.editable} oninput={(event) => teamDraft.update(employee.id, { payrollEmployeeId: event.currentTarget.value })} /></td>{/if}
-                    {#if shown('function')}<td><ClassicPicker value={employee.cp302ReferenceFunctionCode} options={functionOptions} disabled={!team.canViewFinancials || !team.editable || teamDraft.supplementaryLoading} ariaLabel={`${t('CP 302 function')} · ${employee.displayName}`} onchange={(next) => setReferenceFunction(employee, next)} /></td>{/if}
+                    {#if shown('function')}<td><WorkspacePicker value={employee.cp302ReferenceFunctionCode} options={functionOptions} disabled={!team.canViewFinancials || !team.editable || teamDraft.supplementaryLoading} ariaLabel={`${t('CP 302 function')} · ${employee.displayName}`} onchange={(next) => setReferenceFunction(employee, next)} /></td>{/if}
                     {#if shown('worker')}<td class="is-quiet">{employee.workerStatus ? t(employee.workerStatus === 'blue_collar' ? 'Blue-collar worker' : 'White-collar employee') : '—'}</td>{/if}
-                    {#if shown('basis')}<td><ClassicPicker value={employee.salaryBasis} options={basisOptions} disabled={!team.canViewFinancials || !team.editable} ariaLabel={`${t('Salary basis')} · ${employee.displayName}`} onchange={(next) => teamDraft.update(employee.id, { salaryBasis: next as EmployeeDraft['salaryBasis'] })} /></td>{/if}
+                    {#if shown('basis')}<td><WorkspacePicker value={employee.salaryBasis} options={basisOptions} disabled={!team.canViewFinancials || !team.editable} ariaLabel={`${t('Salary basis')} · ${employee.displayName}`} onchange={(next) => teamDraft.update(employee.id, { salaryBasis: next as EmployeeDraft['salaryBasis'] })} /></td>{/if}
                     {#if shown('rate')}<td>{#if employee.salaryBasis === 'monthly'}<input class="cl-field ratefield" inputmode="decimal" value={employee.contractualMonthlySalary} disabled={!team.canViewFinancials || !team.editable} oninput={(event) => teamDraft.update(employee.id, { contractualMonthlySalary: event.currentTarget.value })} />{:else}<input class="cl-field ratefield" inputmode="decimal" value={employee.contractualHourlyRate} disabled={!team.canViewFinancials || !team.editable} oninput={(event) => teamDraft.update(employee.id, { contractualHourlyRate: event.currentTarget.value })} />{/if}</td>{/if}
                     <td class="menu-cell">
-                      <ClassicRowMenu
+                      <WorkspaceRowMenu
                         disabled={!team.canViewFinancials || !team.editable || teamDraft.supplementaryLoading}
                         items={[{ label: t('Open employee'), onselect: () => (detailId = employee.id) }]}
                       />
@@ -274,13 +274,13 @@
         </table>
       </div>
       {/snippet}
-    </ClassicTablePanel>
+    </WorkspaceTablePanel>
 
     {#if detailId}
       <EmployeeInlineEditor employeeId={detailId} mode="payroll" saving={team.saving} onclose={() => (detailId = '')} onsave={team.saveEmployee} />
     {/if}
   {/snippet}
-</ClassicTeamPage>
+</WorkspaceTeamPage>
 
 <style>
   .payroll-table { min-width: 1480px; }

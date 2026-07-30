@@ -1,55 +1,67 @@
 # Reservations
 
-Reservations is a native restaurant workspace, not a separate booking
-prototype. It shares the restaurant tenant, services, opening hours and work
-areas already used by Restaurant and Schedule.
+Reservations is an optional acceptance track, disabled by default through
+server-owned restaurant module entitlements. It is not a dependency of the
+workforce pilot.
 
-## Domain boundaries
+When enabled, the module includes internal bookings, live arrivals and table
+state, booking rules, floor-plan/table editing, and a public website booking
+channel. Schedule reads only a restaurant-scoped expected-cover aggregate.
 
-- `services` and `opening_hours` remain the source of truth for when the
-  restaurant operates.
-- `work_areas` remain the source of truth for operational areas. A
-  `reservation_room` opts one of those areas into reservations and places it
-  on a physical `reservation_floor`.
-- A floor owns a resizable logical canvas. Area bounds and table coordinates
-  are stored on that canvas, allowing one physical level to contain several
-  operational areas without duplicating Restaurant data.
-- Reservation tables and combinations belong to one reservable area.
-- Guests are restaurant-scoped. Matching uses normalized email or phone while
-  keeping consent and anonymization fields available for later CRM work.
-- Reservations keep their current state for efficient reads and append an
-  immutable event for every create, edit and status transition.
-- Table assignments are historical. Reassignment closes the current assignment
-  instead of deleting it.
+## Server boundary
 
-## Authoritative availability
+- Every authenticated reservation management RPC requires the `reservations`
+  entitlement in PostgreSQL.
+- The public Edge Function validates the revocable channel key, exact website
+  origin, signed embed session, rate limit, request size, and idempotency key.
+  It also checks the same module entitlement before any public action.
+- Public browsers never receive direct table grants.
+- Availability, holds, exact table assignment, confirmation, and lifecycle
+  transitions are transactional and append history.
+- Disabling Reservations immediately closes both manager routes and the public
+  booking channel without deleting data.
 
-`reservation_availability_internal` is the single availability path used by
-the internal editor and exposed through the guarded
-`check_reservation_availability` RPC for future widgets and integrations. It
-enforces service configuration, opening exceptions, booking intervals, party
-limits, duration and turn time, advance/cutoff rules, cover capacity, room
-preference, blocked tables, overlap, and configured table combinations.
+## Current space model
 
-`save_reservation` takes a restaurant-scoped advisory transaction lock, checks
-availability again, matches or creates the guest, chooses the smallest suitable
-table, stores the assignment explanation, and appends an event. Frontend checks
-are feedback only and never replace this transaction.
+The current floor editor places operational `work_areas` inside physical
+`reservation_floors`; `reservation_rooms` links those concepts and owns the
+table geometry. Non-reservable operational areas cannot receive tables, and
+only active rooms with available tables appear in the public booking context.
+Restaurant's operational Areas workspace does not read or write reservation
+floors, rooms, or tables. Its revisioned save is independent. The former
+combined venue save is service-only and must not be restored to browser
+clients.
 
-## Product surfaces
+This is intentionally **not accepted as the final guest-space model**. A
+future Reservations release must introduce independent physical spaces and
+reservation sections, with optional links to staffing areas. Kitchen,
+dishwashing, reception, and other operational zones must never become public
+guest choices merely because they exist in Restaurant setup.
 
-- `/reservations` is the live floor plan and arrivals workspace.
-- `/reservations/bookings` is the searchable booking grid and editor.
-- `/reservations/floor-plans` creates physical floors, places Restaurant areas
-  and edits real table objects.
-- `/reservations/setup` configures service rules and chooses which Restaurant
-  areas accept reservations.
-- Schedule reads `get_reservation_demand` for daily expected-cover context. It
-  does not read reservation tables directly.
+Until that migration and its browser acceptance are complete, keep the module
+disabled for workforce-only pilots. A restaurant that explicitly pilots
+Reservations must review its floor inventory and public labels separately.
 
-## Deliberately later
+## Public booking lifecycle
 
-Manual drag assignment, waiting-list conversion, public booking widget, guest
-CRM screens, experiences, deposits, notifications, decorative floor objects
-and Zenchef synchronization remain later slices. The current schema keeps
-stable extension points for those features without presenting non-working UI.
+`/reservations/api` creates or rotates a channel, controls allowed origins, and
+provides website embed instructions. `/book` loads only through that channel.
+The `reservation-public` Edge Function supports:
+
+1. context and a short-lived embed session;
+2. server-calculated availability;
+3. a five-minute exact-table hold;
+4. idempotent confirmation;
+5. explicit release or automatic expiry.
+
+The production website still needs reviewed guest privacy copy, restaurant
+contact details, cancellation/help instructions, and real-device/browser
+acceptance before public launch.
+
+## Acceptance
+
+When the entitlement is enabled, test internal booking create/edit/status,
+capacity and cutoff errors, floor/table constraints, concurrent holds,
+idempotent confirmation, expiry/release, origin denial, channel rotation,
+localization, and public mobile recovery. Reservations remains disabled if any
+of those gates is not recorded.

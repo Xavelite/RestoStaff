@@ -2,7 +2,6 @@ import { supabase } from '$lib/supabase/client';
 import { PUBLIC_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_URL } from '$env/static/public';
 import { apiErrorMessage, toApiError } from '$lib/api/error';
 import { asJson, asJsonArray } from '$lib/api/json';
-import type { RestaurantSavePayload } from '$lib/api/mutations';
 import type { Json } from '$lib/supabase/database.types';
 import {
   parseAvailability,
@@ -49,7 +48,7 @@ export async function getReservationWorkspace(
   restaurantId: string,
   businessDate: string
 ): Promise<ReservationWorkspace> {
-  const { data, error } = await supabase.rpc('get_reservation_workspace', {
+  const { data, error } = await supabase.rpc('get_reservation_workspace_v2', {
     p_restaurant_id: restaurantId,
     p_business_date: businessDate
   });
@@ -60,7 +59,7 @@ export async function getReservationWorkspace(
 export async function getReservationSetup(
   restaurantId: string
 ): Promise<ReservationSetup> {
-  const { data, error } = await supabase.rpc('get_reservation_setup', {
+  const { data, error } = await supabase.rpc('get_reservation_setup_v2', {
     p_restaurant_id: restaurantId
   });
   if (error) throw toApiError(error, 'Reservation setup could not be loaded.');
@@ -70,7 +69,7 @@ export async function getReservationSetup(
 export async function getReservationFloorPlans(
   restaurantId: string
 ): Promise<ReservationFloorPlans> {
-  const { data, error } = await supabase.rpc('get_reservation_floor_plans', {
+  const { data, error } = await supabase.rpc('get_reservation_floor_plans_v2', {
     p_restaurant_id: restaurantId
   });
   if (error) throw toApiError(error, 'Floor plans could not be loaded.');
@@ -82,7 +81,7 @@ export async function saveReservationFloorPlans(
   draft: ReservationFloorPlansDraft,
   expectedRevision: number
 ): Promise<void> {
-  const { error } = await supabase.rpc('save_reservation_floor_plans', {
+  const { error } = await supabase.rpc('save_reservation_floor_plans_v2', {
     p_restaurant_id: restaurantId,
     p_floors: asJsonArray(draft.floors),
     p_rooms: asJsonArray(draft.rooms),
@@ -98,7 +97,7 @@ export async function saveReservationSetup(
   draft: ReservationSetupDraft,
   expectedRevision: number
 ): Promise<void> {
-  const { error } = await supabase.rpc('save_reservation_setup', {
+  const { error } = await supabase.rpc('save_reservation_setup_v2', {
     p_restaurant_id: restaurantId,
     p_services: asJsonArray(draft.services),
     p_rooms: asJsonArray(draft.rooms),
@@ -110,35 +109,11 @@ export async function saveReservationSetup(
   if (error) throw toApiError(error, 'Reservation setup could not be saved.');
 }
 
-export async function saveRestaurantAreasModel(
-  restaurantId: string,
-  restaurant: RestaurantSavePayload,
-  draft: ReservationFloorPlansDraft,
-  expectedRevision: number
-): Promise<void> {
-  const { error } = await supabase.rpc('save_venue_model', {
-    p_restaurant_id: restaurantId,
-    p_restaurant: restaurant.restaurant,
-    p_settings: restaurant.settings,
-    p_job_functions: restaurant.jobFunctions,
-    p_areas: restaurant.areas,
-    p_opening_hours: restaurant.openingHours,
-    p_area_service_defaults: restaurant.areaServiceDefaults,
-    p_coverage_requirements: restaurant.coverageRequirements,
-    p_floors: asJsonArray(draft.floors),
-    p_rooms: asJsonArray(draft.rooms),
-    p_tables: asJsonArray(draft.tables),
-    p_combinations: asJsonArray(draft.combinations),
-    p_expected_revision: expectedRevision
-  });
-  if (error) throw toApiError(error, 'Restaurant areas could not be saved.');
-}
-
 export async function checkReservationAvailability(
   restaurantId: string,
   draft: ReservationDraft
 ): Promise<AvailabilityResult> {
-  const { data, error } = await supabase.rpc('check_reservation_availability', {
+  const { data, error } = await supabase.rpc('check_reservation_availability_v2', {
     p_restaurant_id: restaurantId,
     p_business_date: draft.business_date,
     p_service_key: draft.service_key,
@@ -156,7 +131,7 @@ export async function saveReservation(
   restaurantId: string,
   draft: ReservationDraft
 ): Promise<void> {
-  const { error } = await supabase.rpc('save_reservation', {
+  const { error } = await supabase.rpc('save_reservation_v2', {
     p_restaurant_id: restaurantId,
     p_reservation: asJson(draft)
   });
@@ -170,7 +145,7 @@ export async function setReservationStatus(
   expectedRevision: number,
   comment = ''
 ): Promise<void> {
-  const { error } = await supabase.rpc('set_reservation_status', {
+  const { error } = await supabase.rpc('set_reservation_status_v2', {
     p_restaurant_id: restaurantId,
     p_reservation_id: reservationId,
     p_status: status,
@@ -185,7 +160,7 @@ export async function getReservationDemand(
   fromDate: string,
   toDate: string
 ): Promise<ReservationDemand[]> {
-  const { data, error } = await supabase.rpc('get_reservation_demand', {
+  const { data, error } = await supabase.rpc('get_reservation_demand_v2', {
     p_restaurant_id: restaurantId,
     p_from_date: fromDate,
     p_to_date: toDate
@@ -202,7 +177,7 @@ export async function getReservationPublicChannel(
   restaurantId: string
 ): Promise<ReservationPublicChannel> {
   return parseReservationPublicChannel(
-    await reservationManagerRpc('get_reservation_public_channel', {
+    await reservationManagerRpc('get_reservation_public_channel_v2', {
       p_restaurant_id: restaurantId
     })
   );
@@ -213,7 +188,7 @@ export async function ensureReservationPublicChannel(
   defaultOrigin: string
 ): Promise<ReservationPublicChannel> {
   return parseReservationPublicChannel(
-    await reservationManagerRpc('ensure_reservation_public_channel', {
+    await reservationManagerRpc('ensure_reservation_public_channel_v2', {
       p_restaurant_id: restaurantId,
       p_default_origin: defaultOrigin
     })
@@ -226,7 +201,7 @@ export async function saveReservationPublicChannel(
   allowedOrigins: string[]
 ): Promise<ReservationPublicChannel> {
   return parseReservationPublicChannel(
-    await reservationManagerRpc('save_reservation_public_channel', {
+    await reservationManagerRpc('save_reservation_public_channel_v2', {
       p_restaurant_id: restaurantId,
       p_enabled: enabled,
       p_allowed_origins: allowedOrigins
@@ -238,7 +213,7 @@ export async function rotateReservationPublicChannel(
   restaurantId: string
 ): Promise<ReservationPublicChannel> {
   return parseReservationPublicChannel(
-    await reservationManagerRpc('rotate_reservation_public_channel', {
+    await reservationManagerRpc('rotate_reservation_public_channel_v2', {
       p_restaurant_id: restaurantId
     })
   );

@@ -1,8 +1,8 @@
 <script lang="ts">
   import { formatHours } from '$lib/calendar/date';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
-  import ClassicMeter from '$lib/classic/ClassicMeter.svelte';
-  import ClassicReportsPage from '$lib/classic/ClassicReportsPage.svelte';
+  import WorkspaceMeter from '$lib/workspace-ui/WorkspaceMeter.svelte';
+  import WorkspaceReportsPage from '$lib/workspace-ui/WorkspaceReportsPage.svelte';
   import ReportHoursChart from '$lib/reports/ReportHoursChart.svelte';
   import ReportPulse from '$lib/reports/ReportPulse.svelte';
 
@@ -23,7 +23,7 @@
 
 <svelte:head><title>{t('Operations')} &middot; restogogo</title></svelte:head>
 
-<ClassicReportsPage>
+<WorkspaceReportsPage>
   {#snippet children(view)}
     <div class="operations-visuals">
       <ReportHoursChart buckets={view.buckets} />
@@ -52,7 +52,7 @@
                 </td>
                 <td class="is-num">{formatHours(area.planned)}</td>
                 <td class="is-num">{formatHours(area.worked)}</td>
-                <td class="meter-cell"><ClassicMeter value={area.adherence} label={percent(area.adherence)} /></td>
+                <td class="meter-cell"><WorkspaceMeter value={area.adherence} label={percent(area.adherence)} /></td>
                 <td class="is-num">{area.issues}</td>
               </tr>
             {/each}
@@ -92,7 +92,7 @@
       </section>
     {/if}
   {/snippet}
-</ClassicReportsPage>
+</WorkspaceReportsPage>
 
 <style>
   .meter-cell {

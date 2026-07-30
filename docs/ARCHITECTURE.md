@@ -11,7 +11,7 @@ transactional RPCs.
 - `src/lib/<domain>`: shared business projections and domain UI for Schedule,
   Time & attendance, Team, Restaurant, employee self-service, reservations,
   notifications, payroll, and calendar behavior.
-- `src/lib/classic`: the current compact-workspace component set, navigation,
+- `src/lib/workspace-ui`: the current compact-workspace component set, navigation,
   draft models, and shared visual contract. The name is an internal namespace,
   not a second or legacy product shell.
 - `src/lib/app-shell` and `src/lib/workspace`: authenticated navigation, page
@@ -35,9 +35,20 @@ domain modules own reusable calculations and selection rules. Supabase owns
 authorization and lifecycle invariants. Frontend checks explain server rules
 early but never replace server authority.
 
+Restaurant module entitlements are server-owned. Navigation and route guards
+provide the early user experience; PostgreSQL independently protects enabled
+modules and public Edge channels. Reservations and Reports are disabled by
+default, while Payroll means preparation/export only. Route-level SvelteKit
+chunks keep disabled modules out of the normal navigation path.
+
+Broad Team, Restaurant, and floor-plan models carry workspace revisions.
+Mutation RPCs compare the browser's expected revision inside the transaction
+and return a conflict before replacing newer work.
+
 `/admin` is a platform-operator console outside the restaurant app shell. Its
-authenticated RPCs enforce a separate platform-admin entitlement and every
-operator mutation is audited. Restaurant roles never imply platform access.
+authenticated RPCs enforce a separate platform-admin entitlement plus an AAL2
+authenticator session, and every operator mutation is audited. Restaurant roles
+never imply platform access.
 Its preview picker reads dedicated reduced models; it never changes the Auth
 session or adopts another person's authorization.
 

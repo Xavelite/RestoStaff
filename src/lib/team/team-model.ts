@@ -7,6 +7,7 @@ import {
   type WorkRegime
 } from '../domain/operations.ts';
 import type { Tables } from '../supabase/database.types.ts';
+import type { ServiceKey } from '../calendar/date.ts';
 import { cents, parseHourlyRate } from '../payroll-engine/money.ts';
 
 export type ContractDurationKind = 'indefinite' | 'fixed_term' | 'defined_work' | 'replacement';
@@ -49,7 +50,7 @@ export type EmployeeDraft = {
   workerStatus: 'blue_collar' | 'white_collar' | '';
   recurringSlots: Array<{
     weekday: number;
-    serviceKey: 'lunch' | 'evening';
+    serviceKey: ServiceKey;
   }>;
   contractStart: string;
   contractEnd: string;
@@ -192,7 +193,7 @@ export function employeeDrafts(
         .filter((row) => row.employee_id === employee.id && row.active)
         .map((row) => ({
           weekday: row.weekday,
-          serviceKey: row.service_key === 'evening' ? 'evening' : 'lunch'
+          serviceKey: row.service_key
         })),
       contractStart: contract?.contract_start ?? '',
       contractEnd: contract?.contract_end ?? '',

@@ -10,18 +10,20 @@ declare
     'public.admin_dashboard()'::regprocedure,
     'public.admin_delete_restaurant(uuid)'::regprocedure,
     'public.admin_delete_user(uuid)'::regprocedure,
+    'public.admin_list_pilot_access_requests()'::regprocedure,
+    'public.admin_restaurant_module_entitlements()'::regprocedure,
+    'public.admin_review_pilot_access(uuid,boolean,text)'::regprocedure,
     'public.admin_update_feedback(uuid,text,text)'::regprocedure,
     'public.admin_set_restaurant_active(uuid,boolean)'::regprocedure,
+    'public.admin_set_restaurant_module_entitlement(uuid,text,text)'::regprocedure,
     'public.admin_set_user_suspended(uuid,boolean)'::regprocedure,
     'public.am_i_platform_admin()'::regprocedure,
     'public.accept_payroll_readiness_warning(uuid,date,date,uuid,text,text)'::regprocedure,
     'public.archive_restaurant_document(uuid,uuid)'::regprocedure,
     'public.begin_restaurant_document_upload(uuid,text,text,text,bigint,text,uuid,date,date,text,text)'::regprocedure,
-    'public.calculate_payroll_run(uuid,date,date)'::regprocedure,
     'public.cancel_restaurant_document_upload(uuid,uuid)'::regprocedure,
-    'public.check_reservation_availability(uuid,date,text,time without time zone,integer,uuid,uuid,uuid)'::regprocedure,
+    'public.check_reservation_availability_v2(uuid,date,text,time without time zone,integer,uuid,uuid,uuid)'::regprocedure,
     'public.clear_owner_onboarding_draft()'::regprocedure,
-    'public.create_payroll_provider_export(uuid,uuid,uuid)'::regprocedure,
     'public.create_payroll_export_run(uuid,date,date,jsonb)'::regprocedure,
     'public.create_restaurant_station(uuid,text)'::regprocedure,
     'public.current_profile_id()'::regprocedure,
@@ -34,32 +36,32 @@ declare
     'public.get_communications_read_model(uuid)'::regprocedure,
     'public.get_current_memberships()'::regprocedure,
     'public.get_owner_onboarding_draft()'::regprocedure,
+    'public.get_pilot_access_state()'::regprocedure,
     'public.get_preview_bootstrap(uuid,text,uuid)'::regprocedure,
+    'public.get_preview_bootstrap_v2(uuid,text,uuid)'::regprocedure,
     'public.get_preview_module(uuid,text,uuid,text)'::regprocedure,
     'public.get_preview_operations(uuid,text,uuid,date,date)'::regprocedure,
     'public.get_preview_personas(uuid)'::regprocedure,
     'public.get_payroll_export_run(uuid,uuid)'::regprocedure,
     'public.get_payroll_catalogue(uuid)'::regprocedure,
-    'public.get_payroll_workspace(uuid,date,date)'::regprocedure,
-    'public.get_reservation_demand(uuid,date,date)'::regprocedure,
-    'public.get_reservation_floor_plans(uuid)'::regprocedure,
-    'public.get_reservation_public_channel(uuid)'::regprocedure,
-    'public.get_reservation_setup(uuid)'::regprocedure,
-    'public.get_reservation_workspace(uuid,date)'::regprocedure,
+    'public.get_reservation_demand_v2(uuid,date,date)'::regprocedure,
+    'public.get_reservation_floor_plans_v2(uuid)'::regprocedure,
+    'public.get_reservation_public_channel_v2(uuid)'::regprocedure,
+    'public.get_reservation_setup_v2(uuid)'::regprocedure,
+    'public.get_reservation_workspace_v2(uuid,date)'::regprocedure,
     'public.get_restaurant_documents(uuid)'::regprocedure,
     'public.get_workspace_context(uuid)'::regprocedure,
-    'public.get_workspace_bootstrap(uuid)'::regprocedure,
+    'public.get_workspace_bootstrap_v2(uuid)'::regprocedure,
     'public.get_manager_operations_read_model(uuid,date,date)'::regprocedure,
     'public.get_employee_operations_read_model(uuid,date,date)'::regprocedure,
-    'public.get_team_read_model(uuid)'::regprocedure,
+    'public.get_team_read_model_v2(uuid)'::regprocedure,
     'public.get_time_entry_payroll_evidence(uuid,uuid)'::regprocedure,
-    'public.get_restaurant_read_model(uuid)'::regprocedure,
+    'public.get_restaurant_read_model_v2(uuid)'::regprocedure,
     'public.is_own_employee(uuid,uuid)'::regprocedure,
     'public.is_owner(uuid)'::regprocedure,
     'public.is_owner_or_manager(uuid)'::regprocedure,
     'public.is_restaurant_member(uuid)'::regprocedure,
     'public.is_valid_belgian_niss(text)'::regprocedure,
-    'public.import_payroll_provider_return(uuid,uuid,uuid,text,jsonb)'::regprocedure,
     'public.list_badge_roster(uuid)'::regprocedure,
     'public.list_badge_roster_station(text)'::regprocedure,
     'public.list_restaurant_stations(uuid)'::regprocedure,
@@ -71,40 +73,35 @@ declare
     'public.record_restaurant_document_download(uuid,uuid)'::regprocedure,
     'public.mark_operational_message(uuid,uuid,boolean)'::regprocedure,
     'public.register_push_subscription(uuid,text,text,text,text,text,text)'::regprocedure,
+    'public.request_pilot_access(text)'::regprocedure,
     'public.revoke_employee_invitation(uuid,uuid,text)'::regprocedure,
     'public.revoke_restaurant_station(uuid,uuid)'::regprocedure,
     'public.record_employee_regime_evidence(uuid,uuid,jsonb)'::regprocedure,
-    'public.resolve_payroll_reconciliation(uuid,uuid,text,text)'::regprocedure,
     'public.save_absence_lifecycle(uuid,uuid,uuid,text,jsonb)'::regprocedure,
     'public.save_actuals_lifecycle(uuid,text,jsonb)'::regprocedure,
     'public.save_employee_availability(uuid,uuid,jsonb)'::regprocedure,
-    'public.save_employee_payroll_benefit(uuid,uuid,jsonb)'::regprocedure,
     'public.save_employee_tax_profile(uuid,uuid,jsonb)'::regprocedure,
     'public.save_manager_planning(uuid,date,text,jsonb,jsonb,bigint,text,boolean,boolean)'::regprocedure,
     'public.save_owner_onboarding_draft(smallint,jsonb)'::regprocedure,
-    'public.save_payroll_provider_mapping(uuid,uuid,text,jsonb)'::regprocedure,
-    'public.save_reservation_floor_plans(uuid,jsonb,jsonb,jsonb,jsonb,integer)'::regprocedure,
-    'public.save_reservation_setup(uuid,jsonb,jsonb,jsonb,jsonb,jsonb,integer)'::regprocedure,
-    'public.save_reservation(uuid,jsonb)'::regprocedure,
-    'public.save_reservation_public_channel(uuid,boolean,text[])'::regprocedure,
-    'public.save_restaurant_payroll_configuration(uuid,jsonb)'::regprocedure,
-    'public.save_restaurant_model(uuid,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb)'::regprocedure,
+    'public.save_reservation_floor_plans_v2(uuid,jsonb,jsonb,jsonb,jsonb,integer)'::regprocedure,
+    'public.save_reservation_setup_v2(uuid,jsonb,jsonb,jsonb,jsonb,jsonb,integer)'::regprocedure,
+    'public.save_reservation_v2(uuid,jsonb)'::regprocedure,
+    'public.save_reservation_public_channel_v2(uuid,boolean,text[])'::regprocedure,
+    'public.save_restaurant_model_v3(uuid,bigint,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb)'::regprocedure,
     'public.save_work_pattern_exception_lifecycle(uuid,uuid,uuid,text,jsonb)'::regprocedure,
-    'public.save_team_workspace(uuid,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb)'::regprocedure,
+    'public.save_team_workspace_v2(uuid,bigint,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb)'::regprocedure,
     'public.save_time_entry_payroll_evidence(uuid,uuid,uuid,uuid,jsonb,text)'::regprocedure,
-    'public.save_venue_model(uuid,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,integer)'::regprocedure,
     'public.validate_employee_employment_terms(uuid,uuid,uuid)'::regprocedure,
     'public.validate_restaurant_payroll_configuration(uuid,uuid)'::regprocedure,
     'public.set_payroll_export_columns(uuid,jsonb)'::regprocedure,
     'public.set_own_pin(text,uuid)'::regprocedure,
     'public.set_employee_access_state(uuid,uuid,text)'::regprocedure,
     'public.set_restaurant_logo(uuid,text)'::regprocedure,
-    'public.set_payroll_run_status(uuid,uuid,text)'::regprocedure,
-    'public.set_reservation_status(uuid,uuid,text,text,integer)'::regprocedure,
+    'public.set_reservation_status_v2(uuid,uuid,text,text,integer)'::regprocedure,
     'public.finalize_restaurant_document_upload(uuid,uuid)'::regprocedure,
-    'public.ensure_reservation_public_channel(uuid,text)'::regprocedure,
-    'public.rotate_reservation_public_channel(uuid)'::regprocedure,
-    'public.setup_owner_workspace(text,text,citext,text,text,jsonb,jsonb,jsonb,jsonb,jsonb)'::regprocedure,
+    'public.ensure_reservation_public_channel_v2(uuid,text)'::regprocedure,
+    'public.rotate_reservation_public_channel_v2(uuid)'::regprocedure,
+    'public.setup_owner_workspace_v2(text,text,citext,text,text,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb)'::regprocedure,
     'public.send_operational_message(uuid,text,uuid[],text,boolean)'::regprocedure,
     'public.submit_pilot_feedback(uuid,text,text,text,text,text,text,text,text)'::regprocedure,
     'public.update_own_profile(text,text)'::regprocedure,
@@ -119,8 +116,12 @@ declare
     'public.verify_badge_pin_station(text,uuid,text)'::regprocedure
   ];
   v_service_allowed regprocedure[] := array[
+    'public.assert_reservation_public_module(text,text)'::regprocedure,
     'public.consume_reservation_public_rate_limit(text,text,text,text,integer,integer)'::regprocedure,
     'public.get_push_dispatch_context(uuid,uuid,date,date)'::regprocedure,
+    'public.get_restaurant_read_model_v2(uuid)'::regprocedure,
+    'public.get_team_read_model_v2(uuid)'::regprocedure,
+    'public.get_workspace_bootstrap_v2(uuid)'::regprocedure,
     'public.is_valid_belgian_niss(text)'::regprocedure,
     'public.register_employee_invitation(uuid,uuid,citext,text,text,timestamptz,uuid)'::regprocedure,
     'public.reservation_public_confirm(text,text,text,text,jsonb)'::regprocedure,
@@ -131,8 +132,12 @@ declare
     'public.revoke_employee_invitation_delivery(uuid,text)'::regprocedure,
     'public.save_employee_employment_terms(uuid,uuid,jsonb)'::regprocedure,
     'public.save_manager_planning(uuid,date,text,jsonb,jsonb,bigint,text,boolean,boolean)'::regprocedure,
+    'public.save_restaurant_model_v2(uuid,bigint,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb)'::regprocedure,
+    'public.save_restaurant_model_v3(uuid,bigint,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb)'::regprocedure,
     'public.save_team_model(uuid,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb)'::regprocedure,
-    'public.save_team_workspace(uuid,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb)'::regprocedure
+    'public.save_team_workspace_v2(uuid,bigint,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb)'::regprocedure,
+    'public.save_team_workspace(uuid,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb)'::regprocedure,
+    'public.save_venue_model_v2(uuid,bigint,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,integer)'::regprocedure
   ];
   v_routine regprocedure;
 begin
@@ -288,9 +293,10 @@ begin
 
   if exists (
     select 1 from public.services
-    where service_key not in ('lunch', 'evening')
+    where service_key !~ '^[a-z][a-z0-9-]{0,39}$'
+      or nullif(btrim(name), '') is null
   ) then
-    raise exception 'Services must remain fixed to Lunch and Evening keys';
+    raise exception 'Service periods must keep valid stable keys and display names';
   end if;
 
   if exists (
@@ -298,26 +304,31 @@ begin
     from public.restaurants r
     where not exists (
       select 1 from public.services s
-      where s.restaurant_id = r.id and s.service_key = 'lunch'
-    )
-    or not exists (
-      select 1 from public.services s
-      where s.restaurant_id = r.id and s.service_key = 'evening'
+      where s.restaurant_id = r.id and s.active
     )
   ) then
-    raise exception 'Every restaurant must retain Lunch and Evening metadata';
+    raise exception 'Every restaurant must retain at least one active service period';
   end if;
 
-  if (
-    select count(*)
+  if exists (
+    select 1
     from pg_trigger t
     where not t.tgisinternal
       and t.tgname in (
         'restaurants_fixed_services_guard',
         'services_fixed_contract_guard'
       )
-  ) <> 2 then
-    raise exception 'Deferred fixed-service guards are missing';
+  ) then
+    raise exception 'Legacy fixed Lunch and Evening guards must stay retired';
+  end if;
+
+  if position(
+    'At least one active service period is required.'
+    in pg_get_functiondef(
+      'public.save_restaurant_model_v3(uuid,bigint,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb)'::regprocedure
+    )
+  ) = 0 then
+    raise exception 'Configurable service save boundary is missing its active-service guard';
   end if;
 
   if position(

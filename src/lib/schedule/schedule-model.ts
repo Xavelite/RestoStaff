@@ -1,13 +1,15 @@
 import type { ManagerOperationsReadModel } from '../api/workspace-snapshot';
 import type { Tables } from '../supabase/database.types';
 import {
-  SERVICES,
   WEEKDAYS,
+  activeServiceKeys,
   clockLabel,
   clockMinutes,
   dateForWeekday,
   formatHours,
+  configuredServiceKeys,
   hoursBetweenClocks,
+  serviceDefaultHours,
   weekday,
   type ServiceKey
 } from '../calendar/date.ts';
@@ -244,8 +246,8 @@ export type PlanningGridSlot = {
   truth: ServiceSlotTruth;
 };
 
-function isService(value: string): value is ServiceKey {
-  return value === 'lunch' || value === 'evening';
+function isService(snapshot: ManagerOperationsReadModel, value: string): value is ServiceKey {
+  return configuredServiceKeys(snapshot.services).includes(value);
 }
 
 function draftKey(shift: Pick<PlanningShiftDraft, 'employeeId' | 'weekday' | 'serviceKey'>): string {
@@ -267,7 +269,7 @@ export function planningDraftForWeek(
   weekStart: string
 ): PlanningShiftDraft[] {
   const explicit = snapshot.planned_shifts.flatMap((shift) => {
-    if (shift.week_start !== weekStart || !isService(shift.service_key)) return [];
+    if (shift.week_start !== weekStart || !isService(snapshot, shift.service_key)) return [];
     return [{
       employeeId: shift.employee_id,
       weekday: shift.weekday,
@@ -286,7 +288,7 @@ export function planningDraftForWeek(
   const recurring = (snapshot.recurring_schedule_slots ?? []).flatMap((slot) => {
     if (
       !slot.active ||
-      !isService(slot.service_key) ||
+      !isService(snapshot, slot.service_key) ||
       !employeeIds.has(slot.employee_id) ||
       !Number.isInteger(slot.weekday) ||
       slot.weekday < 1 ||
@@ -321,7 +323,7 @@ export function planningNotesForWeek(
   weekStart: string
 ): PlanningNoteDraft[] {
   return snapshot.weekly_notes.flatMap((note) => {
-    if (note.week_start !== weekStart || !isService(note.service_key)) return [];
+    if (note.week_start !== weekStart || !isService(snapshot, note.service_key)) return [];
     return [{
       weekday: note.weekday,
       serviceKey: note.service_key,
@@ -373,9 +375,10 @@ function defaultServiceTimes(
   const row = snapshot.opening_hours.find(
     (hours) => hours.weekday === weekday(date) && hours.service_key === serviceKey
   );
+  const defaults = serviceDefaultHours(serviceKey, snapshot.services);
   return {
-    start: clockLabel(row?.opens_at) || (serviceKey === 'lunch' ? '12:00' : '18:00'),
-    end: clockLabel(row?.closes_at) || (serviceKey === 'lunch' ? '15:00' : '23:00')
+    start: clockLabel(row?.opens_at) || defaults.start,
+    end: clockLabel(row?.closes_at) || defaults.end
   };
 }
 
@@ -530,7 +533,7 @@ export function coverageIssues(
       const requirement =
         matching.find((item) => item.weekday === opening.weekday) ??
         matching.find((item) => item.weekday === null || item.coverage_scope === 'default');
-      if (!requirement || !isService(opening.service_key)) continue;
+      if (!requirement || !isService(snapshot, opening.service_key)) continue;
       const planned = shifts.filter(
         (shift) =>
           shift.weekday === opening.weekday &&
@@ -600,7 +603,7 @@ export function buildPlanningWeek(input: {
     .map((employee) => {
       let weekHours = 0;
       const cells: WeekCell[] = days.map((day) => {
-        const slots: WeekSlot[] = SERVICES.map((serviceKey) => {
+        const slots: WeekSlot[] = activeServiceKeys(input.snapshot.services).map((serviceKey) => {
           const key = `${employee.id}|${day.date}|${serviceKey}`;
           const shift =
             input.draft.find(

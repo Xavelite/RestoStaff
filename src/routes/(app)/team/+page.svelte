@@ -12,18 +12,18 @@
   import { workspace } from '$lib/workspace/workspace.svelte';
   import type { EmployeeDraft } from '$lib/team/team-model';
   import { newEmployeeDraft } from '$lib/team/team-model';
-  import { useClassicTeamContext } from '$lib/classic/classic-workspace-context';
-  import ClassicCellBadge from '$lib/classic/ClassicCellBadge.svelte';
-  import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
-  import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
-  import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
-  import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
-  import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
-  import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
-  import EmployeeInlineEditor from '$lib/classic/EmployeeInlineEditor.svelte';
-  import ClassicPicker from '$lib/classic/ClassicPicker.svelte';
-  import { teamDraft } from '$lib/classic/classic-team.svelte';
-  import { createTableView, peopleCountLabel } from '$lib/classic/table-view.svelte';
+  import { useWorkspaceTeamContext } from '$lib/workspace-ui/workspace-context';
+  import WorkspaceCellBadge from '$lib/workspace-ui/WorkspaceCellBadge.svelte';
+  import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
+  import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
+  import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
+  import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
+  import WorkspaceColChooser from '$lib/workspace-ui/WorkspaceColChooser.svelte';
+  import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
+  import EmployeeInlineEditor from '$lib/workspace-ui/EmployeeInlineEditor.svelte';
+  import WorkspacePicker from '$lib/workspace-ui/WorkspacePicker.svelte';
+  import { teamDraft } from '$lib/workspace-ui/workspace-team.svelte';
+  import { createTableView, peopleCountLabel } from '$lib/workspace-ui/table-view.svelte';
   import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
   import { areaInstanceLabelMap } from '$lib/restaurant/area-instance';
 
@@ -427,7 +427,7 @@
   const accessIcon = (state: string): 'check' | 'clock' | 'minus' | 'lock' =>
     state === 'active' ? 'check' : state === 'invited' ? 'clock' : state === 'not_invited' ? 'minus' : 'lock';
 
-  const readTeamContext = useClassicTeamContext();
+  const readTeamContext = useWorkspaceTeamContext();
   const team = $derived(readTeamContext());
 </script>
 
@@ -450,7 +450,7 @@
       <div class="cl-notice" role="alert">{teamDraft.supplementaryError}</div>
     {/if}
 
-    <ClassicTablePanel dirty={team.dirty} saving={team.saving} canSave={team.canSave} onsave={() => void savePage(team.save).catch(() => undefined)} ondiscard={() => discardPage(team.discard)}>
+    <WorkspaceTablePanel dirty={team.dirty} saving={team.saving} canSave={team.canSave} onsave={() => void savePage(team.save).catch(() => undefined)} ondiscard={() => discardPage(team.discard)}>
       {#snippet meta()}
         <span><i class="dot"></i>{peopleCountLabel(rosterTotal)}</span>
         <span><i class="dot is-green"></i>{t('{count} active', { count: activeCount })}</span>
@@ -468,7 +468,7 @@
           <thead>
             <tr>
               <th class="has-menu">
-                <ClassicPrimaryColMenu
+                <WorkspacePrimaryColMenu
                   label={t('Employee')}
                   sortable
                   sortDir={view.sortDir('employee')}
@@ -489,17 +489,17 @@
               </th>
               {#if shown('position')}
                 <th class="has-menu">
-                  <ClassicColMenu label={t('Position')} sortable sortDir={view.sortDir('position')} onsort={(dir) => view.setSort('position', dir)}
+                  <WorkspaceColMenu label={t('Position')} sortable sortDir={view.sortDir('position')} onsort={(dir) => view.setSort('position', dir)}
                     filterKind="values" filterValues={positionValues} selected={view.excluded('position')}
                     ontoggle={(value) => view.toggleValue('position', value)}
                     onselectall={(on) => view.selectAll('position', on, positionValues)} />
                 </th>
               {/if}
-              {#if shown('email')}<th class="has-menu"><ClassicColMenu label={t('Email')} sortable sortDir={view.sortDir('email')} onsort={(dir) => view.setSort('email', dir)} filterKind="text" searchValue={view.search('email')} onsearch={(value) => view.setSearch('email', value)} /></th>{/if}
-              {#if shown('phone')}<th class="has-menu"><ClassicColMenu label={t('Phone')} sortable sortDir={view.sortDir('phone')} onsort={(dir) => view.setSort('phone', dir)} filterKind="text" searchValue={view.search('phone')} onsearch={(value) => view.setSearch('phone', value)} /></th>{/if}
+              {#if shown('email')}<th class="has-menu"><WorkspaceColMenu label={t('Email')} sortable sortDir={view.sortDir('email')} onsort={(dir) => view.setSort('email', dir)} filterKind="text" searchValue={view.search('email')} onsearch={(value) => view.setSearch('email', value)} /></th>{/if}
+              {#if shown('phone')}<th class="has-menu"><WorkspaceColMenu label={t('Phone')} sortable sortDir={view.sortDir('phone')} onsort={(dir) => view.setSort('phone', dir)} filterKind="text" searchValue={view.search('phone')} onsearch={(value) => view.setSearch('phone', value)} /></th>{/if}
               {#if shown('contract')}
                 <th class="has-menu">
-                  <ClassicColMenu label={t('Contract')} sortable sortDir={view.sortDir('contract')} onsort={(dir) => view.setSort('contract', dir)}
+                  <WorkspaceColMenu label={t('Contract')} sortable sortDir={view.sortDir('contract')} onsort={(dir) => view.setSort('contract', dir)}
                     filterKind="values" filterValues={contractValues} selected={view.excluded('contract')}
                     ontoggle={(value) => view.toggleValue('contract', value)}
                     onselectall={(on) => view.selectAll('contract', on, contractValues)} />
@@ -507,7 +507,7 @@
               {/if}
               {#if shown('access')}
                 <th class="has-menu">
-                  <ClassicColMenu label={t('App access')} sortable sortDir={view.sortDir('access')} onsort={(dir) => view.setSort('access', dir)}
+                  <WorkspaceColMenu label={t('App access')} sortable sortDir={view.sortDir('access')} onsort={(dir) => view.setSort('access', dir)}
                     filterKind="values" filterValues={accessValues} selected={view.excluded('access')}
                     ontoggle={(value) => view.toggleValue('access', value)}
                     onselectall={(on) => view.selectAll('access', on, accessValues)} />
@@ -515,13 +515,13 @@
               {/if}
               {#if shown('status')}
                 <th class="has-menu">
-                  <ClassicColMenu label={t('Status')} sortable sortDir={view.sortDir('status')} onsort={(dir) => view.setSort('status', dir)}
+                  <WorkspaceColMenu label={t('Status')} sortable sortDir={view.sortDir('status')} onsort={(dir) => view.setSort('status', dir)}
                     filterKind="values" filterValues={statusValues} selected={view.excluded('status')}
                     ontoggle={(value) => view.toggleValue('status', value)}
                     onselectall={(on) => view.selectAll('status', on, statusValues)} />
                 </th>
               {/if}
-              <th class="chooser-col"><ClassicColChooser columns={view.columns} hidden={view.hidden} ontoggle={view.toggleColumn} /></th>
+              <th class="chooser-col"><WorkspaceColChooser columns={view.columns} hidden={view.hidden} ontoggle={view.toggleColumn} /></th>
             </tr>
           </thead>
           {#if !total}
@@ -545,7 +545,7 @@
                       <WorkspaceAreaIcon icon={'icon' in groupArea ? groupArea.icon : groupArea.icon_key} color={groupArea.color} size={15} compact />
                     {/if}
                   {/snippet}
-                  <ClassicGroupRow
+                  <WorkspaceGroupRow
                     colspan={colCount}
                     label={group.label}
                     meta={peopleCountLabel(group.employees.length)}
@@ -584,6 +584,7 @@
                           style={`--position-color:${positionColor.get(employee.jobFunctionIds[0] ?? '') ?? 'var(--cl-line-strong)'}`}
                           type="button"
                           disabled={!team.editable}
+                          title={team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position yet')}
                           aria-label={`${t('Position')} · ${employee.displayName}`}
                           aria-haspopup="dialog"
                           aria-expanded={positionMenuEmployeeId === employee.id}
@@ -662,7 +663,7 @@
                       {/if}
                     </td>{/if}
                     {#if shown('contract')}<td>
-                      <ClassicPicker
+                      <WorkspacePicker
                         value={employee.contractTypeId}
                         options={contractOptions}
                         disabled={!team.editable}
@@ -670,10 +671,10 @@
                         onchange={(next) => teamDraft.update(employee.id, { contractTypeId: next })}
                       />
                     </td>{/if}
-                    {#if shown('access')}<td><ClassicCellBadge label={ACCESS_LABEL[employee.accessState] ?? employee.accessState} tone={accessTone[employee.accessState] ?? 'warning'} icon={accessIcon(employee.accessState)} /></td>{/if}
-                    {#if shown('status')}<td><ClassicCellBadge label={employee.active ? 'Active' : 'Archived'} tone={employee.active ? 'success' : 'warning'} icon={employee.active ? 'check' : 'clock'} /></td>{/if}
+                    {#if shown('access')}<td><WorkspaceCellBadge label={ACCESS_LABEL[employee.accessState] ?? employee.accessState} tone={accessTone[employee.accessState] ?? 'warning'} icon={accessIcon(employee.accessState)} /></td>{/if}
+                    {#if shown('status')}<td><WorkspaceCellBadge label={employee.active ? 'Active' : 'Archived'} tone={employee.active ? 'success' : 'warning'} icon={employee.active ? 'check' : 'clock'} /></td>{/if}
                     <td class="menu-cell">
-                      <ClassicRowMenu
+                      <WorkspaceRowMenu
                         disabled={!team.editable}
                         items={isFresh
                           ? [{ label: t('Remove'), tone: 'danger', onselect: () => removeDraftEmployee(employee.id) }]
@@ -689,7 +690,7 @@
         </table>
       </div>
       {/snippet}
-    </ClassicTablePanel>
+    </WorkspaceTablePanel>
 
     {#if positionMenuEmployee}
       <div
@@ -734,7 +735,7 @@
                 <span>{name}</span>
               </label>
               {#if positionSelected && compatibleAreas.length}
-                <ClassicPicker
+                <WorkspacePicker
                   value={positionMenuEmployee.jobFunctionAreaIds[id] ?? ''}
                   options={[
                     { value: '', label: t('Any linked area') },
@@ -780,7 +781,7 @@
   .inline-cell.is-empty { color: var(--cl-accent); font-size: 12px; font-weight: var(--rst-fw-medium); }
   .inline-cell:disabled { cursor: default; }
   .inline-editor { border-color: var(--cl-accent); background: var(--cl-surface); box-shadow: 0 0 0 2px var(--cl-accent-wash); }
-  .posmenu__trigger { min-width: 118px; max-width: 230px; display: inline-grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 7px; padding: 6px 9px; border: 1px solid color-mix(in srgb, var(--position-color) 28%, var(--cl-line)); border-radius: 6px; background: color-mix(in srgb, var(--position-color) 7%, var(--cl-surface)); color: var(--cl-ink); font: inherit; font-size: 13px; text-align: left; cursor: pointer; white-space: nowrap; }
+  .posmenu__trigger { min-width: 170px; max-width: 230px; display: inline-grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 7px; padding: 6px 9px; border: 1px solid color-mix(in srgb, var(--position-color) 28%, var(--cl-line)); border-radius: 6px; background: color-mix(in srgb, var(--position-color) 7%, var(--cl-surface)); color: var(--cl-ink); font: inherit; font-size: 13px; text-align: left; cursor: pointer; white-space: nowrap; }
   .posmenu__trigger:hover:not(:disabled), .posmenu__trigger[aria-expanded='true'] { border-color: color-mix(in srgb, var(--position-color) 60%, var(--cl-line)); background: color-mix(in srgb, var(--position-color) 10%, var(--cl-surface)); }
   .posmenu__trigger:focus-visible { outline: 2px solid color-mix(in srgb, var(--cl-accent) 42%, transparent); outline-offset: 2px; }
   .posmenu__trigger:disabled { cursor: default; }

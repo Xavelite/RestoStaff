@@ -27,6 +27,22 @@ export type AdminFeedback = {
   createdAt: string;
 };
 
+export type AdminPilotAccessRequest = {
+  authUserId: string;
+  email: string;
+  status: 'pending' | 'approved' | 'declined';
+  requestNote: string;
+  reviewNote: string;
+  requestedAt: string;
+  reviewedAt: string | null;
+};
+
+export type AdminRestaurantEntitlements = {
+  restaurantId: string;
+  restaurantName: string;
+  modules: Record<string, 'enabled' | 'preview' | 'disabled'>;
+};
+
 // Platform-admin RPCs authenticate with the caller's manager session; the
 // server re-checks require_platform_admin on every call, so a hidden route is
 // never the security boundary.
@@ -119,4 +135,77 @@ export async function updateAdminFeedback(
     p_admin_note: note
   });
   if (error) throw new Error(error.message);
+}
+
+export async function getAdminPilotAccessRequests(): Promise<AdminPilotAccessRequest[]> {
+  const { data, error } = await supabase.rpc('admin_list_pilot_access_requests');
+  if (error) throw new Error(error.message);
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((raw) => {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return [];
+    const row = raw as JsonRecord;
+    const status =
+      row.status === 'approved' || row.status === 'declined'
+        ? row.status
+        : 'pending';
+    return [{
+      authUserId: String(row.auth_user_id ?? ''),
+      email: String(row.email ?? ''),
+      status,
+      requestNote: String(row.request_note ?? ''),
+      reviewNote: String(row.review_note ?? ''),
+      requestedAt: String(row.requested_at ?? ''),
+      reviewedAt: typeof row.reviewed_at === 'string' ? row.reviewed_at : null
+    }];
+  });
+}
+
+export async function reviewPilotAccess(
+  authUserId: string,
+  approved: boolean,
+  note = ''
+): Promise<void> {
+  const { error } = await supabase.rpc('admin_review_pilot_access', {
+    p_auth_user_id: authUserId,
+    p_approved: approved,
+    p_note: note.trim() || undefined
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function getAdminRestaurantEntitlements(): Promise<AdminRestaurantEntitlements[]> {
+  const result = await adminRpc('admin_restaurant_module_entitlements');
+  const rows = Array.isArray(result) ? result : [];
+  return rows.flatMap((raw) => {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return [];
+    const row = raw as JsonRecord;
+    const modules =
+      row.modules && typeof row.modules === 'object' && !Array.isArray(row.modules)
+        ? Object.fromEntries(
+            Object.entries(row.modules as JsonRecord).filter(
+              (entry): entry is [string, 'enabled' | 'preview' | 'disabled'] =>
+                entry[1] === 'enabled' ||
+                entry[1] === 'preview' ||
+                entry[1] === 'disabled'
+            )
+          )
+        : {};
+    return [{
+      restaurantId: String(row.restaurant_id ?? ''),
+      restaurantName: String(row.restaurant_name ?? ''),
+      modules
+    }];
+  });
+}
+
+export async function setRestaurantModuleEntitlement(
+  restaurantId: string,
+  moduleKey: string,
+  state: 'enabled' | 'preview' | 'disabled'
+): Promise<void> {
+  await adminRpc('admin_set_restaurant_module_entitlement', {
+    p_restaurant_id: restaurantId,
+    p_module_key: moduleKey,
+    p_state: state
+  });
 }

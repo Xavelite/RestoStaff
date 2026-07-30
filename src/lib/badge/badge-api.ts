@@ -1,5 +1,6 @@
 import { PUBLIC_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_URL } from '$env/static/public';
 import { supabase } from '$lib/supabase/client';
+import { serviceLabel, type ServiceKey } from '$lib/calendar/date';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -25,7 +26,7 @@ export type BadgeRosterEmployee = {
   employeeId: string;
   displayName: string;
   clockedIn: boolean;
-  serviceKey?: 'lunch' | 'evening';
+  serviceKey?: ServiceKey;
   lastAction?: 'in' | 'out';
   lastLocalTime?: string;
 };
@@ -50,7 +51,7 @@ export type BadgeResult = {
   action: 'in' | 'out';
   localTime: string;
   timezone: string;
-  serviceKey: 'lunch' | 'evening';
+  serviceKey: ServiceKey;
   serviceName: string;
   resumed: boolean;
   breakMinutesAdded: number;
@@ -65,7 +66,9 @@ async function listBadgeRoster(restaurantId: string): Promise<BadgeRosterEmploye
     const row = item as JsonRecord;
     const employeeId = String(row.employee_id ?? '');
     const displayName = String(row.display_name ?? '');
-    const serviceKey = row.service_key === 'evening' ? 'evening' : row.service_key === 'lunch' ? 'lunch' : undefined;
+    const serviceKey = typeof row.service_key === 'string' && row.service_key
+      ? row.service_key
+      : undefined;
     const lastAction = row.last_action === 'in' ? 'in' : row.last_action === 'out' ? 'out' : undefined;
     return employeeId && displayName
       ? [{
@@ -116,8 +119,8 @@ async function recordBadge(input: {
     action: result.action === 'out' ? 'out' : 'in',
     localTime: String(result.local_time ?? ''),
     timezone: String(result.timezone ?? ''),
-    serviceKey: result.service_key === 'evening' ? 'evening' : 'lunch',
-    serviceName: String(result.service_name ?? (result.service_key === 'evening' ? 'Evening' : 'Lunch')),
+    serviceKey: String(result.service_key ?? ''),
+    serviceName: String(result.service_name ?? serviceLabel(String(result.service_key ?? ''))),
     resumed: result.resumed === true,
     breakMinutesAdded: Math.max(0, Number(result.break_minutes_added ?? 0)),
     totalBreakMinutes: Math.max(0, Number(result.total_break_minutes ?? 0))

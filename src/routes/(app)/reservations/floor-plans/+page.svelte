@@ -1,8 +1,8 @@
 <script lang="ts">
   import ReservationFloorPlansWorkspace from '$lib/reservations/ReservationFloorPlansWorkspace.svelte';
-  import ClassicPage from '$lib/classic/ClassicPage.svelte';
+  import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
 </script>
 
-<ClassicPage>
+<WorkspacePage>
   <ReservationFloorPlansWorkspace />
-</ClassicPage>
+</WorkspacePage>

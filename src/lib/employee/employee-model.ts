@@ -10,8 +10,8 @@ import {
   type ServiceSlotState
 } from '../calendar/service-slot.ts';
 import {
-  SERVICES,
   WEEKDAYS,
+  activeServiceKeys,
   addDays,
   clockLabel,
   clockMinutes,
@@ -21,6 +21,7 @@ import {
   hoursBetweenInstants,
   mondayFor,
   monthLabel,
+  serviceDefaultHours,
   weekLabel,
   type ServiceKey
 } from '../calendar/date.ts';
@@ -130,8 +131,7 @@ export function publishedShiftsForWeek(
   return snapshot.planned_shifts
     .filter((shift) => shift.employee_id === employeeId && shift.week_start === weekStart)
     .map((shift) => {
-      const serviceKey: ServiceKey =
-        shift.service_key === 'evening' ? 'evening' : 'lunch';
+      const serviceKey = shift.service_key;
       return {
         id: shift.id,
         date: dateForWeekday(weekStart, shift.weekday),
@@ -165,13 +165,13 @@ function contractShiftsForWeek(
       (slot) =>
         slot.active &&
         slot.employee_id === employeeId &&
-        (slot.service_key === 'lunch' || slot.service_key === 'evening') &&
+        snapshot.services.some((service) => service.service_key === slot.service_key) &&
         Number.isInteger(slot.weekday) &&
         slot.weekday >= 1 &&
         slot.weekday <= 7
     )
     .flatMap((slot) => {
-      const serviceKey: ServiceKey = slot.service_key === 'evening' ? 'evening' : 'lunch';
+      const serviceKey = slot.service_key;
       const date = dateForWeekday(weekStart, slot.weekday);
       const dropped = (snapshot.work_pattern_exceptions ?? []).some(
         (row) =>
@@ -179,8 +179,9 @@ function contractShiftsForWeek(
           workPatternExceptionOverlaps(row, employeeId, date, serviceKey)
       );
       if (dropped) return [];
-      const startsAt = clockLabel(slot.starts_at) || (serviceKey === 'lunch' ? '12:00' : '18:00');
-      const endsAt = clockLabel(slot.ends_at) || (serviceKey === 'lunch' ? '15:00' : '23:00');
+      const defaults = serviceDefaultHours(serviceKey, snapshot.services);
+      const startsAt = clockLabel(slot.starts_at) || defaults.start;
+      const endsAt = clockLabel(slot.ends_at) || defaults.end;
       return [
         {
           id: `contract-${slot.id}`,
@@ -235,7 +236,7 @@ export function availabilityForWeek(
   weekStart: string
 ): AvailabilityDraft[] {
   return Array.from({ length: 7 }, (_, index) => index + 1).flatMap((weekday) =>
-    SERVICES.map((serviceKey) => {
+    activeServiceKeys(snapshot.services).map((serviceKey) => {
       const row = snapshot.employee_availability_slots.find(
         (slot) =>
           slot.employee_id === employeeId &&
@@ -318,7 +319,7 @@ export function buildEmployeeWeek(input: {
   });
   const slotsByKey = new Map<string, EmployeeWeekSlot>();
   for (const day of days) {
-    for (const serviceKey of SERVICES) {
+    for (const serviceKey of activeServiceKeys(input.snapshot.services)) {
       const key = `${input.employeeId}|${day.date}|${serviceKey}`;
       const shift =
         shifts.find((item) => item.date === day.date && item.serviceKey === serviceKey) ??
@@ -455,7 +456,7 @@ export function employeeMonth(
     selectedDate,
     today,
     slotsForDate: (date) =>
-      SERVICES.map((serviceKey) => {
+      activeServiceKeys(snapshot.services).map((serviceKey) => {
         const presentation = withServiceDraft(
           projectServiceSlot(
             resolveWorkspaceServiceSlot({

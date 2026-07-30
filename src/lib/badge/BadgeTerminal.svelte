@@ -80,16 +80,22 @@
 
   onMount(() => {
     const clock = window.setInterval(() => (now = new Date()), 1000);
+    const heartbeat = window.setInterval(() => {
+      if (document.visibilityState === 'visible' && !loading) void loadRoster(true);
+    }, 60_000);
     void loadRoster();
     return () => {
       window.clearInterval(clock);
+      window.clearInterval(heartbeat);
       if (resultTimer) window.clearTimeout(resultTimer);
     };
   });
 
-  async function loadRoster() {
-    loading = true;
-    feedback = '';
+  async function loadRoster(silent = false) {
+    if (!silent) {
+      loading = true;
+      feedback = '';
+    }
     try {
       const employees = await api.listRoster();
       roster = employees;
@@ -105,7 +111,7 @@
       feedback = friendlyError(error, 'badge');
       feedbackTone = 'danger';
     } finally {
-      loading = false;
+      if (!silent) loading = false;
     }
   }
 
@@ -248,7 +254,7 @@
           <span class="eyebrow">{t('Team')}</span>
           <strong id="roster-title">{t('Who are you?')}</strong>
         </div>
-        <button type="button" class="refresh" aria-label={t('Refresh employee list')} title={t('Refresh')} disabled={loading} onclick={loadRoster}>
+        <button type="button" class="refresh" aria-label={t('Refresh employee list')} title={t('Refresh')} disabled={loading} onclick={() => void loadRoster()}>
           &#8635;
         </button>
       </div>

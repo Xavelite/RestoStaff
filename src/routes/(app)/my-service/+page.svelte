@@ -7,6 +7,7 @@
     saveWorkPatternException
   } from '$lib/api/mutations';
   import {
+    activeServiceKeys,
     addDays,
     formatHours,
     localDateTimeParts,
@@ -16,7 +17,7 @@
     weekLabel
   } from '$lib/calendar/date';
   import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
-  import ClassicPage from '$lib/classic/ClassicPage.svelte';
+  import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
   import EmployeeSlotDrawer from '$lib/employee/EmployeeSlotDrawer.svelte';
   import {
     employeeSlotActionReason,
@@ -119,7 +120,13 @@
   );
   const slots = $derived([...grid.slotsByKey.values()]);
   const selectedSlot = $derived(grid.slotsByKey.get(selectedKey) ?? null);
-  const timeOffRanges = $derived(groupTimeOffRanges(selectedTimeOffSlots));
+  const timeOffRanges = $derived(
+    groupTimeOffRanges(selectedTimeOffSlots, activeServiceKeys(snapshot?.services))
+  );
+
+  function serviceName(serviceKey: string): string {
+    return serviceLabel(serviceKey, snapshot?.services);
+  }
   const defaultTimeOffType = $derived(
     snapshot ? defaultEmployeeTimeOffType(snapshot.absence_types) : null
   );
@@ -518,7 +525,7 @@
 
   function slotTime(slot: EmployeeWeekSlot) {
     if (slot.shift) return `${slot.shift.startsAt}–${slot.shift.endsAt}`;
-    return t(serviceLabel(slot.serviceKey));
+    return t(serviceName(slot.serviceKey));
   }
 
   function slotTitle(slot: EmployeeWeekSlot) {
@@ -554,7 +561,7 @@
 
   function slotAriaLabel(slot: EmployeeWeekSlot) {
     const meta = slotMeta(slot);
-    return `${dayName(slot.date)} ${slot.date}, ${t(serviceLabel(slot.serviceKey))}: ${slotTitle(slot)}, ${slotTime(slot)}${meta ? `, ${meta}` : ''}`;
+    return `${dayName(slot.date)} ${slot.date}, ${t(serviceName(slot.serviceKey))}: ${slotTitle(slot)}, ${slotTime(slot)}${meta ? `, ${meta}` : ''}`;
   }
 
   function slotVisual(slot: EmployeeWeekSlot) {
@@ -619,13 +626,13 @@
 {/snippet}
 
 {#if snapshot && employee}
-  <ClassicPage actions={pageActions}>
+  <WorkspacePage actions={pageActions}>
     <div class="cl-stats employee-stats">
       <div class="cl-stat"><span class="cl-stat__label">{t('Planned shifts')}</span><span class="cl-stat__value">{plannedSlots.length}</span></div>
       <div class="cl-stat"><span class="cl-stat__label">{t('Pending requests')}</span><span class="cl-stat__value">{pendingRequestSlots.length}</span></div>
       <div class="cl-stat summary-stat">
         <span class="cl-stat__label">{t(nextService ? 'Next service' : weekGlanceSummary.label)}</span>
-        <span class="summary-stat__value">{nextService ? `${dayName(nextService.date)} · ${t(serviceLabel(nextService.serviceKey))} ${nextService.shift?.startsAt ?? ''}` : t(weekGlanceSummary.value)}</span>
+        <span class="summary-stat__value">{nextService ? `${dayName(nextService.date)} · ${t(serviceName(nextService.serviceKey))} ${nextService.shift?.startsAt ?? ''}` : t(weekGlanceSummary.value)}</span>
       </div>
     </div>
 
@@ -644,7 +651,7 @@
               {#each slotsForDay(day.date) as slot (slot.key)}
                 <div class={`agenda-slot is-${slotVisual(slot)}`} class:is-selected={isSlotDirty(slot.key)}>
                   <button type="button" class="agenda-slot__tap" aria-label={slotAriaLabel(slot)} onclick={() => primaryTap(slot.key)}>
-                    <b>{serviceDisplay(slot.serviceKey).icon}</b>
+                    <b>{serviceDisplay(slot.serviceKey, snapshot?.services).icon}</b>
                     <span>
                       <strong>{slotTitle(slot)}</strong>
                       <small>{slotTime(slot)}{#if slotMeta(slot)} · {slotMeta(slot)}{/if}</small>
@@ -654,7 +661,7 @@
                     <button
                       type="button"
                       class="agenda-slot__more"
-                      aria-label={t('More options for {service} on {date}', { service: t(serviceLabel(slot.serviceKey)), date: slot.date })}
+                      aria-label={t('More options for {service} on {date}', { service: t(serviceName(slot.serviceKey)), date: slot.date })}
                       onclick={() => openSlotDetails(slot.key)}
                     >⋯</button>
                   {/if}
@@ -675,6 +682,7 @@
       availabilityState={selectedSlot?.availability ?? ''}
       isTimeOffSelected={selectedSlot ? timeOffSelectedKeySet.has(selectedSlot.key) : false}
       isChangeSelected={false}
+      services={snapshot?.services ?? []}
       absenceTypes={snapshot.absence_types}
       bind:absenceTypeId
       bind:comment={actionComment}
@@ -685,7 +693,7 @@
       onCancelAbsence={cancelAbsence}
       onCancelChange={cancelWorkPatternException}
     />
-  </ClassicPage>
+  </WorkspacePage>
 {/if}
 
 <style>

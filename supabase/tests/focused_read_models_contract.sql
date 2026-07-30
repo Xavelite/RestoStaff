@@ -11,15 +11,15 @@ declare
   v_restaurant jsonb;
   v_routine regprocedure;
 begin
-  if to_regprocedure('public.get_workspace_bootstrap(uuid)') is null
+  if to_regprocedure('public.get_workspace_bootstrap_v2(uuid)') is null
      or to_regprocedure(
        'public.get_manager_operations_read_model(uuid,date,date)'
      ) is null
      or to_regprocedure(
        'public.get_employee_operations_read_model(uuid,date,date)'
      ) is null
-     or to_regprocedure('public.get_team_read_model(uuid)') is null
-     or to_regprocedure('public.get_restaurant_read_model(uuid)') is null then
+     or to_regprocedure('public.get_team_read_model_v2(uuid)') is null
+     or to_regprocedure('public.get_restaurant_read_model_v2(uuid)') is null then
     raise exception 'Focused public read-model contracts are incomplete.';
   end if;
 
@@ -34,16 +34,27 @@ begin
   end if;
 
   foreach v_routine in array array[
-    'public.get_workspace_bootstrap(uuid)'::regprocedure,
+    'public.get_workspace_bootstrap_v2(uuid)'::regprocedure,
     'public.get_manager_operations_read_model(uuid,date,date)'::regprocedure,
     'public.get_employee_operations_read_model(uuid,date,date)'::regprocedure,
-    'public.get_team_read_model(uuid)'::regprocedure,
-    'public.get_restaurant_read_model(uuid)'::regprocedure
+    'public.get_team_read_model_v2(uuid)'::regprocedure,
+    'public.get_restaurant_read_model_v2(uuid)'::regprocedure
   ]
   loop
     if not has_function_privilege('authenticated', v_routine, 'EXECUTE')
        or has_function_privilege('anon', v_routine, 'EXECUTE') then
       raise exception 'Invalid browser grant for %.', v_routine;
+    end if;
+  end loop;
+
+  foreach v_routine in array array[
+    'public.get_workspace_bootstrap(uuid)'::regprocedure,
+    'public.get_team_read_model(uuid)'::regprocedure,
+    'public.get_restaurant_read_model(uuid)'::regprocedure
+  ]
+  loop
+    if has_function_privilege('authenticated', v_routine, 'EXECUTE') then
+      raise exception 'Legacy read-model RPC remains browser-exposed: %.', v_routine;
     end if;
   end loop;
 

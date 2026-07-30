@@ -16,6 +16,7 @@ function object(value: unknown): JsonObject {
 type MutationAck = {
   ok: true;
   restaurantId: string;
+  workspaceRevision?: number;
   entityId?: string;
   eventId?: string;
   fromStatus?: string | null;
@@ -30,6 +31,11 @@ function mutationAck(value: Json): MutationAck {
   return {
     ok: true,
     restaurantId: result.restaurant_id,
+    workspaceRevision:
+      typeof result.workspace_revision === 'number' &&
+      Number.isSafeInteger(result.workspace_revision)
+        ? result.workspace_revision
+        : undefined,
     entityId:
       typeof result.absence_id === 'string'
         ? result.absence_id
@@ -223,10 +229,12 @@ export type TeamSavePayload = {
 
 export async function saveTeam(
   restaurantId: string,
+  expectedRevision: number,
   payload: TeamSavePayload
 ): Promise<MutationAck> {
-  const data = await rpcJson('save_team_workspace', {
+  const data = await rpcJson('save_team_workspace_v2', {
     p_restaurant_id: restaurantId,
+    p_expected_revision: expectedRevision,
     p_employees: payload.employees,
     p_contacts: payload.contacts,
     p_legal_profiles: payload.legalProfiles,
@@ -243,6 +251,7 @@ export async function saveTeam(
 export type RestaurantSavePayload = {
   restaurant: JsonObject;
   settings: JsonObject;
+  services: Json[];
   jobFunctions: Json[];
   areas: Json[];
   openingHours: Json[];
@@ -252,12 +261,15 @@ export type RestaurantSavePayload = {
 
 export async function saveRestaurant(
   restaurantId: string,
+  expectedRevision: number,
   payload: RestaurantSavePayload
 ): Promise<MutationAck> {
-  const data = await rpcJson('save_restaurant_model', {
+  const data = await rpcJson('save_restaurant_model_v3', {
     p_restaurant_id: restaurantId,
+    p_expected_revision: expectedRevision,
     p_restaurant: payload.restaurant,
     p_settings: payload.settings,
+    p_services: payload.services,
     p_job_functions: payload.jobFunctions,
     p_areas: payload.areas,
     p_opening_hours: payload.openingHours,
@@ -423,6 +435,7 @@ type OwnerWorkspaceSetup = {
   ownerEmail: string;
   restaurantName: string;
   city: string;
+  services: Json[];
   openingHours: Json[];
   areas: Json[];
   jobFunctions: Json[];
@@ -431,12 +444,13 @@ type OwnerWorkspaceSetup = {
 };
 
 export async function setupOwnerWorkspace(input: OwnerWorkspaceSetup): Promise<Json> {
-  return rpcJson('setup_owner_workspace', {
+  return rpcJson('setup_owner_workspace_v2', {
     p_owner_first_name: input.ownerFirstName,
     p_owner_last_name: input.ownerLastName,
     p_owner_email: input.ownerEmail,
     p_restaurant_name: input.restaurantName,
     p_city: input.city,
+    p_services: input.services,
     p_opening_hours: input.openingHours,
     p_areas: input.areas,
     p_job_functions: input.jobFunctions,

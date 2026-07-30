@@ -146,6 +146,17 @@
     "20260727163604_preserve_public_guest_identity.sql": "fc6b963c2f9b95692f6379a0a8129f4f6624fc9e11c7668d188f2f586db37fda",
     "20260727170604_floor_aware_area_labels_and_position_links.sql": "5c5de60ab1d7b3ffb0dd10e43ff1991f8a16a65466e3f978519ee08c2496d9bb",
     "20260727174708_reconcile_position_area_preferences.sql": "a2da0c906cbf8f37ddabd18cc2730fa25d2f5f14917c99105b0579939daf886c",
-    "20260729192250_restaurant_document_library.sql": "41aee719bfe14256f3e5675aba5802e3fa71ae88286a3cf413f3c96577b6ae1b"
+    "20260729192250_restaurant_document_library.sql": "41aee719bfe14256f3e5675aba5802e3fa71ae88286a3cf413f3c96577b6ae1b",
+    "20260729221639_pilot_governance_revisions_and_hr_scope.sql": "f9ef9e04a066775e1df0f87811af3a2a8ebeceb7c9f81a29d714c99fe0a56e0a",
+    "20260729222708_configurable_service_periods.sql": "7cf78f1b5c64dd08768d10e43eaf05a618eb152311b4c6d72353a617686c78e7",
+    "20260729224740_pilot_entitlements_and_atomic_venue_v2.sql": "fead8a2be0cf052a2e804e0690c0878e2a024b101160b7c0891ab1e2e8e0de2b",
+    "20260729231800_complete_configurable_service_boundaries.sql": "3982a5af5b68e83d634700f8a654c849fe4336f48a3af86e0179e3826577d3db",
+    "20260729233328_configurable_onboarding_services.sql": "806cfddfec775ef1e509eb6d2084679b891477a27ff139f5573fba5cdca64f47",
+    "20260729233500_quarantine_experimental_modules.sql": "3f91125384b0f8c0885b61d6195d66f178213a9f6c6ee782a1820a92949178c9",
+    "20260729233734_index_workspace_configuration_event_actor.sql": "f6a48110ae0a82a1398c2b2374299ff1743b29ae326c13ce3a245dd6464a29bf",
+    "20260729233938_routine_lint_final_cleanup.sql": "4b00ce811efe6893f42cc76386c924488ec600b2809250e9ca0779a9fcc3f26c",
+    "20260729234700_require_platform_admin_mfa.sql": "0ee8770e6bd6b8e8adc87f67971c646e1acc92f74cd9a589bc74d758035ce61d",
+    "20260729235112_reservation_floor_entitlement_boundary.sql": "1a4a437632819c1ca71a9613ddf34520ec968c8bd4b3ed645f642fe681ca2cab",
+    "20260730001717_retire_atomic_venue_browser_boundary.sql": "a583734a1a3c31b29d6ececb7dfef87c98ba8fea170ce4d211bd6a54b82f1dfd"
   }
 }

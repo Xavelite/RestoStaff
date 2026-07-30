@@ -3,6 +3,7 @@
   import { page } from '$app/state';
   import { setOwnBadgePin, updateOwnProfile } from '$lib/api/mutations';
   import { auth } from '$lib/auth/session.svelte';
+  import MfaSettings from '$lib/auth/MfaSettings.svelte';
   import ActionButton from '$lib/components/ActionButton.svelte';
   import Dialog from '$lib/components/Dialog.svelte';
   import FeedbackDialog from '$lib/feedback/FeedbackDialog.svelte';
@@ -22,7 +23,6 @@
   import { sound } from '$lib/sound/sound.svelte';
   import { supabase } from '$lib/supabase/client';
   import { confirmAction } from '$lib/ui/confirm.svelte';
-  import { workspaceTheme, type WorkspaceTheme } from '$lib/ui/theme.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { orderedMemberships, roleHome } from '$lib/workspace/workspace-selection';
@@ -93,14 +93,6 @@
       .catch((error) =>
         toasts.show(error instanceof Error ? error.message : String(error), 'danger')
       );
-  }
-
-  function launchKiosk() {
-    open = false;
-    void unsavedChanges.runOrRequest(async () => {
-      kiosk.lock();
-      await goto('/badge-terminal/terminal');
-    }).catch((error) => toasts.show(error instanceof Error ? error.message : String(error), 'danger'));
   }
 
   async function savePin() {
@@ -270,39 +262,18 @@
     onclick={() => (open = !open)}
   >
     <span>{(auth.user?.email ?? 'U').charAt(0).toUpperCase()}</span>
-    <i class="account-button__email">{auth.user?.email}</i>
+    <i class="account-button__email">{workspace.active?.restaurant_name ?? auth.user?.email}</i>
   </button>
   {#if open}
     <section class="menu account-menu">
       <header>
-        <strong>{auth.user?.email}</strong>
-        <small>{workspace.active?.restaurant_name} · {workspace.effectiveRole ?? t('Account')}</small>
+        <strong>{workspace.active?.restaurant_name ?? t('Account')}</strong>
+        <small>{auth.user?.email} · {workspace.effectiveRole ?? t('Account')}</small>
       </header>
-      <div class="appearance-switcher" aria-label={t('Appearance')}>
-        <span>{t('Appearance')}</span>
-        <div>
-          {#each [
-            { value: 'cobalt' as WorkspaceTheme, label: t('Cobalt'), color: '#315efb' },
-            { value: 'tangerine' as WorkspaceTheme, label: t('Tangerine'), color: '#ff5a1f' }
-          ] as theme (theme.value)}
-            <button
-              type="button"
-              class:is-active={workspaceTheme.value === theme.value}
-              aria-pressed={workspaceTheme.value === theme.value}
-              onclick={() => workspaceTheme.set(theme.value)}
-            >
-              <i style={`--theme-swatch:${theme.color}`} aria-hidden="true"></i>
-              <span>{theme.label}</span>
-              {#if workspaceTheme.value === theme.value}
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4 10-10" /></svg>
-              {/if}
-            </button>
-          {/each}
-        </div>
-      </div>
       {#if workspace.isPreview}
         <button type="button" onclick={() => { open = false; void exitPreviewSession(); }}>{t('Exit preview')}</button>
       {:else}
+        <span class="menu-label">{t('Workspace')}</span>
         {#if workspaceOptions.length > 1}
           <div class="workspace-switcher" aria-label={t('Workspace')}>
             <span>{t('Workspace')}</span>
@@ -322,24 +293,24 @@
         {#if canCreateRestaurant}
           <button type="button" onclick={createRestaurant}>{t('Add restaurant')}</button>
         {/if}
+        {#if canPreviewEmployees}
+          <button type="button" onclick={() => { open = false; previewPickerOpen = true; }}>{t('Preview as employee')}</button>
+        {/if}
+        <span class="menu-label">{t('Account')}</span>
         <button type="button" onclick={openAccount}>{t('Account settings')}</button>
         {#if !appInstall.installed}
           <button type="button" onclick={installApp}>{t('Install app')}</button>
         {/if}
         <button type="button" onclick={() => { open = false; pinDialogOpen = true; }}>{t('Change badge PIN')}</button>
-        {#if canPreviewEmployees}
-          <button type="button" onclick={() => { open = false; previewPickerOpen = true; }}>{t('Preview as employee')}</button>
-        {/if}
         <button type="button" onclick={() => sound.toggle()}>
           {sound.enabled ? t('Sound on') : t('Sound off')}
         </button>
-        {#if workspace.effectiveRole !== 'employee'}
-          <button type="button" onclick={launchKiosk}>{t('Open badge terminal')}</button>
-        {/if}
       {/if}
       {#if isPlatformAdmin}
+        <span class="menu-label">{t('Platform admin')}</span>
         <a class="account-menu__admin" href="/admin" onclick={() => (open = false)}>{t('Platform admin')}</a>
       {/if}
+      <span class="menu-label">{t('Support')}</span>
       <button type="button" onclick={() => { open = false; feedbackOpen = true; }}>{t('Send pilot feedback')}</button>
       <button class="danger" type="button" onclick={signOutOfApp}>{t('Sign out')}</button>
     </section>
@@ -409,6 +380,7 @@
       <span><strong>{t('App sounds')}</strong><small>{t('Play short cues for messages and completed actions.')}</small></span>
       <input type="checkbox" checked={sound.enabled} onchange={(event) => sound.setEnabled(event.currentTarget.checked)} />
     </label>
+    <MfaSettings />
   </div>
 </Dialog>
 
@@ -594,66 +566,14 @@
     background: var(--rst-state-selected-bg);
   }
   .workspace-switcher small { color: var(--rst-ui-muted); text-transform: capitalize; }
-  .appearance-switcher {
-    display: grid;
-    gap: 7px;
-    padding: 10px;
+  .menu-label {
+    display: block;
+    padding: 9px 14px 5px;
     border-bottom: 1px solid var(--rst-ui-divider-soft);
-  }
-  .appearance-switcher > span {
-    padding: 0 4px;
     color: var(--rst-ui-muted);
     font-size: 10px;
     font-weight: var(--rst-fw-bold);
-    letter-spacing: .04em;
     text-transform: uppercase;
-  }
-  .appearance-switcher > div {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 5px;
-  }
-  .appearance-switcher button {
-    min-width: 0;
-    min-height: 34px;
-    display: grid;
-    grid-template-columns: 10px minmax(0, 1fr) 14px;
-    align-items: center;
-    gap: 7px;
-    padding: 6px 8px;
-    border: 1px solid var(--rst-ui-line);
-    border-radius: var(--rst-ui-radius-md);
-    color: var(--rst-ui-muted);
-    background: var(--rst-ui-surface-panel);
-    font: inherit;
-    font-size: 11px;
-    font-weight: var(--rst-fw-medium);
-    text-align: left;
-    cursor: pointer;
-  }
-  .appearance-switcher button:hover {
-    border-color: var(--rst-ui-line-strong);
-    color: var(--rst-ui-text);
-    background: var(--rst-ui-hover-bg);
-  }
-  .appearance-switcher button:active {
-    transform: none;
-  }
-  .appearance-switcher button.is-active {
-    border-color: var(--rst-state-selected-border);
-    color: var(--rst-ui-text);
-    background: var(--rst-state-selected-bg);
-    font-weight: var(--rst-fw-bold);
-  }
-  .appearance-switcher button i {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    background: var(--theme-swatch);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-swatch) 13%, transparent);
-  }
-  .appearance-switcher button svg {
-    color: var(--rst-ui-action);
   }
   .pin-form { display: grid; gap: 12px; }
   .pin-form label { display: grid; gap: 6px; }

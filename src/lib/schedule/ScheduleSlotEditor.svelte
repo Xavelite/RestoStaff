@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { ManagerOperationsReadModel } from '$lib/api/workspace-snapshot';
   import { formatHours, hoursBetweenClocks, serviceLabel } from '$lib/calendar/date';
-  import ClassicServiceIcon from '$lib/classic/ClassicServiceIcon.svelte';
+  import WorkspaceServiceIcon from '$lib/workspace-ui/WorkspaceServiceIcon.svelte';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { areaInstanceLabelMap } from '$lib/restaurant/area-instance';
@@ -265,7 +265,7 @@
     <section class="shift-editor">
       <header class="shift-summary">
         <span class="shift-summary__icon is-{slot.serviceKey}">
-          <ClassicServiceIcon service={slot.serviceKey} size={18} />
+          <WorkspaceServiceIcon service={slot.serviceKey} size={18} />
         </span>
         <span class="shift-summary__range">
           <small>{t(serviceLabel(slot.serviceKey))}</small>

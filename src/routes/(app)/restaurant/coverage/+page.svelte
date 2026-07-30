@@ -1,23 +1,23 @@
 <script lang="ts">
   import { serviceLabel, WEEKDAYS, type ServiceKey } from '$lib/calendar/date';
   import { t } from '$lib/i18n/i18n.svelte';
-  import { useClassicRestaurantContext } from '$lib/classic/classic-workspace-context';
-  import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
-  import ClassicService from '$lib/classic/ClassicService.svelte';
-  import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
-  import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
-  import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
-  import ClassicPicker from '$lib/classic/ClassicPicker.svelte';
+  import { useWorkspaceRestaurantContext } from '$lib/workspace-ui/workspace-context';
+  import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
+  import WorkspaceService from '$lib/workspace-ui/WorkspaceService.svelte';
+  import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
+  import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
+  import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
+  import WorkspacePicker from '$lib/workspace-ui/WorkspacePicker.svelte';
   import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
-  import ClassicServiceIcon from '$lib/classic/ClassicServiceIcon.svelte';
-  import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
+  import WorkspaceServiceIcon from '$lib/workspace-ui/WorkspaceServiceIcon.svelte';
+  import { restaurantConfig } from '$lib/workspace-ui/workspace-restaurant.svelte';
   import type {
     CoverageDraft,
     JobFunctionDraft
   } from '$lib/restaurant/restaurant-model';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { buildAreaColorMap, buildPositionColorMap } from '$lib/ui/position-color';
-  import { createTableView } from '$lib/classic/table-view.svelte';
+  import { createTableView } from '$lib/workspace-ui/table-view.svelte';
   import { areaInstanceLabelMap } from '$lib/restaurant/area-instance';
 
   type Row = { areaId: string; jobFunctionId: string; serviceKey: ServiceKey };
@@ -56,6 +56,23 @@
       restaurantConfig.draft?.areas ?? []
     )
   );
+  const activeServices = $derived(
+    (restaurantConfig.draft?.services ?? []).filter((service) => service.active)
+  );
+
+  function serviceName(serviceKey: ServiceKey): string {
+    return (
+      restaurantConfig.draft?.services.find(
+        (service) => service.serviceKey === serviceKey
+      )?.name ?? serviceLabel(serviceKey)
+    );
+  }
+
+  $effect(() => {
+    if (activeServices.length && !activeServices.some((service) => service.serviceKey === mobileService)) {
+      mobileService = activeServices[0].serviceKey;
+    }
+  });
 
   function effectivePositionAreaIds(
     position: Pick<JobFunctionDraft, 'areaIds'>,
@@ -89,7 +106,7 @@
     const suggestions: Row[] = [];
     for (const position of draft.jobFunctions.filter((job) => job.active)) {
       for (const areaId of effectivePositionAreaIds(position, activeAreaIds)) {
-        for (const serviceKey of ['lunch', 'evening'] as ServiceKey[]) {
+        for (const { serviceKey } of draft.services.filter((service) => service.active)) {
           if (!exists(areaId, position.id, serviceKey)) {
             suggestions.push({ areaId, jobFunctionId: position.id, serviceKey });
           }
@@ -263,7 +280,7 @@
     const map = new Map<string, CoverageGroup>();
     for (const row of rows) {
       const key = view.groupBy === 'area' ? row.areaId : view.groupBy === 'position' ? row.jobFunctionId : row.serviceKey;
-      const label = view.groupBy === 'area' ? areaName.get(key) ?? t('Unknown') : view.groupBy === 'position' ? jobName.get(key) ?? t('Unknown') : t(serviceLabel(row.serviceKey));
+      const label = view.groupBy === 'area' ? areaName.get(key) ?? t('Unknown') : view.groupBy === 'position' ? jobName.get(key) ?? t('Unknown') : t(serviceName(row.serviceKey));
       const placementLabel =
         view.groupBy === 'area'
           ? placementAreaName(key) || label
@@ -297,7 +314,7 @@
     });
   }
 
-  const readRestaurantContext = useClassicRestaurantContext();
+  const readRestaurantContext = useWorkspaceRestaurantContext();
   const context = $derived(readRestaurantContext());
 </script>
 
@@ -319,19 +336,20 @@
     {@const groups = groupRows(ordered, areaName, jobName)}
     {@const areaValues = activeAreas.map((area) => ({ value: area.id, label: areaName.get(area.id) ?? area.name }))}
     {@const positionValues = activePositions.map((job) => ({ value: job.id, label: job.name }))}
-    {@const serviceValues = [
-      { value: 'lunch', label: t(serviceLabel('lunch')), service: 'lunch' as const },
-      { value: 'evening', label: t(serviceLabel('evening')), service: 'evening' as const }
-    ]}
+    {@const serviceValues = activeServices.map((service) => ({
+      value: service.serviceKey,
+      label: t(service.name),
+      service: service.serviceKey
+    }))}
 
-    <ClassicTablePanel dirty={context.dirty} saving={context.saving} canSave={context.canSave} onsave={() => void context.save().catch(() => undefined)} ondiscard={context.discard}>
+    <WorkspaceTablePanel dirty={context.dirty} saving={context.saving} canSave={context.canSave} onsave={() => void context.save().catch(() => undefined)} ondiscard={context.discard}>
       {#snippet meta()}<span><i class="dot"></i>{t('{count} staffing rules', { count: rows.length + pendingKeys.size })}</span>{/snippet}
       {#snippet actions()}
         {#if suggestedRows.length}
           <button
             class="cl-btn suggestion-action"
             type="button"
-            title={t('Create lunch and evening rules for linked areas and positions.')}
+            title={t('Create service rules for linked areas and positions.')}
             disabled={workspace.isPreview}
             onclick={stageSuggestions}
           >
@@ -344,14 +362,14 @@
         <div class="coverage-mobile">
           <div class="coverage-mobile__controls">
             <div class="coverage-mobile__services" aria-label={t('Service')}>
-              {#each ['lunch', 'evening'] as service (service)}
+              {#each activeServices as service (service.serviceKey)}
                 <button
-                  class:is-active={mobileService === service}
+                  class:is-active={mobileService === service.serviceKey}
                   type="button"
-                  onclick={() => (mobileService = service as ServiceKey)}
+                  onclick={() => (mobileService = service.serviceKey)}
                 >
-                  <ClassicServiceIcon service={service as ServiceKey} size={15} />
-                  {t(serviceLabel(service))}
+                  <WorkspaceServiceIcon service={service.serviceKey} size={15} />
+                  {t(service.name)}
                 </button>
               {/each}
             </div>
@@ -373,9 +391,9 @@
             {@const duplicate = Boolean(pendingKey) && pendingKey !== row.stagedKey && exists(row.areaId, row.jobFunctionId, row.serviceKey as ServiceKey)}
             <article class="coverage-mobile__rule is-new">
               <div class="coverage-mobile__new-fields">
-                <ClassicPicker value={row.areaId} placeholder="Choose area" ariaLabel={t('Area')} options={activeAreas.map((area) => ({ value: area.id, label: areaName.get(area.id) ?? area.name, color: areaColor.get(area.id), icon: areaIcon(area.id) }))} onchange={(next) => patchNewRow(row.tempId, { areaId: next })} />
-                <ClassicPicker value={row.jobFunctionId} placeholder="Choose position" ariaLabel={t('Position')} options={activePositions.filter((job) => positionSupportsArea(job, row.areaId)).map((job) => ({ value: job.id, label: job.name, color: positionColor.get(job.id), icon: positionIcon(job.id) }))} onchange={(next) => patchNewRow(row.tempId, { jobFunctionId: next })} />
-                <ClassicPicker value={row.serviceKey} placeholder="Choose service" ariaLabel={t('Service')} options={serviceValues} onchange={(next) => patchNewRow(row.tempId, { serviceKey: next as PendingService })} />
+                <WorkspacePicker value={row.areaId} placeholder="Choose area" ariaLabel={t('Area')} options={activeAreas.map((area) => ({ value: area.id, label: areaName.get(area.id) ?? area.name, color: areaColor.get(area.id), icon: areaIcon(area.id) }))} onchange={(next) => patchNewRow(row.tempId, { areaId: next })} />
+                <WorkspacePicker value={row.jobFunctionId} placeholder="Choose position" ariaLabel={t('Position')} options={activePositions.filter((job) => positionSupportsArea(job, row.areaId)).map((job) => ({ value: job.id, label: job.name, color: positionColor.get(job.id), icon: positionIcon(job.id) }))} onchange={(next) => patchNewRow(row.tempId, { jobFunctionId: next })} />
+                <WorkspacePicker value={row.serviceKey} placeholder="Choose service" ariaLabel={t('Service')} options={serviceValues} onchange={(next) => patchNewRow(row.tempId, { serviceKey: next as PendingService })} />
               </div>
               <label class="coverage-mobile__target">
                 <span>{t(WEEKDAYS[mobileWeekday - 1])}</span>
@@ -413,9 +431,9 @@
           <table class="cl-table cov">
             <thead>
               <tr>
-                <th class="has-menu"><ClassicPrimaryColMenu label={t('Area')} sortable sortDir={view.sortDir('area')} onsort={(dir) => view.setSort('area', dir)} filterKind="values" filterValues={areaValues} selected={view.excluded('area')} ontoggle={(value) => view.toggleValue('area', value)} onselectall={(on) => view.selectAll('area', on, areaValues)} groupValue={view.groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'area', label: t('Area') }, { value: 'position', label: t('Position') }, { value: 'service', label: t('Service') }]} ongroupchange={(value) => view.setGroupBy(value as GroupBy)} /></th>
-                <th class="has-menu"><ClassicColMenu label={t('Position')} sortable sortDir={view.sortDir('position')} onsort={(dir) => view.setSort('position', dir)} filterKind="values" filterValues={positionValues} selected={view.excluded('position')} ontoggle={(value) => view.toggleValue('position', value)} onselectall={(on) => view.selectAll('position', on, positionValues)} /></th>
-                <th class="has-menu"><ClassicColMenu label={t('Service')} sortable sortDir={view.sortDir('service')} onsort={(dir) => view.setSort('service', dir)} filterKind="values" filterValues={serviceValues} selected={view.excluded('service')} ontoggle={(value) => view.toggleValue('service', value)} onselectall={(on) => view.selectAll('service', on, serviceValues)} /></th>
+                <th class="has-menu"><WorkspacePrimaryColMenu label={t('Area')} sortable sortDir={view.sortDir('area')} onsort={(dir) => view.setSort('area', dir)} filterKind="values" filterValues={areaValues} selected={view.excluded('area')} ontoggle={(value) => view.toggleValue('area', value)} onselectall={(on) => view.selectAll('area', on, areaValues)} groupValue={view.groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'area', label: t('Area') }, { value: 'position', label: t('Position') }, { value: 'service', label: t('Service') }]} ongroupchange={(value) => view.setGroupBy(value as GroupBy)} /></th>
+                <th class="has-menu"><WorkspaceColMenu label={t('Position')} sortable sortDir={view.sortDir('position')} onsort={(dir) => view.setSort('position', dir)} filterKind="values" filterValues={positionValues} selected={view.excluded('position')} ontoggle={(value) => view.toggleValue('position', value)} onselectall={(on) => view.selectAll('position', on, positionValues)} /></th>
+                <th class="has-menu"><WorkspaceColMenu label={t('Service')} sortable sortDir={view.sortDir('service')} onsort={(dir) => view.setSort('service', dir)} filterKind="values" filterValues={serviceValues} selected={view.excluded('service')} ontoggle={(value) => view.toggleValue('service', value)} onselectall={(on) => view.selectAll('service', on, serviceValues)} /></th>
                 {#each WEEKDAYS as day (day)}<th class="cov__day">{t(day)}</th>{/each}
                 <th></th>
               </tr>
@@ -425,9 +443,9 @@
                 {@const pendingKey = row.areaId && row.jobFunctionId && row.serviceKey ? `${row.areaId}|${row.jobFunctionId}|${row.serviceKey}` : ''}
                 {@const duplicate = Boolean(pendingKey) && pendingKey !== row.stagedKey && exists(row.areaId, row.jobFunctionId, row.serviceKey as ServiceKey)}
                 <tr class="is-new">
-                  <td><ClassicPicker value={row.areaId} placeholder="Choose area" ariaLabel={t('Area')} options={activeAreas.map((area) => ({ value: area.id, label: areaName.get(area.id) ?? area.name, color: areaColor.get(area.id), icon: areaIcon(area.id) }))} onchange={(next) => patchNewRow(row.tempId, { areaId: next })} /></td>
-                  <td><ClassicPicker value={row.jobFunctionId} placeholder="Choose position" ariaLabel={t('Position')} options={activePositions.filter((job) => positionSupportsArea(job, row.areaId)).map((job) => ({ value: job.id, label: job.name, color: positionColor.get(job.id), icon: positionIcon(job.id) }))} onchange={(next) => patchNewRow(row.tempId, { jobFunctionId: next })} /></td>
-                  <td><ClassicPicker value={row.serviceKey} placeholder="Choose service" ariaLabel={t('Service')} options={serviceValues} onchange={(next) => patchNewRow(row.tempId, { serviceKey: next as PendingService })} /></td>
+                  <td><WorkspacePicker value={row.areaId} placeholder="Choose area" ariaLabel={t('Area')} options={activeAreas.map((area) => ({ value: area.id, label: areaName.get(area.id) ?? area.name, color: areaColor.get(area.id), icon: areaIcon(area.id) }))} onchange={(next) => patchNewRow(row.tempId, { areaId: next })} /></td>
+                  <td><WorkspacePicker value={row.jobFunctionId} placeholder="Choose position" ariaLabel={t('Position')} options={activePositions.filter((job) => positionSupportsArea(job, row.areaId)).map((job) => ({ value: job.id, label: job.name, color: positionColor.get(job.id), icon: positionIcon(job.id) }))} onchange={(next) => patchNewRow(row.tempId, { jobFunctionId: next })} /></td>
+                  <td><WorkspacePicker value={row.serviceKey} placeholder="Choose service" ariaLabel={t('Service')} options={serviceValues} onchange={(next) => patchNewRow(row.tempId, { serviceKey: next as PendingService })} /></td>
                   {#each WEEKDAYS as day, index (day)}<td class="cov__day"><input class="cl-field num" class:is-set={row.counts[index] != null} type="number" min="0" step="1" placeholder="—" aria-label={`${t(day)} ${t('required people')}`} value={row.counts[index] ?? ''} oninput={(event) => setNewCount(row.tempId, index, event.currentTarget.value)} /></td>{/each}
                   <td class="is-num"><button class="cl-btn is-icon remove" type="button" title={t('Remove')} aria-label={t('Remove')} onclick={() => removeNewRow(row.tempId)}>×</button></td>
                 </tr>
@@ -444,19 +462,19 @@
                     {@const groupColor = view.groupBy === 'area' ? areaColor.get(group.key) : view.groupBy === 'position' ? positionColor.get(group.key) : ''}
                     {#snippet groupGlyph()}
                       {#if view.groupBy === 'service'}
-                        <span class="group-service is-{group.key}"><ClassicServiceIcon service={group.key === 'evening' ? 'evening' : 'lunch'} size={14} /></span>
+                        <span class="group-service is-{group.key}"><WorkspaceServiceIcon service={group.key} size={14} /></span>
                       {:else}
                         <WorkspaceAreaIcon icon={view.groupBy === 'area' ? areaIcon(group.key) : positionIcon(group.key)} color={groupColor} size={14} compact />
                       {/if}
                     {/snippet}
-                    <ClassicGroupRow colspan={WEEKDAYS.length + 4} label={group.label} meta={t('{count} staffing rules', { count: group.rows.length })} color={groupColor} icon={groupGlyph} collapsed={view.isCollapsed(group.key)} ontoggle={() => view.toggleGroup(group.key)} />
+                    <WorkspaceGroupRow colspan={WEEKDAYS.length + 4} label={group.label} meta={t('{count} staffing rules', { count: group.rows.length })} color={groupColor} icon={groupGlyph} collapsed={view.isCollapsed(group.key)} ontoggle={() => view.toggleGroup(group.key)} />
                   {/if}
                   {#if !view.isCollapsed(group.key)}
                   {#each group.rows as row (rowKey(row))}
                     <tr>
                       <td><span class="cl-chip has-glyph" style="--chip:{areaColor.get(row.areaId) ?? 'var(--cl-line-strong)'}"><span class="cl-chip__glyph"><WorkspaceAreaIcon icon={areaIcon(row.areaId)} color="currentColor" size={13} compact /></span><span>{areaName.get(row.areaId) ?? '—'}</span></span></td>
                       <td><span class="cl-chip has-glyph" style="--chip:{positionColor.get(row.jobFunctionId) ?? 'var(--cl-line-strong)'}"><span class="cl-chip__glyph"><WorkspaceAreaIcon icon={positionIcon(row.jobFunctionId)} color="currentColor" size={13} compact /></span><span>{jobName.get(row.jobFunctionId) ?? '—'}</span></span></td>
-                      <td><ClassicService service={row.serviceKey} /></td>
+                      <td><WorkspaceService service={row.serviceKey} label={serviceName(row.serviceKey)} /></td>
                       {#each WEEKDAYS as _day, index (index)}
                         {@const value = entry(draft, row, index + 1)}
                         <td class="cov__day"><input class="cl-field num" class:is-set={Boolean(value)} type="number" min="0" step="1" placeholder="—" value={value?.requiredCount ?? ''} disabled={workspace.isPreview} oninput={(event) => setCount(row, index + 1, event.currentTarget.value)} /></td>
@@ -471,7 +489,7 @@
           </table>
         </div>
       {/snippet}
-    </ClassicTablePanel>
+    </WorkspaceTablePanel>
 
 {/if}
 
@@ -508,7 +526,7 @@
       border-radius: 7px;
       background: var(--cl-surface);
     }
-    .coverage-mobile__services { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .coverage-mobile__services { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
     .coverage-mobile__days { grid-template-columns: repeat(7, minmax(0, 1fr)); }
     .coverage-mobile__services button,
     .coverage-mobile__days button {

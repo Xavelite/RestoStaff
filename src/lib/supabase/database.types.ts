@@ -3395,6 +3395,47 @@ export type Database = {
           },
         ]
       }
+      pilot_access_requests: {
+        Row: {
+          auth_user_id: string
+          email: string
+          request_note: string | null
+          requested_at: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by_profile_id: string | null
+          status: string
+        }
+        Insert: {
+          auth_user_id: string
+          email: string
+          request_note?: string | null
+          requested_at?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by_profile_id?: string | null
+          status?: string
+        }
+        Update: {
+          auth_user_id?: string
+          email?: string
+          request_note?: string | null
+          requested_at?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by_profile_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pilot_access_requests_reviewed_by_profile_id_fkey"
+            columns: ["reviewed_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pilot_feedback: {
         Row: {
           actor_role: string | null
@@ -5347,6 +5388,45 @@ export type Database = {
           },
         ]
       }
+      restaurant_module_entitlements: {
+        Row: {
+          module_key: string
+          restaurant_id: string
+          state: string
+          updated_at: string
+          updated_by_profile_id: string | null
+        }
+        Insert: {
+          module_key: string
+          restaurant_id: string
+          state?: string
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Update: {
+          module_key?: string
+          restaurant_id?: string
+          state?: string
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_module_entitlements_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "restaurant_module_entitlements_updated_by_profile_id_fkey"
+            columns: ["updated_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       restaurant_onboarding_state: {
         Row: {
           created_at: string
@@ -5625,6 +5705,35 @@ export type Database = {
             foreignKeyName: "restaurant_stations_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      restaurant_workspace_revisions: {
+        Row: {
+          restaurant_id: string
+          restaurant_revision: number
+          team_revision: number
+          updated_at: string
+        }
+        Insert: {
+          restaurant_id: string
+          restaurant_revision?: number
+          team_revision?: number
+          updated_at?: string
+        }
+        Update: {
+          restaurant_id?: string
+          restaurant_revision?: number
+          team_revision?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_workspace_revisions_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: true
             referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
@@ -6529,6 +6638,51 @@ export type Database = {
           },
         ]
       }
+      workspace_configuration_events: {
+        Row: {
+          actor_profile_id: string | null
+          created_at: string
+          id: string
+          module_key: string
+          restaurant_id: string
+          revision: number
+          summary: Json
+        }
+        Insert: {
+          actor_profile_id?: string | null
+          created_at?: string
+          id?: string
+          module_key: string
+          restaurant_id: string
+          revision: number
+          summary?: Json
+        }
+        Update: {
+          actor_profile_id?: string | null
+          created_at?: string
+          id?: string
+          module_key?: string
+          restaurant_id?: string
+          revision?: number
+          summary?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_configuration_events_actor_profile_id_fkey"
+            columns: ["actor_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_configuration_events_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_realtime_events: {
         Row: {
           event: string
@@ -6623,8 +6777,18 @@ export type Database = {
         Returns: Json
       }
       admin_delete_user: { Args: { p_profile_id: string }; Returns: Json }
+      admin_list_pilot_access_requests: { Args: never; Returns: Json }
+      admin_restaurant_module_entitlements: { Args: never; Returns: Json }
+      admin_review_pilot_access: {
+        Args: { p_approved: boolean; p_auth_user_id: string; p_note?: string }
+        Returns: Json
+      }
       admin_set_restaurant_active: {
         Args: { p_active: boolean; p_restaurant_id: string }
+        Returns: Json
+      }
+      admin_set_restaurant_module_entitlement: {
+        Args: { p_module_key: string; p_restaurant_id: string; p_state: string }
         Returns: Json
       }
       admin_set_user_suspended: {
@@ -6638,6 +6802,10 @@ export type Database = {
       am_i_platform_admin: { Args: never; Returns: boolean }
       archive_restaurant_document: {
         Args: { p_document_id: string; p_restaurant_id: string }
+        Returns: undefined
+      }
+      assert_reservation_public_module: {
+        Args: { p_origin: string; p_public_key: string }
         Returns: undefined
       }
       badge_photo_status_to_db: {
@@ -6719,6 +6887,19 @@ export type Database = {
         }
         Returns: Json
       }
+      check_reservation_availability_v2: {
+        Args: {
+          p_business_date: string
+          p_exclude_reservation_id?: string
+          p_local_time: string
+          p_party_size: number
+          p_preferred_table_id?: string
+          p_restaurant_id: string
+          p_room_id?: string
+          p_service_key: string
+        }
+        Returns: Json
+      }
       clear_owner_onboarding_draft: { Args: never; Returns: Json }
       consume_reservation_public_rate_limit: {
         Args: {
@@ -6780,6 +6961,10 @@ export type Database = {
         Returns: Json
       }
       ensure_reservation_public_channel: {
+        Args: { p_default_origin: string; p_restaurant_id: string }
+        Returns: Json
+      }
+      ensure_reservation_public_channel_v2: {
         Args: { p_default_origin: string; p_restaurant_id: string }
         Returns: Json
       }
@@ -6852,7 +7037,16 @@ export type Database = {
         }
         Returns: Json
       }
+      get_pilot_access_state: { Args: never; Returns: Json }
       get_preview_bootstrap: {
+        Args: {
+          p_employee_id?: string
+          p_restaurant_id: string
+          p_role: string
+        }
+        Returns: Json
+      }
+      get_preview_bootstrap_v2: {
         Args: {
           p_employee_id?: string
           p_restaurant_id: string
@@ -6904,7 +7098,26 @@ export type Database = {
           service_key: string
         }[]
       }
+      get_reservation_demand_v2: {
+        Args: {
+          p_from_date: string
+          p_restaurant_id: string
+          p_to_date: string
+        }
+        Returns: {
+          business_date: string
+          expected_covers: number
+          first_arrival: string
+          last_arrival: string
+          reservation_count: number
+          service_key: string
+        }[]
+      }
       get_reservation_floor_plans: {
+        Args: { p_restaurant_id: string }
+        Returns: Json
+      }
+      get_reservation_floor_plans_v2: {
         Args: { p_restaurant_id: string }
         Returns: Json
       }
@@ -6912,11 +7125,23 @@ export type Database = {
         Args: { p_restaurant_id: string }
         Returns: Json
       }
+      get_reservation_public_channel_v2: {
+        Args: { p_restaurant_id: string }
+        Returns: Json
+      }
       get_reservation_setup: {
         Args: { p_restaurant_id: string }
         Returns: Json
       }
+      get_reservation_setup_v2: {
+        Args: { p_restaurant_id: string }
+        Returns: Json
+      }
       get_reservation_workspace: {
+        Args: { p_business_date: string; p_restaurant_id: string }
+        Returns: Json
+      }
+      get_reservation_workspace_v2: {
         Args: { p_business_date: string; p_restaurant_id: string }
         Returns: Json
       }
@@ -6928,12 +7153,24 @@ export type Database = {
         Args: { p_restaurant_id: string }
         Returns: Json
       }
+      get_restaurant_read_model_v2: {
+        Args: { p_restaurant_id: string }
+        Returns: Json
+      }
       get_team_read_model: { Args: { p_restaurant_id: string }; Returns: Json }
+      get_team_read_model_v2: {
+        Args: { p_restaurant_id: string }
+        Returns: Json
+      }
       get_time_entry_payroll_evidence: {
         Args: { p_restaurant_id: string; p_time_entry_id: string }
         Returns: Json
       }
       get_workspace_bootstrap: {
+        Args: { p_restaurant_id: string }
+        Returns: Json
+      }
+      get_workspace_bootstrap_v2: {
         Args: { p_restaurant_id: string }
         Returns: Json
       }
@@ -7092,6 +7329,7 @@ export type Database = {
         Args: { p_restaurant_id: string }
         Returns: number
       }
+      request_pilot_access: { Args: { p_note?: string }; Returns: Json }
       require_communications_context: {
         Args: { p_restaurant_id: string }
         Returns: {
@@ -7125,6 +7363,10 @@ export type Database = {
           actor_role: string
           profile_id: string
         }[]
+      }
+      require_restaurant_module: {
+        Args: { p_module_key: string; p_restaurant_id: string }
+        Returns: undefined
       }
       require_workspace_read_context: {
         Args: { p_restaurant_id: string }
@@ -7283,6 +7525,14 @@ export type Database = {
           station_id: string
         }[]
       }
+      restaurant_module_enabled: {
+        Args: { p_module_key: string; p_restaurant_id: string }
+        Returns: boolean
+      }
+      restaurant_module_entitlements_json: {
+        Args: { p_restaurant_id: string }
+        Returns: Json
+      }
       revoke_employee_invitation: {
         Args: {
           p_employee_id: string
@@ -7300,6 +7550,10 @@ export type Database = {
         Returns: Json
       }
       rotate_reservation_public_channel: {
+        Args: { p_restaurant_id: string }
+        Returns: Json
+      }
+      rotate_reservation_public_channel_v2: {
         Args: { p_restaurant_id: string }
         Returns: Json
       }
@@ -7387,7 +7641,26 @@ export type Database = {
         }
         Returns: Json
       }
+      save_reservation_floor_plans_v2: {
+        Args: {
+          p_combinations: Json
+          p_expected_revision?: number
+          p_floors: Json
+          p_restaurant_id: string
+          p_rooms: Json
+          p_tables: Json
+        }
+        Returns: Json
+      }
       save_reservation_public_channel: {
+        Args: {
+          p_allowed_origins: string[]
+          p_enabled: boolean
+          p_restaurant_id: string
+        }
+        Returns: Json
+      }
+      save_reservation_public_channel_v2: {
         Args: {
           p_allowed_origins: string[]
           p_enabled: boolean
@@ -7407,6 +7680,22 @@ export type Database = {
         }
         Returns: Json
       }
+      save_reservation_setup_v2: {
+        Args: {
+          p_combinations?: Json
+          p_exceptions?: Json
+          p_expected_revision?: number
+          p_restaurant_id: string
+          p_rooms: Json
+          p_services: Json
+          p_tables: Json
+        }
+        Returns: Json
+      }
+      save_reservation_v2: {
+        Args: { p_reservation: Json; p_restaurant_id: string }
+        Returns: Json
+      }
       save_restaurant_model: {
         Args: {
           p_area_service_defaults?: Json
@@ -7416,6 +7705,35 @@ export type Database = {
           p_opening_hours?: Json
           p_restaurant?: Json
           p_restaurant_id: string
+          p_settings?: Json
+        }
+        Returns: Json
+      }
+      save_restaurant_model_v2: {
+        Args: {
+          p_area_service_defaults?: Json
+          p_areas?: Json
+          p_coverage_requirements?: Json
+          p_expected_revision: number
+          p_job_functions?: Json
+          p_opening_hours?: Json
+          p_restaurant?: Json
+          p_restaurant_id: string
+          p_settings?: Json
+        }
+        Returns: Json
+      }
+      save_restaurant_model_v3: {
+        Args: {
+          p_area_service_defaults?: Json
+          p_areas?: Json
+          p_coverage_requirements?: Json
+          p_expected_revision: number
+          p_job_functions?: Json
+          p_opening_hours?: Json
+          p_restaurant?: Json
+          p_restaurant_id: string
+          p_services?: Json
           p_settings?: Json
         }
         Returns: Json
@@ -7453,6 +7771,22 @@ export type Database = {
         }
         Returns: Json
       }
+      save_team_workspace_v2: {
+        Args: {
+          p_access?: Json
+          p_contacts?: Json
+          p_contracts?: Json
+          p_employee_job_functions?: Json
+          p_employees?: Json
+          p_employment_terms?: Json
+          p_expected_revision: number
+          p_legal_profiles?: Json
+          p_payroll_profiles?: Json
+          p_recurring_schedule_slots?: Json
+          p_restaurant_id: string
+        }
+        Returns: Json
+      }
       save_time_entry_payroll_evidence: {
         Args: {
           p_actual_area_id: string
@@ -7477,6 +7811,26 @@ export type Database = {
           p_restaurant: Json
           p_restaurant_id: string
           p_rooms: Json
+          p_settings: Json
+          p_tables: Json
+        }
+        Returns: Json
+      }
+      save_venue_model_v2: {
+        Args: {
+          p_area_service_defaults: Json
+          p_areas: Json
+          p_combinations?: Json
+          p_coverage_requirements: Json
+          p_expected_floor_revision?: number
+          p_expected_workspace_revision: number
+          p_floors: Json
+          p_job_functions: Json
+          p_opening_hours: Json
+          p_restaurant: Json
+          p_restaurant_id: string
+          p_rooms: Json
+          p_services: Json
           p_settings: Json
           p_tables: Json
         }
@@ -7537,6 +7891,16 @@ export type Database = {
         }
         Returns: Json
       }
+      set_reservation_status_v2: {
+        Args: {
+          p_comment?: string
+          p_expected_revision?: number
+          p_reservation_id: string
+          p_restaurant_id: string
+          p_status: string
+        }
+        Returns: Json
+      }
       set_restaurant_logo: {
         Args: { p_logo_path: string; p_restaurant_id: string }
         Returns: Json
@@ -7553,6 +7917,22 @@ export type Database = {
           p_owner_first_name: string
           p_owner_last_name: string
           p_restaurant_name: string
+        }
+        Returns: Json
+      }
+      setup_owner_workspace_v2: {
+        Args: {
+          p_areas?: Json
+          p_city?: string
+          p_coverage?: Json
+          p_employees?: Json
+          p_job_functions?: Json
+          p_opening_hours?: Json
+          p_owner_email: string
+          p_owner_first_name: string
+          p_owner_last_name: string
+          p_restaurant_name: string
+          p_services?: Json
         }
         Returns: Json
       }

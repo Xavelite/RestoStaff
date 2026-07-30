@@ -22,9 +22,21 @@
     workspacePositionByKey
   } from '$lib/restaurant/workspace-catalogue';
   import { workspace } from '$lib/workspace/workspace.svelte';
+  import {
+    getPilotAccessState,
+    requestPilotAccess,
+    type PilotAccessState
+  } from '$lib/pilot/pilot-access';
 
   type SetupItem = { id: string; name: string; catalogueKey: string };
   type AssignmentInput = { areaId: string; jobFunctionId: string };
+  type ServiceInput = {
+    id: string;
+    name: string;
+    startTime: string;
+    endTime: string;
+    openDays: boolean[];
+  };
   type EmployeeInput = {
     firstName: string;
     lastName: string;
@@ -38,11 +50,7 @@
     lastName: string;
     restaurantName: string;
     city: string;
-    lunchStart: string;
-    lunchEnd: string;
-    eveningStart: string;
-    eveningEnd: string;
-    openDays: boolean[];
+    services: ServiceInput[];
     areas: SetupItem[];
     functions: SetupItem[];
     assignments: AssignmentInput[];
@@ -80,7 +88,7 @@
       eyebrow: 'Services',
       title: 'Set the weekly service rhythm.',
       description:
-        'Lunch and evening defaults seed Planning, Timesheet and service demand.'
+        'Add the service periods this venue actually runs. You can change them later.'
     },
     {
       key: 'map',
@@ -124,11 +132,22 @@
     lastName: '',
     restaurantName: '',
     city: '',
-    lunchStart: '12:00',
-    lunchEnd: '15:00',
-    eveningStart: '18:00',
-    eveningEnd: '23:00',
-    openDays: [true, true, true, true, true, true, false],
+    services: [
+      {
+        id: 'service-lunch',
+        name: 'Lunch',
+        startTime: '12:00',
+        endTime: '15:00',
+        openDays: [true, true, true, true, true, true, false]
+      },
+      {
+        id: 'service-evening',
+        name: 'Evening',
+        startTime: '18:00',
+        endTime: '23:00',
+        openDays: [true, true, true, true, true, true, false]
+      }
+    ],
     areas: initialAreas.map((area) => ({
       id: `area-${area.key}`,
       name: area.label,
@@ -160,6 +179,9 @@
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
   let selectedAreaCatalogueKey = $state('');
   let selectedPositionCatalogueKey = $state('');
+  let pilotAccess = $state<PilotAccessState | null>(null);
+  let pilotAccessLoading = $state(true);
+  let pilotAccessBusy = $state(false);
 
   const email = $derived(auth.user?.email ?? '');
   const creatingAdditionalRestaurant = $derived(page.url.searchParams.get('new') === '1');
@@ -186,8 +208,18 @@
   const starterEmployees = $derived(
     draft.employees.filter((employee) => employee.firstName.trim() || employee.lastName.trim())
   );
-  const openDayCount = $derived(draft.openDays.filter(Boolean).length);
-  const serviceCount = $derived(openDayCount * 2);
+  const openDays = $derived(
+    Array.from({ length: 7 }, (_, index) =>
+      draft.services.some((service) => service.openDays[index])
+    )
+  );
+  const openDayCount = $derived(openDays.filter(Boolean).length);
+  const serviceCount = $derived(
+    draft.services.reduce(
+      (count, service) => count + service.openDays.filter(Boolean).length,
+      0
+    )
+  );
   const availableAreaCatalogue = $derived(
     WORKSPACE_AREA_CATALOGUE.filter(
       (item) => !draft.areas.some((area) => area.catalogueKey === item.key)
@@ -221,6 +253,15 @@
   onMount(() => {
     let active = true;
     void (async () => {
+      try {
+        pilotAccess = await getPilotAccessState();
+      } catch (error) {
+        feedback = error instanceof Error ? error.message : String(error);
+        feedbackTone = 'danger';
+      } finally {
+        pilotAccessLoading = false;
+      }
+
       const saved = localStorage.getItem(draftKey);
       let localDraft: Partial<Draft> = {};
       if (saved) {
@@ -301,6 +342,13 @@
   });
 
   function normalizeDraft(candidate: Partial<Draft>): Draft {
+    const legacy = candidate as Partial<Draft> & {
+      lunchStart?: string;
+      lunchEnd?: string;
+      eveningStart?: string;
+      eveningEnd?: string;
+      openDays?: boolean[];
+    };
     const merged = {
       ...structuredClone(initial),
       ...candidate
@@ -308,16 +356,69 @@
     return {
       ...merged,
       step: Math.min(steps.length - 1, Math.max(0, Number(merged.step ?? 0))),
-      openDays: Array.from({ length: 7 }, (_, index) =>
-        typeof merged.openDays?.[index] === 'boolean'
-          ? Boolean(merged.openDays[index])
-          : initial.openDays[index]
-      ),
+      services: normalizeServices(legacy),
       areas: normalizeItems(merged.areas, initial.areas),
       functions: normalizeItems(merged.functions, initial.functions),
       assignments: Array.isArray(merged.assignments) ? merged.assignments : initial.assignments,
       employees: Array.isArray(merged.employees) ? merged.employees : []
     };
+  }
+
+  function normalizeServices(candidate: Partial<Draft> & {
+    lunchStart?: string;
+    lunchEnd?: string;
+    eveningStart?: string;
+    eveningEnd?: string;
+    openDays?: boolean[];
+  }): ServiceInput[] {
+    const source = Array.isArray(candidate.services)
+      ? candidate.services
+      : candidate.lunchStart || candidate.eveningStart
+        ? [
+            {
+              id: 'service-lunch',
+              name: 'Lunch',
+              startTime: candidate.lunchStart ?? '12:00',
+              endTime: candidate.lunchEnd ?? '15:00',
+              openDays: candidate.openDays
+            },
+            {
+              id: 'service-evening',
+              name: 'Evening',
+              startTime: candidate.eveningStart ?? '18:00',
+              endTime: candidate.eveningEnd ?? '23:00',
+              openDays: candidate.openDays
+            }
+          ]
+        : initial.services;
+
+    return source.map((service, serviceIndex) => ({
+      id: String(service.id || `service-${serviceIndex + 1}`),
+      name: String(service.name ?? ''),
+      startTime: String(service.startTime ?? ''),
+      endTime: String(service.endTime ?? ''),
+      openDays: Array.from({ length: 7 }, (_, dayIndex) =>
+        typeof service.openDays?.[dayIndex] === 'boolean'
+          ? Boolean(service.openDays[dayIndex])
+          : initial.services[0].openDays[dayIndex]
+      )
+    }));
+  }
+
+  async function submitPilotRequest(): Promise<void> {
+    pilotAccessBusy = true;
+    feedback = '';
+    try {
+      await requestPilotAccess();
+      pilotAccess = await getPilotAccessState();
+      feedback = 'Your pilot request was sent. We will unlock restaurant setup after review.';
+      feedbackTone = 'success';
+    } catch (error) {
+      feedback = error instanceof Error ? error.message : String(error);
+      feedbackTone = 'danger';
+    } finally {
+      pilotAccessBusy = false;
+    }
   }
 
   function normalizeItems(source: unknown, fallback: SetupItem[]): SetupItem[] {
@@ -338,16 +439,32 @@
     return `${prefix}-${crypto.randomUUID()}`;
   }
 
+  function serviceKey(service: ServiceInput, index: number): string {
+    const normalized = service.name
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40);
+    return /^[a-z]/.test(normalized) ? normalized : `service-${index + 1}`;
+  }
+
   function isStepReady(index: number): boolean {
     if (index === 0) return Boolean(draft.firstName.trim() && draft.lastName.trim());
     if (index === 1) return Boolean(draft.restaurantName.trim());
     if (index === 2) {
+      const keys = draft.services.map(serviceKey);
       return Boolean(
-        openDayCount > 0 &&
-          draft.lunchStart &&
-          draft.lunchEnd &&
-          draft.eveningStart &&
-          draft.eveningEnd
+        draft.services.length > 0 &&
+          new Set(keys).size === keys.length &&
+          draft.services.every(
+            (service) =>
+              service.name.trim() &&
+              service.startTime &&
+              service.endTime &&
+              service.openDays.some(Boolean)
+          )
       );
     }
     if (index === 3) return Boolean(areaItems.length && functionItems.length);
@@ -359,7 +476,7 @@
   function validationMessage(): string {
     if (draft.step === 0 && !isStepReady(0)) return 'Enter the owner first and last name.';
     if (draft.step === 1 && !isStepReady(1)) return 'Enter the restaurant name.';
-    if (draft.step === 2 && !isStepReady(2)) return 'Open at least one day and complete both service periods.';
+    if (draft.step === 2 && !isStepReady(2)) return 'Give each service a unique name, complete its hours and open at least one day.';
     if (draft.step === 3 && !isStepReady(3)) return 'Add at least one area and one position.';
     if (draft.step === 4 && !isStepReady(4)) return 'Pair at least one position with a work area.';
     if (draft.step === 6 && !isStepReady(6)) return 'Complete the required setup sections before launch.';
@@ -396,6 +513,28 @@
   function back() {
     feedback = '';
     draft.step = Math.max(0, draft.step - 1);
+  }
+
+  function addService() {
+    draft.services = [
+      ...draft.services,
+      {
+        id: id('service'),
+        name: '',
+        startTime: '09:00',
+        endTime: '12:00',
+        openDays: [true, true, true, true, true, false, false]
+      }
+    ];
+  }
+
+  function removeService(serviceId: string) {
+    if (draft.services.length <= 1) {
+      feedback = 'Keep at least one service period.';
+      feedbackTone = 'warning';
+      return;
+    }
+    draft.services = draft.services.filter((service) => service.id !== serviceId);
   }
 
   function addArea() {
@@ -515,33 +654,28 @@
     if (!auth.session || !email || saving || !validStep()) return;
     saving = true;
     try {
-      const openingHours = Array.from({ length: 7 }, (_, index) =>
-        [
-          {
-            weekday: index + 1,
-            service_key: 'lunch',
-            is_open: Boolean(draft.openDays[index]),
-            opens_at: draft.lunchStart,
-            closes_at: draft.lunchEnd
-          },
-          {
-            weekday: index + 1,
-            service_key: 'evening',
-            is_open: Boolean(draft.openDays[index]),
-            opens_at: draft.eveningStart,
-            closes_at: draft.eveningEnd
-          }
-        ]
-      ).flat();
+      const configuredServices = draft.services.map((service, index) => ({
+        service_key: serviceKey(service, index),
+        name: service.name.trim(),
+        sort_order: (index + 1) * 10,
+        active: true,
+        start_time: service.startTime,
+        end_time: service.endTime
+      }));
+      const openingHours = draft.services.flatMap((service, serviceIndex) =>
+        Array.from({ length: 7 }, (_, dayIndex) => ({
+          weekday: dayIndex + 1,
+          service_key: configuredServices[serviceIndex].service_key,
+          is_open: Boolean(service.openDays[dayIndex]),
+          opens_at: service.startTime,
+          closes_at: service.endTime
+        }))
+      );
       const areas = areaItems.map((area) => ({
         name: area.name,
         catalogue_key: area.catalogueKey || null,
         color: workspaceAreaByKey.get(area.catalogueKey)?.color ?? null,
-        icon_key: workspaceAreaByKey.get(area.catalogueKey)?.icon ?? null,
-        lunch_start: draft.lunchStart,
-        lunch_end: draft.lunchEnd,
-        evening_start: draft.eveningStart,
-        evening_end: draft.eveningEnd
+        icon_key: workspaceAreaByKey.get(area.catalogueKey)?.icon ?? null
       }));
       const positionAreas = validAssignments.map((assignment) => ({
         area: areaItems.find((area) => area.id === assignment.areaId)?.name ?? '',
@@ -559,6 +693,7 @@
         ownerEmail: email,
         restaurantName: draft.restaurantName.trim(),
         city: draft.city.trim(),
+        services: configuredServices,
         openingHours,
         areas,
         jobFunctions: functionItems.map((position, index) => ({
@@ -644,6 +779,39 @@
     </section>
   </main>
 {:else}
+  {#if pilotAccessLoading}
+    <main class="setup-gate">
+      <section class="gate-hero" aria-busy="true">
+        <span class="page-kicker">Pilot access</span>
+        <h1>Checking your workspace access.</h1>
+        <p>Restaurant creation is controlled during the pilot so every workspace starts with the right support.</p>
+      </section>
+    </main>
+  {:else if !pilotAccess?.canCreateWorkspace}
+    <main class="setup-gate">
+      <section class="gate-hero">
+        <span class="page-kicker">Pilot access</span>
+        <h1>{pilotAccess?.status === 'pending' ? 'Your request is under review.' : 'Request a pilot workspace.'}</h1>
+        <p>
+          {pilotAccess?.status === 'pending'
+            ? 'You can sign in normally. Restaurant setup will unlock as soon as the pilot request is approved.'
+            : pilotAccess?.status === 'declined'
+              ? 'This account is not currently approved for a pilot workspace. You may submit a new request for review.'
+              : 'Restogogo is onboarding restaurants deliberately during the pilot. Send a request and we will unlock the setup board after review.'}
+        </p>
+        {#if feedback}<FeedbackBanner message={feedback} tone={feedbackTone} />{/if}
+        {#if pilotAccess?.status !== 'pending'}
+          <ActionButton
+            label={pilotAccessBusy ? 'Sending request…' : 'Request pilot access'}
+            tone="primary"
+            disabled={pilotAccessBusy}
+            onclick={submitPilotRequest}
+          />
+        {/if}
+        <a href="/login">Return to sign in</a>
+      </section>
+    </main>
+  {:else}
   <main class="launch">
     <header class="launch-hero" aria-labelledby="launch-title">
       <div class="launch-hero__copy">
@@ -718,31 +886,38 @@
               </div>
             {:else if draft.step === 2}
               <div class="rhythm-cards">
-                <section class="rhythm-card is-lunch">
-                  <span class="rhythm-card__icon" aria-hidden="true">☀</span>
-                  <strong>Lunch</strong>
-                  <div>
-                    <label>Start<input type="time" bind:value={draft.lunchStart} /></label>
-                    <label>End<input type="time" bind:value={draft.lunchEnd} /></label>
-                  </div>
-                </section>
-                <section class="rhythm-card is-evening">
-                  <span class="rhythm-card__icon" aria-hidden="true">☾</span>
-                  <strong>Evening</strong>
-                  <div>
-                    <label>Start<input type="time" bind:value={draft.eveningStart} /></label>
-                    <label>End<input type="time" bind:value={draft.eveningEnd} /></label>
-                  </div>
-                </section>
-              </div>
-              <div class="day-chips" aria-label="Open days">
-                {#each WEEKDAYS as day, index}
-                  <label class:is-on={draft.openDays[index]}>
-                    <input type="checkbox" bind:checked={draft.openDays[index]} />
-                    <span>{day}</span>
-                  </label>
+                {#each draft.services as service, serviceIndex (service.id)}
+                  <section class="rhythm-card" class:is-evening={serviceIndex % 2 === 1}>
+                    <div class="rhythm-card__head">
+                      <span class="rhythm-card__index">{serviceIndex + 1}</span>
+                      <input
+                        class="rhythm-card__name"
+                        aria-label="Service name"
+                        placeholder="Breakfast, Lunch, Dinner"
+                        bind:value={service.name}
+                      />
+                      <button
+                        type="button"
+                        aria-label="Remove service"
+                        onclick={() => removeService(service.id)}
+                      >×</button>
+                    </div>
+                    <div class="rhythm-card__hours">
+                      <label>Start<input type="time" bind:value={service.startTime} /></label>
+                      <label>End<input type="time" bind:value={service.endTime} /></label>
+                    </div>
+                    <div class="day-chips is-compact" aria-label={`${service.name || 'Service'} open days`}>
+                      {#each WEEKDAYS as day, dayIndex}
+                        <label class:is-on={service.openDays[dayIndex]}>
+                          <input type="checkbox" bind:checked={service.openDays[dayIndex]} />
+                          <span>{day.slice(0, 2)}</span>
+                        </label>
+                      {/each}
+                    </div>
+                  </section>
                 {/each}
               </div>
+              <button type="button" class="add-service" onclick={addService}>+ Add service period</button>
               <p class="stage-hint">{openDayCount}/7 days open · {serviceCount} weekly services seeded.</p>
             {:else if draft.step === 3}
             <div class="build-columns">
@@ -867,7 +1042,7 @@
                 <article class="glow-card glow-card--forest">
                   <span class="glow-card__kicker">Rhythm</span>
                   <strong>{serviceCount} services / week</strong>
-                  <p>☀ {draft.lunchStart}–{draft.lunchEnd} · ☾ {draft.eveningStart}–{draft.eveningEnd}</p>
+                  <p>{draft.services.map((service) => `${service.name || 'Unnamed'} ${service.startTime}–${service.endTime}`).join(' · ')}</p>
                 </article>
                 <article class="glow-card glow-card--green">
                   <span class="glow-card__kicker">Foundation</span>
@@ -902,7 +1077,7 @@
           </div>
           <div class="blueprint__rhythm">
             {#each WEEKDAYS as day, index}
-              <span class:is-on={draft.openDays[index]}>{day.slice(0, 2)}</span>
+              <span class:is-on={openDays[index]}>{day.slice(0, 2)}</span>
             {/each}
           </div>
           <div class="blueprint__lanes">
@@ -925,6 +1100,7 @@
       </div>
     </div>
   </main>
+  {/if}
 {/if}
 
 <style>
@@ -1289,48 +1465,87 @@
 
   .rhythm-card {
     display: grid;
-    gap: 10px;
-    padding: 18px;
-    border-radius: var(--rst-ui-radius-xl);
-    color: #fffaf2;
-    background:
-      radial-gradient(circle at 90% 8%, rgba(247, 183, 51, 0.34), transparent 40%),
-      linear-gradient(145deg, #1a2233, #22150c);
+    gap: 14px;
+    padding: 16px;
+    border: 1px solid var(--rst-ui-line);
+    border-left: 3px solid var(--rst-ui-action);
+    border-radius: var(--rst-ui-radius-lg);
+    color: var(--rst-ui-text);
+    background: var(--rst-ui-surface-panel);
   }
 
   .rhythm-card.is-evening {
-    background:
-      radial-gradient(circle at 90% 8%, rgba(122, 167, 255, 0.32), transparent 40%),
-      linear-gradient(145deg, #101a2c, #16233a);
+    border-left-color: var(--rst-state-info);
   }
 
-  .rhythm-card__icon {
-    width: 34px;
-    height: 34px;
+  .rhythm-card__head {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) 28px;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .rhythm-card__index {
+    width: 28px;
+    height: 28px;
     display: grid;
     place-items: center;
     border-radius: var(--rst-ui-radius-round);
-    background: rgba(255, 255, 255, 0.14);
+    color: var(--rst-ui-action);
+    background: var(--rst-ui-action-soft);
+    font-size: 12px;
+    font-weight: var(--rst-fw-display);
+  }
+
+  .rhythm-card__name {
+    min-width: 0;
     font-size: 16px;
+    font-weight: var(--rst-fw-display);
   }
 
-  .rhythm-card > strong {
+  .rhythm-card__head button {
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: var(--rst-ui-radius-md);
+    color: var(--rst-ui-muted);
+    background: transparent;
     font-size: 18px;
+    cursor: pointer;
   }
 
-  .rhythm-card > div {
+  .rhythm-card__head button:hover {
+    color: var(--rst-state-danger-text);
+    background: var(--rst-state-danger-bg);
+  }
+
+  .rhythm-card__hours {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
   }
 
   .rhythm-card label {
-    color: rgba(255, 250, 242, 0.7);
+    color: var(--rst-ui-muted);
   }
 
   .rhythm-card input {
-    color: #fffaf2;
-    border-bottom-color: rgba(255, 255, 255, 0.24);
+    color: var(--rst-ui-text);
+    border-bottom-color: var(--rst-ui-line-strong);
+  }
+
+  .add-service {
+    justify-self: start;
+    min-height: 38px;
+    padding: 8px 12px;
+    border: 1px dashed var(--rst-ui-line-strong);
+    border-radius: var(--rst-ui-radius-md);
+    color: var(--rst-ui-action);
+    background: var(--rst-ui-surface-panel);
+    font: inherit;
+    font-size: 12px;
+    font-weight: var(--rst-fw-bold);
+    cursor: pointer;
   }
 
   .day-chips {
@@ -1373,6 +1588,19 @@
   .day-chips span {
     font-size: 13px;
     font-weight: var(--rst-fw-display);
+  }
+
+  .day-chips.is-compact {
+    gap: 5px;
+  }
+
+  .day-chips.is-compact label {
+    min-height: 34px;
+    border-radius: var(--rst-ui-radius-md);
+  }
+
+  .day-chips.is-compact span {
+    font-size: 10px;
   }
 
   /* ---- Work map builders ------------------------------------------- */

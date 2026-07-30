@@ -162,6 +162,26 @@ test('the deployed app keeps its security headers and badge-camera policy', asyn
   const keys = global.headers.map((header) => header.key);
   assert.ok(keys.includes('X-Content-Type-Options'));
   assert.ok(keys.includes('Referrer-Policy'));
+  assert.ok(keys.includes('Strict-Transport-Security'));
   const permissions = global.headers.find((header) => header.key === 'Permissions-Policy');
   assert.match(permissions.value, /camera=\(self\)/);
+
+  const application = vercel.headers.find(
+    (entry) => entry.source === '/((?!book(?:/|$)).*)'
+  );
+  const applicationCsp = application.headers.find(
+    (header) => header.key === 'Content-Security-Policy'
+  );
+  assert.match(applicationCsp.value, /frame-ancestors 'none'/);
+  assert.ok(
+    application.headers.some(
+      (header) => header.key === 'X-Frame-Options' && header.value === 'DENY'
+    )
+  );
+
+  const publicBooking = vercel.headers.find((entry) => entry.source === '/book');
+  const bookingCsp = publicBooking.headers.find(
+    (header) => header.key === 'Content-Security-Policy'
+  );
+  assert.match(bookingCsp.value, /frame-ancestors https:/);
 });

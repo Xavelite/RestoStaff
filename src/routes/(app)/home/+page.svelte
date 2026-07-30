@@ -2,9 +2,9 @@
   import { addDays, greetingForMinutes, mondayFor, todayInTimezone } from '$lib/calendar/date';
   import { t } from '$lib/i18n/i18n.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
-  import ClassicIcon from '$lib/classic/ClassicIcon.svelte';
-  import ClassicPage from '$lib/classic/ClassicPage.svelte';
-  import { modulesForRole, type ClassicIcon as ClassicIconName, type ClassicModule } from '$lib/classic/classic-nav';
+  import WorkspaceIcon from '$lib/workspace-ui/WorkspaceIcon.svelte';
+  import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
+  import { modulesForRole, type WorkspaceIcon as WorkspaceIconName, type WorkspaceModule } from '$lib/workspace-ui/workspace-nav';
   import { buildHomeModel } from '$lib/home/home-model';
 
   type ModuleSignal = {
@@ -15,7 +15,7 @@
   const MODULE_GROUPS = [
     { label: 'Run today', keys: ['schedule', 'time', 'badge-terminal', 'reservations'] },
     { label: 'People & setup', keys: ['restaurant', 'team'] },
-    { label: 'Review & handoff', keys: ['payroll', 'reports', 'exports', 'settings'] }
+    { label: 'Review & handoff', keys: ['payroll', 'reports', 'exports', 'documents', 'settings'] }
   ] as const;
 
   const MODULE_COLOR: Record<string, string> = {
@@ -37,7 +37,7 @@
     'food-safety': 'var(--cl-mod-badge)'
   };
 
-  const ACTION_ICON: Record<string, ClassicIconName> = {
+  const ACTION_ICON: Record<string, WorkspaceIconName> = {
     leave: 'team',
     payroll: 'payroll',
     planning: 'schedule',
@@ -67,9 +67,13 @@
 
   const model = $derived(snapshot && role ? buildHomeModel(snapshot, role, currentInstant) : null);
   const modules = $derived(
-    modulesForRole(role).filter((module) => module.key !== 'home' && !module.placeholder)
+    modulesForRole(role, workspace.moduleEntitlements)
+      .filter((module) => module.key !== 'home' && !module.placeholder)
   );
-  const upcoming = $derived(modulesForRole(role).filter((module) => module.placeholder));
+  const upcoming = $derived(
+    modulesForRole(role, workspace.moduleEntitlements)
+      .filter((module) => module.placeholder)
+  );
   const openActions = $derived(
     (model?.actions.rows ?? [])
       .filter((row) => row.count > 0)
@@ -137,14 +141,14 @@
     return signals;
   });
 
-  function modulesIn(keys: readonly string[]): ClassicModule[] {
+  function modulesIn(keys: readonly string[]): WorkspaceModule[] {
     return modules.filter((module) => keys.includes(module.key));
   }
 </script>
 
 <svelte:head><title>{t('Home')} &middot; restogogo</title></svelte:head>
 
-<ClassicPage>
+<WorkspacePage>
   <header class="home-intro">
     <div>
       <h1>
@@ -181,7 +185,7 @@
                 style={`--tile-color:${MODULE_COLOR[module.key] ?? 'var(--cl-muted)'}`}
               >
                 <span class="module-tile__top">
-                  <span class="module-tile__icon"><ClassicIcon name={module.icon} size={21} /></span>
+                  <span class="module-tile__icon"><WorkspaceIcon name={module.icon} size={21} /></span>
                   <span class="module-tile__arrow" aria-hidden="true">&rarr;</span>
                 </span>
                 <span class="module-tile__copy">
@@ -238,7 +242,7 @@
           <div class="attention-list">
             {#each openActions.slice(0, 4) as action (action.key)}
               <a href={action.href}>
-                <span class="attention-list__icon"><ClassicIcon name={ACTION_ICON[action.key]} size={17} /></span>
+                <span class="attention-list__icon"><WorkspaceIcon name={ACTION_ICON[action.key]} size={17} /></span>
                 <span>
                   <strong>{t(action.label)}</strong>
                   <small>{t(action.meta)}</small>
@@ -266,14 +270,14 @@
       <div class="upcoming-grid">
         {#each upcoming as module (module.key)}
           <div class="upcoming-tile" style={`--tile-color:${MODULE_COLOR[module.key] ?? 'var(--cl-muted)'}`}>
-            <span><ClassicIcon name={module.icon} size={18} /></span>
+            <span><WorkspaceIcon name={module.icon} size={18} /></span>
             <strong>{t(module.label)}</strong>
           </div>
         {/each}
       </div>
     </section>
   {/if}
-</ClassicPage>
+</WorkspacePage>
 
 <style>
   .home-intro {

@@ -83,7 +83,7 @@ test('document storage is private, quota-reserved and RPC-only', async () => {
 });
 
 test('Documents is one manager module with a deliberate upgrade handoff', async () => {
-  const navigation = await readFile('src/lib/classic/classic-nav.ts', 'utf8');
+  const navigation = await readFile('src/lib/workspace-ui/workspace-nav.ts', 'utf8');
   const page = await readFile('src/routes/(app)/documents/+page.svelte', 'utf8');
   const security = await readFile('supabase/tests/canonical_schema_security.sql', 'utf8');
 

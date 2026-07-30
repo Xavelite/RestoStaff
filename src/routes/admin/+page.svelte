@@ -7,21 +7,43 @@
     deleteUser,
     getAdminDashboard,
     getAdminFeedback,
+    getAdminPilotAccessRequests,
+    getAdminRestaurantEntitlements,
+    reviewPilotAccess,
     setRestaurantActive,
+    setRestaurantModuleEntitlement,
     setUserSuspended,
     updateAdminFeedback,
     type AdminDashboard,
     type AdminEvent,
     type AdminRestaurant,
     type AdminUser,
-    type AdminFeedback
+    type AdminFeedback,
+    type AdminPilotAccessRequest,
+    type AdminRestaurantEntitlements
   } from '$lib/admin/admin-api';
   import PreviewDialog from '$lib/preview/PreviewDialog.svelte';
   import FeedbackDialog from '$lib/feedback/FeedbackDialog.svelte';
 
-  type View = 'restaurants' | 'users' | 'feedback' | 'audit';
+  type View = 'restaurants' | 'users' | 'access' | 'feedback' | 'audit';
   type RestaurantFilter = 'all' | 'active' | 'suspended';
   type UserFilter = 'all' | 'active' | 'suspended' | 'unassigned';
+  const MANAGED_MODULES = [
+    ['home', 'Home'],
+    ['restaurant', 'Restaurant'],
+    ['team', 'Team'],
+    ['schedule', 'Schedule'],
+    ['time', 'Timesheet'],
+    ['badge-terminal', 'Badge'],
+    ['reservations', 'Reservations (acceptance track)'],
+    ['documents', 'Documents'],
+    ['payroll', 'Payroll preparation'],
+    ['reports', 'Reports (experimental)'],
+    ['exports', 'Exports'],
+    ['settings', 'Settings'],
+    ['my-service', 'My service'],
+    ['my-time', 'My time']
+  ] as const;
 
   let dashboard = $state<AdminDashboard | null>(null);
   let loading = $state(true);
@@ -40,6 +62,9 @@
   let userDeleteTarget = $state<AdminUser | null>(null);
   let userDeleteConfirm = $state('');
   let feedback = $state<AdminFeedback[]>([]);
+  let pilotRequests = $state<AdminPilotAccessRequest[]>([]);
+  let restaurantEntitlements = $state<AdminRestaurantEntitlements[]>([]);
+  let pilotReviewNotes = $state<Record<string, string>>({});
   let feedbackNotes = $state<Record<string, string>>({});
   let previewTarget = $state<AdminRestaurant | null>(null);
   let reportOpen = $state(false);
@@ -58,13 +83,20 @@
     else loading = true;
     error = '';
     try {
-      const [nextDashboard, nextFeedback] = await Promise.all([
+      const [nextDashboard, nextFeedback, nextPilotRequests, nextEntitlements] = await Promise.all([
         getAdminDashboard(),
-        getAdminFeedback()
+        getAdminFeedback(),
+        getAdminPilotAccessRequests(),
+        getAdminRestaurantEntitlements()
       ]);
       dashboard = nextDashboard;
       feedback = nextFeedback;
       feedbackNotes = Object.fromEntries(nextFeedback.map((item) => [item.id, item.adminNote]));
+      pilotRequests = nextPilotRequests;
+      restaurantEntitlements = nextEntitlements;
+      pilotReviewNotes = Object.fromEntries(
+        nextPilotRequests.map((item) => [item.authUserId, item.reviewNote])
+      );
       denied = false;
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause);
@@ -94,6 +126,36 @@
       await setRestaurantActive(restaurant.id, nextActive);
       announce(`${restaurant.name} ${nextActive ? 'reactivated' : 'suspended'}.`);
       await load(true);
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : String(cause);
+    } finally {
+      busyId = '';
+    }
+  }
+
+  function entitlementsFor(restaurantId: string) {
+    return (
+      restaurantEntitlements.find((item) => item.restaurantId === restaurantId)?.modules ?? {}
+    );
+  }
+
+  async function updateEntitlement(
+    restaurantId: string,
+    moduleKey: string,
+    state: 'enabled' | 'preview' | 'disabled'
+  ) {
+    const busyKey = `${restaurantId}:${moduleKey}`;
+    if (busyId) return;
+    busyId = busyKey;
+    error = '';
+    try {
+      await setRestaurantModuleEntitlement(restaurantId, moduleKey, state);
+      restaurantEntitlements = restaurantEntitlements.map((item) =>
+        item.restaurantId === restaurantId
+          ? { ...item, modules: { ...item.modules, [moduleKey]: state } }
+          : item
+      );
+      announce(`${moduleKey} is now ${state}.`);
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
     } finally {
@@ -192,16 +254,24 @@
     return [item.message, item.restaurantName, item.reporterName, item.reporterEmail, item.pagePath, item.appRelease]
       .some((value) => value?.toLowerCase().includes(query));
   }));
+  const pilotAccessItems = $derived(pilotRequests.filter((item) => {
+    if (!query) return true;
+    return [item.email, item.status, item.requestNote, item.reviewNote]
+      .some((value) => value.toLowerCase().includes(query));
+  }));
 
   const searchPlaceholder = $derived(
     view === 'restaurants'
       ? 'Search restaurants, owners or IDs'
       : view === 'users'
         ? 'Search users, access or IDs'
+        : view === 'access'
+          ? 'Search pilot requests or status'
         : view === 'feedback'
           ? 'Search feedback, pages or reporters'
           : 'Search actions, operators or targets'
   );
+  const mfaRequired = $derived(/two-step verification is required/i.test(error));
 
   async function saveFeedback(item: AdminFeedback, status = item.status) {
     if (busyId) return;
@@ -210,6 +280,25 @@
     try {
       await updateAdminFeedback(item.id, status, feedbackNotes[item.id] ?? '');
       announce('Feedback updated.');
+      await load(true);
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : String(cause);
+    } finally {
+      busyId = '';
+    }
+  }
+
+  async function decidePilotAccess(item: AdminPilotAccessRequest, approved: boolean) {
+    if (busyId) return;
+    busyId = item.authUserId;
+    error = '';
+    try {
+      await reviewPilotAccess(
+        item.authUserId,
+        approved,
+        pilotReviewNotes[item.authUserId] ?? ''
+      );
+      announce(`${item.email} ${approved ? 'approved' : 'declined'} for pilot access.`);
       await load(true);
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
@@ -315,6 +404,20 @@
       {#if error}<p class="message is-error">{error}</p>{/if}
       <a class="text-link" href="/home">Back to the app</a>
     </main>
+  {:else if error}
+    <main class="gate">
+      <span class="eyebrow">{mfaRequired ? 'Security check' : 'Admin unavailable'}</span>
+      <h1>{mfaRequired ? 'Two-step verification required' : 'Platform data could not be loaded'}</h1>
+      <p>
+        {mfaRequired
+          ? 'Open Account settings in the app and verify an authenticator code before returning here.'
+          : error}
+      </p>
+      <div class="gate-actions">
+        <button class="quiet-button" type="button" onclick={() => load()}>Try again</button>
+        <a class="text-link" href="/home">Open the app</a>
+      </div>
+    </main>
   {:else if dashboard}
     <main class="admin-main">
       {#if error}<p class="message is-error" role="alert">{error}</p>{/if}
@@ -351,6 +454,9 @@
             </button>
             <button type="button" class:is-active={view === 'users'} onclick={() => { view = 'users'; search = ''; }}>
               Users <span>{dashboard.stats.userCount}</span>
+            </button>
+            <button type="button" class:is-active={view === 'access'} onclick={() => { view = 'access'; search = ''; }}>
+              Pilot access <span>{pilotRequests.filter((item) => item.status === 'pending').length}</span>
             </button>
             <button type="button" class:is-active={view === 'feedback'} onclick={() => { view = 'feedback'; search = ''; }}>
               Feedback <span>{feedback.filter((item) => item.status === 'new').length}</span>
@@ -477,6 +583,36 @@
                               <p class="tenant-empty">No users have access to this restaurant.</p>
                             {/each}
                           </div>
+                          <section class="tenant-modules" aria-label={`${restaurant.name} modules`}>
+                            <header>
+                              <div>
+                                <span class="eyebrow">Feature access</span>
+                                <strong>Restaurant modules</strong>
+                              </div>
+                              <small>Server-enforced for this restaurant</small>
+                            </header>
+                            <div>
+                              {#each MANAGED_MODULES as module (module[0])}
+                                <label>
+                                  <span>{module[1]}</span>
+                                  <select
+                                    value={entitlementsFor(restaurant.id)[module[0]] ?? 'disabled'}
+                                    disabled={Boolean(busyId)}
+                                    onchange={(event) =>
+                                      updateEntitlement(
+                                        restaurant.id,
+                                        module[0],
+                                        event.currentTarget.value as 'enabled' | 'preview' | 'disabled'
+                                      )}
+                                  >
+                                    <option value="enabled">Enabled</option>
+                                    <option value="preview">Preview</option>
+                                    <option value="disabled">Disabled</option>
+                                  </select>
+                                </label>
+                              {/each}
+                            </div>
+                          </section>
                         </section>
                       </td>
                     </tr>
@@ -546,6 +682,50 @@
                 {/each}
               </tbody>
             </table>
+          </div>
+        {:else if view === 'access'}
+          <div class="feedback-list">
+            {#each pilotAccessItems as item (item.authUserId)}
+              <article class="feedback-item">
+                <header>
+                  <div>
+                    <span class="feedback-category is-{item.status === 'pending' ? 'confusing' : item.status === 'approved' ? 'suggestion' : 'problem'}">{item.status}</span>
+                    <strong>{item.email}</strong>
+                  </div>
+                  <time>{rel(item.requestedAt)}</time>
+                </header>
+                <p>{item.requestNote || 'No request note provided.'}</p>
+                <div class="feedback-review">
+                  <textarea
+                    rows="2"
+                    placeholder="Review note"
+                    value={pilotReviewNotes[item.authUserId] ?? ''}
+                    oninput={(event) => (
+                      pilotReviewNotes = {
+                        ...pilotReviewNotes,
+                        [item.authUserId]: event.currentTarget.value
+                      }
+                    )}
+                  ></textarea>
+                  <div class="row-actions">
+                    <button
+                      type="button"
+                      class="secondary-button"
+                      disabled={busyId === item.authUserId}
+                      onclick={() => decidePilotAccess(item, false)}
+                    >Decline</button>
+                    <button
+                      type="button"
+                      class="primary-button"
+                      disabled={busyId === item.authUserId}
+                      onclick={() => decidePilotAccess(item, true)}
+                    >Approve</button>
+                  </div>
+                </div>
+              </article>
+            {:else}
+              <p class="empty">No pilot access requests match this view.</p>
+            {/each}
           </div>
         {:else if view === 'feedback'}
           <div class="feedback-list">
@@ -760,6 +940,7 @@
   .gate { max-width: 520px; margin: 16vh auto 0; padding: 28px; text-align: center; }
   .gate h1 { margin: 8px 0; font-size: 28px; }
   .gate p { margin: 0 auto 18px; color: #9ca7b7; line-height: 1.55; }
+  .gate-actions { display: flex; align-items: center; justify-content: center; gap: 12px; }
   .text-link { display: block; color: #bdc6d2; font-size: 13px; }
   .eyebrow { color: #8f9baa; font-size: 10px; font-weight: 800; letter-spacing: 0; text-transform: uppercase; }
   .eyebrow.is-danger { color: #ff9e8d; }
@@ -899,6 +1080,58 @@
   .account-health { display: grid; justify-items: start; gap: 5px; }
   .account-manage { min-width: 72px; }
   .tenant-empty { margin: 0; padding: 20px 0 4px; color: #778291; font-size: 12px; }
+  .tenant-modules {
+    display: grid;
+    gap: 11px;
+    padding-top: 14px;
+    border-top: 1px solid #29313b;
+  }
+  .tenant-modules > header {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .tenant-modules > header > div { display: grid; gap: 3px; }
+  .tenant-modules > header strong { font-size: 13px; }
+  .tenant-modules > header small { color: #748090; font-size: 10px; }
+  .tenant-modules > div {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid #2b333d;
+    border-radius: 7px;
+    background: #2b333d;
+  }
+  .tenant-modules label {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 88px;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 9px;
+    background: #11171e;
+  }
+  .tenant-modules label > span {
+    overflow: hidden;
+    color: #cdd4de;
+    font-size: 11px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tenant-modules select {
+    min-width: 0;
+    min-height: 30px;
+    padding: 4px 6px;
+    border: 1px solid #38424f;
+    border-radius: 5px;
+    color: #cbd3de;
+    background: #0b1016;
+    font: inherit;
+    font-size: 10px;
+  }
   .protected-note { color: #7c8796; font-size: 10px; }
   .empty { height: 100px; color: #7c8796; text-align: center; }
 

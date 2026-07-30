@@ -1,18 +1,26 @@
 <script lang="ts">
-  import { formatHours, hoursBetweenClocks, serviceLabel } from '$lib/calendar/date';
+  import {
+    formatHours,
+    hoursBetweenClocks,
+    serviceLabel,
+    type ServicePeriod
+  } from '$lib/calendar/date';
   import { t } from '$lib/i18n/i18n.svelte';
-  import { isTimesheetRow, slotLabel } from '$lib/classic/classic-time';
+  import { isTimesheetRow, slotLabel } from '$lib/workspace-ui/workspace-time';
   import type { ActualSlot } from './timesheet-model';
+  import WorkspaceServiceIcon from '$lib/workspace-ui/WorkspaceServiceIcon.svelte';
 
   let {
     slots,
     areaName = new Map<string, string>(),
     positionName = new Map<string, string>(),
+    services = [],
     onopen
   }: {
     slots: ActualSlot[];
     areaName?: Map<string, string>;
     positionName?: Map<string, string>;
+    services?: ServicePeriod[];
     onopen: (key: string) => void;
   } = $props();
 
@@ -118,15 +126,11 @@
     <span class="attendance-card__services">
       {#each visible as slot (slot.key)}
         <span class="service-row is-{slot.serviceKey}">
-          <span class="service-row__icon" title={t(serviceLabel(slot.serviceKey))}>
-            {#if slot.serviceKey === 'lunch'}
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M18.7 5.3l-1.4 1.4M6.7 17.3l-1.4 1.4"/></svg>
-            {:else}
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 15.2A8.2 8.2 0 0 1 8.8 4a8.3 8.3 0 1 0 11.2 11.2Z"/></svg>
-            {/if}
+          <span class="service-row__icon" title={t(serviceLabel(slot.serviceKey, services))}>
+            <WorkspaceServiceIcon service={slot.serviceKey} size={12} />
           </span>
           <span class="service-row__range">{displayRange(slot)}</span>
-          <span class="service-row__assignment">{assignment(slot) || t(serviceLabel(slot.serviceKey))}</span>
+          <span class="service-row__assignment">{assignment(slot) || t(serviceLabel(slot.serviceKey, services))}</span>
           <b>{serviceHours(slot)}</b>
         </span>
       {/each}

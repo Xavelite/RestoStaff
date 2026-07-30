@@ -1,15 +1,21 @@
 <script lang="ts">
   import { CalendarX2, MapPinned } from '@lucide/svelte';
   import { onMount } from 'svelte';
-  import { addDays, clockLabel, serviceLabel, todayInTimezone } from '$lib/calendar/date';
+  import {
+    addDays,
+    clockLabel,
+    serviceDefaultHours,
+    serviceLabel,
+    todayInTimezone
+  } from '$lib/calendar/date';
   import Dialog from '$lib/components/Dialog.svelte';
   import { friendlyError } from '$lib/api/error-messages';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
-  import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
-  import ClassicPage from '$lib/classic/ClassicPage.svelte';
-  import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
-  import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
-  import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
+  import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
+  import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
+  import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
+  import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
+  import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
   import ReservationFloorPlan from '$lib/reservations/ReservationFloorPlan.svelte';
   import ReservationStatusBadge from '$lib/reservations/ReservationStatusBadge.svelte';
   import {
@@ -373,7 +379,7 @@
     const opening = service?.exception?.availability === 'open'
       ? service.exception.opens_at
       : service?.opening?.opens_at;
-    return clockLabel(opening) || (service?.service_key === 'evening' ? '18:00' : '12:00');
+    return clockLabel(opening) || serviceDefaultHours(service?.service_key ?? '').start;
   }
 
   function openNewReservation(roomId = '', tableId = '') {
@@ -555,7 +561,7 @@
 
 <svelte:head><title>{t('Reservations')} &middot; restogogo</title></svelte:head>
 
-<ClassicPage>
+<WorkspacePage>
   {#if loadError}
     <section class="cl-state" role="alert">
       <strong>{t('Reservations unavailable')}</strong>
@@ -563,7 +569,7 @@
       <button class="cl-btn" type="button" onclick={() => workspace.activeId && loadWorkspace(workspace.activeId, selectedDate)}>{t('Try again')}</button>
     </section>
   {:else}
-    <ClassicTablePanel>
+    <WorkspaceTablePanel>
       {#snippet meta()}
         <span><b>{activeReservations.length}</b> {t('bookings')}</span>
         <span><b>{covers}{capacity !== null ? ` / ${capacity}` : ''}</b> {t('covers')}</span>
@@ -740,7 +746,7 @@
         <thead>
           <tr>
             <th class="has-menu">
-              <ClassicPrimaryColMenu
+              <WorkspacePrimaryColMenu
                 label={t('Guest')}
                 sortable
                 sortDir={bookingSort?.key === 'guest' ? bookingSort.dir : null}
@@ -751,7 +757,7 @@
               />
             </th>
             <th class="has-menu">
-              <ClassicColMenu
+              <WorkspaceColMenu
                 label={t('Time')}
                 sortable
                 sortDir={bookingSort?.key === 'time' ? bookingSort.dir : null}
@@ -759,7 +765,7 @@
               />
             </th>
             <th class="has-menu">
-              <ClassicColMenu
+              <WorkspaceColMenu
                 label={t('Party')}
                 sortable
                 sortDir={bookingSort?.key === 'party' ? bookingSort.dir : null}
@@ -767,7 +773,7 @@
               />
             </th>
             <th class="has-menu">
-              <ClassicColMenu
+              <WorkspaceColMenu
                 label={t('Room & table')}
                 sortable
                 sortDir={bookingSort?.key === 'table' ? bookingSort.dir : null}
@@ -778,7 +784,7 @@
               />
             </th>
             <th class="has-menu">
-              <ClassicColMenu
+              <WorkspaceColMenu
                 label={t('Source')}
                 sortable
                 sortDir={bookingSort?.key === 'source' ? bookingSort.dir : null}
@@ -791,7 +797,7 @@
               />
             </th>
             <th class="has-menu">
-              <ClassicColMenu
+              <WorkspaceColMenu
                 label={t('Status')}
                 sortable
                 sortDir={bookingSort?.key === 'status' ? bookingSort.dir : null}
@@ -804,7 +810,7 @@
               />
             </th>
             <th class="has-menu notes-col">
-              <ClassicColMenu
+              <WorkspaceColMenu
                 label={t('Notes')}
                 sortable
                 sortDir={bookingSort?.key === 'notes' ? bookingSort.dir : null}
@@ -876,7 +882,7 @@
                   </span>
                 </td>
                 <td class="menu-cell">
-                  <ClassicRowMenu
+                  <WorkspaceRowMenu
                     items={[
                       {
                         label: t('Details'),
@@ -897,9 +903,9 @@
     </div>
       {/if}
       {/snippet}
-    </ClassicTablePanel>
+    </WorkspaceTablePanel>
   {/if}
-</ClassicPage>
+</WorkspacePage>
 
 <Dialog
   open={editorOpen}

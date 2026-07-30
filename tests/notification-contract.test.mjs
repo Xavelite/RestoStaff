@@ -1,6 +1,40 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { deriveNotifications } from '../src/lib/notifications/notification-derived.ts';
+import { groupNotificationIncidents } from '../src/lib/notifications/notification-incidents.ts';
+
+test('repeated manager exceptions collapse into actionable service incidents', () => {
+  const base = {
+    type: 'employee_no_show',
+    audience: 'manager',
+    severity: 'critical',
+    title: 'Employee did not show up',
+    body: '{date} · {service}',
+    bodyParams: { date: '2026-07-29', service: 'Dinner' },
+    serviceKey: 'dinner',
+    createdAt: '2026-07-29T21:59:00.000Z',
+    actionMode: 'route',
+    targetUrl: '/timesheet?week=2026-07-27'
+  };
+  const incidents = groupNotificationIncidents([
+    {
+      ...base,
+      key: 'no-show:shift-1',
+      source: { table: 'planned_shifts', id: 'shift-1' },
+      readAt: null
+    },
+    {
+      ...base,
+      key: 'no-show:shift-2',
+      source: { table: 'planned_shifts', id: 'shift-2' },
+      readAt: '2026-07-29T22:05:00.000Z'
+    }
+  ]);
+
+  assert.equal(incidents.length, 1);
+  assert.equal(incidents[0].items.length, 2);
+  assert.equal(incidents[0].unreadCount, 1);
+});
 
 const restaurant = { id: 'r1' };
 const restaurant_settings = { timezone: 'Europe/Brussels' };

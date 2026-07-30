@@ -66,7 +66,7 @@ test('the authenticated topbar uses the theme-aware brand mark and one line-icon
   const login = await readFile('src/routes/login/+page.svelte', 'utf8');
   const communications = await readFile('src/lib/communications/CommunicationCenter.svelte', 'utf8');
   const notifications = await readFile('src/lib/components/NotificationBell.svelte', 'utf8');
-  const css = await readFile('src/lib/classic/classic.css', 'utf8');
+  const css = await readFile('src/lib/workspace-ui/workspace.css', 'utf8');
 
   assert.match(layout, /class="cl-brand__mark"/);
   assert.match(layout, /--brand-mark:url\('\/brand\/restogogo-mark\.png'\)/);
@@ -113,8 +113,8 @@ test('there is exactly one app shell, and it owns no account logic of its own', 
   );
 
   // The second design is gone for good — no route group, no switch.
-  await assert.rejects(() => readFile('src/routes/(classic)/classic/+layout.svelte', 'utf8'));
-  await assert.rejects(() => readFile('src/lib/classic/classic-routes.ts', 'utf8'));
+  await assert.rejects(() => readFile('src/routes/(workspace)/workspace/+layout.svelte', 'utf8'));
+  await assert.rejects(() => readFile('src/lib/workspace-ui/workspace-routes.ts', 'utf8'));
 });
 
 test('tenant logos reach both badge terminal entry points and reject SVG uploads', async () => {
@@ -153,14 +153,14 @@ test('service labels are not reimplemented outside their domain helper', async (
   assert.deepEqual(offenders, []);
 });
 
-test('classic workspace chrome pins navigation and derives tabs directly from the route', async () => {
+test('workspace chrome pins navigation and derives tabs directly from the route', async () => {
   const layout = await readFile('src/routes/(app)/+layout.svelte', 'utf8');
-  const page = await readFile('src/lib/classic/ClassicPage.svelte', 'utf8');
-  const css = await readFile('src/lib/classic/classic.css', 'utf8');
+  const page = await readFile('src/lib/workspace-ui/WorkspacePage.svelte', 'utf8');
+  const css = await readFile('src/lib/workspace-ui/workspace.css', 'utf8');
 
   assert.match(layout, /const activeTabs = \$derived\(activeModule\?\.subNav \?\? \[\]\)/);
   assert.match(layout, /subNavItemForPath\(activeModule, page\.url\.pathname\)/);
-  assert.doesNotMatch(layout, /classicChrome/);
+  assert.doesNotMatch(layout, /workspaceChrome/);
   assert.match(layout, /\{@render children\(\)\}/);
   assert.doesNotMatch(layout, /#key `\$\{page\.url\.pathname\}\$\{page\.url\.search\}`/);
   assert.match(page, /class="cl-page__toolbar"/);
@@ -173,9 +173,9 @@ test('people edit contact cells inline while employee identity opens one complet
   const people = await readFile('src/routes/(app)/team/+page.svelte', 'utf8');
   const contracts = await readFile('src/routes/(app)/team/contracts/+page.svelte', 'utf8');
   const payrollEmployees = await readFile('src/routes/(app)/payroll/employees/+page.svelte', 'utf8');
-  const editor = await readFile('src/lib/classic/EmployeeInlineEditor.svelte', 'utf8');
-  const teamPage = await readFile('src/lib/classic/ClassicTeamPage.svelte', 'utf8');
-  const teamDraft = await readFile('src/lib/classic/classic-team.svelte.ts', 'utf8');
+  const editor = await readFile('src/lib/workspace-ui/EmployeeInlineEditor.svelte', 'utf8');
+  const teamPage = await readFile('src/lib/workspace-ui/WorkspaceTeamPage.svelte', 'utf8');
+  const teamDraft = await readFile('src/lib/workspace-ui/workspace-team.svelte.ts', 'utf8');
 
   // Both grids take their view state from the shared table-view store.
   assert.match(people, /createTableView<SortKey, GroupBy>\([\s\S]*defaultGroupBy: 'position'/);
@@ -192,7 +192,7 @@ test('people edit contact cells inline while employee identity opens one complet
   assert.match(people, /class="inline-cell"[\s\S]*startInlineEdit\(employee, 'email'\)/);
   assert.match(people, /editingField === 'phone'[\s\S]*onblur=\{commitInlineEdit\}/);
   assert.match(contracts, /class="position-identity"/);
-  assert.match(contracts, /<ClassicPicker[\s\S]*updateContractType\(employee, next\)/);
+  assert.match(contracts, /<WorkspacePicker[\s\S]*updateContractType\(employee, next\)/);
   assert.match(contracts, /type="date" value=\{employee\.contractStart\}[\s\S]*teamDraft\.update\(employee\.id, \{ contractStart:/);
   assert.match(contracts, /type="number"[\s\S]*updateHours\(employee\.id, event\.currentTarget\.value\)/);
   assert.match(payrollEmployees, /setReferenceFunction\(employee, next\)/);
@@ -201,7 +201,7 @@ test('people edit contact cells inline while employee identity opens one complet
     assert.match(source, /detailId/);
   }
   for (const source of [people, contracts, payrollEmployees]) {
-    assert.match(source, /<ClassicRowMenu/);
+    assert.match(source, /<WorkspaceRowMenu/);
   }
   assert.doesNotMatch(people, /<th[^>]*>\{t\('Actions'\)\}<\/th>/);
   assert.doesNotMatch(contracts, /<th[^>]*>\{t\('Actions'\)\}<\/th>/);
@@ -216,25 +216,28 @@ test('people edit contact cells inline while employee identity opens one complet
   assert.match(teamPage, /unsavedChanges\.register/);
 });
 
-test('Restaurant Areas is the visible floor editor and Positions edits physical links directly', async () => {
-  const nav = await readFile('src/lib/classic/classic-nav.ts', 'utf8');
+test('Restaurant Areas owns operational staffing zones while Reservations owns guest floors', async () => {
+  const nav = await readFile('src/lib/workspace-ui/workspace-nav.ts', 'utf8');
   const areasRoute = await readFile('src/routes/(app)/restaurant/areas/+page.svelte', 'utf8');
+  const areas = await readFile('src/lib/restaurant/OperationalAreasWorkspace.svelte', 'utf8');
   const floorPlans = await readFile('src/lib/reservations/ReservationFloorPlansWorkspace.svelte', 'utf8');
   const positions = await readFile('src/routes/(app)/restaurant/positions/+page.svelte', 'utf8');
   const people = await readFile('src/routes/(app)/team/+page.svelte', 'utf8');
 
   assert.match(nav, /\{ href: '\/restaurant\/areas', label: 'Areas' \}/);
-  assert.match(areasRoute, /mode="areas"/);
-  assert.match(floorPlans, /mode\?: 'areas' \| 'tables'/);
-  assert.match(floorPlans, /async function addArea\(/);
-  assert.match(floorPlans, /<WorkspaceCataloguePicker/);
-  assert.match(floorPlans, /<ClassicPicker[\s\S]*options=\{floorOptions\}/);
-  assert.doesNotMatch(floorPlans, /<th>\{t\('Type'\)\}<\/th>/);
+  assert.match(areasRoute, /<OperationalAreasWorkspace/);
+  assert.doesNotMatch(areasRoute, /ReservationFloorPlansWorkspace/);
+  assert.match(areas, /useWorkspaceRestaurantContext/);
+  assert.match(areas, /async function addArea\(/);
+  assert.match(areas, /<WorkspaceCataloguePicker/);
+  assert.match(areas, /context\.save/);
+  assert.doesNotMatch(areas, /reservation|floorPlans|saveAreas/i);
+  assert.match(floorPlans, /getReservationFloorPlans/);
   assert.match(positions, /async function addPosition\(\)/);
   assert.match(positions, /data-position-name=\{position\.id\}/);
   assert.match(
     positions,
-    /<ClassicColMenu[\s\S]*label=\{t\('Linked areas'\)\}/
+    /<WorkspaceColMenu[\s\S]*label=\{t\('Linked areas'\)\}/
   );
   assert.match(positions, /<PositionLinkedAreasField/);
   assert.match(positions, /onchange=\{\(areaIds\) => setPositionAreas\(position, areaIds\)\}/);
@@ -248,8 +251,8 @@ test('Restaurant Areas is the visible floor editor and Positions edits physical 
 });
 
 
-test('operational core exposes planning, attendance and payroll as one classic workflow', async () => {
-  const nav = await readFile('src/lib/classic/classic-nav.ts', 'utf8');
+test('operational core exposes planning, attendance and payroll as one workspace workflow', async () => {
+  const nav = await readFile('src/lib/workspace-ui/workspace-nav.ts', 'utf8');
   const schedule = await readFile('src/routes/(app)/schedule/+page.svelte', 'utf8');
   const timesheet = await readFile('src/routes/(app)/timesheet/+page.svelte', 'utf8');
   const calendar = await readFile('src/routes/(app)/timesheet/calendar/+page.svelte', 'utf8');
@@ -270,13 +273,13 @@ test('operational core exposes planning, attendance and payroll as one classic w
   assert.match(timesheet, /page\.url\.searchParams\.get\('entry'\)/);
   assert.match(calendar, /href=\{`\/timesheet\?date=\$\{day\.date\}`\}/);
   assert.match(live, /entry=\$\{encodeURIComponent\(slot\.key\)\}/);
-  assert.match(live, /<ClassicRowMenu/);
-  assert.match(reservations, /<ClassicRowMenu/);
-  assert.match(reservations, /<ClassicTablePanel>/);
+  assert.match(live, /<WorkspaceRowMenu/);
+  assert.match(reservations, /<WorkspaceRowMenu/);
+  assert.match(reservations, /<WorkspaceTablePanel>/);
   assert.match(reservations, /Online bookings off/);
   assert.match(reservations, /class="reservation-period"/);
-  assert.match(reservations, /<ClassicPrimaryColMenu/);
-  assert.match(reservations, /<ClassicColMenu/);
+  assert.match(reservations, /<WorkspacePrimaryColMenu/);
+  assert.match(reservations, /<WorkspaceColMenu/);
   assert.match(reservations, /showHeader=\{false\}/);
   assert.doesNotMatch(reservations, /Configure this service before taking bookings/);
   assert.doesNotMatch(reservations, /The same server-side availability check/);
@@ -295,7 +298,7 @@ test('operational core exposes planning, attendance and payroll as one classic w
 });
 
 test('Exports is a standalone manager module beside Reports', async () => {
-  const nav = await readFile('src/lib/classic/classic-nav.ts', 'utf8');
+  const nav = await readFile('src/lib/workspace-ui/workspace-nav.ts', 'utf8');
   const exportsPage = await readFile('src/routes/(app)/exports/+page.svelte', 'utf8');
 
   assert.match(nav, /key: 'reports'[\s\S]*key: 'exports'/);
@@ -337,7 +340,7 @@ test('unsaved changes guard routes and context-changing account actions', async 
   const guard = await readFile('src/lib/navigation/unsaved-changes.svelte.ts', 'utf8');
   const account = await readFile('src/lib/app-shell/AccountMenu.svelte', 'utf8');
   const actions = await readFile('src/lib/app-shell/app-actions.ts', 'utf8');
-  const scheduleWeek = await readFile('src/lib/classic/ClassicScheduleWeek.svelte', 'utf8');
+  const scheduleWeek = await readFile('src/lib/workspace-ui/WorkspaceScheduleWeek.svelte', 'utf8');
   const myService = await readFile('src/routes/(app)/my-service/+page.svelte', 'utf8');
   const myTime = await readFile('src/routes/(app)/my-time/+page.svelte', 'utf8');
   const timesheetEditor = await readFile('src/lib/timesheet/TimesheetEntryEditor.svelte', 'utf8');
@@ -378,14 +381,14 @@ test('unsaved changes guard routes and context-changing account actions', async 
 test('Team and Restaurant use one route-scoped workspace instead of mounting stale sibling pages', async () => {
   const teamLayout = await readFile('src/routes/(app)/team/+layout.svelte', 'utf8');
   const restaurantLayout = await readFile('src/routes/(app)/restaurant/+layout.svelte', 'utf8');
-  const teamWrapper = await readFile('src/lib/classic/ClassicTeamPage.svelte', 'utf8');
-  const restaurantWrapper = await readFile('src/lib/classic/ClassicRestaurantPage.svelte', 'utf8');
+  const teamWrapper = await readFile('src/lib/workspace-ui/WorkspaceTeamPage.svelte', 'utf8');
+  const restaurantWrapper = await readFile('src/lib/workspace-ui/WorkspaceRestaurantPage.svelte', 'utf8');
   const restaurantProfile = await readFile('src/routes/(app)/restaurant/+page.svelte', 'utf8');
 
-  assert.match(teamLayout, /children: routeChildren[\s\S]*<ClassicTeamPage>[\s\S]*\{#key page\.url\.pathname\}[\s\S]*\{@render routeChildren\(\)\}/);
-  assert.match(restaurantLayout, /children: routeChildren[\s\S]*<ClassicRestaurantPage>[\s\S]*\{#key page\.url\.pathname\}[\s\S]*\{@render routeChildren\(\)\}/);
-  assert.match(teamWrapper, /setContext\(CLASSIC_TEAM_CONTEXT/);
-  assert.match(restaurantWrapper, /setContext\(CLASSIC_RESTAURANT_CONTEXT/);
+  assert.match(teamLayout, /children: routeChildren[\s\S]*<WorkspaceTeamPage>[\s\S]*\{#key page\.url\.pathname\}[\s\S]*\{@render routeChildren\(\)\}/);
+  assert.match(restaurantLayout, /children: routeChildren[\s\S]*<WorkspaceRestaurantPage>[\s\S]*\{#key page\.url\.pathname\}[\s\S]*\{@render routeChildren\(\)\}/);
+  assert.match(teamWrapper, /setContext\(WORKSPACE_TEAM_CONTEXT/);
+  assert.match(restaurantWrapper, /setContext\(WORKSPACE_RESTAURANT_CONTEXT/);
 
   for (const file of [
     'src/routes/(app)/team/+page.svelte',
@@ -394,21 +397,28 @@ test('Team and Restaurant use one route-scoped workspace instead of mounting sta
     'src/routes/(app)/team/absences/+page.svelte'
   ]) {
     const source = await readFile(file, 'utf8');
-    assert.match(source, /useClassicTeamContext/);
-    assert.doesNotMatch(source, /ClassicTeamPage/);
+    assert.match(source, /useWorkspaceTeamContext/);
+    assert.doesNotMatch(source, /WorkspaceTeamPage/);
   }
 
   for (const file of [
     'src/routes/(app)/restaurant/+page.svelte',
-    'src/routes/(app)/restaurant/areas/+page.svelte',
     'src/routes/(app)/restaurant/positions/+page.svelte',
     'src/routes/(app)/restaurant/coverage/+page.svelte'
   ]) {
     const source = await readFile(file, 'utf8');
-    assert.match(source, /useClassicRestaurantContext/);
-    assert.doesNotMatch(source, /ClassicRestaurantPage/);
+    assert.match(source, /useWorkspaceRestaurantContext/);
+    assert.doesNotMatch(source, /WorkspaceRestaurantPage/);
   }
-  assert.match(restaurantProfile, /<table class="cl-table hours-table">/);
+  const areasRoute = await readFile('src/routes/(app)/restaurant/areas/+page.svelte', 'utf8');
+  const areasWorkspace = await readFile(
+    'src/lib/restaurant/OperationalAreasWorkspace.svelte',
+    'utf8'
+  );
+  assert.match(areasRoute, /<OperationalAreasWorkspace/);
+  assert.match(areasWorkspace, /useWorkspaceRestaurantContext/);
+  assert.doesNotMatch(areasRoute, /WorkspaceRestaurantPage/);
+  assert.match(restaurantProfile, /<table[\s\S]*?class="cl-table hours-table"/);
   assert.doesNotMatch(restaurantProfile, /<h2>\{t\('Weekly service periods'\)\}<\/h2>/);
 });
 
@@ -426,14 +436,14 @@ test('Settings owns the canonical time-off policy workspace', async () => {
     /import TimeOffPoliciesWorkspace from '\$lib\/team\/TimeOffPoliciesWorkspace\.svelte'/
   );
   assert.match(settingsPage, /<TimeOffPoliciesWorkspace \/>/);
-  assert.match(workspace, /<ClassicPrimaryColMenu/);
+  assert.match(workspace, /<WorkspacePrimaryColMenu/);
   assert.match(workspace, /rst-time-off-policies-cols-v1/);
   assert.match(workspace, /rst-restaurant-absence-types-cols-v2/);
 });
 
-test('Coverage inherits the same explicit grid contract as every classic table', async () => {
+test('Coverage inherits the same explicit grid contract as every workspace table', async () => {
   const coverage = await readFile('src/routes/(app)/restaurant/coverage/+page.svelte', 'utf8');
-  const css = await readFile('src/lib/classic/classic.css', 'utf8');
+  const css = await readFile('src/lib/workspace-ui/workspace.css', 'utf8');
 
   assert.match(coverage, /<table class="cl-table cov">/);
   assert.doesNotMatch(coverage, /viewMode === 'map'/);
@@ -461,18 +471,18 @@ test('Home leads with the module workspace and keeps operations as a compact pul
     home.indexOf('<section class="workspace"') < home.indexOf('<div class="home-secondary">'),
     'module workspace should appear before the operational pulse'
   );
-  assert.doesNotMatch(payrollEmployees, /<ClassicStat\b|class="cl-stats"/);
-  assert.match(payrollEmployees, /<ClassicTablePanel/);
+  assert.doesNotMatch(payrollEmployees, /<WorkspaceStat\b|class="cl-stats"/);
+  assert.match(payrollEmployees, /<WorkspaceTablePanel/);
 });
 
 test('workspace grids share one sticky, searchable grouping and filtering contract', async () => {
-  const css = await readFile('src/lib/classic/classic.css', 'utf8');
-  const primary = await readFile('src/lib/classic/ClassicPrimaryColMenu.svelte', 'utf8');
-  const groupMenu = await readFile('src/lib/classic/ClassicGroupMenu.svelte', 'utf8');
-  const columnMenu = await readFile('src/lib/classic/ClassicColMenu.svelte', 'utf8');
-  const groupRow = await readFile('src/lib/classic/ClassicGroupRow.svelte', 'utf8');
+  const css = await readFile('src/lib/workspace-ui/workspace.css', 'utf8');
+  const primary = await readFile('src/lib/workspace-ui/WorkspacePrimaryColMenu.svelte', 'utf8');
+  const groupMenu = await readFile('src/lib/workspace-ui/WorkspaceGroupMenu.svelte', 'utf8');
+  const columnMenu = await readFile('src/lib/workspace-ui/WorkspaceColMenu.svelte', 'utf8');
+  const groupRow = await readFile('src/lib/workspace-ui/WorkspaceGroupRow.svelte', 'utf8');
 
-  assert.match(primary, /<ClassicGroupMenu/);
+  assert.match(primary, /<WorkspaceGroupMenu/);
   assert.match(groupMenu, /class="colhead__trigger groupmenu__trigger"/);
   assert.match(groupMenu, /type="search"/);
   assert.match(columnMenu, /filterKind === 'text'/);
@@ -500,9 +510,9 @@ test('Planning, Team, Restaurant and Payroll use the same first-column grouping 
 
   for (const file of groupedPages) {
     const source = await readFile(file, 'utf8');
-    assert.match(source, /<ClassicPrimaryColMenu/);
+    assert.match(source, /<WorkspacePrimaryColMenu/);
     assert.match(source, /groupOptions=/);
-    assert.match(source, /<ClassicGroupRow/);
+    assert.match(source, /<WorkspaceGroupRow/);
     assert.doesNotMatch(source, /groupable|ongroup=|<tr class="cl-group-row">/);
   }
 
@@ -510,13 +520,26 @@ test('Planning, Team, Restaurant and Payroll use the same first-column grouping 
   assert.match(schedule, /t\('\{count\} employees', \{ count: group\.rows\.length \}\).*formatHours\(group\.hours\)/s);
 });
 
-test('Restaurant Areas is the direct-manipulation floor canvas instead of a duplicate data grid', async () => {
+test('operational Areas and optional reservation floor plans have separate ownership', async () => {
   const page = await readFile('src/routes/(app)/restaurant/areas/+page.svelte', 'utf8');
-  const workspace = await readFile('src/lib/reservations/ReservationFloorPlansWorkspace.svelte', 'utf8');
+  const areas = await readFile('src/lib/restaurant/OperationalAreasWorkspace.svelte', 'utf8');
+  const reservationPage = await readFile(
+    'src/routes/(app)/reservations/floor-plans/+page.svelte',
+    'utf8'
+  );
+  const workspace = await readFile(
+    'src/lib/reservations/ReservationFloorPlansWorkspace.svelte',
+    'utf8'
+  );
   const canvas = await readFile('src/lib/reservations/ReservationFloorPlan.svelte', 'utf8');
 
-  assert.match(page, /<ReservationFloorPlansWorkspace mode="areas"/);
-  assert.doesNotMatch(page, /<ClassicTablePanel|<table/);
+  assert.match(page, /<OperationalAreasWorkspace/);
+  assert.match(areas, /<WorkspaceTablePanel/);
+  assert.match(areas, /<table class="cl-table cl-mobile-rows">/);
+  assert.match(areas, /context\.draft\.areas/);
+  assert.match(areas, /context\.save/);
+  assert.doesNotMatch(areas, /ReservationFloorPlan|saveRestaurantAreasModel/);
+  assert.match(reservationPage, /<ReservationFloorPlansWorkspace/);
   assert.match(workspace, /const CANONICAL_FLOOR_LEVELS = \[-1, 0, 1, 2\] as const/);
   assert.match(workspace, /function persistedFloorName\(/);
   assert.doesNotMatch(workspace, /function addFloor\(\)/);
@@ -537,7 +560,6 @@ test('Restaurant Areas is the direct-manipulation floor canvas instead of a dupl
   assert.match(canvas, /class="snap-guide is-vertical"/);
   assert.match(canvas, /class="floor-ruler is-horizontal"/);
   assert.match(canvas, /class="floor-ruler is-vertical"/);
-  assert.match(workspace, /let editorView = \$state<'plan' \| 'list'>\('list'\)/);
   assert.match(workspace, /function resizeTable\(/);
   assert.match(workspace, /onresize=/);
   assert.doesNotMatch(canvas, /Floor plan zoom|zoom-value/);
@@ -545,14 +567,17 @@ test('Restaurant Areas is the direct-manipulation floor canvas instead of a dupl
 
 test('Home integrates labelled upcoming modules while Areas and Tables stay separate', async () => {
   const home = await readFile('src/routes/(app)/home/+page.svelte', 'utf8');
-  const nav = await readFile('src/lib/classic/classic-nav.ts', 'utf8');
+  const nav = await readFile('src/lib/workspace-ui/workspace-nav.ts', 'utf8');
   const layout = await readFile('src/routes/(app)/+layout.svelte', 'utf8');
   const areas = await readFile('src/lib/reservations/ReservationFloorPlansWorkspace.svelte', 'utf8');
 
   // Modules that do not exist yet are named in one quiet line rather than
   // taking half of Home as placeholder tiles.
   assert.match(home, /module\.key !== 'home' && !module\.placeholder/);
-  assert.match(home, /modulesForRole\(role\)\.filter\(\(module\) => module\.placeholder\)/);
+  assert.match(
+    home,
+    /modulesForRole\(role, workspace\.moduleEntitlements\)[\s\S]*\.filter\(\(module\) => module\.placeholder\)/
+  );
   assert.match(home, /\{t\('Coming next'\)\}/);
   assert.doesNotMatch(home, /tile--upcoming/);
   assert.match(nav, /\/restaurant\/areas', label: 'Areas'/);

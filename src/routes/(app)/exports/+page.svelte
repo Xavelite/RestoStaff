@@ -18,7 +18,7 @@
     todayInTimezone,
     weekday
   } from '$lib/calendar/date';
-  import ClassicPage from '$lib/classic/ClassicPage.svelte';
+  import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
   import ExportWizard from '$lib/exports/ExportWizard.svelte';
   import { previewSocialSecretariatCsv } from '$lib/exports/export-api';
   import type { PreparedExport } from '$lib/exports/export-download';
@@ -209,7 +209,7 @@
 
 <svelte:head><title>{t('Exports')} &middot; restogogo</title></svelte:head>
 
-<ClassicPage>
+<WorkspacePage>
   <section class="export-studio" aria-label={t('Export workspace')}>
     <aside class="scope-panel">
       <div class="scope-heading">
@@ -361,7 +361,7 @@
       </div>
     </div>
   </section>
-</ClassicPage>
+</WorkspacePage>
 
 <ExportWizard
   open={wizardOpen}

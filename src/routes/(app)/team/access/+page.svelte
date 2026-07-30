@@ -12,17 +12,17 @@
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import type { EmployeeDraft } from '$lib/team/team-model';
-  import { useClassicTeamContext } from '$lib/classic/classic-workspace-context';
-  import ClassicCellBadge from '$lib/classic/ClassicCellBadge.svelte';
-  import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
-  import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
-  import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
-  import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
-  import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
-  import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
-  import EmployeeInlineEditor from '$lib/classic/EmployeeInlineEditor.svelte';
-  import { teamDraft } from '$lib/classic/classic-team.svelte';
-  import { createTableView, peopleCountLabel } from '$lib/classic/table-view.svelte';
+  import { useWorkspaceTeamContext } from '$lib/workspace-ui/workspace-context';
+  import WorkspaceCellBadge from '$lib/workspace-ui/WorkspaceCellBadge.svelte';
+  import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
+  import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
+  import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
+  import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
+  import WorkspaceColChooser from '$lib/workspace-ui/WorkspaceColChooser.svelte';
+  import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
+  import EmployeeInlineEditor from '$lib/workspace-ui/EmployeeInlineEditor.svelte';
+  import { teamDraft } from '$lib/workspace-ui/workspace-team.svelte';
+  import { createTableView, peopleCountLabel } from '$lib/workspace-ui/table-view.svelte';
 
   type GroupBy = 'status' | 'role' | 'none';
   type SortKey = 'name' | 'email' | 'role' | 'pin' | 'status';
@@ -221,7 +221,7 @@
     await run(employee.id, () => revokeEmployeeInvitation(workspace.activeId!, employee.id), 'Invitation revoked.');
   }
 
-  const readTeamContext = useClassicTeamContext();
+  const readTeamContext = useWorkspaceTeamContext();
   const team = $derived(readTeamContext());
 </script>
 
@@ -236,7 +236,7 @@
     {@const activeEmployees = team.employees.filter((employee) => employee.active)}
     {@const appEnabled = activeEmployees.filter((employee) => employee.accessState === 'active').length}
 
-    <ClassicTablePanel dirty={team.dirty} saving={team.saving} canSave={team.canSave} onsave={() => void team.save().catch(() => undefined)} ondiscard={() => { team.discard(); cancelEmailEdit(); }}>
+    <WorkspaceTablePanel dirty={team.dirty} saving={team.saving} canSave={team.canSave} onsave={() => void team.save().catch(() => undefined)} ondiscard={() => { team.discard(); cancelEmailEdit(); }}>
       {#snippet meta()}
         <span><i class="dot"></i>{t('{count} employees', { count: activeEmployees.length })}</span>
         <span><i class="dot is-green"></i>{t('{count} with app access', { count: appEnabled })}</span>
@@ -245,12 +245,12 @@
         <div class="cl-tablewrap">
           <table class="cl-table cl-mobile-rows">
             <thead><tr>
-              <th class="has-menu"><ClassicPrimaryColMenu label={t('Employee')} sortable sortDir={view.sortDir('name')} onsort={(dir) => view.setSort('name', dir)} filterKind="text" searchValue={view.search('name')} onsearch={(value) => view.setSearch('name', value)} groupValue={view.groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'status', label: t('Status') }, { value: 'role', label: t('Role') }]} ongroupchange={(value) => view.setGroupBy(value as GroupBy)} /></th>
-              {#if shown('email')}<th class="has-menu"><ClassicColMenu label={t('Email')} sortable sortDir={view.sortDir('email')} onsort={(dir) => view.setSort('email', dir)} filterKind="text" searchValue={view.search('email')} onsearch={(value) => view.setSearch('email', value)} /></th>{/if}
-              {#if shown('role')}<th class="has-menu"><ClassicColMenu label={t('Role')} sortable sortDir={view.sortDir('role')} onsort={(dir) => view.setSort('role', dir)} filterKind="values" filterValues={roleValues} selected={view.excluded('role')} ontoggle={(value) => view.toggleValue('role', value)} onselectall={(on) => view.selectAll('role', on, roleValues)} /></th>{/if}
-              {#if shown('pin')}<th class="has-menu"><ClassicColMenu label={t('Badge PIN')} sortable sortDir={view.sortDir('pin')} onsort={(dir) => view.setSort('pin', dir)} filterKind="values" filterValues={pinValues} selected={view.excluded('pin')} ontoggle={(value) => view.toggleValue('pin', value)} onselectall={(on) => view.selectAll('pin', on, pinValues)} /></th>{/if}
-              {#if shown('status')}<th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={view.sortDir('status')} onsort={(dir) => view.setSort('status', dir)} filterKind="values" filterValues={accessValues} selected={view.excluded('status')} ontoggle={(value) => view.toggleValue('status', value)} onselectall={(on) => view.selectAll('status', on, accessValues)} /></th>{/if}
-              <th class="chooser-col"><ClassicColChooser columns={view.columns} hidden={view.hidden} ontoggle={view.toggleColumn} /></th>
+              <th class="has-menu"><WorkspacePrimaryColMenu label={t('Employee')} sortable sortDir={view.sortDir('name')} onsort={(dir) => view.setSort('name', dir)} filterKind="text" searchValue={view.search('name')} onsearch={(value) => view.setSearch('name', value)} groupValue={view.groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'status', label: t('Status') }, { value: 'role', label: t('Role') }]} ongroupchange={(value) => view.setGroupBy(value as GroupBy)} /></th>
+              {#if shown('email')}<th class="has-menu"><WorkspaceColMenu label={t('Email')} sortable sortDir={view.sortDir('email')} onsort={(dir) => view.setSort('email', dir)} filterKind="text" searchValue={view.search('email')} onsearch={(value) => view.setSearch('email', value)} /></th>{/if}
+              {#if shown('role')}<th class="has-menu"><WorkspaceColMenu label={t('Role')} sortable sortDir={view.sortDir('role')} onsort={(dir) => view.setSort('role', dir)} filterKind="values" filterValues={roleValues} selected={view.excluded('role')} ontoggle={(value) => view.toggleValue('role', value)} onselectall={(on) => view.selectAll('role', on, roleValues)} /></th>{/if}
+              {#if shown('pin')}<th class="has-menu"><WorkspaceColMenu label={t('Badge PIN')} sortable sortDir={view.sortDir('pin')} onsort={(dir) => view.setSort('pin', dir)} filterKind="values" filterValues={pinValues} selected={view.excluded('pin')} ontoggle={(value) => view.toggleValue('pin', value)} onselectall={(on) => view.selectAll('pin', on, pinValues)} /></th>{/if}
+              {#if shown('status')}<th class="has-menu"><WorkspaceColMenu label={t('Status')} sortable sortDir={view.sortDir('status')} onsort={(dir) => view.setSort('status', dir)} filterKind="values" filterValues={accessValues} selected={view.excluded('status')} ontoggle={(value) => view.toggleValue('status', value)} onselectall={(on) => view.selectAll('status', on, accessValues)} /></th>{/if}
+              <th class="chooser-col"><WorkspaceColChooser columns={view.columns} hidden={view.hidden} ontoggle={view.toggleColumn} /></th>
             </tr></thead>
             {#if !filtered.length}
               <tbody><tr class="cl-mobile-empty"><td colspan={colCount}>
@@ -263,7 +263,7 @@
             {:else}
               {#each groups as group (group.key)}
                 <tbody>
-                  {#if view.grouping}<ClassicGroupRow colspan={colCount} label={group.label} meta={peopleCountLabel(group.employees.length)} collapsed={view.isCollapsed(group.key)} ontoggle={() => view.toggleGroup(group.key)} />{/if}
+                  {#if view.grouping}<WorkspaceGroupRow colspan={colCount} label={group.label} meta={peopleCountLabel(group.employees.length)} collapsed={view.isCollapsed(group.key)} ontoggle={() => view.toggleGroup(group.key)} />{/if}
                   {#if !view.isCollapsed(group.key)}
                   {#each group.employees as employee (employee.id)}
                     <tr>
@@ -282,11 +282,11 @@
                           <button class="inline-cell" class:is-empty={!employee.email} type="button" disabled={!team.editable} onclick={() => startEmailEdit(employee)}><span>{employee.email || t('Add')}</span><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 20 4.3-1 10.8-10.8a2.1 2.1 0 0 0-3-3L5.3 16zM14.8 6.5l3 3" /></svg></button>
                         {/if}
                       </td>{/if}
-                      {#if shown('role')}<td><ClassicCellBadge label={roleLabel(employee.accessRole)} tone={employee.accessRole === 'manager' ? 'info' : 'neutral'} icon="user" /></td>{/if}
-                      {#if shown('pin')}<td><ClassicCellBadge label={employee.pinStatus === 'set' ? 'Set' : 'Not set'} tone={employee.pinStatus === 'set' ? 'success' : 'neutral'} icon="key" /></td>{/if}
-                      {#if shown('status')}<td><ClassicCellBadge label={ACCESS_LABEL[employee.accessState] ?? employee.accessState} tone={accessTone(employee.accessState)} icon={accessIcon(employee.accessState)} /></td>{/if}
+                      {#if shown('role')}<td><WorkspaceCellBadge label={roleLabel(employee.accessRole)} tone={employee.accessRole === 'manager' ? 'info' : 'neutral'} icon="user" /></td>{/if}
+                      {#if shown('pin')}<td><WorkspaceCellBadge label={employee.pinStatus === 'set' ? 'Set' : 'Not set'} tone={employee.pinStatus === 'set' ? 'success' : 'neutral'} icon="key" /></td>{/if}
+                      {#if shown('status')}<td><WorkspaceCellBadge label={ACCESS_LABEL[employee.accessState] ?? employee.accessState} tone={accessTone(employee.accessState)} icon={accessIcon(employee.accessState)} /></td>{/if}
                       <td class="menu-cell">
-                        <ClassicRowMenu
+                        <WorkspaceRowMenu
                           disabled={!team.editable || busy === employee.id}
                           items={[
                             { label: t('Open employee'), onselect: () => (detailId = employee.id) },
@@ -309,7 +309,7 @@
           </table>
         </div>
       {/snippet}
-    </ClassicTablePanel>
+    </WorkspaceTablePanel>
 
     {#snippet footer()}<ActionButton label={t('Cancel')} onclick={() => void requestInviteClose()} /><ActionButton label={t('Send invitation')} tone="primary" disabled={Boolean(busy)} onclick={() => void sendInvite().catch(() => undefined)} />{/snippet}
     <Dialog open={Boolean(inviting)} title={t('Invite {name}', { name: inviting?.displayName ?? '' })} description={t('They receive an email link to set a password and sign in.')} size="small" onclose={() => void requestInviteClose()} {footer}>

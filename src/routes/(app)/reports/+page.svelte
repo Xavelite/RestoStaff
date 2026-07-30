@@ -1,10 +1,10 @@
 <script lang="ts">
   import { formatHours } from '$lib/calendar/date';
   import { t } from '$lib/i18n/i18n.svelte';
-  import ClassicMeter from '$lib/classic/ClassicMeter.svelte';
-  import ClassicReportsPage from '$lib/classic/ClassicReportsPage.svelte';
-  import ClassicService from '$lib/classic/ClassicService.svelte';
-  import ClassicStat from '$lib/classic/ClassicStat.svelte';
+  import WorkspaceMeter from '$lib/workspace-ui/WorkspaceMeter.svelte';
+  import WorkspaceReportsPage from '$lib/workspace-ui/WorkspaceReportsPage.svelte';
+  import WorkspaceService from '$lib/workspace-ui/WorkspaceService.svelte';
+  import WorkspaceStat from '$lib/workspace-ui/WorkspaceStat.svelte';
   import ReportHoursChart from '$lib/reports/ReportHoursChart.svelte';
 
   function percent(value: number | null): string {
@@ -31,17 +31,17 @@
 
 <svelte:head><title>{t('Reports')} &middot; restogogo</title></svelte:head>
 
-<ClassicReportsPage>
+<WorkspaceReportsPage>
   {#snippet children(view)}
     <div class="cl-stats">
-      <ClassicStat label="Planned hours" value={view.current.planned} format={formatHours} accent="var(--cl-info)" mutedZero={false} />
-      <ClassicStat label="Worked hours" value={view.current.worked} format={formatHours} accent="var(--cl-ok)" mutedZero={false} />
-      <ClassicStat
+      <WorkspaceStat label="Planned hours" value={view.current.planned} format={formatHours} accent="var(--cl-info)" mutedZero={false} />
+      <WorkspaceStat label="Worked hours" value={view.current.worked} format={formatHours} accent="var(--cl-ok)" mutedZero={false} />
+      <WorkspaceStat
         label="Adherence"
         text={percent(view.current.adherence)}
         tone={view.current.adherence === null ? undefined : view.current.adherence >= 0.9 ? 'ok' : view.current.adherence >= 0.7 ? 'attention' : 'problem'}
       />
-      <ClassicStat label="People" value={view.current.headcount} accent="var(--cl-mod-team)" mutedZero={false} />
+      <WorkspaceStat label="People" value={view.current.headcount} accent="var(--cl-mod-team)" mutedZero={false} />
     </div>
 
     <ReportHoursChart buckets={view.buckets} />
@@ -127,12 +127,12 @@
             {#each view.services as service (service.key)}
               <tr>
                 <td class="cl-mobile-primary">
-                  <ClassicService service={service.key === 'evening' ? 'evening' : 'lunch'} variant="text" />
+                  <WorkspaceService service={service.key} label={service.label} variant="text" />
                   <span class="cl-mobile-summary"><span>{formatHours(service.planned)} {t('planned')}</span><span>{formatHours(service.worked)} {t('worked')}</span><span>{percent(service.adherence)}</span>{#if service.missingCount}<span>{service.missingCount} {t('missing')}</span>{/if}</span>
                 </td>
                 <td class="is-num">{formatHours(service.planned)}</td>
                 <td class="is-num">{formatHours(service.worked)}</td>
-                <td class="meter-cell"><ClassicMeter value={service.adherence} label={percent(service.adherence)} /></td>
+                <td class="meter-cell"><WorkspaceMeter value={service.adherence} label={percent(service.adherence)} /></td>
                 <td class="is-num">{service.lateCount}</td>
                 <td class="is-num">{service.missingCount}</td>
               </tr>
@@ -142,7 +142,7 @@
       </div>
     </section>
   {/snippet}
-</ClassicReportsPage>
+</WorkspaceReportsPage>
 
 <style>
   .delta.is-ok { color: var(--cl-ok); font-weight: var(--rst-fw-bold); }

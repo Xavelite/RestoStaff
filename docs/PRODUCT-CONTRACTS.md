@@ -10,9 +10,9 @@
 | `/team` | Team | Owner, Manager | Employees, contracts, access, and leave; payroll data stays owner-only |
 | `/restaurant` | Restaurant | Owner, Manager | Areas, positions, services, hours, coverage, and policy |
 | `/documents` | Documents | Owner, Manager | Keep private restaurant and employee records with expiry, access, and audit context |
-| `/reservations` | Reservations | Owner, Manager | Configure booking rules and floor plans; manage bookings, tables, covers, guests, and service status |
-| `/payroll/employees` | Payroll | Owner | Review employee payroll identity and readiness data |
-| `/reports` | Reports | Owner, Manager | Analyse hours, attendance and operational trends |
+| `/reservations` | Reservations | Owner, Manager | Optional entitlement: configure booking rules and manage bookings; disabled by default |
+| `/payroll/employees` | Payroll preparation | Owner | Review employee payroll identity and preparation readiness |
+| `/reports` | Reports | Owner, Manager | Experimental entitlement; disabled until metric contracts are approved |
 | `/exports` | Exports | Owner, Manager | Download planning and worked-time files; owners may prepare a social-secretariat draft |
 | `/badge-terminal` | Badge terminal | Owner, Manager | Pair devices and open the shared touch-first PIN terminal |
 | `/my-service` | My service | Employee | Weekly shifts, availability, and requests |
@@ -24,10 +24,11 @@ kiosk-focused page structure. Employees navigate only My service and My time.
 Direct URL guards enforce the same boundaries as navigation.
 
 Platform administration is not a restaurant role. It uses a separate audited
-entitlement, remains outside the restaurant shell, and can suspend a restaurant
-as a complete tenant-access boundary.
+entitlement and an AAL2 authenticator session, remains outside the restaurant
+shell, and can suspend a restaurant as a complete tenant-access boundary.
 
-Visible product language uses Schedule, Time & attendance, Payroll, Exports, Badge terminal, My service, and My time.
+Visible product language uses Schedule, Time & attendance, Payroll preparation,
+Exports, Badge terminal, My service, and My time.
 Persisted identifiers such as `planning_status`, `actuals_status`, and
 `planned_shifts` remain stable internal database contracts.
 
@@ -38,7 +39,14 @@ Persisted identifiers such as `planning_status`, `actuals_status`, and
   block ordinary assignment until explicitly resolved for the selected record.
   Opening a roster slot is non-destructive; removal is an explicit editor action.
 - Time & attendance preserves badge truth, corrections, cancellations, live monitoring, approval, and reopening. Calendar and Live monitor deep-link into the same entry editor.
-- Payroll starts from employee identity and current employment facts. The standalone Exports module produces operational files and an owner-only social-secretariat draft from complete weeks. Immutable official payroll lineage remains available in the backend for the later finalized payroll workflow; official gross-to-net calculation, declarations, settlement and payslips remain the social secretariat's responsibility.
+- Restaurant-configured service periods own names, order, active state, hours,
+  coverage, availability, Schedule, badges, Time & attendance, and report
+  grouping. Lunch and Evening are starter records, not hard-coded product rules.
+- Payroll preparation starts from employee identity and current employment
+  facts. Exports produces operational files and an owner-only
+  social-secretariat draft from complete weeks. The experimental calculation
+  and provider-reconciliation engine is not available to authenticated clients;
+  official payroll remains the social secretariat's responsibility.
 - Weekly-availability employees can mark a service Available or Not available.
   Time off is a separate, mutually exclusive action whose default type is
   Holiday. Availability and time off cannot occupy the same service slot.
@@ -55,10 +63,11 @@ Persisted identifiers such as `planning_status`, `actuals_status`, and
   readable. Managers can use management files; owner-only files remain hidden
   from them. Explicit archives keep immutable activity history after the object
   is removed, while cancelled reservations stay out of the visible archive.
-- Reservations reuse Restaurant services, opening hours, and work areas.
-  Availability and table assignment are decided transactionally on the server,
-  every lifecycle change appends immutable history, and Schedule consumes only
-  the restaurant-scoped demand aggregate.
+- Reservations is a revocable optional entitlement. Availability and table
+  assignment are decided transactionally on the server, every lifecycle change
+  appends immutable history, and Schedule consumes only a restaurant-scoped
+  demand aggregate when the module is enabled. Its current work-area-to-room
+  mapping is not the accepted final guest-space architecture.
 - Managers can send concise operational messages to all active employees or a
   selected group. Read and acknowledgement receipts are per recipient and phone
   delivery follows each recipient's notification preferences.
@@ -74,16 +83,22 @@ Persisted identifiers such as `planning_status`, `actuals_status`, and
 
 Restaurant areas describe where work happens. Positions describe what people
 do. Employees may hold multiple active positions with at most one primary
-position. Contract type and work regime are separate. Payroll evidence is
+position. Contract type, work regime, and worker status are separate.
+National-registry, bank, salary/cost, tax, and private provider values are
+Owner-only; Manager saves preserve those hidden values. Payroll evidence is
 provider-neutral and complete-week only.
+
+Team, Restaurant setup, and floor-plan workspaces use server revisions.
+Mutations require the revision the browser loaded and reject stale saves
+instead of silently replacing another session's work.
 
 ## Workspace presentation
 
 The authenticated product uses one compact workspace shell. Module tabs live in
 the fixed topbar; filters, period controls, add actions, Save, and Discard stay
-in the page toolbar. Schedule, Time & attendance, Restaurant, Team, Payroll,
-and Exports use shared workspace surfaces, while complete evidence is opened
-through Details. Unsaved drafts are guarded before route, period, restaurant,
-preview, terminal, or sign-out changes.
+in the page toolbar. Schedule, Time & attendance, Restaurant, Team, Payroll
+preparation, and Exports use shared workspace surfaces, while complete evidence
+is opened through Details. Unsaved drafts are guarded before route, period,
+restaurant, preview, terminal, or sign-out changes.
 
 Inventory, Recipes, Purchasing & suppliers, Menu costing, Tasks & checklists, and Food safety are Home-only later modules. They do not appear in the everyday sidebar until their operational contracts exist.

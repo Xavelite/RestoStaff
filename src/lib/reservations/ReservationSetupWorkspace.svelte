@@ -2,11 +2,11 @@
   import { onMount } from 'svelte';
   import { friendlyError } from '$lib/api/error-messages';
   import { t } from '$lib/i18n/i18n.svelte';
-  import ClassicPage from '$lib/classic/ClassicPage.svelte';
-  import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
-  import ClassicPicker from '$lib/classic/ClassicPicker.svelte';
-  import ClassicServiceIcon from '$lib/classic/ClassicServiceIcon.svelte';
-  import ClassicToggle from '$lib/classic/ClassicToggle.svelte';
+  import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
+  import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
+  import WorkspacePicker from '$lib/workspace-ui/WorkspacePicker.svelte';
+  import WorkspaceServiceIcon from '$lib/workspace-ui/WorkspaceServiceIcon.svelte';
+  import WorkspaceToggle from '$lib/workspace-ui/WorkspaceToggle.svelte';
   import { getReservationSetup, saveReservationSetup } from '$lib/reservations/reservation-api';
   import type { ReservationSetup, ReservationSetupDraft } from '$lib/reservations/reservation-types';
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
@@ -151,12 +151,12 @@
 
 <svelte:head><title>{t('Reservation setup')} &middot; restogogo</title></svelte:head>
 
-<ClassicPage>
+<WorkspacePage>
   {#if error}
     <div class="setup-error" role="alert">{error}</div>
   {/if}
 
-  <ClassicTablePanel
+  <WorkspaceTablePanel
     {dirty}
     {saving}
     canSave={canSave()}
@@ -189,12 +189,12 @@
                 <tr>
                   <td>
                     <span class="service-name is-{service.service_key}">
-                      <ClassicServiceIcon service={service.service_key === 'evening' ? 'evening' : 'lunch'} size={13} />
+                      <WorkspaceServiceIcon service={service.service_key} size={13} />
                       <strong>{t(serviceName(service.service_key))}</strong>
                     </span>
                   </td>
                   <td>
-                    <ClassicToggle
+                    <WorkspaceToggle
                       checked={service.booking_enabled}
                       label={service.booking_enabled ? 'Open' : 'Closed'}
                       onchange={(next) => {
@@ -214,7 +214,7 @@
                   </td>
                   <td><input class="cl-field cover-field" type="number" min="1" max="10000" placeholder="—" bind:value={service.maximum_covers} oninput={touch} /></td>
                   <td>
-                    <ClassicPicker
+                    <WorkspacePicker
                       value={service.automatic_confirmation ? 'automatic' : 'manual'}
                       options={confirmationOptions}
                       ariaLabel={t('Confirmation')}
@@ -231,8 +231,8 @@
         </div>
       {/if}
     {/snippet}
-  </ClassicTablePanel>
-</ClassicPage>
+  </WorkspaceTablePanel>
+</WorkspacePage>
 
 <style>
   .setup-error {

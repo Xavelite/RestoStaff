@@ -2,9 +2,9 @@
 
 Restogogo is a typed SvelteKit restaurant-operations application for Schedule,
 Time & attendance, employee self-service, restaurant and team setup, payroll
-evidence, reservations, and PIN-based time clock workflows. It also includes
+preparation, documents, and PIN-based time clock workflows. It also includes
 operational team messages, read-only role previews, Web Push notifications, and
-contextual pilot feedback.
+contextual pilot feedback. Reservations is an optional, separately gated track.
 
 ## Start
 
@@ -44,11 +44,12 @@ described in [`docs/PRODUCTION-READINESS.md`](docs/PRODUCTION-READINESS.md).
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): code and runtime ownership.
 - [`docs/PRODUCT-CONTRACTS.md`](docs/PRODUCT-CONTRACTS.md): roles and workflows.
+- [`docs/PILOT.md`](docs/PILOT.md): settled pilot scope and honest acceptance gates.
 - [`docs/DATABASE.md`](docs/DATABASE.md): baseline, migrations, and verification.
 - [`docs/DATABASE-MIGRATION.md`](docs/DATABASE-MIGRATION.md): existing-project deployment procedure.
 - [`docs/QUALITY.md`](docs/QUALITY.md): tests, browser matrix, and guardrails.
-- [`docs/PAYROLL.md`](docs/PAYROLL.md): CP 302 rules, evidence, calculations, and unresolved gates.
-- [`docs/RESERVATIONS.md`](docs/RESERVATIONS.md): booking and floor-plan contracts.
+- [`docs/PAYROLL.md`](docs/PAYROLL.md): payroll-preparation authority and engine quarantine.
+- [`docs/RESERVATIONS.md`](docs/RESERVATIONS.md): optional booking track and unresolved space model.
 - [`docs/PRODUCTION-READINESS.md`](docs/PRODUCTION-READINESS.md): remaining gates.
 
 ## Source archive

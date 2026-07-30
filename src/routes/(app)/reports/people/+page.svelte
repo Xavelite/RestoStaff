@@ -5,8 +5,8 @@
   import { personInitials } from '$lib/ui/person';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { buildEmployeeColorMap } from '$lib/ui/position-color';
-  import ClassicMeter from '$lib/classic/ClassicMeter.svelte';
-  import ClassicReportsPage from '$lib/classic/ClassicReportsPage.svelte';
+  import WorkspaceMeter from '$lib/workspace-ui/WorkspaceMeter.svelte';
+  import WorkspaceReportsPage from '$lib/workspace-ui/WorkspaceReportsPage.svelte';
   import type { Regime } from '$lib/dashboard/dashboard-model';
 
   let workforceFilter = $state<'all' | Regime>('all');
@@ -29,7 +29,7 @@
 
 <svelte:head><title>{t('People')} &middot; restogogo</title></svelte:head>
 
-<ClassicReportsPage>
+<WorkspaceReportsPage>
   {#snippet children(view)}
     {@const allRows = [...view.employees].sort((left, right) => right.worked - left.worked)}
     {@const rows = allRows.filter((employee) => workforceFilter === 'all' || employee.regime === workforceFilter)}
@@ -98,7 +98,7 @@
               <td class="is-num">{employee.shifts}</td>
               <td class="is-num">{formatHours(employee.planned)}</td>
               <td class="is-num">{formatHours(employee.worked)}</td>
-              <td class="meter-cell"><ClassicMeter value={employee.adherence} label={percent(employee.adherence)} /></td>
+              <td class="meter-cell"><WorkspaceMeter value={employee.adherence} label={percent(employee.adherence)} /></td>
               <td class="is-num">{employee.lateCount}</td>
               <td class="is-num">{employee.missingBadges}</td>
               <td class="is-num">{employee.corrections}</td>
@@ -110,7 +110,7 @@
       </table>
     </div>
   {/snippet}
-</ClassicReportsPage>
+</WorkspaceReportsPage>
 
 <style>
   .meter-cell {

@@ -133,7 +133,9 @@ test('canonical database verifier allowlists only the reviewed public boundary',
     'supabase/tests/canonical_schema_security.sql',
     'utf8'
   );
-  assert.match(security, /get_reservation_public_channel\(uuid\)/);
+  assert.match(security, /get_reservation_public_channel_v2\(uuid\)/);
+  assert.match(security, /get_reservation_floor_plans_v2\(uuid\)/);
+  assert.match(security, /save_reservation_floor_plans_v2\(uuid,jsonb,jsonb,jsonb,jsonb,integer\)/);
   assert.match(security, /reservation_public_create_hold\(text,text,text,jsonb\)/);
   assert.match(security, /reservation_public_release_hold\(text,text,text\)/);
   assert.match(security, /reservation_public_confirm\(text,text,text,text,jsonb\)/);

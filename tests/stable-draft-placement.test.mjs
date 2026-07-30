@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { StableDraftPlacement } from '../src/lib/classic/stable-draft-placement.ts';
+import { StableDraftPlacement } from '../src/lib/workspace-ui/stable-draft-placement.ts';
 
 const clone = (row) => ({ ...row, tags: [...row.tags] });
 

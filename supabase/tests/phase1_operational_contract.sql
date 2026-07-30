@@ -2,7 +2,7 @@
 -- Every mutation is contained in a rolled-back transaction.
 begin;
 
-do $verify_fixed_services$
+do $verify_configurable_services$
 declare
   v_restaurant_id uuid;
   v_owner_profile_id uuid;
@@ -16,45 +16,50 @@ begin
     raise exception 'No profile fixture is available.';
   end if;
 
-  begin
-    insert into public.restaurants (
-      workspace_slug,
-      name,
-      owner_profile_id
-    )
-    values (
-      'phase1-contract-' || replace(gen_random_uuid()::text, '-', ''),
-      'Phase 1 contract verification',
-      v_owner_profile_id
-    )
-    returning id into v_restaurant_id;
+  insert into public.restaurants (
+    workspace_slug,
+    name,
+    owner_profile_id
+  )
+  values (
+    'phase1-contract-' || replace(gen_random_uuid()::text, '-', ''),
+    'Phase 1 contract verification',
+    v_owner_profile_id
+  )
+  returning id into v_restaurant_id;
 
-    insert into public.services (
-      restaurant_id,
-      service_key,
-      name,
-      sort_order
-    )
-    values
-      (v_restaurant_id, 'lunch', 'Lunch', 1),
-      (v_restaurant_id, 'evening', 'Evening', 2);
+  insert into public.services (
+    restaurant_id,
+    service_key,
+    name,
+    sort_order
+  )
+  values
+    (v_restaurant_id, 'breakfast', 'Breakfast', 1),
+    (v_restaurant_id, 'late-night', 'Late night', 2);
 
-    set constraints restaurants_fixed_services_guard immediate;
-    set constraints services_fixed_contract_guard immediate;
+  delete from public.services
+  where restaurant_id = v_restaurant_id
+    and service_key = 'breakfast';
 
-    delete from public.services
+  if not exists (
+    select 1
+    from public.services
     where restaurant_id = v_restaurant_id
-      and service_key = 'lunch';
+      and service_key = 'late-night'
+  ) then
+    raise exception 'Configurable service periods were not retained independently.';
+  end if;
 
-    raise exception 'Fixed-service guard did not reject deletion.';
+  begin
+    insert into public.services (restaurant_id, service_key, name, sort_order)
+    values (v_restaurant_id, 'Invalid key', 'Invalid', 3);
+    raise exception 'Invalid service key was accepted.';
   exception
-    when others then
-      if sqlerrm not like 'Every restaurant must retain Lunch and Evening%' then
-        raise;
-      end if;
+    when check_violation then null;
   end;
 end
-$verify_fixed_services$;
+$verify_configurable_services$;
 
 do $verify_enum_columns$
 begin

@@ -13,6 +13,7 @@
   import {
     addDays,
     addMonths,
+    activeServiceKeys,
     formatHours,
     hoursBetweenInstants,
     mondayFor,
@@ -20,13 +21,14 @@
     monthStart,
     serviceDisplay,
     serviceLabel,
-    todayInTimezone
+    todayInTimezone,
+    type ServiceKey
   } from '$lib/calendar/date';
   import type { CalendarDay } from '$lib/calendar/calendar-model';
   import { instantClockLabel, resolveWorkspaceServiceSlot, type ServiceSlotTruth } from '$lib/calendar/service-slot';
   import ActionButton from '$lib/components/ActionButton.svelte';
   import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
-  import ClassicPage from '$lib/classic/ClassicPage.svelte';
+  import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
   import StatusPill from '$lib/components/StatusPill.svelte';
   import EmployeeSlotDrawer from '$lib/employee/EmployeeSlotDrawer.svelte';
   import {
@@ -78,7 +80,7 @@
   let feedbackTone = $state<'info' | 'success' | 'warning' | 'danger'>('info');
   let slotDetailsOpen = $state(false);
   let drawerDate = $state('');
-  let drawerService = $state<'lunch' | 'evening' | ''>('');
+  let drawerService = $state<ServiceKey | ''>('');
 
   const activeMonth = $derived(month || monthStart(today));
   const visibleFrom = $derived(mondayFor(activeMonth));
@@ -135,7 +137,9 @@
       ? resolveCalendarTruth(drawerDate, drawerService)
       : null
   );
-  const timeOffRanges = $derived(groupTimeOffRanges(selectedTimeOffSlots));
+  const timeOffRanges = $derived(
+    groupTimeOffRanges(selectedTimeOffSlots, activeServiceKeys(snapshot?.services))
+  );
   const defaultTimeOffType = $derived(
     snapshot ? defaultEmployeeTimeOffType(snapshot.absence_types) : null
   );
@@ -190,6 +194,10 @@
     )
   );
 
+  function serviceName(serviceKey: ServiceKey): string {
+    return serviceLabel(serviceKey, snapshot?.services);
+  }
+
   $effect(() => {
     if (selectedDate) return;
     const requested = page.url.searchParams.get('date');
@@ -197,7 +205,7 @@
     selectedDate = initial;
     month = monthStart(initial);
     const service = page.url.searchParams.get('service');
-    if (service === 'lunch' || service === 'evening') {
+    if (service && /^[a-z][a-z0-9-]{0,39}$/.test(service)) {
       selectedTimeOffSlots = [
         { key: `${employeeId}|${initial}|${service}`, date: initial, serviceKey: service }
       ];
@@ -245,7 +253,7 @@
     return reason;
   }
 
-  function resolveCalendarTruth(date: string, serviceKey: 'lunch' | 'evening') {
+  function resolveCalendarTruth(date: string, serviceKey: ServiceKey) {
     if (!snapshot) return null;
     return resolveWorkspaceServiceSlot({
       snapshot,
@@ -272,7 +280,7 @@
 
   // Shared by the direct-tap fast path and the slot Drawer's buttons, so both
   // entry points always agree on what this service allows right now.
-  function toggleAvailabilityFor(date: string, serviceKey: 'lunch' | 'evening', truth: ServiceSlotTruth) {
+  function toggleAvailabilityFor(date: string, serviceKey: ServiceKey, truth: ServiceSlotTruth) {
     if (blockReasonFor(truth, date, 'availability')) return;
     selectedTimeOffSlots = removeEmployeeSlotSelection(selectedTimeOffSlots, truth.key);
     availabilityOverrides = toggleAvailabilityOverride(
@@ -287,7 +295,7 @@
   // Drawer path: set available or clear it; leave remains a separate request.
   function chooseAvailabilityFor(
     date: string,
-    serviceKey: 'lunch' | 'evening',
+    serviceKey: ServiceKey,
     truth: ServiceSlotTruth,
     state: AvailabilityDraft['state']
   ) {
@@ -303,7 +311,7 @@
     feedback = '';
   }
 
-  function requestTimeOffFor(date: string, serviceKey: 'lunch' | 'evening', truth: ServiceSlotTruth) {
+  function requestTimeOffFor(date: string, serviceKey: ServiceKey, truth: ServiceSlotTruth) {
     if (blockReasonFor(truth, date, 'time_off')) return;
     if (availabilityMode === 'weekly_availability') {
       availabilityOverrides = setAvailabilityOverride(
@@ -324,7 +332,7 @@
   // in-progress time-off/change basket keeps extending itself, otherwise a
   // weekly-availability slot toggles instantly and everything else opens the
   // Drawer, which is also where every action lives explicitly.
-  function primaryTap(date: string, serviceKey: 'lunch' | 'evening') {
+  function primaryTap(date: string, serviceKey: ServiceKey) {
     if (!snapshot) return;
     const future = date >= today;
     const truth = resolveCalendarTruth(date, serviceKey);
@@ -352,7 +360,7 @@
     openSlotDetails(date, serviceKey);
   }
 
-  function openSlotDetails(date: string, serviceKey: 'lunch' | 'evening') {
+  function openSlotDetails(date: string, serviceKey: ServiceKey) {
     selectedDate = date;
     month = monthStart(date);
     drawerDate = date;
@@ -630,11 +638,11 @@
     if (timeOffSelectedKeySet.has(slot.key)) return t('Time off');
     if (slot.presentation.card) return t(slot.presentation.card.label);
     if (slot.presentation.background === 'available') return t('Available');
-    return t(serviceLabel(slot.serviceKey));
+    return t(serviceName(slot.serviceKey));
   }
 
   function slotTitle(slot: CalendarDay['slots'][number]) {
-    const service = t(serviceLabel(slot.serviceKey));
+    const service = t(serviceName(slot.serviceKey));
     const label = slotLabel(slot);
     return label === service ? service : `${service} · ${label}`;
   }
@@ -680,7 +688,7 @@
 {/snippet}
 
 {#if snapshot && employee}
-  <ClassicPage actions={pageActions}>
+  <WorkspacePage actions={pageActions}>
     <div class="cl-stats employee-stats">
       <div class="cl-stat"><span class="cl-stat__label">{t('Worked')}</span><span class="cl-stat__value">{formatHours(workedHours)}</span></div>
       <div class="cl-stat"><span class="cl-stat__label">{t('Leave remaining')}</span><span class="cl-stat__value has-unit">{leaveBalance.remaining}<small>{t('days')}</small></span></div>
@@ -751,7 +759,7 @@
                       aria-label={`${selectedDay.date}, ${slotTitle(slot)}: ${slotMeta(slot)}`}
                       onclick={() => primaryTap(selectedDay.date, slot.serviceKey)}
                     >
-                      <b>{serviceDisplay(slot.serviceKey).icon}</b>
+                      <b>{serviceDisplay(slot.serviceKey, snapshot?.services).icon}</b>
                       <span>
                         <strong>{slotLabel(slot)}</strong>
                         <small>{slotMeta(slot)}</small>
@@ -760,7 +768,7 @@
                     <button
                       type="button"
                       class="day-service__more"
-                      aria-label={t('More options for {service} on {date}', { service: t(serviceLabel(slot.serviceKey)), date: selectedDay.date })}
+                      aria-label={t('More options for {service} on {date}', { service: t(serviceName(slot.serviceKey)), date: selectedDay.date })}
                       onclick={() => openSlotDetails(selectedDay.date, slot.serviceKey)}
                     >
                       ⋯
@@ -776,7 +784,7 @@
           <article>
             <div>
               <StatusPill label="Published shift" tone="info" />
-              <strong>{t(serviceLabel(shift.serviceKey))} · {shift.startsAt}–{shift.endsAt}</strong>
+              <strong>{t(serviceName(shift.serviceKey))} · {shift.startsAt}–{shift.endsAt}</strong>
               <span>{shift.area} · {shift.jobFunction}</span>
             </div>
             <ActionButton
@@ -795,7 +803,7 @@
                 label={entry.status === 'open' ? 'Working now' : corrected ? 'Corrected' : 'Worked'}
                 tone={entry.status === 'open' ? 'success' : corrected ? 'warning' : 'info'}
               />
-              <strong>{t(serviceLabel(entry.service_key))} · {formatHours(hours)}</strong>
+              <strong>{t(serviceName(entry.service_key))} · {formatHours(hours)}</strong>
               <span>{instantClockLabel(entry.clock_in_at, timezone)}–{instantClockLabel(entry.clock_out_at, timezone) || 'open'} · {entry.break_minutes || 0} min break</span>
               {#if entry.adjustment_reason}<small>Correction: {entry.adjustment_reason}</small>{/if}
               {#if entry.clock_in_photo_status || entry.clock_out_photo_status}
@@ -815,7 +823,7 @@
                   label={slot.availability_state === 'available' ? 'Available' : 'Needs update'}
                   tone={slot.availability_state === 'available' ? 'success' : 'warning'}
                 />
-                <strong>{t(serviceLabel(slot.service_key))} {t('availability')}</strong>
+                <strong>{t(serviceName(slot.service_key))} {t('availability')}</strong>
                 {#if slot.note}<span>{slot.note}</span>{/if}
               </div>
               <ActionButton
@@ -831,7 +839,7 @@
             <article>
               <div>
                 <StatusPill label="Recurring" tone="success" />
-                <strong>{t(serviceLabel(slot.service_key))} · {t('Scheduled')}</strong>
+                <strong>{t(serviceName(slot.service_key))} · {t('Scheduled')}</strong>
                 <span>{t('From your fixed contract schedule')}</span>
               </div>
             </article>
@@ -845,7 +853,7 @@
                 label={exception.status === 'approved' ? 'Schedule change' : 'Change pending'}
                 tone={exception.status === 'approved' ? 'danger' : 'warning'}
               />
-              <strong>{exception.service_key ? t(serviceLabel(exception.service_key)) : t('Full day')}</strong>
+              <strong>{exception.service_key ? t(serviceName(exception.service_key)) : t('Full day')}</strong>
               <span>{exception.start_date}–{exception.end_date} · {exception.reason}</span>
               {#if exception.manager_comment}<small>Manager: {exception.manager_comment}</small>{/if}
             </div>
@@ -899,6 +907,7 @@
     availabilityState={drawerTruth?.availability ?? ''}
     isTimeOffSelected={drawerTruth ? timeOffSelectedKeySet.has(drawerTruth.key) : false}
     isChangeSelected={false}
+    services={snapshot?.services ?? []}
     absenceTypes={snapshot.absence_types}
     bind:absenceTypeId
     bind:comment
@@ -910,7 +919,7 @@
     onCancelChange={cancelWorkPatternException}
   />
 
-  </ClassicPage>
+  </WorkspacePage>
 {/if}
 
 <style>

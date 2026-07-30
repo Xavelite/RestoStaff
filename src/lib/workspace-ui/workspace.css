@@ -1,0 +1,2222 @@
+/* ==========================================================================
+   restogogo — workspace design
+   ==========================================================================
+   A precise, table-first workspace for the complete application.
+
+   Rules this file exists to enforce:
+     - The global top bar stays dark and neutral; the workspace rail is light
+       so it reads as navigation instead of a second heavy frame.
+     - Brand colour is a theme choice; operational colour keeps its meaning.
+     - Colour is allowed, but it must carry meaning — it goes on status, data
+       and module identity, never on a surface as decoration. A calm page that
+       is still scannable at a glance, not a monochrome one.
+     - Tables are the default data surface; numbers are plain and tabular.
+     - Status is symbol + word AND colour — colour reinforces, never replaces.
+
+   Scoped under [data-design='workspace'] rather than a wrapper class so that
+   dialogs and toasts — which portal to <body> — inherit the same palette.
+   ========================================================================== */
+
+:root[data-design='workspace'] {
+  color-scheme: light;
+  --cl-bg: #f5f7fb;
+  --cl-surface: #ffffff;
+  --cl-surface-muted: #f8fafc;
+  --cl-line: #e3e8ef;
+  --cl-line-strong: #cdd5df;
+  --cl-grid-line: #e4e9f0;
+  --cl-ink: #17212f;
+  --cl-data-text: #344054;
+  --cl-muted: #667085;
+  --cl-accent: #315efb;
+  --cl-accent-hover: #2448d8;
+  --cl-accent-rgb: 49, 94, 251;
+  --cl-accent-wash: rgba(49, 94, 251, 0.075);
+  --cl-shell: #101828;
+  --cl-shell-raised: #172033;
+  --cl-shell-hover: #202b3f;
+  --cl-shell-line: #2b364b;
+  --cl-shell-text: #f8fafc;
+  --cl-shell-muted: #a8b2c3;
+  --cl-rail-bg: #ffffff;
+  --cl-rail-hover: #f4f6fa;
+  --cl-rail-line: #e3e8ef;
+  --cl-rail-text: #253045;
+  --cl-rail-muted: #657084;
+  --cl-thead: #f8faff;
+  --cl-radius: 6px;
+  /* Data surfaces (tables, cards) sit a touch squarer than the controls. */
+  --cl-radius-surface: 4px;
+  --cl-row: 46px;
+  --cl-nav-row: 42px;
+  --cl-grid-head: 48px;
+  --cl-sidebar: 216px;
+  --cl-topbar: 60px;
+  --cl-gutter: clamp(18px, 2.2vw, 32px);
+
+  /* Shared components (Dialog, ActionButton, StatusPill, toasts, confirm)
+     read the --rst-* contract. Re-point the ones that carry colour so a
+     reused primitive lands in the workspace palette instead of the warm one. */
+  --rst-ui-bg: var(--cl-bg);
+  --rst-ui-bg-2: var(--cl-surface);
+  --rst-ui-bg-deep: var(--cl-bg);
+  --rst-ui-panel: var(--cl-surface);
+  --rst-ui-card: var(--cl-surface);
+  --rst-ui-card-strong: var(--cl-surface-muted);
+  --rst-ui-surface-panel: var(--cl-surface);
+  --rst-ui-surface-panel-head: var(--cl-surface-muted);
+  --rst-ui-surface-panel-body: var(--cl-surface);
+  --rst-ui-surface-board: var(--cl-surface);
+  --rst-ui-surface-body: var(--cl-surface);
+  --rst-ui-surface-field: var(--cl-surface);
+  --rst-ui-surface-field-strong: var(--cl-surface);
+  --rst-ui-surface-subtle: var(--cl-surface-muted);
+  --rst-ui-section-row-hover: var(--cl-surface-muted);
+  --rst-ui-hover-bg: var(--cl-surface-muted);
+  --rst-ui-text: var(--cl-ink);
+  --rst-ui-text-heading: var(--cl-ink);
+  --rst-ui-ink: var(--cl-ink);
+  --rst-ui-muted: var(--cl-muted);
+  --rst-ui-subtle: var(--cl-muted);
+  --rst-ui-quiet: var(--cl-muted);
+  --rst-ui-line: var(--cl-line);
+  --rst-ui-line-strong: var(--cl-line-strong);
+  --rst-ui-divider: var(--cl-line);
+  --rst-ui-divider-soft: var(--cl-line);
+  --rst-ui-divider-strong: var(--cl-line-strong);
+  --rst-ui-action: var(--cl-accent);
+  --rst-ui-action-2: var(--cl-accent-hover);
+  --rst-ui-action-rgb: var(--cl-accent-rgb);
+  --rst-ui-accent: var(--cl-accent);
+  --rst-ui-panel-title: var(--cl-ink);
+  --rst-ui-radius-sm: 4px;
+  --rst-ui-radius-md: var(--cl-radius);
+  --rst-ui-radius-lg: var(--cl-radius);
+  --rst-ui-radius-xl: var(--cl-radius);
+  --rst-ui-radius-2xl: var(--cl-radius);
+  --rst-ui-shadow-card: none;
+  /* Shared editors use the same neutral card and command surfaces. */
+  --rst-summary-bg: var(--cl-surface-muted);
+  --rst-summary-border: var(--cl-line);
+  --rst-summary-text: var(--cl-ink);
+  --rst-summary-quiet: var(--cl-muted);
+  --rst-summary-tile: var(--cl-surface);
+  --rst-summary-kicker: var(--cl-muted);
+  --rst-command-bg: var(--cl-surface);
+  --rst-command-bg-warm: var(--cl-surface);
+  --rst-command-bg-ready: var(--cl-surface);
+  --rst-command-bg-blocked: var(--cl-surface);
+  --rst-command-bg-info: var(--cl-surface);
+  --rst-command-border: var(--cl-line);
+  --rst-command-text: var(--cl-ink);
+  --rst-command-radius: var(--cl-radius);
+  --rst-command-shadow: none;
+  --rst-state-selected-bg: var(--cl-accent-wash);
+  --rst-state-selected-border: color-mix(in srgb, var(--cl-accent) 36%, var(--cl-line));
+  --rst-overlay-bg: rgba(26, 26, 26, 0.32);
+  --rst-atmosphere-image: none;
+  --rst-atmosphere-fade: none;
+  --rst-atmosphere-tint: none;
+  --rst-topbar-bg: var(--cl-shell);
+  --rst-topbar-line: var(--cl-shell-line);
+  --rst-topbar-text: var(--cl-shell-text);
+  --rst-topbar-muted: var(--cl-shell-muted);
+  --rst-topbar-control-bg: rgba(255, 255, 255, .045);
+  --rst-topbar-control-line: rgba(255, 255, 255, .12);
+  --rst-topbar-control-hover: var(--cl-shell-hover);
+  --rst-topbar-alert: #fbbf24;
+  --rst-topbar-active-bg: rgba(var(--cl-accent-rgb), 0.14);
+  --rst-topbar-active-border: rgba(var(--cl-accent-rgb), 0.52);
+  --rst-focus-color: var(--cl-accent);
+  --rst-ui-focus: 0 0 0 3px rgba(var(--cl-accent-rgb), .22);
+  --rst-ui-font: "Segoe UI Variable Text", "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* ---- meaning colours -------------------------------------------------
+     Three operational tones. Each has an ink (for the glyph and emphasis),
+     a soft wash (for a tinted card or cell) and a border. The word next to
+     a coloured glyph stays --cl-ink, so colour reinforces and never carries
+     the meaning alone. */
+  --cl-ok: #15803d;
+  --cl-ok-rgb: 21, 128, 61;
+  --cl-ok-wash: #eef8f1;
+  --cl-ok-line: #bfe3cb;
+  --cl-attention: #b45309;
+  --cl-attention-rgb: 180, 83, 9;
+  --cl-attention-wash: #fdf5e9;
+  --cl-attention-line: #f0d8ac;
+  --cl-problem: #be123c;
+  --cl-problem-rgb: 190, 18, 60;
+  --cl-problem-wash: #fdeef1;
+  --cl-problem-line: #f2c2ce;
+  --cl-info: #1d4ed8;
+  --cl-info-rgb: 29, 78, 216;
+  --cl-info-wash: #eef2fd;
+  --cl-info-line: #c3d1f6;
+
+  /* ---- service colours -------------------------------------------------
+     Lunch is daytime gold and evening is indigo, both mapped through the
+     shared --rst-service-* source tokens. */
+  --cl-lunch: #b8860b;
+  --cl-lunch-wash: #fbf3df;
+  --cl-evening: #4f46e5;
+  --cl-evening-wash: #eeecfb;
+
+  /* ---- module identity -------------------------------------------------
+     A soft tint per module, used only on the Home portal tiles and the
+     stat-card accent rail — wayfinding, not decoration. The sidebar and
+     page headers stay neutral. */
+  --cl-mod-home: #0d9488;
+  --cl-mod-schedule: #2563eb;
+  --cl-mod-time: #7c3aed;
+  --cl-mod-team: #db2777;
+  --cl-mod-restaurant: #ea580c;
+  --cl-mod-inventory: #65a30d;
+  --cl-mod-payroll: #0891b2;
+  --cl-mod-badge: #4f46e5;
+  --cl-mod-reservations: #059669;
+  --cl-mod-reports: #c026d3;
+  --cl-mod-exports: #475569;
+  --cl-mod-settings: #64748b;
+  --cl-module: var(--cl-mod-home);
+
+  /* ---- motion ----------------------------------------------------------
+     Everything is short and explains a change; nothing performs. Honoured by
+     the global prefers-reduced-motion reset in app.css. */
+  --cl-ease: cubic-bezier(0.2, 0, 0, 1);
+  --cl-ease-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
+  --cl-dur: 0.16s;
+  --cl-dur-slow: 0.28s;
+}
+
+:root[data-design='workspace'][data-theme='tangerine'] {
+  --cl-bg: #f7f8fa;
+  --cl-accent: #ff5a1f;
+  --cl-accent-hover: #e9470c;
+  --cl-accent-rgb: 255, 90, 31;
+  --cl-accent-wash: rgba(255, 90, 31, .075);
+  --cl-thead: #fff9f6;
+}
+
+/* Scrollbars and text selection are part of the noise budget too. */
+:root[data-design='workspace'] {
+  scrollbar-color: var(--cl-line-strong) transparent;
+}
+
+:root[data-design='workspace'] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:root[data-design='workspace'] ::-webkit-scrollbar-thumb {
+  border: 3px solid var(--cl-bg);
+  background: var(--cl-line-strong);
+}
+
+:root[data-design='workspace'] ::selection {
+  color: var(--cl-ink);
+  background: var(--cl-accent-wash);
+}
+
+/* -------------------------------------------------- shell ---------------- */
+
+.cl-app {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: var(--cl-sidebar) minmax(0, 1fr);
+  grid-template-rows: var(--cl-topbar) minmax(0, 1fr);
+  grid-template-areas:
+    'brand topbar'
+    'sidebar main';
+  color: var(--cl-ink);
+  background: var(--cl-bg);
+}
+
+.cl-app[data-module='restaurant'] { --cl-module: var(--cl-mod-restaurant); }
+.cl-app[data-module='team'] { --cl-module: var(--cl-mod-team); }
+.cl-app[data-module='schedule'],
+.cl-app[data-module='my-service'] { --cl-module: var(--cl-mod-schedule); }
+.cl-app[data-module='time'],
+.cl-app[data-module='my-time'] { --cl-module: var(--cl-mod-time); }
+.cl-app[data-module='badge-terminal'] { --cl-module: var(--cl-mod-badge); }
+.cl-app[data-module='reservations'] { --cl-module: var(--cl-mod-reservations); }
+.cl-app[data-module='payroll'] { --cl-module: var(--cl-mod-payroll); }
+.cl-app[data-module='reports'] { --cl-module: var(--cl-mod-reports); }
+.cl-app[data-module='exports'] { --cl-module: var(--cl-mod-exports); }
+.cl-app[data-module='settings'] { --cl-module: var(--cl-mod-settings); }
+
+.cl-brand {
+  grid-area: brand;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 320;
+  width: var(--cl-sidebar);
+  height: var(--cl-topbar);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 18px;
+  border-right: 1px solid var(--cl-shell-line);
+  border-bottom: 1px solid var(--cl-shell-line);
+  background: var(--cl-shell);
+  color: var(--cl-shell-text);
+  font-size: 17px;
+  font-weight: var(--rst-fw-display);
+  text-decoration: none;
+}
+
+.cl-brand__mark {
+  width: 27px;
+  height: 27px;
+  flex: 0 0 auto;
+  display: block;
+  background: var(--cl-accent);
+  -webkit-mask: var(--brand-mark) center / contain no-repeat;
+  mask: var(--brand-mark) center / contain no-repeat;
+}
+
+.cl-brand__word {
+  display: inline-flex;
+  align-items: baseline;
+  letter-spacing: 0;
+}
+
+.cl-brand__word i {
+  color: var(--cl-accent);
+  font-style: normal;
+}
+
+.cl-brand__word i + i {
+  color: var(--cl-shell-text);
+}
+
+.cl-topbar {
+  grid-area: topbar;
+  position: fixed;
+  top: 0;
+  left: var(--cl-sidebar);
+  right: 0;
+  z-index: 320;
+  height: var(--cl-topbar);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 var(--cl-gutter);
+  border-bottom: 1px solid var(--cl-shell-line);
+  background: var(--cl-shell);
+  color: var(--cl-shell-text);
+}
+
+.cl-topbar__spacer {
+  margin-left: auto;
+}
+
+/* Pinned to the viewport and scrolling on its own, so the collapse toggle at
+   its foot is always reachable — you never scroll the page to get at it. */
+.cl-sidebar {
+  grid-area: sidebar;
+  position: fixed;
+  z-index: 300;
+  top: var(--cl-topbar);
+  bottom: 0;
+  left: 0;
+  width: var(--cl-sidebar);
+  display: flex;
+  flex-direction: column;
+  padding: 10px 0 8px;
+  border-right: 1px solid var(--cl-rail-line);
+  background: var(--cl-rail-bg);
+  box-shadow: 4px 0 12px rgb(24 28 34 / 2.5%);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.cl-sidebar__nav {
+  display: grid;
+  gap: 0;
+}
+
+.cl-sidebar__divider {
+  height: 1px;
+  margin: 6px 18px 5px;
+  background: color-mix(in srgb, var(--cl-rail-line) 78%, transparent);
+}
+
+.cl-sidebar__utility {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--cl-rail-line);
+}
+
+/* The rail toggle sits at the foot of the sidebar and, collapsed, becomes an
+   icon-only control like the links above it. */
+.cl-rail-toggle {
+  margin-top: auto;
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 10px 20px;
+  border: 0;
+  border-top: 1px solid var(--cl-rail-line);
+  color: var(--cl-rail-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: var(--rst-fw-medium);
+  text-align: left;
+  cursor: pointer;
+}
+.cl-sidebar__utility + .cl-rail-toggle {
+  margin-top: 0;
+}
+.cl-rail-toggle svg {
+  transition: transform var(--cl-dur-slow) var(--cl-ease);
+}
+.cl-rail-toggle:hover {
+  color: var(--cl-rail-text);
+  background: var(--cl-rail-hover);
+}
+
+/* ---- collapsed rail --------------------------------------------------- */
+.cl-app.is-rail {
+  --cl-sidebar: 68px;
+}
+.cl-app.is-rail .cl-brand {
+  justify-content: center;
+  padding-inline: 0;
+}
+.cl-app.is-rail .cl-brand__word,
+.cl-app.is-rail .cl-sidebar__link span {
+  display: none;
+}
+.cl-app.is-rail .cl-sidebar__link {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  padding-inline: 0;
+}
+.cl-app.is-rail .cl-sidebar__link.is-active::before {
+  top: 8px;
+  bottom: 8px;
+}
+.cl-app.is-rail .cl-rail-toggle {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  padding-inline: 0;
+}
+.cl-app.is-rail .cl-rail-toggle span {
+  display: none;
+}
+.cl-app.is-rail .cl-rail-toggle svg {
+  transform: rotate(180deg);
+}
+
+.cl-sidebar__link {
+  --nav-module: var(--cl-muted);
+  position: relative;
+  min-height: var(--cl-nav-row);
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 7px 18px;
+  color: var(--cl-rail-muted);
+  font-size: 14px;
+  font-weight: var(--rst-fw-medium);
+  text-decoration: none;
+}
+
+.cl-sidebar__link[data-module-key='home'] { --nav-module: var(--cl-mod-home); }
+.cl-sidebar__link[data-module-key='restaurant'] { --nav-module: var(--cl-mod-restaurant); }
+.cl-sidebar__link[data-module-key='team'] { --nav-module: var(--cl-mod-team); }
+.cl-sidebar__link[data-module-key='schedule'],
+.cl-sidebar__link[data-module-key='my-service'] { --nav-module: var(--cl-mod-schedule); }
+.cl-sidebar__link[data-module-key='time'],
+.cl-sidebar__link[data-module-key='my-time'] { --nav-module: var(--cl-mod-time); }
+.cl-sidebar__link[data-module-key='badge-terminal'] { --nav-module: var(--cl-mod-badge); }
+.cl-sidebar__link[data-module-key='reservations'] { --nav-module: var(--cl-mod-reservations); }
+.cl-sidebar__link[data-module-key='payroll'] { --nav-module: var(--cl-mod-payroll); }
+.cl-sidebar__link[data-module-key='reports'] { --nav-module: var(--cl-mod-reports); }
+.cl-sidebar__link[data-module-key='exports'] { --nav-module: var(--cl-mod-exports); }
+.cl-sidebar__link[data-module-key='settings'] { --nav-module: var(--cl-mod-settings); }
+
+.cl-sidebar__link svg {
+  width: 20px;
+  height: 20px;
+  color: var(--cl-rail-muted);
+}
+
+.cl-sidebar__link:hover {
+  color: var(--cl-rail-text);
+  background: var(--cl-rail-hover);
+}
+
+.cl-sidebar__link.is-active,
+.cl-sidebar__link.is-active svg {
+  color: var(--cl-rail-text);
+}
+
+.cl-sidebar__link.is-active {
+  font-weight: var(--rst-fw-bold);
+  background: color-mix(in srgb, var(--nav-module) 8%, var(--cl-rail-bg));
+}
+
+.cl-sidebar__link.is-active svg {
+  color: var(--nav-module);
+}
+
+.cl-sidebar__link.is-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: var(--nav-module);
+}
+
+.cl-main {
+  grid-area: main;
+  min-width: 0;
+  padding: 24px var(--cl-gutter) 64px;
+}
+
+/* -------------------------------------------------- page ----------------- */
+
+.cl-page {
+  width: 100%;
+  max-width: none;
+  display: grid;
+  gap: 20px;
+  animation: cl-page-in var(--cl-dur-slow) var(--cl-ease) backwards;
+}
+
+/* A short settle-in when a page mounts — enough to feel responsive, not
+   enough to wait on. */
+@keyframes cl-page-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Module title and section tabs stay in the fixed top bar. Page-specific
+   controls live here, directly above the work surface. */
+/* The page title, rendered in the topbar. */
+.cl-pagetitle {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 18px;
+  font-weight: var(--rst-fw-display);
+  letter-spacing: 0;
+  color: var(--cl-shell-text);
+  white-space: nowrap;
+}
+
+.cl-pagetitle__icon {
+  width: 29px;
+  height: 29px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--cl-module) 42%, var(--cl-shell-line));
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--cl-module) 17%, var(--cl-shell));
+  color: color-mix(in srgb, var(--cl-module) 64%, white);
+}
+
+.cl-page__toolbar {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.cl-page__toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.cl-page__toolbar > * {
+  flex: 0 0 auto;
+}
+
+.cl-page__toolbar .cl-toolbar__grow,
+.cl-page__toolbar .toolbar-grow {
+  margin-left: auto;
+}
+
+.cl-page__toolbar .cl-field,
+.cl-page__toolbar .cl-btn {
+  min-height: 34px;
+  height: 34px;
+  font-size: 13px;
+}
+
+.cl-page__toolbar .cl-btn.is-icon {
+  width: 34px;
+  padding: 0;
+}
+
+.cl-tablepanel {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.cl-tablepanel__head {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cl-tablepanel__meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  color: var(--cl-muted);
+  font-size: 13px;
+  font-weight: var(--rst-fw-medium);
+}
+
+.cl-tablepanel__meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 1px solid var(--cl-line);
+  border-radius: 6px;
+  background: var(--cl-surface);
+  font-size: 12px;
+}
+
+.cl-tablepanel__actions {
+  min-width: 0;
+  max-width: 100%;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.cl-inline-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 214px;
+  justify-content: flex-end;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--cl-dur) var(--cl-ease);
+}
+
+.cl-inline-save.is-visible {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.cl-inline-save__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--cl-muted);
+  font-size: 12px;
+  font-weight: var(--rst-fw-medium);
+  white-space: nowrap;
+}
+
+.cl-inline-save__state i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cl-accent);
+}
+
+.cl-inline-save .cl-btn {
+  min-height: 34px;
+  height: 34px;
+  padding-block: 5px;
+  font-size: 13px;
+}
+
+.cl-inline-save .cl-btn.is-icon {
+  width: 34px;
+  padding: 0;
+}
+
+
+/* Small coloured chips used to show what a row links to. */
+.cl-chip {
+  --chip: var(--cl-line-strong);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 160px;
+  min-height: 24px;
+  padding: 2px 8px 2px 6px;
+  border: 1px solid color-mix(in srgb, var(--chip) 34%, var(--cl-line));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--chip) 9%, var(--cl-surface));
+  color: color-mix(in srgb, var(--chip) 68%, var(--cl-ink));
+  font-size: 11px;
+  font-weight: var(--rst-fw-bold);
+  white-space: nowrap;
+}
+.cl-chip::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--chip);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--chip) 10%, transparent);
+}
+/* An entity that owns a glyph shows it instead of the anonymous dot, so the
+   same area or position looks the same here as it does on its own page. */
+.cl-chip.has-glyph::before { display: none; }
+.cl-chip__glyph {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--chip);
+}
+.cl-chip > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* A compact count of linked people, with a soft accent disc. */
+.cl-linkcount {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--cl-ink);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.cl-linkcount__n {
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--cl-accent-wash);
+  color: var(--cl-accent);
+  font-size: 12px;
+  font-weight: var(--rst-fw-bold);
+}
+.cl-linkcount.is-zero .cl-linkcount__n {
+  background: var(--cl-surface-muted);
+  color: var(--cl-line-strong);
+}
+
+.cl-section {
+  display: grid;
+  gap: 12px;
+}
+
+.cl-section__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: var(--rst-fw-bold);
+}
+
+.cl-section__note {
+  margin: 0;
+  color: var(--cl-muted);
+  font-size: 13px;
+}
+
+/* -------------------------------------------------- card ----------------- */
+
+.cl-card {
+  border: 1px solid var(--cl-line);
+  border-radius: var(--cl-radius-surface);
+  background: var(--cl-surface);
+}
+
+.cl-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: var(--cl-row);
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--cl-line);
+}
+
+.cl-card__head h2,
+.cl-card__head h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: var(--rst-fw-bold);
+}
+
+.cl-card__body {
+  padding: 16px;
+}
+
+/* A card that leads with a coloured header rail — used where a card stands for
+   one status or one module. The body stays white. */
+.cl-card.is-accent {
+  --card-accent: var(--cl-line-strong);
+}
+.cl-card.is-accent .cl-card__head {
+  box-shadow: inset 0 3px 0 var(--card-accent);
+}
+.cl-card.is-ok { --card-accent: var(--cl-ok); }
+.cl-card.is-attention { --card-accent: var(--cl-attention); }
+.cl-card.is-problem { --card-accent: var(--cl-problem); }
+
+/* -------------------------------------------------- drag handle ---------- */
+
+/* A row is only draggable by its handle, so selecting text in a cell still
+   works. The handle stays faint until the row is hovered. */
+.cl-grip {
+  width: 26px;
+  padding-right: 0 !important;
+  cursor: grab;
+  color: transparent;
+  transition: color var(--cl-dur) var(--cl-ease);
+}
+.cl-table tbody tr:hover .cl-grip {
+  color: var(--cl-line-strong);
+}
+.cl-grip:active {
+  cursor: grabbing;
+}
+.cl-table tbody tr.is-dragging {
+  opacity: 0.4;
+}
+/* The insertion point is a single accent line on the edge the row will land. */
+.cl-table tbody tr.is-drop-before td {
+  box-shadow: inset 0 2px 0 var(--cl-accent);
+}
+.cl-table tbody tr.is-drop-after td {
+  box-shadow: inset 0 -2px 0 var(--cl-accent);
+}
+
+/* -------------------------------------------------- skeleton ------------- */
+
+/* Loading placeholder rows: a soft shimmer while the read model arrives, so a
+   table's shape is there before its data. Calmer than a spinner and it holds
+   layout. */
+.cl-skel {
+  display: block;
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--cl-surface-muted) 25%,
+    color-mix(in srgb, var(--cl-line) 60%, var(--cl-surface-muted)) 50%,
+    var(--cl-surface-muted) 75%
+  );
+  background-size: 200% 100%;
+  animation: cl-shimmer 1.3s var(--cl-ease) infinite;
+}
+
+@keyframes cl-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* Individual stat cards, each with a coloured accent rail on the left. The
+   rail (and, for a toned card, the value) is the only colour — the surface
+   stays white. Pages set --stat-accent per card, or add is-ok/is-attention/
+   is-problem to tie the number to its meaning. */
+.cl-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  gap: 12px;
+}
+
+.cl-stat {
+  --stat-accent: var(--cl-line-strong);
+  --stat-value: var(--cl-ink);
+  position: relative;
+  display: grid;
+  gap: 5px;
+  padding: 15px 18px 15px 19px;
+  border: 1px solid var(--cl-line);
+  border-radius: var(--cl-radius);
+  background: var(--cl-surface);
+  overflow: hidden;
+}
+
+.cl-stat::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--stat-accent);
+}
+
+.cl-stat.is-ok {
+  --stat-accent: var(--cl-ok);
+  --stat-value: var(--cl-ok);
+}
+.cl-stat.is-attention {
+  --stat-accent: var(--cl-attention);
+  --stat-value: var(--cl-attention);
+}
+.cl-stat.is-problem {
+  --stat-accent: var(--cl-problem);
+  --stat-value: var(--cl-problem);
+}
+
+.cl-stat__label {
+  color: var(--cl-muted);
+  font-size: 13px;
+  font-weight: var(--rst-fw-medium);
+}
+
+.cl-stat__value {
+  color: var(--stat-value);
+  font-size: 25px;
+  font-weight: var(--rst-fw-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/* A muted value: a zero or an empty measure recedes so real numbers lead. */
+.cl-stat__value.is-zero {
+  color: var(--cl-line-strong);
+}
+
+/* A word (a status), not a number: shares the card but not the display size. */
+.cl-stat__value.is-word {
+  font-size: 17px;
+  font-weight: var(--rst-fw-bold);
+}
+
+/* -------------------------------------------------- table ---------------- */
+
+.cl-tablewrap {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  max-height: var(--cl-grid-max-height, calc(100dvh - 220px));
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scroll-padding-top: var(--cl-grid-head-height, var(--cl-grid-head));
+  border: 1px solid color-mix(in srgb, var(--cl-ink) 10%, var(--cl-grid-line));
+  border-radius: var(--cl-radius-surface);
+  background: var(--cl-surface);
+  box-shadow: 0 1px 2px rgba(17, 24, 39, 0.035);
+}
+
+/* Inside a card the table supplies its own borders already. */
+.cl-card .cl-tablewrap {
+  border: 0;
+  border-radius: 0;
+}
+
+/* Every workspace grid owns its vertical scroll surface. This keeps the same
+   header visible in Team, Restaurant, Payroll, Timesheet and Reports instead
+   of reimplementing sticky behavior page by page. */
+.cl-tablewrap.is-unbounded {
+  max-height: none;
+}
+
+.cl-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 24;
+}
+
+.cl-table thead th {
+  position: sticky;
+  top: var(--cl-grid-sticky-top, 0px);
+  z-index: 24;
+  background-clip: padding-box;
+  box-shadow: 0 1px 0 var(--cl-line-strong);
+}
+
+.cl-table thead th:first-child {
+  z-index: 25;
+}
+
+.cl-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: var(--cl-data-text);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+/* Directory grids keep their spreadsheet form on desktop and opt into a
+   compact record list on phones. The first cell owns the mobile identity and
+   summary; all editing still routes through the same row action/editor. */
+.cl-mobile-summary {
+  display: none;
+}
+
+.cl-table th {
+  height: var(--cl-grid-head);
+  padding: 0 14px;
+  border-bottom: 1px solid var(--cl-line-strong);
+  background: var(--cl-thead);
+  color: var(--cl-ink);
+  font-size: 12px;
+  font-weight: var(--rst-fw-bold);
+  text-align: left;
+  white-space: nowrap;
+}
+
+/* Vertical column separators, header and body — a table reads as a grid, the
+   way a spreadsheet does, not as free-floating rows. */
+.cl-table th:not(:last-child),
+.cl-table tbody td:not(:last-child) {
+  border-right: 1px solid var(--cl-grid-line);
+}
+/* Utility columns (drag handle, colour swatch) do not need a divider. */
+.cl-table th.cl-grip,
+.cl-table td.cl-grip,
+.cl-table th.swatch-col,
+.cl-table td.swatch-col {
+  border-right: 0;
+}
+
+/* ---- column header menu (WorkspaceColMenu) --------------------------------- */
+.cl-table th.has-menu {
+  padding: 0;
+}
+.colhead {
+  position: relative;
+  min-height: var(--cl-grid-head);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 8px 3px 14px;
+}
+.colhead.is-right {
+  justify-content: flex-end;
+  padding: 3px 14px 3px 8px;
+}
+.colhead.is-center {
+  text-align: center;
+}
+.colhead__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 0;
+  letter-spacing: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  font-weight: var(--rst-fw-bold);
+  white-space: nowrap;
+  cursor: default;
+}
+.colhead__copy {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+  text-align: inherit;
+}
+.colhead__copy > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.colhead__leading {
+  flex: 0 0 auto;
+  margin-right: 4px;
+  vertical-align: -2px;
+}
+.colhead__meta {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.colhead__meta > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.colhead__meta > span + span::before {
+  content: '·';
+  margin-right: 5px;
+  color: var(--cl-line-strong);
+}
+.colhead__copy small {
+  overflow: hidden;
+  color: var(--cl-muted);
+  font-size: 10px;
+  font-weight: var(--rst-fw-medium);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+}
+.colhead__label.is-sortable {
+  cursor: pointer;
+}
+.colhead__label.is-sortable:hover {
+  color: var(--cl-accent);
+}
+.colhead__sort {
+  color: var(--cl-accent);
+  transition: transform var(--cl-dur) var(--cl-ease);
+}
+.colhead__sort.is-desc {
+  transform: rotate(180deg);
+}
+.colhead__trigger {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--cl-muted);
+  margin-left: auto;
+  cursor: pointer;
+  opacity: 0.48;
+  transition: opacity var(--cl-dur) var(--cl-ease), color var(--cl-dur) var(--cl-ease);
+}
+.cl-table th:hover .colhead__trigger,
+.colhead__trigger[aria-expanded='true'],
+.colhead__trigger.is-active {
+  opacity: 1;
+}
+.colhead__trigger:hover {
+  background: color-mix(in srgb, var(--cl-accent) 12%, transparent);
+  color: var(--cl-accent);
+}
+.colhead__trigger.is-active {
+  color: var(--cl-accent);
+}
+
+.colmenu {
+  position: absolute;
+  z-index: var(--rst-z-popover, 120);
+  top: calc(100% + 2px);
+  left: 8px;
+  min-width: 210px;
+  max-width: 260px;
+  padding: 6px;
+  border: 1px solid var(--cl-line-strong);
+  border-radius: var(--cl-radius);
+  background: var(--cl-surface);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
+  display: grid;
+  gap: 2px;
+  text-align: left;
+}
+.colhead.is-right .colmenu {
+  left: auto;
+  right: 8px;
+}
+.colmenu__item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--cl-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: var(--rst-fw-medium);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.colmenu__item:hover {
+  background: var(--cl-surface-muted);
+}
+.colmenu__item svg {
+  color: var(--cl-muted);
+}
+.colmenu__item.is-on,
+.colmenu__item.is-on svg {
+  color: var(--cl-accent);
+}
+.colmenu__sep {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--cl-line);
+}
+.colmenu__search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+}
+.colmenu__search svg {
+  position: absolute;
+  left: 12px;
+  width: 14px;
+  height: 14px;
+  color: var(--cl-muted);
+  pointer-events: none;
+}
+.colmenu__search .cl-field {
+  width: 100%;
+  height: 34px;
+  padding-left: 32px;
+  font-size: 13px;
+}
+.colmenu__filter {
+  display: grid;
+  gap: 2px;
+  padding: 2px;
+}
+.colmenu__values {
+  display: grid;
+  gap: 1px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.colmenu__check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.colmenu__check:hover {
+  background: var(--cl-surface-muted);
+}
+.colmenu__check input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--cl-accent);
+}
+.colmenu__check--all {
+  margin-bottom: 2px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--cl-line);
+  border-radius: 0;
+  font-weight: var(--rst-fw-bold);
+}
+
+
+.colmenu__extra {
+  display: grid;
+  gap: 8px;
+  padding: 4px 6px 6px;
+}
+.colmenu__extra label {
+  display: grid;
+  gap: 5px;
+  color: var(--cl-muted);
+  font-size: 11px;
+  font-weight: var(--rst-fw-bold);
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+.colmenu__extra .cl-field { width: 100%; min-height: 34px; font-size: 13px; text-transform: none; letter-spacing: 0; font-weight: var(--rst-fw-regular); }
+.colmenu__extra .check { display: flex; align-items: center; gap: 8px; color: var(--cl-ink); font-size: 13px; font-weight: var(--rst-fw-medium); letter-spacing: 0; text-transform: none; }
+.colmenu__extra .check input { width: 15px; height: 15px; accent-color: var(--cl-accent); }
+.colmenu__empty { padding: 10px 8px; color: var(--cl-muted); font-size: 12px; text-align: center; }
+
+.cl-primary-head {
+  display: flex;
+  align-items: stretch;
+  min-height: var(--cl-grid-head);
+}
+.cl-primary-head > .colhead { flex: 1 1 auto; min-width: 0; }
+.groupmenu {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding-right: 8px;
+}
+.groupmenu__trigger {
+  margin-left: 0;
+  opacity: .72;
+}
+.groupmenu__trigger:hover,
+.groupmenu__trigger[aria-expanded='true'] { background: color-mix(in srgb, var(--cl-accent) 12%, transparent); color: var(--cl-accent); opacity: 1; }
+.groupmenu__trigger.is-active { color: var(--cl-accent); opacity: 1; }
+.groupmenu__popover { min-width: 224px; }
+.groupmenu__radio { width: 13px; height: 13px; border: 1px solid var(--cl-line-strong); border-radius: 50%; box-shadow: inset 0 0 0 3px var(--cl-surface); background: transparent; }
+.groupmenu__radio.is-on { border-color: var(--cl-accent); background: var(--cl-accent); }
+
+/* ---- grid picker (WorkspacePicker) ----------------------------------------
+   The single control for choosing a value in a grid cell. It reads as plain
+   text until hovered, like every other editable cell, and carries the chosen
+   object's glyph and colour — which a native <select> cannot do. */
+.cl-picker {
+  position: relative;
+  display: block;
+}
+.cl-picker__trigger {
+  width: 100%;
+  min-height: 31px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 7px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--cl-ink);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease),
+    box-shadow var(--cl-dur) var(--cl-ease);
+}
+.cl-picker__trigger:hover:not(:disabled) {
+  border-color: var(--cl-line);
+  background: var(--cl-surface-muted);
+}
+.cl-picker__trigger.is-open {
+  border-color: var(--cl-accent);
+  background: var(--cl-surface);
+  box-shadow: 0 0 0 2px var(--cl-accent-wash);
+}
+.cl-picker__trigger:disabled {
+  cursor: default;
+}
+.cl-picker__trigger.is-empty .cl-picker__label {
+  color: var(--cl-muted);
+}
+.cl-picker__label {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cl-picker__caret {
+  flex: 0 0 auto;
+  color: var(--cl-muted);
+  opacity: 0;
+  transition: opacity var(--cl-dur) var(--cl-ease);
+}
+.cl-picker__trigger:hover .cl-picker__caret,
+.cl-picker__trigger.is-open .cl-picker__caret {
+  opacity: 1;
+}
+.cl-picker__dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--mark);
+}
+/* A service in a picker wears the same sun/moon it wears in the grids. */
+.cl-picker__service {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+.cl-picker__service.is-lunch { color: var(--cl-lunch); }
+.cl-picker__service.is-evening { color: var(--cl-evening); }
+.cl-picker__options {
+  display: grid;
+  gap: 1px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.cl-picker__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--cl-ink);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.cl-picker__option:hover {
+  background: var(--cl-surface-muted);
+}
+.cl-picker__option > span {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cl-picker__option.is-on {
+  color: var(--cl-accent);
+  font-weight: var(--rst-fw-medium);
+}
+.cl-picker__check {
+  flex: 0 0 auto;
+  color: var(--cl-accent);
+}
+
+/* The column chooser lives in the last header cell — a table's own "which
+   columns" control, so there is still no page toolbar. */
+.colchooser {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+}
+.colchooser__trigger {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--cl-muted);
+  cursor: pointer;
+}
+.colchooser__trigger:hover {
+  background: color-mix(in srgb, var(--cl-accent) 12%, transparent);
+  color: var(--cl-accent);
+}
+.colchooser .colmenu {
+  left: auto;
+  right: 4px;
+}
+.colchooser__title {
+  padding: 4px 10px 6px;
+  color: var(--cl-muted);
+  font-size: 11px;
+  font-weight: var(--rst-fw-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.cl-table td {
+  height: var(--cl-row);
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--cl-grid-line);
+  background: var(--cl-surface);
+  color: var(--cl-data-text);
+  vertical-align: middle;
+}
+
+/* Only the very last row of the table drops its border. Scoped to the last
+   tbody so that, when the table is split into a tbody per group, the last row of
+   each group keeps its divider instead of merging into the next group's header. */
+.cl-table tbody:last-child tr:last-child td {
+  border-bottom: 0;
+}
+
+.cl-table tbody tr {
+  transition: background-color var(--cl-dur) var(--cl-ease);
+}
+
+.cl-table tbody tr:hover td {
+  background: color-mix(in srgb, var(--cl-accent) 2.5%, var(--cl-surface-muted));
+}
+
+/* A row that needs a look wears a coloured rail on its first cell — scannable
+   straight down the table without washing the whole row. The status cell still
+   carries the glyph + word, so this only reinforces. */
+.cl-table tbody tr.is-attention td:first-child {
+  box-shadow: inset 3px 0 0 var(--cl-attention);
+}
+.cl-table tbody tr.is-problem td:first-child {
+  box-shadow: inset 3px 0 0 var(--cl-problem);
+}
+
+/* A row that has been added but not yet saved. Every grid marks an addition the
+   same way — tinted, with an accent rail — so adding a position, an area or a
+   person all look and behave alike. */
+.cl-table tbody tr.is-new > td {
+  background: color-mix(in srgb, var(--cl-accent) 6%, var(--cl-surface));
+}
+.cl-table tbody tr.is-new > td:first-child {
+  box-shadow: inset 3px 0 0 var(--cl-accent);
+}
+
+/* In a table, an editable field reads as plain text and only shows its edges on
+   hover or focus — the row stays calm like a spreadsheet cell, and what you can
+   edit reveals itself when you reach for it. */
+.cl-table td .cl-field {
+  border-color: transparent;
+  background: transparent;
+  color: var(--cl-data-text);
+  font-size: 13px;
+  font-weight: var(--rst-fw-regular);
+}
+.cl-table td .cl-field:hover:not(:disabled):not(:focus) {
+  border-color: var(--cl-line);
+  background: var(--cl-surface-muted);
+}
+.cl-table td .cl-field:focus {
+  border-color: var(--cl-accent);
+  background: var(--cl-surface);
+  outline: none;
+}
+/* A read-only value (preview, or a field this role cannot change) is just text,
+   not a greyed-out box. */
+.cl-table td .cl-field:disabled {
+  color: var(--cl-data-text);
+  background: transparent;
+  border-color: transparent;
+  opacity: 1;
+}
+
+.cl-table .is-num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.cl-table .is-quiet {
+  color: var(--cl-muted);
+}
+
+.cl-table .chooser-col,
+.cl-table .menu-cell {
+  width: 44px;
+}
+
+@media (max-width: 760px) {
+  .cl-tablewrap:has(.cl-mobile-rows) {
+    max-height: none;
+    overflow: visible;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    scrollbar-gutter: auto;
+  }
+
+  .cl-table.cl-mobile-rows {
+    min-width: 0 !important;
+    display: block;
+  }
+
+  .cl-mobile-rows thead {
+    display: none;
+  }
+
+  .cl-mobile-rows tbody {
+    display: grid;
+    gap: 8px;
+  }
+
+  .cl-mobile-rows tbody + tbody {
+    margin-top: 10px;
+  }
+
+  .cl-mobile-rows tr:not(.cl-group-row, .cl-mobile-empty) {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 42px;
+    align-items: center;
+    border: 1px solid var(--cl-line);
+    border-radius: var(--cl-radius-surface);
+    background: var(--cl-surface);
+    box-shadow: 0 1px 2px rgba(17, 24, 39, 0.035);
+  }
+
+  .cl-mobile-rows tr:not(.cl-group-row, .cl-mobile-empty):not(:has(> .menu-cell)) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cl-mobile-rows tr:not(.cl-group-row, .cl-mobile-empty) > td {
+    display: none;
+  }
+
+  .cl-mobile-rows tr:not(.cl-group-row, .cl-mobile-empty) > td.cl-mobile-primary {
+    min-width: 0;
+    height: auto;
+    display: grid;
+    gap: 5px;
+    padding: 11px 12px;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .cl-mobile-rows tr:not(.cl-group-row, .cl-mobile-empty) > td.menu-cell {
+    width: 42px;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-left: 1px solid var(--cl-grid-line);
+    background: transparent;
+  }
+
+  .cl-mobile-rows tr.is-new > td.cl-mobile-primary {
+    box-shadow: inset 3px 0 0 var(--cl-accent);
+  }
+
+  .cl-mobile-summary {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    overflow: hidden;
+    color: var(--cl-muted);
+    font-size: 11px;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cl-mobile-summary > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .cl-mobile-summary > span + span::before {
+    content: '·';
+    margin-right: 5px;
+    color: var(--cl-line-strong);
+  }
+
+  .cl-mobile-rows .cl-group-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    margin: 2px 0 -2px;
+  }
+
+  .cl-mobile-rows .cl-group-row > td {
+    display: none;
+    height: 34px;
+    border: 0;
+    background: transparent;
+  }
+
+  .cl-mobile-rows .cl-group-row > td.cl-group-row__label,
+  .cl-mobile-rows .cl-group-row > td.cl-group-row__meta-cell {
+    display: block;
+  }
+
+  .cl-mobile-rows .cl-group-row__button {
+    min-width: 0;
+    padding-left: 2px;
+  }
+
+  .cl-mobile-rows .cl-group-row__meta {
+    position: static;
+    height: 34px;
+    display: flex;
+    align-items: center;
+  }
+
+  .cl-mobile-rows .cl-mobile-empty {
+    display: block;
+  }
+
+  .cl-mobile-rows .cl-mobile-empty > td {
+    display: block;
+    height: auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+}
+
+.cl-page .dot {
+  width: 7px;
+  height: 7px;
+  display: inline-block;
+  border-radius: 50%;
+  background: var(--cl-line-strong);
+}
+
+.cl-page .dot.is-green {
+  background: var(--cl-ok);
+}
+
+.cl-page .dot.is-red {
+  background: var(--cl-problem);
+}
+
+.cl-page .dot.is-blue {
+  background: var(--cl-info);
+}
+
+.cl-page .dot.is-orange {
+  background: var(--cl-attention);
+}
+
+/* A whole row that navigates: the chevron is the affordance, not colour. */
+.cl-table tr.is-clickable td {
+  cursor: pointer;
+}
+
+.cl-table__name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--cl-ink);
+  font-weight: var(--rst-fw-medium);
+}
+
+/* Initials in a disc. By default neutral; pages pass --avatar-color (the
+   shared position-colour map) so a roster is scannable by role — the colour is
+   the person's function, not decoration. */
+.cl-avatar {
+  --avatar-color: var(--cl-muted);
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--avatar-color) 32%, var(--cl-line));
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--avatar-color) 12%, var(--cl-surface));
+  color: color-mix(in srgb, var(--avatar-color) 72%, var(--cl-ink));
+  font-size: 11px;
+  font-weight: var(--rst-fw-bold);
+}
+
+/* -------------------------------------------------- controls ------------- */
+
+.cl-btn {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border: 1px solid var(--cl-line-strong);
+  border-radius: var(--cl-radius);
+  color: var(--cl-ink);
+  background: var(--cl-surface);
+  font: inherit;
+  font-size: 13px;
+  font-weight: var(--rst-fw-medium);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.cl-btn:hover:not(:disabled) {
+  border-color: var(--cl-line-strong);
+  background: var(--cl-surface-muted);
+}
+
+.cl-btn.is-primary {
+  border-color: var(--cl-accent);
+  color: #ffffff;
+  background: var(--cl-accent);
+  font-weight: var(--rst-fw-bold);
+}
+
+.cl-btn.is-primary:hover:not(:disabled) {
+  border-color: var(--cl-accent-hover);
+  background: var(--cl-accent-hover);
+}
+
+/* A disabled primary is no longer a primary: it drops the accent entirely so
+   orange only ever marks something you can actually do. */
+.cl-btn:disabled,
+.cl-btn.is-primary:disabled {
+  border-color: var(--cl-line);
+  color: var(--cl-muted);
+  background: var(--cl-surface-muted);
+  cursor: default;
+}
+
+.cl-btn.is-icon {
+  width: 36px;
+  padding: 0;
+}
+
+.cl-btn:not(:disabled):active {
+  transform: none;
+}
+
+.cl-field {
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid var(--cl-line-strong);
+  border-radius: var(--cl-radius);
+  color: var(--cl-ink);
+  background: var(--cl-surface);
+  font: inherit;
+  font-size: 14px;
+}
+
+.cl-field::placeholder {
+  color: var(--cl-muted);
+}
+
+.cl-label {
+  display: grid;
+  gap: 6px;
+}
+
+.cl-label > span {
+  color: var(--cl-muted);
+  font-size: 13px;
+  font-weight: var(--rst-fw-medium);
+}
+
+.cl-toolbar__grow {
+  margin-left: auto;
+}
+
+.cl-empty {
+  min-height: 156px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 6px;
+  padding: 40px 20px;
+  color: var(--cl-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.cl-empty__icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 5px;
+  border: 1px solid var(--cl-line);
+  border-radius: 8px;
+  color: var(--cl-muted);
+  background: var(--cl-surface-muted);
+}
+
+.cl-empty strong {
+  color: var(--cl-ink);
+  font-size: 15px;
+}
+
+.cl-empty > .cl-btn {
+  justify-self: center;
+  margin-top: 6px;
+}
+
+/* -------------------------------------------------- responsive ----------- */
+
+@media (max-width: 1180px) {
+  :root[data-design='workspace'] {
+    --cl-sidebar: 196px;
+    --cl-gutter: 24px;
+  }
+}
+
+@media (max-width: 980px) {
+  .cl-app {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'topbar'
+      'main';
+  }
+
+  .cl-brand {
+    display: none;
+  }
+
+  .cl-sidebar {
+    display: none;
+  }
+
+  .cl-topbar {
+    left: 0;
+    padding-inline: 20px;
+  }
+
+  .cl-main {
+    padding: 20px 20px 96px;
+  }
+}
+
+@media (max-width: 760px) {
+  .cl-pagetitle {
+    font-size: 17px;
+  }
+
+  .cl-stat {
+    border-left: 0;
+    border-top: 1px solid var(--cl-line);
+  }
+
+  .cl-stat:first-child {
+    border-top: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .cl-page__toolbar { margin-inline: -2px; padding-inline: 9px; }
+
+  .cl-main {
+    padding-inline: 14px;
+  }
+
+  .cl-topbar {
+    padding-inline: 14px;
+  }
+
+  .cl-app:has(.cl-topbar.has-tabs) {
+    --cl-topbar: 106px;
+  }
+
+  .cl-topbar.has-tabs {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr) 36px 36px;
+    grid-template-rows: 60px 46px;
+    gap: 0 6px;
+    align-items: center;
+  }
+
+  .cl-topbar.has-tabs .cl-menu-toggle {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .cl-topbar.has-tabs .cl-topbar__spacer {
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0;
+  }
+
+  .cl-topbar.has-tabs > .notifications-shell {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .cl-topbar.has-tabs > .menu-wrap {
+    grid-column: 4;
+    grid-row: 1;
+  }
+
+  .cl-topbar.has-tabs .cl-topbar__tabs {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: auto;
+    margin: 0 -4px;
+    padding: 0 4px;
+    border-top: 1px solid var(--cl-shell-line);
+  }
+
+  .cl-topbar.has-tabs .cl-topbar__tab {
+    padding-inline: 12px;
+  }
+}
+
+/* -------------------------------------------------- unified topbar ------- */
+.cl-topbar__tabs {
+  align-self: stretch;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  margin-left: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.cl-topbar__tabs::-webkit-scrollbar { display: none; }
+.cl-topbar__tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  color: var(--cl-shell-muted);
+  font-size: 13px;
+  font-weight: var(--rst-fw-medium);
+  white-space: nowrap;
+  text-decoration: none;
+}
+.cl-topbar__tab:hover { color: var(--cl-shell-text); }
+.cl-topbar__tab.is-active {
+  color: var(--cl-shell-text);
+  font-weight: var(--rst-fw-bold);
+}
+.cl-topbar__tab.is-active::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 0;
+  height: 2px;
+  background: color-mix(in srgb, var(--cl-module) 72%, white);
+}
+.cl-group-row td {
+  height: 34px !important;
+  padding: 0 !important;
+  background: color-mix(in srgb, var(--cl-thead) 48%, var(--cl-surface-muted)) !important;
+  border-bottom: 1px solid var(--cl-grid-line);
+}
+.cl-group-row__button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 34px;
+  padding: 4px 14px;
+  border: 0;
+  background: transparent;
+  color: color-mix(in srgb, var(--cl-muted) 84%, var(--cl-ink));
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cl-group-row__button:hover { background: color-mix(in srgb, var(--cl-accent) 4%, transparent); }
+.cl-group-row__chevron { flex: 0 0 auto; transform: rotate(90deg); transition: transform var(--cl-dur) var(--cl-ease); }
+.cl-group-row__chevron.is-collapsed { transform: rotate(0deg); }
+.cl-group-row__button strong { white-space: nowrap; font-size: 12px; font-weight: var(--rst-fw-bold); letter-spacing: 0; }
+/* The label sits in the first column but may run past it, over the separators,
+   rather than being clipped to one column's width. */
+.cl-group-row__label { position: relative; z-index: 1; }
+.cl-group-row__label > .cl-group-row__button { width: max-content; min-width: 100%; }
+/* The count belongs at the row's right edge, but the last column is often a
+   narrow actions column — so it is pinned there and allowed to run left. */
+.cl-group-row__meta-cell { position: relative; padding: 0 !important; }
+.cl-group-row__meta {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  z-index: 1;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  color: var(--cl-muted);
+  font-size: 11px;
+  font-weight: var(--rst-fw-medium);
+}
+.cl-group-row__icon { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; }
+.cl-group-row__dot { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--group, var(--cl-accent)); }
+.cl-group-row.is-drop-target td { background: color-mix(in srgb, var(--cl-accent) 9%, var(--cl-surface-muted)) !important; }
+
+
+.cl-cellstack {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cl-cellsub {
+  color: var(--cl-muted);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.cl-table__name.is-employee {
+  align-items: center;
+}
+
+
+.cl-formgrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.cl-formgrid .is-wide { grid-column: 1 / -1; }
+.cl-form-section {
+  grid-column: 1 / -1;
+  margin: 8px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--cl-line);
+  color: var(--cl-ink);
+  font-size: 13px;
+  font-weight: var(--rst-fw-bold);
+}
+.cl-field-help {
+  color: var(--cl-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.cl-checkgrid {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) repeat(2, 70px);
+  gap: 7px;
+  align-items: center;
+}
+.cl-checkgrid > * {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+}
+.cl-checkgrid input { width: 16px; height: 16px; accent-color: var(--cl-accent); }
+
+@media (max-width: 980px) {
+  .cl-topbar { gap: 8px; }
+  .cl-pagetitle { display: none; }
+  .cl-topbar__tabs { margin-left: 0; }
+}
+@media (max-width: 760px) {
+  .cl-page__toolbar {
+    margin-inline: -2px;
+    padding-inline: 2px;
+  }
+  .cl-page__toolbar .toolbar-search { min-width: 180px; }
+  .cl-formgrid { grid-template-columns: minmax(0, 1fr); }
+  .cl-formgrid .is-wide, .cl-form-section { grid-column: 1; }
+}
+
+/* Compact toggle used in page toolbars. */
+:root[data-design='workspace'] .toolbar-toggle {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 9px;
+  border: 1px solid var(--cl-line);
+  border-radius: 0.65rem;
+  color: var(--cl-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+:root[data-design='workspace'] .toolbar-toggle input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--cl-accent);
+}
+.colmenu.is-floating {
+  position: fixed;
+  z-index: 460;
+  right: auto;
+  max-height: min(420px, calc(100vh - 24px));
+  overflow: auto;
+}
+
+
+/* -------------------------------------------------- refined directories -- */
+/* Shared polish for Team and Restaurant directories. Headers stay softly
+   warm; logo orange is reserved for active lines and actionable controls. */
+.cl-table__name,
+.employee-name {
+  font-weight: var(--rst-fw-medium);
+}
+
+.cl-table td .cl-field {
+  min-width: 0;
+  width: 100%;
+  font-weight: inherit;
+}
+
+
+
+/* Curated colour picker shared by Areas and Positions. */
+.palette-picker {
+  display: inline-flex;
+  align-items: center;
+}
+
+.palette-picker__trigger {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.palette-picker__trigger:hover:not(:disabled),
+.palette-picker__trigger[aria-expanded='true'] {
+  border-color: var(--cl-line-strong);
+  background: var(--cl-surface-muted);
+}
+
+.palette-picker__trigger:disabled {
+  cursor: default;
+}
+
+.palette-picker__trigger > span,
+.palette-picker__grid button > span {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.13);
+  border-radius: 5px;
+  background: var(--picker-color);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+
+.palette-picker__menu {
+  position: fixed;
+  z-index: 420;
+  width: 210px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--cl-line-strong);
+  border-radius: 10px;
+  background: var(--cl-surface);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.16);
+}
+
+.palette-picker__menu > strong {
+  color: var(--cl-ink);
+  font-size: 12px;
+  font-weight: var(--rst-fw-bold);
+}
+
+.palette-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(5, 30px);
+  gap: 7px;
+}
+
+.palette-picker__grid button {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.palette-picker__grid button:hover,
+.palette-picker__grid button.is-selected {
+  border-color: var(--cl-accent);
+  background: var(--cl-accent-wash);
+}
+
+.palette-picker__grid button.is-selected > span {
+  box-shadow: 0 0 0 2px var(--cl-surface), 0 0 0 3px var(--cl-accent);
+}
+
+@media (max-width: 760px) {
+  .cl-tablepanel__head {
+    align-items: flex-start;
+  }
+
+  .cl-tablepanel__actions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-end;
+  }
+
+  .cl-inline-save:not(.is-visible) {
+    display: none;
+  }
+
+  .cl-inline-save.is-visible {
+    min-width: 0;
+    flex: 1 1 100%;
+    order: -1;
+  }
+}

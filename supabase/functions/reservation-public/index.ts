@@ -250,6 +250,20 @@ Deno.serve(async (request: Request) => {
   const admin = createClient(supabaseUrl, secretKey, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
+  const { error: moduleError } = await admin.rpc(
+    'assert_reservation_public_module',
+    {
+      p_public_key: publicKey,
+      p_origin: websiteOrigin
+    }
+  );
+  if (moduleError) {
+    return json(
+      corsOrigin,
+      { error: 'This booking link is unavailable.', code: 'channel_unavailable' },
+      403
+    );
+  }
   const rule = RATE_LIMITS[action];
   const fingerprint = await sha256(
     `${rateLimitSalt}|${publicKey}|${clientAddress(request)}`

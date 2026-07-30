@@ -1,14 +1,14 @@
 <script lang="ts">
   import { friendlyError } from '$lib/api/error-messages';
-  import { WEEKDAYS } from '$lib/calendar/date';
+  import { WEEKDAYS, type ServiceKey } from '$lib/calendar/date';
   import { t } from '$lib/i18n/i18n.svelte';
   import { confirmAction } from '$lib/ui/confirm.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
-  import { useClassicRestaurantContext } from '$lib/classic/classic-workspace-context';
-  import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
-  import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
-  import ClassicService from '$lib/classic/ClassicService.svelte';
-  import ClassicServiceIcon from '$lib/classic/ClassicServiceIcon.svelte';
+  import { useWorkspaceRestaurantContext } from '$lib/workspace-ui/workspace-context';
+  import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
+  import { restaurantConfig } from '$lib/workspace-ui/workspace-restaurant.svelte';
+  import WorkspaceService from '$lib/workspace-ui/WorkspaceService.svelte';
+  import WorkspaceServiceIcon from '$lib/workspace-ui/WorkspaceServiceIcon.svelte';
   import {
     LOGO_ACCEPT,
     removeRestaurantLogo,
@@ -63,18 +63,52 @@
     }
   }
 
-  const readRestaurantContext = useClassicRestaurantContext();
+  const readRestaurantContext = useWorkspaceRestaurantContext();
   const context = $derived(readRestaurantContext());
   const canManageLogo = $derived(workspace.canManageOperations);
+
+  function serviceOpenDays(
+    opening: NonNullable<typeof context>['draft']['opening'],
+    serviceKey: ServiceKey
+  ): number {
+    return opening.filter((day) => day.services[serviceKey]?.open).length;
+  }
+
+  function addServicePeriod() {
+    if (!context) return;
+    const index = context.draft.services.length + 1;
+    let serviceKey = `service-${index}`;
+    while (context.draft.services.some((service) => service.serviceKey === serviceKey)) {
+      serviceKey = `service-${Number(serviceKey.split('-').at(-1) || index) + 1}`;
+    }
+    context.draft.services = [
+      ...context.draft.services,
+      {
+        id: crypto.randomUUID(),
+        serviceKey,
+        name: `Service ${index}`,
+        active: true,
+        sortOrder: index - 1,
+        defaultStart: '09:00',
+        defaultEnd: '17:00'
+      }
+    ];
+    for (const day of context.draft.opening) {
+      day.services[serviceKey] = { open: false, start: '09:00', end: '17:00' };
+    }
+    for (const area of context.draft.areas) {
+      area.serviceHours[serviceKey] = { start: '', end: '' };
+    }
+    restaurantConfig.touch();
+  }
 </script>
 
 <svelte:head><title>{t('Restaurant profile')} &middot; restogogo</title></svelte:head>
 
 {#if context}
   {@const draft = context.draft}
-  {@const lunchDays = draft.opening.filter((day) => day.lunchOpen).length}
-  {@const eveningDays = draft.opening.filter((day) => day.eveningOpen).length}
-  <ClassicTablePanel
+  {@const activeServices = draft.services.filter((service) => service.active)}
+  <WorkspaceTablePanel
     dirty={context.dirty}
     saving={context.saving}
     canSave={context.canSave}
@@ -82,8 +116,13 @@
     ondiscard={context.discard}
   >
     {#snippet meta()}
-      <span class="svc-meta is-lunch"><ClassicServiceIcon service="lunch" size={13} />{t('{count} lunch days', { count: lunchDays })}</span>
-      <span class="svc-meta is-evening"><ClassicServiceIcon service="evening" size={13} />{t('{count} evening days', { count: eveningDays })}</span>
+      {#each activeServices as service (service.serviceKey)}
+        <span class="svc-meta is-{service.serviceKey}">
+          <WorkspaceServiceIcon service={service.serviceKey} size={13} />
+          <strong>{service.name}</strong>
+          <span>{serviceOpenDays(draft.opening, service.serviceKey)} {t('open days')}</span>
+        </span>
+      {/each}
     {/snippet}
     {#snippet children()}
       <div class="restaurant-workspace">
@@ -163,50 +202,115 @@
         <section class="cl-card hours-card">
           <div class="cl-card__head">
             <h3>{t('Opening hours')}</h3>
+            {#if context.canSave}
+              <button class="cl-btn" type="button" onclick={addServicePeriod}>
+                {t('Add service period')}
+              </button>
+            {/if}
+          </div>
+          <div class="service-periods" aria-label={t('Service periods')}>
+            {#each draft.services as service (service.serviceKey)}
+              <div class="service-period" class:is-inactive={!service.active}>
+                <span class="service-period__icon is-{service.serviceKey}">
+                  <WorkspaceServiceIcon service={service.serviceKey} size={15} />
+                </span>
+                <label>
+                  <span>{t('Name')}</span>
+                  <input
+                    class="cl-field"
+                    disabled={!context.canSave}
+                    bind:value={service.name}
+                    oninput={() => restaurantConfig.touch()}
+                  />
+                </label>
+                <label>
+                  <span>{t('Default start')}</span>
+                  <input
+                    class="cl-field time"
+                    type="time"
+                    disabled={!context.canSave}
+                    bind:value={service.defaultStart}
+                    oninput={() => restaurantConfig.touch()}
+                  />
+                </label>
+                <label>
+                  <span>{t('Default end')}</span>
+                  <input
+                    class="cl-field time"
+                    type="time"
+                    disabled={!context.canSave}
+                    bind:value={service.defaultEnd}
+                    oninput={() => restaurantConfig.touch()}
+                  />
+                </label>
+                <label class="switch compact service-period__state">
+                  <input
+                    type="checkbox"
+                    disabled={!context.canSave || (service.active && activeServices.length === 1)}
+                    bind:checked={service.active}
+                    onchange={() => restaurantConfig.touch()}
+                  />
+                  <span>{t(service.active ? 'Active' : 'Inactive')}</span>
+                </label>
+              </div>
+            {/each}
           </div>
           <div class="cl-tablewrap hours-wrap">
-            <table class="cl-table hours-table">
+            <table
+              class="cl-table hours-table"
+              style:min-width={`${Math.max(720, 150 + activeServices.length * 315)}px`}
+            >
               <thead>
                 <tr>
                   <th>{t('Day')}</th>
-                  <th>
-                    <ClassicService service="lunch" variant="text" />
-                  </th>
-                  <th>
-                    <ClassicService service="evening" variant="text" />
-                  </th>
+                  {#each activeServices as service (service.serviceKey)}
+                    <th>
+                      <WorkspaceService
+                        service={service.serviceKey}
+                        label={service.name}
+                        variant="text"
+                      />
+                    </th>
+                  {/each}
                 </tr>
               </thead>
               <tbody>
                 {#each draft.opening as day (day.weekday)}
                   <tr>
                     <td class="day">{t(WEEKDAYS[day.weekday - 1])}</td>
-                    <td>
-                      <span class="service-hours">
-                        <label class="switch compact">
-                          <input type="checkbox" disabled={!context.canSave} bind:checked={day.lunchOpen} onchange={() => restaurantConfig.touch()} />
-                          <span>{t(day.lunchOpen ? 'Open' : 'Closed')}</span>
-                        </label>
-                        <span class="range">
-                          <input class="cl-field time" type="time" disabled={!context.canSave || !day.lunchOpen} bind:value={day.lunchStart} oninput={() => restaurantConfig.touch()} />
-                          <i>&ndash;</i>
-                          <input class="cl-field time" type="time" disabled={!context.canSave || !day.lunchOpen} bind:value={day.lunchEnd} oninput={() => restaurantConfig.touch()} />
+                    {#each activeServices as service (service.serviceKey)}
+                      {@const period = day.services[service.serviceKey]}
+                      <td>
+                        <span class="service-hours">
+                          <label class="switch compact">
+                            <input
+                              type="checkbox"
+                              disabled={!context.canSave}
+                              bind:checked={period.open}
+                              onchange={() => restaurantConfig.touch()}
+                            />
+                            <span>{t(period.open ? 'Open' : 'Closed')}</span>
+                          </label>
+                          <span class="range">
+                            <input
+                              class="cl-field time"
+                              type="time"
+                              disabled={!context.canSave || !period.open}
+                              bind:value={period.start}
+                              oninput={() => restaurantConfig.touch()}
+                            />
+                            <i>&ndash;</i>
+                            <input
+                              class="cl-field time"
+                              type="time"
+                              disabled={!context.canSave || !period.open}
+                              bind:value={period.end}
+                              oninput={() => restaurantConfig.touch()}
+                            />
+                          </span>
                         </span>
-                      </span>
-                    </td>
-                    <td>
-                      <span class="service-hours">
-                        <label class="switch compact">
-                          <input type="checkbox" disabled={!context.canSave} bind:checked={day.eveningOpen} onchange={() => restaurantConfig.touch()} />
-                          <span>{t(day.eveningOpen ? 'Open' : 'Closed')}</span>
-                        </label>
-                        <span class="range">
-                          <input class="cl-field time" type="time" disabled={!context.canSave || !day.eveningOpen} bind:value={day.eveningStart} oninput={() => restaurantConfig.touch()} />
-                          <i>&ndash;</i>
-                          <input class="cl-field time" type="time" disabled={!context.canSave || !day.eveningOpen} bind:value={day.eveningEnd} oninput={() => restaurantConfig.touch()} />
-                        </span>
-                      </span>
-                    </td>
+                      </td>
+                    {/each}
                   </tr>
                 {/each}
               </tbody>
@@ -215,7 +319,7 @@
         </section>
       </div>
     {/snippet}
-  </ClassicTablePanel>
+  </WorkspaceTablePanel>
 {/if}
 
 <style>
@@ -413,13 +517,71 @@
 
   .hours-wrap {
     max-height: none;
-    overflow: hidden;
-    scrollbar-gutter: auto;
+    overflow-x: auto;
+    scrollbar-gutter: stable;
+  }
+
+  .service-periods {
+    display: grid;
+    border-bottom: 1px solid var(--cl-line);
+  }
+
+  .service-period {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 24px minmax(150px, 1fr) 118px 118px auto;
+    align-items: end;
+    gap: 10px;
+    padding: 9px 12px;
+    border-top: 1px solid var(--cl-line);
+    background: color-mix(in srgb, var(--cl-surface-muted) 42%, var(--cl-surface));
+  }
+
+  .service-period:first-child {
+    border-top: 0;
+  }
+
+  .service-period.is-inactive {
+    opacity: .62;
+  }
+
+  .service-period > label:not(.service-period__state) {
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+    color: var(--cl-muted);
+    font-size: 10px;
+  }
+
+  .service-period :global(.cl-field) {
+    min-width: 0;
+    min-height: 34px;
+  }
+
+  .service-period__icon {
+    align-self: center;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    color: var(--cl-muted);
+  }
+
+  .service-period__icon.is-lunch {
+    color: var(--cl-lunch);
+  }
+
+  .service-period__icon.is-evening {
+    color: var(--cl-evening);
+  }
+
+  .service-period__state {
+    align-self: center;
+    padding-inline: 4px;
   }
 
   .hours-table {
     width: 100%;
-    min-width: 0;
     table-layout: fixed;
   }
 
@@ -533,16 +695,24 @@
     background: var(--cl-surface);
   }
 
-  /* The meta strip names the same two services the table below does, so it
-     wears the same glyph rather than an anonymous coloured dot. */
+  /* The meta strip names the same configurable services as the table below. */
   .svc-meta {
     display: inline-flex;
     align-items: center;
     gap: 6px;
   }
 
-  .svc-meta.is-lunch { color: var(--cl-lunch); }
-  .svc-meta.is-evening { color: var(--cl-evening); }
+  .svc-meta strong {
+    color: var(--cl-ink);
+    font-size: inherit;
+  }
+
+  .svc-meta span {
+    color: var(--cl-muted);
+  }
+
+  .svc-meta.is-lunch :global(.service-icon) { color: var(--cl-lunch); }
+  .svc-meta.is-evening :global(.service-icon) { color: var(--cl-evening); }
 
   @media (max-width: 1180px) {
     .identity-fields {
@@ -581,6 +751,14 @@
 
     .hours-table {
       min-width: 650px;
+    }
+
+    .service-period {
+      grid-template-columns: 24px minmax(0, 1fr) minmax(88px, .55fr) minmax(88px, .55fr);
+    }
+
+    .service-period__state {
+      grid-column: 2 / -1;
     }
   }
 </style>

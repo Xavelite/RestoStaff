@@ -24,14 +24,16 @@ reports zero errors and warnings, and the static production build succeeds.
    and `APP_ORIGIN`.
 6. Configure Auth redirect URLs for `/onboarding`, `/accept-invite` and
    `/reset-password`.
+7. Enroll every platform operator in TOTP MFA and verify an AAL2 `/admin`
+   session.
 
 ## Role acceptance
 
 Create disposable fixtures using `supabase/seed/create-role-fixtures.ts`.
 
 - Owner: onboarding, Restaurant, Team private fields, invitation, Schedule
-  publish/revert, Time & attendance approve/reopen, exports, reservations, and
-  Badge terminal.
+  publish/revert, Time & attendance approve/reopen, exports, Payroll
+  preparation, and Badge terminal.
 - Manager: Restaurant and Team operations are available; costs, payroll data
   and payroll exports remain owner-only. Team invitation cannot grant manager
   unless caller is owner.
@@ -45,6 +47,8 @@ Create disposable fixtures using `supabase/seed/create-role-fixtures.ts`.
 - Invitation token expires after seven days and cannot be reused.
 - Offline banner appears; reconnect refreshes the workspace.
 - Stale Schedule revision produces a clear conflict instead of overwriting.
+- Stale Team, Restaurant, and floor-plan revisions produce the same clear
+  conflict instead of overwriting.
 - Overnight shifts and Europe/Brussels date boundaries reconcile.
 - Cancelled/corrected time entries retain their original audit records.
 
@@ -64,8 +68,13 @@ Check 1440x900, 1024x768, 390x844 and 360x800:
 
 Set `PUBLIC_APP_RELEASE` for every deployment. Optionally set
 `PUBLIC_ERROR_ENDPOINT` to a same-organization HTTPS ingestion endpoint that
-accepts minimal JSON error envelopes. No email, token, PIN, form values or
+accepts minimal JSON error envelopes. Client messages are redacted before
+delivery; no email, bank account, identifier, token, PIN, form values or
 workspace payload is included.
+
+Keep Reports disabled without signed-off metric contracts. Keep Reservations
+disabled unless its independent acceptance track, guest-space review, public
+privacy copy, and mobile/browser checks are complete.
 
 If smoke tests fail:
 

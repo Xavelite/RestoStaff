@@ -18,7 +18,7 @@ test('empty restaurant item names keep a deterministic technical fallback', () =
   assert.equal(setupItemCode('', id, 'position'), 'position-12345678');
 });
 
-test('restaurant hours preserve lunch and evening opening states independently', async () => {
+test('restaurant hours preserve configurable service periods independently', async () => {
   const { restaurantDraft, restaurantSavePayload } = await import('../src/lib/restaurant/restaurant-model.ts');
   const snapshot = {
     restaurant: {
@@ -84,17 +84,49 @@ test('restaurant hours preserve lunch and evening opening states independently',
         metadata: { color: '#16a34a' }
       }
     ],
+    services: [
+      {
+        id: 'service-lunch',
+        restaurant_id: 'restaurant-1',
+        service_key: 'lunch',
+        name: 'Lunch',
+        active: true,
+        sort_order: 0,
+        metadata: { default_start: '12:00', default_end: '15:00' }
+      },
+      {
+        id: 'service-evening',
+        restaurant_id: 'restaurant-1',
+        service_key: 'evening',
+        name: 'Dinner',
+        active: true,
+        sort_order: 1,
+        metadata: { default_start: '18:00', default_end: '23:00' }
+      },
+      {
+        id: 'service-breakfast',
+        restaurant_id: 'restaurant-1',
+        service_key: 'breakfast',
+        name: 'Breakfast',
+        active: true,
+        sort_order: 2,
+        metadata: { default_start: '07:00', default_end: '10:30' }
+      }
+    ],
     area_service_defaults: [],
     opening_hours: [
       { weekday: 1, service_key: 'lunch', is_open: false, opens_at: null, closes_at: null },
-      { weekday: 1, service_key: 'evening', is_open: true, opens_at: '18:00:00', closes_at: '23:00:00' }
+      { weekday: 1, service_key: 'evening', is_open: true, opens_at: '18:00:00', closes_at: '23:00:00' },
+      { weekday: 1, service_key: 'breakfast', is_open: true, opens_at: '07:00:00', closes_at: '10:30:00' }
     ],
     coverage_requirements: []
   };
 
   const draft = restaurantDraft(snapshot);
-  assert.equal(draft.opening[0].lunchOpen, false);
-  assert.equal(draft.opening[0].eveningOpen, true);
+  assert.equal(draft.opening[0].services.lunch.open, false);
+  assert.equal(draft.opening[0].services.evening.open, true);
+  assert.equal(draft.opening[0].services.breakfast.open, true);
+  assert.equal(draft.services[2].name, 'Breakfast');
   assert.deepEqual(draft.jobFunctions[0].areaIds, ['area-1']);
   assert.equal(draft.areas[0].color, '#16a34a');
   assert.equal(draft.displayName, 'Demo');
@@ -116,8 +148,11 @@ test('restaurant hours preserve lunch and evening opening states independently',
   const payload = restaurantSavePayload(snapshot, draft);
   const mondayLunch = payload.openingHours.find((row) => row.weekday === 1 && row.service_key === 'lunch');
   const mondayEvening = payload.openingHours.find((row) => row.weekday === 1 && row.service_key === 'evening');
+  const mondayBreakfast = payload.openingHours.find((row) => row.weekday === 1 && row.service_key === 'breakfast');
   assert.equal(mondayLunch.is_open, false);
   assert.equal(mondayEvening.is_open, true);
+  assert.equal(mondayBreakfast.is_open, true);
+  assert.equal(payload.services.find((row) => row.service_key === 'breakfast').name, 'Breakfast');
   assert.deepEqual(payload.jobFunctions[0].area_ids, ['area-1']);
   assert.equal(payload.jobFunctions.length, 1);
   assert.deepEqual(payload.jobFunctions[0].metadata, {});

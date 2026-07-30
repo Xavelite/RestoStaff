@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PendingDraftIds } from '../src/lib/classic/pending-draft-ids.ts';
+import { PendingDraftIds } from '../src/lib/workspace-ui/pending-draft-ids.ts';
 
 test('pending draft identity survives view remounts until save or discard resets it', () => {
   const pending = new PendingDraftIds();

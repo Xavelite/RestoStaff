@@ -43,6 +43,30 @@ const french: Record<string, string> = {
   'Save account': 'Enregistrer le compte',
   'Saving…': 'Enregistrement…',
   'Account updated.': 'Compte mis à jour.',
+  'Account security': 'Securite du compte',
+  'Two-step verification': 'Verification en deux etapes',
+  'Protect owner, payroll and platform administration with an authenticator app.': 'Protegez les acces proprietaire, paie et administration avec une application authentificatrice.',
+  'Verified session': 'Session verifiee',
+  'Verification required': 'Verification requise',
+  'Not enabled': 'Non active',
+  'Checking account security...': 'Verification de la securite du compte...',
+  'Authenticator QR code': 'Code QR de l authentificateur',
+  'Scan with your authenticator app': 'Scannez avec votre application authentificatrice',
+  'Or enter this setup key manually:': 'Ou saisissez cette cle manuellement :',
+  'Six-digit code': 'Code a six chiffres',
+  'Verify and activate': 'Verifier et activer',
+  'Authenticator connected': 'Authentificateur connecte',
+  'Sensitive access is unlocked for this session.': 'Les acces sensibles sont deverrouilles pour cette session.',
+  'Enter a fresh code before opening platform administration.': 'Saisissez un nouveau code avant d ouvrir l administration de la plateforme.',
+  'Unlock sensitive access': 'Deverrouiller les acces sensibles',
+  'Use Google Authenticator, Microsoft Authenticator, 1Password or another TOTP app.': 'Utilisez Google Authenticator, Microsoft Authenticator, 1Password ou une autre application TOTP.',
+  'Set up authenticator': 'Configurer l authentificateur',
+  'Two-step verification is active.': 'La verification en deux etapes est active.',
+  'Sensitive access unlocked for this session.': 'Acces sensibles deverrouilles pour cette session.',
+  'Remove two-step verification?': 'Supprimer la verification en deux etapes ?',
+  'Your account will lose its authenticator protection.': 'Votre compte perdra la protection de l authentificateur.',
+  'Remove protection': 'Supprimer la protection',
+  'Two-step verification removed.': 'Verification en deux etapes supprimee.',
   'First and last name are required.': 'Le prénom et le nom sont obligatoires.',
   'Use at least eight characters for the app password.': 'Utilisez au moins huit caractères pour le mot de passe.',
   'Password confirmation does not match.': 'La confirmation du mot de passe ne correspond pas.',
@@ -52,6 +76,12 @@ const french: Record<string, string> = {
   'Enter a four-digit badge PIN.': 'Saisissez un code PIN à quatre chiffres.',
   'PIN confirmation does not match.': 'La confirmation du PIN ne correspond pas.',
   'Badge PIN updated.': 'Code PIN mis à jour.',
+  '{count} missing badge-ins': '{count} pointages d’entrée manquants',
+  '{count} open clock-ins need review': '{count} pointages ouverts à vérifier',
+  '{count} late badge-ins': '{count} pointages tardifs',
+  '{count} planned shifts conflict with time off': '{count} services planifiés en conflit avec un congé',
+  '{count} worked entries conflict with approved time off': '{count} prestations en conflit avec un congé approuvé',
+  'Some notifications could not be dismissed.': 'Certaines notifications n’ont pas pu être masquées.',
   'This PIN authorizes badge-terminal actions. It never signs you into restogogo.': 'Ce code autorise les actions sur la pointeuse. Il ne permet jamais de se connecter à restogogo.',
   'You are offline. Existing information remains visible; reconnect before saving changes.': 'Vous êtes hors ligne. Les informations restent visibles ; reconnectez-vous avant d’enregistrer.',
   'Email verification': 'Vérification de l’e-mail',
@@ -238,6 +268,30 @@ const dutch: Record<string, string> = {
   'Save account': 'Account opslaan',
   'Saving…': 'Opslaan…',
   'Account updated.': 'Account bijgewerkt.',
+  'Account security': 'Accountbeveiliging',
+  'Two-step verification': 'Tweestapsverificatie',
+  'Protect owner, payroll and platform administration with an authenticator app.': 'Beveilig eigenaarstoegang, loonvoorbereiding en platformbeheer met een authenticator-app.',
+  'Verified session': 'Geverifieerde sessie',
+  'Verification required': 'Verificatie vereist',
+  'Not enabled': 'Niet ingeschakeld',
+  'Checking account security...': 'Accountbeveiliging controleren...',
+  'Authenticator QR code': 'QR-code voor authenticator',
+  'Scan with your authenticator app': 'Scan met je authenticator-app',
+  'Or enter this setup key manually:': 'Of voer deze instelsleutel handmatig in:',
+  'Six-digit code': 'Zescijferige code',
+  'Verify and activate': 'Verifieren en activeren',
+  'Authenticator connected': 'Authenticator verbonden',
+  'Sensitive access is unlocked for this session.': 'Gevoelige toegang is ontgrendeld voor deze sessie.',
+  'Enter a fresh code before opening platform administration.': 'Voer een nieuwe code in voordat je platformbeheer opent.',
+  'Unlock sensitive access': 'Gevoelige toegang ontgrendelen',
+  'Use Google Authenticator, Microsoft Authenticator, 1Password or another TOTP app.': 'Gebruik Google Authenticator, Microsoft Authenticator, 1Password of een andere TOTP-app.',
+  'Set up authenticator': 'Authenticator instellen',
+  'Two-step verification is active.': 'Tweestapsverificatie is actief.',
+  'Sensitive access unlocked for this session.': 'Gevoelige toegang is ontgrendeld voor deze sessie.',
+  'Remove two-step verification?': 'Tweestapsverificatie verwijderen?',
+  'Your account will lose its authenticator protection.': 'Je account verliest de authenticatorbeveiliging.',
+  'Remove protection': 'Beveiliging verwijderen',
+  'Two-step verification removed.': 'Tweestapsverificatie verwijderd.',
   'First and last name are required.': 'Voornaam en achternaam zijn verplicht.',
   'Use at least eight characters for the app password.': 'Gebruik minstens acht tekens voor het wachtwoord.',
   'Password confirmation does not match.': 'De wachtwoordbevestiging komt niet overeen.',
@@ -247,6 +301,12 @@ const dutch: Record<string, string> = {
   'Enter a four-digit badge PIN.': 'Voer een viercijferige badgepincode in.',
   'PIN confirmation does not match.': 'De pincodebevestiging komt niet overeen.',
   'Badge PIN updated.': 'Badgepincode bijgewerkt.',
+  '{count} missing badge-ins': '{count} ontbrekende inklokmomenten',
+  '{count} open clock-ins need review': '{count} open klokregistraties te controleren',
+  '{count} late badge-ins': '{count} laattijdige inklokmomenten',
+  '{count} planned shifts conflict with time off': '{count} geplande diensten botsen met verlof',
+  '{count} worked entries conflict with approved time off': '{count} gewerkte registraties botsen met goedgekeurd verlof',
+  'Some notifications could not be dismissed.': 'Sommige meldingen konden niet worden verwijderd.',
   'This PIN authorizes badge-terminal actions. It never signs you into restogogo.': 'Deze pincode bevestigt acties op de prikklok. Je meldt er nooit mee aan bij restogogo.',
   'You are offline. Existing information remains visible; reconnect before saving changes.': 'Je bent offline. Bestaande informatie blijft zichtbaar; maak opnieuw verbinding voor je opslaat.',
   'Email verification': 'E-mailverificatie',
@@ -2426,7 +2486,7 @@ Object.assign(dutch, {
   'Server checks the contract, CP 302 classification, wage, evidence and restaurant setup.': 'De server controleert het contract, de PC 302-classificatie, het loon, de bewijsstukken en de restaurantconfiguratie.'
 });
 
-// Classic design — module names, sub-navigation and the design switch.
+// Workspace design — module names, sub-navigation and the design switch.
 // These resolve through t(variable) at runtime, so the literal-scan contract
 // test cannot see them: they are maintained here by hand.
 Object.assign(french, {
@@ -3582,6 +3642,28 @@ Object.assign(dutch, {
   'Webhooks': 'Webhooks',
   'Notify approved integrations when a booking is created, changed, seated or cancelled.':
     'Informeer goedgekeurde integraties wanneer een boeking wordt gemaakt, gewijzigd, geplaatst of geannuleerd.'
+});
+
+Object.assign(french, {
+  'open days': 'jours d’ouverture',
+  'Add service period': 'Ajouter une période de service',
+  'Service periods': 'Périodes de service',
+  'Default start': 'Début par défaut',
+  'Default end': 'Fin par défaut',
+  'Create service rules for linked areas and positions.':
+    'Créer des règles de service pour les zones et fonctions liées.',
+  'Plan {service} shift': 'Planifier le service {service}'
+});
+
+Object.assign(dutch, {
+  'open days': 'open dagen',
+  'Add service period': 'Dienstperiode toevoegen',
+  'Service periods': 'Dienstperiodes',
+  'Default start': 'Standaardbegin',
+  'Default end': 'Standaardeinde',
+  'Create service rules for linked areas and positions.':
+    'Maak dienstregels voor gekoppelde zones en functies.',
+  'Plan {service} shift': '{service} plannen'
 });
 
 const dictionaries: Record<Exclude<AppLocale, 'en'>, Record<string, string>> = {
@@ -5703,4 +5785,42 @@ Object.assign(dutch, {
   'Send request': 'Aanvraag verzenden',
   'Sending...': 'Verzenden...',
   'Storage upgrade request sent. We will confirm pricing before changing the limit.': 'Aanvraag voor extra opslag verzonden. We bevestigen de prijs voordat de limiet wijzigt.'
+});
+
+Object.assign(french, {
+  'Last check-in': 'Dernier contact',
+  '{count} online': '{count} en ligne',
+  Offline: 'Hors ligne',
+  'Waiting for first connection': 'En attente de la premi\u00e8re connexion'
+});
+
+Object.assign(dutch, {
+  'Last check-in': 'Laatste contact',
+  '{count} online': '{count} online',
+  Offline: 'Offline',
+  'Waiting for first connection': 'Wacht op eerste verbinding'
+});
+
+Object.assign(french, {
+  Basement: 'Sous-sol',
+  instance: 'instance',
+  'This removes the area from Schedule and Staffing and unlinks {positions} positions.':
+    'Cette action retire la zone du planning et des besoins en personnel, et dissocie {positions} postes.',
+  'Uses restaurant hours': 'Utilise les horaires du restaurant',
+  'Default hours': 'Horaires par défaut',
+  'Linked positions': 'Postes associés',
+  'Add the parts of the restaurant you plan and staff, such as Dining room, Bar or Kitchen.':
+    'Ajoutez les zones du restaurant que vous planifiez et équipez, comme la salle, le bar ou la cuisine.'
+});
+
+Object.assign(dutch, {
+  Basement: 'Kelder',
+  instance: 'exemplaar',
+  'This removes the area from Schedule and Staffing and unlinks {positions} positions.':
+    'Dit verwijdert de zone uit Planning en Bezetting en ontkoppelt {positions} functies.',
+  'Uses restaurant hours': 'Gebruikt de restauranturen',
+  'Default hours': 'Standaarduren',
+  'Linked positions': 'Gekoppelde functies',
+  'Add the parts of the restaurant you plan and staff, such as Dining room, Bar or Kitchen.':
+    'Voeg de restaurantzones toe die u plant en bemant, zoals zaal, bar of keuken.'
 });

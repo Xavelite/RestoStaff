@@ -10,18 +10,18 @@
   } from '$lib/ui/position-color';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import type { EmployeeDraft } from '$lib/team/team-model';
-  import { useClassicTeamContext } from '$lib/classic/classic-workspace-context';
-  import ClassicCellBadge from '$lib/classic/ClassicCellBadge.svelte';
-  import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
-  import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
-  import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
-  import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
-  import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
-  import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
-  import ClassicPicker from '$lib/classic/ClassicPicker.svelte';
-  import EmployeeInlineEditor from '$lib/classic/EmployeeInlineEditor.svelte';
-  import { teamDraft } from '$lib/classic/classic-team.svelte';
-  import { createTableView, peopleCountLabel } from '$lib/classic/table-view.svelte';
+  import { useWorkspaceTeamContext } from '$lib/workspace-ui/workspace-context';
+  import WorkspaceCellBadge from '$lib/workspace-ui/WorkspaceCellBadge.svelte';
+  import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
+  import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
+  import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
+  import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
+  import WorkspaceColChooser from '$lib/workspace-ui/WorkspaceColChooser.svelte';
+  import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
+  import WorkspacePicker from '$lib/workspace-ui/WorkspacePicker.svelte';
+  import EmployeeInlineEditor from '$lib/workspace-ui/EmployeeInlineEditor.svelte';
+  import { teamDraft } from '$lib/workspace-ui/workspace-team.svelte';
+  import { createTableView, peopleCountLabel } from '$lib/workspace-ui/table-view.svelte';
   import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
 
   type GroupBy = 'contract' | 'position' | 'status' | 'none';
@@ -179,7 +179,7 @@
     return [...map.values()].sort((l, r) => l.key.startsWith('__') ? -1 : r.key.startsWith('__') ? 1 : l.label.localeCompare(r.label));
   }
 
-  const readTeamContext = useClassicTeamContext();
+  const readTeamContext = useWorkspaceTeamContext();
   const team = $derived(readTeamContext());
 </script>
 
@@ -196,7 +196,7 @@
     {@const contractOptions = [{ value: '', label: t('Not set') }, ...[...team.contractName].map(([id, name]) => ({ value: id, label: name, icon: 'contract' }))]}
     {@const regimeOptions = Object.entries(REGIME_LABEL).map(([value, label]) => ({ value, label: t(label) }))}
 
-    <ClassicTablePanel dirty={team.dirty} saving={team.saving} canSave={team.canSave} onsave={() => void savePage(team.save).catch(() => undefined)} ondiscard={() => discardPage(team.discard)}>
+    <WorkspaceTablePanel dirty={team.dirty} saving={team.saving} canSave={team.canSave} onsave={() => void savePage(team.save).catch(() => undefined)} ondiscard={() => discardPage(team.discard)}>
       {#snippet meta()}
         <span><i class="dot"></i>{t('{count} employees', { count: filtered.length })}</span>
         <span><i class="dot is-orange"></i>{t('{count} incomplete', { count: incomplete })}</span>
@@ -206,15 +206,15 @@
         <table class="cl-table cl-mobile-rows contract-table">
           <thead>
             <tr>
-              <th class="has-menu"><ClassicPrimaryColMenu label={t('Employee')} sortable sortDir={view.sortDir('employee')} onsort={(dir) => view.setSort('employee', dir)} filterKind="text" searchValue={view.search('employee')} onsearch={(value) => view.setSearch('employee', value)} groupValue={view.groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'contract', label: t('Contract type') }, { value: 'position', label: t('Position') }, { value: 'status', label: t('Setup') }]} ongroupchange={(value) => view.setGroupBy(value as GroupBy)} /></th>
-              {#if shown('position')}<th class="has-menu"><ClassicColMenu label={t('Position')} sortable sortDir={view.sortDir('position')} onsort={(dir) => view.setSort('position', dir)} filterKind="values" filterValues={positionValues} selected={view.excluded('position')} ontoggle={(value) => view.toggleValue('position', value)} onselectall={(on) => view.selectAll('position', on, positionValues)} /></th>{/if}
-              {#if shown('contract')}<th class="has-menu"><ClassicColMenu label={t('Contract')} sortable sortDir={view.sortDir('contract')} onsort={(dir) => view.setSort('contract', dir)} filterKind="values" filterValues={contractValues} selected={view.excluded('contract')} ontoggle={(value) => view.toggleValue('contract', value)} onselectall={(on) => view.selectAll('contract', on, contractValues)} /></th>{/if}
-              {#if shown('regime')}<th class="has-menu"><ClassicColMenu label={t('Availability mode')} sortable sortDir={view.sortDir('regime')} onsort={(dir) => view.setSort('regime', dir)} filterKind="values" filterValues={regimeValues} selected={view.excluded('regime')} ontoggle={(value) => view.toggleValue('regime', value)} onselectall={(on) => view.selectAll('regime', on, regimeValues)} /></th>{/if}
-              {#if shown('start')}<th class="has-menu"><ClassicColMenu label={t('Start')} sortable sortDir={view.sortDir('start')} onsort={(dir) => view.setSort('start', dir)} filterKind="text" searchValue={view.search('start')} onsearch={(value) => view.setSearch('start', value)} /></th>{/if}
-              {#if shown('end')}<th class="has-menu"><ClassicColMenu label={t('End')} sortable sortDir={view.sortDir('end')} onsort={(dir) => view.setSort('end', dir)} filterKind="text" searchValue={view.search('end')} onsearch={(value) => view.setSearch('end', value)} /></th>{/if}
-              {#if shown('hours')}<th class="has-menu"><ClassicColMenu label={t('Weekly hours')} align="right" sortable sortDir={view.sortDir('hours')} onsort={(dir) => view.setSort('hours', dir)} filterKind="text" searchValue={view.search('hours')} onsearch={(value) => view.setSearch('hours', value)} /></th>{/if}
-              {#if shown('status')}<th class="has-menu"><ClassicColMenu label={t('Setup')} sortable sortDir={view.sortDir('status')} onsort={(dir) => view.setSort('status', dir)} filterKind="values" filterValues={statusValues} selected={view.excluded('status')} ontoggle={(value) => view.toggleValue('status', value)} onselectall={(on) => view.selectAll('status', on, statusValues)} /></th>{/if}
-              <th class="chooser-col"><ClassicColChooser columns={view.columns} hidden={view.hidden} ontoggle={view.toggleColumn} /></th>
+              <th class="has-menu"><WorkspacePrimaryColMenu label={t('Employee')} sortable sortDir={view.sortDir('employee')} onsort={(dir) => view.setSort('employee', dir)} filterKind="text" searchValue={view.search('employee')} onsearch={(value) => view.setSearch('employee', value)} groupValue={view.groupBy} groupOptions={[{ value: 'none', label: t('No grouping') }, { value: 'contract', label: t('Contract type') }, { value: 'position', label: t('Position') }, { value: 'status', label: t('Setup') }]} ongroupchange={(value) => view.setGroupBy(value as GroupBy)} /></th>
+              {#if shown('position')}<th class="has-menu"><WorkspaceColMenu label={t('Position')} sortable sortDir={view.sortDir('position')} onsort={(dir) => view.setSort('position', dir)} filterKind="values" filterValues={positionValues} selected={view.excluded('position')} ontoggle={(value) => view.toggleValue('position', value)} onselectall={(on) => view.selectAll('position', on, positionValues)} /></th>{/if}
+              {#if shown('contract')}<th class="has-menu"><WorkspaceColMenu label={t('Contract')} sortable sortDir={view.sortDir('contract')} onsort={(dir) => view.setSort('contract', dir)} filterKind="values" filterValues={contractValues} selected={view.excluded('contract')} ontoggle={(value) => view.toggleValue('contract', value)} onselectall={(on) => view.selectAll('contract', on, contractValues)} /></th>{/if}
+              {#if shown('regime')}<th class="has-menu"><WorkspaceColMenu label={t('Availability mode')} sortable sortDir={view.sortDir('regime')} onsort={(dir) => view.setSort('regime', dir)} filterKind="values" filterValues={regimeValues} selected={view.excluded('regime')} ontoggle={(value) => view.toggleValue('regime', value)} onselectall={(on) => view.selectAll('regime', on, regimeValues)} /></th>{/if}
+              {#if shown('start')}<th class="has-menu"><WorkspaceColMenu label={t('Start')} sortable sortDir={view.sortDir('start')} onsort={(dir) => view.setSort('start', dir)} filterKind="text" searchValue={view.search('start')} onsearch={(value) => view.setSearch('start', value)} /></th>{/if}
+              {#if shown('end')}<th class="has-menu"><WorkspaceColMenu label={t('End')} sortable sortDir={view.sortDir('end')} onsort={(dir) => view.setSort('end', dir)} filterKind="text" searchValue={view.search('end')} onsearch={(value) => view.setSearch('end', value)} /></th>{/if}
+              {#if shown('hours')}<th class="has-menu"><WorkspaceColMenu label={t('Weekly hours')} align="right" sortable sortDir={view.sortDir('hours')} onsort={(dir) => view.setSort('hours', dir)} filterKind="text" searchValue={view.search('hours')} onsearch={(value) => view.setSearch('hours', value)} /></th>{/if}
+              {#if shown('status')}<th class="has-menu"><WorkspaceColMenu label={t('Setup')} sortable sortDir={view.sortDir('status')} onsort={(dir) => view.setSort('status', dir)} filterKind="values" filterValues={statusValues} selected={view.excluded('status')} ontoggle={(value) => view.toggleValue('status', value)} onselectall={(on) => view.selectAll('status', on, statusValues)} /></th>{/if}
+              <th class="chooser-col"><WorkspaceColChooser columns={view.columns} hidden={view.hidden} ontoggle={view.toggleColumn} /></th>
             </tr>
           </thead>
           {#if !filtered.length}
@@ -227,7 +227,7 @@
                   {#snippet groupIcon()}
                     {#if groupArea}<WorkspaceAreaIcon icon={groupArea.icon} color={groupArea.color} size={15} compact />{/if}
                   {/snippet}
-                  <ClassicGroupRow colspan={colCount + 1} label={group.label} meta={peopleCountLabel(group.employees.length)} icon={groupArea ? groupIcon : undefined} collapsed={view.isCollapsed(group.key)} ontoggle={() => view.toggleGroup(group.key)} />
+                  <WorkspaceGroupRow colspan={colCount + 1} label={group.label} meta={peopleCountLabel(group.employees.length)} icon={groupArea ? groupIcon : undefined} collapsed={view.isCollapsed(group.key)} ontoggle={() => view.toggleGroup(group.key)} />
                 {/if}
                 {#if !view.isCollapsed(group.key)}
                 {#each group.employees as employee (employee.id)}
@@ -257,7 +257,7 @@
                       </span>
                     </td>{/if}
                     {#if shown('contract')}<td>
-                      <ClassicPicker
+                      <WorkspacePicker
                         value={employee.contractTypeId}
                         options={contractOptions}
                         disabled={!team.editable}
@@ -266,7 +266,7 @@
                       />
                     </td>{/if}
                     {#if shown('regime')}<td>
-                      <ClassicPicker
+                      <WorkspacePicker
                         value={employee.workRegime}
                         options={regimeOptions}
                         disabled={!team.editable}
@@ -277,14 +277,14 @@
                     {#if shown('start')}<td><input class="grid-field date-field" aria-label={`${t('Start')} · ${employee.displayName}`} type="date" value={employee.contractStart} disabled={!team.editable} oninput={(event) => teamDraft.update(employee.id, { contractStart: event.currentTarget.value })} /></td>{/if}
                     {#if shown('end')}<td>
                       {#if contractCode === 'CDI'}
-                        <ClassicCellBadge label="Open ended" icon="contract" />
+                        <WorkspaceCellBadge label="Open ended" icon="contract" />
                       {:else}
                         <input class="grid-field date-field" aria-label={`${t('End')} · ${employee.displayName}`} type="date" value={employee.contractEnd} disabled={!team.editable} oninput={(event) => teamDraft.update(employee.id, { contractEnd: event.currentTarget.value })} />
                       {/if}
                     </td>{/if}
                     {#if shown('hours')}<td class="is-num"><span class="hours-field"><input class="grid-field" aria-label={`${t('Weekly hours')} · ${employee.displayName}`} type="number" min="0" step="0.25" value={employee.weeklyContractHours || ''} disabled={!team.editable} oninput={(event) => updateHours(employee.id, event.currentTarget.value)} /><span>h</span></span></td>{/if}
-                    {#if shown('status')}<td>{#if missing.length}<ClassicCellBadge label={missing.length === 1 ? '1 detail missing' : '{count} details missing'} params={{ count: missing.length }} tone="warning" icon="warning" />{:else}<ClassicCellBadge label="Complete" tone="success" icon="check" />{/if}</td>{/if}
-                    <td class="menu-cell"><ClassicRowMenu disabled={!team.editable} items={[{ label: t('Open employee'), onselect: () => (detailId = employee.id) }]} /></td>
+                    {#if shown('status')}<td>{#if missing.length}<WorkspaceCellBadge label={missing.length === 1 ? '1 detail missing' : '{count} details missing'} params={{ count: missing.length }} tone="warning" icon="warning" />{:else}<WorkspaceCellBadge label="Complete" tone="success" icon="check" />{/if}</td>{/if}
+                    <td class="menu-cell"><WorkspaceRowMenu disabled={!team.editable} items={[{ label: t('Open employee'), onselect: () => (detailId = employee.id) }]} /></td>
                   </tr>
                 {/each}
                 {/if}
@@ -294,7 +294,7 @@
         </table>
       </div>
       {/snippet}
-    </ClassicTablePanel>
+    </WorkspaceTablePanel>
 
     {#if detailId}
       <EmployeeInlineEditor employeeId={detailId} mode="contract" saving={team.saving} onclose={closeDetails} onsave={team.saveEmployee} />

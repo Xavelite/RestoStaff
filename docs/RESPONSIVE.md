@@ -18,7 +18,7 @@ Desktop pages use normal document scrolling. The app no longer tries to force ev
 
 Purposeful local overflow is still allowed where the content itself is a dense surface:
 
-- weekly boards may scroll horizontally to preserve readable employee rows and Lunch/Evening service slots;
+- weekly boards may scroll horizontally to preserve readable employee rows and configured service slots;
 - month boards may scroll inside their own calendar area when the viewport is constrained;
 - dialogs, notification feeds and export previews may scroll internally because they are bounded overlays.
 
@@ -27,7 +27,7 @@ Avoid tiny nested scroll panes for ordinary page content. If a section reads lik
 ## Rules
 
 - Shared components own responsive behaviour used by more than one module.
-- Weekly Lunch and Evening slots remain side by side on desktop and tablet.
+- Configured weekly service slots remain side by side on desktop and tablet.
 - Mobile preserves Schedule and Time & attendance as bounded weekly boards with
   a sticky employee column. My service and My time use employee-focused cards.
 - Module pages compose the shared scaffold; they must not introduce arbitrary

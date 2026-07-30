@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { TabletSmartphone } from '@lucide/svelte';
   import ActionButton from '$lib/components/ActionButton.svelte';
   import Dialog from '$lib/components/Dialog.svelte';
@@ -13,16 +14,17 @@
   import { confirmAction } from '$lib/ui/confirm.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
-  import ClassicPage from '$lib/classic/ClassicPage.svelte';
-  import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
-  import ClassicStatus from '$lib/classic/ClassicStatus.svelte';
-  import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
+  import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
+  import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
+  import WorkspaceStatus from '$lib/workspace-ui/WorkspaceStatus.svelte';
+  import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
 
   let stations = $state<RestaurantStation[]>([]);
   let loading = $state(false);
   let busy = $state('');
   let pairOpen = $state(false);
   let pairLabel = $state('');
+  let now = $state(Date.now());
   // Shown once and never again: the token is only ever stored hashed.
   let pairedCode = $state('');
 
@@ -40,6 +42,14 @@
 
   $effect(() => {
     if (workspace.activeId) void reload();
+  });
+
+  onMount(() => {
+    const refresh = window.setInterval(() => {
+      now = Date.now();
+      if (!loading && document.visibilityState === 'visible') void reload();
+    }, 60_000);
+    return () => window.clearInterval(refresh);
   });
 
   async function pair() {
@@ -88,15 +98,21 @@
     if (!Number.isFinite(date.getTime())) return '';
     return new Intl.DateTimeFormat(i18n.intlLocale, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
   }
+
+  function isOnline(station: RestaurantStation): boolean {
+    if (!station.lastUsedAt) return false;
+    const lastSeen = new Date(station.lastUsedAt).getTime();
+    return Number.isFinite(lastSeen) && now - lastSeen < 150_000;
+  }
 </script>
 
 <svelte:head><title>{t('Badge devices')} &middot; restogogo</title></svelte:head>
 
-<ClassicPage>
-  <ClassicTablePanel>
+<WorkspacePage>
+  <WorkspaceTablePanel>
     {#snippet meta()}
       <span><i class="dot"></i>{t('{count} paired', { count: stations.length })}</span>
-      <span><i class="dot is-green"></i>{t('{count} ready', { count: stations.filter((station) => station.lastUsedAt).length })}</span>
+      <span><i class="dot is-green"></i>{t('{count} online', { count: stations.filter(isOnline).length })}</span>
     {/snippet}
 
     {#snippet actions()}
@@ -127,7 +143,7 @@
             <tr>
               <th>{t('Device')}</th>
               <th>{t('Paired')}</th>
-              <th>{t('Last used')}</th>
+              <th>{t('Last check-in')}</th>
               <th>{t('Status')}</th>
               <th class="menu-cell" aria-label={t('Actions')}></th>
             </tr>
@@ -162,13 +178,13 @@
                   <td class="is-quiet">{stamp(station.createdAt)}</td>
                   <td class="is-quiet">{stamp(station.lastUsedAt) || t('Never')}</td>
                   <td>
-                    <ClassicStatus
-                      label={station.lastUsedAt ? 'Ready' : 'Waiting for first badge'}
-                      tone={station.lastUsedAt ? 'ok' : 'attention'}
+                    <WorkspaceStatus
+                      label={isOnline(station) ? 'Online' : station.lastUsedAt ? 'Offline' : 'Waiting for first connection'}
+                      tone={isOnline(station) ? 'ok' : 'attention'}
                     />
                   </td>
                   <td class="menu-cell">
-                    <ClassicRowMenu
+                    <WorkspaceRowMenu
                       disabled={workspace.isPreview || busy === station.id}
                       items={[
                         {
@@ -186,8 +202,8 @@
         </table>
       </div>
     {/snippet}
-  </ClassicTablePanel>
-</ClassicPage>
+  </WorkspaceTablePanel>
+</WorkspacePage>
 
 {#snippet pairFooter()}
   <ActionButton label={t(pairedCode ? 'Close' : 'Cancel')} onclick={() => (pairOpen = false)} />

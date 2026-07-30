@@ -1,7 +1,7 @@
 import type { ManagerOperationsReadModel } from '../api/workspace-snapshot';
 import {
-  SERVICES,
   WEEKDAYS,
+  activeServiceKeys,
   dateForWeekday,
   formatHours,
   hoursBetweenClocks,
@@ -53,10 +53,6 @@ export type ActualSlot = {
   proof: string;
   proofEdge: 'clock_in' | 'clock_out' | null;
 };
-
-function isService(value: string): value is ServiceKey {
-  return value === 'lunch' || value === 'evening';
-}
 
 function proofLabel(status: string | null): string {
   const labels: Record<string, string> = {
@@ -113,7 +109,7 @@ export function actualSlotsForDate(
   );
 
   return employees.flatMap((employee) =>
-    SERVICES.map((serviceKey) => {
+    activeServiceKeys(snapshot.services).map((serviceKey) => {
       const plan = planned.find(
         (shift) =>
           shift.employee_id === employee.id && shift.service_key === serviceKey
@@ -259,7 +255,7 @@ export function buildActualsWeek(input: {
     .map((employee) => {
       let weekHours = 0;
       const cells: WeekCell[] = dates.map((date) => {
-        const slots: WeekSlot[] = SERVICES.map((serviceKey) => {
+        const slots: WeekSlot[] = activeServiceKeys(input.snapshot.services).map((serviceKey) => {
           const key = `${employee.id}|${date}|${serviceKey}`;
           const slot = slotsByKey.get(key);
           if (slot) weekHours += slot.actualHours;

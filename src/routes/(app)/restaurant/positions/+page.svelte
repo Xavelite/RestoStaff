@@ -4,14 +4,14 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import { buildAreaColorMap, buildPositionColorMap } from '$lib/ui/position-color';
   import { workspace } from '$lib/workspace/workspace.svelte';
-  import { useClassicRestaurantContext } from '$lib/classic/classic-workspace-context';
-  import ClassicTablePanel from '$lib/classic/ClassicTablePanel.svelte';
-  import ClassicColMenu from '$lib/classic/ClassicColMenu.svelte';
-  import ClassicPrimaryColMenu from '$lib/classic/ClassicPrimaryColMenu.svelte';
-  import ClassicGroupRow from '$lib/classic/ClassicGroupRow.svelte';
-  import ClassicColChooser from '$lib/classic/ClassicColChooser.svelte';
-  import ClassicRowMenu from '$lib/classic/ClassicRowMenu.svelte';
-  import ClassicCellBadge from '$lib/classic/ClassicCellBadge.svelte';
+  import { useWorkspaceRestaurantContext } from '$lib/workspace-ui/workspace-context';
+  import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
+  import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
+  import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
+  import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
+  import WorkspaceColChooser from '$lib/workspace-ui/WorkspaceColChooser.svelte';
+  import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
+  import WorkspaceCellBadge from '$lib/workspace-ui/WorkspaceCellBadge.svelte';
   import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
   import PositionLinkedAreasField, {
     type PositionLinkedAreaOption
@@ -24,8 +24,8 @@
     workspacePositionByKey
   } from '$lib/restaurant/workspace-catalogue';
   import { areaInstanceLabelMap } from '$lib/restaurant/area-instance';
-  import { restaurantConfig } from '$lib/classic/classic-restaurant.svelte';
-  import { createTableView } from '$lib/classic/table-view.svelte';
+  import { restaurantConfig } from '$lib/workspace-ui/workspace-restaurant.svelte';
+  import { createTableView } from '$lib/workspace-ui/table-view.svelte';
 
   type SortKey = 'name' | 'areas' | 'cost' | 'employees' | 'active';
   type GroupBy = 'area' | 'status' | 'staffing' | 'none';
@@ -402,7 +402,7 @@
     );
   }
 
-  const readRestaurantContext = useClassicRestaurantContext();
+  const readRestaurantContext = useWorkspaceRestaurantContext();
   const context = $derived(readRestaurantContext());
 </script>
 
@@ -415,7 +415,7 @@
   {@const groups = groupedPositions(ordered)}
   {@const statusValues = [{ value: 'active', label: t('Active') }, { value: 'archived', label: t('Archived') }]}
 
-  <ClassicTablePanel
+  <WorkspaceTablePanel
     dirty={context.dirty}
     saving={context.saving}
     canSave={context.canSave}
@@ -436,7 +436,7 @@
             <tr>
               <th class="cl-grip"><span class="sr-only">{t('Reorder')}</span></th>
               <th class="has-menu">
-                <ClassicPrimaryColMenu
+                <WorkspacePrimaryColMenu
                   label={t('Name')}
                   sortable
                   sortDir={view.sortDir('name')}
@@ -455,7 +455,7 @@
                 />
               </th>
               <th class="has-menu">
-                <ClassicColMenu
+                <WorkspaceColMenu
                   label={t('Linked areas')}
                   sortable
                   sortDir={view.sortDir('areas')}
@@ -465,10 +465,10 @@
                   onsearch={(value) => view.setSearch('areas', value)}
                 />
               </th>
-              {#if shown('cost')}<th class="has-menu"><ClassicColMenu label={t('Estimated hourly cost')} sortable sortDir={view.sortDir('cost')} onsort={(dir) => view.setSort('cost', dir)} filterKind="text" searchValue={view.search('cost')} onsearch={(value) => view.setSearch('cost', value)} /></th>{/if}
-              {#if shown('employees')}<th class="has-menu"><ClassicColMenu label={t('Employees')} sortable sortDir={view.sortDir('employees')} onsort={(dir) => view.setSort('employees', dir)} filterKind="text" searchValue={view.search('employees')} onsearch={(value) => view.setSearch('employees', value)} /></th>{/if}
-              {#if shown('active')}<th class="has-menu"><ClassicColMenu label={t('Status')} sortable sortDir={view.sortDir('active')} onsort={(dir) => view.setSort('active', dir)} filterKind="values" filterValues={statusValues} selected={view.excluded('active')} ontoggle={(value) => view.toggleValue('active', value)} onselectall={(on) => view.selectAll('active', on, statusValues)} /></th>{/if}
-              <th class="chooser-col"><ClassicColChooser columns={chooserColumns} hidden={view.hidden} ontoggle={view.toggleColumn} /></th>
+              {#if shown('cost')}<th class="has-menu"><WorkspaceColMenu label={t('Estimated hourly cost')} sortable sortDir={view.sortDir('cost')} onsort={(dir) => view.setSort('cost', dir)} filterKind="text" searchValue={view.search('cost')} onsearch={(value) => view.setSearch('cost', value)} /></th>{/if}
+              {#if shown('employees')}<th class="has-menu"><WorkspaceColMenu label={t('Employees')} sortable sortDir={view.sortDir('employees')} onsort={(dir) => view.setSort('employees', dir)} filterKind="text" searchValue={view.search('employees')} onsearch={(value) => view.setSearch('employees', value)} /></th>{/if}
+              {#if shown('active')}<th class="has-menu"><WorkspaceColMenu label={t('Status')} sortable sortDir={view.sortDir('active')} onsort={(dir) => view.setSort('active', dir)} filterKind="values" filterValues={statusValues} selected={view.excluded('active')} ontoggle={(value) => view.toggleValue('active', value)} onselectall={(on) => view.selectAll('active', on, statusValues)} /></th>{/if}
+              <th class="chooser-col"><WorkspaceColChooser columns={chooserColumns} hidden={view.hidden} ontoggle={view.toggleColumn} /></th>
             </tr>
           </thead>
           {#if !ordered.length}
@@ -476,7 +476,7 @@
           {:else}
             {#each groups as group (group.key)}
               <tbody>
-                {#if view.grouping}<ClassicGroupRow colspan={colCount} label={group.label} meta={t('{count} positions', { count: group.rows.length })} color={group.color} collapsed={view.isCollapsed(group.key)} ontoggle={() => view.toggleGroup(group.key)} />{/if}
+                {#if view.grouping}<WorkspaceGroupRow colspan={colCount} label={group.label} meta={t('{count} positions', { count: group.rows.length })} color={group.color} collapsed={view.isCollapsed(group.key)} ontoggle={() => view.toggleGroup(group.key)} />{/if}
                 {#if !view.isCollapsed(group.key)}
                   {#each group.rows as position (position.id)}
                     {@const headcount = employeesByPosition.get(position.id)?.size ?? 0}
@@ -529,9 +529,9 @@
                       </td>
                       {#if shown('cost')}<td class="is-num"><input class="cl-field cost" type="number" disabled={workspace.isPreview} min="0" step="0.5" bind:value={position.estimatedHourlyCost} oninput={() => restaurantConfig.touch()} /></td>{/if}
                       {#if shown('employees')}<td><span class="cl-linkcount" class:is-zero={!headcount} title={t('{count} people', { count: headcount })}><span class="cl-linkcount__n">{headcount}</span></span></td>{/if}
-                      {#if shown('active')}<td><ClassicCellBadge label={position.active ? 'Active' : 'Archived'} tone={position.active ? 'success' : 'neutral'} icon={position.active ? 'check' : 'minus'} /></td>{/if}
+                      {#if shown('active')}<td><WorkspaceCellBadge label={position.active ? 'Active' : 'Archived'} tone={position.active ? 'success' : 'neutral'} icon={position.active ? 'check' : 'minus'} /></td>{/if}
                       <td class="menu-cell">
-                        <ClassicRowMenu
+                        <WorkspaceRowMenu
                           disabled={workspace.isPreview}
                           items={[
                             ...(persistedPositionIds.has(position.id)
@@ -551,7 +551,7 @@
         </table>
       </div>
     {/snippet}
-  </ClassicTablePanel>
+  </WorkspaceTablePanel>
 {/if}
 
 <style>

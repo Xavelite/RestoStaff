@@ -10,6 +10,7 @@ import {
 import type {
   EmployeeOperationsReadModel,
   ManagerOperationsReadModel,
+  ModuleEntitlements,
   RestaurantReadModel,
   TeamReadModel,
   WorkspaceBootstrap
@@ -106,6 +107,15 @@ class WorkspaceStore {
 
   get canViewFinancials(): boolean {
     return roleCanViewFinancials(this.effectiveRole);
+  }
+
+  get moduleEntitlements(): ModuleEntitlements {
+    return this.bootstrap?.module_entitlements ?? {};
+  }
+
+  moduleEnabled(moduleKey: string): boolean {
+    const state = this.moduleEntitlements[moduleKey];
+    return state === 'enabled' || state === 'preview';
   }
 
   async startPreview(session: PreviewSession): Promise<void> {

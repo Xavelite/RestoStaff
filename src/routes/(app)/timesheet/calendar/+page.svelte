@@ -12,10 +12,10 @@
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { actualSlotsForDate } from '$lib/timesheet/timesheet-model';
-  import ClassicPage from '$lib/classic/ClassicPage.svelte';
-  import ClassicPeriodNav from '$lib/classic/ClassicPeriodNav.svelte';
-  import ClassicStat from '$lib/classic/ClassicStat.svelte';
-  import { isTimesheetRow, needsAttention } from '$lib/classic/classic-time';
+  import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
+  import WorkspacePeriodNav from '$lib/workspace-ui/WorkspacePeriodNav.svelte';
+  import WorkspaceStat from '$lib/workspace-ui/WorkspaceStat.svelte';
+  import { isTimesheetRow, needsAttention } from '$lib/workspace-ui/workspace-time';
 
   const snapshot = $derived(workspace.operations);
   const role = $derived(workspace.effectiveRole);
@@ -80,7 +80,7 @@
 <svelte:head><title>{t('Calendar')} &middot; restogogo</title></svelte:head>
 
 {#snippet pageActions()}
-  <ClassicPeriodNav
+  <WorkspacePeriodNav
     label={monthLabel(activeMonth, i18n.intlLocale)}
     onprevious={() => (monthOffset -= 1)}
     onnext={() => (monthOffset += 1)}
@@ -89,11 +89,11 @@
   />
 {/snippet}
 
-<ClassicPage actions={pageActions}>
+<WorkspacePage actions={pageActions}>
 
   <div class="cl-stats">
-    <ClassicStat label="Worked hours" value={monthHours} format={formatHours} accent="var(--cl-ok)" mutedZero={false} />
-    <ClassicStat label="Rows needing attention" value={monthIssues} tone={monthIssues ? 'attention' : undefined} />
+    <WorkspaceStat label="Worked hours" value={monthHours} format={formatHours} accent="var(--cl-ok)" mutedZero={false} />
+    <WorkspaceStat label="Rows needing attention" value={monthIssues} tone={monthIssues ? 'attention' : undefined} />
   </div>
 
   <div class="monthwrap">
@@ -122,7 +122,7 @@
       {/each}
     </div>
   </div>
-</ClassicPage>
+</WorkspacePage>
 
 <style>
   .monthwrap {

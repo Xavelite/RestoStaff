@@ -520,6 +520,9 @@ function analysePeriod(
   const timezone = model.restaurant_settings.timezone || 'Europe/Brussels';
   const employeeNames = new Map(model.employees.map((employee) => [employee.id, employee.display_name]));
   const areaNames = areaInstanceLabelMap(model.work_areas);
+  const serviceNames = new Map(
+    model.services.map((service) => [service.service_key, service.name])
+  );
   const publishedShifts = model.published_planned_shifts ?? model.planned_shifts;
   const plannedById = new Map(publishedShifts.map((shift) => [shift.id, shift]));
   const entriesByPlan = new Map<string, ManagerOperationsReadModel['time_entries'][number]>();
@@ -547,7 +550,14 @@ function analysePeriod(
   const ensureService = (key: string): MutableService => {
     let row = services.get(key);
     if (!row) {
-      row = { key, label: serviceLabel(key), planned: 0, worked: 0, lateCount: 0, missingCount: 0 };
+      row = {
+        key,
+        label: serviceNames.get(key) ?? serviceLabel(key),
+        planned: 0,
+        worked: 0,
+        lateCount: 0,
+        missingCount: 0
+      };
       services.set(key, row);
     }
     return row;
@@ -750,26 +760,52 @@ function analysePeriod(
     approvedLeaveDays: round1([...employees.values()].reduce((sum, value) => sum + value.approvedLeaveDays, 0))
   };
 
-  const pulse = Array.from({ length: 14 }, (_, index): PulseCell => {
-    const weekday = Math.floor(index / 2) + 1;
-    const serviceKey = index % 2 === 0 ? 'lunch' : 'evening';
-    const rows = evidence.filter(
-      (row) => Number(new Date(`${row.date}T00:00:00Z`).getUTCDay() || 7) === weekday && row.serviceKey === serviceKey
+  const pulseServiceKeys = model.services
+    .filter(
+      (service) =>
+        service.active &&
+        (!filters.serviceKey || service.service_key === filters.serviceKey)
+    )
+    .sort(
+      (left, right) =>
+        left.sort_order - right.sort_order ||
+        left.name.localeCompare(right.name)
+    )
+    .map((service) => service.service_key);
+  const pulse = Array.from({ length: 7 }, (_, index) => index + 1)
+    .flatMap((weekday) =>
+      pulseServiceKeys.map((serviceKey): PulseCell => {
+        const rows = evidence.filter(
+          (row) =>
+            Number(new Date(`${row.date}T00:00:00Z`).getUTCDay() || 7) ===
+              weekday &&
+            row.serviceKey === serviceKey
+        );
+        const plannedRows = rows.filter(
+          (row) => row.plannedLabel !== 'Not scheduled'
+        );
+        const workedRows = rows.filter((row) =>
+          ['worked', 'late', 'corrected', 'unplanned'].includes(row.status)
+        );
+        const issues = rows.filter((row) =>
+          ['late', 'missing', 'corrected', 'open'].includes(row.status)
+        ).length;
+        return {
+          weekday,
+          weekdayLabel: WEEKDAYS[weekday - 1],
+          serviceKey,
+          serviceLabel: serviceNames.get(serviceKey) ?? serviceLabel(serviceKey),
+          planned: plannedRows.length,
+          worked: workedRows.length,
+          issues,
+          intensity: plannedRows.length
+            ? Math.min(1, workedRows.length / plannedRows.length)
+            : workedRows.length
+              ? 1
+              : 0
+        };
+      })
     );
-    const plannedRows = rows.filter((row) => row.plannedLabel !== 'Not scheduled');
-    const workedRows = rows.filter((row) => ['worked', 'late', 'corrected', 'unplanned'].includes(row.status));
-    const issues = rows.filter((row) => ['late', 'missing', 'corrected', 'open'].includes(row.status)).length;
-    return {
-      weekday,
-      weekdayLabel: WEEKDAYS[weekday - 1],
-      serviceKey,
-      serviceLabel: serviceLabel(serviceKey),
-      planned: plannedRows.length,
-      worked: workedRows.length,
-      issues,
-      intensity: plannedRows.length ? Math.min(1, workedRows.length / plannedRows.length) : workedRows.length ? 1 : 0
-    };
-  });
 
   return {
     bucketKeys: spine.map((row) => row.key),
