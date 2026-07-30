@@ -1166,7 +1166,10 @@
     text-align: center;
   }
 
-  .time {
+  /* Doubled class so this beats the shared `.cl-table td .cl-field` typography:
+     the weekday grid is dense, and at the table's 13px a time field no longer
+     fits HH:MM plus the browser's own picker control inside its column. */
+  .time.cl-field {
     width: 100%;
     min-width: 0;
     min-height: 34px;
