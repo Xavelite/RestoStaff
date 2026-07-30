@@ -4395,6 +4395,8 @@ Object.assign(french, {
     'Ces points ne bloquent pas la publication. Les employés verront exactement le planning affiché après confirmation.',
   'Click a free day or evening half to plan instantly. Drag a shift between halves to move it.':
     'Cliquez sur une moitié midi ou soir libre pour planifier immédiatement. Glissez un shift entre les moitiés pour le déplacer.',
+  "Click a card to review or correct that employee's day.":
+    'Cliquez sur une carte pour vérifier ou corriger la journée de cette personne.',
   'Published schedule updated and republished.': 'Planning publié mis à jour et republié.',
   'Choose week': 'Choisir une semaine',
   'Search employees...': 'Rechercher des employés...'
@@ -4420,6 +4422,8 @@ Object.assign(dutch, {
     'Deze punten blokkeren de publicatie niet. Na bevestiging zien medewerkers de planning exact zoals weergegeven.',
   'Click a free day or evening half to plan instantly. Drag a shift between halves to move it.':
     'Klik op een vrije lunch- of avondhelft om meteen te plannen. Sleep een shift tussen de helften om hem te verplaatsen.',
+  "Click a card to review or correct that employee's day.":
+    'Klik op een kaart om de dag van die medewerker te controleren of te corrigeren.',
   'Published schedule updated and republished.': 'Gepubliceerde planning bijgewerkt en opnieuw gepubliceerd.',
   'Choose week': 'Week kiezen',
   'Search employees...': 'Medewerkers zoeken...'

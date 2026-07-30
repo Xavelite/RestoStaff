@@ -66,6 +66,7 @@
   import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
   import WorkspaceServiceIcon from '$lib/workspace-ui/WorkspaceServiceIcon.svelte';
   import WorkspaceMobileDayPicker from '$lib/workspace-ui/WorkspaceMobileDayPicker.svelte';
+  import WorkspaceRosterLegend from '$lib/workspace-ui/WorkspaceRosterLegend.svelte';
   import {
     scheduleDraft,
     type ScheduleRowPlacement
@@ -1714,13 +1715,15 @@
             </table>
           </div>
 
-          <div class="legend">
-            <span><i class="is-available"></i>{t('Available')}</span>
-            <span><i class="is-area"></i>{t('Area colour')}</span>
-            <span><i class="is-conflict"></i>{t('Conflict')}</span>
-            <span><i class="is-absence"></i>{t('Absence or unavailable')}</span>
-            <span class="legend__hint">{t('Click a free day or evening half to plan instantly. Drag a shift between halves to move it.')}</span>
-          </div>
+          <WorkspaceRosterLegend
+            items={[
+              { tone: 'available', label: t('Available') },
+              { tone: 'area', label: t('Area colour') },
+              { tone: 'conflict', label: t('Conflict') },
+              { tone: 'absence', label: t('Absence or unavailable') }
+            ]}
+            hint={t('Click a free day or evening half to plan instantly. Drag a shift between halves to move it.')}
+          />
 
         </section>
 
@@ -2061,15 +2064,6 @@
   .day-card.is-published-conflict { border-color: var(--cl-problem); box-shadow: 0 0 0 1px color-mix(in srgb, var(--cl-problem) 22%, transparent), 0 4px 12px color-mix(in srgb, var(--cl-problem) 13%, transparent); }
 
 
-  .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 10px 2px 0; color: var(--cl-muted); font-size: 11px; }
-  .legend > span { display: inline-flex; align-items: center; gap: 6px; }
-  .legend i { width: 12px; height: 12px; border: 1px solid var(--cl-line); border-radius: 3px; background: var(--cl-surface-muted); }
-  .legend i.is-available { border-color: color-mix(in srgb, var(--cl-ok) 22%, var(--cl-line)); background: color-mix(in srgb, var(--cl-ok) 12%, var(--cl-surface)); }
-  .legend i.is-area { border-left: 3px solid var(--cl-info); background: var(--cl-info-wash); }
-  .legend i.is-conflict { border-color: var(--cl-problem-line); box-shadow: inset 0 0 0 1px var(--cl-problem); }
-  .legend i.is-absence { background: repeating-linear-gradient(-45deg, var(--cl-surface-muted), var(--cl-surface-muted) 3px, var(--cl-surface) 3px, var(--cl-surface) 6px); }
-  .legend__hint { margin-left: auto; }
-
   .publish-review { display: grid; gap: 16px; padding: 16px; }
   .publish-review__stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
   .publish-review__stats span { display: grid; gap: 4px; padding: 12px; border: 1px solid var(--cl-line); border-radius: 6px; background: var(--cl-surface-muted); color: var(--cl-muted); font-size: 11px; }
@@ -2102,7 +2096,7 @@
   }
   @media (max-width: 760px) {
     .schedule-head__left { display: none; }
-    .schedule-wrap, .legend { display: none; }
+    .schedule-wrap { display: none; }
     .republish-note { justify-self: stretch; margin: 0 0 8px; text-align: center; line-height: 1.35; }
 
     .mobile-board {

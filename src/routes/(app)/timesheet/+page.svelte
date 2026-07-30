@@ -41,6 +41,7 @@
   import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
   import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
   import WorkspaceMobileDayPicker from '$lib/workspace-ui/WorkspaceMobileDayPicker.svelte';
+  import WorkspaceRosterLegend from '$lib/workspace-ui/WorkspaceRosterLegend.svelte';
   import TimesheetDayCard from '$lib/timesheet/TimesheetDayCard.svelte';
   import { isTimesheetRow, needsAttention } from '$lib/workspace-ui/workspace-time';
   import { areaInstanceLabelMap } from '$lib/restaurant/area-instance';
@@ -698,6 +699,17 @@
         {/if}
       </table>
     </div>
+
+    <WorkspaceRosterLegend
+      items={[
+        { tone: 'planned', label: t('Planned') },
+        { tone: 'area', label: `${t('Worked time')} · ${t('Area colour')}` },
+        { tone: 'live', label: t('Working now') },
+        { tone: 'attention', label: `${t('Corrected')} / ${t('Pending request')}` },
+        { tone: 'problem', label: t('Needs review') }
+      ]}
+      hint={t("Click a card to review or correct that employee's day.")}
+    />
   </section>
 </WorkspacePage>
 
