@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
 
   let {
@@ -14,6 +15,7 @@
   let open = $state(false);
   let root = $state<HTMLElement | null>(null);
   let trigger = $state<HTMLButtonElement | null>(null);
+  let menu = $state<HTMLElement | null>(null);
   let menuLeft = $state(0);
   let menuTop = $state(0);
 
@@ -21,12 +23,18 @@
     if (!trigger) return;
     const rect = trigger.getBoundingClientRect();
     menuLeft = Math.max(12, rect.right - 230);
-    menuTop = Math.min(window.innerHeight - 20, rect.bottom + 4);
+    const menuHeight = menu?.getBoundingClientRect().height ?? 320;
+    const spaceBelow = window.innerHeight - rect.bottom - 12;
+    const spaceAbove = rect.top - 12;
+    menuTop =
+      spaceBelow >= Math.min(menuHeight, 320) || spaceBelow >= spaceAbove
+        ? Math.min(window.innerHeight - Math.min(menuHeight, window.innerHeight - 24) - 12, rect.bottom + 4)
+        : Math.max(12, rect.top - menuHeight - 4);
   }
 
   function toggleMenu() {
     open = !open;
-    if (open) positionMenu();
+    if (open) void tick().then(positionMenu);
   }
 
   $effect(() => {
@@ -56,7 +64,7 @@
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16M15 4v16" /></svg>
   </button>
   {#if open}
-    <div class="colmenu is-floating" style={`left:${menuLeft}px;top:${menuTop}px`} role="menu">
+    <div bind:this={menu} class="colmenu is-floating" style={`left:${menuLeft}px;top:${menuTop}px`} role="menu">
       <div class="colchooser__title">{t('Columns')}</div>
       {#each columns as column (column.key)}
         <label class="colmenu__check">

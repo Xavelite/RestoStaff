@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { Pencil } from '@lucide/svelte';
+  import { tick } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { ServiceKey } from '$lib/calendar/date';
   import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
@@ -46,6 +48,7 @@
   let open = $state(false);
   let root = $state<HTMLElement | null>(null);
   let trigger = $state<HTMLButtonElement | null>(null);
+  let menu = $state<HTMLElement | null>(null);
   let search = $state('');
   let menuLeft = $state(0);
   let menuTop = $state(0);
@@ -64,7 +67,13 @@
     const rect = trigger.getBoundingClientRect();
     menuWidth = Math.max(200, rect.width);
     menuLeft = Math.min(Math.max(12, rect.left), window.innerWidth - menuWidth - 12);
-    menuTop = Math.min(window.innerHeight - 20, rect.bottom + 4);
+    const menuHeight = menu?.getBoundingClientRect().height ?? 300;
+    const spaceBelow = window.innerHeight - rect.bottom - 12;
+    const spaceAbove = rect.top - 12;
+    menuTop =
+      spaceBelow >= Math.min(menuHeight, 300) || spaceBelow >= spaceAbove
+        ? Math.min(window.innerHeight - Math.min(menuHeight, window.innerHeight - 24) - 12, rect.bottom + 4)
+        : Math.max(12, rect.top - menuHeight - 4);
   }
 
   function toggle() {
@@ -72,7 +81,7 @@
     open = !open;
     if (open) {
       search = '';
-      positionMenu();
+      void tick().then(positionMenu);
     }
   }
 
@@ -128,13 +137,15 @@
   >
     {#if selected}{@render mark(selected)}{/if}
     <span class="cl-picker__label">{selected ? selected.label : t(placeholder)}</span>
-    {#if !disabled}
+    {#if !disabled && !value}
+      <Pencil class="cl-picker__edit" size={12} strokeWidth={1.9} aria-hidden="true" />
+    {:else if !disabled}
       <svg class="cl-picker__caret" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
     {/if}
   </button>
 
   {#if open}
-    <div class="cl-picker__menu colmenu is-floating" style={`left:${menuLeft}px;top:${menuTop}px;min-width:${menuWidth}px`} role="listbox">
+    <div bind:this={menu} class="cl-picker__menu colmenu is-floating" style={`left:${menuLeft}px;top:${menuTop}px;min-width:${menuWidth}px`} role="listbox">
       {#if searchable}
         <div class="colmenu__search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.2-3.2" /></svg>

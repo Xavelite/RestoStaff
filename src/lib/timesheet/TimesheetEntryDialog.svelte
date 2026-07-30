@@ -127,20 +127,22 @@
   onclose={close}
 >
   {#if slot && snapshot && workspace.activeId}
-    <TimesheetEntryEditor
-      {slot}
-      restaurantId={workspace.activeId}
-      {timezone}
-      {editable}
-      jobFunctions={snapshot.job_functions}
-      workAreas={snapshot.work_areas ?? []}
-      services={snapshot.services}
-      {adjustments}
-      onsave={saveEntry}
-      oncancel={cancelEntry}
-      onproof={loadProof}
-      onresolveleave={resolveLeave}
-      onfeedback={(message, tone) => toasts.show(message, tone)}
-    />
+    {#key slot.key}
+      <TimesheetEntryEditor
+        {slot}
+        restaurantId={workspace.activeId}
+        {timezone}
+        {editable}
+        jobFunctions={snapshot.job_functions}
+        workAreas={snapshot.work_areas ?? []}
+        services={snapshot.services}
+        {adjustments}
+        onsave={saveEntry}
+        oncancel={cancelEntry}
+        onproof={loadProof}
+        onresolveleave={resolveLeave}
+        onfeedback={(message, tone) => toasts.show(message, tone)}
+      />
+    {/key}
   {/if}
 </Dialog>

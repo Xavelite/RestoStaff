@@ -2,6 +2,7 @@ import { saveAbsence, saveActuals } from '$lib/api/mutations';
 import { saveTimeEntryPayrollEvidence } from '$lib/payroll/payroll-api';
 import { workspaceRealtime } from '$lib/realtime/workspace-realtime.svelte';
 import { workspace } from '$lib/workspace/workspace.svelte';
+import { addDays, localInputToInstant } from '$lib/calendar/date';
 import type { ActualSlot } from './timesheet-model.ts';
 
 /**
@@ -28,7 +29,7 @@ async function refreshTimesheet(restaurantId: string): Promise<void> {
   await workspaceRealtime.publish('actuals-updated', { restaurantId, source: 'actuals' });
 }
 
-export async function saveTimesheetEntry(input: {
+async function persistTimesheetEntry(input: {
   restaurantId: string;
   slot: ActualSlot;
   values: TimesheetEntryValues;
@@ -49,8 +50,6 @@ export async function saveTimesheetEntry(input: {
       reason: values.reason
     }
   });
-  // Payroll evidence only exists once the shift is closed; an open clock-in has
-  // no worked position or break intervals to record yet.
   const timeEntryId = slot.entryId ?? acknowledgement.entityId;
   if (values.clockOutAt && timeEntryId) {
     await saveTimeEntryPayrollEvidence({
@@ -62,7 +61,60 @@ export async function saveTimesheetEntry(input: {
       reason: values.reason
     });
   }
-  await refreshTimesheet(restaurantId);
+}
+
+export async function saveTimesheetEntry(input: {
+  restaurantId: string;
+  slot: ActualSlot;
+  values: TimesheetEntryValues;
+}): Promise<void> {
+  await persistTimesheetEntry(input);
+  await refreshTimesheet(input.restaurantId);
+}
+
+/**
+ * Record every missing planned service for one employee/day in one action.
+ * Each service remains its own audited entry, so time between services is not
+ * accidentally counted as work.
+ */
+export async function recordPlannedTimesheetDay(input: {
+  restaurantId: string;
+  slots: ActualSlot[];
+  timezone: string;
+}): Promise<number> {
+  const candidates = input.slots.filter(
+    (slot) =>
+      slot.status === 'missing' &&
+      slot.planned &&
+      !slot.entryId &&
+      Boolean(slot.plannedRange)
+  );
+  let recorded = 0;
+  for (const slot of candidates) {
+    const [start = '', end = ''] = slot.plannedRange.split('-');
+    if (!start || !end || !slot.actualJobFunctionId || !slot.actualAreaId) continue;
+    const nextDay = end <= start ? addDays(slot.date, 1) : slot.date;
+    const clockInAt = localInputToInstant(`${slot.date}T${start}`, input.timezone);
+    const clockOutAt = localInputToInstant(`${nextDay}T${end}`, input.timezone);
+    if (!clockInAt || !clockOutAt) continue;
+    await persistTimesheetEntry({
+      restaurantId: input.restaurantId,
+      slot,
+      values: {
+        clockInAt,
+        clockOutAt,
+        breakMinutes: 0,
+        actualJobFunctionId: slot.actualJobFunctionId,
+        actualAreaId: slot.actualAreaId,
+        breakIntervals: [],
+        reason: 'Recorded from the published schedule.',
+        isCorrection: false
+      }
+    });
+    recorded += 1;
+  }
+  if (recorded) await refreshTimesheet(input.restaurantId);
+  return recorded;
 }
 
 export async function cancelTimesheetEntry(input: {

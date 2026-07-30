@@ -1,15 +1,9 @@
 <script lang="ts">
+  import { Pencil } from '@lucide/svelte';
   import { onMount, tick } from 'svelte';
-  import ActionButton from '$lib/components/ActionButton.svelte';
-  import Dialog from '$lib/components/Dialog.svelte';
-  import { inviteEmployee, revokeEmployeeInvitation, setEmployeeAccessState } from '$lib/api/mutations';
-  import { friendlyError } from '$lib/api/error-messages';
   import { t } from '$lib/i18n/i18n.svelte';
-  import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
-  import { confirmAction } from '$lib/ui/confirm.svelte';
   import { personInitials } from '$lib/ui/person';
   import { buildEmployeeColorMap } from '$lib/ui/position-color';
-  import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import type { EmployeeDraft } from '$lib/team/team-model';
   import { useWorkspaceTeamContext } from '$lib/workspace-ui/workspace-context';
@@ -19,8 +13,8 @@
   import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
   import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
   import WorkspaceColChooser from '$lib/workspace-ui/WorkspaceColChooser.svelte';
-  import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
   import EmployeeInlineEditor from '$lib/workspace-ui/EmployeeInlineEditor.svelte';
+  import EmployeeAccessControl from '$lib/workspace-ui/EmployeeAccessControl.svelte';
   import { teamDraft } from '$lib/workspace-ui/workspace-team.svelte';
   import { createTableView, peopleCountLabel } from '$lib/workspace-ui/table-view.svelte';
 
@@ -28,11 +22,6 @@
   type SortKey = 'name' | 'email' | 'role' | 'pin' | 'status';
   type Group = { key: string; label: string; employees: EmployeeDraft[] };
 
-  let busy = $state('');
-  let inviting = $state<EmployeeDraft | null>(null);
-  let inviteEmail = $state('');
-  let inviteRole = $state<'manager' | 'employee'>('employee');
-  let inviteBaseline = $state('');
   let detailId = $state('');
   let editingEmployeeId = $state('');
   let editingValue = $state('');
@@ -52,7 +41,6 @@
   const shown = view.shown;
   const colCount = $derived(view.colCount + 1);
 
-  const inviteDirty = $derived(Boolean(inviting && inviteBaseline && JSON.stringify([inviteEmail, inviteRole]) !== inviteBaseline));
   const employeeColor = $derived(
     workspace.team
       ? buildEmployeeColorMap(
@@ -73,22 +61,8 @@
     not_invited: 'Not invited'
   };
 
-  onMount(() => {
-    view.restore();
-    return unsavedChanges.register({ id: 'team-invitation', label: 'Employee invitation', priority: 10, isDirty: () => inviteDirty, save: sendInvite, discard: discardInvite });
-  });
+  onMount(view.restore);
 
-  function accessTone(state: string): 'success' | 'warning' | 'danger' {
-    if (state === 'active') return 'success';
-    if (state === 'disabled' || state === 'expired') return 'danger';
-    return 'warning';
-  }
-  function accessIcon(state: string): 'check' | 'clock' | 'minus' | 'lock' {
-    if (state === 'active') return 'check';
-    if (state === 'invited') return 'clock';
-    if (state === 'not_invited') return 'minus';
-    return 'lock';
-  }
   function matches(employee: EmployeeDraft) {
     const placement = teamDraft.placement(employee);
     if (!placement.active || view.isExcluded('status', placement.accessState)) return false;
@@ -111,7 +85,7 @@
   function ordered(rows: EmployeeDraft[]) {
     return view.ordered(rows, sortValue);
   }
-  function grouped(rows: EmployeeDraft[], jobName: Map<string, string>): Group[] {
+  function grouped(rows: EmployeeDraft[]): Group[] {
     if (!view.grouping) return [{ key: 'all', label: '', employees: rows }];
     const map = new Map<string, Group>();
     for (const employee of rows) {
@@ -170,57 +144,6 @@
     }
   }
 
-  function openInvite(employee: EmployeeDraft) {
-    inviting = employee;
-    inviteEmail = employee.email;
-    inviteRole = employee.invitationRole || 'employee';
-    inviteBaseline = JSON.stringify([inviteEmail, inviteRole]);
-  }
-  function discardInvite() { inviting = null; inviteEmail = ''; inviteRole = 'employee'; inviteBaseline = ''; }
-  async function requestInviteClose() {
-    if (!inviteDirty) return discardInvite();
-    const discard = await confirmAction({ title: 'Discard invitation changes?', body: 'The email address or role has not been sent yet.', confirmLabel: 'Discard', cancelLabel: 'Keep editing', tone: 'danger' });
-    if (discard) discardInvite();
-  }
-  async function run(id: string, action: () => Promise<unknown>, message: string) {
-    if (!workspace.activeId || busy) return;
-    busy = id;
-    try { await action(); await workspace.loadTeam(true); toasts.show(t(message), 'success'); }
-    catch (error) { toasts.show(friendlyError(error), 'danger'); throw error; }
-    finally { busy = ''; }
-  }
-  async function sendInvite() {
-    if (!workspace.activeId || !inviting) return;
-    if (!inviteEmail.trim()) { const error = new Error(t('Enter an email address to invite.')); toasts.show(error.message, 'warning'); throw error; }
-    const employee = inviting;
-    await run(employee.id, () => inviteEmployee({ restaurantId: workspace.activeId!, employeeId: employee.id, email: inviteEmail.trim(), role: inviteRole }), 'Invitation sent.');
-    discardInvite();
-  }
-
-  async function disableAccess(employee: EmployeeDraft) {
-    const confirmed = await confirmAction({
-      title: 'Disable app access?',
-      body: `${employee.displayName} will no longer be able to sign in. Their employee history and badge records are preserved.`,
-      confirmLabel: 'Disable access',
-      cancelLabel: 'Keep enabled',
-      tone: 'danger'
-    });
-    if (!confirmed) return;
-    await run(employee.id, () => setEmployeeAccessState(workspace.activeId!, employee.id, 'disable'), 'App access disabled.');
-  }
-
-  async function revokeInvite(employee: EmployeeDraft) {
-    const confirmed = await confirmAction({
-      title: 'Revoke this invitation?',
-      body: `${employee.displayName} will no longer be able to use the invitation link.`,
-      confirmLabel: 'Revoke invitation',
-      cancelLabel: 'Keep invitation',
-      tone: 'danger'
-    });
-    if (!confirmed) return;
-    await run(employee.id, () => revokeEmployeeInvitation(workspace.activeId!, employee.id), 'Invitation revoked.');
-  }
-
   const readTeamContext = useWorkspaceTeamContext();
   const team = $derived(readTeamContext());
 </script>
@@ -229,7 +152,7 @@
 
 {#if team}
 {@const filtered = team.employees.filter(matches)}
-    {@const groups = grouped(ordered(filtered), team.jobName)}
+    {@const groups = grouped(ordered(filtered))}
     {@const accessValues = [...new Set(team.employees.filter((employee) => employee.active).map((employee) => employee.accessState))].map((value) => ({ value, label: t(ACCESS_LABEL[value] ?? value) }))}
     {@const roleValues = [{ value: '__none__', label: t('No role') }, { value: 'manager', label: t('Manager') }, { value: 'employee', label: t('Employee') }]}
     {@const pinValues = [...new Set(team.employees.filter((employee) => employee.active).map((employee) => employee.pinStatus || '__none__'))].map((value) => ({ value, label: value === '__none__' ? t('Not set') : t(value) }))}
@@ -279,27 +202,13 @@
                         {#if editingEmployeeId === employee.id}
                           <input bind:this={editingInput} class="cl-field email-editor" type="email" aria-label={`${t('Email')} · ${employee.displayName}`} value={editingValue} oninput={(event) => (editingValue = event.currentTarget.value)} onkeydown={handleEmailKeydown} onblur={commitEmailEdit} />
                         {:else}
-                          <button class="inline-cell" class:is-empty={!employee.email} type="button" disabled={!team.editable} onclick={() => startEmailEdit(employee)}><span>{employee.email || t('Add')}</span></button>
+                          <button class="inline-cell" class:is-empty={!employee.email} type="button" disabled={!team.editable} onclick={() => startEmailEdit(employee)}><span>{employee.email || t('Add')}</span>{#if !employee.email}<Pencil size={12} aria-hidden="true" />{/if}</button>
                         {/if}
                       </td>{/if}
                       {#if shown('role')}<td><WorkspaceCellBadge label={roleLabel(employee.accessRole)} tone={employee.accessRole === 'manager' ? 'info' : 'neutral'} icon="user" /></td>{/if}
                       {#if shown('pin')}<td><WorkspaceCellBadge label={employee.pinStatus === 'set' ? 'Set' : 'Not set'} tone={employee.pinStatus === 'set' ? 'success' : 'neutral'} icon="key" /></td>{/if}
-                      {#if shown('status')}<td><WorkspaceCellBadge label={ACCESS_LABEL[employee.accessState] ?? employee.accessState} tone={accessTone(employee.accessState)} icon={accessIcon(employee.accessState)} /></td>{/if}
-                      <td class="menu-cell">
-                        <WorkspaceRowMenu
-                          disabled={!team.editable || busy === employee.id}
-                          items={[
-                            { label: t('Open employee'), onselect: () => (detailId = employee.id) },
-                            employee.accessState === 'active'
-                              ? { label: t('Disable'), tone: 'danger', onselect: () => void disableAccess(employee).catch(() => undefined) }
-                              : employee.accessState === 'disabled'
-                                ? { label: t('Restore'), onselect: () => void run(employee.id, () => setEmployeeAccessState(workspace.activeId!, employee.id, 'restore'), 'App access restored.').catch(() => undefined) }
-                                : employee.accessState === 'invited'
-                                  ? { label: t('Revoke invitation'), tone: 'danger', onselect: () => void revokeInvite(employee).catch(() => undefined) }
-                                  : { label: t('Invite'), onselect: () => openInvite(employee) }
-                          ]}
-                        />
-                      </td>
+                      {#if shown('status')}<td class="action-cell"><EmployeeAccessControl {employee} disabled={!team.editable || team.dirty} /></td>{/if}
+                      <td class="menu-cell"></td>
                     </tr>
                   {/each}
                   {/if}
@@ -311,11 +220,6 @@
       {/snippet}
     </WorkspaceTablePanel>
 
-    {#snippet footer()}<ActionButton label={t('Cancel')} onclick={() => void requestInviteClose()} /><ActionButton label={t('Send invitation')} tone="primary" disabled={Boolean(busy)} onclick={() => void sendInvite().catch(() => undefined)} />{/snippet}
-    <Dialog open={Boolean(inviting)} title={t('Invite {name}', { name: inviting?.displayName ?? '' })} description={t('They receive an email link to set a password and sign in.')} size="small" onclose={() => void requestInviteClose()} {footer}>
-      <div class="form"><label class="cl-label"><span>{t('Email')}</span><input class="cl-field" type="email" bind:value={inviteEmail} /></label><label class="cl-label"><span>{t('Role')}</span><select class="cl-field" bind:value={inviteRole}><option value="employee">{t('Employee')}</option><option value="manager">{t('Manager')}</option></select></label></div>
-    </Dialog>
-
     {#if detailId}
       <EmployeeInlineEditor employeeId={detailId} mode="people" saving={team.saving} onclose={() => (detailId = '')} onsave={team.saveEmployee} />
     {/if}
@@ -323,7 +227,6 @@
 {/if}
 
 <style>
-  .form { display: grid; gap: 14px; }
   .employee-link { max-width: 230px; overflow: hidden; padding: 3px 0; border: 0; color: var(--cl-ink); background: transparent; font: inherit; font-size: 13px; font-weight: var(--rst-fw-medium); text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
   .employee-link:hover:not(:disabled) { color: var(--cl-accent); text-decoration: underline; text-underline-offset: 2px; }
   .employee-link:disabled { cursor: default; }
@@ -331,6 +234,8 @@
   .inline-cell span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .inline-cell:hover:not(:disabled), .inline-cell:focus-visible { border-color: color-mix(in srgb, var(--cl-accent) 22%, var(--cl-line)); color: var(--cl-ink); background: var(--cl-accent-wash); }
   .inline-cell.is-empty { color: var(--cl-accent); font-size: 12px; font-weight: var(--rst-fw-medium); }
+  .inline-cell :global(svg) { flex: 0 0 auto; color: var(--cl-accent); }
+  .action-cell { padding: 0 !important; }
   .email-editor { min-width: 160px; height: 32px; border-color: var(--cl-accent); box-shadow: 0 0 0 2px var(--cl-accent-wash); }
   .empty-link { justify-self: center; color: var(--cl-accent); font-size: 13px; font-weight: var(--rst-fw-medium); text-decoration: none; }
   .empty-link:hover { text-decoration: underline; }

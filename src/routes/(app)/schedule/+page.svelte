@@ -10,6 +10,7 @@
     mondayFor,
     serviceLabel,
     serviceKeysWithEvidence,
+    serviceWindowProgress,
     todayInTimezone,
     weekdayDateLabel,
     weekLabel,
@@ -226,6 +227,12 @@
   let mobileDate = $state('');
   let reservationDemand = $state<ReservationDemand[]>([]);
   let demandRequestId = 0;
+  let currentInstant = $state(new Date());
+
+  $effect(() => {
+    const timer = setInterval(() => (currentInstant = new Date()), 60_000);
+    return () => clearInterval(timer);
+  });
 
   onMount(() => {
     try {
@@ -252,6 +259,9 @@
     snapshot?.restaurant_settings.timezone ||
       workspace.bootstrap?.restaurant_settings.timezone ||
       'Europe/Brussels'
+  );
+  const liveProgress = $derived(
+    serviceWindowProgress(snapshot?.services, planningTimezone, currentInstant)
   );
   const demandWeekStart = $derived(
     addDays(
@@ -1389,6 +1399,7 @@
                     <th
                       class="board__day"
                       scope="col"
+                      style={`--live-progress:${liveProgress * 100}%`}
                       class:is-today={day.today}
                       class:is-past={day.date < week.today}
                       class:is-weekend={day.weekday >= 6}
@@ -1451,6 +1462,7 @@
                         liveColumn={grid.days.some((day) => day.today)
                           ? grid.days.findIndex((day) => day.today) + 1
                           : -1}
+                        {liveProgress}
                         color={group.color}
                         icon={group.icon ? groupIcon : undefined}
                         collapsed={collapsedGroups.includes(group.key)}
@@ -1490,6 +1502,7 @@
                             {@const cellKey = `${row.id}|${cell.date}`}
                             <td
                               class="board__cell"
+                              style={`--live-progress:${liveProgress * 100}%`}
                               class:is-today={cell.date === week.today}
                               class:is-past={past}
                               class:is-drop-target={dropKey.startsWith(cellKey)}
@@ -1896,7 +1909,7 @@
     z-index: 12;
     top: 0;
     bottom: 0;
-    left: 0;
+    left: var(--live-progress, 0%);
     width: var(--cl-live-marker-width);
     background: var(--cl-live-marker);
     box-shadow: 0 0 3px color-mix(in srgb, var(--cl-live-marker) 34%, transparent);

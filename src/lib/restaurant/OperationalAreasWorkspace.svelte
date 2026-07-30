@@ -53,6 +53,7 @@
     storageKey: 'rst-restaurant-areas-cols-v2',
     columns: OPTIONAL_COLUMNS,
     defaultHidden: ['notes'],
+    defaultGroupBy: 'floor',
     defaultExcluded: { active: ['archived'] }
   });
 

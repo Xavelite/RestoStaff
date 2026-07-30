@@ -20,7 +20,7 @@
   } from '$lib/workspace-ui/WorkspaceMonthGrid.svelte';
   import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
   import WorkspacePeriodNav from '$lib/workspace-ui/WorkspacePeriodNav.svelte';
-  import WorkspaceStat from '$lib/workspace-ui/WorkspaceStat.svelte';
+  import WorkspaceServiceIcon from '$lib/workspace-ui/WorkspaceServiceIcon.svelte';
   import { isTimesheetRow, needsAttention, slotLabel } from '$lib/workspace-ui/workspace-time';
 
   const snapshot = $derived(workspace.operations);
@@ -35,6 +35,7 @@
   let selectedDate = $state('');
   let selectedSlotKey = $state('');
   let selectedSlotDate = $state('');
+  let detailed = $state(false);
   const activeMonth = $derived(addMonths(monthStart(today), monthOffset));
   const dates = $derived(monthDates(activeMonth));
 
@@ -77,12 +78,6 @@
       };
     })
   );
-  const monthHours = $derived(
-    days.filter((day) => day.inMonth).reduce((total, day) => total + day.hours, 0)
-  );
-  const monthIssues = $derived(
-    days.filter((day) => day.inMonth).reduce((total, day) => total + day.issues, 0)
-  );
   const peakHours = $derived(Math.max(1, ...days.map((day) => day.hours)));
   const calendarDays = $derived<WorkspaceCalendarDay[]>(
     days.map((day) => ({
@@ -95,11 +90,10 @@
         day.scheduled || day.hours
           ? t('{hours} worked', { hours: formatHours(day.hours) })
           : '',
-      secondary: day.scheduled
-        ? t('{hours} planned · {count} people', {
-            hours: formatHours(day.plannedHours),
-            count: day.people.length
-          })
+      secondary: day.scheduled || day.hours
+        ? detailed
+          ? `${formatHours(day.plannedHours)} ${t('planned')} · ${formatDelta(day.hours - day.plannedHours)}`
+          : t('{count} people', { count: day.people.length })
         : '',
       badge: day.issues ? t('{count} to review', { count: day.issues }) : '',
       badgeTone: 'attention',
@@ -112,6 +106,21 @@
       ? actualSlotsForDate(snapshot, selectedDate, today).filter(isTimesheetRow)
       : []
   );
+  const selectedWorked = $derived(
+    selectedSlots.reduce((total, slot) => total + slot.actualHours, 0)
+  );
+  const selectedPlanned = $derived(
+    selectedSlots.reduce(
+      (total, slot) =>
+        total +
+        (slot.truth.plan
+          ? hoursBetweenClocks(slot.truth.plan.startsAt, slot.truth.plan.endsAt)
+          : 0),
+      0
+    )
+  );
+  const selectedPeople = $derived(new Set(selectedSlots.map((slot) => slot.employeeId)).size);
+  const selectedIssues = $derived(selectedSlots.filter(needsAttention).length);
   const selectedSlot = $derived(
     selectedSlotDate && snapshot
       ? actualSlotsForDate(snapshot, selectedSlotDate, today)
@@ -145,26 +154,32 @@
         }).format(new Date(`${selectedDate}T00:00:00Z`))
       : ''
   );
+
+  function formatDelta(value: number): string {
+    if (Math.abs(value) < 0.01) return t('on plan');
+    return `${value > 0 ? '+' : '−'}${formatHours(Math.abs(value))}`;
+  }
 </script>
 
 <svelte:head><title>{t('Calendar')} &middot; restogogo</title></svelte:head>
 
 {#snippet pageActions()}
-  <WorkspacePeriodNav
-    label={monthLabel(activeMonth, i18n.intlLocale)}
-    onprevious={() => (monthOffset -= 1)}
-    onnext={() => (monthOffset += 1)}
-    ontoday={() => (monthOffset = 0)}
-    todayLabel="This month"
-  />
+  <div class="calendar-toolbar">
+    <WorkspacePeriodNav
+      label={monthLabel(activeMonth, i18n.intlLocale)}
+      onprevious={() => (monthOffset -= 1)}
+      onnext={() => (monthOffset += 1)}
+      ontoday={() => (monthOffset = 0)}
+      todayLabel="This month"
+    />
+    <label class="calendar-detail">
+      <input type="checkbox" bind:checked={detailed} />
+      <span>{t('Plan comparison')}</span>
+    </label>
+  </div>
 {/snippet}
 
-<WorkspacePage actions={pageActions}>
-  <div class="cl-stats">
-    <WorkspaceStat label="Worked hours" value={monthHours} format={formatHours} accent="var(--cl-ok)" mutedZero={false} />
-    <WorkspaceStat label="Rows needing attention" value={monthIssues} tone={monthIssues ? 'attention' : undefined} />
-  </div>
-
+<WorkspacePage actions={pageActions} actionsAlign="center">
   <WorkspaceMonthGrid
     label={monthLabel(activeMonth, i18n.intlLocale)}
     days={calendarDays}
@@ -181,6 +196,12 @@
 >
   <div class="day-inspector">
     {#if selectedSlots.length}
+      <div class="day-summary">
+        <span><b>{selectedPeople}</b>{t('people')}</span>
+        <span><b>{formatHours(selectedPlanned)}</b>{t('planned')}</span>
+        <span><b>{formatHours(selectedWorked)}</b>{t('worked')}</span>
+        <span class:is-problem={selectedIssues > 0}><b>{selectedIssues}</b>{t('to review')}</span>
+      </div>
       {#each selectedSlots as slot (slot.key)}
         <button
           type="button"
@@ -193,6 +214,7 @@
           <span>
             <strong>{slot.employeeName}</strong>
             <small>
+              <WorkspaceServiceIcon service={slot.serviceKey} size={13} />
               {t(slotLabel(slot.status))} · {slot.actualRange || slot.plannedRange || t('No time recorded')}
               {#if areaName.get(slot.actualAreaId)} · {areaName.get(slot.actualAreaId)}{/if}
               {#if positionName.get(slot.actualJobFunctionId)} · {positionName.get(slot.actualJobFunctionId)}{/if}
@@ -222,6 +244,22 @@
 />
 
 <style>
+  .calendar-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+  }
+  .calendar-detail {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--cl-muted);
+    font-size: 11px;
+    font-weight: var(--rst-fw-bold);
+    cursor: pointer;
+  }
+  .calendar-detail input { accent-color: var(--cl-accent); }
   .day-inspector {
     display: grid;
     border: 1px solid var(--cl-line);
@@ -260,6 +298,28 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .day-inspector small { color: var(--cl-muted); }
+  .day-inspector small { display: flex; align-items: center; gap: 4px; color: var(--cl-muted); }
   .day-inspector b { font-variant-numeric: tabular-nums; }
+  .day-summary {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--cl-line);
+    background: var(--cl-surface-muted);
+  }
+  .day-summary span {
+    display: grid;
+    gap: 1px;
+    color: var(--cl-muted);
+    font-size: 9px;
+    text-transform: uppercase;
+  }
+  .day-summary span.is-problem,
+  .day-summary span.is-problem b { color: var(--cl-problem); }
+  .day-summary b { color: var(--cl-ink); font-size: 13px; text-transform: none; }
+  @media (max-width: 760px) {
+    .calendar-toolbar { width: 100%; flex-wrap: wrap; }
+    .day-summary { gap: 12px; overflow-x: auto; }
+  }
 </style>

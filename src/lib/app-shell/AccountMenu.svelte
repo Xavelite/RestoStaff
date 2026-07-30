@@ -31,10 +31,14 @@
 
   let {
     isPlatformAdmin = false,
-    onnotificationsettings
+    onnotificationsettings,
+    sidebarMode = 'pinned',
+    onsidebarmode
   }: {
     isPlatformAdmin?: boolean;
     onnotificationsettings: () => void;
+    sidebarMode?: 'pinned' | 'auto';
+    onsidebarmode?: (mode: 'pinned' | 'auto') => void;
   } = $props();
 
   let open = $state(false);
@@ -335,6 +339,23 @@
               aria-pressed={workspaceTheme.current === 'tangerine'}
               onclick={() => chooseTheme('tangerine')}
             ><i class="theme-swatch is-tangerine"></i>{t('Orange')}</button>
+          </div>
+        </div>
+        <div class="appearance-picker">
+          <span>{t('Sidebar')}</span>
+          <div role="group" aria-label={t('Sidebar behavior')}>
+            <button
+              type="button"
+              class:is-active={sidebarMode === 'pinned'}
+              aria-pressed={sidebarMode === 'pinned'}
+              onclick={() => onsidebarmode?.('pinned')}
+            >{t('Pinned')}</button>
+            <button
+              type="button"
+              class:is-active={sidebarMode === 'auto'}
+              aria-pressed={sidebarMode === 'auto'}
+              onclick={() => onsidebarmode?.('auto')}
+            >{t('Auto-hide')}</button>
           </div>
         </div>
         {#if !appInstall.installed}

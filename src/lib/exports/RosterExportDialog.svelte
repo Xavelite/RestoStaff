@@ -39,7 +39,7 @@
 {#snippet footer()}
   <button class="cl-btn" type="button" disabled={downloading} onclick={onclose}>{t('Cancel')}</button>
   <button class="cl-btn is-primary" type="button" disabled={!file || downloading} onclick={() => void download()}>
-    {t(downloading ? 'Preparing…' : 'Download')} {format === 'xlsx' ? 'XLSX' : 'PDF'}
+    {t(downloading ? 'Preparing...' : 'Download')} {format === 'xlsx' ? 'XLSX' : 'PDF'}
   </button>
 {/snippet}
 

@@ -201,8 +201,10 @@
                 data-module-key={module.key}
                 style={`--tile-color:${MODULE_COLOR[module.key] ?? 'var(--cl-muted)'}`}
               >
+                <span class="module-tile__watermark" aria-hidden="true">
+                  <WorkspaceIcon name={module.icon} size={76} />
+                </span>
                 <span class="module-tile__top">
-                  <span class="module-tile__icon"><WorkspaceIcon name={module.icon} size={27} /></span>
                   <span class="module-tile__copy">
                     <strong>{t(module.label)}</strong>
                     <span>{t(module.summary)}</span>
@@ -323,7 +325,7 @@
 
   .module-tile {
     position: relative;
-    min-height: 126px;
+    min-height: 142px;
     display: grid;
     grid-template-rows: 1fr auto;
     gap: 14px;
@@ -349,14 +351,14 @@
     top: 0;
     right: 0;
     bottom: 0;
-    width: 34%;
-    clip-path: polygon(50% 0, 100% 0, 100% 100%, 0 100%);
-    background: color-mix(in srgb, var(--tile-color) 4%, var(--cl-surface));
+    width: 38%;
+    clip-path: polygon(34% 0, 100% 0, 100% 100%, 0 100%);
+    background: color-mix(in srgb, var(--tile-color) 7%, var(--cl-surface));
     transition: background var(--cl-dur) var(--cl-ease);
   }
 
   .module-tile:hover::before {
-    background: color-mix(in srgb, var(--tile-color) 7%, var(--cl-surface));
+    background: color-mix(in srgb, var(--tile-color) 11%, var(--cl-surface));
   }
 
   .module-tile__top,
@@ -378,21 +380,30 @@
 
   .module-tile__top {
     min-width: 0;
-    display: grid;
-    grid-template-columns: 48px minmax(0, 1fr);
-    align-items: center;
-    gap: 12px;
+    display: block;
+    padding-right: 31%;
   }
 
-  .module-tile__icon {
-    width: 48px;
-    height: 48px;
+  .module-tile__watermark {
+    position: absolute;
+    z-index: 1;
+    top: 18px;
+    right: 15px;
+    width: 82px;
+    height: 82px;
     display: grid;
     place-items: center;
-    border: 1px solid color-mix(in srgb, var(--tile-color) 20%, var(--cl-line));
-    border-radius: 6px;
-    background: color-mix(in srgb, var(--tile-color) 9%, var(--cl-surface));
-    color: var(--tile-color);
+    color: color-mix(in srgb, var(--tile-color) 80%, var(--cl-ink));
+    opacity: .28;
+    transform: rotate(-4deg);
+    transition:
+      opacity var(--cl-dur) var(--cl-ease),
+      transform var(--cl-dur-slow) var(--cl-ease);
+  }
+
+  .module-tile:hover .module-tile__watermark {
+    opacity: .42;
+    transform: translateY(-2px) rotate(0);
   }
 
   .module-tile__copy {
@@ -403,13 +414,13 @@
   }
 
   .module-tile__copy strong {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: var(--rst-fw-bold);
   }
 
   .module-tile__copy > span {
     color: var(--cl-muted);
-    font-size: 12px;
+    font-size: 11.5px;
     line-height: 1.42;
   }
 
@@ -526,20 +537,21 @@
     }
 
     .module-tile {
-      min-height: 102px;
+      min-height: 112px;
       grid-template-rows: 1fr auto;
       gap: 8px;
       padding: 10px 11px;
     }
 
     .module-tile__top {
-      grid-template-columns: 35px minmax(0, 1fr);
-      gap: 8px;
+      padding-right: 34%;
     }
 
-    .module-tile__icon {
-      width: 35px;
-      height: 35px;
+    .module-tile__watermark {
+      top: 13px;
+      right: 8px;
+      width: 58px;
+      height: 58px;
     }
 
     .module-tile__copy strong {

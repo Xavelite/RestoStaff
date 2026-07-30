@@ -16,10 +16,11 @@
   import { personInitials } from '$lib/ui/person';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
+  import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
   import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
+  import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
   import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
   import WorkspaceService from '$lib/workspace-ui/WorkspaceService.svelte';
-  import WorkspaceStat from '$lib/workspace-ui/WorkspaceStat.svelte';
   import WorkspaceStatus from '$lib/workspace-ui/WorkspaceStatus.svelte';
   import WorkspaceViewSwitch from '$lib/workspace-ui/WorkspaceViewSwitch.svelte';
   import { isTimesheetRow, slotLabel, slotTone } from '$lib/workspace-ui/workspace-time';
@@ -48,6 +49,8 @@
   let search = $state('');
   let serviceFilters = $state<Set<string>>(new Set());
   let selectedKey = $state('');
+  let groupMode = $state<'none' | 'employee' | 'service' | 'status'>('none');
+  let collapsedGroups = $state<string[]>([]);
 
   $effect(() => {
     const timer = setInterval(() => (currentInstant = new Date()), 30_000);
@@ -116,6 +119,24 @@
     }))
   );
   const selectedSlot = $derived(rows.find((slot) => slot.key === selectedKey) ?? null);
+  const groupedRows = $derived.by(() => {
+    const groups = new Map<string, { key: string; label: string; slots: typeof filteredRows }>();
+    for (const slot of filteredRows) {
+      const label =
+        groupMode === 'employee'
+          ? slot.employeeName
+          : groupMode === 'service'
+            ? t(serviceLabel(slot.serviceKey, snapshot?.services))
+            : groupMode === 'status'
+              ? t(slotLabel(slot.status))
+              : t('Today');
+      const key = `${groupMode}:${label}`;
+      const group = groups.get(key) ?? { key, label, slots: [] };
+      group.slots.push(slot);
+      groups.set(key, group);
+    }
+    return [...groups.values()].toSorted((left, right) => left.label.localeCompare(right.label));
+  });
   const areaName = $derived(
     new Map(snapshot?.work_areas.map((area) => [area.id, area.name]) ?? [])
   );
@@ -147,6 +168,18 @@
     serviceFilters = next;
   }
 
+  function setGroupMode(value: string): void {
+    groupMode =
+      value === 'employee' || value === 'service' || value === 'status' ? value : 'none';
+    collapsedGroups = [];
+  }
+
+  function toggleGroup(key: string): void {
+    collapsedGroups = collapsedGroups.includes(key)
+      ? collapsedGroups.filter((item) => item !== key)
+      : [...collapsedGroups, key];
+  }
+
   function areaTone(name: string): string {
     const tones = ['#2f6fed', '#0f9f8f', '#d16b2f', '#8a5bd6', '#d2496a', '#3c8f55'];
     let value = 0;
@@ -158,20 +191,17 @@
 <svelte:head><title>{t('Live monitor')} &middot; restogogo</title></svelte:head>
 
 <WorkspacePage>
-  <p class="daynote">{weekdayDateLabel(today, i18n.intlLocale)}</p>
-
-  <div class="cl-stats">
-    <WorkspaceStat label="People on shift now" value={workingNow} tone={workingNow ? 'ok' : undefined} mutedZero={false} />
-    <WorkspaceStat label="Scheduled services today" value={scheduledToday} accent="var(--cl-info)" mutedZero={false} />
-    <WorkspaceStat label="Late clock-ins today" value={lateClockIns} tone={lateClockIns ? 'problem' : undefined} />
-    <WorkspaceStat label="Services missing a badge" value={missingBadges} tone={missingBadges ? 'problem' : undefined} />
-  </div>
-
   <section class="cl-section" aria-label={t('Today')}>
     <div class="queue-head">
       <div>
         <h2 class="cl-section__title">{t('Operational queue')}</h2>
-        <span>{t('Updated {time}', { time: updatedAt })}</span>
+        <span>{weekdayDateLabel(today, i18n.intlLocale)} · {t('Updated {time}', { time: updatedAt })}</span>
+        <div class="queue-summary" aria-label={t('Today')}>
+          <span class:is-live={workingNow > 0}><b>{workingNow}</b>{t('working')}</span>
+          <span><b>{scheduledToday}</b>{t('scheduled')}</span>
+          <span class:is-problem={lateClockIns > 0}><b>{lateClockIns}</b>{t('late')}</span>
+          <span class:is-problem={missingBadges > 0}><b>{missingBadges}</b>{t('missing')}</span>
+        </div>
       </div>
       <div class="queue-controls">
         <WorkspaceViewSwitch
@@ -200,7 +230,20 @@
           <thead>
             <tr>
               <th>
-                <WorkspaceColMenu label="Employee" columnKey="live-employee" filterKind="text" searchValue={search} onsearch={(value) => (search = value)} />
+                <WorkspacePrimaryColMenu
+                  label="Employee"
+                  labelIcon="people"
+                  searchValue={search}
+                  onsearch={(value) => (search = value)}
+                  groupValue={groupMode}
+                  groupOptions={[
+                    { value: 'none', label: t('No grouping') },
+                    { value: 'employee', label: t('Employee') },
+                    { value: 'service', label: t('Service') },
+                    { value: 'status', label: t('Status') }
+                  ]}
+                  ongroupchange={setGroupMode}
+                />
               </th>
               <th>
                 <WorkspaceColMenu
@@ -220,8 +263,8 @@
               <th class="menu-cell" aria-label={t('Actions')}></th>
             </tr>
           </thead>
-          <tbody>
-            {#if !filteredRows.length}
+          {#if !filteredRows.length}
+            <tbody>
               <tr class="cl-mobile-empty">
                 <td colspan="7">
                   <div class="cl-empty">
@@ -230,38 +273,53 @@
                   </div>
                 </td>
               </tr>
-            {:else}
-              {#each filteredRows as slot (slot.key)}
-                {@const tone = slotTone(slot.status)}
-                <tr class:is-attention={tone === 'attention'} class:is-problem={tone === 'problem'}>
-                  <td class="cl-mobile-primary">
-                    <span class="cl-table__name">
-                      <span class="cl-avatar" style="--avatar-color:{employeeColor.get(slot.employeeId) ?? 'var(--cl-muted)'}">{personInitials(slot.employeeName)}</span>
-                      {slot.employeeName}
-                    </span>
-                    <span class="cl-mobile-summary">
-                      <span>{t(serviceLabel(slot.serviceKey, snapshot?.services))}</span>
-                      <span>{slot.plannedRange || t('Not planned')}</span>
-                      <span>{t(slotLabel(slot.status))}</span>
-                    </span>
-                  </td>
-                  <td><WorkspaceService service={slot.serviceKey} /></td>
-                  <td class="is-quiet">{slot.plannedRange || '—'}</td>
-                  <td>
-                    {slot.actualRange || '—'}
-                    {#if slot.status === 'live'}
-                      <span class="live-tag"><span class="live-dot" aria-hidden="true"></span><LiveDuration since={slot.clockInAt} /></span>
-                    {/if}
-                  </td>
-                  <td class="is-num">{slot.actualHours ? formatHours(slot.actualHours) : '—'}</td>
-                  <td><WorkspaceStatus label={slotLabel(slot.status)} {tone} /></td>
-                  <td class="menu-cell">
-                    <WorkspaceRowMenu items={[{ label: t('Details'), onselect: () => (selectedKey = slot.key) }]} />
-                  </td>
-                </tr>
-              {/each}
-            {/if}
-          </tbody>
+            </tbody>
+          {:else}
+            {#each groupedRows as group (group.key)}
+              <tbody>
+                {#if groupMode !== 'none'}
+                  <WorkspaceGroupRow
+                    colspan={7}
+                    label={group.label}
+                    meta={`${group.slots.length} · ${group.slots.filter((slot) => slot.status === 'live').length} ${t('working')}`}
+                    collapsed={collapsedGroups.includes(group.key)}
+                    ontoggle={() => toggleGroup(group.key)}
+                  />
+                {/if}
+                {#if !collapsedGroups.includes(group.key)}
+                  {#each group.slots as slot (slot.key)}
+                    {@const tone = slotTone(slot.status)}
+                    <tr class:is-attention={tone === 'attention'} class:is-problem={tone === 'problem'}>
+                      <td class="cl-mobile-primary">
+                        <span class="cl-table__name">
+                          <span class="cl-avatar" style="--avatar-color:{employeeColor.get(slot.employeeId) ?? 'var(--cl-muted)'}">{personInitials(slot.employeeName)}</span>
+                          {slot.employeeName}
+                        </span>
+                        <span class="cl-mobile-summary">
+                          <span>{t(serviceLabel(slot.serviceKey, snapshot?.services))}</span>
+                          <span>{slot.plannedRange || t('Not planned')}</span>
+                          <span>{t(slotLabel(slot.status))}</span>
+                        </span>
+                      </td>
+                      <td><WorkspaceService service={slot.serviceKey} /></td>
+                      <td class="is-quiet">{slot.plannedRange || '—'}</td>
+                      <td>
+                        {slot.actualRange || '—'}
+                        {#if slot.status === 'live'}
+                          <span class="live-tag"><span class="live-dot" aria-hidden="true"></span><LiveDuration since={slot.clockInAt} /></span>
+                        {/if}
+                      </td>
+                      <td class="is-num">{slot.actualHours ? formatHours(slot.actualHours) : '—'}</td>
+                      <td><WorkspaceStatus label={slotLabel(slot.status)} {tone} /></td>
+                      <td class="menu-cell">
+                        <WorkspaceRowMenu items={[{ label: t('Details'), onselect: () => (selectedKey = slot.key) }]} />
+                      </td>
+                    </tr>
+                  {/each}
+                {/if}
+              </tbody>
+            {/each}
+          {/if}
         </table>
       </div>
     {:else if floorGroups.length}
@@ -317,10 +375,16 @@
 </Dialog>
 
 <style>
-  .daynote { margin: -8px 0 0; color: var(--cl-muted); font-size: 14px; }
   .queue-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
   .queue-head > div:first-child { display: grid; gap: 3px; }
   .queue-head > div:first-child > span { color: var(--cl-muted); font-size: 10px; }
+  .queue-summary { display: flex; align-items: center; gap: 12px; margin-top: 5px; }
+  .queue-summary span { display: inline-flex; align-items: baseline; gap: 4px; color: var(--cl-muted); font-size: 9px; text-transform: uppercase; }
+  .queue-summary b { color: var(--cl-ink); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .queue-summary span.is-live,
+  .queue-summary span.is-live b { color: var(--cl-ok); }
+  .queue-summary span.is-problem,
+  .queue-summary span.is-problem b { color: var(--cl-problem); }
   .queue-controls { display: flex; align-items: center; gap: 7px; }
   .queue-filters {
     display: flex;

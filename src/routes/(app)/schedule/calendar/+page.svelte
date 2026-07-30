@@ -37,6 +37,7 @@
     type PlanningShiftDraft
   } from '$lib/schedule/schedule-model';
   import { confirmAction } from '$lib/ui/confirm.svelte';
+  import { buildAreaColorMap } from '$lib/ui/position-color';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import WorkspaceMonthGrid, {
@@ -44,7 +45,7 @@
   } from '$lib/workspace-ui/WorkspaceMonthGrid.svelte';
   import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
   import WorkspacePeriodNav from '$lib/workspace-ui/WorkspacePeriodNav.svelte';
-  import WorkspaceStat from '$lib/workspace-ui/WorkspaceStat.svelte';
+  import WorkspaceServiceIcon from '$lib/workspace-ui/WorkspaceServiceIcon.svelte';
 
   type DatedShift = PlanningShiftDraft & { date: string; weekStart: string };
 
@@ -64,6 +65,7 @@
   let editorNotes = $state<PlanningNoteDraft[]>([]);
   let editorBaseline = $state('');
   let editorSaving = $state(false);
+  let detailed = $state(false);
   const activeMonth = $derived(addMonths(monthStart(today), monthOffset));
   const dates = $derived(monthDates(activeMonth));
   const weeks = $derived(Array.from(new Set(dates.map(mondayFor))));
@@ -100,6 +102,25 @@
   );
   const positionName = $derived(
     new Map(snapshot?.job_functions.map((position) => [position.id, position.name]) ?? [])
+  );
+  const areaColor = $derived(
+    snapshot ? buildAreaColorMap(snapshot.work_areas) : new Map<string, string>()
+  );
+  const positionCost = $derived(
+    new Map(
+      (snapshot?.job_functions ?? []).map((position) => [
+        position.id,
+        Number(position.estimated_hourly_cost) || 0
+      ])
+    )
+  );
+  const employeeCost = $derived(
+    new Map(
+      (snapshot?.employee_payroll_profiles ?? []).map((profile) => [
+        profile.employee_id,
+        Number(profile.estimated_hourly_cost) || 0
+      ])
+    )
   );
   const contractHours = $derived(
     new Map(
@@ -144,6 +165,13 @@
         (total, shift) => total + hoursBetweenClocks(shift.startsAt, shift.endsAt),
         0
       );
+      const cost = shifts.reduce((total, shift) => {
+        const hourly =
+          employeeCost.get(shift.employeeId) ??
+          positionCost.get(shift.jobFunctionId) ??
+          0;
+        return total + hourly * hoursBetweenClocks(shift.startsAt, shift.endsAt);
+      }, 0);
       return {
         date,
         dayNumber: Number(date.slice(-2)),
@@ -153,15 +181,11 @@
         shifts,
         people,
         hours,
+        cost,
+        services: new Set(shifts.map((shift) => shift.serviceKey)).size,
         gaps: gaps.filter((gap) => gap.date === date).reduce((total, gap) => total + gap.missing, 0)
       };
     })
-  );
-  const monthHours = $derived(
-    dayData.filter((day) => day.inMonth).reduce((total, day) => total + day.hours, 0)
-  );
-  const monthGaps = $derived(
-    dayData.filter((day) => day.inMonth).reduce((total, day) => total + day.gaps, 0)
   );
   const peakHours = $derived(Math.max(1, ...dayData.map((day) => day.hours)));
   const calendarDays = $derived<WorkspaceCalendarDay[]>(
@@ -173,10 +197,11 @@
       isPast: day.isPast,
       primary: day.hours ? t('{hours} planned', { hours: formatHours(day.hours) }) : '',
       secondary: day.people.length
-        ? t('{shifts} shifts · {people} people', {
-            shifts: day.shifts.length,
-            people: day.people.length
-          })
+        ? detailed
+          ? day.cost > 0 && workspace.canViewFinancials
+            ? `${t('{count} people', { count: day.people.length })} · ~${formatMoney(day.cost)}`
+            : `${t('{count} people', { count: day.people.length })} · ${t('{count} services', { count: day.services })}`
+          : t('{count} people', { count: day.people.length })
         : '',
       badge: day.gaps ? t('{count} gaps', { count: day.gaps }) : '',
       badgeTone: 'problem',
@@ -195,6 +220,14 @@
         }).format(new Date(`${selectedDate}T00:00:00Z`))
       : ''
   );
+
+  function formatMoney(value: number): string {
+    return new Intl.NumberFormat(i18n.intlLocale, {
+      style: 'currency',
+      currency: snapshot?.restaurant_settings.currency_code || 'EUR',
+      maximumFractionDigits: 0
+    }).format(value);
+  }
 
   function openShiftEditor(shift: DatedShift): void {
     if (!snapshot) return;
@@ -321,21 +354,22 @@
 <svelte:head><title>{t('Schedule calendar')} &middot; restogogo</title></svelte:head>
 
 {#snippet pageActions()}
-  <WorkspacePeriodNav
-    label={monthLabel(activeMonth, i18n.intlLocale)}
-    onprevious={() => (monthOffset -= 1)}
-    onnext={() => (monthOffset += 1)}
-    ontoday={() => (monthOffset = 0)}
-    todayLabel="This month"
-  />
+  <div class="calendar-toolbar">
+    <WorkspacePeriodNav
+      label={monthLabel(activeMonth, i18n.intlLocale)}
+      onprevious={() => (monthOffset -= 1)}
+      onnext={() => (monthOffset += 1)}
+      ontoday={() => (monthOffset = 0)}
+      todayLabel="This month"
+    />
+    <label class="calendar-detail">
+      <input type="checkbox" bind:checked={detailed} />
+      <span>{t('Costs & services')}</span>
+    </label>
+  </div>
 {/snippet}
 
-<WorkspacePage actions={pageActions}>
-  <div class="cl-stats">
-    <WorkspaceStat label="Planned hours" value={monthHours} format={formatHours} accent="var(--cl-info)" mutedZero={false} />
-    <WorkspaceStat label="Coverage gaps" value={monthGaps} tone={monthGaps ? 'attention' : undefined} />
-  </div>
-
+<WorkspacePage actions={pageActions} actionsAlign="center">
   <WorkspaceMonthGrid
     label={monthLabel(activeMonth, i18n.intlLocale)}
     days={calendarDays}
@@ -357,12 +391,25 @@
 >
   <div class="day-inspector">
     {#if selectedDay?.shifts.length}
+      <div class="day-summary">
+        <span><b>{selectedDay.people.length}</b>{t('people')}</span>
+        <span><b>{formatHours(selectedDay.hours)}</b>{t('planned')}</span>
+        <span><b>{selectedDay.services}</b>{t('services')}</span>
+        {#if workspace.canViewFinancials && selectedDay.cost > 0}
+          <span><b>~{formatMoney(selectedDay.cost)}</b>{t('estimated cost')}</span>
+        {/if}
+      </div>
       {#each selectedDay.shifts as shift (`${shift.employeeId}|${shift.serviceKey}`)}
-        <button type="button" onclick={() => openShiftEditor(shift)}>
+        <button
+          type="button"
+          style={`--row-color:${areaColor.get(shift.areaId) ?? 'var(--cl-info)'}`}
+          onclick={() => openShiftEditor(shift)}
+        >
           <span class="cl-avatar">{(employeeName.get(shift.employeeId) ?? '?').slice(0, 2).toUpperCase()}</span>
           <span>
             <strong>{employeeName.get(shift.employeeId) ?? t('Unknown employee')}</strong>
             <small>
+              <WorkspaceServiceIcon service={shift.serviceKey} size={13} />
               {shift.startsAt}–{shift.endsAt} ·
               {t(serviceLabel(shift.serviceKey, snapshot?.services))}
             </small>
@@ -462,6 +509,22 @@
 </Dialog>
 
 <style>
+  .calendar-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+  }
+  .calendar-detail {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--cl-muted);
+    font-size: 11px;
+    font-weight: var(--rst-fw-bold);
+    cursor: pointer;
+  }
+  .calendar-detail input { accent-color: var(--cl-accent); }
   .day-inspector {
     display: grid;
     border: 1px solid var(--cl-line);
@@ -484,6 +547,7 @@
     text-align: left;
     text-decoration: none;
     cursor: pointer;
+    box-shadow: inset 3px 0 0 var(--row-color, var(--cl-info));
   }
   .day-inspector > button:hover {
     background: color-mix(in srgb, var(--cl-accent) 5%, var(--cl-surface));
@@ -503,7 +567,28 @@
   }
   .day-inspector small,
   .day-inspector em { color: var(--cl-muted); }
+  .day-inspector small { display: flex; align-items: center; gap: 4px; }
   .day-inspector em { font-size: 10px; font-style: normal; }
   .day-inspector b { font-variant-numeric: tabular-nums; }
+  .day-summary {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--cl-line);
+    background: var(--cl-surface-muted);
+  }
+  .day-summary span {
+    display: grid;
+    gap: 1px;
+    color: var(--cl-muted);
+    font-size: 9px;
+    text-transform: uppercase;
+  }
+  .day-summary b { color: var(--cl-ink); font-size: 13px; text-transform: none; }
   .shift-dialog__hint { margin-right: auto; align-self: center; color: var(--cl-muted); font-size: 11px; }
+  @media (max-width: 760px) {
+    .calendar-toolbar { width: 100%; flex-wrap: wrap; }
+    .day-summary { gap: 12px; overflow-x: auto; }
+  }
 </style>

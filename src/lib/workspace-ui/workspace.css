@@ -434,6 +434,37 @@
   transform: rotate(180deg);
 }
 
+/* Auto-hide keeps the workspace at rail width and lets the navigation expand
+   over the canvas only while it is being used. The page never jumps sideways. */
+.cl-app.is-auto-rail .cl-sidebar {
+  overflow-x: hidden;
+  transition:
+    width var(--cl-dur-slow) var(--cl-ease),
+    box-shadow var(--cl-dur-slow) var(--cl-ease);
+}
+.cl-app.is-auto-rail .cl-sidebar:is(:hover, :focus-within) {
+  z-index: 340;
+  width: 216px;
+  box-shadow: 12px 0 26px rgb(15 23 42 / 12%);
+}
+.cl-app.is-auto-rail .cl-sidebar:is(:hover, :focus-within) .cl-sidebar__link {
+  grid-template-columns: 22px minmax(0, 1fr);
+  justify-items: stretch;
+  padding-inline: 18px;
+}
+.cl-app.is-auto-rail .cl-sidebar:is(:hover, :focus-within) .cl-sidebar__link span,
+.cl-app.is-auto-rail .cl-sidebar:is(:hover, :focus-within) .cl-rail-toggle span {
+  display: inline;
+}
+.cl-app.is-auto-rail .cl-sidebar:is(:hover, :focus-within) .cl-rail-toggle {
+  grid-template-columns: 22px minmax(0, 1fr);
+  justify-items: stretch;
+  padding-inline: 20px;
+}
+.cl-app.is-auto-rail .cl-sidebar:is(:hover, :focus-within) .cl-rail-toggle svg {
+  transform: rotate(0);
+}
+
 .cl-sidebar__link {
   --nav-module: var(--cl-muted);
   position: relative;
@@ -558,6 +589,12 @@
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
+}
+.cl-page__toolbar.is-centered {
+  justify-content: center;
+}
+.cl-page__toolbar.is-between {
+  justify-content: space-between;
 }
 
 .cl-page__toolbar::-webkit-scrollbar {
@@ -971,6 +1008,23 @@
   box-shadow: 0 1px 0 var(--cl-line-strong);
 }
 
+.cl-table thead th::before {
+  content: '';
+  position: absolute;
+  z-index: 2;
+  top: 9px;
+  bottom: 9px;
+  left: 0;
+  width: 1px;
+  border-radius: 1px;
+  background: transparent;
+  pointer-events: none;
+  transition: background var(--cl-dur) var(--cl-ease);
+}
+.cl-table thead:hover th:not(:first-child)::before {
+  background: color-mix(in srgb, var(--cl-line-strong) 66%, transparent);
+}
+
 .cl-table thead th:first-child {
   z-index: 25;
 }
@@ -1336,6 +1390,11 @@
   opacity: 0;
   transition: opacity var(--cl-dur) var(--cl-ease);
 }
+.cl-picker__edit {
+  flex: 0 0 auto;
+  color: var(--cl-accent);
+  opacity: .72;
+}
 .cl-picker__trigger:hover .cl-picker__caret,
 .cl-picker__trigger.is-open .cl-picker__caret {
   opacity: 1;
@@ -1438,6 +1497,42 @@
   vertical-align: middle;
 }
 
+.cl-table tbody tr:not(.cl-group-row) > td:first-child {
+  color: var(--cl-ink);
+}
+.cl-table tbody tr:not(.cl-group-row) > td:not(:first-child) {
+  color: var(--cl-data-text);
+}
+
+/* An editable grid cell owns its full rectangle. Users can click the quiet
+   space around the value instead of having to hit the text precisely. */
+.cl-table td:has(> .cl-picker),
+.cl-table td:has(> .inline-cell),
+.cl-table td:has(> .grid-field) {
+  padding: 0;
+}
+.cl-table td > .cl-picker,
+.cl-table td > .inline-cell,
+.cl-table td > .grid-field {
+  width: 100%;
+  min-height: var(--cl-row);
+}
+.cl-table td > .cl-picker > .cl-picker__trigger,
+.cl-table td > .inline-cell,
+.cl-table td > .grid-field {
+  min-height: var(--cl-row);
+  margin: 0;
+  padding: 9px 14px;
+  border-radius: 0;
+}
+
+/* Static secondary values recede one small step from actionable cells. */
+.cl-table:not(.board) tbody tr:not(.cl-group-row) > td:not(:first-child):not(
+  :has(button, input, select, textarea, a, [role='button'])
+) {
+  background: color-mix(in srgb, var(--cl-surface-muted) 36%, var(--cl-surface));
+}
+
 /* Only the very last row of the table drops its border. Scoped to the last
    tbody so that, when the table is split into a tbody per group, the last row of
    each group keeps its divider instead of merging into the next group's header. */
@@ -1499,6 +1594,17 @@
   background: transparent;
   border-color: transparent;
   opacity: 1;
+}
+
+.cl-table input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.cl-table input[type='number']::-webkit-inner-spin-button,
+.cl-table input[type='number']::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .cl-table .is-num {
@@ -2113,6 +2219,41 @@
   right: auto;
   max-height: min(420px, calc(100vh - 24px));
   overflow: auto;
+}
+
+/* Headers can be reordered directly. The grip is intentionally quiet until
+   the header is in use, preserving the spreadsheet-like calm at rest. */
+.workspace-column-drag {
+  width: 12px;
+  height: 24px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  margin-left: -6px;
+  color: var(--cl-muted);
+  cursor: grab;
+  opacity: 0;
+  transition: opacity var(--cl-dur) var(--cl-ease), color var(--cl-dur) var(--cl-ease);
+}
+.cl-table thead:hover .workspace-column-drag,
+.workspace-column-drag:hover {
+  opacity: .48;
+}
+.workspace-column-drag:hover {
+  color: var(--cl-accent);
+  opacity: 1;
+}
+.workspace-column-drag:active {
+  cursor: grabbing;
+}
+.cl-table th.is-column-dragging {
+  opacity: .56;
+}
+.cl-table th.is-column-drop::before {
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  background: var(--cl-accent);
 }
 
 

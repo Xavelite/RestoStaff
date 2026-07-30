@@ -84,8 +84,7 @@ test('every editable Team roster grid anchors filter, sort and group decisions',
   const files = [
     'src/routes/(app)/team/+page.svelte',
     'src/routes/(app)/team/contracts/+page.svelte',
-    'src/routes/(app)/team/access/+page.svelte',
-    'src/routes/(app)/payroll/employees/+page.svelte'
+    'src/routes/(app)/team/access/+page.svelte'
   ];
 
   for (const file of files) {

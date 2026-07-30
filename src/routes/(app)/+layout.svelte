@@ -18,6 +18,7 @@
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspaceTheme } from '$lib/ui/theme.svelte';
   import WorkspaceIcon from '$lib/workspace-ui/WorkspaceIcon.svelte';
+  import { installWorkspaceColumnOrdering } from '$lib/workspace-ui/workspace-column-order';
   
   import {
     moduleForPath,
@@ -37,6 +38,7 @@
   // device so a manager who likes the wide list keeps it and one who wants the
   // room keeps the rail.
   let sidebarCollapsed = $state(false);
+  let sidebarMode = $state<'pinned' | 'auto'>('pinned');
   let sendingVerification = $state(false);
   let verificationSent = $state(false);
   let notificationSettingsRequest = $state(0);
@@ -63,17 +65,40 @@
   onMount(() => {
     try {
       sidebarCollapsed = localStorage.getItem('rst-workspace-rail') === 'on';
+      sidebarMode = localStorage.getItem('rst-sidebar-mode') === 'auto' ? 'auto' : 'pinned';
     } catch {
       sidebarCollapsed = false;
+      sidebarMode = 'pinned';
     }
   });
 
+  onMount(installWorkspaceColumnOrdering);
+
   function toggleRail() {
+    if (sidebarMode === 'auto') {
+      setSidebarMode('pinned');
+      sidebarCollapsed = false;
+      try {
+        localStorage.setItem('rst-workspace-rail', 'off');
+      } catch {
+        // Keep the pinned menu for this session.
+      }
+      return;
+    }
     sidebarCollapsed = !sidebarCollapsed;
     try {
       localStorage.setItem('rst-workspace-rail', sidebarCollapsed ? 'on' : 'off');
     } catch {
       // A device that refuses storage still toggles for this session.
+    }
+  }
+
+  function setSidebarMode(mode: 'pinned' | 'auto'): void {
+    sidebarMode = mode;
+    try {
+      localStorage.setItem('rst-sidebar-mode', mode);
+    } catch {
+      // The preference still applies for this session.
     }
   }
 
@@ -192,7 +217,12 @@
       {@render children()}
     </div>
   {:else}
-    <div class="cl-app" class:is-rail={sidebarCollapsed} data-module={activeModule?.key ?? 'home'}>
+    <div
+      class="cl-app"
+      class:is-rail={sidebarCollapsed || sidebarMode === 'auto'}
+      class:is-auto-rail={sidebarMode === 'auto'}
+      data-module={activeModule?.key ?? 'home'}
+    >
       <a class="cl-brand" href="/home" aria-label="Restogogo">
         <span class="cl-brand__mark" style="--brand-mark:url('/brand/restogogo-mark.png')" aria-hidden="true"></span>
         <span class="cl-brand__word" aria-hidden="true"><i>esto</i><i>gogo</i></span>
@@ -247,6 +277,8 @@
 
         <AccountMenu
           isPlatformAdmin={session.isPlatformAdmin}
+          {sidebarMode}
+          onsidebarmode={setSidebarMode}
           onnotificationsettings={() => (notificationSettingsRequest += 1)}
         />
       </header>
@@ -261,9 +293,9 @@
         <button
           class="cl-rail-toggle"
           type="button"
-          aria-label={sidebarCollapsed ? t('Expand menu') : t('Collapse menu')}
-          title={sidebarCollapsed ? t('Expand menu') : t('Collapse menu')}
-          aria-pressed={sidebarCollapsed}
+          aria-label={sidebarMode === 'auto' ? t('Pin menu') : sidebarCollapsed ? t('Expand menu') : t('Collapse menu')}
+          title={sidebarMode === 'auto' ? t('Pin menu') : sidebarCollapsed ? t('Expand menu') : t('Collapse menu')}
+          aria-pressed={sidebarCollapsed || sidebarMode === 'auto'}
           onclick={toggleRail}
         >
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 6l-6 6 6 6" /></svg>

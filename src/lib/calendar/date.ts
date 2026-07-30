@@ -109,6 +109,33 @@ export function serviceDefaultHours(
   return { start: '09:00', end: '17:00' };
 }
 
+/**
+ * Position the current time inside the restaurant's active operating window.
+ * The window spans the earliest configured service start to the latest end,
+ * including services that finish after midnight.
+ */
+export function serviceWindowProgress(
+  services: readonly ServicePeriod[] | null | undefined,
+  timezone: string,
+  now = new Date()
+): number {
+  const windows = activeServicePeriods(services).map((service) => {
+    const hours = serviceDefaultHours(service.service_key, services);
+    const start = clockMinutes(hours.start) ?? 0;
+    const rawEnd = clockMinutes(hours.end) ?? start;
+    return { start, end: rawEnd <= start ? rawEnd + 1440 : rawEnd };
+  });
+  if (!windows.length) return 0;
+
+  const start = Math.min(...windows.map((window) => window.start));
+  const end = Math.max(...windows.map((window) => window.end));
+  let current = localDateTimeParts(now, timezone).minutes;
+  if (end > 1440 && current <= end - 1440) current += 1440;
+  if (end <= start) return 0;
+
+  return Math.max(0.02, Math.min(0.98, (current - start) / (end - start)));
+}
+
 export function serviceDisplay(
   serviceKey: ServiceKey,
   services?: readonly ServicePeriod[] | null

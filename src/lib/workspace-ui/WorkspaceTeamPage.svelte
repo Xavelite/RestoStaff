@@ -93,7 +93,7 @@
     unsavedChanges.register({
       id: 'team-workspace',
       label: 'Team',
-      navigationScopes: ['/team', '/payroll/employees'],
+      navigationScopes: ['/team'],
       isDirty: () => teamDraft.dirty,
       save,
       discard

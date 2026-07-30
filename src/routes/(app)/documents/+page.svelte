@@ -253,41 +253,6 @@
     </section>
   {/if}
 
-  <section class="library-toolbar" aria-label={t('Document controls')}>
-    <label class="search-field">
-      <Search size={15} aria-hidden="true" />
-      <input bind:value={search} placeholder={t('Search title, filename, employee or note')} aria-label={t('Search documents')} />
-    </label>
-    <label class="mobile-category">
-      <span class="sr-only">{t('Category')}</span>
-      <select class="cl-field" bind:value={categoryFilter}>
-        <option value="all">{t('All categories')}</option>
-        {#each DOCUMENT_CATEGORIES as item (item.key)}
-          <option value={item.key}>{t(item.label)}</option>
-        {/each}
-      </select>
-    </label>
-    <div class="status-switch" aria-label={t('Document status')}>
-      {#each [
-        ['active', 'Active'],
-        ['expiring', 'Expiring'],
-        ['archived', 'Archived']
-      ] as option}
-        <button type="button" class:is-active={statusFilter === option[0]} onclick={() => (statusFilter = option[0] as StatusFilter)}>
-          {t(option[1])}
-          {#if option[0] === 'expiring' && expiringDocuments.length}<i>{expiringDocuments.length}</i>{/if}
-        </button>
-      {/each}
-    </div>
-    <button
-      class="upload-button"
-      type="button"
-      disabled={!snapshot || storageFull || workspace.isPreview}
-      title={storageFull ? t('Storage is full. Request more space to upload.') : t('Upload document')}
-      onclick={() => (uploadOpen = true)}
-    ><Upload size={15} strokeWidth={1.9} aria-hidden="true" />{t('Upload')}</button>
-  </section>
-
   {#if errorMessage}
     <section class="load-state is-error">
       <FolderOpen size={25} aria-hidden="true" />
@@ -320,16 +285,51 @@
 
       <section class="document-list" aria-label={t('Document library')}>
         <header>
-          <div>
+          <div class="document-list__title">
             <strong>{categoryFilter === 'all' ? t('All files') : t(categoryLabel(categoryFilter))}</strong>
             <span>{t('{count} documents in this view', { count: filteredDocuments.length })}</span>
           </div>
-          {#if search || categoryFilter !== 'all'}
-            <button type="button" onclick={() => {
-              search = '';
-              categoryFilter = 'all';
-            }}>{t('Clear filters')}</button>
-          {/if}
+          <div class="document-controls" aria-label={t('Document controls')}>
+            <label class="search-field">
+              <Search size={15} aria-hidden="true" />
+              <input bind:value={search} placeholder={t('Search files')} aria-label={t('Search documents')} />
+            </label>
+            <label class="mobile-category">
+              <span class="sr-only">{t('Category')}</span>
+              <select class="cl-field" bind:value={categoryFilter}>
+                <option value="all">{t('All categories')}</option>
+                {#each DOCUMENT_CATEGORIES as item (item.key)}
+                  <option value={item.key}>{t(item.label)}</option>
+                {/each}
+              </select>
+            </label>
+            <div class="status-switch" aria-label={t('Document status')}>
+              {#each [
+                ['active', 'Active'],
+                ['expiring', 'Expiring'],
+                ['archived', 'Archived']
+              ] as option}
+                <button type="button" class:is-active={statusFilter === option[0]} onclick={() => (statusFilter = option[0] as StatusFilter)}>
+                  {t(option[1])}
+                  {#if option[0] === 'expiring' && expiringDocuments.length}<i>{expiringDocuments.length}</i>{/if}
+                </button>
+              {/each}
+            </div>
+            {#if search || categoryFilter !== 'all' || statusFilter !== 'active'}
+              <button class="clear-button" type="button" onclick={() => {
+                search = '';
+                categoryFilter = 'all';
+                statusFilter = 'active';
+              }}>{t('Clear filters')}</button>
+            {/if}
+            <button
+              class="upload-button"
+              type="button"
+              disabled={!snapshot || storageFull || workspace.isPreview}
+              title={storageFull ? t('Storage is full. Request more space to upload.') : t('Upload document')}
+              onclick={() => (uploadOpen = true)}
+            ><Upload size={15} strokeWidth={1.9} aria-hidden="true" />{t('Upload')}</button>
+          </div>
         </header>
 
         {#if filteredDocuments.length}
@@ -554,13 +554,6 @@
   .document-stats strong { color: var(--rst-ui-text); font-size: 13px; }
   .document-stats .has-attention { color: var(--rst-state-warning-text); }
   .document-stats .has-attention strong { color: inherit; }
-  .library-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--rst-ui-divider-soft);
-  }
   .search-field {
     min-width: 220px;
     max-width: 440px;
@@ -687,7 +680,7 @@
   .category-rail i { min-width: 18px; color: var(--rst-ui-muted); font-size: 9px; font-style: normal; text-align: right; }
   .document-list { min-width: 0; }
   .document-list > header {
-    min-height: 46px;
+    min-height: 54px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -695,10 +688,19 @@
     padding: 8px 12px;
     border-bottom: 1px solid var(--rst-ui-divider-soft);
   }
-  .document-list > header > div { display: grid; gap: 2px; }
+  .document-list__title { flex: 0 0 auto; display: grid; gap: 2px; }
+  .document-controls {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
+  }
+  .document-controls .search-field { min-width: 180px; max-width: 320px; }
   .document-list > header strong { font-size: 11px; }
   .document-list > header span { color: var(--rst-ui-muted); font-size: 9px; }
-  .document-list > header button { border: 0; color: var(--rst-ui-action); background: transparent; font: inherit; font-size: 9px; font-weight: var(--rst-fw-bold); cursor: pointer; }
+  .clear-button { border: 0; color: var(--rst-ui-action); background: transparent; font: inherit; font-size: 9px; font-weight: var(--rst-fw-bold); cursor: pointer; }
   .document-list tbody tr { cursor: pointer; }
   .document-list tbody tr:hover { background: var(--rst-ui-hover-bg); }
   .document-list tbody tr.is-archived { opacity: .7; }
@@ -805,8 +807,9 @@
     .document-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .document-stats > div:nth-child(2) { border-right: 0; }
     .document-stats > div:nth-child(-n + 2) { border-bottom: 1px solid var(--rst-ui-divider-soft); }
-    .library-toolbar { flex-wrap: wrap; }
-    .search-field { max-width: none; flex-basis: calc(100% - 100px); }
+    .document-list > header { align-items: flex-start; flex-direction: column; padding: 9px 0; }
+    .document-controls { width: 100%; flex-wrap: wrap; justify-content: flex-start; }
+    .document-controls .search-field { max-width: none; flex-basis: calc(100% - 100px); }
     .mobile-category { display: block; flex: 1; }
     .mobile-category .cl-field { min-height: 35px; }
     .status-switch { order: 3; flex: 1; }
@@ -814,7 +817,6 @@
     .upload-button { order: 4; }
     .library-layout { display: block; min-height: 0; }
     .category-rail { display: none; }
-    .document-list > header { padding-inline: 0; }
     .empty-library { min-height: 300px; }
   }
   @media (max-width: 520px) {
@@ -823,8 +825,8 @@
     .upgrade-button { width: 30px; height: 30px; overflow: hidden; padding: 0; font-size: 0; }
     .upgrade-button :global(svg) { width: 18px; height: 18px; }
     .document-stats > div { padding: 9px 10px; }
-    .library-toolbar { gap: 6px; }
-    .search-field { min-width: 0; flex-basis: 100%; }
+    .document-controls { gap: 6px; }
+    .document-controls .search-field { min-width: 0; flex-basis: 100%; }
     .mobile-category { min-width: 0; flex-basis: 100%; }
     .status-switch { width: 100%; }
     .upload-button { width: 38px; padding-inline: 0; font-size: 0; }

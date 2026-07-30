@@ -30,8 +30,8 @@
   import { restaurantConfig } from '$lib/workspace-ui/workspace-restaurant.svelte';
   import { createTableView } from '$lib/workspace-ui/table-view.svelte';
 
-  type SortKey = 'name' | 'areas' | 'cost' | 'employees' | 'active';
-  type GroupBy = 'area' | 'status' | 'staffing' | 'none';
+  type SortKey = 'name' | 'category' | 'areas' | 'cost' | 'employees' | 'active';
+  type GroupBy = 'category' | 'area' | 'status' | 'staffing' | 'none';
   type PositionRow = {
     id: string;
     name: string;
@@ -96,6 +96,7 @@
     storageKey: 'rst-restaurant-positions-cols-v4',
     columns: OPTIONAL_COLUMNS,
     defaultHidden: [],
+    defaultGroupBy: 'category',
     defaultExcluded: { active: ['archived'] }
   });
 
@@ -265,6 +266,10 @@
     return workspacePositionByKey.get(position.catalogueKey) ?? null;
   }
 
+  function positionCategory(position: PositionRow): string {
+    return systemPosition(position)?.category ?? 'support';
+  }
+
   function recommendedPositionAreaIds(position: PositionRow): string[] {
     const areas = restaurantConfig.draft?.areas.filter((area) => area.active) ?? [];
     const system = systemPosition(position);
@@ -359,6 +364,7 @@
   function sortValue(position: PositionRow, key: SortKey): string | number {
     const stable = placementForPosition(position);
     switch (key) {
+      case 'category': return positionCategoryLabel(positionCategory(stable));
       case 'areas': return linkedAreaSetLabel(linkedPositionAreaIds(stable)).toLowerCase();
       case 'cost': return stable.estimatedHourlyCost;
       case 'employees': return employeesByPosition.get(position.id)?.size ?? 0;
@@ -389,20 +395,27 @@
       const headcount = employeesByPosition.get(position.id)?.size ?? 0;
       const linkedAreaIds = linkedPositionAreaIds(stable);
       const linkedAreaLabel = linkedAreaSetLabel(linkedAreaIds);
-      const key = view.groupBy === 'area'
+      const category = positionCategory(stable);
+      const key = view.groupBy === 'category'
+        ? `category:${category}`
+        : view.groupBy === 'area'
         ? linkedAreaIds.length
           ? `areas:${linkedAreaIds.join(':')}`
           : 'all-areas'
         : view.groupBy === 'status'
           ? (stable.active ? 'active' : 'archived')
           : (headcount ? 'staffed' : 'unstaffed');
-      const label = view.groupBy === 'area'
+      const label = view.groupBy === 'category'
+        ? positionCategoryLabel(category)
+        : view.groupBy === 'area'
         ? linkedAreaLabel
         : view.groupBy === 'status'
           ? t(stable.active ? 'Active' : 'Archived')
           : t(headcount ? 'Staffed' : 'No staff assigned');
       const placementLabel =
-        view.groupBy === 'area'
+        view.groupBy === 'category'
+          ? `${['management', 'service', 'bar', 'kitchen', 'takeaway', 'support'].indexOf(category)}`.padStart(2, '0')
+          : view.groupBy === 'area'
           ? linkedAreaIds
               .map((areaId) => {
                 const area = context.draft.areas.find((candidate) => candidate.id === areaId);
@@ -413,7 +426,9 @@
               .join('|')
           : label;
       const color =
-        view.groupBy === 'area' && linkedAreaIds.length === 1
+        view.groupBy === 'category'
+          ? positionCategoryColor(category)
+          : view.groupBy === 'area' && linkedAreaIds.length === 1
           ? areaColor.get(linkedAreaIds[0]) ?? ''
           : '';
       const group = groups.get(key) ?? { key, label, placementLabel, color, rows: [] };
@@ -470,6 +485,7 @@
                   groupValue={view.groupBy}
                   groupOptions={[
                     { value: 'none', label: t('No grouping') },
+                    { value: 'category', label: t('Category') },
                     { value: 'area', label: t('Linked areas') },
                     { value: 'status', label: t('Status') },
                     { value: 'staffing', label: t('Staffing') }

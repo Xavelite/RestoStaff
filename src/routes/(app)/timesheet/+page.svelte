@@ -7,6 +7,7 @@
     formatHours,
     hoursBetweenClocks,
     mondayFor,
+    serviceWindowProgress,
     todayInTimezone,
     weekdayDateLabel,
     weekLabel,
@@ -25,6 +26,7 @@
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import TimesheetEntryDialog from '$lib/timesheet/TimesheetEntryDialog.svelte';
+  import TimesheetDayDialog from '$lib/timesheet/TimesheetDayDialog.svelte';
   import {
     setTimesheetWeekStatus
   } from '$lib/timesheet/timesheet-actions';
@@ -60,6 +62,9 @@
   });
 
   const today = $derived(todayInTimezone(timezone, currentInstant));
+  const liveProgress = $derived(
+    serviceWindowProgress(snapshot?.services, timezone, currentInstant)
+  );
   let weekOffset = $state(0);
   const activeWeek = $derived(addDays(mondayFor(today), weekOffset * 7));
   const serviceKeys = $derived(
@@ -81,6 +86,8 @@
   let groupMode = $state<GroupMode>('none');
   let collapsedGroups = $state<string[]>([]);
   let selectedKey = $state('');
+  let selectedDayEmployeeId = $state('');
+  let selectedDayDate = $state('');
   let saving = $state(false);
   let weekDialogOpen = $state(false);
   let weekAction = $state<'approve_week' | 'reopen_week'>('approve_week');
@@ -127,6 +134,16 @@
   );
   const editable = $derived(weekStatus === 'open' && !workspace.isPreview);
   const selectedSlot = $derived(slots.find((slot) => slot.key === selectedKey) ?? null);
+  const selectedDaySlots = $derived(
+    selectedDayEmployeeId && selectedDayDate
+      ? slots.filter(
+          (slot) =>
+            slot.employeeId === selectedDayEmployeeId &&
+            slot.date === selectedDayDate &&
+            isTimesheetRow(slot)
+        )
+      : []
+  );
 
   // --- week grid (employees × days), mirroring the Schedule board ----------
   const employeeColor = $derived(
@@ -400,6 +417,19 @@
     });
   }
 
+  function selectDay(daySlots: ActualSlot[]): void {
+    const first = daySlots.find(isTimesheetRow);
+    if (!first) return;
+    selectedDayEmployeeId = first.employeeId;
+    selectedDayDate = first.date;
+  }
+
+  function editDayService(key: string): void {
+    selectedDayEmployeeId = '';
+    selectedDayDate = '';
+    selectEntry(key);
+  }
+
   function openWeekAction(action: 'approve_week' | 'reopen_week') {
     weekAction = action;
     weekReason = '';
@@ -538,7 +568,7 @@
                 </span>
                 <em class:is-ready={!rowNeedsReview}>{t(rowNeedsReview ? 'Review' : 'Ready')}</em>
               </header>
-              <TimesheetDayCard slots={item.slots} {areaName} {areaColor} {positionName} services={snapshot?.services ?? []} onopen={selectEntry} />
+              <TimesheetDayCard slots={item.slots} {areaName} {areaColor} {positionName} services={snapshot?.services ?? []} onopen={() => selectDay(item.slots)} />
             </article>
           {/each}
         {:else}
@@ -591,7 +621,13 @@
               </WorkspacePrimaryColMenu>
             </th>
             {#each days as day, index (day.date)}
-              <th class="board__day" class:is-today={day.today} class:is-past={day.past} class:is-weekend={index >= 5}>
+              <th
+                class="board__day"
+                style={`--live-progress:${liveProgress * 100}%`}
+                class:is-today={day.today}
+                class:is-past={day.past}
+                class:is-weekend={index >= 5}
+              >
                 <div class="board__day-date"><b>{t(day.label)}</b> {Number(day.date.slice(-2))}</div>
                 <div class="board__day-lower">
                   <span class="board__day-people">
@@ -618,6 +654,7 @@
                   liveColumn={days.some((day) => day.today)
                     ? days.findIndex((day) => day.today) + 1
                     : -1}
+                  {liveProgress}
                   collapsed={collapsedGroups.includes(group.key)}
                   ontoggle={() => toggleGroup(group.key)}
                 />
@@ -644,8 +681,13 @@
                     </td>
                     {#each days as day (day.date)}
                       {@const daySlots = cellSlots(row.id, day.date)}
-                      <td class="board__cell" class:is-today={day.today} class:is-past={day.past}>
-                        {#if daySlots.length}<TimesheetDayCard slots={daySlots} {areaName} {areaColor} {positionName} services={snapshot?.services ?? []} compact={compactCards} onopen={selectEntry} />{/if}
+                      <td
+                        class="board__cell"
+                        style={`--live-progress:${liveProgress * 100}%`}
+                        class:is-today={day.today}
+                        class:is-past={day.past}
+                      >
+                        {#if daySlots.length}<TimesheetDayCard slots={daySlots} {areaName} {areaColor} {positionName} services={snapshot?.services ?? []} compact={compactCards} onopen={() => selectDay(daySlots)} />{/if}
                       </td>
                     {/each}
                   </tr>
@@ -671,6 +713,18 @@
   {timezone}
   {editable}
   onclose={() => (selectedKey = '')}
+/>
+
+<TimesheetDayDialog
+  slots={selectedDaySlots}
+  {snapshot}
+  {timezone}
+  editable={editable && Boolean(selectedDayDate && selectedDayDate <= today)}
+  onclose={() => {
+    selectedDayEmployeeId = '';
+    selectedDayDate = '';
+  }}
+  onedit={editDayService}
 />
 
 {#snippet weekFooter()}
@@ -959,7 +1013,7 @@
     z-index: 12;
     top: 0;
     bottom: 0;
-    left: 0;
+    left: var(--live-progress, 0%);
     width: var(--cl-live-marker-width);
     background: var(--cl-live-marker);
     box-shadow: 0 0 3px color-mix(in srgb, var(--cl-live-marker) 34%, transparent);

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { LayoutGrid, List } from '@lucide/svelte';
+  import { onMount } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
 
   type ViewMode = 'list' | 'plan' | 'floor';
@@ -15,6 +16,27 @@
   } = $props();
 
   const secondaryLabel = $derived(secondary === 'floor' ? 'Floor' : 'Plan');
+
+  const PREFERENCE_KEY = 'rst-workspace-view';
+
+  function choose(next: ViewMode): void {
+    try {
+      localStorage.setItem(PREFERENCE_KEY, next === 'list' ? 'list' : 'visual');
+    } catch {
+      // The switch still works for this session when storage is unavailable.
+    }
+    onchange(next);
+  }
+
+  onMount(() => {
+    try {
+      const stored = localStorage.getItem(PREFERENCE_KEY);
+      const preferred = stored === 'visual' ? secondary : stored === 'list' ? 'list' : null;
+      if (preferred && preferred !== value) onchange(preferred);
+    } catch {
+      // Keep the page default.
+    }
+  });
 </script>
 
 <div class="view-switch" role="group" aria-label={t('View')}>
@@ -24,7 +46,7 @@
     title={t('List')}
     aria-label={t('List')}
     aria-pressed={value === 'list'}
-    onclick={() => onchange('list')}
+    onclick={() => choose('list')}
   >
     <List size={15} aria-hidden="true" />
   </button>
@@ -34,7 +56,7 @@
     title={t(secondaryLabel)}
     aria-label={t(secondaryLabel)}
     aria-pressed={value === secondary}
-    onclick={() => onchange(secondary)}
+    onclick={() => choose(secondary)}
   >
     <LayoutGrid size={15} aria-hidden="true" />
   </button>

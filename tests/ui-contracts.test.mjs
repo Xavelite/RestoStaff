@@ -172,7 +172,6 @@ test('workspace chrome pins navigation and derives tabs directly from the route'
 test('people edit contact cells inline while employee identity opens one complete dialog', async () => {
   const people = await readFile('src/routes/(app)/team/+page.svelte', 'utf8');
   const contracts = await readFile('src/routes/(app)/team/contracts/+page.svelte', 'utf8');
-  const payrollEmployees = await readFile('src/routes/(app)/payroll/employees/+page.svelte', 'utf8');
   const editor = await readFile('src/lib/workspace-ui/EmployeeInlineEditor.svelte', 'utf8');
   const teamPage = await readFile('src/lib/workspace-ui/WorkspaceTeamPage.svelte', 'utf8');
   const teamDraft = await readFile('src/lib/workspace-ui/workspace-team.svelte.ts', 'utf8');
@@ -195,12 +194,13 @@ test('people edit contact cells inline while employee identity opens one complet
   assert.match(contracts, /<WorkspacePicker[\s\S]*updateContractType\(employee, next\)/);
   assert.match(contracts, /type="date" value=\{employee\.contractStart\}[\s\S]*teamDraft\.update\(employee\.id, \{ contractStart:/);
   assert.match(contracts, /type="number"[\s\S]*updateHours\(employee\.id, event\.currentTarget\.value\)/);
-  assert.match(payrollEmployees, /setReferenceFunction\(employee, next\)/);
-  for (const source of [people, contracts, payrollEmployees]) {
+  assert.match(editor, /selectReferenceFunction\(code: string\)/);
+  assert.match(editor, /section === 'payroll'/);
+  for (const source of [people, contracts]) {
     assert.match(source, /<EmployeeInlineEditor/);
     assert.match(source, /detailId/);
   }
-  for (const source of [people, contracts, payrollEmployees]) {
+  for (const source of [people, contracts]) {
     assert.match(source, /<WorkspaceRowMenu/);
   }
   assert.doesNotMatch(people, /<th[^>]*>\{t\('Actions'\)\}<\/th>/);
@@ -263,10 +263,10 @@ test('operational core exposes planning, attendance and payroll as one workspace
   const live = await readFile('src/routes/(app)/timesheet/live/+page.svelte', 'utf8');
   const entryDialog = await readFile('src/lib/timesheet/TimesheetEntryDialog.svelte', 'utf8');
   const reservations = await readFile('src/lib/reservations/ReservationsWorkspace.svelte', 'utf8');
-  const payrollRedirect = await readFile('src/routes/(app)/payroll/+page.ts', 'utf8');
+  const payroll = await readFile('src/routes/(app)/payroll/+page.svelte', 'utf8');
   const absences = await readFile('src/routes/(app)/team/absences/+page.svelte', 'utf8');
 
-  assert.match(nav, /href: '\/payroll\/employees'/);
+  assert.match(nav, /key: 'payroll'[\s\S]*href: '\/payroll'/);
   assert.doesNotMatch(nav, /\{ href: '\/payroll', label: 'Overview' \}/);
   assert.doesNotMatch(nav, /\{ href: '\/payroll\/exports', label: 'Exports' \}/);
   assert.doesNotMatch(nav, /\{ href: '\/payroll\/configuration', label: 'Scope & settings' \}/);
@@ -308,7 +308,10 @@ test('operational core exposes planning, attendance and payroll as one workspace
   assert.match(reservations, /if \(reservation\.table_ids\.length\) return false/);
   assert.match(reservations, /!reservation\.room_preference_id \|\| liveRoomIds\.has/);
   assert.match(reservations, /t\('Unassigned'\)/);
-  assert.match(payrollRedirect, /redirect\(307, '\/payroll\/employees'\)/);
+  assert.match(payroll, /<PayrollSetupWorkspace/);
+  assert.match(payroll, /href="\/team\/contracts"/);
+  assert.match(payroll, /href="\/timesheet"/);
+  assert.match(payroll, /href="\/exports"/);
   assert.match(absences, /href="\/settings\/absence-types"/);
   assert.doesNotMatch(absences, /href="\/restaurant\/absence-types"/);
   assert.match(absences, /\{#if allAbsences\.length\}\s*<thead>/);
@@ -326,12 +329,12 @@ test('Exports is a standalone manager records module', async () => {
   assert.match(exportsPage, /MAX_EXPORT_DAYS/);
   assert.match(exportsPage, /previewSocialSecretariatCsv/);
   assert.match(exportsPage, /workspace\.effectiveRole === 'owner'/);
-  assert.match(exportsPage, /disabled=\{!completeWeeks \|\| Boolean\(preparing\)\}/);
+  assert.match(exportsPage, /if \(!restaurantId \|\| !owner \|\| !completeWeeks\) return/);
   assert.match(exportsPage, /social-secretariat file remains available/);
   assert.match(exportsPage, /ExportWizard/);
-  assert.match(exportsPage, /configureExport\('planning'\)/);
-  assert.match(exportsPage, /configureExport\('worked'\)/);
-  assert.match(exportsPage, /configureExport\('social'\)/);
+  assert.match(exportsPage, /openExport\('planning'\)/);
+  assert.match(exportsPage, /openExport\('worked'\)/);
+  assert.match(exportsPage, /openExport\('social'\)/);
 });
 
 test('restaurant coverage stages only a complete weekday row, in place, before shared save', async () => {
@@ -362,7 +365,7 @@ test('unsaved changes guard routes and context-changing account actions', async 
   const myTime = await readFile('src/routes/(app)/my-time/+page.svelte', 'utf8');
   const timesheetEditor = await readFile('src/lib/timesheet/TimesheetEntryEditor.svelte', 'utf8');
   const timesheet = await readFile('src/routes/(app)/timesheet/+page.svelte', 'utf8');
-  const access = await readFile('src/routes/(app)/team/access/+page.svelte', 'utf8');
+  const accessControl = await readFile('src/lib/workspace-ui/EmployeeAccessControl.svelte', 'utf8');
   const reservationFloorPlans = await readFile('src/lib/reservations/ReservationFloorPlansWorkspace.svelte', 'utf8');
   const reservationSetup = await readFile('src/lib/reservations/ReservationSetupWorkspace.svelte', 'utf8');
   const timesheetDialog = await readFile('src/lib/timesheet/TimesheetEntryDialog.svelte', 'utf8');
@@ -383,7 +386,8 @@ test('unsaved changes guard routes and context-changing account actions', async 
   assert.match(timesheetEditor, /id: 'timesheet-entry-editor'/);
   assert.match(timesheet, /selectEntry[\s\S]*unsavedChanges\.runOrRequest/);
   assert.match(timesheetDialog, /function close\(\)[\s\S]*unsavedChanges\.runOrRequest\(onclose\)/);
-  assert.match(access, /id: 'team-invitation'/);
+  assert.match(accessControl, /id: `team-invitation-\$\{employee\.id\}`/);
+  assert.match(accessControl, /isDirty: \(\) => inviteDirty/);
   assert.match(reservationFloorPlans, /id: mode === 'areas' \? 'restaurant-floor-layout' : 'reservation-table-layout'/);
   // The floor-plan draft outlives the view, so its guard is scoped to the tabs
   // that edit the same plan instead of blocking every navigation.
@@ -475,7 +479,8 @@ test('Coverage inherits the same explicit grid contract as every workspace table
 
 test('Home stays a visual module portal with concise operational signals', async () => {
   const home = await readFile('src/routes/(app)/home/+page.svelte', 'utf8');
-  const payrollEmployees = await readFile('src/routes/(app)/payroll/employees/+page.svelte', 'utf8');
+  const payroll = await readFile('src/routes/(app)/payroll/+page.svelte', 'utf8');
+  const payrollSetup = await readFile('src/lib/payroll/PayrollSetupWorkspace.svelte', 'utf8');
   assert.match(home, /buildHomeModel/);
   assert.match(home, /workspace\.loadOperations\(activeWeek, addDays\(activeWeek, 6\)\)/);
   assert.match(home, /aria-label=\{t\('Restaurant modules'\)\}/);
@@ -487,8 +492,9 @@ test('Home stays a visual module portal with concise operational signals', async
   assert.doesNotMatch(home, /\{t\('Needs you'\)\}/);
   assert.doesNotMatch(home, /\{t\('Floor status'\)\}/);
   assert.match(home, /modulesForRole/);
-  assert.doesNotMatch(payrollEmployees, /<WorkspaceStat\b|class="cl-stats"/);
-  assert.match(payrollEmployees, /<WorkspaceTablePanel/);
+  assert.doesNotMatch(payroll, /<WorkspaceStat\b|class="cl-stats"/);
+  assert.match(payroll, /<PayrollSetupWorkspace/);
+  assert.match(payrollSetup, /<WorkspaceTablePanel/);
 });
 
 test('workspace grids share one sticky, searchable grouping and filtering contract', async () => {
@@ -520,8 +526,7 @@ test('Planning, Team, Restaurant and Payroll use the same first-column grouping 
     'src/routes/(app)/team/absences/+page.svelte',
     'src/routes/(app)/restaurant/positions/+page.svelte',
     'src/lib/team/TimeOffPoliciesWorkspace.svelte',
-    'src/routes/(app)/restaurant/coverage/+page.svelte',
-    'src/routes/(app)/payroll/employees/+page.svelte'
+    'src/routes/(app)/restaurant/coverage/+page.svelte'
   ];
 
   for (const file of groupedPages) {
@@ -597,7 +602,7 @@ test('Home integrates labelled upcoming modules while Areas and Tables stay sepa
   assert.match(home, /\{t\('Coming next'\)\}/);
   assert.doesNotMatch(home, /tile--upcoming/);
   assert.match(nav, /\/restaurant\/areas', label: 'Areas'/);
-  assert.match(nav, /\/reservations\/floor-plans', label: 'Tables'/);
+  assert.match(nav, /\/reservations\/floor-plans', label: 'Floor plan'/);
   const reportsBlock = nav.match(/key: 'reports'[\s\S]*?  \},/)?.[0] ?? '';
   assert.match(reportsBlock, /subNav:/);
   assert.doesNotMatch(reportsBlock, /placeholder|homeOnly/);

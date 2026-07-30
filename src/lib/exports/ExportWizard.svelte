@@ -2,6 +2,7 @@
   import {
     ArrowLeft,
     ArrowRight,
+    CalendarDays,
     Check,
     Columns3,
     Download,
@@ -9,6 +10,7 @@
     FileSpreadsheet,
     FileText,
     GripVertical,
+    LoaderCircle,
     RotateCcw
   } from '@lucide/svelte';
   import ActionButton from '$lib/components/ActionButton.svelte';
@@ -25,10 +27,34 @@
   let {
     open,
     file,
+    kind,
+    periodPreset,
+    fromDate,
+    toDate,
+    rangeDays,
+    validDates,
+    validRange,
+    completeWeeks,
+    loading,
+    onpresetchange,
+    onfromchange,
+    ontochange,
     onclose
   }: {
     open: boolean;
     file: PreparedExport | null;
+    kind: 'planning' | 'worked' | 'social' | '';
+    periodPreset: 'this_week' | 'previous_week' | 'this_month' | 'custom';
+    fromDate: string;
+    toDate: string;
+    rangeDays: number;
+    validDates: boolean;
+    validRange: boolean;
+    completeWeeks: boolean;
+    loading: boolean;
+    onpresetchange: (value: 'this_week' | 'previous_week' | 'this_month' | 'custom') => void;
+    onfromchange: (value: string) => void;
+    ontochange: (value: string) => void;
     onclose: () => void;
   } = $props();
 
@@ -47,6 +73,18 @@
   );
   const projectedFile = $derived(
     file ? projectExportColumns(file, orderedSelection) : null
+  );
+  const dialogTitle = $derived(
+    file?.title ??
+      t(
+        kind === 'planning'
+          ? 'Schedule export'
+          : kind === 'worked'
+            ? 'Time export'
+            : kind === 'social'
+              ? 'Social-secretariat export'
+              : 'Export'
+      )
   );
 
   $effect(() => {
@@ -198,38 +236,96 @@
 <Dialog
   {open}
   size="large"
-  title={file?.title ?? t('Export')}
-  description={file ? `${file.periodLabel} · ${file.rows.length} ${t('records')}` : ''}
+  title={dialogTitle}
+  description={file
+    ? `${file.periodLabel} · ${file.rows.length} ${t('records')}`
+    : t('Choose the period, format and columns in one place.')}
   onclose={() => !downloading && onclose()}
 >
-  {#if file && projectedFile}
+  {#if open}
     <div class="export-workspace">
-      <section class="format-section" aria-labelledby="format-heading">
+      <section class="period-section" aria-labelledby="period-heading">
         <div class="section-copy">
-          <strong id="format-heading">{t('File format')}</strong>
-          <span>{t('Choose how you want to use the file.')}</span>
+          <strong id="period-heading">{t('Export period')}</strong>
+          <span>{t('The preview refreshes when the date range changes.')}</span>
         </div>
-        <div class="format-switch" role="radiogroup" aria-label={t('File format')}>
-          {#each formatOptions as option}
-            <button
-              type="button"
-              class:is-selected={format === option.value}
-              role="radio"
-              aria-checked={format === option.value}
-              title={t(option.detail)}
-              onclick={() => (format = option.value)}
+        <div class="period-controls">
+          <label>
+            <span>{t('Quick range')}</span>
+            <select
+              class="cl-field"
+              value={periodPreset}
+              onchange={(event) => onpresetchange(event.currentTarget.value as typeof periodPreset)}
             >
-              <span class="format-icon is-{option.value}">
-                <option.icon size={18} aria-hidden="true" />
-              </span>
-              <span>{t(option.label)}</span>
-              {#if format === option.value}<Check size={13} aria-hidden="true" />{/if}
-            </button>
-          {/each}
+              <option value="this_week">{t('This week')}</option>
+              <option value="previous_week">{t('Previous week')}</option>
+              <option value="this_month">{t('This month')}</option>
+              <option value="custom">{t('Custom')}</option>
+            </select>
+          </label>
+          <label>
+            <span>{t('From')}</span>
+            <input class="cl-field" type="date" value={fromDate} onchange={(event) => onfromchange(event.currentTarget.value)} />
+          </label>
+          <label>
+            <span>{t('To')}</span>
+            <input class="cl-field" type="date" value={toDate} onchange={(event) => ontochange(event.currentTarget.value)} />
+          </label>
+          <div class="period-summary" class:is-invalid={!validRange}>
+            <CalendarDays size={15} aria-hidden="true" />
+            <span>
+              <strong>{validDates ? `${rangeDays} ${rangeDays === 1 ? t('day') : t('days')}` : t('Check dates')}</strong>
+              <small>{validRange ? `${fromDate} → ${toDate}` : t(validDates ? 'Maximum 53 weeks' : 'End must follow start')}</small>
+            </span>
+          </div>
         </div>
       </section>
 
-      <section class="preview-block" aria-labelledby="preview-heading">
+      {#if loading}
+        <div class="wizard-state">
+          <LoaderCircle class="spin" size={22} aria-hidden="true" />
+          <strong>{t('Preparing preview…')}</strong>
+          <span>{t('Loading the selected period from the restaurant workspace.')}</span>
+        </div>
+      {:else if !validRange}
+        <div class="wizard-state is-problem">
+          <CalendarDays size={22} aria-hidden="true" />
+          <strong>{t(validDates ? 'Range too long' : 'Check the dates')}</strong>
+          <span>{t(validDates ? 'Exports can cover at most 53 weeks.' : 'The end date must follow the start date.')}</span>
+        </div>
+      {:else if kind === 'social' && !completeWeeks}
+        <div class="wizard-state is-attention">
+          <CalendarDays size={22} aria-hidden="true" />
+          <strong>{t('Select complete weeks')}</strong>
+          <span>{t('Social-secretariat exports must run from Monday through Sunday.')}</span>
+        </div>
+      {:else if file && projectedFile}
+        <section class="format-section" aria-labelledby="format-heading">
+          <div class="section-copy">
+            <strong id="format-heading">{t('File format')}</strong>
+            <span>{t('Choose how you want to use the file.')}</span>
+          </div>
+          <div class="format-switch" role="radiogroup" aria-label={t('File format')}>
+            {#each formatOptions as option}
+              <button
+                type="button"
+                class:is-selected={format === option.value}
+                role="radio"
+                aria-checked={format === option.value}
+                title={t(option.detail)}
+                onclick={() => (format = option.value)}
+              >
+                <span class="format-icon is-{option.value}">
+                  <option.icon size={18} aria-hidden="true" />
+                </span>
+                <span>{t(option.label)}</span>
+                {#if format === option.value}<Check size={13} aria-hidden="true" />{/if}
+              </button>
+            {/each}
+          </div>
+        </section>
+
+        <section class="preview-block" aria-labelledby="preview-heading">
         <header>
           <div>
             <strong id="preview-heading">{t('File preview')}</strong>
@@ -338,7 +434,14 @@
             <span>{t('Visible columns appear here in their export order.')}</span>
           </div>
         {/if}
-      </section>
+        </section>
+      {:else}
+        <div class="wizard-state">
+          <FileText size={22} aria-hidden="true" />
+          <strong>{t('No records in this period')}</strong>
+          <span>{t('Choose another period to prepare this file.')}</span>
+        </div>
+      {/if}
     </div>
   {/if}
 
@@ -370,6 +473,59 @@
     align-content: start;
     gap: 18px;
   }
+  .period-section {
+    display: grid;
+    gap: 10px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--rst-ui-divider-soft);
+  }
+  .period-controls {
+    display: grid;
+    grid-template-columns: minmax(135px, .8fr) repeat(2, minmax(135px, .8fr)) minmax(190px, 1.2fr);
+    align-items: end;
+    gap: 8px;
+  }
+  .period-controls > label { min-width: 0; display: grid; gap: 5px; }
+  .period-controls > label > span {
+    color: var(--rst-ui-muted);
+    font-size: 9px;
+    font-weight: var(--rst-fw-bold);
+    text-transform: uppercase;
+  }
+  .period-controls .cl-field { width: 100%; min-width: 0; }
+  .period-summary {
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 9px;
+    border-left: 3px solid var(--rst-ui-action);
+    background: rgba(var(--rst-ui-action-rgb), .05);
+  }
+  .period-summary > :global(svg) { flex: 0 0 auto; color: var(--rst-ui-action); }
+  .period-summary > span { min-width: 0; display: grid; gap: 1px; }
+  .period-summary strong,
+  .period-summary small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .period-summary strong { color: var(--rst-ui-text); font-size: 10px; }
+  .period-summary small { color: var(--rst-ui-muted); font-size: 8.5px; }
+  .period-summary.is-invalid { border-left-color: var(--rst-state-danger-text); background: var(--rst-state-danger-bg); }
+  .period-summary.is-invalid > :global(svg) { color: var(--rst-state-danger-text); }
+  .wizard-state {
+    min-height: 260px;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 7px;
+    padding: 24px;
+    color: var(--rst-ui-muted);
+    text-align: center;
+  }
+  .wizard-state strong { color: var(--rst-ui-text); font-size: 13px; }
+  .wizard-state span { max-width: 420px; font-size: 10.5px; line-height: 1.45; }
+  .wizard-state.is-problem { color: var(--rst-state-danger-text); }
+  .wizard-state.is-attention { color: var(--rst-state-warning-text); }
+  :global(.spin) { animation: spin 800ms linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
   .format-section {
     display: flex;
     align-items: center;
@@ -700,6 +856,9 @@
   }
   @media (max-width: 760px) {
     .export-workspace { min-height: 0; }
+    .period-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .period-controls > label:first-child,
+    .period-summary { grid-column: 1 / -1; }
     .format-section {
       display: grid;
       align-items: stretch;

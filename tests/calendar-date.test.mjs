@@ -9,6 +9,7 @@ import {
   hoursBetweenClocks,
   mondayFor,
   monthDates,
+  serviceWindowProgress,
   serviceKeysWithEvidence,
   todayInTimezone,
   weekdayDateLabel,
@@ -78,5 +79,55 @@ test('configured service periods keep inactive setup rows while active grids fol
   assert.deepEqual(
     activeServicePeriods(undefined).map((service) => service.name),
     ['Day', 'Night']
+  );
+});
+
+test('the live roster marker follows the configured service window', () => {
+  const services = [
+    {
+      service_key: 'day',
+      name: 'Day',
+      active: true,
+      sort_order: 10,
+      metadata: { default_start: '10:00', default_end: '14:00' }
+    },
+    {
+      service_key: 'night',
+      name: 'Night',
+      active: true,
+      sort_order: 20,
+      metadata: { default_start: '18:00', default_end: '22:00' }
+    }
+  ];
+
+  assert.equal(
+    serviceWindowProgress(services, 'UTC', new Date('2026-07-30T16:00:00Z')),
+    0.5
+  );
+  assert.equal(
+    serviceWindowProgress(services, 'UTC', new Date('2026-07-30T08:00:00Z')),
+    0.02
+  );
+  assert.equal(
+    serviceWindowProgress(services, 'UTC', new Date('2026-07-30T23:00:00Z')),
+    0.98
+  );
+
+  const overnight = [
+    {
+      service_key: 'night',
+      name: 'Night',
+      active: true,
+      sort_order: 10,
+      metadata: { default_start: '18:00', default_end: '02:00' }
+    }
+  ];
+  assert.equal(
+    serviceWindowProgress(overnight, 'UTC', new Date('2026-07-31T01:00:00Z')),
+    0.875
+  );
+  assert.equal(
+    serviceWindowProgress(overnight, 'UTC', new Date('2026-07-31T08:00:00Z')),
+    0.02
   );
 });

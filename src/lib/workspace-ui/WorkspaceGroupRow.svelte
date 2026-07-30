@@ -8,6 +8,7 @@
     color = '',
     icon,
     liveColumn = -1,
+    liveProgress = 0,
     collapsed = false,
     dropTarget = false,
     ontoggle,
@@ -22,6 +23,8 @@
     icon?: Snippet;
     /** Zero-based table column crossed by the live-today marker. */
     liveColumn?: number;
+    /** Horizontal position within that column, from 0 to 1. */
+    liveProgress?: number;
     collapsed?: boolean;
     dropTarget?: boolean;
     ontoggle: () => void;
@@ -38,6 +41,7 @@
 <tr
   class="cl-group-row"
   class:is-drop-target={dropTarget}
+  style={`--live-progress:${Math.max(0, Math.min(1, liveProgress)) * 100}%`}
   {ondragover}
   {ondragleave}
   {ondrop}
@@ -93,7 +97,7 @@
     z-index: 12;
     top: 0;
     bottom: 0;
-    left: 0;
+    left: var(--live-progress, 0%);
     width: var(--cl-live-marker-width);
     background: var(--cl-live-marker);
     box-shadow: 0 0 3px color-mix(in srgb, var(--cl-live-marker) 34%, transparent);

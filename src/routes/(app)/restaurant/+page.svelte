@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ExternalLink, Globe2, MapPin, Search } from '@lucide/svelte';
+  import { onDestroy } from 'svelte';
   import { friendlyError } from '$lib/api/error-messages';
   import { WEEKDAYS, type ServiceKey } from '$lib/calendar/date';
   import { t } from '$lib/i18n/i18n.svelte';
@@ -30,10 +31,17 @@
   let locationBusy = $state(false);
   let locationError = $state('');
   let locationCandidates = $state<RestaurantAddressCandidate[]>([]);
+  let addressSearchTimer: ReturnType<typeof setTimeout> | undefined;
+  let locationRequest = 0;
   const snapshot = $derived(workspace.restaurant);
   const logoUrl = $derived.by(() => {
     const url = restaurantLogoUrl(snapshot?.restaurant.logo_path);
     return url && logoVersion ? `${url}?v=${logoVersion}` : url;
+  });
+
+  onDestroy(() => {
+    clearTimeout(addressSearchTimer);
+    locationRequest += 1;
   });
 
   async function handleLogoChange(event: Event & { currentTarget: HTMLInputElement }) {
@@ -99,28 +107,41 @@
     locationCandidates = [];
     locationError = '';
     restaurantConfig.touch();
+    clearTimeout(addressSearchTimer);
+    const hasEnoughAddress =
+      context.draft.address.trim().length >= 4 &&
+      (context.draft.postalCode.trim().length >= 3 ||
+        context.draft.city.trim().length >= 2);
+    if (hasEnoughAddress) {
+      addressSearchTimer = setTimeout(() => void locateRestaurant(true), 650);
+    }
   }
 
-  async function locateRestaurant() {
-    if (!context || locationBusy) return;
+  async function locateRestaurant(automatic = false) {
+    if (!context) return;
     const query = restaurantAddressQuery({
       restaurantName: context.draft.displayName,
       street: context.draft.address,
       postalCode: context.draft.postalCode,
       city: context.draft.city
     });
+    const request = ++locationRequest;
     locationBusy = true;
     locationError = '';
     locationCandidates = [];
     try {
-      locationCandidates = await searchBelgianRestaurantAddress(query);
-      if (!locationCandidates.length) {
+      const candidates = await searchBelgianRestaurantAddress(query);
+      if (request !== locationRequest) return;
+      locationCandidates = candidates;
+      if (!candidates.length && !automatic) {
         locationError = t('No matching Belgian address was found.');
       }
     } catch {
-      locationError = t('The address service is unavailable. Try again shortly.');
+      if (request === locationRequest) {
+        locationError = t('The address service is unavailable. Try again shortly.');
+      }
     } finally {
-      locationBusy = false;
+      if (request === locationRequest) locationBusy = false;
     }
   }
 
@@ -332,31 +353,54 @@
             <section class="field-group">
               <div class="field-group__head">
                 <span class="field-group__title">{t('Location')}</span>
-                <button
-                  class="cl-btn locate-button"
-                  type="button"
-                  disabled={locationBusy || (!draft.address.trim() && !draft.city.trim())}
-                  onclick={locateRestaurant}
-                >
-                  <Search size={14} aria-hidden="true" />
-                  {t(locationBusy ? 'Finding address…' : 'Find on map')}
-                </button>
+                {#if locationBusy}
+                  <span class="location-state is-searching">
+                    <Search size={13} aria-hidden="true" />
+                    {t('Searching address…')}
+                  </span>
+                {:else if resolvedLocation}
+                  <span class="location-state is-confirmed">
+                    <MapPin size={13} aria-hidden="true" />
+                    {t('Location confirmed')}
+                  </span>
+                {:else if locationError}
+                  <button
+                    class="location-state is-retry"
+                    type="button"
+                    disabled={!draft.address.trim() && !draft.city.trim()}
+                    onclick={() => void locateRestaurant()}
+                  >
+                    <Search size={13} aria-hidden="true" />
+                    {t('Try address search again')}
+                  </button>
+                {:else}
+                  <span class="location-state">
+                    <Search size={13} aria-hidden="true" />
+                    {t('Address lookup is automatic')}
+                  </span>
+                {/if}
               </div>
               <div class="location-layout">
                 <div class="location-fields">
                   <div class="field-row is-address">
                     <label class="cl-label">
                       <span>{t('Street and number')}</span>
-                      <input class="cl-field" bind:value={draft.address} oninput={touchAddress} />
+                      <input class="cl-field" autocomplete="street-address" bind:value={draft.address} oninput={touchAddress} />
                     </label>
-                    <label class="cl-label">
-                      <span>{t('Postal code')}</span>
-                      <input class="cl-field" bind:value={draft.postalCode} oninput={touchAddress} />
-                    </label>
-                    <label class="cl-label">
-                      <span>{t('City')}</span>
-                      <input class="cl-field" bind:value={draft.city} oninput={touchAddress} />
-                    </label>
+                    <div class="address-lower">
+                      <label class="cl-label">
+                        <span>{t('Postal code')}</span>
+                        <input class="cl-field" autocomplete="postal-code" bind:value={draft.postalCode} oninput={touchAddress} />
+                      </label>
+                      <label class="cl-label">
+                        <span>{t('City')}</span>
+                        <input class="cl-field" autocomplete="address-level2" bind:value={draft.city} oninput={touchAddress} />
+                      </label>
+                      <label class="cl-label">
+                        <span>{t('Country')}</span>
+                        <input class="cl-field" value={t('Belgium')} disabled />
+                      </label>
+                    </div>
                   </div>
 
                   {#if locationCandidates.length}
@@ -371,9 +415,7 @@
                   {:else if locationError}
                     <p class="location-error">{locationError}</p>
                   {:else}
-                    <p class="location-help">
-                      {t('Search once to confirm the exact entrance used for maps and local context.')}
-                    </p>
+                    <p class="location-help">{t('Start typing the address. Matching Belgian locations appear automatically.')}</p>
                   {/if}
                 </div>
 
@@ -720,10 +762,33 @@
     justify-content: space-between;
     gap: 10px;
   }
-  .locate-button {
+  .location-state {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    min-height: 28px;
+    padding: 0;
+    border: 0;
+    color: var(--cl-muted);
+    background: transparent;
+    font: inherit;
+    font-size: 10.5px;
+  }
+  .location-state.is-searching :global(svg) {
+    animation: location-pulse 1s ease-in-out infinite alternate;
+  }
+  .location-state.is-confirmed {
+    color: var(--cl-ok);
+    font-weight: var(--rst-fw-bold);
+  }
+  .location-state.is-retry {
+    color: var(--cl-problem);
+    cursor: pointer;
+  }
+  .location-state.is-retry:hover { color: var(--cl-accent); }
+  @keyframes location-pulse {
+    from { opacity: .35; }
+    to { opacity: 1; }
   }
 
   /* Collapsible minimums: an input's intrinsic width must not hold the track
@@ -741,7 +806,12 @@
   }
 
   .field-row.is-address {
-    grid-template-columns: minmax(0, 1.4fr) minmax(0, .5fr) minmax(0, .9fr);
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .address-lower {
+    display: grid;
+    grid-template-columns: minmax(92px, .52fr) minmax(0, 1fr) minmax(110px, .64fr);
+    gap: 9px;
   }
 
   .identity-fields :global(.cl-label) {
@@ -1168,7 +1238,8 @@
     }
 
     .field-row.is-contact,
-    .field-row.is-address {
+    .field-row.is-address,
+    .address-lower {
       grid-template-columns: minmax(0, 1fr);
     }
     .field-row.is-contact > :last-child {

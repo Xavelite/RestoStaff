@@ -53,7 +53,7 @@ test('manager navigation follows the product workflow and owner payroll stays fo
 
   const payroll = moduleForPath('/payroll');
   assert.equal(payroll?.key, 'payroll');
-  assert.equal(payroll?.href, '/payroll/employees');
+  assert.equal(payroll?.href, '/payroll');
   assert.equal(payroll?.subNav, undefined);
   assert.equal(moduleForPath('/payroll/employees')?.key, 'payroll');
   assert.equal(moduleForPath('/exports')?.key, 'exports');

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Snippet } from 'svelte';
+  import { tick, type Snippet } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import WorkspaceColumnResizeHandle from './WorkspaceColumnResizeHandle.svelte';
 
@@ -50,6 +50,7 @@
   let open = $state(false);
   let root = $state<HTMLElement | null>(null);
   let trigger = $state<HTMLButtonElement | null>(null);
+  let menu = $state<HTMLElement | null>(null);
   let menuLeft = $state(0);
   let menuTop = $state(0);
   let menuRight = $state(false);
@@ -73,14 +74,20 @@
     const menuWidth = 260;
     menuRight = rect.left + menuWidth > window.innerWidth - 12;
     menuLeft = menuRight ? Math.max(12, rect.right - menuWidth) : Math.max(12, rect.left - 8);
-    menuTop = Math.min(window.innerHeight - 20, rect.bottom + 4);
+    const menuHeight = menu?.getBoundingClientRect().height ?? 320;
+    const spaceBelow = window.innerHeight - rect.bottom - 12;
+    const spaceAbove = rect.top - 12;
+    menuTop =
+      spaceBelow >= Math.min(menuHeight, 320) || spaceBelow >= spaceAbove
+        ? Math.min(window.innerHeight - Math.min(menuHeight, window.innerHeight - 24) - 12, rect.bottom + 4)
+        : Math.max(12, rect.top - menuHeight - 4);
   }
 
   function toggleMenu() {
     open = !open;
     if (open) {
       filterSearch = '';
-      positionMenu();
+      void tick().then(positionMenu);
     }
   }
 
@@ -106,7 +113,7 @@
   });
 </script>
 
-<div class="colhead" class:is-center={align === 'center'} class:is-right={align === 'right'} bind:this={root}>
+<div class="colhead" class:is-center={align === 'center'} class:is-right={align === 'right'} data-column-key={columnKey} bind:this={root}>
   <button class="colhead__label" class:is-sortable={sortable} type="button" onclick={toggleSort} title={sortable ? t('Sort') : undefined}>
     <span class="colhead__copy">
       <span>
@@ -141,7 +148,7 @@
   {/if}
 
   {#if open}
-    <div class="colmenu is-floating" class:is-right={menuRight} style={`left:${menuLeft}px;top:${menuTop}px`} role="menu">
+    <div bind:this={menu} class="colmenu is-floating" class:is-right={menuRight} style={`left:${menuLeft}px;top:${menuTop}px`} role="menu">
       {#if filterKind === 'text'}
         <div class="colmenu__search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.2-3.2" /></svg>

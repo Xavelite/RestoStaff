@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Pencil } from '@lucide/svelte';
   import { onMount, tick } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import {
@@ -9,11 +10,12 @@
     positionAreaVisualIdentity
   } from '$lib/ui/position-color';
   import { personInitials } from '$lib/ui/person';
+  import { confirmAction } from '$lib/ui/confirm.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import type { EmployeeDraft } from '$lib/team/team-model';
   import { newEmployeeDraft } from '$lib/team/team-model';
   import { useWorkspaceTeamContext } from '$lib/workspace-ui/workspace-context';
-  import WorkspaceCellBadge from '$lib/workspace-ui/WorkspaceCellBadge.svelte';
+  import EmployeeAccessControl from '$lib/workspace-ui/EmployeeAccessControl.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
   import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
@@ -22,6 +24,7 @@
   import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
   import EmployeeInlineEditor from '$lib/workspace-ui/EmployeeInlineEditor.svelte';
   import WorkspacePicker from '$lib/workspace-ui/WorkspacePicker.svelte';
+  import WorkspaceToggle from '$lib/workspace-ui/WorkspaceToggle.svelte';
   import { teamDraft } from '$lib/workspace-ui/workspace-team.svelte';
   import { createTableView, peopleCountLabel } from '$lib/workspace-ui/table-view.svelte';
   import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
@@ -172,6 +175,21 @@
     if (!teamDraft.isPending(employeeId)) return;
     teamDraft.remove(employeeId);
     detailId = '';
+  }
+
+  async function setEmployeeActive(employee: EmployeeDraft, active: boolean): Promise<void> {
+    if (!team?.editable) return;
+    if (!active) {
+      const confirmed = await confirmAction({
+        title: t('Archive {name}?', { name: employee.displayName }),
+        body: t('They will disappear from new planning. Historical shifts, time entries and documents are preserved.'),
+        confirmLabel: t('Archive employee'),
+        cancelLabel: t('Keep active'),
+        tone: 'danger'
+      });
+      if (!confirmed) return;
+    }
+    teamDraft.update(employee.id, { active });
   }
 
   async function startInlineEdit(employee: EmployeeDraft, field: 'email' | 'phone') {
@@ -406,27 +424,6 @@
     });
   }
 
-  const ACCESS_LABEL: Record<string, string> = {
-    active: 'Enabled',
-    disabled: 'Disabled',
-    expired: 'Expired',
-    invited: 'Invited',
-    revoked: 'Revoked',
-    not_invited: 'Not invited'
-  };
-
-  const accessTone: Record<string, 'success' | 'warning' | 'danger'> = {
-    active: 'success',
-    disabled: 'danger',
-    expired: 'danger',
-    invited: 'warning',
-    revoked: 'warning',
-    not_invited: 'warning'
-  };
-
-  const accessIcon = (state: string): 'check' | 'clock' | 'minus' | 'lock' =>
-    state === 'active' ? 'check' : state === 'invited' ? 'clock' : state === 'not_invited' ? 'minus' : 'lock';
-
   const readTeamContext = useWorkspaceTeamContext();
   const team = $derived(readTeamContext());
 </script>
@@ -630,6 +627,7 @@
                           onclick={() => startInlineEdit(employee, 'email')}
                         >
                           <span>{employee.email || t('Add')}</span>
+                          {#if !employee.email}<Pencil size={12} aria-hidden="true" />{/if}
                         </button>
                       {/if}
                     </td>{/if}
@@ -657,6 +655,7 @@
                           onclick={() => startInlineEdit(employee, 'phone')}
                         >
                           <span>{employee.phone || t('Add')}</span>
+                          {#if !employee.phone}<Pencil size={12} aria-hidden="true" />{/if}
                         </button>
                       {/if}
                     </td>{/if}
@@ -669,8 +668,15 @@
                         onchange={(next) => teamDraft.update(employee.id, { contractTypeId: next })}
                       />
                     </td>{/if}
-                    {#if shown('access')}<td><WorkspaceCellBadge label={ACCESS_LABEL[employee.accessState] ?? employee.accessState} tone={accessTone[employee.accessState] ?? 'warning'} icon={accessIcon(employee.accessState)} /></td>{/if}
-                    {#if shown('status')}<td><WorkspaceCellBadge label={employee.active ? 'Active' : 'Archived'} tone={employee.active ? 'success' : 'warning'} icon={employee.active ? 'check' : 'clock'} /></td>{/if}
+                    {#if shown('access')}<td class="action-cell"><EmployeeAccessControl {employee} disabled={!team.editable || team.dirty || isFresh} /></td>{/if}
+                    {#if shown('status')}<td>
+                      <WorkspaceToggle
+                        checked={employee.active}
+                        label={employee.active ? 'Active' : 'Archived'}
+                        disabled={!team.editable || isFresh}
+                        onchange={(active) => void setEmployeeActive(employee, active)}
+                      />
+                    </td>{/if}
                     <td class="menu-cell">
                       <WorkspaceRowMenu
                         disabled={!team.editable}
@@ -776,6 +782,8 @@
   .inline-cell:hover:not(:disabled), .inline-cell:focus-visible { border-color: color-mix(in srgb, var(--cl-accent) 22%, var(--cl-line)); color: var(--cl-ink); background: var(--cl-accent-wash); }
   .inline-cell.is-empty { color: var(--cl-accent); font-size: 12px; font-weight: var(--rst-fw-medium); }
   .inline-cell:disabled { cursor: default; }
+  .inline-cell :global(svg) { flex: 0 0 auto; color: var(--cl-accent); }
+  .action-cell { padding: 0 !important; }
   .inline-editor { border-color: var(--cl-accent); background: var(--cl-surface); box-shadow: 0 0 0 2px var(--cl-accent-wash); }
   .posmenu__trigger { min-width: 170px; max-width: 230px; display: inline-grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 7px; padding: 6px 9px; border: 1px solid color-mix(in srgb, var(--position-color) 28%, var(--cl-line)); border-radius: 6px; background: color-mix(in srgb, var(--position-color) 7%, var(--cl-surface)); color: var(--cl-ink); font: inherit; font-size: 13px; text-align: left; cursor: pointer; white-space: nowrap; }
   .posmenu__trigger:hover:not(:disabled), .posmenu__trigger[aria-expanded='true'] { border-color: color-mix(in srgb, var(--position-color) 60%, var(--cl-line)); background: color-mix(in srgb, var(--position-color) 10%, var(--cl-surface)); }
@@ -785,7 +793,7 @@
   .posmenu__trigger > span { display: grid; overflow: hidden; text-overflow: ellipsis; }
   .posmenu__trigger > span small { overflow: hidden; color: var(--cl-muted); font-size: 9px; font-weight: var(--rst-fw-regular); text-overflow: ellipsis; }
   .posmenu__trigger > em { min-width: 18px; height: 18px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--position-color) 30%, var(--cl-line)); border-radius: 999px; color: var(--cl-muted); font-size: 9px; font-style: normal; }
-  .posmenu__list { position: fixed; z-index: var(--rst-z-popover, 120); display: grid; gap: 6px; width: min(340px, calc(100vw - 24px)); max-height: min(420px, calc(100vh - 24px)); overflow: auto; padding: 8px 10px 10px; border: 1px solid var(--cl-line-strong); border-radius: var(--cl-radius); background: var(--cl-surface); box-shadow: 0 14px 36px rgba(15,23,42,.16); }
+  .posmenu__list { position: fixed; z-index: 460; display: grid; gap: 6px; width: min(340px, calc(100vw - 24px)); max-height: min(420px, calc(100vh - 24px)); overflow: auto; padding: 8px 10px 10px; border: 1px solid var(--cl-line-strong); border-radius: var(--cl-radius); background: var(--cl-surface); box-shadow: 0 14px 36px rgba(15,23,42,.16); }
   .posmenu__head { position: sticky; top: -8px; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -2px -4px 2px; padding: 8px 8px 9px; border-bottom: 1px solid var(--cl-line); background: var(--cl-surface); }
   .posmenu__head > span { display: grid; gap: 1px; }
   .posmenu__head strong { color: var(--cl-ink); font-size: 12px; }

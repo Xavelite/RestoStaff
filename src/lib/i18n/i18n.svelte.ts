@@ -5584,7 +5584,7 @@ Object.assign(french, {
   'Payroll details ready': 'Données salariales prêtes',
   'Paired devices and the clock-in terminal': 'Appareils associés et terminal de pointage',
   'Bookings, covers, tables and service demand': 'Réservations, couverts, tables et demande par service',
-  'Organization, connections and workforce policies': 'Organisation, connexions et règles de personnel',
+  'Time-off policy and request rules': 'Politique de congés et règles de demande',
   'Daily schedule': 'Planning du jour',
   'Daily timesheet': 'Feuille de temps du jour',
   'Choose day': 'Choisir le jour',
@@ -5679,7 +5679,7 @@ Object.assign(dutch, {
   'Payroll details ready': 'Loongegevens zijn klaar',
   'Paired devices and the clock-in terminal': 'Gekoppelde apparaten en de prikklok',
   'Bookings, covers, tables and service demand': 'Boekingen, couverts, tafels en servicevraag',
-  'Organization, connections and workforce policies': 'Organisatie, koppelingen en personeelsregels',
+  'Time-off policy and request rules': 'Verlofbeleid en aanvraagregels',
   'Daily schedule': 'Dagplanning',
   'Daily timesheet': 'Urenstaat van de dag',
   'Choose day': 'Dag kiezen',
@@ -6029,4 +6029,144 @@ Object.assign(dutch, {
   'Confirm the address to show its real location here.':
     'Bevestig het adres om de echte locatie hier te tonen.',
   'Use Day & Night starter': 'Dag- en Nachtmodel gebruiken'
+});
+
+Object.assign(french, {
+  Sidebar: 'Barre latérale',
+  'Sidebar behavior': 'Comportement de la barre latérale',
+  Pinned: 'Épinglée',
+  'Auto-hide': 'Masquage automatique',
+  'Choose the period, format and columns in one place.':
+    'Choisissez la période, le format et les colonnes au même endroit.',
+  'The preview refreshes when the date range changes.':
+    'L’aperçu se met à jour lorsque la période change.',
+  'Check dates': 'Vérifier les dates',
+  'Loading the selected period from the restaurant workspace.':
+    'Chargement de la période choisie depuis l’espace du restaurant.',
+  'Select complete weeks': 'Sélectionner des semaines complètes',
+  'Social-secretariat exports must run from Monday through Sunday.':
+    'Les exports pour le secrétariat social doivent couvrir du lundi au dimanche.',
+  'No records in this period': 'Aucun enregistrement sur cette période',
+  'Choose another period to prepare this file.':
+    'Choisissez une autre période pour préparer ce fichier.',
+  Completed: 'Terminé',
+  'vs plan': 'par rapport au planning',
+  '{count} planned services recorded.': '{count} services planifiés enregistrés.',
+  services: 'services',
+  'Use the published schedule': 'Utiliser le planning publié',
+  'Records each planned service separately. Time between services stays outside worked time.':
+    'Enregistre chaque service planifié séparément. Le temps entre les services ne compte pas comme temps presté.',
+  'Disable app access': 'Désactiver l’accès à l’application',
+  'Restore app access': 'Rétablir l’accès à l’application',
+  'Invite to Restogogo': 'Inviter sur Restogogo',
+  'Disable app access?': 'Désactiver l’accès à l’application ?',
+  '{name} will no longer be able to sign in. Employee history and badge records are preserved.':
+    '{name} ne pourra plus se connecter. Son historique et ses pointages sont conservés.',
+  'Disable access': 'Désactiver l’accès',
+  'Keep enabled': 'Garder l’accès',
+  '{name} will no longer be able to use the invitation link.':
+    '{name} ne pourra plus utiliser le lien d’invitation.',
+  'Keep invitation': 'Garder l’invitation',
+  'Discard invitation changes?': 'Abandonner les modifications de l’invitation ?',
+  'The email address or role has not been sent yet.':
+    'L’adresse e-mail ou le rôle n’a pas encore été envoyé.',
+  'Pin menu': 'Épingler le menu',
+  'Search files': 'Rechercher des fichiers',
+  'Choose the period, format and columns together before downloading.':
+    'Choisissez ensemble la période, le format et les colonnes avant le téléchargement.',
+  'Payroll workflow': 'Flux de paie',
+  'Step 1': 'Étape 1',
+  '{ready} of {total} ready': '{ready} sur {total} prêts',
+  'Step 2': 'Étape 2',
+  'Approve worked time': 'Approuver le temps presté',
+  'Review corrections and close complete weeks.':
+    'Vérifiez les corrections et clôturez les semaines complètes.',
+  'Step 3': 'Étape 3',
+  'Prepare payroll handoff': 'Préparer la transmission de paie',
+  'Create the file for your social secretariat.':
+    'Créez le fichier destiné à votre secrétariat social.',
+  'Searching address…': 'Recherche de l’adresse…',
+  'Try address search again': 'Relancer la recherche d’adresse',
+  'Address lookup is automatic': 'La recherche d’adresse est automatique',
+  Country: 'Pays',
+  'Start typing the address. Matching Belgian locations appear automatically.':
+    'Commencez à saisir l’adresse. Les adresses belges correspondantes apparaissent automatiquement.',
+  '{count} services': '{count} services',
+  'Costs & services': 'Coûts et services',
+  'estimated cost': 'coût estimé',
+  'They will disappear from new planning. Historical shifts, time entries and documents are preserved.':
+    'La personne disparaîtra des nouveaux plannings. Les services, pointages et documents historiques sont conservés.',
+  'on plan': 'conforme au planning',
+  'Plan comparison': 'Comparaison au planning',
+  'to review': 'à vérifier'
+});
+
+Object.assign(dutch, {
+  Sidebar: 'Zijbalk',
+  'Sidebar behavior': 'Gedrag van de zijbalk',
+  Pinned: 'Vastgezet',
+  'Auto-hide': 'Automatisch verbergen',
+  'Choose the period, format and columns in one place.':
+    'Kies de periode, het formaat en de kolommen op één plek.',
+  'The preview refreshes when the date range changes.':
+    'Het voorbeeld wordt vernieuwd wanneer de periode verandert.',
+  'Check dates': 'Datums controleren',
+  'Loading the selected period from the restaurant workspace.':
+    'De gekozen periode wordt geladen vanuit de restaurantwerkruimte.',
+  'Select complete weeks': 'Selecteer volledige weken',
+  'Social-secretariat exports must run from Monday through Sunday.':
+    'Exports voor het sociaal secretariaat moeten van maandag tot zondag lopen.',
+  'No records in this period': 'Geen registraties in deze periode',
+  'Choose another period to prepare this file.':
+    'Kies een andere periode om dit bestand voor te bereiden.',
+  Completed: 'Voltooid',
+  'vs plan': 'ten opzichte van planning',
+  '{count} planned services recorded.': '{count} geplande diensten geregistreerd.',
+  services: 'diensten',
+  'Use the published schedule': 'Gebruik de gepubliceerde planning',
+  'Records each planned service separately. Time between services stays outside worked time.':
+    'Registreert elke geplande dienst afzonderlijk. Tijd tussen diensten telt niet als gewerkte tijd.',
+  'Disable app access': 'App-toegang uitschakelen',
+  'Restore app access': 'App-toegang herstellen',
+  'Invite to Restogogo': 'Uitnodigen voor Restogogo',
+  'Disable app access?': 'App-toegang uitschakelen?',
+  '{name} will no longer be able to sign in. Employee history and badge records are preserved.':
+    '{name} kan niet langer aanmelden. De medewerkershistoriek en badgingen blijven bewaard.',
+  'Disable access': 'Toegang uitschakelen',
+  'Keep enabled': 'Toegang behouden',
+  '{name} will no longer be able to use the invitation link.':
+    '{name} kan de uitnodigingslink niet langer gebruiken.',
+  'Keep invitation': 'Uitnodiging behouden',
+  'Discard invitation changes?': 'Wijzigingen aan de uitnodiging verwerpen?',
+  'The email address or role has not been sent yet.':
+    'Het e-mailadres of de rol is nog niet verzonden.',
+  'Pin menu': 'Menu vastzetten',
+  'Search files': 'Bestanden zoeken',
+  'Choose the period, format and columns together before downloading.':
+    'Kies de periode, het formaat en de kolommen samen vóór het downloaden.',
+  'Payroll workflow': 'Loonworkflow',
+  'Step 1': 'Stap 1',
+  '{ready} of {total} ready': '{ready} van {total} klaar',
+  'Step 2': 'Stap 2',
+  'Approve worked time': 'Gewerkte tijd goedkeuren',
+  'Review corrections and close complete weeks.':
+    'Controleer correcties en sluit volledige weken af.',
+  'Step 3': 'Stap 3',
+  'Prepare payroll handoff': 'Loonoverdracht voorbereiden',
+  'Create the file for your social secretariat.':
+    'Maak het bestand voor uw sociaal secretariaat.',
+  'Searching address…': 'Adres zoeken…',
+  'Try address search again': 'Adres opnieuw zoeken',
+  'Address lookup is automatic': 'Adres zoeken gebeurt automatisch',
+  Country: 'Land',
+  'Start typing the address. Matching Belgian locations appear automatically.':
+    'Begin het adres te typen. Overeenkomende Belgische locaties verschijnen automatisch.',
+  '{count} services': '{count} diensten',
+  'Costs & services': 'Kosten en diensten',
+  'estimated cost': 'geschatte kost',
+  'They will disappear from new planning. Historical shifts, time entries and documents are preserved.':
+    'De persoon verdwijnt uit nieuwe planningen. Historische diensten, tijdregistraties en documenten blijven bewaard.',
+  'on plan': 'volgens planning',
+  'Plan comparison': 'Vergelijking met planning',
+  'to review': 'te controleren'
 });

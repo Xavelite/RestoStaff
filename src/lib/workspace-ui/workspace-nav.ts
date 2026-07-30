@@ -151,7 +151,7 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     subNav: [
       { href: '/reservations', label: 'Live' },
       { href: '/reservations/bookings', label: 'Bookings' },
-      { href: '/reservations/floor-plans', label: 'Tables' },
+      { href: '/reservations/floor-plans', label: 'Floor plan' },
       { href: '/reservations/setup', label: 'Settings' },
       { href: '/reservations/api', label: 'Online booking' }
     ]
@@ -208,8 +208,8 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
   },
   {
     key: 'payroll',
-    href: '/payroll/employees',
-    aliases: ['/payroll'],
+    href: '/payroll',
+    aliases: ['/payroll/employees'],
     label: 'Payroll',
     summary: 'Employment data and social-secretariat readiness',
     icon: 'payroll',
@@ -251,14 +251,13 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
   },
   {
     key: 'settings',
-    href: '/settings/connections',
+    href: '/settings/absence-types',
     label: 'Settings',
-    summary: 'Organization, connections and workforce policies',
+    summary: 'Time-off policy and request rules',
     icon: 'settings',
     roles: MANAGER,
     utility: true,
     subNav: [
-      { href: '/settings/connections', label: 'Payroll setup' },
       { href: '/settings/absence-types', label: 'Time-off types' }
     ]
   },

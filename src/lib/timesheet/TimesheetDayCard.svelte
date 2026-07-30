@@ -25,7 +25,7 @@
     positionName?: Map<string, string>;
     services?: ServicePeriod[];
     compact?: boolean;
-    onopen: (key: string) => void;
+    onopen: () => void;
   } = $props();
 
   const visible = $derived(slots.filter(isTimesheetRow));
@@ -63,6 +63,7 @@
   const adjusted = $derived(visible.some((slot) => slot.status === 'adjusted'));
   const pending = $derived(visible.some((slot) => slot.status === 'pending'));
   const live = $derived(visible.some((slot) => slot.status === 'live'));
+  const deltaHours = $derived(actualHours - plannedHours);
   const signalLabel = $derived(
     noShow
       ? t('Missing badge')
@@ -77,21 +78,36 @@
               : ''
   );
   const cardColor = $derived(
-    hasActual
-      ? areaColor.get(
-          visible.find((slot) => slot.actualRange && slot.actualAreaId)?.actualAreaId ??
-            primary?.actualAreaId ??
-            ''
-        ) ?? 'var(--cl-info)'
-      : 'var(--cl-muted)'
+    live
+      ? 'var(--cl-ok)'
+      : conflict
+        ? 'var(--cl-problem)'
+        : adjusted || pending
+          ? 'var(--cl-attention)'
+          : hasActual
+            ? areaColor.get(
+                visible.find((slot) => slot.actualRange && slot.actualAreaId)?.actualAreaId ??
+                  primary?.actualAreaId ??
+                  ''
+              ) ?? 'var(--cl-info)'
+            : 'var(--cl-muted)'
   );
   const mainRange = $derived(actualRange || plannedRange || (primary ? t(slotLabel(primary.status)) : ''));
   const primaryLabel = $derived(
-    !hasActual && primary?.truth.plan
-      ? t('Planned')
-      : primary
-        ? t(slotLabel(primary.status))
-        : ''
+    primary
+      ? hasActual
+        ? live
+          ? t('Working now')
+          : adjusted
+            ? t('Corrected')
+            : assignment(primary) || t('Completed')
+        : assignment(primary) || t(serviceLabel(primary.serviceKey, services))
+      : ''
+  );
+  const deltaLabel = $derived(
+    actualHours && plannedHours && Math.abs(deltaHours) >= 0.01
+      ? `${deltaHours > 0 ? '+' : '−'}${formatHours(Math.abs(deltaHours))} ${t('vs plan')}`
+      : ''
   );
 
   function combinedRange(ranges: string[]): string {
@@ -132,7 +148,7 @@
     class:is-compact={compact}
     style={`--card-color:${cardColor}`}
     type="button"
-    onclick={() => onopen(primary.key)}
+    onclick={onopen}
   >
     {#if signalLabel}
       <span
@@ -155,8 +171,8 @@
       {:else if actualHours}
         <i></i><span>{t('No break')}</span>
       {/if}
-      {#if actualHours && plannedHours && Math.abs(actualHours - plannedHours) >= 0.01}
-        <i></i><span>{t('Planned')} {formatHours(plannedHours)}</span>
+      {#if deltaLabel}
+        <i></i><span class:is-over={deltaHours > 0} class:is-under={deltaHours < 0}>{deltaLabel}</span>
       {/if}
     </span>
     <span class="attendance-card__services">
@@ -264,6 +280,8 @@
     white-space: nowrap;
   }
   .attendance-card__summary > span { overflow: hidden; text-overflow: ellipsis; }
+  .attendance-card__summary > span.is-over { color: var(--cl-attention); }
+  .attendance-card__summary > span.is-under { color: var(--cl-info); }
   .attendance-card__summary i { width: 2px; height: 2px; flex: 0 0 auto; border-radius: 50%; background: var(--cl-line-strong); }
   .attendance-card__services { min-width: 0; display: grid; gap: 1px; margin-top: 1px; }
   .service-row {

@@ -73,7 +73,7 @@
   const localDirty = $derived(Boolean(form && baseline && JSON.stringify(form) !== baseline));
   const busy = $derived(saving || committing);
   const nissIssue = $derived(belgianNissIssue(form?.nationalRegistryNumber));
-  const payrollContext = $derived(mode === 'payroll');
+  const payrollContext = $derived(mode === 'payroll' || mode === 'contract');
   const today = new Date().toISOString().slice(0, 10);
 
   function clone(employee: EmployeeDraft): EmployeeDraft {
