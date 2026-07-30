@@ -8,6 +8,7 @@
   import ToastHost from '$lib/components/ToastHost.svelte';
   import NotificationBell from '$lib/components/NotificationBell.svelte';
   import CommunicationCenter from '$lib/communications/CommunicationCenter.svelte';
+  import PopcornPet from '$lib/pet/PopcornPet.svelte';
   import AccountMenu from '$lib/app-shell/AccountMenu.svelte';
   import { useAppSession } from '$lib/app-shell/app-session.svelte';
   import { exitPreviewSession, signOutOfApp } from '$lib/app-shell/app-actions';
@@ -376,6 +377,8 @@
           {@render children()}
         {/if}
       </main>
+
+      <PopcornPet />
 
       {#if !workspace.isPreview}
         <CommunicationCenter

@@ -19,6 +19,7 @@
   import { kiosk } from '$lib/kiosk/kiosk.svelte';
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
   import { appInstall } from '$lib/pwa/app-install.svelte';
+  import { popcornPet } from '$lib/pet/popcorn-pet.svelte';
   import { enablePhonePush, phonePushStatus } from '$lib/push/push-client';
   import { sound } from '$lib/sound/sound.svelte';
   import { supabase } from '$lib/supabase/client';
@@ -93,6 +94,16 @@
 
   function chooseTheme(theme: WorkspaceTheme): void {
     workspaceTheme.set(theme);
+  }
+
+  function togglePopcorn(): void {
+    open = false;
+    if (popcornPet.visible) {
+      popcornPet.hide();
+      return;
+    }
+    sound.unlock();
+    popcornPet.summon();
   }
 
   async function selectWorkspace(restaurantId: string) {
@@ -365,6 +376,9 @@
         <button type="button" onclick={() => sound.toggle()}>
           {sound.enabled ? t('Sound on') : t('Sound off')}
         </button>
+        <button type="button" onclick={togglePopcorn}>
+          {popcornPet.visible ? t('Hide Popcorn') : t('Call Popcorn')}
+        </button>
       {/if}
       {#if isPlatformAdmin}
         <span class="menu-label">{t('Platform admin')}</span>
@@ -549,7 +563,10 @@
     top: calc(100% + 8px);
     right: 0;
     width: min(340px, calc(100vw - 24px));
-    overflow: hidden;
+    max-height: calc(100dvh - var(--cl-topbar) - 16px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     border: 1px solid var(--rst-ui-line-strong);
     border-radius: var(--rst-ui-radius-lg);
     background: var(--rst-ui-bg-2);

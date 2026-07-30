@@ -6,7 +6,7 @@
 // can mute it permanently, and browsers only let us make noise after they have
 // interacted with the page (see unlock).
 
-type SoundKind = 'notification' | 'message' | 'success' | 'error';
+type SoundKind = 'notification' | 'message' | 'success' | 'error' | 'popcorn';
 
 const STORAGE_KEY = 'rst-sound-enabled';
 
@@ -29,6 +29,12 @@ const VOICES: Record<SoundKind, Array<[number, number, number]>> = {
   error: [
     [311, 0, 170],
     [247, 115, 250]
+  ],
+  // Three soft, low pops for the optional workspace pet.
+  popcorn: [
+    [175, 0, 95],
+    [147, 135, 100],
+    [210, 285, 115]
   ]
 };
 
@@ -96,11 +102,14 @@ class SoundController {
       try {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = 'sine';
+        osc.type = kind === 'popcorn' ? 'triangle' : 'sine';
         osc.frequency.setValueAtTime(frequency, start);
+        if (kind === 'popcorn') {
+          osc.frequency.exponentialRampToValueAtTime(frequency * 0.48, start + duration);
+        }
         // Quick fade in, exponential tail out — no clicks, no ringing.
         gain.gain.setValueAtTime(0.0001, start);
-        gain.gain.linearRampToValueAtTime(PEAK_GAIN, start + 0.015);
+        gain.gain.linearRampToValueAtTime(kind === 'popcorn' ? 0.11 : PEAK_GAIN, start + 0.015);
         gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
         osc.connect(gain).connect(ctx.destination);
         osc.start(start);

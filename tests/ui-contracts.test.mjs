@@ -143,6 +143,27 @@ test('app sounds stay enabled by default until the user explicitly mutes them', 
   assert.match(sound, /localStorage\.getItem\(STORAGE_KEY\) !== 'off'/);
 });
 
+test('Popcorn is an optional local companion with accessible motion and sound', async () => {
+  const layout = await readFile('src/routes/(app)/+layout.svelte', 'utf8');
+  const menu = await readFile('src/lib/app-shell/AccountMenu.svelte', 'utf8');
+  const pet = await readFile('src/lib/pet/PopcornPet.svelte', 'utf8');
+  const state = await readFile('src/lib/pet/popcorn-pet.svelte.ts', 'utf8');
+  const sound = await readFile('src/lib/sound/sound.svelte.ts', 'utf8');
+  const gif = await readFile('static/pet/popcorn.gif');
+  const still = await readFile('static/pet/popcorn-still.png');
+
+  assert.match(layout, /import PopcornPet from '\$lib\/pet\/PopcornPet\.svelte'/);
+  assert.match(layout, /<PopcornPet \/>/);
+  assert.match(menu, /popcornPet\.summon\(\)/);
+  assert.match(state, /localStorage\.setItem\(STORAGE_KEY, visible \? 'on' : 'off'\)/);
+  assert.match(pet, /prefers-reduced-motion: reduce/);
+  assert.match(pet, /sound\.play\('popcorn'\)/);
+  assert.match(pet, /aria-live="polite"/);
+  assert.match(sound, /popcorn:\s*\[/);
+  assert.ok(/^GIF8[79]a$/.test(gif.subarray(0, 6).toString('ascii')));
+  assert.ok(still.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])));
+});
+
 test('service labels are not reimplemented outside their domain helper', async () => {
   const offenders = [];
   for (const file of await sourceFiles('src', ['.ts', '.svelte'])) {

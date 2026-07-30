@@ -6198,3 +6198,16 @@ Object.assign(dutch, {
   'Plan comparison': 'Vergelijking met planning',
   'to review': 'te controleren'
 });
+
+// Optional workspace companion.
+Object.assign(french, {
+  'Call Popcorn': 'Appeler Popcorn',
+  'Hide Popcorn': 'Masquer Popcorn',
+  'Make Popcorn pop': 'Faire éclater le pop-corn'
+});
+
+Object.assign(dutch, {
+  'Call Popcorn': 'Roep Popcorn',
+  'Hide Popcorn': 'Verberg Popcorn',
+  'Make Popcorn pop': 'Laat de popcorn poffen'
+});
