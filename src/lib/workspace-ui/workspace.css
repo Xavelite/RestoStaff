@@ -140,8 +140,8 @@
   --cl-ok-rgb: 21, 128, 61;
   --cl-ok-wash: #eef8f1;
   --cl-ok-line: #bfe3cb;
-  --cl-live-marker: color-mix(in srgb, var(--cl-ok) 82%, transparent);
-  --cl-live-marker-width: 2px;
+  --cl-live-marker: #22c55e;
+  --cl-live-marker-width: 1px;
   --cl-attention: #b45309;
   --cl-attention-rgb: 180, 83, 9;
   --cl-attention-wash: #fdf5e9;

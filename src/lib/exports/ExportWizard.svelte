@@ -5,7 +5,6 @@
     Check,
     Columns3,
     Download,
-    Eye,
     EyeOff,
     FileSpreadsheet,
     FileText,
@@ -40,6 +39,8 @@
   let draggingIndex = $state<number | null>(null);
   let dropIndex = $state<number | null>(null);
   let openSignature = $state('');
+  let columnPickerOpen = $state(false);
+  let columnPickerRoot = $state<HTMLElement | null>(null);
 
   const orderedSelection = $derived(
     columnOrder.filter((index) => selectedIndexes.includes(index))
@@ -60,6 +61,25 @@
     downloading = false;
     draggingIndex = null;
     dropIndex = null;
+    columnPickerOpen = false;
+  });
+
+  $effect(() => {
+    if (!columnPickerOpen) return;
+    const closeOutside = (event: MouseEvent) => {
+      if (columnPickerRoot && !columnPickerRoot.contains(event.target as Node)) {
+        columnPickerOpen = false;
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') columnPickerOpen = false;
+    };
+    window.addEventListener('click', closeOutside, true);
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      window.removeEventListener('click', closeOutside, true);
+      window.removeEventListener('keydown', closeOnEscape);
+    };
   });
 
   function toggleColumn(index: number): void {
@@ -69,9 +89,12 @@
   }
 
   function moveColumn(index: number, direction: -1 | 1): void {
+    const visible = columnOrder.filter((value) => selectedIndexes.includes(value));
+    const visiblePosition = visible.indexOf(index);
+    const targetIndex = visible[visiblePosition + direction];
+    if (visiblePosition < 0 || targetIndex === undefined) return;
     const current = columnOrder.indexOf(index);
-    const target = current + direction;
-    if (current < 0 || target < 0 || target >= columnOrder.length) return;
+    const target = columnOrder.indexOf(targetIndex);
     const next = [...columnOrder];
     [next[current], next[target]] = [next[target], next[current]];
     columnOrder = next;
@@ -196,89 +219,12 @@
               title={t(option.detail)}
               onclick={() => (format = option.value)}
             >
-              <option.icon size={16} aria-hidden="true" />
+              <span class="format-icon is-{option.value}">
+                <option.icon size={18} aria-hidden="true" />
+              </span>
               <span>{t(option.label)}</span>
               {#if format === option.value}<Check size={13} aria-hidden="true" />{/if}
             </button>
-          {/each}
-        </div>
-      </section>
-
-      <section class="columns-section" aria-labelledby="columns-heading">
-        <header>
-          <div class="section-copy">
-            <strong id="columns-heading">{t('Columns and order')}</strong>
-            <span>
-              {selectedIndexes.length} / {file.headers.length} {t('columns selected')}
-              · {t('Drag columns into the order you need.')}
-            </span>
-          </div>
-          <div class="column-actions">
-            <button
-              type="button"
-              onclick={() =>
-                (selectedIndexes =
-                  selectedIndexes.length === file.headers.length
-                    ? []
-                    : file.headers.map((_, index) => index))}
-            >
-              {selectedIndexes.length === file.headers.length ? t('Clear all') : t('Select all')}
-            </button>
-            <button type="button" onclick={resetColumns}>
-              <RotateCcw size={13} aria-hidden="true" />
-              {t('Reset')}
-            </button>
-          </div>
-        </header>
-
-        <div class="column-strip" role="list" aria-label={t('Export columns')}>
-          {#each columnOrder as index, position (index)}
-            <!-- svelte-ignore a11y_no_static_element_interactions -->
-            <div
-              class="column-chip"
-              class:is-selected={selectedIndexes.includes(index)}
-              class:is-dragging={draggingIndex === index}
-              class:is-drop-target={dropIndex === index && draggingIndex !== index}
-              role="listitem"
-              draggable="true"
-              ondragstart={(event) => startDrag(event, index)}
-              ondragover={(event) => dragOver(event, index)}
-              ondrop={(event) => finishDrop(event, index)}
-              ondragend={finishDrag}
-            >
-              <GripVertical class="drag-grip" size={15} aria-hidden="true" />
-              <button
-                class="visibility-button"
-                type="button"
-                aria-pressed={selectedIndexes.includes(index)}
-                aria-label={t(selectedIndexes.includes(index) ? 'Hide column' : 'Show column')}
-                title={t(selectedIndexes.includes(index) ? 'Hide column' : 'Show column')}
-                onclick={() => toggleColumn(index)}
-              >
-                {#if selectedIndexes.includes(index)}
-                  <Eye size={14} aria-hidden="true" />
-                {:else}
-                  <EyeOff size={14} aria-hidden="true" />
-                {/if}
-              </button>
-              <span title={file.headers[index]}>{file.headers[index]}</span>
-              <div class="move-buttons">
-                <button
-                  type="button"
-                  title={t('Move column left')}
-                  aria-label={t('Move column left')}
-                  disabled={position === 0}
-                  onclick={() => moveColumn(index, -1)}
-                ><ArrowLeft size={13} aria-hidden="true" /></button>
-                <button
-                  type="button"
-                  title={t('Move column right')}
-                  aria-label={t('Move column right')}
-                  disabled={position === columnOrder.length - 1}
-                  onclick={() => moveColumn(index, 1)}
-                ><ArrowRight size={13} aria-hidden="true" /></button>
-              </div>
-            </div>
           {/each}
         </div>
       </section>
@@ -289,16 +235,88 @@
             <strong id="preview-heading">{t('File preview')}</strong>
             <span>
               {projectedFile.headers.length} {t('columns')} ·
-              {projectedFile.rows.length} {t('records')}
+              {projectedFile.rows.length} {t('records')} ·
+              {t('Drag a header to reorder it.')}
             </span>
           </div>
-          <span class="filetype">.{format}</span>
+          <div class="preview-actions">
+            <div class="column-picker" class:is-open={columnPickerOpen} bind:this={columnPickerRoot}>
+              <button
+                class="column-picker__trigger"
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={columnPickerOpen}
+                onclick={() => (columnPickerOpen = !columnPickerOpen)}
+              >
+                <Columns3 size={14} aria-hidden="true" />
+                {t('Columns')} ({selectedIndexes.length}/{file.headers.length})
+              </button>
+              {#if columnPickerOpen}
+                <div class="column-picker__menu" role="menu">
+                  {#each columnOrder as index (index)}
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={selectedIndexes.includes(index)}
+                        onchange={() => toggleColumn(index)}
+                      />
+                      <span>{file.headers[index]}</span>
+                    </label>
+                  {/each}
+                </div>
+              {/if}
+            </div>
+            <button class="reset-button" type="button" title={t('Reset columns')} aria-label={t('Reset columns')} onclick={resetColumns}>
+              <RotateCcw size={14} aria-hidden="true" />
+            </button>
+            <span class="filetype is-{format}">.{format}</span>
+          </div>
         </header>
         {#if orderedSelection.length}
           <div class="preview-scroll">
             <table>
               <thead>
-                <tr>{#each projectedFile.headers as header}<th>{header}</th>{/each}</tr>
+                <tr>
+                  {#each orderedSelection as index, position (index)}
+                    <!-- svelte-ignore a11y_no_static_element_interactions -->
+                    <th
+                      class:is-dragging={draggingIndex === index}
+                      class:is-drop-target={dropIndex === index && draggingIndex !== index}
+                      draggable="true"
+                      ondragstart={(event) => startDrag(event, index)}
+                      ondragover={(event) => dragOver(event, index)}
+                      ondrop={(event) => finishDrop(event, index)}
+                      ondragend={finishDrag}
+                    >
+                      <span class="preview-column">
+                        <GripVertical class="drag-grip" size={14} aria-hidden="true" />
+                        <span title={file.headers[index]}>{file.headers[index]}</span>
+                        <span class="preview-column__actions">
+                          <button
+                            type="button"
+                            title={t('Move column left')}
+                            aria-label={t('Move column left')}
+                            disabled={position === 0}
+                            onclick={() => moveColumn(index, -1)}
+                          ><ArrowLeft size={12} aria-hidden="true" /></button>
+                          <button
+                            type="button"
+                            title={t('Move column right')}
+                            aria-label={t('Move column right')}
+                            disabled={position === orderedSelection.length - 1}
+                            onclick={() => moveColumn(index, 1)}
+                          ><ArrowRight size={12} aria-hidden="true" /></button>
+                          <button
+                            type="button"
+                            title={t('Hide column')}
+                            aria-label={t('Hide column')}
+                            onclick={() => toggleColumn(index)}
+                          ><EyeOff size={12} aria-hidden="true" /></button>
+                        </span>
+                      </span>
+                    </th>
+                  {/each}
+                </tr>
               </thead>
               <tbody>
                 {#each projectedFile.rows.slice(0, 8) as row}
@@ -352,8 +370,7 @@
     align-content: start;
     gap: 18px;
   }
-  .format-section,
-  .columns-section > header {
+  .format-section {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -386,8 +403,8 @@
     background: var(--rst-ui-surface-field);
   }
   .format-switch button {
-    min-width: 96px;
-    min-height: 34px;
+    min-width: 104px;
+    min-height: 40px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -411,107 +428,149 @@
     background: var(--rst-ui-surface-panel);
     box-shadow: 0 1px 3px rgb(15 23 42 / .1);
   }
-  .columns-section {
+  .format-icon {
+    width: 28px;
+    height: 28px;
     display: grid;
-    gap: 10px;
+    flex: 0 0 28px;
+    place-items: center;
+    border: 1px solid currentcolor;
+    border-radius: 5px;
+    color: #475569;
+    background: color-mix(in srgb, currentcolor 8%, var(--rst-ui-surface-panel));
   }
-  .column-actions {
+  .format-icon.is-xlsx { color: #18864b; }
+  .format-icon.is-pdf { color: #d13b3b; }
+  .format-icon.is-csv { color: #2563a9; }
+  .preview-actions {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 4px;
+    justify-content: flex-end;
+    gap: 6px;
   }
-  .column-actions button {
-    min-height: 28px;
+  .column-picker {
+    position: relative;
+  }
+  .column-picker__trigger,
+  .reset-button {
+    min-height: 30px;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 5px;
-    padding: 4px 7px;
-    border: 0;
+    padding: 5px 8px;
+    border: 1px solid var(--rst-ui-line);
     border-radius: 5px;
     color: var(--rst-ui-muted);
-    background: transparent;
+    background: var(--rst-ui-surface-panel);
     font: inherit;
     font-size: 10.5px;
     font-weight: var(--rst-fw-bold);
     cursor: pointer;
   }
-  .column-actions button:hover {
+  .column-picker__trigger:hover,
+  .column-picker.is-open .column-picker__trigger,
+  .reset-button:hover {
     color: var(--rst-ui-text);
     background: var(--rst-ui-hover-bg);
   }
-  .column-strip {
+  .column-picker__menu {
+    position: absolute;
+    z-index: var(--rst-z-popover, 120);
+    top: calc(100% + 6px);
+    right: 0;
+    width: min(270px, calc(100vw - 32px));
+    max-height: 280px;
+    overflow: auto;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px;
-  }
-  .column-chip {
-    min-width: 0;
-    min-height: 38px;
-    display: grid;
-    grid-template-columns: auto auto minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 5px;
-    padding: 4px 5px;
+    gap: 2px;
+    padding: 7px;
     border: 1px solid var(--rst-ui-line);
-    border-radius: 6px;
-    color: var(--rst-ui-muted);
+    border-radius: var(--rst-ui-radius-md);
     background: var(--rst-ui-surface-panel);
-    transition:
-      border-color 120ms ease,
-      background 120ms ease,
-      opacity 120ms ease;
+    box-shadow: 0 14px 34px rgb(15 23 42 / .16);
   }
-  .column-chip.is-selected {
-    border-color: rgba(var(--rst-ui-action-rgb), .3);
+  .column-picker label {
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 7px;
+    border-radius: 4px;
     color: var(--rst-ui-text);
-    background: rgba(var(--rst-ui-action-rgb), .035);
+    font-size: 11px;
+    cursor: pointer;
   }
-  .column-chip.is-dragging { opacity: .45; }
-  .column-chip.is-drop-target {
-    border-color: var(--rst-ui-action);
-    box-shadow: inset 3px 0 0 var(--rst-ui-action);
-  }
-  :global(.drag-grip) {
-    color: var(--rst-ui-muted);
-    cursor: grab;
-  }
-  .column-chip:active :global(.drag-grip) { cursor: grabbing; }
-  .column-chip > span {
+  .column-picker label:hover { background: var(--rst-ui-hover-bg); }
+  .column-picker label span {
     overflow: hidden;
-    font-size: 10.5px;
-    font-weight: var(--rst-fw-bold);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .visibility-button,
-  .move-buttons button {
-    width: 25px;
-    height: 25px;
+  .column-picker input { accent-color: var(--rst-ui-action); }
+  .reset-button {
+    width: 30px;
+    padding: 0;
+  }
+  .filetype {
+    min-width: 45px;
+    padding: 5px 7px;
+    border: 1px solid currentcolor;
+    border-radius: 4px;
+    color: #2563a9 !important;
+    background: color-mix(in srgb, currentcolor 8%, var(--rst-ui-surface-panel));
+    font-weight: var(--rst-fw-bold);
+    text-align: center;
+    text-transform: uppercase;
+  }
+  .filetype.is-xlsx { color: #18864b !important; }
+  .filetype.is-pdf { color: #d13b3b !important; }
+  .preview-column {
+    min-width: 112px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .preview-column > span:nth-child(2) {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .preview-column__actions {
+    display: inline-flex;
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+  th:hover .preview-column__actions,
+  th:focus-within .preview-column__actions { opacity: 1; }
+  .preview-column__actions button {
+    width: 22px;
+    height: 22px;
     display: grid;
     place-items: center;
     padding: 0;
     border: 0;
-    border-radius: 4px;
-    color: var(--rst-ui-muted);
+    border-radius: 3px;
+    color: color-mix(in srgb, var(--rst-on-dark-text, #fff) 68%, transparent);
     background: transparent;
     cursor: pointer;
   }
-  .column-chip.is-selected .visibility-button { color: var(--rst-ui-action); }
-  .visibility-button:hover,
-  .move-buttons button:hover:not(:disabled) {
-    color: var(--rst-ui-text);
-    background: var(--rst-ui-hover-bg);
+  .preview-column__actions button:hover:not(:disabled) {
+    color: var(--rst-on-dark-text, #fff);
+    background: rgb(255 255 255 / .14);
   }
-  .move-buttons {
-    display: flex;
-  }
-  .move-buttons button {
-    width: 22px;
-  }
-  .move-buttons button:disabled {
+  .preview-column__actions button:disabled {
     opacity: .2;
     cursor: default;
   }
+  :global(.drag-grip) {
+    flex: 0 0 auto;
+    color: color-mix(in srgb, var(--rst-on-dark-text, #fff) 58%, transparent);
+    cursor: grab;
+  }
+  th:active :global(.drag-grip) { cursor: grabbing; }
   .preview-block {
     overflow: hidden;
     border: 1px solid var(--rst-ui-line);
@@ -528,7 +587,8 @@
     border-bottom: 1px solid var(--rst-ui-line);
     background: var(--rst-ui-surface-panel-head);
   }
-  .preview-block > header > div {
+  .preview-block > header > div:first-child {
+    min-width: 0;
     display: grid;
     gap: 1px;
   }
@@ -539,14 +599,6 @@
   .preview-block > header span {
     color: var(--rst-ui-muted);
     font-size: 10.5px;
-  }
-  .filetype {
-    padding: 4px 7px;
-    border-radius: 4px;
-    color: var(--rst-ui-action) !important;
-    background: rgba(var(--rst-ui-action-rgb), .1);
-    font-weight: var(--rst-fw-bold);
-    text-transform: uppercase;
   }
   .preview-scroll {
     min-height: 205px;
@@ -576,6 +628,16 @@
     color: var(--rst-on-dark-text, #fff);
     background: #172033;
     font-weight: var(--rst-fw-bold);
+    cursor: grab;
+    transition:
+      opacity 120ms ease,
+      box-shadow 120ms ease,
+      background 120ms ease;
+  }
+  th.is-dragging { opacity: .48; }
+  th.is-drop-target {
+    background: #233656;
+    box-shadow: inset 3px 0 0 #60a5fa;
   }
   .preview-block > footer {
     padding: 7px 12px;
@@ -646,12 +708,19 @@
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
-    .format-switch button { min-width: 0; }
-    .columns-section > header {
-      align-items: flex-start;
+    .format-switch button {
+      min-width: 0;
+      padding-inline: 5px;
     }
-    .column-strip { grid-template-columns: minmax(0, 1fr); }
-    .move-buttons { display: none; }
+    .preview-block > header {
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .preview-actions {
+      width: 100%;
+      justify-content: flex-start;
+    }
+    .preview-column__actions { opacity: 1; }
     .wizard-footer { justify-content: flex-end; }
     .footer-note { display: none; }
     .wizard-footer > div { width: 100%; }

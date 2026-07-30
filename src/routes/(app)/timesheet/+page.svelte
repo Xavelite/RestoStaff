@@ -190,6 +190,14 @@
   const areaName = $derived(
     areaInstanceLabelMap(snapshot?.work_areas ?? [])
   );
+  const areaColor = $derived(
+    new Map(
+      (snapshot?.work_areas ?? []).map((area) => [
+        area.id,
+        area.color ?? 'var(--cl-info)'
+      ])
+    )
+  );
   const positionName = $derived(
     new Map((snapshot?.job_functions ?? []).map((position) => [position.id, position.name]))
   );
@@ -526,7 +534,7 @@
                 </span>
                 <em class:is-ready={!rowNeedsReview}>{t(rowNeedsReview ? 'Review' : 'Ready')}</em>
               </header>
-              <TimesheetDayCard slots={item.slots} {areaName} {positionName} services={snapshot?.services ?? []} onopen={selectEntry} />
+              <TimesheetDayCard slots={item.slots} {areaName} {areaColor} {positionName} services={snapshot?.services ?? []} onopen={selectEntry} />
             </article>
           {/each}
         {:else}
@@ -633,7 +641,7 @@
                     {#each days as day (day.date)}
                       {@const daySlots = cellSlots(row.id, day.date)}
                       <td class="board__cell" class:is-today={day.today} class:is-past={day.past}>
-                        {#if daySlots.length}<TimesheetDayCard slots={daySlots} {areaName} {positionName} services={snapshot?.services ?? []} compact={compactCards} onopen={selectEntry} />{/if}
+                        {#if daySlots.length}<TimesheetDayCard slots={daySlots} {areaName} {areaColor} {positionName} services={snapshot?.services ?? []} compact={compactCards} onopen={selectEntry} />{/if}
                       </td>
                     {/each}
                   </tr>
@@ -921,7 +929,7 @@
   .timesheet-wrap thead .board__staff :global(.colhead__meta) { width: auto; justify-content: center; }
   .timesheet-wrap thead .board__staff :global(.colhead__trigger) { position: absolute; top: 50%; right: 31px; transform: translateY(-50%); }
   .timesheet-wrap thead .board__staff :global(.groupmenu) { position: absolute; top: 0; right: 0; bottom: 0; padding-right: 6px; }
-  .timesheet-wrap .board__day { border-left: 1px solid var(--cl-grid-line); text-align: center; }
+  .timesheet-wrap .board__day { position: relative; border-left: 1px solid var(--cl-grid-line); text-align: center; }
   .board__day-date { color: var(--cl-ink); font-size: 12px; line-height: 1.05; white-space: nowrap; }
   .board__day-lower {
     min-height: 38px;
@@ -940,9 +948,18 @@
   .board__day-lower small { grid-column: 1 / -1; color: var(--cl-ok); font-size: 8px; }
   .board__day-lower small.is-problem { color: var(--cl-problem); }
   .timesheet-wrap .board__day.is-today { color: var(--cl-accent); background: color-mix(in srgb, var(--cl-accent) 10%, var(--cl-thead)); }
-  .timesheet-wrap .board__day.is-today,
-  .timesheet-wrap .board__cell.is-today {
-    box-shadow: inset var(--cl-live-marker-width) 0 0 var(--cl-live-marker);
+  .timesheet-wrap .board__day.is-today::before,
+  .timesheet-wrap .board__cell.is-today::before {
+    content: '';
+    position: absolute;
+    z-index: 12;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: var(--cl-live-marker-width);
+    background: var(--cl-live-marker);
+    box-shadow: 0 0 3px color-mix(in srgb, var(--cl-live-marker) 34%, transparent);
+    pointer-events: none;
   }
   .timesheet-wrap .board__day.is-past:not(.is-today) {
     background-color: color-mix(in srgb, var(--cl-surface-muted) 68%, var(--cl-thead));

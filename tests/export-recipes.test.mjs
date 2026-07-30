@@ -94,7 +94,7 @@ test('planning period export uses the saved plan and filters by business date', 
     'Note'
   ]);
   assert.deepEqual(file.rows, [
-    ['Amélie Laurent', '2026-07-28', 'Lunch', '12:00', '20:00', '8.00', 'Dining room', 'Waiter', 'Private event']
+    ['Amélie Laurent', '2026-07-28', 'Day', '12:00', '20:00', '8.00', 'Dining room', 'Waiter', 'Private event']
   ]);
 });
 
@@ -110,7 +110,7 @@ test('worked-time export keeps actual evidence and excludes cancelled entries', 
   assert.deepEqual(file.rows[0], [
     'Amélie Laurent',
     '2026-07-28',
-    'Lunch',
+    'Day',
     '12:00',
     '20:00',
     '8.00',

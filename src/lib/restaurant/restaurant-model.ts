@@ -10,7 +10,7 @@ import { uniqueAreaTechnicalCode } from './area-instance.ts';
 import type { RestaurantSavePayload } from '$lib/api/mutations';
 import {
   WEEKDAYS,
-  activeServicePeriods,
+  configuredServicePeriods,
   mondayFor,
   serviceDefaultHours,
   todayInTimezone,
@@ -84,9 +84,13 @@ export type RestaurantDraft = {
   externalEmployerId: string;
   email: string;
   phone: string;
+  websiteUrl: string;
   address: string;
   postalCode: string;
   city: string;
+  locationLatitude: number | null;
+  locationLongitude: number | null;
+  locationLabel: string;
   services: ServiceDraft[];
   jobFunctions: JobFunctionDraft[];
   areas: AreaDraft[];
@@ -122,7 +126,29 @@ function openingValue(
 
 export function restaurantDraft(snapshot: RestaurantReadModel): RestaurantDraft {
   const employment = snapshot.restaurant_employment_settings ?? {};
-  const services = activeServicePeriods(snapshot.services);
+  const services = configuredServicePeriods(snapshot.services);
+  const settings =
+    snapshot.restaurant_settings.settings &&
+    typeof snapshot.restaurant_settings.settings === 'object' &&
+    !Array.isArray(snapshot.restaurant_settings.settings)
+      ? snapshot.restaurant_settings.settings
+      : {};
+  const profile =
+    'restaurant_profile' in settings &&
+    settings.restaurant_profile &&
+    typeof settings.restaurant_profile === 'object' &&
+    !Array.isArray(settings.restaurant_profile)
+      ? settings.restaurant_profile
+      : {};
+  const location =
+    'location' in profile &&
+    profile.location &&
+    typeof profile.location === 'object' &&
+    !Array.isArray(profile.location)
+      ? profile.location
+      : {};
+  const latitude = Number('latitude' in location ? location.latitude : NaN);
+  const longitude = Number('longitude' in location ? location.longitude : NaN);
   return {
     displayName: snapshot.restaurant.name,
     legalName: snapshot.restaurant.legal_name || snapshot.restaurant.name,
@@ -138,9 +164,17 @@ export function restaurantDraft(snapshot: RestaurantReadModel): RestaurantDraft 
     externalEmployerId: employment.external_employer_id ?? '',
     email: snapshot.restaurant.email ?? '',
     phone: snapshot.restaurant.phone ?? '',
+    websiteUrl:
+      'website_url' in profile && typeof profile.website_url === 'string'
+        ? profile.website_url
+        : '',
     address: snapshot.restaurant.address_line1 ?? '',
     postalCode: snapshot.restaurant.postal_code ?? '',
     city: snapshot.restaurant.city ?? '',
+    locationLatitude: Number.isFinite(latitude) ? latitude : null,
+    locationLongitude: Number.isFinite(longitude) ? longitude : null,
+    locationLabel:
+      'label' in location && typeof location.label === 'string' ? location.label : '',
     services: services.map((service, index) => {
       const defaults = serviceDefaultHours(service.service_key, snapshot.services);
       return {
@@ -296,6 +330,17 @@ export function restaurantDraft(snapshot: RestaurantReadModel): RestaurantDraft 
 
 const nullable = (value: string) => value.trim() || null;
 
+function normalizedWebsite(value: string): string | null {
+  const candidate = value.trim();
+  if (!candidate) return null;
+  try {
+    const url = new URL(/^[a-z]+:\/\//i.test(candidate) ? candidate : `https://${candidate}`);
+    return ['http:', 'https:'].includes(url.protocol) ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 function inheritedOpening(
   draft: RestaurantDraft,
   service: ServiceKey
@@ -321,6 +366,9 @@ export function restaurantDraftValidationError(draft: RestaurantDraft): string |
   if (new Set(activeServices.map((service) => service.serviceKey)).size !== activeServices.length) {
     return 'Each service period needs a unique key.';
   }
+  if (draft.websiteUrl.trim() && !normalizedWebsite(draft.websiteUrl)) {
+    return 'Enter a valid restaurant website.';
+  }
   return null;
 }
 
@@ -329,6 +377,24 @@ export function restaurantSavePayload(
   draft: RestaurantDraft
 ): RestaurantSavePayload {
   const restaurantId = snapshot.restaurant.id;
+  const currentSettings =
+    snapshot.restaurant_settings.settings &&
+    typeof snapshot.restaurant_settings.settings === 'object' &&
+    !Array.isArray(snapshot.restaurant_settings.settings)
+      ? snapshot.restaurant_settings.settings
+      : {};
+  const currentProfile =
+    'restaurant_profile' in currentSettings &&
+    currentSettings.restaurant_profile &&
+    typeof currentSettings.restaurant_profile === 'object' &&
+    !Array.isArray(currentSettings.restaurant_profile)
+      ? currentSettings.restaurant_profile
+      : {};
+  const hasResolvedLocation =
+    draft.locationLatitude != null &&
+    Number.isFinite(draft.locationLatitude) &&
+    draft.locationLongitude != null &&
+    Number.isFinite(draft.locationLongitude);
   const itemRow = (item: NamedSetupItem, index: number) => ({
     id: item.id,
     restaurant_id: restaurantId,
@@ -369,7 +435,21 @@ export function restaurantSavePayload(
         snapshot.restaurant_settings.active_week_start ??
         mondayFor(todayInTimezone(snapshot.restaurant_settings.timezone || 'Europe/Brussels')),
       week_start_weekday: 1,
-      settings: snapshot.restaurant_settings.settings ?? {},
+      settings: {
+        ...currentSettings,
+        restaurant_profile: {
+          ...currentProfile,
+          website_url: normalizedWebsite(draft.websiteUrl),
+          location: hasResolvedLocation
+            ? {
+                latitude: draft.locationLatitude,
+                longitude: draft.locationLongitude,
+                label: nullable(draft.locationLabel),
+                provider: 'openstreetmap'
+              }
+            : null
+        }
+      },
       payroll_settings: snapshot.restaurant_settings.payroll_settings ?? {}
     },
     services: asJsonArray(

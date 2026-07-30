@@ -24,11 +24,11 @@ test('phone notification copy follows the account locale and shared service labe
 
   assert.deepEqual(notificationPushCopy(item, 'fr-BE'), {
     title: 'Emma a oublié de pointer son départ',
-    body: '2026-07-21 Midi'
+    body: '2026-07-21 Jour'
   });
   assert.deepEqual(notificationPushCopy(item, 'nl'), {
     title: 'Emma vergat uit te klokken',
-    body: '2026-07-21 Lunch'
+    body: '2026-07-21 Dag'
   });
 });
 

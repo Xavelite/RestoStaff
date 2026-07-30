@@ -5976,3 +5976,45 @@ Object.assign(dutch, {
   'Add the parts of the restaurant you plan and staff, such as Dining room, Bar or Kitchen.':
     'Voeg de restaurantzones toe die u plant en bemant, zoals zaal, bar of keuken.'
 });
+
+Object.assign(french, {
+  'Drag a header to reorder it.': 'Faites glisser un en-tête pour réorganiser les colonnes.',
+  'Reset columns': 'Réinitialiser les colonnes',
+  'Hide column': 'Masquer la colonne',
+  'Open workspace': 'Ouvrir l’espace',
+  'No matching Belgian address was found.': 'Aucune adresse belge correspondante n’a été trouvée.',
+  'The address service is unavailable. Try again shortly.': 'Le service d’adresses est indisponible. Réessayez dans un instant.',
+  Website: 'Site web',
+  Location: 'Localisation',
+  'Address matches': 'Adresses correspondantes',
+  'Search once to confirm the exact entrance used for maps and local context.':
+    'Recherchez une fois pour confirmer l’entrée exacte utilisée par les cartes et le contexte local.',
+  'Restaurant location': 'Localisation du restaurant',
+  'Location confirmed': 'Localisation confirmée',
+  'Open map': 'Ouvrir la carte',
+  'Pin the restaurant': 'Placer le restaurant',
+  'Confirm the address to show its real location here.':
+    'Confirmez l’adresse pour afficher ici sa localisation réelle.',
+  'Use Day & Night starter': 'Utiliser le modèle Jour et Nuit'
+});
+
+Object.assign(dutch, {
+  'Drag a header to reorder it.': 'Sleep een kolomkop om de volgorde te wijzigen.',
+  'Reset columns': 'Kolommen herstellen',
+  'Hide column': 'Kolom verbergen',
+  'Open workspace': 'Werkruimte openen',
+  'No matching Belgian address was found.': 'Er is geen overeenkomstig Belgisch adres gevonden.',
+  'The address service is unavailable. Try again shortly.': 'De adresdienst is niet beschikbaar. Probeer het zo opnieuw.',
+  Website: 'Website',
+  Location: 'Locatie',
+  'Address matches': 'Overeenkomende adressen',
+  'Search once to confirm the exact entrance used for maps and local context.':
+    'Zoek eenmaal om de juiste ingang voor kaarten en lokale context te bevestigen.',
+  'Restaurant location': 'Restaurantlocatie',
+  'Location confirmed': 'Locatie bevestigd',
+  'Open map': 'Kaart openen',
+  'Pin the restaurant': 'Plaats het restaurant',
+  'Confirm the address to show its real location here.':
+    'Bevestig het adres om de echte locatie hier te tonen.',
+  'Use Day & Night starter': 'Dag- en Nachtmodel gebruiken'
+});

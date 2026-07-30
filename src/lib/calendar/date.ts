@@ -11,21 +11,21 @@ export type ServicePeriod = {
 };
 
 const SERVICE_DISPLAY: Record<string, { label: string; icon: string }> = {
-  lunch: { label: 'Lunch', icon: '☀' },
-  evening: { label: 'Evening', icon: '☾' }
+  lunch: { label: 'Day', icon: '☀' },
+  evening: { label: 'Night', icon: '☾' }
 };
 
 const DEFAULT_PERIODS: ServicePeriod[] = [
   {
     service_key: 'lunch',
-    name: 'Lunch',
+    name: 'Day',
     active: true,
     sort_order: 0,
     metadata: { default_start: '12:00', default_end: '15:00' }
   },
   {
     service_key: 'evening',
-    name: 'Evening',
+    name: 'Night',
     active: true,
     sort_order: 1,
     metadata: { default_start: '18:00', default_end: '23:00' }
@@ -50,17 +50,22 @@ export function activeServicePeriods(
   return configured.length ? configured : DEFAULT_PERIODS.map((service) => ({ ...service }));
 }
 
-export function configuredServiceKeys(
+export function configuredServicePeriods(
   services: readonly ServicePeriod[] | null | undefined
-): ServiceKey[] {
+): ServicePeriod[] {
   const configured = (services ?? [])
     .filter((service) => service.service_key.trim())
     .sort((left, right) =>
       left.sort_order - right.sort_order ||
       left.name.localeCompare(right.name)
-    )
-    .map((service) => service.service_key);
-  return configured.length ? configured : [...DEFAULT_SERVICE_KEYS];
+    );
+  return configured.length ? configured : DEFAULT_PERIODS.map((service) => ({ ...service }));
+}
+
+export function configuredServiceKeys(
+  services: readonly ServicePeriod[] | null | undefined
+): ServiceKey[] {
+  return configuredServicePeriods(services).map((service) => service.service_key);
 }
 
 export function activeServiceKeys(

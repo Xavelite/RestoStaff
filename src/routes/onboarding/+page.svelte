@@ -32,6 +32,7 @@
   type AssignmentInput = { areaId: string; jobFunctionId: string };
   type ServiceInput = {
     id: string;
+    serviceKey: string;
     name: string;
     startTime: string;
     endTime: string;
@@ -135,14 +136,16 @@
     services: [
       {
         id: 'service-lunch',
-        name: 'Lunch',
+        serviceKey: 'lunch',
+        name: 'Day',
         startTime: '12:00',
         endTime: '15:00',
         openDays: [true, true, true, true, true, true, false]
       },
       {
         id: 'service-evening',
-        name: 'Evening',
+        serviceKey: 'evening',
+        name: 'Night',
         startTime: '18:00',
         endTime: '23:00',
         openDays: [true, true, true, true, true, true, false]
@@ -377,14 +380,16 @@
         ? [
             {
               id: 'service-lunch',
-              name: 'Lunch',
+              serviceKey: 'lunch',
+              name: 'Day',
               startTime: candidate.lunchStart ?? '12:00',
               endTime: candidate.lunchEnd ?? '15:00',
               openDays: candidate.openDays
             },
             {
               id: 'service-evening',
-              name: 'Evening',
+              serviceKey: 'evening',
+              name: 'Night',
               startTime: candidate.eveningStart ?? '18:00',
               endTime: candidate.eveningEnd ?? '23:00',
               openDays: candidate.openDays
@@ -394,6 +399,15 @@
 
     return source.map((service, serviceIndex) => ({
       id: String(service.id || `service-${serviceIndex + 1}`),
+      serviceKey:
+        typeof service.serviceKey === 'string' &&
+        /^[a-z][a-z0-9-]{0,39}$/.test(service.serviceKey)
+          ? service.serviceKey
+          : String(service.id) === 'service-lunch'
+            ? 'lunch'
+            : String(service.id) === 'service-evening'
+              ? 'evening'
+              : '',
       name: String(service.name ?? ''),
       startTime: String(service.startTime ?? ''),
       endTime: String(service.endTime ?? ''),
@@ -440,6 +454,9 @@
   }
 
   function serviceKey(service: ServiceInput, index: number): string {
+    if (/^[a-z][a-z0-9-]{0,39}$/.test(service.serviceKey)) {
+      return service.serviceKey;
+    }
     const normalized = service.name
       .normalize('NFKD')
       .replace(/[\u0300-\u036f]/g, '')
@@ -520,6 +537,7 @@
       ...draft.services,
       {
         id: id('service'),
+        serviceKey: '',
         name: '',
         startTime: '09:00',
         endTime: '12:00',

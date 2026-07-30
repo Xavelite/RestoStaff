@@ -55,6 +55,8 @@ test('Schedule keeps the weekly planning board and adds a focused mobile day wor
   assert.match(schedule, /class="day-card"/);
   assert.match(schedule, /class="day-card__surface"/);
   assert.match(schedule, /class="mobile-board"/);
+  assert.match(schedule, /--mobile-service-columns/);
+  assert.match(schedule, /class:is-odd=\{serviceKeys\.length > 1/);
   assert.match(schedule, /<WorkspaceMobileDayPicker/);
   assert.match(schedule, /aria-label=\{t\('Daily schedule'\)\}/);
   assert.match(schedule, /@media \(max-width: 760px\)/);
@@ -108,7 +110,7 @@ test('Schedule keeps the weekly planning board and adds a focused mobile day wor
   assert.match(schedule, /Contract overages/);
   assert.match(schedule, /class="board__day-metric board__weather-metric"/);
   assert.doesNotMatch(schedule, /class="today-link"/);
-  assert.match(schedule, /\.board__day \{ border-left: 1px solid var\(--cl-grid-line\)/);
+  assert.match(schedule, /\.board__day \{[^}]*border-left: 1px solid var\(--cl-grid-line\)/);
   assert.match(schedule, /\.board th \{ height: 72px/);
   assert.match(schedule, /\.board th\.has-menu \{ padding: 0; \}/);
   assert.match(schedule, /\.day-card \{[^}]*border-radius: 3px/s);

@@ -85,6 +85,18 @@
 
 <style>
   td.is-live-column {
-    box-shadow: inset var(--cl-live-marker-width) 0 0 var(--cl-live-marker);
+    position: relative;
+  }
+  td.is-live-column::before {
+    content: '';
+    position: absolute;
+    z-index: 12;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: var(--cl-live-marker-width);
+    background: var(--cl-live-marker);
+    box-shadow: 0 0 3px color-mix(in srgb, var(--cl-live-marker) 34%, transparent);
+    pointer-events: none;
   }
 </style>

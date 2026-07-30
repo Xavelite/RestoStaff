@@ -26,6 +26,8 @@ const COPY: Record<Exclude<PushLocale, 'en'>, Record<string, string>> = {
     'Shift soon': 'Service bientôt',
     'Urgent message': 'Message urgent',
     'New message': 'Nouveau message',
+    Day: 'Jour',
+    Night: 'Nuit',
     Lunch: 'Midi',
     Evening: 'Soir'
   },
@@ -49,6 +51,8 @@ const COPY: Record<Exclude<PushLocale, 'en'>, Record<string, string>> = {
     'Shift soon': 'Dienst binnenkort',
     'Urgent message': 'Dringend bericht',
     'New message': 'Nieuw bericht',
+    Day: 'Dag',
+    Night: 'Nacht',
     Lunch: 'Lunch',
     Evening: 'Avond'
   }

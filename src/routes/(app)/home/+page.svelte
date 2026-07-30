@@ -201,22 +201,23 @@
                 data-module-key={module.key}
                 style={`--tile-color:${MODULE_COLOR[module.key] ?? 'var(--cl-muted)'}`}
               >
-                <span class="module-tile__backdrop" aria-hidden="true">
-                  <WorkspaceIcon name={module.icon} size={72} />
-                </span>
                 <span class="module-tile__top">
-                  <span class="module-tile__icon"><WorkspaceIcon name={module.icon} size={24} /></span>
+                  <span class="module-tile__icon"><WorkspaceIcon name={module.icon} size={27} /></span>
+                  <span class="module-tile__copy">
+                    <strong>{t(module.label)}</strong>
+                    <span>{t(module.summary)}</span>
+                  </span>
+                </span>
+                <span class="module-tile__foot">
+                  {#if signal}
+                    <span class="module-tile__signal is-{signal.tone ?? 'neutral'}">
+                      <i aria-hidden="true"></i><strong>{signal.value}</strong><span>{signal.label}</span>
+                    </span>
+                  {:else}
+                    <span class="module-tile__open">{t('Open workspace')}</span>
+                  {/if}
                   <span class="module-tile__arrow" aria-hidden="true">&rarr;</span>
                 </span>
-                <span class="module-tile__copy">
-                  <strong>{t(module.label)}</strong>
-                  <span>{t(module.summary)}</span>
-                </span>
-                {#if signal}
-                  <span class="module-tile__signal is-{signal.tone ?? 'neutral'}">
-                    <i aria-hidden="true"></i><strong>{signal.value}</strong><span>{signal.label}</span>
-                  </span>
-                {/if}
               </a>
             {/each}
           </div>
@@ -322,10 +323,10 @@
 
   .module-tile {
     position: relative;
-    min-height: 132px;
+    min-height: 126px;
     display: grid;
-    grid-template-rows: auto 1fr auto;
-    gap: 12px;
+    grid-template-rows: 1fr auto;
+    gap: 14px;
     padding: 15px 16px 13px;
     isolation: isolate;
     overflow: hidden;
@@ -348,37 +349,18 @@
     top: 0;
     right: 0;
     bottom: 0;
-    width: 43%;
-    clip-path: polygon(38% 0, 100% 0, 100% 100%, 0 100%);
-    background: color-mix(in srgb, var(--tile-color) 5.5%, var(--cl-surface));
+    width: 34%;
+    clip-path: polygon(50% 0, 100% 0, 100% 100%, 0 100%);
+    background: color-mix(in srgb, var(--tile-color) 4%, var(--cl-surface));
     transition: background var(--cl-dur) var(--cl-ease);
   }
 
   .module-tile:hover::before {
-    background: color-mix(in srgb, var(--tile-color) 9%, var(--cl-surface));
-  }
-
-  .module-tile__backdrop {
-    position: absolute;
-    z-index: 0;
-    right: 9px;
-    bottom: 8px;
-    color: var(--tile-color);
-    opacity: .085;
-    transform: rotate(-4deg);
-    transition:
-      opacity var(--cl-dur) var(--cl-ease),
-      transform var(--cl-dur-slow) var(--cl-ease);
-  }
-
-  .module-tile:hover .module-tile__backdrop {
-    opacity: .14;
-    transform: rotate(0) translateY(-2px);
+    background: color-mix(in srgb, var(--tile-color) 7%, var(--cl-surface));
   }
 
   .module-tile__top,
-  .module-tile__copy,
-  .module-tile__signal {
+  .module-tile__foot {
     position: relative;
     z-index: 1;
   }
@@ -395,14 +377,16 @@
   }
 
   .module-tile__top {
-    display: flex;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
     align-items: center;
-    justify-content: space-between;
+    gap: 12px;
   }
 
   .module-tile__icon {
-    width: 42px;
-    height: 42px;
+    width: 48px;
+    height: 48px;
     display: grid;
     place-items: center;
     border: 1px solid color-mix(in srgb, var(--tile-color) 20%, var(--cl-line));
@@ -411,22 +395,8 @@
     color: var(--tile-color);
   }
 
-  .module-tile__arrow {
-    color: var(--cl-line-strong);
-    font-size: 18px;
-    transition:
-      color var(--cl-dur) var(--cl-ease),
-      transform var(--cl-dur) var(--cl-ease);
-  }
-
-  .module-tile:hover .module-tile__arrow {
-    transform: translateX(3px);
-    color: var(--tile-color);
-  }
-
   .module-tile__copy {
     min-width: 0;
-    max-width: 82%;
     display: grid;
     align-content: start;
     gap: 3px;
@@ -443,9 +413,18 @@
     line-height: 1.42;
   }
 
+  .module-tile__foot {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding-top: 10px;
+    border-top: 1px solid color-mix(in srgb, var(--tile-color) 13%, var(--cl-line));
+  }
+
   .module-tile__signal {
     min-width: 0;
-    max-width: 84%;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -477,6 +456,26 @@
   .module-tile__signal.is-ok i { background: var(--cl-ok); }
   .module-tile__signal.is-attention i { background: var(--cl-attention); }
   .module-tile__signal.is-problem i { background: var(--cl-problem); }
+
+  .module-tile__open {
+    color: var(--cl-muted);
+    font-size: 11px;
+    font-weight: var(--rst-fw-medium);
+  }
+
+  .module-tile__arrow {
+    flex: 0 0 auto;
+    color: color-mix(in srgb, var(--tile-color) 48%, var(--cl-line-strong));
+    font-size: 18px;
+    transition:
+      color var(--cl-dur) var(--cl-ease),
+      transform var(--cl-dur) var(--cl-ease);
+  }
+
+  .module-tile:hover .module-tile__arrow {
+    transform: translateX(3px);
+    color: var(--tile-color);
+  }
 
   .upcoming-grid {
     display: grid;
@@ -528,9 +527,14 @@
 
     .module-tile {
       min-height: 102px;
-      grid-template-rows: auto auto 1fr;
+      grid-template-rows: 1fr auto;
       gap: 8px;
       padding: 10px 11px;
+    }
+
+    .module-tile__top {
+      grid-template-columns: 35px minmax(0, 1fr);
+      gap: 8px;
     }
 
     .module-tile__icon {
@@ -544,14 +548,6 @@
 
     .module-tile__copy > span {
       display: none;
-    }
-
-    .module-tile__backdrop {
-      right: 5px;
-      bottom: 5px;
-      opacity: .07;
-      transform: scale(.78);
-      transform-origin: bottom right;
     }
 
     .module-tile__signal {

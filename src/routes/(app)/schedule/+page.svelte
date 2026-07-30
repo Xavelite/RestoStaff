@@ -1286,7 +1286,11 @@
                           {/if}
                         </header>
 
-                        <div class="mobile-slots">
+                          <div
+                            class="mobile-slots"
+                            class:is-odd={serviceKeys.length > 1 && serviceKeys.length % 2 === 1}
+                            style={`--mobile-service-columns:${Math.min(2, Math.max(1, serviceKeys.length))}`}
+                          >
                           {#if spanning}
                             <button
                               class="mobile-slot has-shift is-spanning"
@@ -1868,7 +1872,7 @@
   thead .board__staff :global(.colhead__copy small) { font-size: 10.5px; line-height: 1.2; }
   thead .board__staff :global(.colhead__trigger) { position: absolute; top: 50%; right: 31px; transform: translateY(-50%); }
   thead .board__staff :global(.groupmenu) { position: absolute; top: 0; right: 0; bottom: 0; padding-right: 6px; }
-  .board__day { border-left: 1px solid var(--cl-grid-line); text-align: center !important; }
+  .board__day { position: relative; border-left: 1px solid var(--cl-grid-line); text-align: center !important; }
   .board__day-date { color: var(--cl-ink); font-size: 12.5px; line-height: 1.1; letter-spacing: 0; text-align: center; white-space: nowrap; }
   .board__day-date b { font-weight: var(--rst-fw-bold); }
   .board__day-lower { min-height: 42px; display: grid; grid-template-columns: minmax(32px, 1fr) minmax(42px, 1fr); align-items: stretch; gap: 0; margin-top: 4px; }
@@ -1885,9 +1889,18 @@
   .board__weather-metric svg { color: #3287b8; }
   .board__weather.is-unavailable { opacity: .5; }
   .board__day.is-today { color: var(--cl-accent); background: color-mix(in srgb, var(--cl-accent) 10%, var(--cl-thead)); }
-  .board__day.is-today,
-  .board__cell.is-today {
-    box-shadow: inset var(--cl-live-marker-width) 0 0 var(--cl-live-marker);
+  .board__day.is-today::before,
+  .board__cell.is-today::before {
+    content: '';
+    position: absolute;
+    z-index: 12;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: var(--cl-live-marker-width);
+    background: var(--cl-live-marker);
+    box-shadow: 0 0 3px color-mix(in srgb, var(--cl-live-marker) 34%, transparent);
+    pointer-events: none;
   }
   .board__day.is-past:not(.is-today) {
     background-color: color-mix(in srgb, var(--cl-surface-muted) 68%, var(--cl-thead));
@@ -2197,8 +2210,9 @@
 
     .mobile-slots {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(var(--mobile-service-columns, 2), minmax(0, 1fr));
     }
+    .mobile-slots.is-odd > .mobile-slot:last-child { grid-column: 1 / -1; border-right: 0; }
 
     .mobile-slot {
       min-width: 0;

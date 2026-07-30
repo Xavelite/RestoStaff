@@ -417,7 +417,7 @@ test('time off overrides an available background without hiding its card', () =>
   assert.equal(presentation.card?.tone, 'absence');
 });
 
-test('planning weekly grid is employee by seven days by two services', () => {
+test('planning weekly grid is employee by seven days and the configured services', () => {
   const model = buildPlanningWeek({
     snapshot: snapshot({
       employee_availability_slots: [
@@ -464,6 +464,30 @@ test('planning weekly grid is employee by seven days by two services', () => {
   assert.equal(model.rows[0].cells[0].slots[0].presentation.background, 'conflict');
   assert.equal(model.rows[0].cells[0].slots[0].presentation.card?.tone, 'conflict');
   assert.equal(model.rows[0].cells[0].slots[0].presentation.card?.label, '12:00–15:00');
+});
+
+test('planning weekly grids support one and three active service periods without phantom slots', () => {
+  const service = (service_key, sort_order) => ({
+    service_key,
+    name: service_key,
+    active: true,
+    sort_order,
+    metadata: { default_start: '09:00', default_end: '17:00' }
+  });
+  const build = (services) =>
+    buildPlanningWeek({
+      snapshot: snapshot({ services }),
+      weekStart: '2026-06-15',
+      today: '2026-06-18',
+      draft: []
+    });
+
+  assert.equal(build([service('day', 0)]).rows[0].cells[0].slots.length, 1);
+  assert.deepEqual(
+    build([service('breakfast', 0), service('day', 1), service('night', 2)])
+      .rows[0].cells[0].slots.map((slot) => slot.serviceKey),
+    ['breakfast', 'day', 'night']
+  );
 });
 
 test('archived services remain visible wherever operational evidence exists', () => {

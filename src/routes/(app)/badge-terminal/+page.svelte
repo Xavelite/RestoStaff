@@ -18,6 +18,7 @@
   import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
   import WorkspaceStatus from '$lib/workspace-ui/WorkspaceStatus.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
+  import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
 
   let stations = $state<RestaurantStation[]>([]);
   let loading = $state(false);
@@ -141,10 +142,10 @@
         <table class="cl-table">
           <thead>
             <tr>
-              <th>{t('Device')}</th>
-              <th>{t('Paired')}</th>
-              <th>{t('Last check-in')}</th>
-              <th>{t('Status')}</th>
+              <th class="has-menu"><WorkspaceColMenu label={t('Device')} columnKey="badge-device" /></th>
+              <th class="has-menu"><WorkspaceColMenu label={t('Paired')} columnKey="badge-paired" /></th>
+              <th class="has-menu"><WorkspaceColMenu label={t('Last check-in')} columnKey="badge-last-check-in" /></th>
+              <th class="has-menu"><WorkspaceColMenu label={t('Status')} columnKey="badge-status" /></th>
               <th class="menu-cell" aria-label={t('Actions')}></th>
             </tr>
           </thead>

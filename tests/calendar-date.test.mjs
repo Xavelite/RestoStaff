@@ -3,6 +3,8 @@ import test from 'node:test';
 import {
   addDays,
   addMonths,
+  activeServicePeriods,
+  configuredServicePeriods,
   greetingForMinutes,
   hoursBetweenClocks,
   mondayFor,
@@ -55,5 +57,26 @@ test('archived services return only when the viewed period contains evidence', (
   assert.deepEqual(
     serviceKeysWithEvidence(services, ['late-night']),
     ['evening', 'late-night']
+  );
+});
+
+test('configured service periods keep inactive setup rows while active grids follow the real count', () => {
+  const services = [
+    { service_key: 'day', name: 'Day', active: true, sort_order: 10 },
+    { service_key: 'night', name: 'Night', active: false, sort_order: 20 },
+    { service_key: 'late', name: 'Late', active: true, sort_order: 30 }
+  ];
+
+  assert.deepEqual(
+    configuredServicePeriods(services).map((service) => service.service_key),
+    ['day', 'night', 'late']
+  );
+  assert.deepEqual(
+    activeServicePeriods(services).map((service) => service.service_key),
+    ['day', 'late']
+  );
+  assert.deepEqual(
+    activeServicePeriods(undefined).map((service) => service.name),
+    ['Day', 'Night']
   );
 });

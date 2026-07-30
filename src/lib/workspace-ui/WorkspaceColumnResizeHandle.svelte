@@ -148,6 +148,10 @@
     transition: background var(--cl-dur) var(--cl-ease);
   }
 
+  :global(.colhead:hover) .column-resize::after {
+    background: color-mix(in srgb, var(--cl-line-strong) 72%, transparent);
+  }
+
   .column-resize:hover::after,
   .column-resize:focus-visible::after,
   .column-resize.is-dragging::after {

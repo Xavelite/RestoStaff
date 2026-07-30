@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ExternalLink, Globe2, MapPin, Search } from '@lucide/svelte';
   import { friendlyError } from '$lib/api/error-messages';
   import { WEEKDAYS, type ServiceKey } from '$lib/calendar/date';
   import { t } from '$lib/i18n/i18n.svelte';
@@ -15,10 +16,20 @@
     restaurantLogoUrl,
     uploadRestaurantLogo
   } from '$lib/restaurant/logo-api';
+  import {
+    osmEmbedUrl,
+    osmLocationUrl,
+    restaurantAddressQuery,
+    searchBelgianRestaurantAddress,
+    type RestaurantAddressCandidate
+  } from '$lib/restaurant/address-geocoding';
 
   let logoBusy = $state(false);
   let logoError = $state('');
   let logoVersion = $state(0);
+  let locationBusy = $state(false);
+  let locationError = $state('');
+  let locationCandidates = $state<RestaurantAddressCandidate[]>([]);
   const snapshot = $derived(workspace.restaurant);
   const logoUrl = $derived.by(() => {
     const url = restaurantLogoUrl(snapshot?.restaurant.logo_path);
@@ -66,6 +77,65 @@
   const readRestaurantContext = useWorkspaceRestaurantContext();
   const context = $derived(readRestaurantContext());
   const canManageLogo = $derived(workspace.canManageOperations);
+  const resolvedLocation = $derived.by(() => {
+    const draft = context?.draft;
+    if (
+      !draft ||
+      draft.locationLatitude == null ||
+      draft.locationLongitude == null
+    ) return null;
+    return {
+      latitude: draft.locationLatitude,
+      longitude: draft.locationLongitude,
+      label: draft.locationLabel
+    };
+  });
+
+  function touchAddress() {
+    if (!context) return;
+    context.draft.locationLatitude = null;
+    context.draft.locationLongitude = null;
+    context.draft.locationLabel = '';
+    locationCandidates = [];
+    locationError = '';
+    restaurantConfig.touch();
+  }
+
+  async function locateRestaurant() {
+    if (!context || locationBusy) return;
+    const query = restaurantAddressQuery({
+      restaurantName: context.draft.displayName,
+      street: context.draft.address,
+      postalCode: context.draft.postalCode,
+      city: context.draft.city
+    });
+    locationBusy = true;
+    locationError = '';
+    locationCandidates = [];
+    try {
+      locationCandidates = await searchBelgianRestaurantAddress(query);
+      if (!locationCandidates.length) {
+        locationError = t('No matching Belgian address was found.');
+      }
+    } catch {
+      locationError = t('The address service is unavailable. Try again shortly.');
+    } finally {
+      locationBusy = false;
+    }
+  }
+
+  function selectLocation(candidate: RestaurantAddressCandidate) {
+    if (!context) return;
+    if (candidate.street) context.draft.address = candidate.street;
+    if (candidate.postalCode) context.draft.postalCode = candidate.postalCode;
+    if (candidate.city) context.draft.city = candidate.city;
+    context.draft.locationLatitude = candidate.latitude;
+    context.draft.locationLongitude = candidate.longitude;
+    context.draft.locationLabel = candidate.displayName;
+    locationCandidates = [];
+    locationError = '';
+    restaurantConfig.touch();
+  }
 
   function serviceOpenDays(
     opening: NonNullable<typeof context>['draft']['opening'],
@@ -101,6 +171,69 @@
     }
     restaurantConfig.touch();
   }
+
+  function restoreDayNightStarter() {
+    if (!context) return;
+    const starters = [
+      {
+        serviceKey: 'lunch',
+        name: 'Day',
+        defaultStart: '12:00',
+        defaultEnd: '15:00'
+      },
+      {
+        serviceKey: 'evening',
+        name: 'Night',
+        defaultStart: '18:00',
+        defaultEnd: '23:00'
+      }
+    ];
+    const existingByKey = new Map(
+      context.draft.services.map((service) => [service.serviceKey, service])
+    );
+    const restored = starters.map((starter, index) => {
+      const existing = existingByKey.get(starter.serviceKey);
+      const legacyName = existing?.name.trim().toLowerCase();
+      return {
+        id: existing?.id ?? crypto.randomUUID(),
+        serviceKey: starter.serviceKey,
+        name:
+          !existing ||
+          legacyName === 'lunch' ||
+          legacyName === 'evening' ||
+          legacyName === 'day' ||
+          legacyName === 'night'
+            ? starter.name
+            : existing.name,
+        active: true,
+        sortOrder: index,
+        defaultStart: existing?.defaultStart || starter.defaultStart,
+        defaultEnd: existing?.defaultEnd || starter.defaultEnd
+      };
+    });
+    const remaining = context.draft.services
+      .filter((service) => !starters.some((starter) => starter.serviceKey === service.serviceKey))
+      .map((service, index) => ({ ...service, sortOrder: index + restored.length }));
+    context.draft.services = [...restored, ...remaining];
+
+    for (const [starterIndex, starter] of starters.entries()) {
+      for (const [dayIndex, day] of context.draft.opening.entries()) {
+        day.services[starter.serviceKey] ??= {
+          open: dayIndex < 6,
+          start: starter.defaultStart,
+          end: starter.defaultEnd
+        };
+      }
+      for (const area of context.draft.areas) {
+        area.serviceHours[starter.serviceKey] ??= {
+          start: starter.defaultStart,
+          end: starter.defaultEnd
+        };
+      }
+      restored[starterIndex].sortOrder = starterIndex;
+    }
+    restaurantConfig.touch();
+  }
 </script>
 
 <svelte:head><title>{t('Restaurant profile')} &middot; restogogo</title></svelte:head>
@@ -108,6 +241,10 @@
 {#if context}
   {@const draft = context.draft}
   {@const activeServices = draft.services.filter((service) => service.active)}
+  {@const starterNeedsRestore = ['lunch', 'evening'].some((key) => {
+    const service = draft.services.find((item) => item.serviceKey === key);
+    return !service?.active || ['lunch', 'evening'].includes(service.name.trim().toLowerCase());
+  })}
   <WorkspaceTablePanel
     dirty={context.dirty}
     saving={context.saving}
@@ -176,24 +313,103 @@
                   <span>{t('Phone')}</span>
                   <input class="cl-field" bind:value={draft.phone} oninput={() => restaurantConfig.touch()} />
                 </label>
+                <label class="cl-label">
+                  <span>{t('Website')}</span>
+                  <span class="input-with-icon">
+                    <Globe2 size={14} aria-hidden="true" />
+                    <input
+                      class="cl-field"
+                      type="url"
+                      placeholder="https://"
+                      bind:value={draft.websiteUrl}
+                      oninput={() => restaurantConfig.touch()}
+                    />
+                  </span>
+                </label>
               </div>
             </section>
 
             <section class="field-group">
-              <span class="field-group__title">{t('Address')}</span>
-              <div class="field-row is-address">
-                <label class="cl-label">
-                  <span>{t('Street and number')}</span>
-                  <input class="cl-field" bind:value={draft.address} oninput={() => restaurantConfig.touch()} />
-                </label>
-                <label class="cl-label">
-                  <span>{t('Postal code')}</span>
-                  <input class="cl-field" bind:value={draft.postalCode} oninput={() => restaurantConfig.touch()} />
-                </label>
-                <label class="cl-label">
-                  <span>{t('City')}</span>
-                  <input class="cl-field" bind:value={draft.city} oninput={() => restaurantConfig.touch()} />
-                </label>
+              <div class="field-group__head">
+                <span class="field-group__title">{t('Location')}</span>
+                <button
+                  class="cl-btn locate-button"
+                  type="button"
+                  disabled={locationBusy || (!draft.address.trim() && !draft.city.trim())}
+                  onclick={locateRestaurant}
+                >
+                  <Search size={14} aria-hidden="true" />
+                  {t(locationBusy ? 'Finding address…' : 'Find on map')}
+                </button>
+              </div>
+              <div class="location-layout">
+                <div class="location-fields">
+                  <div class="field-row is-address">
+                    <label class="cl-label">
+                      <span>{t('Street and number')}</span>
+                      <input class="cl-field" bind:value={draft.address} oninput={touchAddress} />
+                    </label>
+                    <label class="cl-label">
+                      <span>{t('Postal code')}</span>
+                      <input class="cl-field" bind:value={draft.postalCode} oninput={touchAddress} />
+                    </label>
+                    <label class="cl-label">
+                      <span>{t('City')}</span>
+                      <input class="cl-field" bind:value={draft.city} oninput={touchAddress} />
+                    </label>
+                  </div>
+
+                  {#if locationCandidates.length}
+                    <div class="location-results" aria-label={t('Address matches')}>
+                      {#each locationCandidates as candidate}
+                        <button type="button" onclick={() => selectLocation(candidate)}>
+                          <MapPin size={14} aria-hidden="true" />
+                          <span>{candidate.displayName}</span>
+                        </button>
+                      {/each}
+                    </div>
+                  {:else if locationError}
+                    <p class="location-error">{locationError}</p>
+                  {:else}
+                    <p class="location-help">
+                      {t('Search once to confirm the exact entrance used for maps and local context.')}
+                    </p>
+                  {/if}
+                </div>
+
+                <div class="location-map" class:is-empty={!resolvedLocation}>
+                  {#if resolvedLocation}
+                    <iframe
+                      title={t('Restaurant location')}
+                      src={osmEmbedUrl(resolvedLocation.latitude, resolvedLocation.longitude)}
+                      loading="lazy"
+                      referrerpolicy="strict-origin-when-cross-origin"
+                    ></iframe>
+                    <div class="location-map__footer">
+                      <span title={resolvedLocation.label}>
+                        <MapPin size={13} aria-hidden="true" />
+                        {t('Location confirmed')}
+                      </span>
+                      <a
+                        href={osmLocationUrl(resolvedLocation.latitude, resolvedLocation.longitude)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {t('Open map')}
+                        <ExternalLink size={12} aria-hidden="true" />
+                      </a>
+                    </div>
+                  {:else}
+                    <div class="location-map__empty">
+                      <span><MapPin size={22} aria-hidden="true" /></span>
+                      <strong>{t('Pin the restaurant')}</strong>
+                      <small>{t('Confirm the address to show its real location here.')}</small>
+                    </div>
+                  {/if}
+                  <a class="map-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
+                    © OpenStreetMap
+                  </a>
+                </div>
               </div>
             </section>
           </div>
@@ -203,9 +419,16 @@
           <div class="cl-card__head">
             <h3>{t('Opening hours')}</h3>
             {#if context.canSave}
-              <button class="cl-btn" type="button" onclick={addServicePeriod}>
-                {t('Add service period')}
-              </button>
+              <div class="hours-actions">
+                {#if starterNeedsRestore}
+                  <button class="cl-btn" type="button" onclick={restoreDayNightStarter}>
+                    {t('Use Day & Night starter')}
+                  </button>
+                {/if}
+                <button class="cl-btn" type="button" onclick={addServicePeriod}>
+                  {t('Add service period')}
+                </button>
+              </div>
             {/if}
           </div>
           <div class="service-periods" aria-label={t('Service periods')}>
@@ -349,6 +572,11 @@
     overflow: hidden;
     border-color: var(--cl-line-strong);
   }
+  .hours-actions {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
 
   /* The restaurant leads with its own name and mark, so the identity reads as a
      heading rather than as one more form field competing with the others. */
@@ -463,7 +691,7 @@
   .identity-fields {
     min-width: 0;
     display: grid;
-    grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
+    grid-template-columns: minmax(290px, .62fr) minmax(0, 1.38fr);
   }
 
   .field-group {
@@ -485,6 +713,18 @@
     letter-spacing: .06em;
     text-transform: uppercase;
   }
+  .field-group__head {
+    min-height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .locate-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
 
   /* Collapsible minimums: an input's intrinsic width must not hold the track
      open, or the last field is clipped by the card's hidden overflow. */
@@ -494,7 +734,10 @@
   }
 
   .field-row.is-contact {
-    grid-template-columns: minmax(0, 1.25fr) minmax(0, .75fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, .75fr);
+  }
+  .field-row.is-contact > :last-child {
+    grid-column: 1 / -1;
   }
 
   .field-row.is-address {
@@ -516,6 +759,165 @@
     padding-inline: 10px;
     font-size: 12.5px;
   }
+  .input-with-icon {
+    position: relative;
+    display: block;
+  }
+  .input-with-icon :global(svg) {
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    left: 10px;
+    color: var(--cl-muted);
+    pointer-events: none;
+    transform: translateY(-50%);
+  }
+  .input-with-icon :global(.cl-field) {
+    width: 100%;
+    padding-left: 31px;
+  }
+  .location-layout {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(230px, .72fr);
+    align-items: stretch;
+    gap: 12px;
+  }
+  .location-fields {
+    min-width: 0;
+    display: grid;
+    align-content: start;
+    gap: 8px;
+  }
+  .location-results {
+    display: grid;
+    overflow: hidden;
+    border: 1px solid var(--cl-line);
+    border-radius: var(--cl-radius-sm);
+    background: var(--cl-surface);
+  }
+  .location-results button {
+    min-width: 0;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 9px;
+    border: 0;
+    border-bottom: 1px solid var(--cl-line);
+    color: var(--cl-ink);
+    background: transparent;
+    font: inherit;
+    font-size: 10.5px;
+    line-height: 1.35;
+    text-align: left;
+    cursor: pointer;
+  }
+  .location-results button:last-child { border-bottom: 0; }
+  .location-results button:hover { background: var(--cl-accent-wash); }
+  .location-results button :global(svg) {
+    flex: 0 0 auto;
+    color: var(--cl-accent);
+  }
+  .location-results button span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .location-help,
+  .location-error {
+    margin: 0;
+    color: var(--cl-muted);
+    font-size: 10.5px;
+    line-height: 1.4;
+  }
+  .location-error { color: var(--cl-problem); }
+  .location-map {
+    position: relative;
+    min-height: 170px;
+    overflow: hidden;
+    border: 1px solid var(--cl-line-strong);
+    border-radius: var(--cl-radius);
+    background: var(--cl-surface-muted);
+  }
+  .location-map iframe {
+    width: 100%;
+    height: 138px;
+    display: block;
+    border: 0;
+  }
+  .location-map__footer {
+    min-height: 31px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 5px 8px;
+    border-top: 1px solid var(--cl-line);
+    background: var(--cl-surface);
+    font-size: 10px;
+  }
+  .location-map__footer span,
+  .location-map__footer a {
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .location-map__footer span {
+    overflow: hidden;
+    color: var(--cl-ink);
+    font-weight: var(--rst-fw-bold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .location-map__footer span :global(svg) { color: var(--cl-ok); }
+  .location-map__footer a {
+    flex: 0 0 auto;
+    color: var(--cl-accent);
+    text-decoration: none;
+  }
+  .location-map__empty {
+    min-height: 168px;
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: 5px;
+    padding: 20px;
+    color: var(--cl-muted);
+    text-align: center;
+  }
+  .location-map__empty > span {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--cl-accent) 24%, var(--cl-line));
+    border-radius: 50%;
+    color: var(--cl-accent);
+    background: var(--cl-accent-wash);
+  }
+  .location-map__empty strong {
+    color: var(--cl-ink);
+    font-size: 11.5px;
+  }
+  .location-map__empty small {
+    max-width: 210px;
+    font-size: 10px;
+    line-height: 1.35;
+  }
+  .map-attribution {
+    position: absolute;
+    right: 4px;
+    bottom: 34px;
+    padding: 1px 3px;
+    border-radius: 2px;
+    color: #334155;
+    background: rgb(255 255 255 / .84);
+    font-size: 8px;
+    text-decoration: none;
+  }
+  .location-map.is-empty .map-attribution { bottom: 3px; }
 
   .logo-error {
     margin: 10px 16px 0;
@@ -745,6 +1147,12 @@
     .service-periods { grid-template-columns: minmax(0, 1fr); }
   }
 
+  @media (max-width: 980px) {
+    .location-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
   @media (max-width: 760px) {
     .restaurant-workspace {
       padding: 8px;
@@ -762,6 +1170,9 @@
     .field-row.is-contact,
     .field-row.is-address {
       grid-template-columns: minmax(0, 1fr);
+    }
+    .field-row.is-contact > :last-child {
+      grid-column: auto;
     }
 
     .service-period {

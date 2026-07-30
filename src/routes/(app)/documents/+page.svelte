@@ -22,6 +22,7 @@
     UsersRound
   } from '@lucide/svelte';
   import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
+  import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
   import Dialog from '$lib/components/Dialog.svelte';
   import ActionButton from '$lib/components/ActionButton.svelte';
   import DocumentDetailsDialog from '$lib/documents/DocumentDetailsDialog.svelte';
@@ -336,13 +337,13 @@
             <table class="cl-table cl-mobile-rows">
               <thead>
                 <tr>
-                  <th>{t('Document')}</th>
-                  <th>{t('Category')}</th>
-                  <th>{t('Employee')}</th>
-                  <th>{t('Expiry')}</th>
-                  <th>{t('Access')}</th>
-                  <th class="is-num">{t('Size')}</th>
-                  <th>{t('Uploaded')}</th>
+                  <th class="has-menu"><WorkspaceColMenu label={t('Document')} columnKey="documents-name" /></th>
+                  <th class="has-menu"><WorkspaceColMenu label={t('Category')} columnKey="documents-category" /></th>
+                  <th class="has-menu"><WorkspaceColMenu label={t('Employee')} columnKey="documents-employee" /></th>
+                  <th class="has-menu"><WorkspaceColMenu label={t('Expiry')} columnKey="documents-expiry" /></th>
+                  <th class="has-menu"><WorkspaceColMenu label={t('Access')} columnKey="documents-access" /></th>
+                  <th class="has-menu is-num"><WorkspaceColMenu label={t('Size')} align="right" columnKey="documents-size" /></th>
+                  <th class="has-menu"><WorkspaceColMenu label={t('Uploaded')} columnKey="documents-uploaded" /></th>
                   <th aria-label={t('Actions')}></th>
                 </tr>
               </thead>

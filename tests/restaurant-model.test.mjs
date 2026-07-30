@@ -47,7 +47,18 @@ test('restaurant hours preserve configurable service periods independently', asy
       locale: 'en-BE',
       currency_code: 'EUR',
       active_week_start: '2026-07-20',
-      settings: {},
+      settings: {
+        keep_me: true,
+        restaurant_profile: {
+          website_url: 'https://demo.example/',
+          location: {
+            latitude: 50.8466,
+            longitude: 4.3528,
+            label: 'Demo, Brussels',
+            provider: 'openstreetmap'
+          }
+        }
+      },
       payroll_settings: {}
     },
     job_functions: [
@@ -133,6 +144,11 @@ test('restaurant hours preserve configurable service periods independently', asy
   assert.equal(draft.legalName, 'Demo');
   assert.equal(draft.onssEmployerNumber, 'ONSS-42');
   assert.equal(draft.dimonaSubmissionMode, 'social_secretariat');
+  assert.equal(draft.websiteUrl, 'https://demo.example/');
+  assert.equal(draft.locationLatitude, 50.8466);
+  assert.equal(draft.locationLongitude, 4.3528);
+  assert.equal(draft.locationLabel, 'Demo, Brussels');
+  draft.websiteUrl = 'restogogo.example';
 
   draft.jobFunctions.unshift({
     ...draft.jobFunctions[0],
@@ -170,5 +186,16 @@ test('restaurant hours preserve configurable service periods independently', asy
     social_secretariat_name: 'Pilot Secretariat',
     external_employer_id: 'EMP-42',
     metadata: { source: 'pilot' }
+  });
+  assert.equal(payload.settings.settings.keep_me, true);
+  assert.equal(
+    payload.settings.settings.restaurant_profile.website_url,
+    'https://restogogo.example/'
+  );
+  assert.deepEqual(payload.settings.settings.restaurant_profile.location, {
+    latitude: 50.8466,
+    longitude: 4.3528,
+    label: 'Demo, Brussels',
+    provider: 'openstreetmap'
   });
 });
