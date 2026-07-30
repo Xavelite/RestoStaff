@@ -8,6 +8,8 @@ test('Team root resolves to People while deeper routes resolve to their exact ta
   assert.equal(team?.key, 'team');
   assert.equal(subNavItemForPath(team, '/team')?.href, '/team');
   assert.equal(subNavItemForPath(team, '/team/contracts')?.href, '/team/contracts');
+  assert.equal(subNavItemForPath(team, '/team/payroll')?.href, '/team/payroll');
+  assert.deepEqual(subNavItemForPath(team, '/team/payroll')?.roles, ['owner']);
   assert.equal(subNavItemForPath(team, '/team/access')?.href, '/team/access');
   assert.equal(subNavItemForPath(team, '/team/absences')?.href, '/team/absences');
 });

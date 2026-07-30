@@ -1497,6 +1497,18 @@
   vertical-align: middle;
 }
 
+/* Directory grids keep a quiet spreadsheet structure. The separators are
+   visible at rest, then pick up the active theme when the row is inspected. */
+.cl-table:not(.board) tbody tr:not(.cl-group-row) > td + td {
+  border-left: 1px solid color-mix(in srgb, var(--cl-grid-line) 72%, transparent);
+  transition:
+    border-color var(--cl-dur) var(--cl-ease),
+    background-color var(--cl-dur) var(--cl-ease);
+}
+.cl-table:not(.board) tbody tr:not(.cl-group-row):hover > td + td {
+  border-left-color: color-mix(in srgb, var(--cl-accent) 24%, var(--cl-grid-line));
+}
+
 .cl-table tbody tr:not(.cl-group-row) > td:first-child {
   color: var(--cl-ink);
 }
@@ -2229,10 +2241,14 @@
   flex: 0 0 auto;
   display: grid;
   place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
   margin-left: -6px;
   color: var(--cl-muted);
   cursor: grab;
   opacity: 0;
+  touch-action: none;
   transition: opacity var(--cl-dur) var(--cl-ease), color var(--cl-dur) var(--cl-ease);
 }
 .cl-table thead:hover .workspace-column-drag,
@@ -2246,6 +2262,11 @@
 .workspace-column-drag:active {
   cursor: grabbing;
 }
+:root.is-reordering-column,
+:root.is-reordering-column * {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
 .cl-table th.is-column-dragging {
   opacity: .56;
 }
@@ -2254,6 +2275,10 @@
   bottom: 4px;
   width: 2px;
   background: var(--cl-accent);
+}
+.cl-table th.is-column-drop-after::before {
+  right: 0;
+  left: auto;
 }
 
 

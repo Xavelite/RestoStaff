@@ -9,6 +9,7 @@ import type { ModuleEntitlements } from '$lib/api/workspace-snapshot';
 export type WorkspaceSubNavItem = {
   href: string;
   label: string;
+  roles?: WorkspaceRole[];
 };
 
 export type WorkspaceModule = {
@@ -102,6 +103,7 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     subNav: [
       { href: '/team', label: 'People' },
       { href: '/team/contracts', label: 'Contracts' },
+      { href: '/team/payroll', label: 'Payroll', roles: OWNER },
       { href: '/team/access', label: 'Access' },
       { href: '/team/absences', label: 'Time off' }
     ]

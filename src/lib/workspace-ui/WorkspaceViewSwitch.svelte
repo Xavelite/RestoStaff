@@ -49,6 +49,7 @@
     onclick={() => choose('list')}
   >
     <List size={15} aria-hidden="true" />
+    <span>{t('List')}</span>
   </button>
   <button
     type="button"
@@ -59,6 +60,7 @@
     onclick={() => choose(secondary)}
   >
     <LayoutGrid size={15} aria-hidden="true" />
+    <span>{t(secondaryLabel)}</span>
   </button>
 </div>
 
@@ -72,11 +74,13 @@
   }
 
   button {
-    width: 30px;
+    min-width: 64px;
     height: 30px;
-    display: grid;
-    place-items: center;
-    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 9px;
     border: 0;
     border-radius: 5px;
     color: var(--cl-muted);
@@ -97,5 +101,22 @@
   button:focus-visible {
     outline: 2px solid color-mix(in srgb, var(--cl-accent) 48%, transparent);
     outline-offset: 1px;
+  }
+
+  button span {
+    font-size: 11px;
+    font-weight: var(--rst-fw-bold);
+  }
+
+  @media (max-width: 760px) {
+    button {
+      min-width: 30px;
+      width: 30px;
+      padding: 0;
+    }
+
+    button span {
+      display: none;
+    }
   }
 </style>

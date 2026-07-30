@@ -1,10 +1,13 @@
 import { t } from '$lib/i18n/i18n.svelte';
+import { reorderedColumns } from './workspace-column-order-model';
 
 type ColumnState = {
   sourceKeys: string[];
   order: string[];
   applying: boolean;
   dragKey: string;
+  dropKey: string;
+  dropAfter: boolean;
 };
 
 const states = new WeakMap<HTMLTableElement, ColumnState>();
@@ -95,6 +98,8 @@ function reorderRow(
   const byKey = new Map(
     [...row.cells].map((cell) => [cell.dataset.workspaceColumnKey || '', cell])
   );
+  const current = [...row.cells].map((cell) => cell.dataset.workspaceColumnKey || '');
+  if (current.every((key, index) => key === desired[index])) return;
   for (const key of desired) {
     const cell = byKey.get(key);
     if (cell) row.append(cell);
@@ -131,14 +136,48 @@ function applyOrder(table: HTMLTableElement, state: ColumnState): void {
   const headersByKey = new Map(
     [...headRow.cells].map((cell) => [cell.dataset.workspaceColumnKey || '', cell])
   );
-  for (const key of desired) {
-    const cell = headersByKey.get(key);
-    if (cell) headRow.append(cell);
+  const currentHeaders = [...headRow.cells].map(
+    (cell) => cell.dataset.workspaceColumnKey || ''
+  );
+  if (!currentHeaders.every((key, index) => key === desired[index])) {
+    for (const key of desired) {
+      const cell = headersByKey.get(key);
+      if (cell) headRow.append(cell);
+    }
   }
   for (const body of table.tBodies) {
     for (const row of body.rows) reorderRow(row, state.sourceKeys, desired);
   }
   state.applying = false;
+}
+
+function sameKeys(left: string[], right: string[]): boolean {
+  return (
+    left.length === right.length &&
+    left.every((key) => right.includes(key))
+  );
+}
+
+function clearDropState(table: HTMLTableElement, state: ColumnState): void {
+  state.dropKey = '';
+  state.dropAfter = false;
+  table.querySelectorAll('.is-column-drop, .is-column-drop-after').forEach((item) => {
+    item.classList.remove('is-column-drop', 'is-column-drop-after');
+  });
+}
+
+function moveColumn(
+  table: HTMLTableElement,
+  state: ColumnState,
+  source: string,
+  target: string,
+  after: boolean
+): void {
+  const next = reorderedColumns(state.order, source, target, after);
+  if (next === state.order) return;
+  state.order = next;
+  persistOrder(table, state);
+  applyOrder(table, state);
 }
 
 function installDragHandle(
@@ -149,54 +188,110 @@ function installDragHandle(
 ): void {
   if (cell.querySelector(':scope .workspace-column-drag')) return;
   const host = cell.querySelector<HTMLElement>('.colhead') ?? cell;
-  const handle = document.createElement('span');
+  const handle = document.createElement('button');
+  handle.type = 'button';
   handle.className = 'workspace-column-drag';
-  handle.draggable = true;
-  handle.tabIndex = -1;
-  handle.setAttribute('aria-hidden', 'true');
-  handle.title = t('Drag to reorder');
+  handle.title = `${t('Drag to reorder')} · ${cell.textContent?.trim() ?? ''}`;
+  handle.setAttribute('aria-label', handle.title);
   handle.innerHTML =
     '<svg viewBox="0 0 20 20" width="12" height="12" fill="currentColor" aria-hidden="true"><circle cx="7" cy="5" r="1.2"/><circle cx="13" cy="5" r="1.2"/><circle cx="7" cy="10" r="1.2"/><circle cx="13" cy="10" r="1.2"/><circle cx="7" cy="15" r="1.2"/><circle cx="13" cy="15" r="1.2"/></svg>';
   host.prepend(handle);
 
-  handle.addEventListener('dragstart', (event) => {
-    state.dragKey = key;
-    cell.classList.add('is-column-dragging');
-    if (event.dataTransfer) {
-      event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer.setData('text/plain', key);
+  const finishPointerDrag = (event: PointerEvent, commit: boolean) => {
+    if (state.dragKey !== key) return;
+    if (handle.hasPointerCapture(event.pointerId)) {
+      handle.releasePointerCapture(event.pointerId);
     }
-  });
-  handle.addEventListener('dragend', () => {
+    if (commit && state.dropKey) {
+      moveColumn(table, state, key, state.dropKey, state.dropAfter);
+    }
     state.dragKey = '';
     cell.classList.remove('is-column-dragging');
-    table.querySelectorAll('.is-column-drop').forEach((item) =>
-      item.classList.remove('is-column-drop')
-    );
-  });
-  cell.addEventListener('dragover', (event) => {
-    if (!state.dragKey || state.dragKey === key) return;
+    document.documentElement.classList.remove('is-reordering-column');
+    clearDropState(table, state);
+  };
+
+  const updateDropTarget = (clientX: number, clientY: number) => {
+    const target = document
+      .elementFromPoint(clientX, clientY)
+      ?.closest<HTMLTableCellElement>('th');
+    const targetKey = target?.dataset.workspaceColumnKey ?? '';
+    if (!target || !table.contains(target) || !state.order.includes(targetKey) || targetKey === key) {
+      clearDropState(table, state);
+      return;
+    }
+    const rect = target.getBoundingClientRect();
+    const after = clientX > rect.left + rect.width / 2;
+    if (state.dropKey === targetKey && state.dropAfter === after) return;
+    clearDropState(table, state);
+    state.dropKey = targetKey;
+    state.dropAfter = after;
+    target.classList.add('is-column-drop');
+    target.classList.toggle('is-column-drop-after', after);
+  };
+
+  const beginDrag = () => {
+    state.dragKey = key;
+    clearDropState(table, state);
+    cell.classList.add('is-column-dragging');
+    document.documentElement.classList.add('is-reordering-column');
+  };
+
+  handle.addEventListener('mousedown', (event) => {
+    if (event.button !== 0) return;
     event.preventDefault();
-    cell.classList.add('is-column-drop');
+    event.stopPropagation();
+    beginDrag();
+    const move = (moveEvent: MouseEvent) => {
+      moveEvent.preventDefault();
+      updateDropTarget(moveEvent.clientX, moveEvent.clientY);
+    };
+    const up = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      if (state.dragKey === key && state.dropKey) {
+        moveColumn(table, state, key, state.dropKey, state.dropAfter);
+      }
+      state.dragKey = '';
+      cell.classList.remove('is-column-dragging');
+      document.documentElement.classList.remove('is-reordering-column');
+      clearDropState(table, state);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up, { once: true });
   });
-  cell.addEventListener('dragleave', () => cell.classList.remove('is-column-drop'));
-  cell.addEventListener('drop', (event) => {
-    cell.classList.remove('is-column-drop');
-    const source = state.dragKey || event.dataTransfer?.getData('text/plain') || '';
-    if (!source || source === key) return;
+
+  handle.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+    // Mouse movement is tracked above; pointer capture covers touch and pen.
+    if (event.pointerType === 'mouse') return;
     event.preventDefault();
-    const withoutSource = state.order.filter((candidate) => candidate !== source);
-    const target = withoutSource.indexOf(key);
-    const rect = cell.getBoundingClientRect();
-    const after = event.clientX > rect.left + rect.width / 2;
-    withoutSource.splice(
-      target < 0 ? withoutSource.length : target + (after ? 1 : 0),
-      0,
-      source
-    );
-    state.order = withoutSource;
-    persistOrder(table, state);
-    applyOrder(table, state);
+    event.stopPropagation();
+    beginDrag();
+    handle.setPointerCapture(event.pointerId);
+  });
+
+  handle.addEventListener('pointermove', (event) => {
+    if (state.dragKey !== key) return;
+    event.preventDefault();
+    updateDropTarget(event.clientX, event.clientY);
+  });
+
+  handle.addEventListener('pointerup', (event) => finishPointerDrag(event, true));
+  handle.addEventListener('pointercancel', (event) => finishPointerDrag(event, false));
+  handle.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  });
+  handle.addEventListener('keydown', (event) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault();
+    event.stopPropagation();
+    const index = state.order.indexOf(key);
+    const targetIndex = event.key === 'ArrowLeft' ? index - 1 : index + 1;
+    const targetKey = state.order[targetIndex];
+    if (!targetKey) return;
+    moveColumn(table, state, key, targetKey, event.key === 'ArrowRight');
   });
 }
 
@@ -212,30 +307,45 @@ function prepareTable(table: HTMLTableElement): void {
   const headerCells = [...headRow.cells];
   if (headerCells.some((cell) => cell.colSpan !== 1)) return;
 
-  const sourceKeys = headerCells.map((cell, index) => {
+  const renderedKeys = headerCells.map((cell, index) => {
     const key = cell.dataset.workspaceColumnKey || headerKey(cell, index);
     cell.dataset.workspaceColumnKey = key;
     return key;
   });
-  if (new Set(sourceKeys).size !== sourceKeys.length) return;
+  if (new Set(renderedKeys).size !== renderedKeys.length) return;
 
   let state = states.get(table);
-  if (!state || state.sourceKeys.join('|') !== sourceKeys.join('|')) {
-    const movable = sourceKeys.filter(
+  if (!state) {
+    const movable = renderedKeys.filter(
       (_, index) => !fixedColumn(headerCells[index], index, headerCells)
     );
     state = {
-      sourceKeys,
-      order: readStoredOrder(tableStorageKey(table, sourceKeys), movable),
+      sourceKeys: renderedKeys,
+      order: readStoredOrder(tableStorageKey(table, renderedKeys), movable),
       applying: false,
-      dragKey: ''
+      dragKey: '',
+      dropKey: '',
+      dropAfter: false
     };
     states.set(table, state);
+  } else if (!sameKeys(state.sourceKeys, renderedKeys)) {
+    const movable = renderedKeys.filter(
+      (_, index) => !fixedColumn(headerCells[index], index, headerCells)
+    );
+    state.sourceKeys = renderedKeys;
+    state.order = readStoredOrder(tableStorageKey(table, renderedKeys), movable);
+    state.dragKey = '';
+    clearDropState(table, state);
   }
 
   headerCells.forEach((cell, index) => {
     if (!fixedColumn(cell, index, headerCells)) {
-      installDragHandle(table, cell, sourceKeys[index], state!);
+      installDragHandle(
+        table,
+        cell,
+        cell.dataset.workspaceColumnKey || renderedKeys[index],
+        state!
+      );
     }
   });
   applyOrder(table, state);

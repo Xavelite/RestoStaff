@@ -26,10 +26,9 @@
 
   type GroupBy = 'contract' | 'position' | 'status' | 'none';
   type Group = { key: string; label: string; employees: EmployeeDraft[] };
-  type SortKey = 'employee' | 'position' | 'contract' | 'regime' | 'start' | 'end' | 'hours' | 'payroll' | 'status';
+  type SortKey = 'employee' | 'position' | 'contract' | 'regime' | 'start' | 'end' | 'hours' | 'status';
 
   let detailId = $state('');
-  let detailMode = $state<'contract' | 'payroll'>('contract');
 
   const OPTIONAL_COLUMNS = [
     { key: 'position', label: 'Position' },
@@ -38,7 +37,6 @@
     { key: 'start', label: 'Start' },
     { key: 'end', label: 'End' },
     { key: 'hours', label: 'Weekly hours' },
-    { key: 'payroll', label: 'Payroll' },
     { key: 'status', label: 'Setup' }
   ] as const;
 
@@ -48,11 +46,7 @@
     defaultGroupBy: 'contract'
   });
   onMount(view.restore);
-  const shown = (key: string) =>
-    (key !== 'payroll' || workspace.canViewFinancials) && view.shown(key);
-  const chooserColumns = $derived(
-    view.columns.filter((column) => column.key !== 'payroll' || workspace.canViewFinancials)
-  );
+  const shown = (key: string) => view.shown(key);
   const colCount = $derived(
     2 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length
   );
@@ -108,8 +102,7 @@
     detailId = '';
   }
 
-  function openDetails(employeeId: string, mode: 'contract' | 'payroll' = 'contract'): void {
-    detailMode = mode;
+  function openDetails(employeeId: string): void {
     detailId = employeeId;
   }
 
@@ -131,17 +124,6 @@
     if (!employee.contractTypeId) missing.push('Contract type');
     if (!employee.contractStart) missing.push('Start date');
     if (!Number(employee.weeklyContractHours)) missing.push('Weekly hours');
-    return missing;
-  }
-
-  function payrollGaps(employee: EmployeeDraft): string[] {
-    const missing: string[] = [];
-    if (!employee.payrollEmployeeId) missing.push('Payroll ID');
-    if (!employee.nationalRegistryNumber) missing.push('National registry number');
-    if (!employee.iban) missing.push('IBAN');
-    if (!employee.cp302ReferenceFunctionCode) missing.push('CP 302 function');
-    if (!employee.workerStatus) missing.push('Worker status');
-    if (!employee.salaryBasis) missing.push('Salary basis');
     return missing;
   }
 
@@ -172,7 +154,6 @@
       case 'start': return placement.contractStart || '9999-99-99';
       case 'end': return placement.contractEnd || '9999-99-99';
       case 'hours': return `${(Number(placement.weeklyContractHours) || 0).toString().padStart(6, '0')}`;
-      case 'payroll': return payrollGaps(placement).length ? '1' : '0';
       case 'status': return gaps(placement).length ? '1' : '0';
       default: return jobName.get(placement.jobFunctionIds[0] ?? '') ?? '';
     }
@@ -238,13 +219,12 @@
               {#if shown('start')}<th class="has-menu"><WorkspaceColMenu label={t('Start')} sortable sortDir={view.sortDir('start')} onsort={(dir) => view.setSort('start', dir)} filterKind="text" searchValue={view.search('start')} onsearch={(value) => view.setSearch('start', value)} /></th>{/if}
               {#if shown('end')}<th class="has-menu"><WorkspaceColMenu label={t('End')} sortable sortDir={view.sortDir('end')} onsort={(dir) => view.setSort('end', dir)} filterKind="text" searchValue={view.search('end')} onsearch={(value) => view.setSearch('end', value)} /></th>{/if}
               {#if shown('hours')}<th class="has-menu"><WorkspaceColMenu label={t('Weekly hours')} align="right" sortable sortDir={view.sortDir('hours')} onsort={(dir) => view.setSort('hours', dir)} filterKind="text" searchValue={view.search('hours')} onsearch={(value) => view.setSearch('hours', value)} /></th>{/if}
-              {#if shown('payroll')}<th class="has-menu"><WorkspaceColMenu label={t('Payroll')} sortable sortDir={view.sortDir('payroll')} onsort={(dir) => view.setSort('payroll', dir)} /></th>{/if}
               {#if shown('status')}<th class="has-menu"><WorkspaceColMenu label={t('Setup')} sortable sortDir={view.sortDir('status')} onsort={(dir) => view.setSort('status', dir)} filterKind="values" filterValues={statusValues} selected={view.excluded('status')} ontoggle={(value) => view.toggleValue('status', value)} onselectall={(on) => view.selectAll('status', on, statusValues)} /></th>{/if}
-              <th class="chooser-col"><WorkspaceColChooser columns={chooserColumns} hidden={view.hidden} ontoggle={view.toggleColumn} /></th>
+              <th class="chooser-col"><WorkspaceColChooser columns={view.columns} hidden={view.hidden} ontoggle={view.toggleColumn} /></th>
             </tr>
           </thead>
           {#if !filtered.length}
-            <tbody><tr class="cl-mobile-empty"><td colspan={colCount + 1}><div class="cl-empty"><strong>{t('No active employees')}</strong><span>{t('Add someone to define their contract and payroll setup.')}</span></div></td></tr></tbody>
+            <tbody><tr class="cl-mobile-empty"><td colspan={colCount}><div class="cl-empty"><strong>{t('No active employees')}</strong><span>{t('Add someone to define their contract setup.')}</span></div></td></tr></tbody>
           {:else}
             {#each groups as group (group.key)}
               <tbody>
@@ -253,12 +233,11 @@
                   {#snippet groupIcon()}
                     {#if groupArea}<WorkspaceAreaIcon icon={groupArea.icon} color={groupArea.color} size={15} compact />{/if}
                   {/snippet}
-                  <WorkspaceGroupRow colspan={colCount + 1} label={group.label} meta={peopleCountLabel(group.employees.length)} icon={groupArea ? groupIcon : undefined} collapsed={view.isCollapsed(group.key)} ontoggle={() => view.toggleGroup(group.key)} />
+                  <WorkspaceGroupRow colspan={colCount} label={group.label} meta={peopleCountLabel(group.employees.length)} icon={groupArea ? groupIcon : undefined} collapsed={view.isCollapsed(group.key)} ontoggle={() => view.toggleGroup(group.key)} />
                 {/if}
                 {#if !view.isCollapsed(group.key)}
                 {#each group.employees as employee (employee.id)}
                   {@const missing = gaps(employee)}
-                  {@const payrollMissing = payrollGaps(employee)}
                   {@const linkedArea = positionArea(employee.jobFunctionIds[0] ?? '')}
                   {@const contractCode = workspace.team?.contract_types.find((item) => item.id === employee.contractTypeId)?.code ?? ''}
                   <tr data-employee-id={employee.id} class:is-attention={missing.length > 0}>
@@ -310,15 +289,6 @@
                       {/if}
                     </td>{/if}
                     {#if shown('hours')}<td class="is-num"><span class="hours-field"><input class="grid-field" aria-label={`${t('Weekly hours')} · ${employee.displayName}`} type="number" min="0" step="0.25" value={employee.weeklyContractHours || ''} disabled={!team.editable} oninput={(event) => updateHours(employee.id, event.currentTarget.value)} /><span>h</span></span></td>{/if}
-                    {#if shown('payroll')}<td class="payroll-cell">
-                      <button type="button" disabled={!team.editable} onclick={() => openDetails(employee.id, 'payroll')}>
-                        {#if payrollMissing.length}
-                          <WorkspaceCellBadge label={'{count} missing'} params={{ count: payrollMissing.length }} tone="warning" icon="warning" />
-                        {:else}
-                          <WorkspaceCellBadge label="Ready" tone="success" icon="check" />
-                        {/if}
-                      </button>
-                    </td>{/if}
                     {#if shown('status')}<td>{#if missing.length}<WorkspaceCellBadge label={missing.length === 1 ? '1 detail missing' : '{count} details missing'} params={{ count: missing.length }} tone="warning" icon="warning" />{:else}<WorkspaceCellBadge label="Complete" tone="success" icon="check" />{/if}</td>{/if}
                     <td class="menu-cell"><WorkspaceRowMenu disabled={!team.editable} items={[{ label: t('Open employee'), onselect: () => openDetails(employee.id) }]} /></td>
                   </tr>
@@ -333,7 +303,7 @@
     </WorkspaceTablePanel>
 
     {#if detailId}
-      <EmployeeInlineEditor employeeId={detailId} mode={detailMode} saving={team.saving} onclose={closeDetails} onsave={team.saveEmployee} />
+      <EmployeeInlineEditor employeeId={detailId} mode="contract" saving={team.saving} onclose={closeDetails} onsave={team.saveEmployee} />
     {/if}
 
 {/if}
@@ -355,7 +325,4 @@
   .hours-field { min-width: 74px; display: inline-grid; grid-template-columns: minmax(0, 1fr) 14px; align-items: center; }
   .hours-field .grid-field { text-align: right; }
   .hours-field > span { color: var(--cl-muted); font-size: 11px; }
-  .payroll-cell { padding: 0 !important; }
-  .payroll-cell > button { width: 100%; min-height: var(--cl-row); display: flex; align-items: center; padding: 8px 14px; border: 0; color: inherit; background: transparent; font: inherit; cursor: pointer; }
-  .payroll-cell > button:hover:not(:disabled) { background: var(--cl-accent-wash); }
 </style>

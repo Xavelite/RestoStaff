@@ -158,7 +158,8 @@ test('workspace chrome pins navigation and derives tabs directly from the route'
   const page = await readFile('src/lib/workspace-ui/WorkspacePage.svelte', 'utf8');
   const css = await readFile('src/lib/workspace-ui/workspace.css', 'utf8');
 
-  assert.match(layout, /const activeTabs = \$derived\(activeModule\?\.subNav \?\? \[\]\)/);
+  assert.match(layout, /const activeTabs = \$derived\([\s\S]*activeModule\?\.subNav[\s\S]*item\.roles/);
+  assert.match(layout, /activeSubNav\?\.roles[\s\S]*activeSubNav\.roles\.includes\(role\)/);
   assert.match(layout, /subNavItemForPath\(activeModule, page\.url\.pathname\)/);
   assert.doesNotMatch(layout, /workspaceChrome/);
   assert.match(layout, /\{@render children\(\)\}/);
@@ -309,7 +310,7 @@ test('operational core exposes planning, attendance and payroll as one workspace
   assert.match(reservations, /!reservation\.room_preference_id \|\| liveRoomIds\.has/);
   assert.match(reservations, /t\('Unassigned'\)/);
   assert.match(payroll, /<PayrollSetupWorkspace/);
-  assert.match(payroll, /href="\/team\/contracts"/);
+  assert.match(payroll, /href="\/team\/payroll"/);
   assert.match(payroll, /href="\/timesheet"/);
   assert.match(payroll, /href="\/exports"/);
   assert.match(absences, /href="\/settings\/absence-types"/);

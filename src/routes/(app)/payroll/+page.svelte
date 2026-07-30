@@ -38,7 +38,7 @@
 <svelte:head><title>{t('Payroll')} &middot; restogogo</title></svelte:head>
 
 <section class="payroll-path" aria-label={t('Payroll workflow')}>
-    <a href="/team/contracts">
+    <a href="/team/payroll">
       <span class="path-icon is-team"><UsersRound size={18} aria-hidden="true" /></span>
       <span>
         <small>{t('Step 1')}</small>

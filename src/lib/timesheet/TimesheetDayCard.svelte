@@ -77,20 +77,23 @@
               ? t('Working now')
               : ''
   );
-  const cardColor = $derived(
-    live
-      ? 'var(--cl-ok)'
-      : conflict
-        ? 'var(--cl-problem)'
-        : adjusted || pending
-          ? 'var(--cl-attention)'
-          : hasActual
-            ? areaColor.get(
-                visible.find((slot) => slot.actualRange && slot.actualAreaId)?.actualAreaId ??
-                  primary?.actualAreaId ??
-                  ''
-              ) ?? 'var(--cl-info)'
-            : 'var(--cl-muted)'
+  const actualAreaColor = $derived(
+    areaColor.get(
+      visible.find((slot) => slot.actualRange && slot.actualAreaId)?.actualAreaId ??
+        primary?.actualAreaId ??
+        ''
+    ) ?? 'var(--cl-info)'
+  );
+  // Area remains the card's visual identity, exactly as it does in Schedule.
+  // Attendance state is a separate dot so "corrected" does not make every
+  // actual entry orange and a no-show does not turn a planned card red.
+  const cardColor = $derived(hasActual ? actualAreaColor : 'var(--cl-muted)');
+  const signalColor = $derived(
+    noShow || conflict
+      ? 'var(--cl-problem)'
+      : live
+        ? 'var(--cl-ok)'
+        : 'var(--cl-attention)'
   );
   const mainRange = $derived(actualRange || plannedRange || (primary ? t(slotLabel(primary.status)) : ''));
   const primaryLabel = $derived(
@@ -146,7 +149,7 @@
     class:is-actual={hasActual}
     class:is-planned={!hasActual && plannedHours > 0}
     class:is-compact={compact}
-    style={`--card-color:${cardColor}`}
+    style={`--card-color:${cardColor};--signal-color:${signalColor}`}
     type="button"
     onclick={onopen}
   >
@@ -204,13 +207,18 @@
     isolation: isolate;
     border: 1px solid color-mix(in srgb, var(--card-color) 68%, var(--cl-line-strong));
     border-radius: 3px;
-    background: var(--cl-surface);
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--card-color) 8%, var(--cl-surface)),
+        color-mix(in srgb, var(--card-color) 4.5%, var(--cl-surface))
+      );
     color: var(--cl-ink);
     font: inherit;
     font-variant-numeric: tabular-nums;
     text-align: left;
     cursor: pointer;
-    box-shadow: 0 1px 2px rgb(15 23 42 / .035);
+    box-shadow: 0 1px 3px rgb(15 23 42 / .075), inset 0 0 0 1px rgb(255 255 255 / .5);
     transition: border-color var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease), transform var(--cl-dur) var(--cl-ease);
     --card-color: var(--cl-info);
   }
@@ -228,13 +236,14 @@
   }
   .attendance-card:hover {
     border-color: color-mix(in srgb, var(--card-color) 84%, var(--cl-line-strong));
-    box-shadow: 0 3px 9px rgb(15 23 42 / .12);
+    box-shadow: 0 3px 9px rgb(15 23 42 / .12), inset 0 0 0 1px rgb(255 255 255 / .58);
     transform: translateY(-1px);
   }
   .attendance-card:focus-visible { outline: 2px solid color-mix(in srgb, var(--card-color) 32%, transparent); outline-offset: 1px; }
   .attendance-card.is-planned {
     border-color: color-mix(in srgb, var(--cl-muted) 28%, var(--cl-line));
     border-style: dashed;
+    background: var(--cl-surface);
     box-shadow: none;
   }
   .attendance-card.is-planned::before { display: none; }
@@ -246,8 +255,8 @@
     top: 6px;
     right: 6px;
     border-radius: 50%;
-    background: var(--cl-attention);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--cl-attention) 12%, transparent);
+    background: var(--signal-color);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--signal-color) 12%, transparent);
   }
   .attendance-card__signal.is-problem {
     background: var(--cl-problem);

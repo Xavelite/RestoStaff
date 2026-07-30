@@ -109,7 +109,13 @@
   const primaryModules = $derived(modules.filter((module) => !module.utility));
   const utilityModules = $derived(modules.filter((module) => module.utility));
   const activeModule = $derived(moduleForPath(page.url.pathname));
-  const activeTabs = $derived(activeModule?.subNav ?? []);
+  const activeTabs = $derived(
+    (activeModule?.subNav ?? []).filter(
+      (item) =>
+        !item.roles ||
+        (workspace.effectiveRole ? item.roles.includes(workspace.effectiveRole) : false)
+    )
+  );
   const activeTabHref = $derived(activeModule ? subNavItemForPath(activeModule, page.url.pathname)?.href ?? '' : '');
   // Only the terminal screen itself fills the screen — no sidebar, nothing to
   // wander into while a shared device is on the pass. Its module page, which
@@ -144,6 +150,11 @@
       )
     ) {
       goto(roleHome(role), { replaceState: true });
+      return;
+    }
+    const activeSubNav = module ? subNavItemForPath(module, page.url.pathname) : null;
+    if (activeSubNav?.roles && !activeSubNav.roles.includes(role)) {
+      goto(module?.href ?? roleHome(role), { replaceState: true });
     }
   });
 
