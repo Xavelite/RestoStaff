@@ -14,5 +14,5 @@ Increment the final two-digit release number for every production deployment.
 ## v1.00
 
 First formal RestoGogo workspace release, covering the manager shell,
-Restaurant, Team, Schedule, Time & attendance, Badge terminal, the initial
+Restaurant, Team, Schedule, Time, Badge terminal, the initial
 Reservations workspace, and the focused Payroll employee setup.

@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import {
     saveAbsence,
@@ -30,7 +29,7 @@
   import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
   import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
   import StatusPill from '$lib/components/StatusPill.svelte';
-  import EmployeeSlotDrawer from '$lib/employee/EmployeeSlotDrawer.svelte';
+  import EmployeeSlotDialog from '$lib/employee/EmployeeSlotDialog.svelte';
   import {
     employeeSlotActionReason,
     defaultEmployeeTimeOffType,
@@ -61,6 +60,7 @@
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
 
   const snapshot = $derived(workspace.employeeOperations);
+  const activeServiceKeySet = $derived(new Set(activeServiceKeys(snapshot?.services)));
   const employeeId = $derived(workspace.active?.employee_id ?? '');
   const timezone = $derived(
     snapshot?.restaurant_settings.timezone ||
@@ -79,8 +79,8 @@
   let feedback = $state('');
   let feedbackTone = $state<'info' | 'success' | 'warning' | 'danger'>('info');
   let slotDetailsOpen = $state(false);
-  let drawerDate = $state('');
-  let drawerService = $state<ServiceKey | ''>('');
+  let dialogDate = $state('');
+  let dialogService = $state<ServiceKey | ''>('');
 
   const activeMonth = $derived(month || monthStart(today));
   const visibleFrom = $derived(mondayFor(activeMonth));
@@ -132,9 +132,9 @@
           recurring: []
         }
   );
-  const drawerTruth = $derived<ServiceSlotTruth | null>(
-    snapshot && employeeId && drawerDate && drawerService
-      ? resolveCalendarTruth(drawerDate, drawerService)
+  const dialogTruth = $derived<ServiceSlotTruth | null>(
+    snapshot && employeeId && dialogDate && dialogService
+      ? resolveCalendarTruth(dialogDate, dialogService)
       : null
   );
   const timeOffRanges = $derived(
@@ -240,6 +240,12 @@
   }
 
   function blockReasonFor(truth: ServiceSlotTruth, date: string, mode: EmployeeSelfServiceMode): string {
+    if (mode === 'availability' && !activeServiceKeySet.has(truth.serviceKey)) {
+      const reason = t('This service is archived.');
+      feedback = reason;
+      feedbackTone = 'warning';
+      return reason;
+    }
     const reason = employeeSlotActionReason({
       truth,
       policy: availabilityMode,
@@ -278,7 +284,7 @@
     });
   }
 
-  // Shared by the direct-tap fast path and the slot Drawer's buttons, so both
+  // Shared by the direct-tap fast path and the slot dialog, so both
   // entry points always agree on what this service allows right now.
   function toggleAvailabilityFor(date: string, serviceKey: ServiceKey, truth: ServiceSlotTruth) {
     if (blockReasonFor(truth, date, 'availability')) return;
@@ -292,7 +298,7 @@
     feedback = '';
   }
 
-  // Drawer path: set available or clear it; leave remains a separate request.
+  // Dialog path: set available or clear it; leave remains a separate request.
   function chooseAvailabilityFor(
     date: string,
     serviceKey: ServiceKey,
@@ -331,7 +337,7 @@
   // One tap, no page-level mode: a pending request on this slot cancels it, an
   // in-progress time-off/change basket keeps extending itself, otherwise a
   // weekly-availability slot toggles instantly and everything else opens the
-  // Drawer, which is also where every action lives explicitly.
+  // dialog, which is also where every action lives explicitly.
   function primaryTap(date: string, serviceKey: ServiceKey) {
     if (!snapshot) return;
     const future = date >= today;
@@ -350,7 +356,10 @@
       requestTimeOffFor(date, serviceKey, truth);
       return;
     }
-    if (availabilityMode === 'weekly_availability') {
+    if (
+      availabilityMode === 'weekly_availability' &&
+      activeServiceKeySet.has(serviceKey)
+    ) {
       toggleAvailabilityFor(date, serviceKey, truth);
       return;
     }
@@ -363,19 +372,19 @@
   function openSlotDetails(date: string, serviceKey: ServiceKey) {
     selectedDate = date;
     month = monthStart(date);
-    drawerDate = date;
-    drawerService = serviceKey;
+    dialogDate = date;
+    dialogService = serviceKey;
     slotDetailsOpen = true;
   }
 
-  function toggleDrawerTimeOff() {
-    if (!drawerTruth) return;
-    const wasSelected = timeOffSelectedKeySet.has(drawerTruth.key);
-    requestTimeOffFor(drawerDate, drawerTruth.serviceKey, drawerTruth);
+  function toggleDialogTimeOff() {
+    if (!dialogTruth) return;
+    const wasSelected = timeOffSelectedKeySet.has(dialogTruth.key);
+    requestTimeOffFor(dialogDate, dialogTruth.serviceKey, dialogTruth);
     if (wasSelected) {
       slotDetailsOpen = false;
-      drawerDate = '';
-      drawerService = '';
+      dialogDate = '';
+      dialogService = '';
     }
   }
 
@@ -491,8 +500,8 @@
     } else {
       clearAllSelections();
       slotDetailsOpen = false;
-      drawerDate = '';
-      drawerService = '';
+      dialogDate = '';
+      dialogService = '';
       feedback = refreshFailed
         ? `${messages.join(' · ')} · Refresh to see the latest data.`
         : messages.join(' · ');
@@ -504,8 +513,8 @@
   function discardChanges() {
     clearAllSelections();
     slotDetailsOpen = false;
-    drawerDate = '';
-    drawerService = '';
+    dialogDate = '';
+    dialogService = '';
     feedback = '';
   }
 
@@ -547,8 +556,8 @@
         source: 'system'
       });
       slotDetailsOpen = false;
-      drawerDate = '';
-      drawerService = '';
+      dialogDate = '';
+      dialogService = '';
       feedback = 'Time off cancelled.';
       feedbackTone = 'success';
     } catch (error) {
@@ -586,8 +595,8 @@
         source: 'planning'
       });
       slotDetailsOpen = false;
-      drawerDate = '';
-      drawerService = '';
+      dialogDate = '';
+      dialogService = '';
       feedback = 'Schedule change cancelled.';
       feedbackTone = 'success';
     } catch (error) {
@@ -788,8 +797,8 @@
               <span>{shift.area} · {shift.jobFunction}</span>
             </div>
             <ActionButton
-              label="Open week"
-              onclick={() => goto(`/my-service?week=${mondayFor(selectedDate)}`)}
+              label="Details"
+              onclick={() => openSlotDetails(selectedDate, shift.serviceKey)}
             />
           </article>
         {/each}
@@ -827,8 +836,8 @@
                 {#if slot.note}<span>{slot.note}</span>{/if}
               </div>
               <ActionButton
-                label="Edit week"
-                onclick={() => goto(`/my-service?week=${mondayFor(selectedDate)}`)}
+                label="Details"
+                onclick={() => openSlotDetails(selectedDate, slot.service_key)}
               />
             </article>
           {/each}
@@ -898,14 +907,14 @@
       </div>
     </div>
 
-  <EmployeeSlotDrawer
+  <EmployeeSlotDialog
     open={slotDetailsOpen}
-    truth={drawerTruth}
+    truth={dialogTruth}
     policy={availabilityMode}
     {today}
     {timezone}
-    availabilityState={drawerTruth?.availability ?? ''}
-    isTimeOffSelected={drawerTruth ? timeOffSelectedKeySet.has(drawerTruth.key) : false}
+    availabilityState={dialogTruth?.availability ?? ''}
+    isTimeOffSelected={dialogTruth ? timeOffSelectedKeySet.has(dialogTruth.key) : false}
     isChangeSelected={false}
     services={snapshot?.services ?? []}
     absenceTypes={snapshot.absence_types}
@@ -913,8 +922,8 @@
     bind:comment
     {saving}
     onclose={() => (slotDetailsOpen = false)}
-    onSetAvailability={(state) => drawerTruth && chooseAvailabilityFor(drawerDate, drawerTruth.serviceKey, drawerTruth, state)}
-    onRequestTimeOff={toggleDrawerTimeOff}
+    onSetAvailability={(state) => dialogTruth && chooseAvailabilityFor(dialogDate, dialogTruth.serviceKey, dialogTruth, state)}
+    onRequestTimeOff={toggleDialogTimeOff}
     onCancelAbsence={cancelAbsence}
     onCancelChange={cancelWorkPatternException}
   />

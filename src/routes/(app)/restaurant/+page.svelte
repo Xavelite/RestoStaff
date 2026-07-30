@@ -258,57 +258,67 @@
           <div class="cl-tablewrap hours-wrap">
             <table
               class="cl-table hours-table"
-              style:min-width={`${Math.max(720, 150 + activeServices.length * 315)}px`}
+              style:min-width={`${180 + WEEKDAYS.length * 156}px`}
             >
               <thead>
                 <tr>
-                  <th>{t('Day')}</th>
-                  {#each activeServices as service (service.serviceKey)}
-                    <th>
+                  <th>{t('Service')}</th>
+                  {#each WEEKDAYS as weekday}
+                    <th>{t(weekday)}</th>
+                  {/each}
+                </tr>
+              </thead>
+              <tbody>
+                {#each activeServices as service (service.serviceKey)}
+                  <tr>
+                    <td class="service-row">
                       <WorkspaceService
                         service={service.serviceKey}
                         label={service.name}
                         variant="text"
                       />
-                    </th>
-                  {/each}
-                </tr>
-              </thead>
-              <tbody>
-                {#each draft.opening as day (day.weekday)}
-                  <tr>
-                    <td class="day">{t(WEEKDAYS[day.weekday - 1])}</td>
-                    {#each activeServices as service (service.serviceKey)}
-                      {@const period = day.services[service.serviceKey]}
+                      <small>{service.defaultStart}&ndash;{service.defaultEnd}</small>
+                    </td>
+                    {#each WEEKDAYS as _, weekdayIndex}
+                      {@const day = draft.opening.find((candidate) => candidate.weekday === weekdayIndex + 1)}
+                      {@const period = day?.services[service.serviceKey]}
                       <td>
-                        <span class="service-hours">
-                          <label class="switch compact">
-                            <input
-                              type="checkbox"
-                              disabled={!context.canSave}
-                              bind:checked={period.open}
-                              onchange={() => restaurantConfig.touch()}
-                            />
-                            <span>{t(period.open ? 'Open' : 'Closed')}</span>
-                          </label>
-                          <span class="range">
-                            <input
-                              class="cl-field time"
-                              type="time"
-                              disabled={!context.canSave || !period.open}
-                              bind:value={period.start}
-                              oninput={() => restaurantConfig.touch()}
-                            />
-                            <i>&ndash;</i>
-                            <input
-                              class="cl-field time"
-                              type="time"
-                              disabled={!context.canSave || !period.open}
-                              bind:value={period.end}
-                              oninput={() => restaurantConfig.touch()}
-                            />
+                        {#if period}
+                          <span class="day-hours" class:is-closed={!period.open}>
+                            <label class="switch compact">
+                              <input
+                                type="checkbox"
+                                disabled={!context.canSave}
+                                bind:checked={period.open}
+                                onchange={() => restaurantConfig.touch()}
+                              />
+                              <span>{t(period.open ? 'Open' : 'Closed')}</span>
+                            </label>
+                            <span class="range">
+                              <input
+                                class="cl-field time"
+                                type="time"
+                                aria-label={`${service.name} ${t(WEEKDAYS[weekdayIndex])} ${t('Start')}`}
+                                disabled={!context.canSave || !period.open}
+                                bind:value={period.start}
+                                oninput={() => restaurantConfig.touch()}
+                              />
+                              <i>&ndash;</i>
+                              <input
+                                class="cl-field time"
+                                type="time"
+                                aria-label={`${service.name} ${t(WEEKDAYS[weekdayIndex])} ${t('End')}`}
+                                disabled={!context.canSave || !period.open}
+                                bind:value={period.end}
+                                oninput={() => restaurantConfig.touch()}
+                              />
+                            </span>
                           </span>
-                        </span>
+                        {:else}
+                          <span class="day-hours is-closed">
+                            <span>{t('Not configured')}</span>
+                          </span>
+                        {/if}
                       </td>
                     {/each}
                   </tr>
@@ -523,22 +533,21 @@
 
   .service-periods {
     display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
     border-bottom: 1px solid var(--cl-line);
   }
 
   .service-period {
     min-width: 0;
     display: grid;
-    grid-template-columns: 24px minmax(150px, 1fr) 118px 118px auto;
+    grid-template-columns: 24px minmax(130px, 1fr) 102px 102px auto;
     align-items: end;
     gap: 10px;
     padding: 9px 12px;
-    border-top: 1px solid var(--cl-line);
-    background: color-mix(in srgb, var(--cl-surface-muted) 42%, var(--cl-surface));
-  }
-
-  .service-period:first-child {
     border-top: 0;
+    border-right: 1px solid var(--cl-line);
+    border-bottom: 1px solid var(--cl-line);
+    background: color-mix(in srgb, var(--cl-surface-muted) 42%, var(--cl-surface));
   }
 
   .service-period.is-inactive {
@@ -596,13 +605,12 @@
   }
 
   .hours-table :global(thead th:first-child) {
-    width: 16%;
+    width: 180px;
   }
 
   .hours-table :global(tbody td) {
-    height: 48px;
-    padding-top: 6px;
-    padding-bottom: 6px;
+    height: 76px;
+    padding: 7px 9px;
   }
 
   .hours-table :global(tbody tr:nth-child(even) td) {
@@ -613,18 +621,28 @@
     background: color-mix(in srgb, var(--cl-accent) 4%, var(--cl-surface-muted));
   }
 
-  .day {
-    color: color-mix(in srgb, var(--cl-ink) 84%, var(--cl-muted));
+  .service-row {
+    color: var(--cl-ink);
     font-size: 12px;
     font-weight: var(--rst-fw-bold);
   }
 
-  .service-hours {
+  .service-row small {
+    display: block;
+    margin-top: 3px;
+    color: var(--cl-muted);
+    font-size: 10px;
+    font-weight: var(--rst-fw-regular);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .day-hours {
     display: grid;
-    grid-template-columns: 62px minmax(0, 224px);
-    align-items: center;
-    justify-content: start;
-    gap: 9px;
+    gap: 4px;
+  }
+
+  .day-hours.is-closed {
+    opacity: .64;
   }
 
   .switch {
@@ -680,10 +698,10 @@
     width: 100%;
     min-width: 0;
     min-height: 34px;
-    padding: 6px 8px;
+    padding: 5px 4px;
     border-color: transparent;
     background: color-mix(in srgb, var(--cl-surface-muted) 76%, var(--cl-surface));
-    font-size: 12px;
+    font-size: 10.5px;
     font-weight: var(--rst-fw-medium);
     font-variant-numeric: tabular-nums;
     text-align: center;
@@ -724,10 +742,7 @@
       border-left: 0;
     }
 
-    .service-hours {
-      grid-template-columns: 56px minmax(0, 190px);
-      gap: 7px;
-    }
+    .service-periods { grid-template-columns: minmax(0, 1fr); }
   }
 
   @media (max-width: 760px) {
@@ -747,10 +762,6 @@
     .field-row.is-contact,
     .field-row.is-address {
       grid-template-columns: minmax(0, 1fr);
-    }
-
-    .hours-table {
-      min-width: 650px;
     }
 
     .service-period {

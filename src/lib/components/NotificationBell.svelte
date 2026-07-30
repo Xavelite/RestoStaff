@@ -53,6 +53,7 @@
   } = $props();
 
   let open = $state(false);
+  let notificationRoot = $state<HTMLElement | null>(null);
   let settingsOpen = $state(false);
   let detailOpen = $state(false);
   let detailItem = $state<NotificationItem | null>(null);
@@ -273,6 +274,22 @@
       window.clearInterval(timer);
       window.removeEventListener('focus', refreshVisible);
       document.removeEventListener('visibilitychange', refreshVisible);
+    };
+  });
+
+  $effect(() => {
+    if (!open) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (notificationRoot && !notificationRoot.contains(event.target as Node)) open = false;
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') open = false;
+    };
+    window.addEventListener('pointerdown', closeOutside, true);
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      window.removeEventListener('pointerdown', closeOutside, true);
+      window.removeEventListener('keydown', closeOnEscape);
     };
   });
 
@@ -587,7 +604,7 @@
   }
 </script>
 
-<div class="notifications-shell">
+<div class="notifications-shell" bind:this={notificationRoot}>
   <button
     class="notification-button"
     class:has-alerts={totalCount > 0}
@@ -1001,7 +1018,6 @@
   .channel-check input { width: 17px; height: 17px; margin: 0; accent-color: var(--rst-ui-action); }
   .channel-check input:disabled { cursor: not-allowed; opacity: .45; }
   .notification-settings strong { font-size: 13px; }
-  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
   @media (max-width: 520px) {
     .notifications-shell { position: static; }
     .notification-menu {

@@ -2,20 +2,26 @@
   import {
     addMonths,
     formatHours,
+    hoursBetweenClocks,
     isSameMonth,
     monthDates,
     monthLabel,
     monthStart,
-    todayInTimezone,
-    WEEKDAYS
+    todayInTimezone
   } from '$lib/calendar/date';
+  import Dialog from '$lib/components/Dialog.svelte';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
-  import { workspace } from '$lib/workspace/workspace.svelte';
   import { actualSlotsForDate } from '$lib/timesheet/timesheet-model';
+  import type { ActualSlot } from '$lib/timesheet/timesheet-model';
+  import TimesheetEntryDialog from '$lib/timesheet/TimesheetEntryDialog.svelte';
+  import { workspace } from '$lib/workspace/workspace.svelte';
+  import WorkspaceMonthGrid, {
+    type WorkspaceCalendarDay
+  } from '$lib/workspace-ui/WorkspaceMonthGrid.svelte';
   import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
   import WorkspacePeriodNav from '$lib/workspace-ui/WorkspacePeriodNav.svelte';
   import WorkspaceStat from '$lib/workspace-ui/WorkspaceStat.svelte';
-  import { isTimesheetRow, needsAttention } from '$lib/workspace-ui/workspace-time';
+  import { isTimesheetRow, needsAttention, slotLabel } from '$lib/workspace-ui/workspace-time';
 
   const snapshot = $derived(workspace.operations);
   const role = $derived(workspace.effectiveRole);
@@ -24,33 +30,21 @@
       workspace.bootstrap?.restaurant_settings.timezone ||
       'Europe/Brussels'
   );
-
   const today = $derived(todayInTimezone(timezone, new Date()));
   let monthOffset = $state(0);
+  let selectedDate = $state('');
+  let selectedSlotKey = $state('');
+  let selectedSlotDate = $state('');
   const activeMonth = $derived(addMonths(monthStart(today), monthOffset));
   const dates = $derived(monthDates(activeMonth));
 
-  // The grid always shows whole weeks, so the read model is loaded for the
-  // whole visible span rather than the calendar month.
   $effect(() => {
     if (workspace.activeId && role && role !== 'employee' && dates.length) {
-      void workspace
-        .loadOperations(dates[0], dates[dates.length - 1])
-        .catch(() => undefined);
+      void workspace.loadOperations(dates[0], dates.at(-1) ?? dates[0]).catch(() => undefined);
     }
   });
 
-  type CalendarDay = {
-    date: string;
-    dayNumber: number;
-    inMonth: boolean;
-    isToday: boolean;
-    hours: number;
-    scheduled: number;
-    issues: number;
-  };
-
-  const days = $derived<CalendarDay[]>(
+  const days = $derived(
     dates.map((date) => {
       const slots = snapshot
         ? actualSlotsForDate(snapshot, date, today).filter(isTimesheetRow)
@@ -60,9 +54,26 @@
         dayNumber: Number(date.slice(-2)),
         inMonth: isSameMonth(date, activeMonth),
         isToday: date === today,
+        isPast: date < today,
         hours: slots.reduce((total, slot) => total + slot.actualHours, 0),
+        plannedHours: slots.reduce(
+          (total, slot) =>
+            total +
+            (slot.truth.plan
+              ? hoursBetweenClocks(slot.truth.plan.startsAt, slot.truth.plan.endsAt)
+              : 0),
+          0
+        ),
         scheduled: slots.filter((slot) => slot.planned).length,
-        issues: slots.filter(needsAttention).length
+        issues: slots.filter(needsAttention).length,
+        people: Array.from(
+          new Map(
+            slots.map((slot) => [
+              slot.employeeId,
+              { id: slot.employeeId, name: slot.employeeName }
+            ])
+          ).values()
+        )
       };
     })
   );
@@ -72,9 +83,68 @@
   const monthIssues = $derived(
     days.filter((day) => day.inMonth).reduce((total, day) => total + day.issues, 0)
   );
-  // The busiest day sets the scale for every day's intensity bar, so the month
-  // reads as a heat strip without any day being off the chart.
   const peakHours = $derived(Math.max(1, ...days.map((day) => day.hours)));
+  const calendarDays = $derived<WorkspaceCalendarDay[]>(
+    days.map((day) => ({
+      date: day.date,
+      dayNumber: day.dayNumber,
+      inMonth: day.inMonth,
+      isToday: day.isToday,
+      isPast: day.isPast,
+      primary:
+        day.scheduled || day.hours
+          ? t('{hours} worked', { hours: formatHours(day.hours) })
+          : '',
+      secondary: day.scheduled
+        ? t('{hours} planned · {count} people', {
+            hours: formatHours(day.plannedHours),
+            count: day.people.length
+          })
+        : '',
+      badge: day.issues ? t('{count} to review', { count: day.issues }) : '',
+      badgeTone: 'attention',
+      people: day.people,
+      intensity: Math.round((day.hours / peakHours) * 100)
+    }))
+  );
+  const selectedSlots = $derived(
+    selectedDate && snapshot
+      ? actualSlotsForDate(snapshot, selectedDate, today).filter(isTimesheetRow)
+      : []
+  );
+  const selectedSlot = $derived(
+    selectedSlotDate && snapshot
+      ? actualSlotsForDate(snapshot, selectedSlotDate, today)
+          .filter(isTimesheetRow)
+          .find((slot) => slot.key === selectedSlotKey) ?? null
+      : null
+  );
+  const editable = $derived(
+    !workspace.isPreview && Boolean(selectedSlot && selectedSlot.date <= today)
+  );
+
+  function selectSlot(slot: ActualSlot): void {
+    if (slot.date > today) return;
+    selectedSlotDate = slot.date;
+    selectedSlotKey = slot.key;
+    selectedDate = '';
+  }
+  const areaName = $derived(
+    new Map(snapshot?.work_areas.map((area) => [area.id, area.name]) ?? [])
+  );
+  const positionName = $derived(
+    new Map(snapshot?.job_functions.map((position) => [position.id, position.name]) ?? [])
+  );
+  const selectedLabel = $derived(
+    selectedDate
+      ? new Intl.DateTimeFormat(i18n.intlLocale, {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          timeZone: 'UTC'
+        }).format(new Date(`${selectedDate}T00:00:00Z`))
+      : ''
+  );
 </script>
 
 <svelte:head><title>{t('Calendar')} &middot; restogogo</title></svelte:head>
@@ -90,193 +160,106 @@
 {/snippet}
 
 <WorkspacePage actions={pageActions}>
-
   <div class="cl-stats">
     <WorkspaceStat label="Worked hours" value={monthHours} format={formatHours} accent="var(--cl-ok)" mutedZero={false} />
     <WorkspaceStat label="Rows needing attention" value={monthIssues} tone={monthIssues ? 'attention' : undefined} />
   </div>
 
-  <div class="monthwrap">
-    <div class="month" role="grid" aria-label={monthLabel(activeMonth, i18n.intlLocale)}>
-      {#each WEEKDAYS as weekdayName (weekdayName)}
-        <div class="month__head" role="columnheader">{t(weekdayName)}</div>
-      {/each}
-      {#each days as day (day.date)}
-        <a class="month__day" class:is-out={!day.inMonth} class:is-today={day.isToday} role="gridcell" href={`/timesheet?date=${day.date}`}>
-          <div class="month__top">
-            <span class="month__num">{day.dayNumber}</span>
-            {#if day.issues}
-              <span class="month__flag" title={t('{count} to review', { count: day.issues })}>! {day.issues}</span>
-            {/if}
-          </div>
-          {#if day.hours}
-            <span class="month__hours">{formatHours(day.hours)}</span>
-          {/if}
-          {#if day.scheduled}
-            <span class="month__meta">{t('{count} scheduled', { count: day.scheduled })}</span>
-          {/if}
-          {#if day.hours}
-            <span class="month__bar" style="--fill:{Math.round((day.hours / peakHours) * 100)}%"></span>
-          {/if}
-        </a>
-      {/each}
-    </div>
-  </div>
+  <WorkspaceMonthGrid
+    label={monthLabel(activeMonth, i18n.intlLocale)}
+    days={calendarDays}
+    onselect={(day) => (selectedDate = day.date)}
+  />
 </WorkspacePage>
 
+<Dialog
+  open={Boolean(selectedDate)}
+  title={selectedLabel}
+  description={t('Worked time, planned presence and exceptions for this day.')}
+  size="large"
+  onclose={() => (selectedDate = '')}
+>
+  <div class="day-inspector">
+    {#if selectedSlots.length}
+      {#each selectedSlots as slot (slot.key)}
+        <button
+          type="button"
+          class:has-attention={needsAttention(slot)}
+          disabled={slot.date > today}
+          aria-label={`${slot.employeeName} · ${t(slotLabel(slot.status))}`}
+          onclick={() => selectSlot(slot)}
+        >
+          <span class="cl-avatar">{slot.employeeName.slice(0, 2).toUpperCase()}</span>
+          <span>
+            <strong>{slot.employeeName}</strong>
+            <small>
+              {t(slotLabel(slot.status))} · {slot.actualRange || slot.plannedRange || t('No time recorded')}
+              {#if areaName.get(slot.actualAreaId)} · {areaName.get(slot.actualAreaId)}{/if}
+              {#if positionName.get(slot.actualJobFunctionId)} · {positionName.get(slot.actualJobFunctionId)}{/if}
+            </small>
+          </span>
+          <b>{slot.actualHours ? formatHours(slot.actualHours) : '—'}</b>
+        </button>
+      {/each}
+    {:else}
+      <div class="cl-empty">
+        <strong>{t('No activity on this day')}</strong>
+        <span>{t('Scheduled and worked rows will appear here.')}</span>
+      </div>
+    {/if}
+  </div>
+</Dialog>
+
+<TimesheetEntryDialog
+  slot={selectedSlot}
+  {snapshot}
+  {timezone}
+  {editable}
+  onclose={() => {
+    selectedSlotKey = '';
+    selectedSlotDate = '';
+  }}
+/>
+
 <style>
-  .monthwrap {
-    overflow-x: auto;
+  .day-inspector {
+    display: grid;
     border: 1px solid var(--cl-line);
     border-radius: var(--cl-radius);
-    background: var(--cl-surface);
+    overflow: hidden;
   }
-  .month {
-    min-width: 720px;
+  .day-inspector > button {
+    min-width: 0;
+    min-height: 54px;
     display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-  }
-  .month__head {
-    padding: 12px 14px;
-    border-bottom: 1px solid var(--cl-line);
-    border-left: 1px solid var(--cl-line);
-    background: var(--cl-surface-muted);
-    font-size: 13px;
-    font-weight: var(--rst-fw-bold);
-  }
-  .month__day {
-    position: relative;
-    display: grid;
-    align-content: start;
-    gap: 3px;
-    min-height: 108px;
-    padding: 10px 14px 16px;
-    border-bottom: 1px solid var(--cl-line);
-    border-left: 1px solid var(--cl-line);
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 11px;
+    border: 0;
+    border-bottom: 1px solid var(--cl-grid-line);
     color: inherit;
+    background: var(--cl-surface);
+    font: inherit;
+    text-align: left;
     text-decoration: none;
-    transition: background var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease);
+    cursor: pointer;
   }
-  .month__day:hover {
-    background: color-mix(in srgb, var(--cl-accent) 5%, var(--cl-surface));
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cl-accent) 28%, transparent);
-  }
-  .month__head:nth-child(7n + 1),
-  .month__day:nth-child(7n + 1) {
-    border-left: 0;
-  }
-  /* Days from the neighbouring months stay readable but recede. */
-  .month__day.is-out {
-    background: var(--cl-surface-muted);
-    color: var(--cl-muted);
-  }
-  .month__top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 6px;
-  }
-  .month__num {
-    font-size: 14px;
-    font-weight: var(--rst-fw-bold);
-    font-variant-numeric: tabular-nums;
-  }
-  /* Today's date is a filled orange chip — the one place orange marks state. */
-  .month__day.is-today .month__num {
-    display: inline-grid;
-    place-items: center;
-    min-width: 24px;
-    height: 24px;
-    margin: -3px 0;
-    padding: 0 6px;
-    border-radius: 999px;
-    color: #fff;
-    background: var(--cl-accent);
-  }
-  .month__hours {
-    font-size: 14px;
-    font-weight: var(--rst-fw-medium);
-    font-variant-numeric: tabular-nums;
-  }
-  .month__meta {
-    color: var(--cl-muted);
-    font-size: 13px;
-  }
-  .month__flag {
-    display: inline-flex;
-    align-items: center;
+  .day-inspector > button:hover:not(:disabled) { background: var(--cl-surface-muted); }
+  .day-inspector > button:disabled { cursor: default; }
+  .day-inspector > button:last-child { border-bottom: 0; }
+  .day-inspector > button.has-attention { box-shadow: inset 3px 0 0 var(--cl-attention); }
+  .day-inspector > button > span:nth-child(2) {
+    min-width: 0;
+    display: grid;
     gap: 3px;
-    padding: 1px 7px;
-    border-radius: 999px;
-    color: var(--cl-attention);
-    background: var(--cl-attention-wash);
-    font-size: 12px;
-    font-weight: var(--rst-fw-bold);
-    font-variant-numeric: tabular-nums;
   }
-  /* A worked-hours heat bar along the bottom edge, scaled to the busiest day. */
-  .month__bar {
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    height: 4px;
-    width: var(--fill);
-    background: var(--cl-ok);
-    opacity: 0.7;
-    border-top-right-radius: 2px;
+  .day-inspector strong,
+  .day-inspector small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
-
-  @media (max-width: 760px) {
-    .monthwrap {
-      overflow: hidden;
-    }
-    .month {
-      min-width: 0;
-    }
-    .month__head {
-      min-width: 0;
-      padding: 8px 1px;
-      font-size: 9px;
-      text-align: center;
-    }
-    .month__day {
-      min-width: 0;
-      min-height: 62px;
-      gap: 2px;
-      padding: 7px 3px 10px;
-      text-align: center;
-    }
-    .month__top {
-      justify-content: center;
-    }
-    .month__num {
-      font-size: 12px;
-    }
-    .month__hours {
-      font-size: 9px;
-    }
-    .month__meta {
-      display: none;
-    }
-    .month__flag {
-      position: absolute;
-      top: 4px;
-      right: 3px;
-      width: 7px;
-      height: 7px;
-      overflow: hidden;
-      padding: 0;
-      border-radius: 50%;
-      color: transparent;
-      background: var(--cl-attention);
-    }
-    .month__day.is-today .month__num {
-      min-width: 21px;
-      height: 21px;
-      padding-inline: 4px;
-    }
-    .month__bar {
-      height: 3px;
-    }
-  }
+  .day-inspector small { color: var(--cl-muted); }
+  .day-inspector b { font-variant-numeric: tabular-nums; }
 </style>

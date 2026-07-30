@@ -7,6 +7,7 @@
     meta = '',
     color = '',
     icon,
+    liveColumn = -1,
     collapsed = false,
     dropTarget = false,
     ontoggle,
@@ -19,6 +20,8 @@
     meta?: string;
     color?: string;
     icon?: Snippet;
+    /** Zero-based table column crossed by the live-today marker. */
+    liveColumn?: number;
     collapsed?: boolean;
     dropTarget?: boolean;
     ontoggle: () => void;
@@ -27,10 +30,8 @@
     ondrop?: (event: DragEvent) => void;
   } = $props();
 
-  // One cell per column instead of a single spanning cell, so the vertical
-  // separators run unbroken down the table and it reads as one sheet rather
-  // than a stack of bands. The label spills across the empties when it needs
-  // the room; the count sits in the last column.
+  // One cell per column keeps the group aligned with the table's tracks. The
+  // label can spill across empty cells; the count stays anchored at the end.
   const fillers = $derived(Array.from({ length: Math.max(0, colspan - 2) }));
 </script>
 
@@ -41,7 +42,7 @@
   {ondragleave}
   {ondrop}
 >
-  <td class="cl-group-row__label">
+  <td class="cl-group-row__label" class:is-live-column={liveColumn === 0}>
     <button
       class="cl-group-row__button"
       type="button"
@@ -73,11 +74,17 @@
     </button>
   </td>
   {#each fillers as _filler, index (index)}
-    <td></td>
+    <td class:is-live-column={liveColumn === index + 1}></td>
   {/each}
   {#if colspan > 1}
-    <td class="cl-group-row__meta-cell">
+    <td class="cl-group-row__meta-cell" class:is-live-column={liveColumn === colspan - 1}>
       {#if meta}<span class="cl-group-row__meta">{meta}</span>{/if}
     </td>
   {/if}
 </tr>
+
+<style>
+  td.is-live-column {
+    box-shadow: inset var(--cl-live-marker-width) 0 0 var(--cl-live-marker);
+  }
+</style>

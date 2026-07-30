@@ -1,13 +1,13 @@
 import type { ManagerOperationsReadModel } from '../api/workspace-snapshot';
 import {
   WEEKDAYS,
-  activeServiceKeys,
   dateForWeekday,
   formatHours,
   hoursBetweenClocks,
   hoursBetweenInstants,
   mondayFor,
   serviceLabel,
+  serviceKeysWithEvidence,
   weekday,
   type ServiceKey
 } from '../calendar/date.ts';
@@ -87,6 +87,27 @@ export function actualsStatusForWeek(
   return status === 'approved' || status === 'locked' ? status : 'open';
 }
 
+export function actualsServiceKeysForWeek(
+  snapshot: ManagerOperationsReadModel,
+  weekStart: string
+): ServiceKey[] {
+  const weekEnd = dateForWeekday(weekStart, 7);
+  const publishedShifts = snapshot.published_planned_shifts ?? snapshot.planned_shifts;
+  return serviceKeysWithEvidence(snapshot.services, [
+    ...publishedShifts
+      .filter((shift) => shift.week_start === weekStart)
+      .map((shift) => shift.service_key),
+    ...snapshot.time_entries
+      .filter(
+        (entry) =>
+          entry.business_date >= weekStart &&
+          entry.business_date <= weekEnd &&
+          entry.status !== 'cancelled'
+      )
+      .map((entry) => entry.service_key)
+  ]);
+}
+
 export function actualSlotsForDate(
   snapshot: ManagerOperationsReadModel,
   date: string,
@@ -107,9 +128,13 @@ export function actualSlotsForDate(
   const entries = snapshot.time_entries.filter(
     (entry) => entry.business_date === date && entry.status !== 'cancelled'
   );
+  const serviceKeys = serviceKeysWithEvidence(snapshot.services, [
+    ...planned.map((shift) => shift.service_key),
+    ...entries.map((entry) => entry.service_key)
+  ]);
 
   return employees.flatMap((employee) =>
-    activeServiceKeys(snapshot.services).map((serviceKey) => {
+    serviceKeys.map((serviceKey) => {
       const plan = planned.find(
         (shift) =>
           shift.employee_id === employee.id && shift.service_key === serviceKey
@@ -249,13 +274,14 @@ export function buildActualsWeek(input: {
   const jobFunctionName = new Map(
     input.snapshot.job_functions.map((job) => [job.id, job.name])
   );
+  const serviceKeys = actualsServiceKeysForWeek(input.snapshot, input.weekStart);
 
   const rows: WeekRow[] = input.snapshot.employees
     .filter((employee) => employee.active)
     .map((employee) => {
       let weekHours = 0;
       const cells: WeekCell[] = dates.map((date) => {
-        const slots: WeekSlot[] = activeServiceKeys(input.snapshot.services).map((serviceKey) => {
+        const slots: WeekSlot[] = serviceKeys.map((serviceKey) => {
           const key = `${employee.id}|${date}|${serviceKey}`;
           const slot = slotsByKey.get(key);
           if (slot) weekHours += slot.actualHours;

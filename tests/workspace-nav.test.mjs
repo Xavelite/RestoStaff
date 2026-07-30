@@ -19,7 +19,7 @@ test('Restaurant root and nested routes resolve deterministically', () => {
   assert.equal(subNavItemForPath(restaurant, '/restaurant/coverage')?.href, '/restaurant/coverage');
 });
 
-test('manager navigation prioritizes daily operations and owner payroll stays focused', () => {
+test('manager navigation follows the product workflow and owner payroll stays focused', () => {
   const visible = (role) =>
     modulesForRole(role)
       .filter((module) => !module.homeOnly && !module.utility)
@@ -27,28 +27,28 @@ test('manager navigation prioritizes daily operations and owner payroll stays fo
 
   assert.deepEqual(visible('manager'), [
     'home',
+    'restaurant',
+    'team',
     'schedule',
     'time',
     'reservations',
-    'team',
-    'reports',
-    'exports',
+    'badge-terminal',
     'documents',
-    'restaurant',
-    'badge-terminal'
+    'exports',
+    'reports'
   ]);
   assert.deepEqual(visible('owner'), [
     'home',
+    'restaurant',
+    'team',
     'schedule',
     'time',
     'reservations',
-    'team',
-    'reports',
-    'exports',
-    'documents',
-    'restaurant',
     'badge-terminal',
-    'payroll'
+    'payroll',
+    'documents',
+    'exports',
+    'reports'
   ]);
 
   const payroll = moduleForPath('/payroll');

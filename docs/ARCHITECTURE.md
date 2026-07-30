@@ -9,13 +9,13 @@ transactional RPCs.
 - `src/routes`: pages, loading, mutations, and route-owned orchestration.
 - `src/lib/api`: typed RPC calls and read-model validation.
 - `src/lib/<domain>`: shared business projections and domain UI for Schedule,
-  Time & attendance, Team, Restaurant, employee self-service, reservations,
+  Time, Team, Restaurant, employee self-service, reservations,
   notifications, payroll, and calendar behavior.
 - `src/lib/workspace-ui`: the current compact-workspace component set, navigation,
   draft models, and shared visual contract. The name is an internal namespace,
   not a second or legacy product shell.
 - `src/lib/app-shell` and `src/lib/workspace`: authenticated navigation, page
-  framing, toolbars, drawers, and workspace-level behavior.
+  framing, toolbars, dialogs, and workspace-level behavior.
 - `src/lib/communications`: operational messages, delivery receipts, and their
   phone-notification projection.
 - `src/lib/preview` and `src/lib/feedback`: read-only role projection and
@@ -59,7 +59,7 @@ authorization contracts while selected-day views replace wide weekly boards
 where that improves the workflow. Dense editable setup grids use bounded local
 scrolling rather than forcing page-level overflow.
 
-`EmployeeSlotDrawer` in `src/lib/employee` owns shared employee service-slot
+`EmployeeSlotDialog` in `src/lib/employee` owns shared employee service-slot
 actions. Onboarding, authentication, Badge, public reservation booking, station
 mode, and platform administration remain purpose-built because their
 interaction models are not normal restaurant workspaces.

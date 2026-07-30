@@ -71,11 +71,11 @@
     --badge-line: var(--cl-line);
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    min-height: 26px;
-    padding: 3px 9px 3px 7px;
+    gap: 5px;
+    min-height: 24px;
+    padding: 2px 9px 2px 5px;
     border: 1px solid var(--badge-line);
-    border-radius: 6px;
+    border-radius: 999px;
     color: color-mix(in srgb, var(--badge-color) 76%, var(--cl-ink));
     background: var(--badge-wash);
     font-size: 12px;
@@ -85,12 +85,14 @@
   }
 
   .cell-badge__icon {
-    width: 16px;
-    height: 16px;
+    width: 17px;
+    height: 17px;
     flex: 0 0 auto;
     display: grid;
     place-items: center;
     color: var(--badge-color);
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--badge-color) 10%, transparent);
   }
 
   .cell-badge.is-info {

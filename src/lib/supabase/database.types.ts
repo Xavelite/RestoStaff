@@ -4667,6 +4667,7 @@ export type Database = {
           automatic_confirmation: boolean
           booking_cutoff_minutes: number
           booking_enabled: boolean
+          capacity_mode: string
           created_at: string
           default_duration_minutes: number
           maximum_covers: number | null
@@ -4684,6 +4685,7 @@ export type Database = {
           automatic_confirmation?: boolean
           booking_cutoff_minutes?: number
           booking_enabled?: boolean
+          capacity_mode?: string
           created_at?: string
           default_duration_minutes?: number
           maximum_covers?: number | null
@@ -4701,6 +4703,7 @@ export type Database = {
           automatic_confirmation?: boolean
           booking_cutoff_minutes?: number
           booking_enabled?: boolean
+          capacity_mode?: string
           created_at?: string
           default_duration_minutes?: number
           maximum_covers?: number | null

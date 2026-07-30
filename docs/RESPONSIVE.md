@@ -28,7 +28,7 @@ Avoid tiny nested scroll panes for ordinary page content. If a section reads lik
 
 - Shared components own responsive behaviour used by more than one module.
 - Configured weekly service slots remain side by side on desktop and tablet.
-- Mobile preserves Schedule and Time & attendance as bounded weekly boards with
-  a sticky employee column. My service and My time use employee-focused cards.
+- Mobile presents Schedule and Time as selected-day roster cards instead of
+  compressing seven columns. My service and My time use employee-focused cards.
 - Module pages compose the shared scaffold; they must not introduce arbitrary
   widths, per-page scroll handling, or a hidden header fallback.

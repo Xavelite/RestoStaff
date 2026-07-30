@@ -9,7 +9,7 @@ It prevents a future redesign or audit from silently reopening settled scope.
 | --- | --- |
 | Tenant | One restaurant is one independent venue. Chains, shared legal employers, and organization billing are later architecture. |
 | Services | Service periods are restaurant-configurable text keys with names, ordering, active state, hours, coverage, availability, badges, Schedule, Timesheet, and reporting support. Lunch and Evening are starter data only. |
-| Workforce | Team, Restaurant, Schedule, Time & attendance, Badge, employee self-service, notifications, Documents, Exports, and Payroll preparation are the core pilot. |
+| Workforce | Team, Restaurant, Schedule, Time, Badge, employee self-service, notifications, Documents, Exports, and Payroll are the core pilot. |
 | Reservations | Optional, server-gated, and disabled by default until its separate guest-space model and public acceptance are approved. |
 | Reports | Disabled by default until elapsed-window metric contracts and business sign-off replace the current exploratory comparisons. |
 | Payroll | Preparation/export only. Experimental calculation and provider-reconciliation RPCs are quarantined from authenticated clients. |

@@ -26,13 +26,13 @@ integration.
 
 Review Owner, Manager, and Employee routes at 1440x900, 1024x768, 768x1024,
 390x844, and 360x800. Check direct URL guards, loading/empty/error/read-only
-states, dialogs and drawers, keyboard focus, page overflow, mobile navigation,
+states, dialogs, keyboard focus, page overflow, mobile navigation,
 and the primary workflow for each role.
 
 The shared maximum-width ladder is 1180, 980, 760, and 520 pixels. Schedule and
-Time & attendance retain their complete weekly ledger inside a bounded
-horizontal workspace with a sticky employee column; mobile never widens the
-document itself. Employee My service and My time use phone-focused cards.
+Time retain their complete weekly ledger inside a bounded desktop workspace;
+mobile replaces the wide table with selected-day roster cards. Employee My
+service and My time use phone-focused cards.
 Local scrolling is reserved for dense boards, calendars, dialogs, and bounded
 previews.
 

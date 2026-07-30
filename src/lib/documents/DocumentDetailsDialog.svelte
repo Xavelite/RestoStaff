@@ -7,7 +7,7 @@
     LockKeyhole,
     Save
   } from '@lucide/svelte';
-  import Drawer from '$lib/components/Drawer.svelte';
+  import Dialog from '$lib/components/Dialog.svelte';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import { confirmAction } from '$lib/ui/confirm.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
@@ -179,10 +179,11 @@
   }
 </script>
 
-<Drawer
+<Dialog
   {open}
   title={document?.title ?? 'Document'}
   description={document?.originalFilename ?? ''}
+  size="large"
   {onclose}
 >
   {#snippet children()}
@@ -310,21 +311,21 @@
     {/if}
   {/snippet}
 
-  {#snippet actions()}
+  {#snippet footer()}
     {#if document && !archived}
-      <button class="drawer-button is-danger" type="button" disabled={Boolean(action)} onclick={archive}>
+      <button class="dialog-button is-danger" type="button" disabled={Boolean(action)} onclick={archive}>
         <Archive size={15} aria-hidden="true" />{t(action === 'archive' ? 'Archiving...' : 'Archive')}
       </button>
       <span class="action-spacer"></span>
-      <button class="drawer-button" type="button" disabled={Boolean(action)} onclick={download}>
+      <button class="dialog-button" type="button" disabled={Boolean(action)} onclick={download}>
         <Download size={15} aria-hidden="true" />{t(action === 'download' ? 'Preparing...' : 'Download')}
       </button>
-      <button class="drawer-button is-primary" type="button" disabled={!dirty || Boolean(action) || !title.trim() || Boolean(dateError)} onclick={save}>
+      <button class="dialog-button is-primary" type="button" disabled={!dirty || Boolean(action) || !title.trim() || Boolean(dateError)} onclick={save}>
         <Save size={15} aria-hidden="true" />{t(action === 'save' ? 'Saving...' : 'Save changes')}
       </button>
     {/if}
   {/snippet}
-</Drawer>
+</Dialog>
 
 <style>
   .document-details { display: grid; gap: 22px; }
@@ -446,7 +447,7 @@
   .archived-note div { display: grid; gap: 3px; }
   .archived-note strong { color: var(--rst-ui-text); font-size: 10px; }
   .archived-note span { font-size: 9px; }
-  :global(.drawer-button) {
+  :global(.dialog-button) {
     min-height: 36px;
     display: inline-flex;
     align-items: center;
@@ -461,9 +462,9 @@
     font-weight: var(--rst-fw-bold);
     cursor: pointer;
   }
-  :global(.drawer-button.is-primary) { color: var(--rst-on-accent-text); border-color: var(--rst-ui-action); background: var(--rst-ui-action); }
-  :global(.drawer-button.is-danger) { color: var(--rst-state-danger-text); border-color: var(--rst-state-danger-border); background: var(--rst-state-danger-bg); }
-  :global(.drawer-button:disabled) { opacity: .5; cursor: default; }
+  :global(.dialog-button.is-primary) { color: var(--rst-on-accent-text); border-color: var(--rst-ui-action); background: var(--rst-ui-action); }
+  :global(.dialog-button.is-danger) { color: var(--rst-state-danger-text); border-color: var(--rst-state-danger-border); background: var(--rst-state-danger-bg); }
+  :global(.dialog-button:disabled) { opacity: .5; cursor: default; }
   :global(.action-spacer) { flex: 1; }
   @media (max-width: 520px) {
     .field-grid,

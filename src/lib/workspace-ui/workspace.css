@@ -140,6 +140,8 @@
   --cl-ok-rgb: 21, 128, 61;
   --cl-ok-wash: #eef8f1;
   --cl-ok-line: #bfe3cb;
+  --cl-live-marker: color-mix(in srgb, var(--cl-ok) 82%, transparent);
+  --cl-live-marker-width: 2px;
   --cl-attention: #b45309;
   --cl-attention-rgb: 180, 83, 9;
   --cl-attention-wash: #fdf5e9;
@@ -304,6 +306,27 @@
   border-bottom: 1px solid var(--cl-shell-line);
   background: var(--cl-shell);
   color: var(--cl-shell-text);
+}
+
+.cl-app::before {
+  content: '';
+  position: fixed;
+  z-index: 330;
+  top: calc(var(--cl-topbar) - 1px);
+  right: 0;
+  left: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--cl-mod-restaurant) 0 18%,
+    var(--cl-mod-team) 18% 34%,
+    var(--cl-mod-schedule) 34% 52%,
+    var(--cl-mod-time) 52% 68%,
+    var(--cl-mod-reservations) 68% 82%,
+    var(--cl-mod-payroll) 82% 100%
+  );
+  opacity: .76;
+  pointer-events: none;
 }
 
 .cl-topbar__spacer {
@@ -980,20 +1003,8 @@
   white-space: nowrap;
 }
 
-/* Vertical column separators, header and body — a table reads as a grid, the
-   way a spreadsheet does, not as free-floating rows. */
-.cl-table th:not(:last-child),
-.cl-table tbody td:not(:last-child) {
-  border-right: 1px solid var(--cl-grid-line);
-}
-/* Utility columns (drag handle, colour swatch) do not need a divider. */
-.cl-table th.cl-grip,
-.cl-table td.cl-grip,
-.cl-table th.swatch-col,
-.cl-table td.swatch-col {
-  border-right: 0;
-}
-
+/* Directory tables use horizontal rhythm. Calendar and roster boards retain
+   vertical date dividers where the column relationship carries meaning. */
 /* ---- column header menu (WorkspaceColMenu) --------------------------------- */
 .cl-table th.has-menu {
   padding: 0;
@@ -1006,6 +1017,12 @@
   justify-content: space-between;
   gap: 8px;
   padding: 3px 8px 3px 14px;
+}
+
+:root.is-resizing-column,
+:root.is-resizing-column * {
+  cursor: col-resize !important;
+  user-select: none !important;
 }
 .colhead.is-right {
   justify-content: flex-end;
@@ -1302,7 +1319,9 @@
   cursor: default;
 }
 .cl-picker__trigger.is-empty .cl-picker__label {
-  color: var(--cl-muted);
+  color: var(--cl-accent);
+  font-size: 12px;
+  font-weight: var(--rst-fw-medium);
 }
 .cl-picker__label {
   min-width: 0;

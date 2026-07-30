@@ -9,11 +9,15 @@
     activeServiceKeys,
     mondayFor,
     serviceLabel,
+    serviceKeysWithEvidence,
     todayInTimezone,
+    weekdayDateLabel,
     weekLabel,
     type ServiceKey
   } from '$lib/calendar/date';
   import Dialog from '$lib/components/Dialog.svelte';
+  import RosterExportDialog from '$lib/exports/RosterExportDialog.svelte';
+  import type { PreparedExport } from '$lib/exports/export-download';
   import { friendlyError } from '$lib/api/error-messages';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import { confirmAction } from '$lib/ui/confirm.svelte';
@@ -65,9 +69,6 @@
     scheduleDraft,
     type ScheduleRowPlacement
   } from '$lib/workspace-ui/workspace-schedule.svelte';
-  import { downloadCsv } from '$lib/exports/csv';
-  import { planningCsv } from '$lib/schedule/schedule-export';
-  import { DEFAULT_PLANNING_EXPORT_COLUMNS } from '$lib/schedule/schedule-export-columns';
   import { getReservationDemand } from '$lib/reservations/reservation-api';
   import type { ReservationDemand } from '$lib/reservations/reservation-types';
   import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
@@ -122,7 +123,15 @@
   };
 
   const snapshot = $derived(workspace.operations);
-  const serviceKeys = $derived(activeServiceKeys(snapshot?.services));
+  const activeServiceKeySet = $derived(new Set(activeServiceKeys(snapshot?.services)));
+  const serviceKeys = $derived(
+    serviceKeysWithEvidence(
+      snapshot?.services,
+      [...scheduleDraft.shifts, ...scheduleDraft.placementShifts].map(
+        (shift) => shift.serviceKey
+      )
+    )
+  );
   const canViewFinancials = $derived(workspace.canViewFinancials);
   const weatherLocation = $derived(
     snapshot
@@ -213,6 +222,7 @@
   let dropKey = $state('');
   let weekPicker = $state<HTMLInputElement | null>(null);
   let compactCards = $state(false);
+  let exportOpen = $state(false);
   let mobileDate = $state('');
   let reservationDemand = $state<ReservationDemand[]>([]);
   let demandRequestId = 0;
@@ -676,17 +686,46 @@
     );
   }
 
-  function exportWeek(weekStart: string): void {
-    if (!snapshot) return;
-    const file = planningCsv({
-      snapshot,
-      activeWeek: weekStart,
-      draft: scheduleDraft.shifts,
-      notes: scheduleDraft.notes,
-      columns: DEFAULT_PLANNING_EXPORT_COLUMNS,
-      translate: t
+  function scheduleRosterFile(weekStart: string): PreparedExport | null {
+    if (!snapshot) return null;
+    const activeEmployees = snapshot.employees
+      .filter((employee) => employee.active)
+      .toSorted((left, right) => left.display_name.localeCompare(right.display_name));
+    const dayDates = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
+    const rows = activeEmployees.map((employee) => {
+      const employeeShifts = scheduleDraft.shifts.filter(
+        (shift) => shift.employeeId === employee.id
+      );
+      const cells = dayDates.map((_, index) =>
+        employeeShifts
+          .filter((shift) => shift.weekday === index + 1)
+          .toSorted((left, right) => left.startsAt.localeCompare(right.startsAt))
+          .map((shift) => {
+            const assignment = [
+              areaName.get(shift.areaId) ?? '',
+              snapshot.job_functions.find((item) => item.id === shift.jobFunctionId)?.name ?? ''
+            ].filter(Boolean).join(' · ');
+            return `${shift.startsAt}–${shift.endsAt}${assignment ? `\n${assignment}` : ''}`;
+          })
+          .join('\n')
+      );
+      const hours = employeeShifts.reduce(
+        (total, shift) => total + hoursBetweenClocks(shift.startsAt, shift.endsAt),
+        0
+      );
+      return [employee.display_name, ...cells, formatHours(hours)];
     });
-    downloadCsv(file.filename, file.headers, file.rows);
+    return {
+      filename: `schedule-roster-${weekStart}.xlsx`,
+      title: t('Schedule roster'),
+      periodLabel: weekLabel(weekStart, i18n.intlLocale),
+      headers: [
+        t('Employee'),
+        ...dayDates.map((date) => weekdayDateLabel(date, i18n.intlLocale)),
+        t('Total')
+      ],
+      rows
+    };
   }
 
   function spansServiceBoundary(shift: PlanningShiftDraft): boolean {
@@ -1155,7 +1194,7 @@
               <button class="icon-btn" type="button" disabled={saving || !week.editable} aria-label={t('Copy previous week')} title={t('Copy previous week')} onclick={() => void copyPreviousWeek(week.weekStart)}>
                 <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
               </button>
-              <button class="icon-btn" type="button" disabled={!snapshot} aria-label={t('Export CSV')} title={t('Export CSV')} onclick={() => exportWeek(week.weekStart)}>
+              <button class="icon-btn" type="button" disabled={!snapshot} aria-label={t('Export roster')} title={t('Export roster')} onclick={() => (exportOpen = true)}>
                 <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
               </button>
               <button
@@ -1266,12 +1305,14 @@
                               {@const slot = grid.slotsByKey.get(slotKey(row.id, mobileDay.date, service))}
                               {@const tone = zoneTone(slot)}
                               {@const state = zoneLabel(slot)}
+                              {@const serviceArchived = !activeServiceKeySet.has(service)}
                               <button
                                 class="mobile-slot is-{tone}"
                                 class:has-shift={Boolean(shift)}
                                 class:is-conflict={Boolean(shift?.conflict)}
+                                class:is-archived={serviceArchived && !shift}
                                 type="button"
-                                disabled={!shift && (!week.editable || mobileDay.date < week.today || !active)}
+                                disabled={!shift && (!week.editable || mobileDay.date < week.today || !active || serviceArchived)}
                                 style={shift ? `--slot-color:${shift.color}` : undefined}
                                 onclick={() => shift
                                   ? (selectedKey = shift.key)
@@ -1282,8 +1323,8 @@
                                   <strong>{shift.label}</strong>
                                   <small>{shift.area}{shift.showPosition ? ` · ${shift.position}` : ''}</small>
                                 {:else}
-                                  <strong>{state || (slot?.context.availability === 'available' ? t('Available') : t('Plan shift'))}</strong>
-                                  <small>{t(mobileDay.date < week.today ? 'Past day' : 'No shift')}</small>
+                                  <strong>{serviceArchived ? t('Archived') : state || (slot?.context.availability === 'available' ? t('Available') : t('Plan shift'))}</strong>
+                                  <small>{serviceArchived ? t('This service is archived.') : t(mobileDay.date < week.today ? 'Past day' : 'No shift')}</small>
                                 {/if}
                               </button>
                             {/each}
@@ -1341,7 +1382,13 @@
                     {@const totalCost = shiftsCost(dayEntries)}
                     {@const dayCovers = reservationDemandByDay.get(day.date) ?? 0}
                     {@const weather = restaurantWeather.dailyFor(day.date)}
-                    <th class="board__day" scope="col" class:is-today={day.today} class:is-weekend={day.weekday >= 6}>
+                    <th
+                      class="board__day"
+                      scope="col"
+                      class:is-today={day.today}
+                      class:is-past={day.date < week.today}
+                      class:is-weekend={day.weekday >= 6}
+                    >
                       <div class="board__day-date"><b>{t(day.label)}</b> {Number(day.date.slice(-2))}</div>
                       <div class="board__day-lower">
                         <div class="board__day-stat board__day-operations">
@@ -1356,7 +1403,9 @@
                           </span>
                           <b class="board__day-metric">
                             {formatHours(total)}
-                            {#if !compactCards && canViewFinancials}<i>·</i>{totalCost > 0 ? `~${money(totalCost)}` : '—'}{/if}
+                            {#if !compactCards && canViewFinancials}
+                              <span class="board__day-cost"><i>·</i>{totalCost > 0 ? `~${money(totalCost)}` : '—'}</span>
+                            {/if}
                           </b>
                         </div>
                         {#if weather}
@@ -1395,6 +1444,9 @@
                         colspan={grid.days.length + 1}
                         label={group.label}
                         meta={`${t('{count} employees', { count: group.rows.length })} · ${formatHours(group.hours)}`}
+                        liveColumn={grid.days.some((day) => day.today)
+                          ? grid.days.findIndex((day) => day.today) + 1
+                          : -1}
                         color={group.color}
                         icon={group.icon ? groupIcon : undefined}
                         collapsed={collapsedGroups.includes(group.key)}
@@ -1432,7 +1484,12 @@
                             {@const dayOverlap = shifts.some((shift) => shift.overlap)}
                             {@const past = cell.date < week.today}
                             {@const cellKey = `${row.id}|${cell.date}`}
-                            <td class="board__cell" class:is-past={past} class:is-drop-target={dropKey.startsWith(cellKey)}>
+                            <td
+                              class="board__cell"
+                              class:is-today={cell.date === week.today}
+                              class:is-past={past}
+                              class:is-drop-target={dropKey.startsWith(cellKey)}
+                            >
                               <div
                                 class="service-canvas"
                                 class:has-card={shifts.length > 0}
@@ -1443,18 +1500,25 @@
                                   {@const tone = zoneTone(slot)}
                                   {@const label = zoneLabel(slot)}
                                   {@const targetKey = `${cellKey}|${service}`}
+                                  {@const serviceArchived = !activeServiceKeySet.has(service)}
                                   <button
                                     class="service-zone is-{service} is-{tone}"
+                                    class:is-archived={serviceArchived}
                                     type="button"
-                                    disabled={!week.editable || past || !active || Boolean(slot?.shift)}
-                                    aria-label={t('Plan {service} shift', { service: serviceLabel(service, snapshot?.services) })}
+                                    disabled={!week.editable || past || !active || serviceArchived || Boolean(slot?.shift)}
+                                    aria-label={serviceArchived
+                                      ? `${t(serviceLabel(service, snapshot?.services))}: ${t('Archived')}`
+                                      : t('Plan {service} shift', { service: serviceLabel(service, snapshot?.services) })}
+                                    title={serviceArchived ? t('This service is archived.') : undefined}
                                     ondragover={(event) => { if (canDrop(grid, row.id, cell.date, service, week.today)) { event.preventDefault(); dropKey = targetKey; } }}
                                     ondragleave={() => { if (dropKey === targetKey) dropKey = ''; }}
                                     ondrop={(event) => { event.preventDefault(); void dropShift(grid, row.id, cell.date, service, week.today); }}
                                     onclick={() => void quickPlan(grid, row.id, cell.date, service)}
                                   >
                                     <span class="service-zone__cue"><WorkspaceServiceIcon {service} size={14} /></span>
-                                    {#if label}<span class="service-zone__state">{label}</span>{/if}
+                                    {#if !serviceArchived && label}
+                                      <span class="service-zone__state">{label}</span>
+                                    {/if}
                                   </button>
                                 {/each}
 
@@ -1533,8 +1597,10 @@
                                           <span class="day-card__metrics">
                                             <b title={t('Planned hours')}>{card.hours}</b>
                                             {#if canViewFinancials}
-                                              <i>·</i>
-                                              <b title={t('Estimated cost')}>{card.estimatedCost ? `~${card.estimatedCost}` : '—'}</b>
+                                              <span class="day-card__cost">
+                                                <i>·</i>
+                                                <b title={t('Estimated cost')}>{card.estimatedCost ? `~${card.estimatedCost}` : '—'}</b>
+                                              </span>
                                             {/if}
                                           </span>
                                         {/if}
@@ -1602,7 +1668,7 @@
                                                   <b>{chip.area}</b>
                                                   {#if chip.showPosition}<small>· {chip.position}</small>{/if}
                                                 </span>
-                                                <em>{chip.hours}{#if canViewFinancials && chip.estimatedCost} · ~{chip.estimatedCost}{/if}</em>
+                                                <em class="day-card__service-cost">{chip.hours}{#if canViewFinancials && chip.estimatedCost} · ~{chip.estimatedCost}{/if}</em>
                                               </span>
                                             {:else}
                                               <span class="day-card__service-row is-{service} is-empty">
@@ -1739,6 +1805,12 @@
           <button class="cl-btn is-primary" type="button" onclick={() => (selectedKey = '')}>{t('Done')}</button>
         {/snippet}
       </Dialog>
+
+      <RosterExportDialog
+        open={exportOpen}
+        file={scheduleRosterFile(week.weekStart)}
+        onclose={() => (exportOpen = false)}
+      />
     {/snippet}
   </WorkspaceScheduleWeek>
 </WorkspacePage>
@@ -1779,14 +1851,13 @@
   .republish-note { justify-self: end; margin: -5px 2px 8px 0; color: var(--cl-attention); font-size: 11px; font-weight: var(--rst-fw-medium); }
 
   .schedule-wrap { max-height: calc(100vh - 188px); overflow: auto; border: 1px solid color-mix(in srgb, var(--cl-ink) 12%, var(--cl-line-strong)); border-radius: 5px; background: var(--cl-surface); box-shadow: 0 1px 2px rgb(0 0 0 / .035); }
-  .board { width: 100%; min-width: 1270px; border-spacing: 0; table-layout: fixed; border-collapse: separate; color: var(--cl-ink); font-size: 13px; }
-  .schedule-panel:not(.is-compact) .board { min-width: 1470px; }
+  .board { width: 100%; min-width: 860px; border-spacing: 0; table-layout: fixed; border-collapse: separate; color: var(--cl-ink); font-size: 13px; }
   .board thead { position: sticky; top: 0; z-index: 8; }
   .board th { height: 72px; padding: 6px 10px; border-bottom: 1px solid color-mix(in srgb, var(--cl-accent) 65%, var(--cl-line)); background: var(--cl-thead); text-align: left; }
   .board th.has-menu { padding: 0; }
   thead .board__staff .colhead { min-height: 72px; }
   .board td { height: 96px; padding: 0; border-bottom: 1px solid color-mix(in srgb, var(--cl-ink) 14%, var(--cl-grid-line)); background: var(--cl-surface); background-clip: padding-box; vertical-align: middle; }
-  .board__staff { position: sticky; left: 0; z-index: 4; width: 230px; border-right: 1px solid var(--cl-grid-line); background: var(--cl-surface) !important; }
+  .board__staff { position: sticky; left: 0; z-index: 4; width: 180px; border-right: 1px solid var(--cl-grid-line); background: var(--cl-surface) !important; }
   thead .board__staff { z-index: 10; background: var(--cl-thead) !important; }
   thead .board__staff :global(.cl-primary-head) { position: relative; }
   thead .board__staff :global(.cl-primary-head > .colhead) { width: 100%; padding-inline: 0; }
@@ -1800,7 +1871,7 @@
   .board__day { border-left: 1px solid var(--cl-grid-line); text-align: center !important; }
   .board__day-date { color: var(--cl-ink); font-size: 12.5px; line-height: 1.1; letter-spacing: 0; text-align: center; white-space: nowrap; }
   .board__day-date b { font-weight: var(--rst-fw-bold); }
-  .board__day-lower { min-height: 42px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(52px, .72fr); align-items: stretch; gap: 0; margin-top: 4px; }
+  .board__day-lower { min-height: 42px; display: grid; grid-template-columns: minmax(32px, 1fr) minmax(42px, 1fr); align-items: stretch; gap: 0; margin-top: 4px; }
   .board__day-stat { min-width: 0; display: grid; grid-template-rows: 25px 13px; place-items: center; color: var(--cl-muted); font-size: 9px; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
   .board__weather { position: relative; padding-left: 7px; }
   .board__weather::before { content: ''; position: absolute; top: 5px; bottom: 4px; left: 0; width: 1px; background: color-mix(in srgb, var(--cl-grid-line) 82%, transparent); }
@@ -1809,12 +1880,40 @@
   .board__day-separator { width: 1px; height: 9px; margin-inline: 1px; background: var(--cl-line-strong); }
   .board__day-metric { min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 3px; overflow: hidden; color: color-mix(in srgb, var(--cl-ink) 82%, var(--cl-muted)); font-size: 9.5px; font-weight: var(--rst-fw-bold); text-overflow: ellipsis; }
   .board__day-metric i { margin: 0 1px; color: var(--cl-line-strong); font-style: normal; }
+  .board__day-cost,
+  .day-card__cost { display: inline-flex; align-items: center; gap: 3px; min-width: 0; }
   .board__weather-metric svg { color: #3287b8; }
   .board__weather.is-unavailable { opacity: .5; }
-  .board__day.is-today { color: var(--cl-accent); background: var(--cl-accent-wash); }
+  .board__day.is-today { color: var(--cl-accent); background: color-mix(in srgb, var(--cl-accent) 10%, var(--cl-thead)); }
+  .board__day.is-today,
+  .board__cell.is-today {
+    box-shadow: inset var(--cl-live-marker-width) 0 0 var(--cl-live-marker);
+  }
+  .board__day.is-past:not(.is-today) {
+    background-color: color-mix(in srgb, var(--cl-surface-muted) 68%, var(--cl-thead));
+    background-image: repeating-linear-gradient(
+      135deg,
+      transparent 0 8px,
+      color-mix(in srgb, var(--cl-muted) 7%, transparent) 8px 9px
+    );
+  }
   .board__day.is-weekend:not(.is-today) { background: color-mix(in srgb, var(--cl-surface-muted) 58%, var(--cl-thead)); }
   .board__cell { position: relative; border-left: 1px solid var(--cl-grid-line); }
-  .board__cell.is-past { background: color-mix(in srgb, var(--cl-surface-muted) 68%, var(--cl-surface)); }
+  .board__cell.is-past {
+    background-color: color-mix(in srgb, var(--cl-surface-muted) 68%, var(--cl-surface));
+  }
+  .board__cell.is-past::after {
+    content: '';
+    position: absolute;
+    z-index: 6;
+    inset: 0;
+    pointer-events: none;
+    background-image: repeating-linear-gradient(
+      135deg,
+      transparent 0 8px,
+      color-mix(in srgb, var(--cl-muted) 9%, transparent) 8px 9px
+    );
+  }
   .board__cell.is-drop-target { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--cl-ok) 62%, transparent); }
   tr.is-archived { opacity: .72; }
 
@@ -1850,6 +1949,13 @@
   .service-zone.is-unavailable { background: color-mix(in srgb, var(--cl-line-strong) 32%, var(--cl-surface)); }
   .service-zone.is-leave { background: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--cl-line) 48%, var(--cl-surface)), color-mix(in srgb, var(--cl-line) 48%, var(--cl-surface)) 7px, var(--cl-surface) 7px, var(--cl-surface) 14px); }
   .service-zone.is-pending { background: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--cl-attention) 9%, var(--cl-surface)), color-mix(in srgb, var(--cl-attention) 9%, var(--cl-surface)) 7px, var(--cl-surface) 7px, var(--cl-surface) 14px); }
+  .service-zone.is-archived {
+    background: repeating-linear-gradient(
+      135deg,
+      transparent 0 8px,
+      color-mix(in srgb, var(--cl-muted) 6%, transparent) 8px 9px
+    );
+  }
   .service-zone:not(:disabled):hover { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cl-accent) 38%, transparent); }
   .service-zone__cue { position: absolute; inset: 0; display: grid; place-items: center; color: transparent; font-size: 15px; transition: color var(--cl-dur) var(--cl-ease); }
   .service-zone:not(:disabled):hover .service-zone__cue { color: color-mix(in srgb, var(--cl-accent) 76%, var(--cl-muted)); }
@@ -1880,7 +1986,7 @@
   .day-card__add:disabled { cursor: default; }
 
   .day-card__content { position: absolute; z-index: 2; inset: 0; display: grid; align-content: center; gap: 4px; min-width: 0; padding: 8px; pointer-events: none; }
-  .day-card__top { display: grid; grid-template-columns: minmax(70px, 1fr) auto; align-items: center; gap: 6px; min-width: 0; }
+  .day-card__top { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px; min-width: 0; }
   .day-card__top.has-conflict { padding-right: 9px; }
   .day-card__top strong { overflow: hidden; color: color-mix(in srgb, var(--cl-ink) 88%, #475569); font-size: 11px; font-weight: var(--rst-fw-bold); font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
   .day-card__metrics { min-width: 0; display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px; color: color-mix(in srgb, var(--cl-ink) 72%, var(--cl-muted)); font-size: 8.5px; font-variant-numeric: tabular-nums; line-height: 1; text-align: right; white-space: nowrap; }
@@ -1892,7 +1998,7 @@
   .day-card__coffee { display: inline-flex; color: currentColor; line-height: 1; }
   .day-card__conflict-dot { position: absolute; z-index: 3; top: 3px; right: 3px; width: 7px; height: 7px; border: 1px solid color-mix(in srgb, var(--cl-problem) 76%, white); border-radius: 50%; background: var(--cl-problem); box-shadow: 0 0 0 2px color-mix(in srgb, var(--cl-surface) 86%, transparent), 0 1px 3px color-mix(in srgb, var(--cl-problem) 28%, transparent); pointer-events: none; }
   .day-card__services { display: grid; gap: 2px; min-width: 0; }
-  .day-card__service-row { display: grid; grid-template-columns: 12px minmax(0, 1fr) 62px; align-items: center; gap: 4px; min-width: 0; color: var(--cl-muted); line-height: 1.15; }
+  .day-card__service-row { display: grid; grid-template-columns: 12px minmax(0, 1fr) minmax(36px, 46px); align-items: center; gap: 3px; min-width: 0; color: var(--cl-muted); line-height: 1.15; }
   .day-card__service-icon { display: grid; place-items: center; text-align: center; }
   .day-card__service-row:not(.is-empty) { color: color-mix(in srgb, var(--primary-color) 76%, var(--cl-ink)); }
   .day-card__service-name { display: flex; align-items: baseline; gap: 3px; min-width: 0; overflow: hidden; white-space: nowrap; }
@@ -1951,6 +2057,16 @@
 
   .mobile-board { display: none; }
 
+  @media (max-width: 1180px) {
+    .board__day-cost,
+    .day-card__cost,
+    .day-card__service-row > em { display: none; }
+    .day-card__content { padding: 6px; }
+    .day-card__top { gap: 2px; }
+    .day-card__top strong { font-size: 10px; }
+    .day-card__metrics { gap: 2px; font-size: 8px; }
+    .day-card__service-row { grid-template-columns: 12px minmax(0, 1fr); }
+  }
   @media (max-width: 980px) {
     .schedule-head { grid-template-columns: 1fr auto; }
     .week-nav { grid-column: 1 / -1; grid-row: 1; }
@@ -2143,6 +2259,14 @@
     .mobile-slot.is-unavailable:not(.has-shift) {
       background: var(--cl-surface-muted);
     }
+    .mobile-slot.is-archived:not(.has-shift) {
+      background: repeating-linear-gradient(
+        135deg,
+        var(--cl-surface) 0 8px,
+        color-mix(in srgb, var(--cl-muted) 7%, var(--cl-surface)) 8px 9px
+      );
+    }
+    .mobile-slot.is-archived > strong { color: var(--cl-muted); }
     .mobile-slot.has-shift {
       border-left-color: var(--slot-color);
       background: color-mix(in srgb, var(--slot-color) 6%, var(--cl-surface));

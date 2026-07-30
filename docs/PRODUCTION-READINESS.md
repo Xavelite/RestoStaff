@@ -35,8 +35,8 @@ enough. For a new environment:
 
 Before release, verify the deployed HSTS, CSP, frame, referrer, and permissions
 headers rather than assuming source configuration reached the edge. Exercise
-Schedule publish/revert, Time & attendance
-correction/approve/reopen, payroll export, invitation acceptance, message
+Schedule publish/revert, Time correction/approve/reopen, payroll export,
+invitation acceptance, message
 read/acknowledgement, notification lifecycle, role preview, feedback, and proof
 handling with representative data. Test Reservations only if that separate
 entitlement is intentionally opened. Also test overnight

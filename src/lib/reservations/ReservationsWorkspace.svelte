@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { CalendarX2, MapPinned } from '@lucide/svelte';
+  import { CalendarX2, ListChecks, MapPinned, Plus, UsersRound } from '@lucide/svelte';
   import { onMount } from 'svelte';
   import {
     addDays,
@@ -67,6 +67,7 @@
   let requestId = 0;
 
   let editorOpen = $state(false);
+  let arrivalsOpen = $state(false);
   let editorSaving = $state(false);
   let editorError = $state('');
   let editorReadOnly = $state(false);
@@ -84,6 +85,12 @@
   );
   const activeService = $derived(
     currentData?.services.find((service) => service.service_key === selectedService) ?? null
+  );
+  const draftService = $derived(
+    data?.services.find((service) => service.service_key === draft.service_key) ?? null
+  );
+  const draftUsesTables = $derived(
+    (draftService?.setting?.capacity_mode ?? 'tables') === 'tables'
   );
   const activeFloors = $derived(
     (floorPlans?.floors ?? [])
@@ -389,8 +396,10 @@
       enabledServices[0] ??
       null;
     draft = emptyDraft(selectedDate, service?.service_key ?? '', serviceStart(service));
-    draft.room_preference_id = roomId;
-    draft.preferred_table_id = tableId;
+    if ((service?.setting?.capacity_mode ?? 'tables') === 'tables') {
+      draft.room_preference_id = roomId;
+      draft.preferred_table_id = tableId;
+    }
     availability = null;
     editorError = '';
     editorReadOnly = false;
@@ -557,6 +566,15 @@
     const selectedTable = currentData?.tables.find((table) => table.id === tableId);
     if (selectedTable) draft.room_preference_id = selectedTable.room_id;
   }
+
+  function setDraftService(serviceKey: string) {
+    draft.service_key = serviceKey;
+    const service = data?.services.find((item) => item.service_key === serviceKey);
+    if ((service?.setting?.capacity_mode ?? 'tables') === 'covers') {
+      draft.room_preference_id = '';
+      draft.preferred_table_id = '';
+    }
+  }
 </script>
 
 <svelte:head><title>{t('Reservations')} &middot; restogogo</title></svelte:head>
@@ -674,6 +692,11 @@
           <div class="live-floor__meta">
             <span>{liveRooms.length} {t(liveRooms.length === 1 ? 'area' : 'areas')}</span>
             <span>{liveTables.length} {t(liveTables.length === 1 ? 'table' : 'tables')}</span>
+            <button type="button" onclick={() => (arrivalsOpen = true)}>
+              <ListChecks size={13} strokeWidth={1.9} aria-hidden="true" />
+              {t('Arrivals')}
+              <small>{liveReservations.length}</small>
+            </button>
             <a href="/reservations/floor-plans">
               {t('Edit layout')}
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
@@ -693,43 +716,6 @@
               emptyMessage="Set up restaurant areas and tables before using the live floor view."
               onselect={selectFloorTable}
             />
-            <aside class="arrival-rail">
-              <header>
-                <div>
-                  <span>{t('Service arrivals')}</span>
-                  <strong>{t(activeService?.name ?? selectedService)}</strong>
-                </div>
-                <small>{liveReservations.length}</small>
-              </header>
-              <div class="arrival-rail__list">
-                {#if !liveReservations.length}
-                  <div class="arrival-rail__empty">
-                    <strong>{t('No assigned arrivals')}</strong>
-                    <span>{t('Available tables remain ready for phone bookings or walk-ins.')}</span>
-                  </div>
-                {:else}
-                  {#each liveReservations as reservation (reservation.id)}
-                    <button type="button" onclick={() => openReservation(reservation)}>
-                      <time>{timeLabel(reservation.starts_at)}</time>
-                      <span>
-                        <strong>{reservation.guest.display_name}</strong>
-                        <small>{reservation.party_size} · {reservation.table_labels.join(' + ') || t('Unassigned')}</small>
-                      </span>
-                      <ReservationStatusBadge status={reservation.status} />
-                    </button>
-                  {/each}
-                {/if}
-              </div>
-              <button
-                class="arrival-rail__add"
-                type="button"
-                disabled={workspace.isPreview || !activeService}
-                onclick={() => openNewReservation()}
-              >
-                <span>+</span>
-                {t('Add booking')}
-              </button>
-            </aside>
           </div>
         {:else}
           <div class="cl-empty">
@@ -908,6 +894,59 @@
 </WorkspacePage>
 
 <Dialog
+  open={arrivalsOpen}
+  title="Service arrivals"
+  description={`${t(activeService?.name ?? selectedService)} · ${selectedDate}`}
+  size="medium"
+  flush
+  onclose={() => (arrivalsOpen = false)}
+>
+  {#snippet children()}
+    <div class="arrival-list">
+      {#if !liveReservations.length}
+        <div class="arrival-list__empty">
+          <span class="cl-empty__icon" aria-hidden="true"><ListChecks size={18} /></span>
+          <strong>{t('No assigned arrivals')}</strong>
+          <span>{t('Available tables remain ready for phone bookings or walk-ins.')}</span>
+        </div>
+      {:else}
+        {#each liveReservations as reservation (reservation.id)}
+          <button
+            type="button"
+            onclick={() => {
+              arrivalsOpen = false;
+              openReservation(reservation);
+            }}
+          >
+            <time>{timeLabel(reservation.starts_at)}</time>
+            <span>
+              <strong>{reservation.guest.display_name}</strong>
+              <small>{reservation.party_size} · {reservation.table_labels.join(' + ') || t('Unassigned')}</small>
+            </span>
+            <ReservationStatusBadge status={reservation.status} />
+          </button>
+        {/each}
+      {/if}
+    </div>
+  {/snippet}
+  {#snippet footer()}
+    <button class="cl-btn" type="button" onclick={() => (arrivalsOpen = false)}>{t('Close')}</button>
+    <button
+      class="cl-btn is-primary"
+      type="button"
+      disabled={workspace.isPreview || !activeService}
+      onclick={() => {
+        arrivalsOpen = false;
+        openNewReservation();
+      }}
+    >
+      <Plus size={15} strokeWidth={2} aria-hidden="true" />
+      {t('Add booking')}
+    </button>
+  {/snippet}
+</Dialog>
+
+<Dialog
   open={editorOpen}
   title={draft.id ? 'Edit reservation' : 'Add reservation'}
   size="large"
@@ -925,7 +964,11 @@
             </label>
             <label class="cl-label">
               <span>{t('Service')}</span>
-              <select class="cl-field" bind:value={draft.service_key}>
+              <select
+                class="cl-field"
+                value={draft.service_key}
+                onchange={(event) => setDraftService(event.currentTarget.value)}
+              >
                 {#each data?.services ?? [] as service (service.service_key)}
                   <option value={service.service_key}>{t(service.name)}</option>
                 {/each}
@@ -939,43 +982,53 @@
               <span>{t('Guests')}</span>
               <input class="cl-field" type="number" min="1" max="500" bind:value={draft.party_size} />
             </label>
-            <label class="cl-label">
-              <span>{t('Room preference')}</span>
-              <select
-                class="cl-field"
-                value={draft.room_preference_id}
-                onchange={(event) => setRoomPreference(event.currentTarget.value)}
-              >
-                <option value="">{t('Best available')}</option>
-                {#each data?.rooms ?? [] as room (room.id)}
-                  <option value={room.id}>{room.name}</option>
-                {/each}
-              </select>
-            </label>
-            <label class="cl-label">
-              <span>{t('Table')}</span>
-              <select
-                class="cl-field"
-                value={draft.preferred_table_id}
-                onchange={(event) => setTablePreference(event.currentTarget.value)}
-              >
-                <option value="">{t('Best available')}</option>
-                {#each (currentData?.rooms ?? []) as room (room.id)}
-                  {@const roomTables = (currentData?.tables ?? [])
-                    .filter((table) => table.room_id === room.id && table.active && !table.blocked)
-                    .sort((left, right) => left.sort_order - right.sort_order || left.label.localeCompare(right.label))}
-                  {#if roomTables.length}
-                    <optgroup label={room.name}>
-                      {#each roomTables as table (table.id)}
-                        <option value={table.id}>
-                          {t('Table')} {table.label} · {table.minimum_capacity}–{table.maximum_capacity}
-                        </option>
-                      {/each}
-                    </optgroup>
-                  {/if}
-                {/each}
-              </select>
-            </label>
+            {#if draftUsesTables}
+              <label class="cl-label">
+                <span>{t('Room preference')}</span>
+                <select
+                  class="cl-field"
+                  value={draft.room_preference_id}
+                  onchange={(event) => setRoomPreference(event.currentTarget.value)}
+                >
+                  <option value="">{t('Best available')}</option>
+                  {#each data?.rooms ?? [] as room (room.id)}
+                    <option value={room.id}>{room.name}</option>
+                  {/each}
+                </select>
+              </label>
+              <label class="cl-label">
+                <span>{t('Table')}</span>
+                <select
+                  class="cl-field"
+                  value={draft.preferred_table_id}
+                  onchange={(event) => setTablePreference(event.currentTarget.value)}
+                >
+                  <option value="">{t('Best available')}</option>
+                  {#each (currentData?.rooms ?? []) as room (room.id)}
+                    {@const roomTables = (currentData?.tables ?? [])
+                      .filter((table) => table.room_id === room.id && table.active && !table.blocked)
+                      .sort((left, right) => left.sort_order - right.sort_order || left.label.localeCompare(right.label))}
+                    {#if roomTables.length}
+                      <optgroup label={room.name}>
+                        {#each roomTables as table (table.id)}
+                          <option value={table.id}>
+                            {t('Table')} {table.label} · {table.minimum_capacity}–{table.maximum_capacity}
+                          </option>
+                        {/each}
+                      </optgroup>
+                    {/if}
+                  {/each}
+                </select>
+              </label>
+            {:else}
+              <div class="capacity-only-note form-wide">
+                <span aria-hidden="true"><UsersRound size={16} strokeWidth={1.8} /></span>
+                <div>
+                  <strong>{t('Cover-based service')}</strong>
+                  <small>{t('Accept against the service cover limit; choose a table when guests arrive.')}</small>
+                </div>
+              </div>
+            {/if}
           </div>
         </section>
 
@@ -1204,7 +1257,8 @@
     padding-left: 12px;
     border-left: 1px solid var(--cl-line);
   }
-  .live-floor__meta > a {
+  .live-floor__meta > a,
+  .live-floor__meta > button {
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -1214,54 +1268,37 @@
     font-weight: var(--rst-fw-bold);
     text-decoration: none;
   }
+  .live-floor__meta > button {
+    border-top: 0;
+    border-right: 0;
+    border-bottom: 0;
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+  }
+  .live-floor__meta > button small {
+    min-width: 19px;
+    padding: 2px 5px;
+    border-radius: 999px;
+    background: var(--cl-accent-wash);
+    font-size: 9px;
+    text-align: center;
+  }
   .live-floor__meta > a:hover { text-decoration: underline; }
+  .live-floor__meta > button:hover { color: var(--cl-accent-strong); }
   .live-floor__workspace {
-    display: grid;
-    grid-template-columns: minmax(560px, 1.7fr) minmax(250px, .72fr);
-    gap: 10px;
     padding: 10px;
     background: var(--cl-surface-muted);
   }
-  .arrival-rail {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    border: 1px solid var(--cl-line);
-    border-radius: var(--cl-radius-surface);
-    background: var(--cl-surface);
-  }
-  .arrival-rail > header {
-    min-height: 49px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 8px 11px;
-    border-bottom: 1px solid var(--cl-line);
-  }
-  .arrival-rail > header div { display: grid; gap: 1px; }
-  .arrival-rail > header span { color: var(--cl-muted); font-size: 9.5px; font-weight: var(--rst-fw-bold); text-transform: uppercase; }
-  .arrival-rail > header strong { font-size: 12.5px; }
-  .arrival-rail > header > small {
-    min-width: 23px;
-    padding: 3px 6px;
-    border-radius: 999px;
-    background: var(--cl-accent-wash);
-    color: var(--cl-accent);
-    font-size: 10px;
-    font-weight: var(--rst-fw-bold);
-    text-align: center;
-  }
-  .arrival-rail__list { min-height: 0; flex: 1; overflow: auto; }
-  .arrival-rail__list > button {
+  .arrival-list { min-height: 180px; }
+  .arrival-list > button {
     width: 100%;
-    min-height: 57px;
+    min-height: 62px;
     display: grid;
-    grid-template-columns: 43px minmax(0, 1fr) auto;
+    grid-template-columns: 52px minmax(0, 1fr) auto;
     align-items: center;
-    gap: 8px;
-    padding: 7px 10px;
+    gap: 12px;
+    padding: 9px 20px;
     border: 0;
     border-bottom: 1px solid var(--cl-line);
     background: transparent;
@@ -1270,39 +1307,26 @@
     text-align: left;
     cursor: pointer;
   }
-  .arrival-rail__list > button:hover { background: var(--cl-surface-muted); }
-  .arrival-rail__list time { color: var(--cl-text); font-size: 11.5px; font-weight: var(--rst-fw-bold); font-variant-numeric: tabular-nums; }
-  .arrival-rail__list > button > span { min-width: 0; display: grid; gap: 2px; }
-  .arrival-rail__list > button > span strong, .arrival-rail__list > button > span small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .arrival-rail__list > button > span strong { font-size: 11.5px; }
-  .arrival-rail__list > button > span small { color: var(--cl-muted); font-size: 9.5px; }
-  .arrival-rail__empty {
-    min-height: 180px;
+  .arrival-list > button:last-child { border-bottom: 0; }
+  .arrival-list > button:hover { background: var(--cl-surface-muted); }
+  .arrival-list time { color: var(--cl-text); font-size: 12px; font-weight: var(--rst-fw-bold); font-variant-numeric: tabular-nums; }
+  .arrival-list > button > span { min-width: 0; display: grid; gap: 3px; }
+  .arrival-list > button > span strong,
+  .arrival-list > button > span small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .arrival-list > button > span strong { font-size: 12px; }
+  .arrival-list > button > span small { color: var(--cl-muted); font-size: 10.5px; }
+  .arrival-list__empty {
+    min-height: 240px;
     display: grid;
     place-content: center;
+    justify-items: center;
     gap: 4px;
     padding: 22px;
     color: var(--cl-muted);
     text-align: center;
   }
-  .arrival-rail__empty strong { color: var(--cl-text); font-size: 12px; }
-  .arrival-rail__empty span { font-size: 10.5px; line-height: 1.45; }
-  .arrival-rail__add {
-    min-height: 39px;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 7px 10px;
-    border: 0;
-    border-top: 1px solid var(--cl-line);
-    background: var(--cl-accent-wash);
-    color: var(--cl-accent);
-    font: inherit;
-    font-size: 10.5px;
-    font-weight: var(--rst-fw-bold);
-    cursor: pointer;
-  }
-  .arrival-rail__add > span { width: 19px; height: 19px; display: grid; place-items: center; border: 1px solid var(--cl-accent-line); border-radius: 4px; }
+  .arrival-list__empty strong { color: var(--cl-text); font-size: 12px; }
+  .arrival-list__empty > span:last-child { max-width: 330px; font-size: 10.5px; line-height: 1.45; }
   .reservation-table th:first-child { min-width: 190px; }
   .reservation-table th:nth-child(2) { width: 90px; }
   .reservation-table th:nth-child(3) { width: 72px; }
@@ -1375,6 +1399,29 @@
   }
   .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .form-wide { grid-column: 1 / -1; }
+  .capacity-only-note {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 11px;
+    border: 1px solid var(--cl-accent-line);
+    border-radius: var(--cl-radius);
+    background: var(--cl-accent-wash);
+  }
+  .capacity-only-note > span {
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    border-radius: 5px;
+    background: var(--cl-surface);
+    color: var(--cl-accent);
+  }
+  .capacity-only-note > div { display: grid; gap: 2px; }
+  .capacity-only-note strong { color: var(--cl-ink); font-size: 11.5px; }
+  .capacity-only-note small { color: var(--cl-muted); font-size: 10.5px; line-height: 1.4; }
   textarea.cl-field { height: auto; min-height: 58px; resize: vertical; }
   .availability {
     display: flex;
@@ -1407,7 +1454,6 @@
   .availability small { color: var(--cl-muted); font-size: 11px; }
   .form-error { margin: 0; color: var(--cl-problem); font-size: 12px; }
   @media (max-width: 760px) {
-    .live-floor__workspace { grid-template-columns: minmax(0, 1fr); }
     .reservation-actions { flex-wrap: wrap; justify-content: flex-end; }
     .reservation-period__date { min-width: 190px; }
     .live-floor__head { align-items: stretch; flex-direction: column; }

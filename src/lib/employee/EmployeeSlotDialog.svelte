@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Drawer from '$lib/components/Drawer.svelte';
+  import Dialog from '$lib/components/Dialog.svelte';
   import StatusPill from '$lib/components/StatusPill.svelte';
   import ActionButton from '$lib/components/ActionButton.svelte';
   import { serviceLabel } from '$lib/calendar/date';
@@ -96,14 +96,15 @@
   });
 </script>
 
-<Drawer
+<Dialog
   open={open && Boolean(truth)}
   title={truth ? `${t(serviceLabel(truth.serviceKey, services))} · ${truth.date}` : t('Service details')}
   description={t('Your schedule, worked time and requests for this service.')}
+  size="large"
   {onclose}
 >
   {#if truth}
-    <div class="slot-drawer">
+    <div class="slot-dialog">
       <div class="slot-summary">
         <StatusPill label={serviceSlotStateLabel(truth.state)} tone={stateTone} />
         {#if truth.plan}
@@ -187,7 +188,7 @@
 
         {#if !timeOffBlocked && !pendingAbsence && (policy !== 'weekly_availability' || availabilityState !== 'available')}
           <!-- Set the leave type and an optional note, then request. The button
-               stages the request and closes the drawer; the page's action bar
+               stages the request and closes the dialog; the page's action bar
                submits it. -->
           <div class="request-details">
             <label>
@@ -218,10 +219,10 @@
       </div>
     </div>
   {/if}
-</Drawer>
+</Dialog>
 
 <style>
-  .slot-drawer {
+  .slot-dialog {
     display: grid;
     gap: 20px;
   }

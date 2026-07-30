@@ -32,7 +32,7 @@
     disabled = false,
     placeholder = 'Not set',
     ariaLabel = '',
-    searchThreshold = 7
+    searchThreshold = 4
   }: {
     value?: string;
     options?: Option[];
@@ -118,7 +118,7 @@
     bind:this={trigger}
     class="cl-picker__trigger"
     class:is-open={open}
-    class:is-empty={!selected}
+    class:is-empty={!value}
     type="button"
     {disabled}
     aria-haspopup="listbox"

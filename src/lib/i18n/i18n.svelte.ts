@@ -2490,7 +2490,6 @@ Object.assign(dutch, {
 // These resolve through t(variable) at runtime, so the literal-scan contract
 // test cannot see them: they are maintained here by hand.
 Object.assign(french, {
-  'Time & attendance': 'Temps et présences',
   Inventory: 'Stock',
   'Badge terminal': 'Pointeuse',
   Reports: 'Rapports',
@@ -2805,7 +2804,6 @@ Object.assign(french, {
   'Payroll export created.': 'Export de paie créé.'
 });
 Object.assign(dutch, {
-  'Time & attendance': 'Tijd en aanwezigheid',
   Inventory: 'Voorraad',
   'Badge terminal': 'Badgeterminal',
   Reports: 'Rapporten',
@@ -3666,6 +3664,162 @@ Object.assign(dutch, {
   'Plan {service} shift': '{service} plannen'
 });
 
+Object.assign(french, {
+  'Theme': 'Thème',
+  'Blue': 'Bleu',
+  'Orange': 'Orange',
+  'Export': 'Exporter',
+  'File format': 'Format du fichier',
+  'Choose how you want to use the file.': 'Choisissez comment utiliser le fichier.',
+  'Columns and order': 'Colonnes et ordre',
+  'Drag columns into the order you need.': 'Faites glisser les colonnes dans l’ordre souhaité.',
+  'Move column left': 'Déplacer la colonne à gauche',
+  'Move column right': 'Déplacer la colonne à droite',
+  'Showing the first 8 records. The download includes all records.':
+    'Les 8 premiers enregistrements sont affichés. Le téléchargement les contient tous.',
+  'Choose at least one column': 'Choisissez au moins une colonne',
+  'Visible columns appear here in their export order.':
+    'Les colonnes visibles apparaissent ici dans l’ordre d’export.',
+  'The preview uses real records from the selected period.':
+    'L’aperçu utilise les données réelles de la période sélectionnée.',
+  'Export roster': 'Exporter la grille',
+  'Ready to print or share': 'Prêt à imprimer ou à partager',
+  'Editable weekly roster': 'Grille hebdomadaire modifiable',
+  '+{count} more rows in the exported file': '+{count} lignes supplémentaires dans le fichier exporté',
+  'Assign tables': 'Attribuer des tables',
+  'Count covers': 'Compter les couverts',
+  'Capacity model': 'Mode de capacité',
+  'Service cover limit': 'Limite de couverts par service',
+  'No cap': 'Sans limite',
+  'Arrivals': 'Arrivées',
+  'Cover-based service': 'Service basé sur les couverts',
+  'Accept against the service cover limit; choose a table when guests arrive.':
+    'Acceptez selon la limite de couverts du service, puis choisissez une table à l’arrivée.',
+  'No linked positions': 'Aucune fonction liée',
+  'Time entry': 'Prestation',
+  'Resize column': 'Redimensionner la colonne',
+  'Drag to resize. Double-click to reset.':
+    'Faites glisser pour redimensionner. Double-cliquez pour réinitialiser.',
+  'Time export': 'Exporter les heures',
+  'Choose a file': 'Choisissez un fichier',
+  'Review the format, column order and real file preview before downloading.':
+    'Vérifiez le format, l’ordre des colonnes et l’aperçu réel avant le téléchargement.',
+  'bookings · {count} covers': 'réservations · {count} couverts',
+  'active areas': 'zones actives',
+  'staffing gaps': 'besoins non couverts',
+  'shifts this week': 'services cette semaine',
+  'waiting for a badge': 'en attente de pointage',
+  'working now': 'travaillent maintenant',
+  'open clock-ins': 'pointages ouverts',
+  'people need details': 'dossiers à compléter',
+  'details ready': 'dossiers complets',
+  'Schedule roster': 'Grille du planning',
+  '{hours} planned': '{hours} planifiées',
+  '{shifts} shifts · {people} people': '{shifts} services · {people} personnes',
+  '{count} gaps': '{count} besoins non couverts',
+  'Schedule calendar': 'Calendrier du planning',
+  '{count} scheduled · {hours}': '{count} planifiés · {hours}',
+  'No scheduled shifts': 'Aucun service planifié',
+  'Open the roster to plan this day.': 'Ouvrez la grille pour planifier cette journée.',
+  'No reason recorded': 'Aucun motif enregistré',
+  'No schedule history matches these filters':
+    'Aucun historique de planning ne correspond à ces filtres',
+  'Time roster': 'Grille des heures',
+  'Show detailed time information': 'Afficher le détail des heures',
+  '{hours} worked': '{hours} prestées',
+  '{hours} planned · {count} people': '{hours} planifiées · {count} personnes',
+  'Worked time, planned presence and exceptions for this day.':
+    'Temps presté, présence planifiée et exceptions de cette journée.',
+  'No time recorded': 'Aucune heure enregistrée',
+  'No activity on this day': 'Aucune activité ce jour-là',
+  'Scheduled and worked rows will appear here.':
+    'Les services planifiés et prestés apparaîtront ici.',
+  'Unassigned area': 'Zone non attribuée',
+  'working': 'en cours',
+  'scheduled': 'planifié',
+  'Nothing in this view': 'Aucun élément dans cette vue',
+  'Shift details': 'Détails du service',
+  'This service is archived.': 'Ce service est archivé.'
+});
+
+Object.assign(dutch, {
+  'Theme': 'Thema',
+  'Blue': 'Blauw',
+  'Orange': 'Oranje',
+  'Export': 'Exporteren',
+  'File format': 'Bestandsformaat',
+  'Choose how you want to use the file.': 'Kies hoe u het bestand wilt gebruiken.',
+  'Columns and order': 'Kolommen en volgorde',
+  'Drag columns into the order you need.': 'Sleep de kolommen in de gewenste volgorde.',
+  'Move column left': 'Kolom naar links verplaatsen',
+  'Move column right': 'Kolom naar rechts verplaatsen',
+  'Showing the first 8 records. The download includes all records.':
+    'De eerste 8 records worden getoond. De download bevat alle records.',
+  'Choose at least one column': 'Kies ten minste één kolom',
+  'Visible columns appear here in their export order.':
+    'Zichtbare kolommen staan hier in hun exportvolgorde.',
+  'The preview uses real records from the selected period.':
+    'Het voorbeeld gebruikt echte gegevens uit de gekozen periode.',
+  'Export roster': 'Rooster exporteren',
+  'Ready to print or share': 'Klaar om af te drukken of te delen',
+  'Editable weekly roster': 'Bewerkbaar weekrooster',
+  '+{count} more rows in the exported file': '+{count} extra rijen in het exportbestand',
+  'Assign tables': 'Tafels toewijzen',
+  'Count covers': 'Couverts tellen',
+  'Capacity model': 'Capaciteitsmodel',
+  'Service cover limit': 'Couverlimiet per dienst',
+  'No cap': 'Geen limiet',
+  'Arrivals': 'Aankomsten',
+  'Cover-based service': 'Dienst op basis van couverts',
+  'Accept against the service cover limit; choose a table when guests arrive.':
+    'Accepteer binnen de couverlimiet en kies een tafel wanneer de gasten aankomen.',
+  'No linked positions': 'Geen gekoppelde functies',
+  'Time entry': 'Tijdregistratie',
+  'Resize column': 'Kolomgrootte wijzigen',
+  'Drag to resize. Double-click to reset.':
+    'Sleep om de grootte te wijzigen. Dubbelklik om te herstellen.',
+  'Time export': 'Tijd exporteren',
+  'Choose a file': 'Kies een bestand',
+  'Review the format, column order and real file preview before downloading.':
+    'Controleer het formaat, de kolomvolgorde en het echte voorbeeld voor u downloadt.',
+  'bookings · {count} covers': 'boekingen · {count} couverts',
+  'active areas': 'actieve zones',
+  'staffing gaps': 'personeelstekorten',
+  'shifts this week': 'diensten deze week',
+  'waiting for a badge': 'wachten op inklokken',
+  'working now': 'nu aan het werk',
+  'open clock-ins': 'open inklokbeurten',
+  'people need details': 'personen missen gegevens',
+  'details ready': 'gegevens compleet',
+  'Schedule roster': 'Planningsrooster',
+  '{hours} planned': '{hours} gepland',
+  '{shifts} shifts · {people} people': '{shifts} diensten · {people} personen',
+  '{count} gaps': '{count} tekorten',
+  'Schedule calendar': 'Planningskalender',
+  '{count} scheduled · {hours}': '{count} ingepland · {hours}',
+  'No scheduled shifts': 'Geen geplande diensten',
+  'Open the roster to plan this day.': 'Open het rooster om deze dag te plannen.',
+  'No reason recorded': 'Geen reden geregistreerd',
+  'No schedule history matches these filters':
+    'Geen planningsgeschiedenis komt overeen met deze filters',
+  'Time roster': 'Tijdrooster',
+  'Show detailed time information': 'Gedetailleerde tijdinformatie tonen',
+  '{hours} worked': '{hours} gewerkt',
+  '{hours} planned · {count} people': '{hours} gepland · {count} personen',
+  'Worked time, planned presence and exceptions for this day.':
+    'Gewerkte tijd, geplande aanwezigheid en uitzonderingen voor deze dag.',
+  'No time recorded': 'Geen tijd geregistreerd',
+  'No activity on this day': 'Geen activiteit op deze dag',
+  'Scheduled and worked rows will appear here.':
+    'Geplande en gewerkte diensten verschijnen hier.',
+  'Unassigned area': 'Niet-toegewezen zone',
+  'working': 'aan het werk',
+  'scheduled': 'ingepland',
+  'Nothing in this view': 'Niets in deze weergave',
+  'Shift details': 'Dienstdetails',
+  'This service is archived.': 'Deze dienst is gearchiveerd.'
+});
+
 const dictionaries: Record<Exclude<AppLocale, 'en'>, Record<string, string>> = {
   fr: french,
   nl: dutch
@@ -3876,7 +4030,6 @@ Object.assign(french, {
   'Later modules': 'Modules ultérieurs',
   'These stay outside the daily workspace until the operational core is complete.':
     "Ils restent en dehors de l’espace quotidien jusqu’à ce que le socle opérationnel soit terminé.",
-  'Payroll preparation': 'Préparation de la paie',
   'Product scope': 'Périmètre du produit',
   'Prepare reliable payroll inputs, not official payroll':
     'Préparer des données de paie fiables, pas une paie officielle',
@@ -3965,7 +4118,6 @@ Object.assign(dutch, {
   'Later modules': 'Latere modules',
   'These stay outside the daily workspace until the operational core is complete.':
     'Deze blijven buiten de dagelijkse werkruimte tot de operationele kern volledig is.',
-  'Payroll preparation': 'Loonvoorbereiding',
   'Product scope': 'Productscope',
   'Prepare reliable payroll inputs, not official payroll':
     'Betrouwbare looninput voorbereiden, geen officiële loonverwerking',

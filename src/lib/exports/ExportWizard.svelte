@@ -1,14 +1,15 @@
 <script lang="ts">
   import {
-    ArrowDown,
     ArrowLeft,
     ArrowRight,
-    ArrowUp,
     Check,
     Columns3,
     Download,
+    Eye,
+    EyeOff,
     FileSpreadsheet,
     FileText,
+    GripVertical,
     RotateCcw
   } from '@lucide/svelte';
   import ActionButton from '$lib/components/ActionButton.svelte';
@@ -32,11 +33,12 @@
     onclose: () => void;
   } = $props();
 
-  let step = $state<1 | 2>(1);
   let format = $state<ExportFormat>('xlsx');
   let selectedIndexes = $state<number[]>([]);
   let columnOrder = $state<number[]>([]);
   let downloading = $state(false);
+  let draggingIndex = $state<number | null>(null);
+  let dropIndex = $state<number | null>(null);
   let openSignature = $state('');
 
   const orderedSelection = $derived(
@@ -52,20 +54,21 @@
     const currentFile = file;
     if (!currentFile) return;
     openSignature = signature;
-    step = 1;
     format = 'xlsx';
     selectedIndexes = currentFile.headers.map((_, index) => index);
     columnOrder = currentFile.headers.map((_, index) => index);
     downloading = false;
+    draggingIndex = null;
+    dropIndex = null;
   });
 
-  function toggleColumn(index: number) {
+  function toggleColumn(index: number): void {
     selectedIndexes = selectedIndexes.includes(index)
       ? selectedIndexes.filter((value) => value !== index)
       : [...selectedIndexes, index];
   }
 
-  function moveColumn(index: number, direction: -1 | 1) {
+  function moveColumn(index: number, direction: -1 | 1): void {
     const current = columnOrder.indexOf(index);
     const target = current + direction;
     if (current < 0 || target < 0 || target >= columnOrder.length) return;
@@ -74,13 +77,51 @@
     columnOrder = next;
   }
 
-  function resetColumns() {
+  function placeColumn(index: number, beforeIndex: number): void {
+    if (index === beforeIndex) return;
+    const next = columnOrder.filter((value) => value !== index);
+    const target = next.indexOf(beforeIndex);
+    next.splice(target < 0 ? next.length : target, 0, index);
+    columnOrder = next;
+  }
+
+  function startDrag(event: DragEvent, index: number): void {
+    draggingIndex = index;
+    dropIndex = index;
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', String(index));
+    }
+  }
+
+  function dragOver(event: DragEvent, index: number): void {
+    event.preventDefault();
+    dropIndex = index;
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+  }
+
+  function finishDrop(event: DragEvent, index: number): void {
+    event.preventDefault();
+    const source =
+      draggingIndex ??
+      Number.parseInt(event.dataTransfer?.getData('text/plain') ?? '', 10);
+    if (Number.isInteger(source)) placeColumn(source, index);
+    draggingIndex = null;
+    dropIndex = null;
+  }
+
+  function finishDrag(): void {
+    draggingIndex = null;
+    dropIndex = null;
+  }
+
+  function resetColumns(): void {
     if (!file) return;
     selectedIndexes = file.headers.map((_, index) => index);
     columnOrder = file.headers.map((_, index) => index);
   }
 
-  async function finishDownload() {
+  async function finishDownload(): Promise<void> {
     if (!file || !projectedFile || !orderedSelection.length || downloading) return;
     downloading = true;
     try {
@@ -134,133 +175,133 @@
 <Dialog
   {open}
   size="large"
-  title={file?.title ?? 'Configure export'}
+  title={file?.title ?? t('Export')}
   description={file ? `${file.periodLabel} · ${file.rows.length} ${t('records')}` : ''}
   onclose={() => !downloading && onclose()}
 >
-  <div class="wizard">
-    <nav class="steps" aria-label={t('Export steps')}>
-      <button
-        type="button"
-        class:is-active={step === 1}
-        class:is-complete={step === 2}
-        onclick={() => (step = 1)}
-      >
-        <span>{step === 2 ? '✓' : '1'}</span>
-        <span><strong>{t('Choose columns')}</strong><small>{t('Content and order')}</small></span>
-      </button>
-      <span class="step-line" aria-hidden="true"></span>
-      <button type="button" class:is-active={step === 2} disabled={!orderedSelection.length}>
-        <span>2</span>
-        <span><strong>{t('Format and preview')}</strong><small>{t('Check the final file')}</small></span>
-      </button>
-    </nav>
+  {#if file && projectedFile}
+    <div class="export-workspace">
+      <section class="format-section" aria-labelledby="format-heading">
+        <div class="section-copy">
+          <strong id="format-heading">{t('File format')}</strong>
+          <span>{t('Choose how you want to use the file.')}</span>
+        </div>
+        <div class="format-switch" role="radiogroup" aria-label={t('File format')}>
+          {#each formatOptions as option}
+            <button
+              type="button"
+              class:is-selected={format === option.value}
+              role="radio"
+              aria-checked={format === option.value}
+              title={t(option.detail)}
+              onclick={() => (format = option.value)}
+            >
+              <option.icon size={16} aria-hidden="true" />
+              <span>{t(option.label)}</span>
+              {#if format === option.value}<Check size={13} aria-hidden="true" />{/if}
+            </button>
+          {/each}
+        </div>
+      </section>
 
-    {#if step === 1 && file}
-      <section class="wizard-step" aria-labelledby="columns-heading">
-        <div class="step-heading">
-          <div>
-            <h3 id="columns-heading">{t('What should the file include?')}</h3>
-            <p>{t('Choose the columns to export and arrange them in the order you need.')}</p>
+      <section class="columns-section" aria-labelledby="columns-heading">
+        <header>
+          <div class="section-copy">
+            <strong id="columns-heading">{t('Columns and order')}</strong>
+            <span>
+              {selectedIndexes.length} / {file.headers.length} {t('columns selected')}
+              · {t('Drag columns into the order you need.')}
+            </span>
           </div>
-          <button class="reset-button" type="button" onclick={resetColumns}>
-            <RotateCcw size={14} aria-hidden="true" />
-            {t('Reset')}
-          </button>
-        </div>
+          <div class="column-actions">
+            <button
+              type="button"
+              onclick={() =>
+                (selectedIndexes =
+                  selectedIndexes.length === file.headers.length
+                    ? []
+                    : file.headers.map((_, index) => index))}
+            >
+              {selectedIndexes.length === file.headers.length ? t('Clear all') : t('Select all')}
+            </button>
+            <button type="button" onclick={resetColumns}>
+              <RotateCcw size={13} aria-hidden="true" />
+              {t('Reset')}
+            </button>
+          </div>
+        </header>
 
-        <div class="selection-summary">
-          <span class="summary-icon"><Columns3 size={17} aria-hidden="true" /></span>
-          <span>
-            <strong>{selectedIndexes.length} / {file.headers.length} {t('columns selected')}</strong>
-            <small>{file.rows.length} {t('records in the selected period')}</small>
-          </span>
-          <button
-            type="button"
-            onclick={() =>
-              (selectedIndexes =
-                selectedIndexes.length === file.headers.length
-                  ? []
-                  : file.headers.map((_, index) => index))}
-          >
-            {selectedIndexes.length === file.headers.length ? t('Clear all') : t('Select all')}
-          </button>
-        </div>
-
-        <div class="column-list">
+        <div class="column-strip" role="list" aria-label={t('Export columns')}>
           {#each columnOrder as index, position (index)}
-            <div class="column-row" class:is-selected={selectedIndexes.includes(index)}>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={selectedIndexes.includes(index)}
-                  onchange={() => toggleColumn(index)}
-                />
-                <span class="checkmark" aria-hidden="true"><Check size={13} /></span>
-                <span>
-                  <strong>{file.headers[index]}</strong>
-                  <small>{t('Column')} {position + 1}</small>
-                </span>
-              </label>
-              <div class="reorder-actions">
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div
+              class="column-chip"
+              class:is-selected={selectedIndexes.includes(index)}
+              class:is-dragging={draggingIndex === index}
+              class:is-drop-target={dropIndex === index && draggingIndex !== index}
+              role="listitem"
+              draggable="true"
+              ondragstart={(event) => startDrag(event, index)}
+              ondragover={(event) => dragOver(event, index)}
+              ondrop={(event) => finishDrop(event, index)}
+              ondragend={finishDrag}
+            >
+              <GripVertical class="drag-grip" size={15} aria-hidden="true" />
+              <button
+                class="visibility-button"
+                type="button"
+                aria-pressed={selectedIndexes.includes(index)}
+                aria-label={t(selectedIndexes.includes(index) ? 'Hide column' : 'Show column')}
+                title={t(selectedIndexes.includes(index) ? 'Hide column' : 'Show column')}
+                onclick={() => toggleColumn(index)}
+              >
+                {#if selectedIndexes.includes(index)}
+                  <Eye size={14} aria-hidden="true" />
+                {:else}
+                  <EyeOff size={14} aria-hidden="true" />
+                {/if}
+              </button>
+              <span title={file.headers[index]}>{file.headers[index]}</span>
+              <div class="move-buttons">
                 <button
                   type="button"
-                  title={t('Move column up')}
-                  aria-label={t('Move column up')}
+                  title={t('Move column left')}
+                  aria-label={t('Move column left')}
                   disabled={position === 0}
                   onclick={() => moveColumn(index, -1)}
-                ><ArrowUp size={15} /></button>
+                ><ArrowLeft size={13} aria-hidden="true" /></button>
                 <button
                   type="button"
-                  title={t('Move column down')}
-                  aria-label={t('Move column down')}
+                  title={t('Move column right')}
+                  aria-label={t('Move column right')}
                   disabled={position === columnOrder.length - 1}
                   onclick={() => moveColumn(index, 1)}
-                ><ArrowDown size={15} /></button>
+                ><ArrowRight size={13} aria-hidden="true" /></button>
               </div>
             </div>
           {/each}
         </div>
       </section>
-    {:else if file && projectedFile}
-      <section class="wizard-step" aria-labelledby="format-heading">
-        <div class="step-heading">
+
+      <section class="preview-block" aria-labelledby="preview-heading">
+        <header>
           <div>
-            <h3 id="format-heading">{t('How will you use this file?')}</h3>
-            <p>{t('Choose a format, then review a sample before downloading.')}</p>
+            <strong id="preview-heading">{t('File preview')}</strong>
+            <span>
+              {projectedFile.headers.length} {t('columns')} ·
+              {projectedFile.rows.length} {t('records')}
+            </span>
           </div>
-        </div>
-
-        <div class="format-grid">
-          {#each formatOptions as option}
-            <button
-              type="button"
-              class:is-selected={format === option.value}
-              aria-pressed={format === option.value}
-              onclick={() => (format = option.value)}
-            >
-              <span class="format-icon"><option.icon size={20} aria-hidden="true" /></span>
-              <span><strong>{t(option.label)}</strong><small>{t(option.detail)}</small></span>
-              <span class="format-check" aria-hidden="true"><Check size={13} /></span>
-            </button>
-          {/each}
-        </div>
-
-        <div class="preview-block">
-          <header>
-            <div>
-              <strong>{t('File preview')}</strong>
-              <span>{projectedFile.headers.length} {t('columns')} · {projectedFile.rows.length} {t('records')}</span>
-            </div>
-            <span class="filetype">.{format}</span>
-          </header>
+          <span class="filetype">.{format}</span>
+        </header>
+        {#if orderedSelection.length}
           <div class="preview-scroll">
             <table>
               <thead>
                 <tr>{#each projectedFile.headers as header}<th>{header}</th>{/each}</tr>
               </thead>
               <tbody>
-                {#each projectedFile.rows.slice(0, 6) as row}
+                {#each projectedFile.rows.slice(0, 8) as row}
                   <tr>{#each row as value}<td>{value}</td>{/each}</tr>
                 {/each}
               </tbody>
@@ -269,322 +310,236 @@
               <div class="no-preview">{t('There are no records in this period.')}</div>
             {/if}
           </div>
-          {#if projectedFile.rows.length > 6}
-            <footer>{t('Showing the first 6 records. The download includes all records.')}</footer>
+          {#if projectedFile.rows.length > 8}
+            <footer>{t('Showing the first 8 records. The download includes all records.')}</footer>
           {/if}
-        </div>
+        {:else}
+          <div class="no-columns">
+            <Columns3 size={22} aria-hidden="true" />
+            <strong>{t('Choose at least one column')}</strong>
+            <span>{t('Visible columns appear here in their export order.')}</span>
+          </div>
+        {/if}
       </section>
-    {/if}
-  </div>
+    </div>
+  {/if}
 
   {#snippet footer()}
     <div class="wizard-footer">
       <span class="footer-note">
-        {#if step === 1}
-          {t('Nothing is downloaded until the final step.')}
-        {:else}
-          {t('Ready to create')} .{format}
-        {/if}
+        {t('The preview uses real records from the selected period.')}
       </span>
       <div>
         <ActionButton label="Cancel" disabled={downloading} onclick={onclose} />
-        {#if step === 2}
-          <button class="footer-button" type="button" disabled={downloading} onclick={() => (step = 1)}>
-            <ArrowLeft size={15} aria-hidden="true" />{t('Back')}
-          </button>
-        {/if}
-        {#if step === 1}
-          <button
-            class="footer-button is-primary"
-            type="button"
-            disabled={!orderedSelection.length}
-            onclick={() => (step = 2)}
-          >
-            {t('Continue')}<ArrowRight size={15} aria-hidden="true" />
-          </button>
-        {:else}
-          <button
-            class="footer-button is-primary"
-            type="button"
-            disabled={downloading || !projectedFile?.rows.length}
-            onclick={finishDownload}
-          >
-            <Download size={15} aria-hidden="true" />
-            {downloading ? t('Creating file…') : t('Download file')}
-          </button>
-        {/if}
+        <button
+          class="download-button"
+          type="button"
+          disabled={downloading || !projectedFile?.rows.length || !orderedSelection.length}
+          onclick={finishDownload}
+        >
+          <Download size={15} aria-hidden="true" />
+          {downloading ? t('Creating file…') : `${t('Download')} ${format.toUpperCase()}`}
+        </button>
       </div>
     </div>
   {/snippet}
 </Dialog>
 
 <style>
-  .wizard {
+  .export-workspace {
     min-height: 500px;
-  }
-  .steps {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr);
+    align-content: start;
+    gap: 18px;
+  }
+  .format-section,
+  .columns-section > header {
+    display: flex;
     align-items: center;
-    padding: 0 0 18px;
+    justify-content: space-between;
+    gap: 18px;
+  }
+  .format-section {
+    padding-bottom: 16px;
     border-bottom: 1px solid var(--rst-ui-divider-soft);
   }
-  .steps button {
+  .section-copy {
     min-width: 0;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 0;
-    border: 0;
-    color: var(--rst-ui-muted);
-    background: transparent;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-  }
-  .steps button:disabled { cursor: default; }
-  .steps button > span:first-child {
-    width: 28px;
-    height: 28px;
-    flex: 0 0 auto;
     display: grid;
-    place-items: center;
-    border: 1px solid var(--rst-ui-line-strong);
-    border-radius: 50%;
-    background: var(--rst-ui-surface-field);
-    font-size: 12px;
-    font-weight: var(--rst-fw-bold);
+    gap: 2px;
   }
-  .steps button > span:last-child { min-width: 0; display: grid; gap: 1px; }
-  .steps strong { color: inherit; font-size: 12.5px; }
-  .steps small { color: var(--rst-ui-muted); font-size: 10.5px; }
-  .steps button.is-active { color: var(--rst-ui-text); }
-  .steps button.is-active > span:first-child {
-    border-color: var(--rst-ui-action);
-    color: var(--rst-on-accent-text);
-    background: var(--rst-ui-action);
-    box-shadow: 0 0 0 3px rgba(var(--rst-ui-action-rgb), .12);
+  .section-copy strong {
+    color: var(--rst-ui-text);
+    font-size: 12.5px;
   }
-  .steps button.is-complete > span:first-child {
-    border-color: var(--rst-state-success-border);
-    color: var(--rst-state-success-text);
-    background: var(--rst-state-success-bg);
-  }
-  .step-line { height: 1px; background: var(--rst-ui-line); }
-  .wizard-step { padding-top: 20px; }
-  .step-heading {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 16px;
-  }
-  .step-heading h3, .step-heading p { margin: 0; }
-  .step-heading h3 { color: var(--rst-ui-text); font-size: 16px; }
-  .step-heading p {
-    margin-top: 3px;
+  .section-copy span {
     color: var(--rst-ui-muted);
-    font-size: 12px;
-    line-height: 1.45;
+    font-size: 10.5px;
+    line-height: 1.35;
   }
-  .reset-button {
-    min-height: 30px;
+  .format-switch {
+    display: inline-flex;
+    gap: 3px;
+    padding: 3px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: var(--rst-ui-radius-md);
+    background: var(--rst-ui-surface-field);
+  }
+  .format-switch button {
+    min-width: 96px;
+    min-height: 34px;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
-    padding: 5px 8px;
-    border: 0;
-    color: var(--rst-ui-muted);
-    background: transparent;
-    font: inherit;
-    font-size: 11px;
-    font-weight: var(--rst-fw-bold);
-    cursor: pointer;
-  }
-  .reset-button:hover { color: var(--rst-ui-text); }
-  .selection-summary {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 10px;
-    padding: 11px 12px;
-    border: 1px solid var(--rst-ui-line);
-    border-radius: var(--rst-ui-radius-md);
-    background: var(--rst-ui-surface-field);
-  }
-  .summary-icon {
-    width: 32px;
-    height: 32px;
-    display: grid;
-    place-items: center;
-    border-radius: 6px;
-    color: var(--rst-ui-action);
-    background: rgba(var(--rst-ui-action-rgb), .1);
-  }
-  .selection-summary > span:nth-child(2) { display: grid; gap: 1px; }
-  .selection-summary strong { color: var(--rst-ui-text); font-size: 12px; }
-  .selection-summary small { color: var(--rst-ui-muted); font-size: 10.5px; }
-  .selection-summary button {
-    border: 0;
-    color: var(--rst-ui-action);
-    background: transparent;
-    font: inherit;
-    font-size: 11px;
-    font-weight: var(--rst-fw-bold);
-    cursor: pointer;
-  }
-  .column-list {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 7px;
-    margin-top: 10px;
-  }
-  .column-row {
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    min-height: 52px;
-    padding: 7px 8px 7px 10px;
-    border: 1px solid var(--rst-ui-line);
-    border-radius: var(--rst-ui-radius-md);
-    background: var(--rst-ui-surface-panel);
-    transition: border-color 140ms ease, background 140ms ease;
-  }
-  .column-row.is-selected {
-    border-color: rgba(var(--rst-ui-action-rgb), .36);
-    background: rgba(var(--rst-ui-action-rgb), .035);
-  }
-  .column-row label {
-    min-width: 0;
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    cursor: pointer;
-  }
-  .column-row input { position: absolute; opacity: 0; pointer-events: none; }
-  .checkmark {
-    width: 19px;
-    height: 19px;
-    flex: 0 0 auto;
-    display: grid;
-    place-items: center;
-    border: 1px solid var(--rst-ui-line-strong);
-    border-radius: 4px;
-    color: transparent;
-    background: var(--rst-ui-surface-field);
-  }
-  .column-row input:checked + .checkmark {
-    border-color: var(--rst-ui-action);
-    color: var(--rst-on-accent-text);
-    background: var(--rst-ui-action);
-  }
-  .column-row input:focus-visible + .checkmark {
-    outline: 3px solid rgba(var(--rst-ui-action-rgb), .2);
-    outline-offset: 1px;
-  }
-  .column-row label > span:last-child { min-width: 0; display: grid; gap: 1px; }
-  .column-row strong {
-    overflow: hidden;
-    color: var(--rst-ui-text);
-    font-size: 12px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .column-row small { color: var(--rst-ui-muted); font-size: 10px; }
-  .reorder-actions { display: flex; gap: 2px; }
-  .reorder-actions button {
-    width: 27px;
-    height: 27px;
-    display: grid;
-    place-items: center;
-    padding: 0;
+    padding: 6px 10px;
     border: 0;
     border-radius: 5px;
     color: var(--rst-ui-muted);
     background: transparent;
+    font: inherit;
+    font-size: 11.5px;
+    font-weight: var(--rst-fw-bold);
     cursor: pointer;
   }
-  .reorder-actions button:hover:not(:disabled) {
+  .format-switch button:hover {
     color: var(--rst-ui-text);
     background: var(--rst-ui-hover-bg);
   }
-  .reorder-actions button:disabled { opacity: .25; cursor: default; }
-  .format-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-  }
-  .format-grid > button {
-    position: relative;
-    min-width: 0;
-    min-height: 92px;
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: start;
-    gap: 10px;
-    padding: 13px;
-    border: 1px solid var(--rst-ui-line);
-    border-radius: var(--rst-ui-radius-md);
-    color: var(--rst-ui-muted);
+  .format-switch button.is-selected {
+    color: var(--rst-ui-action);
     background: var(--rst-ui-surface-panel);
+    box-shadow: 0 1px 3px rgb(15 23 42 / .1);
+  }
+  .columns-section {
+    display: grid;
+    gap: 10px;
+  }
+  .column-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .column-actions button {
+    min-height: 28px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 7px;
+    border: 0;
+    border-radius: 5px;
+    color: var(--rst-ui-muted);
+    background: transparent;
     font: inherit;
-    text-align: left;
+    font-size: 10.5px;
+    font-weight: var(--rst-fw-bold);
     cursor: pointer;
   }
-  .format-grid > button:hover { border-color: var(--rst-ui-line-strong); }
-  .format-grid > button.is-selected {
-    border-color: var(--rst-ui-action);
-    background: rgba(var(--rst-ui-action-rgb), .04);
-    box-shadow: inset 0 0 0 1px rgba(var(--rst-ui-action-rgb), .16);
+  .column-actions button:hover {
+    color: var(--rst-ui-text);
+    background: var(--rst-ui-hover-bg);
   }
-  .format-icon {
-    width: 34px;
-    height: 34px;
+  .column-strip {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .column-chip {
+    min-width: 0;
+    min-height: 38px;
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 5px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: 6px;
+    color: var(--rst-ui-muted);
+    background: var(--rst-ui-surface-panel);
+    transition:
+      border-color 120ms ease,
+      background 120ms ease,
+      opacity 120ms ease;
+  }
+  .column-chip.is-selected {
+    border-color: rgba(var(--rst-ui-action-rgb), .3);
+    color: var(--rst-ui-text);
+    background: rgba(var(--rst-ui-action-rgb), .035);
+  }
+  .column-chip.is-dragging { opacity: .45; }
+  .column-chip.is-drop-target {
+    border-color: var(--rst-ui-action);
+    box-shadow: inset 3px 0 0 var(--rst-ui-action);
+  }
+  :global(.drag-grip) {
+    color: var(--rst-ui-muted);
+    cursor: grab;
+  }
+  .column-chip:active :global(.drag-grip) { cursor: grabbing; }
+  .column-chip > span {
+    overflow: hidden;
+    font-size: 10.5px;
+    font-weight: var(--rst-fw-bold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .visibility-button,
+  .move-buttons button {
+    width: 25px;
+    height: 25px;
     display: grid;
     place-items: center;
-    border-radius: 6px;
-    color: var(--rst-ui-action);
-    background: rgba(var(--rst-ui-action-rgb), .1);
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    color: var(--rst-ui-muted);
+    background: transparent;
+    cursor: pointer;
   }
-  .format-grid button > span:nth-child(2) { min-width: 0; display: grid; gap: 3px; }
-  .format-grid strong { color: var(--rst-ui-text); font-size: 12.5px; }
-  .format-grid small { font-size: 10.5px; line-height: 1.35; }
-  .format-check {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    width: 18px;
-    height: 18px;
-    display: none;
-    place-items: center;
-    border-radius: 50%;
-    color: var(--rst-on-accent-text);
-    background: var(--rst-ui-action);
+  .column-chip.is-selected .visibility-button { color: var(--rst-ui-action); }
+  .visibility-button:hover,
+  .move-buttons button:hover:not(:disabled) {
+    color: var(--rst-ui-text);
+    background: var(--rst-ui-hover-bg);
   }
-  .format-grid button.is-selected .format-check { display: grid; }
+  .move-buttons {
+    display: flex;
+  }
+  .move-buttons button {
+    width: 22px;
+  }
+  .move-buttons button:disabled {
+    opacity: .2;
+    cursor: default;
+  }
   .preview-block {
-    margin-top: 14px;
     overflow: hidden;
     border: 1px solid var(--rst-ui-line);
     border-radius: var(--rst-ui-radius-md);
     background: var(--rst-ui-surface-panel);
   }
   .preview-block > header {
-    min-height: 48px;
+    min-height: 46px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 8px 12px;
+    padding: 7px 12px;
     border-bottom: 1px solid var(--rst-ui-line);
     background: var(--rst-ui-surface-panel-head);
   }
-  .preview-block > header > div { display: grid; gap: 1px; }
-  .preview-block > header strong { color: var(--rst-ui-text); font-size: 12px; }
-  .preview-block > header span { color: var(--rst-ui-muted); font-size: 10.5px; }
+  .preview-block > header > div {
+    display: grid;
+    gap: 1px;
+  }
+  .preview-block > header strong {
+    color: var(--rst-ui-text);
+    font-size: 12px;
+  }
+  .preview-block > header span {
+    color: var(--rst-ui-muted);
+    font-size: 10.5px;
+  }
   .filetype {
     padding: 4px 7px;
     border-radius: 4px;
@@ -593,9 +548,19 @@
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
   }
-  .preview-scroll { min-height: 165px; overflow: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 10.5px; white-space: nowrap; }
-  th, td {
+  .preview-scroll {
+    min-height: 205px;
+    max-height: 270px;
+    overflow: auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10.5px;
+    white-space: nowrap;
+  }
+  th,
+  td {
     max-width: 180px;
     padding: 7px 9px;
     overflow: hidden;
@@ -608,8 +573,8 @@
   th {
     position: sticky;
     top: 0;
-    color: var(--rst-ui-text);
-    background: var(--rst-ui-surface-field);
+    color: var(--rst-on-dark-text, #fff);
+    background: #172033;
     font-weight: var(--rst-fw-bold);
   }
   .preview-block > footer {
@@ -618,12 +583,23 @@
     background: var(--rst-ui-surface-panel-head);
     font-size: 10.5px;
   }
-  .no-preview {
-    min-height: 140px;
+  .no-preview,
+  .no-columns {
+    min-height: 180px;
     display: grid;
     place-items: center;
     color: var(--rst-ui-muted);
     font-size: 12px;
+  }
+  .no-columns {
+    align-content: center;
+    gap: 5px;
+  }
+  .no-columns strong {
+    color: var(--rst-ui-text);
+  }
+  .no-columns span {
+    font-size: 10.5px;
   }
   .wizard-footer {
     width: 100%;
@@ -632,36 +608,50 @@
     justify-content: space-between;
     gap: 12px;
   }
-  .wizard-footer > div { display: flex; gap: 8px; }
-  .footer-note { color: var(--rst-ui-muted); font-size: 10.5px; }
-  .footer-button {
+  .wizard-footer > div {
+    display: flex;
+    gap: 8px;
+  }
+  .footer-note {
+    color: var(--rst-ui-muted);
+    font-size: 10.5px;
+  }
+  .download-button {
     min-height: 38px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 7px;
     padding: 8px 14px;
-    border: 1px solid var(--rst-ui-line);
+    border: 1px solid var(--rst-ui-action);
     border-radius: var(--rst-ui-radius-md);
-    color: var(--rst-ui-text);
-    background: var(--rst-ui-surface-field-strong);
+    color: var(--rst-on-accent-text);
+    background: var(--rst-ui-action);
     font: inherit;
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: var(--rst-fw-bold);
     cursor: pointer;
   }
-  .footer-button.is-primary {
-    border-color: var(--rst-ui-action);
-    color: var(--rst-on-accent-text);
-    background: var(--rst-ui-action);
+  .download-button:disabled {
+    opacity: .5;
+    cursor: default;
   }
-  .footer-button:disabled { opacity: .5; cursor: default; }
   @media (max-width: 760px) {
-    .wizard { min-height: 0; }
-    .steps { grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); }
-    .steps small { display: none; }
-    .column-list, .format-grid { grid-template-columns: minmax(0, 1fr); }
-    .format-grid > button { min-height: 70px; }
+    .export-workspace { min-height: 0; }
+    .format-section {
+      display: grid;
+      align-items: stretch;
+    }
+    .format-switch {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .format-switch button { min-width: 0; }
+    .columns-section > header {
+      align-items: flex-start;
+    }
+    .column-strip { grid-template-columns: minmax(0, 1fr); }
+    .move-buttons { display: none; }
     .wizard-footer { justify-content: flex-end; }
     .footer-note { display: none; }
     .wizard-footer > div { width: 100%; }

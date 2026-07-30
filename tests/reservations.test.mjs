@@ -84,12 +84,21 @@ test('reservation JSON parsers provide stable safe defaults', () => {
     available: true,
     code: 'available',
     reason: undefined,
+    capacity_mode: undefined,
     starts_at: undefined,
     ends_at: undefined,
     booked_covers: undefined,
     maximum_covers: undefined,
     automatic_confirmation: undefined
   });
+  assert.equal(
+    parseAvailability({
+      available: true,
+      code: 'available',
+      capacity_mode: 'covers'
+    }).capacity_mode,
+    'covers'
+  );
 });
 
 test('reservation layout revives canonical floor and room identities safely', async () => {

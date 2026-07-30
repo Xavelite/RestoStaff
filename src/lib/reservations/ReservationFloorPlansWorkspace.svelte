@@ -339,9 +339,25 @@
     const restaurantId = workspace.activeId;
     // Coming back to this view reuses the draft in the store — a reload here
     // would throw away work the user can still see in the other tab.
-    if (!restaurantId || floorPlansDraft.holds(restaurantId)) return;
+    if (!restaurantId) return;
+    if (floorPlansDraft.holds(restaurantId)) {
+      ensureSelectedFloor(floorPlansDraft.draft);
+      return;
+    }
     void load(restaurantId);
   });
+
+  function ensureSelectedFloor(value: ReservationFloorPlansDraft | null) {
+    if (
+      !value ||
+      (selectedFloorId &&
+        value.floors.some((floor) => floor.id === selectedFloorId && floor.active))
+    ) return;
+    selectedFloorId =
+      value.floors.find((floor) => floor.active && floor.level === 0)?.id ??
+      value.floors.find((floor) => floor.active)?.id ??
+      '';
+  }
 
   async function load(restaurantId: string) {
     loading = true;
@@ -351,12 +367,7 @@
       floorPlansDraft.adopt(next, toDraft(next));
       resetAreaDirectoryPlacement();
       const loaded = floorPlansDraft.draft!;
-      if (!selectedFloorId || !loaded.floors.some((floor) => floor.id === selectedFloorId && floor.active)) {
-        selectedFloorId =
-          loaded.floors.find((floor) => floor.active && floor.level === 0)?.id ??
-          loaded.floors.find((floor) => floor.active)?.id ??
-          '';
-      }
+      ensureSelectedFloor(loaded);
       selectedRoomId = '';
       selectedTableId = '';
       combinationEditor = null;
@@ -2590,7 +2601,6 @@
   .selection-hint strong { color: var(--cl-ink); font-size: 13px; }
   .selection-hint p { margin: 0; line-height: 1.5; }
   .dialog-copy { margin: 0; color: var(--cl-muted); font-size: 12px; }
-  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .cl-btn.is-problem { border-color: var(--cl-problem-line); background: var(--cl-problem-wash); color: var(--cl-problem); }
   @media (max-width: 980px) {
     .plan-card { grid-template-columns: minmax(520px, 1fr) 250px; }

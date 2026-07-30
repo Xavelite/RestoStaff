@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import Drawer from '$lib/components/Drawer.svelte';
+  import Dialog from '$lib/components/Dialog.svelte';
   import type { WorkspaceRole } from '$lib/api/workspace';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import { sound } from '$lib/sound/sound.svelte';
@@ -78,7 +78,7 @@
     return snapshot.messages.length;
   }
 
-  // Set while the user's own action (or opening the drawer) is refreshing, so we
+  // Set while the user's own action (or opening the dialog) is refreshing, so we
   // never chime at someone for something they just did themselves.
   let suppressChime = false;
 
@@ -216,10 +216,11 @@
   {#if badgeCount > 0}<b>{badgeCount > 9 ? '9+' : badgeCount}</b>{/if}
 </button>
 
-<Drawer
+<Dialog
   {open}
   title="Messages"
   description={isManager ? 'Reach the whole team, or just the people who need it.' : 'Updates from your restaurant.'}
+  size="large"
   onclose={() => (open = false)}
 >
   {#if loading && !model}
@@ -292,7 +293,7 @@
       </section>
     </div>
   {/if}
-</Drawer>
+</Dialog>
 
 <style>
   /* Operational messages are a persistent workspace tool, not topbar chrome.

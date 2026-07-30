@@ -27,6 +27,10 @@
     { value: 'automatic', label: t('Automatic') },
     { value: 'manual', label: t('Manual') }
   ]);
+  const capacityOptions = $derived([
+    { value: 'tables', label: t('Assign tables') },
+    { value: 'covers', label: t('Count covers') }
+  ]);
 
   $effect(() => {
     const restaurantId = workspace.activeId;
@@ -54,6 +58,7 @@
       services: setup.services.map((service) => ({
         restaurant_id: setup.restaurantId,
         service_key: service.service_key,
+        capacity_mode: service.setting?.capacity_mode ?? 'tables',
         booking_enabled: service.setting?.booking_enabled ?? false,
         automatic_confirmation: service.setting?.automatic_confirmation ?? true,
         slot_interval_minutes: service.setting?.slot_interval_minutes ?? 15,
@@ -105,6 +110,9 @@
       (service) =>
         service.minimum_party_size >= 1 &&
         service.maximum_party_size >= service.minimum_party_size &&
+        (service.maximum_covers === null ||
+          service.maximum_covers >= service.maximum_party_size) &&
+        (service.capacity_mode === 'tables' || service.maximum_covers !== null) &&
         service.default_duration_minutes >= 15 &&
         service.slot_interval_minutes >= 5
     ) &&
@@ -180,7 +188,7 @@
                 <th>{t('Duration')}</th>
                 <th>{t('Interval')}</th>
                 <th>{t('Party size')}</th>
-                <th>{t('Cover limit')}</th>
+                <th>{t('Capacity model')}</th>
                 <th>{t('Confirmation')}</th>
               </tr>
             </thead>
@@ -212,7 +220,35 @@
                       <input class="cl-field number-field" aria-label={t('Maximum party size')} type="number" min="1" max="500" bind:value={service.maximum_party_size} oninput={touch} />
                     </span>
                   </td>
-                  <td><input class="cl-field cover-field" type="number" min="1" max="10000" placeholder="—" bind:value={service.maximum_covers} oninput={touch} /></td>
+                  <td>
+                    <div class="capacity-cell">
+                      <WorkspacePicker
+                        value={service.capacity_mode}
+                        options={capacityOptions}
+                        ariaLabel={t('Capacity model')}
+                        onchange={(next) => {
+                          service.capacity_mode = next === 'covers' ? 'covers' : 'tables';
+                          if (service.capacity_mode === 'covers' && service.maximum_covers === null) {
+                            service.maximum_covers = Math.max(40, service.maximum_party_size);
+                          }
+                          touch();
+                        }}
+                      />
+                      <label>
+                        <input
+                          class="cl-field cover-field"
+                          aria-label={t('Service cover limit')}
+                          type="number"
+                          min={service.maximum_party_size}
+                          max="10000"
+                          placeholder={service.capacity_mode === 'tables' ? t('No cap') : ''}
+                          bind:value={service.maximum_covers}
+                          oninput={touch}
+                        />
+                        <small>{t('covers')}</small>
+                      </label>
+                    </div>
+                  </td>
                   <td>
                     <WorkspacePicker
                       value={service.automatic_confirmation ? 'automatic' : 'manual'}
@@ -245,7 +281,7 @@
     font-size: 12px;
   }
   .setup-loading { display: grid; gap: 16px; padding: 24px; }
-  .services-grid { min-width: 820px; }
+  .services-grid { min-width: 940px; }
   .services-grid td { height: 54px; }
   .services-grid th:first-child { min-width: 130px; }
   .service-name { display: inline-flex; align-items: center; gap: 8px; }
@@ -255,6 +291,9 @@
   td > small { margin-left: 4px; color: var(--cl-muted); font-size: 10px; }
   .number-field { width: 62px; text-align: right; font-variant-numeric: tabular-nums; }
   .cover-field { width: 78px; text-align: right; }
+  .capacity-cell { min-width: 180px; display: flex; align-items: center; gap: 8px; }
+  .capacity-cell > label { display: inline-flex; align-items: center; gap: 4px; }
+  .capacity-cell small { color: var(--cl-muted); font-size: 9px; }
   .range-field { display: inline-flex; align-items: center; gap: 4px; }
   .range-field i { color: var(--cl-muted); font-style: normal; }
 </style>

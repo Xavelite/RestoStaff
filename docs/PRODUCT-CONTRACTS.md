@@ -6,12 +6,12 @@
 | --- | --- | --- | --- |
 | `/home` | Home | Owner, Manager | Core module portal and later-module roadmap |
 | `/schedule` | Schedule | Owner, Manager | Build, check, publish, and revert shifts |
-| `/timesheet` | Time & attendance | Owner, Manager | Reconcile badge truth, correct entries, monitor service, and approve weeks |
+| `/timesheet` | Time | Owner, Manager | Reconcile badge truth, correct entries, monitor service, and approve weeks |
 | `/team` | Team | Owner, Manager | Employees, contracts, access, and leave; payroll data stays owner-only |
 | `/restaurant` | Restaurant | Owner, Manager | Areas, positions, services, hours, coverage, and policy |
 | `/documents` | Documents | Owner, Manager | Keep private restaurant and employee records with expiry, access, and audit context |
 | `/reservations` | Reservations | Owner, Manager | Optional entitlement: configure booking rules and manage bookings; disabled by default |
-| `/payroll/employees` | Payroll preparation | Owner | Review employee payroll identity and preparation readiness |
+| `/payroll/employees` | Payroll | Owner | Review employee payroll identity and preparation readiness |
 | `/reports` | Reports | Owner, Manager | Experimental entitlement; disabled until metric contracts are approved |
 | `/exports` | Exports | Owner, Manager | Download planning and worked-time files; owners may prepare a social-secretariat draft |
 | `/badge-terminal` | Badge terminal | Owner, Manager | Pair devices and open the shared touch-first PIN terminal |
@@ -27,7 +27,7 @@ Platform administration is not a restaurant role. It uses a separate audited
 entitlement and an AAL2 authenticator session, remains outside the restaurant
 shell, and can suspend a restaurant as a complete tenant-access boundary.
 
-Visible product language uses Schedule, Time & attendance, Payroll preparation,
+Visible product language uses Schedule, Time, Payroll,
 Exports, Badge terminal, My service, and My time.
 Persisted identifiers such as `planning_status`, `actuals_status`, and
 `planned_shifts` remain stable internal database contracts.
@@ -38,11 +38,13 @@ Persisted identifiers such as `planning_status`, `actuals_status`, and
   server lifecycle. Pending or approved leave and schedule-change requests
   block ordinary assignment until explicitly resolved for the selected record.
   Opening a roster slot is non-destructive; removal is an explicit editor action.
-- Time & attendance preserves badge truth, corrections, cancellations, live monitoring, approval, and reopening. Calendar and Live monitor deep-link into the same entry editor.
+- Time preserves badge truth, corrections, cancellations, live monitoring,
+  approval, and reopening. Roster, Calendar, and Live monitor open the shared
+  entry editor in place.
 - Restaurant-configured service periods own names, order, active state, hours,
-  coverage, availability, Schedule, badges, Time & attendance, and report
+  coverage, availability, Schedule, badges, Time, and report
   grouping. Lunch and Evening are starter records, not hard-coded product rules.
-- Payroll preparation starts from employee identity and current employment
+- Payroll starts from employee identity and current employment
   facts. Exports produces operational files and an owner-only
   social-secretariat draft from complete weeks. The experimental calculation
   and provider-reconciliation engine is not available to authenticated clients;
@@ -96,8 +98,8 @@ instead of silently replacing another session's work.
 
 The authenticated product uses one compact workspace shell. Module tabs live in
 the fixed topbar; filters, period controls, add actions, Save, and Discard stay
-in the page toolbar. Schedule, Time & attendance, Restaurant, Team, Payroll
-preparation, and Exports use shared workspace surfaces, while complete evidence
+in the page toolbar. Schedule, Time, Restaurant, Team, Payroll, and Exports use
+shared workspace surfaces, while complete evidence
 is opened through Details. Unsaved drafts are guarded before route, period,
 restaurant, preview, terminal, or sign-out changes.
 

@@ -23,6 +23,7 @@
   import { sound } from '$lib/sound/sound.svelte';
   import { supabase } from '$lib/supabase/client';
   import { confirmAction } from '$lib/ui/confirm.svelte';
+  import { workspaceTheme, type WorkspaceTheme } from '$lib/ui/theme.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { orderedMemberships, roleHome } from '$lib/workspace/workspace-selection';
@@ -37,6 +38,7 @@
   } = $props();
 
   let open = $state(false);
+  let menuRoot = $state<HTMLElement | null>(null);
   let pinDialogOpen = $state(false);
   let accountDialogOpen = $state(false);
   let installDialogOpen = $state(false);
@@ -68,6 +70,26 @@
         (membership) => membership.status === 'active' && membership.role === 'owner'
       )
   );
+
+  $effect(() => {
+    if (!open) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (menuRoot && !menuRoot.contains(event.target as Node)) open = false;
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') open = false;
+    };
+    window.addEventListener('pointerdown', closeOutside, true);
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      window.removeEventListener('pointerdown', closeOutside, true);
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  });
+
+  function chooseTheme(theme: WorkspaceTheme): void {
+    workspaceTheme.set(theme);
+  }
 
   async function selectWorkspace(restaurantId: string) {
     const membership = workspace.memberships.find((item) => item.restaurant_id === restaurantId);
@@ -253,7 +275,7 @@
   }
 </script>
 
-<div class="menu-wrap">
+<div class="menu-wrap" bind:this={menuRoot}>
   <button
     class="account-button"
     type="button"
@@ -298,6 +320,23 @@
         {/if}
         <span class="menu-label">{t('Account')}</span>
         <button type="button" onclick={openAccount}>{t('Account settings')}</button>
+        <div class="appearance-picker">
+          <span>{t('Appearance')}</span>
+          <div role="group" aria-label={t('Theme')}>
+            <button
+              type="button"
+              class:is-active={workspaceTheme.current === 'cobalt'}
+              aria-pressed={workspaceTheme.current === 'cobalt'}
+              onclick={() => chooseTheme('cobalt')}
+            ><i class="theme-swatch is-cobalt"></i>{t('Blue')}</button>
+            <button
+              type="button"
+              class:is-active={workspaceTheme.current === 'tangerine'}
+              aria-pressed={workspaceTheme.current === 'tangerine'}
+              onclick={() => chooseTheme('tangerine')}
+            ><i class="theme-swatch is-tangerine"></i>{t('Orange')}</button>
+          </div>
+        </div>
         {#if !appInstall.installed}
           <button type="button" onclick={installApp}>{t('Install app')}</button>
         {/if}
@@ -575,6 +614,51 @@
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
   }
+  .appearance-picker {
+    display: grid;
+    gap: 7px;
+    padding: 10px 14px 12px;
+    border-bottom: 1px solid var(--rst-ui-divider-soft);
+  }
+  .appearance-picker > span {
+    color: var(--rst-ui-muted);
+    font-size: 11px;
+    font-weight: var(--rst-fw-bold);
+  }
+  .appearance-picker > div {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .appearance-picker button {
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 9px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: var(--rst-ui-radius-sm);
+    color: var(--rst-ui-text);
+    background: var(--rst-ui-surface-field);
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .appearance-picker button:hover,
+  .appearance-picker button.is-active {
+    border-color: var(--rst-ui-action);
+    background: var(--rst-state-selected-bg);
+  }
+  .theme-swatch {
+    width: 13px;
+    height: 13px;
+    flex: 0 0 auto;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px var(--rst-ui-line-strong);
+  }
+  .theme-swatch.is-cobalt { background: #315efb; }
+  .theme-swatch.is-tangerine { background: #ff5a1f; }
   .pin-form { display: grid; gap: 12px; }
   .pin-form label { display: grid; gap: 6px; }
   .pin-form span { color: var(--rst-ui-muted); font-size: 11px; font-weight: var(--rst-fw-bold); }

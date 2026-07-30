@@ -1,4 +1,4 @@
-# Payroll preparation
+# Payroll
 
 Restogogo prepares trustworthy inputs for a Belgian social secretariat. It
 does not calculate official gross-to-net payroll, submit Dimona or DmfA,
@@ -12,13 +12,13 @@ settle taxes or social security, or issue payslips.
 2. Managers maintain operational identity, positions, scheduling regime,
    contract dates and worked-time evidence. They cannot read bank, salary,
    national-registry, estimated-cost, tax, or provider-private fields.
-3. Time & attendance reconciles badge evidence, exact breaks, actual area and
+3. Time reconciles badge evidence, exact breaks, actual area and
    position, corrections, and weekly approval.
 4. Exports creates a clearly labelled draft social-secretariat file from the
    selected period. Approved/frozen source status and row lineage remain
    visible; the provider remains authoritative.
 
-Use **Payroll preparation** in product copy. A readiness warning means the
+Use **Payroll** in product copy. A readiness warning means the
 file may be incomplete; it is not a payroll calculation result.
 
 ## Authority and data handling

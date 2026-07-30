@@ -60,7 +60,8 @@ test('Schedule keeps the weekly planning board and adds a focused mobile day wor
   assert.match(schedule, /@media \(max-width: 760px\)/);
   assert.match(mobilePicker, /aria-label=\{t\('Choose day'\)\}/);
   assert.match(mobilePicker, /aria-pressed=\{day\.date === selected\}/);
-  assert.match(schedule, /activeServiceKeys\(snapshot\?\.services\)/);
+  assert.match(schedule, /serviceKeysWithEvidence\(/);
+  assert.match(schedule, /activeServiceKeySet\.has\(service\)/);
   assert.match(schedule, /\{#each serviceKeys as service \(service\)\}/);
   assert.match(schedule, /grid-template-columns:repeat\(\$\{serviceKeys\.length\}/);
   assert.match(schedule, /--primary-color:\$\{primaryColor\}/);

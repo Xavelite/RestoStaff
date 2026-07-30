@@ -174,6 +174,7 @@ declare
   v_result jsonb;
   v_reservation_id uuid;
   v_exact_reservation_id uuid;
+  v_cover_reservation_id uuid;
   v_guest_one_id uuid := gen_random_uuid();
   v_guest_two_id uuid := gen_random_uuid();
   v_availability jsonb;
@@ -617,6 +618,103 @@ begin
   then
     raise exception 'An occupied exact table was offered again: %', v_availability;
   end if;
+
+  begin
+    update public.reservation_service_settings
+    set capacity_mode = 'covers',
+        maximum_covers = null
+    where restaurant_id = v_restaurant_id
+      and service_key = 'lunch';
+  exception
+    when check_violation then
+      v_rejected := true;
+  end;
+  if not v_rejected then
+    raise exception 'Cover capacity mode was accepted without a service limit.';
+  end if;
+  v_rejected := false;
+
+  update public.reservation_service_settings
+  set capacity_mode = 'covers',
+      maximum_covers = 20
+  where restaurant_id = v_restaurant_id
+    and service_key = 'lunch';
+
+  v_availability := public.check_reservation_availability(
+    v_restaurant_id,
+    v_business_date,
+    'lunch',
+    '12:00',
+    3,
+    v_room_id,
+    null,
+    v_table_two_id
+  );
+  if coalesce((v_availability->>'available')::boolean, false) is not true
+    or v_availability->>'capacity_mode' <> 'covers'
+    or v_availability->'assignment'->>'kind' <> 'capacity_only'
+  then
+    raise exception 'Cover capacity availability did not bypass table assignment: %',
+      v_availability;
+  end if;
+
+  v_result := public.save_reservation(
+    v_restaurant_id,
+    jsonb_build_object(
+      'guest_name', 'Cover-only guest',
+      'guest_phone', '+32000000003',
+      'guest_email', 'cover-only@example.test',
+      'business_date', v_business_date,
+      'service_key', 'lunch',
+      'local_time', '12:00',
+      'party_size', 3,
+      'room_preference_id', v_room_id,
+      'preferred_table_id', v_table_two_id,
+      'source', 'phone',
+      'guest_comment', '',
+      'internal_notes', '',
+      'language_code', 'fr'
+    )
+  );
+  v_cover_reservation_id := (v_result->>'reservation_id')::uuid;
+
+  if exists (
+    select 1
+    from public.reservations reservation
+    where reservation.restaurant_id = v_restaurant_id
+      and reservation.id = v_cover_reservation_id
+      and (
+        reservation.room_preference_id is not null
+        or reservation.preferred_table_id is not null
+      )
+  ) or exists (
+    select 1
+    from public.reservation_table_assignments assignment
+    where assignment.restaurant_id = v_restaurant_id
+      and assignment.reservation_id = v_cover_reservation_id
+      and assignment.unassigned_at is null
+  ) then
+    raise exception 'Cover-only reservation retained a table preference or assignment.';
+  end if;
+
+  select reservation.revision
+  into v_revision
+  from public.reservations reservation
+  where reservation.restaurant_id = v_restaurant_id
+    and reservation.id = v_cover_reservation_id;
+  perform public.set_reservation_status(
+    v_restaurant_id,
+    v_cover_reservation_id,
+    'cancelled',
+    'Cover mode contract cleanup',
+    v_revision
+  );
+
+  update public.reservation_service_settings
+  set capacity_mode = 'tables',
+      maximum_covers = null
+  where restaurant_id = v_restaurant_id
+    and service_key = 'lunch';
 
   insert into public.reservation_guests (
     id,

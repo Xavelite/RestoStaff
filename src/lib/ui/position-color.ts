@@ -2,7 +2,7 @@
 //
 // Areas are the strong colour anchor. Positions inherit the same hue as a
 // deliberately lighter tint, so the relationship stays visible throughout
-// Restaurant, Team, Planning and Time & attendance.
+// Restaurant, Team, Schedule and Time.
 
 import {
   catalogueAreaColor,

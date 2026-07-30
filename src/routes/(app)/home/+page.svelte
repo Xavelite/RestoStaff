@@ -4,10 +4,12 @@
   import { workspace } from '$lib/workspace/workspace.svelte';
   import WorkspaceIcon from '$lib/workspace-ui/WorkspaceIcon.svelte';
   import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
-  import { modulesForRole, type WorkspaceIcon as WorkspaceIconName, type WorkspaceModule } from '$lib/workspace-ui/workspace-nav';
+  import { modulesForRole, type WorkspaceModule } from '$lib/workspace-ui/workspace-nav';
   import { buildHomeModel } from '$lib/home/home-model';
+  import { getReservationDemand } from '$lib/reservations/reservation-api';
 
   type ModuleSignal = {
+    value: string | number;
     label: string;
     tone?: 'ok' | 'attention' | 'problem';
   };
@@ -15,7 +17,7 @@
   const MODULE_GROUPS = [
     { label: 'Run today', keys: ['schedule', 'time', 'badge-terminal', 'reservations'] },
     { label: 'People & setup', keys: ['restaurant', 'team'] },
-    { label: 'Review & handoff', keys: ['payroll', 'reports', 'exports', 'documents', 'settings'] }
+    { label: 'Records & handoff', keys: ['payroll', 'documents', 'exports', 'reports'] }
   ] as const;
 
   const MODULE_COLOR: Record<string, string> = {
@@ -37,13 +39,6 @@
     'food-safety': 'var(--cl-mod-badge)'
   };
 
-  const ACTION_ICON: Record<string, WorkspaceIconName> = {
-    leave: 'team',
-    payroll: 'payroll',
-    planning: 'schedule',
-    availability: 'team'
-  };
-
   const role = $derived(workspace.effectiveRole);
   const snapshot = $derived(workspace.operations);
   const timezone = $derived(
@@ -53,33 +48,57 @@
   );
 
   let currentInstant = $state(new Date());
+  let reservationSignal = $state<ModuleSignal | null>(null);
+  let reservationLoadKey = '';
   $effect(() => {
     const timer = setInterval(() => (currentInstant = new Date()), 60_000);
     return () => clearInterval(timer);
   });
 
   const activeWeek = $derived(mondayFor(todayInTimezone(timezone, currentInstant)));
+  const todayDate = $derived(todayInTimezone(timezone, currentInstant));
   $effect(() => {
     if (workspace.activeId && role && role !== 'employee') {
       void workspace.loadOperations(activeWeek, addDays(activeWeek, 6)).catch(() => undefined);
     }
   });
 
+  $effect(() => {
+    const restaurantId = workspace.activeId;
+    const entitlement = workspace.moduleEntitlements.reservations;
+    const date = todayDate;
+    if (!restaurantId || (entitlement !== 'enabled' && entitlement !== 'preview')) {
+      reservationSignal = null;
+      return;
+    }
+    const key = `${restaurantId}:${date}`;
+    if (reservationLoadKey === key) return;
+    reservationLoadKey = key;
+    void getReservationDemand(restaurantId, date, date)
+      .then((rows) => {
+        if (reservationLoadKey !== key) return;
+        const reservations = rows.reduce((sum, row) => sum + row.reservation_count, 0);
+        const covers = rows.reduce((sum, row) => sum + row.expected_covers, 0);
+        reservationSignal = {
+          value: reservations,
+          label: t('bookings · {count} covers', { count: covers }),
+          tone: reservations ? 'ok' : undefined
+        };
+      })
+      .catch(() => {
+        if (reservationLoadKey === key) reservationSignal = null;
+      });
+  });
+
   const model = $derived(snapshot && role ? buildHomeModel(snapshot, role, currentInstant) : null);
   const modules = $derived(
     modulesForRole(role, workspace.moduleEntitlements)
-      .filter((module) => module.key !== 'home' && !module.placeholder)
+      .filter((module) => module.key !== 'home' && !module.placeholder && !module.utility)
   );
   const upcoming = $derived(
     modulesForRole(role, workspace.moduleEntitlements)
       .filter((module) => module.placeholder)
   );
-  const openActions = $derived(
-    (model?.actions.rows ?? [])
-      .filter((row) => row.count > 0)
-      .sort((left, right) => right.count - left.count)
-  );
-
   const localMinutes = $derived.by(() => {
     const parts = new Intl.DateTimeFormat('en-GB', {
       timeZone: timezone,
@@ -117,25 +136,29 @@
     const payrollIssues = model.actions.rows.find((row) => row.key === 'payroll')?.count ?? 0;
 
     signals.restaurant = {
-      label: t('{count} active areas', { count: activeAreas })
+      value: activeAreas,
+      label: t('active areas')
     };
     signals.team = {
-      label: t('{count} active employees', { count: activePeople })
+      value: activePeople,
+      label: t('active employees')
     };
     signals.schedule = scheduleIssues
-      ? { label: t('{count} understaffed services', { count: scheduleIssues }), tone: 'problem' }
-      : { label: t('{count} shifts this week', { count: snapshot.planned_shifts.length }), tone: 'ok' };
+      ? { value: scheduleIssues, label: t('staffing gaps'), tone: 'problem' }
+      : { value: snapshot.planned_shifts.length, label: t('shifts this week'), tone: 'ok' };
     signals.time = model.live.late
-      ? { label: t('{count} services waiting for a badge', { count: model.live.late }), tone: 'problem' }
-      : { label: t('{count} people working now', { count: model.live.working }), tone: model.live.working ? 'ok' : undefined };
+      ? { value: model.live.late, label: t('waiting for a badge'), tone: 'problem' }
+      : { value: model.live.working, label: t('working now'), tone: model.live.working ? 'ok' : undefined };
     signals['badge-terminal'] = {
-      label: t('{count} open clock-ins', { count: model.live.working }),
+      value: model.live.working,
+      label: t('open clock-ins'),
       tone: model.live.working ? 'ok' : undefined
     };
+    if (reservationSignal) signals.reservations = reservationSignal;
     if (role === 'owner') {
       signals.payroll = payrollIssues
-        ? { label: t('{count} people need details', { count: payrollIssues }), tone: 'attention' }
-        : { label: t('Payroll details ready'), tone: 'ok' };
+        ? { value: payrollIssues, label: t('people need details'), tone: 'attention' }
+        : { value: '✓', label: t('details ready'), tone: 'ok' };
     }
 
     return signals;
@@ -163,14 +186,7 @@
     </div>
   </header>
 
-  <section class="workspace" aria-labelledby="workspace-title">
-    <div class="section-heading">
-      <div>
-        <span class="section-heading__eyebrow">{t('Workspace')}</span>
-        <h2 id="workspace-title">{t('Restaurant modules')}</h2>
-      </div>
-    </div>
-
+  <section class="workspace" aria-label={t('Restaurant modules')}>
     {#each MODULE_GROUPS as group (group.label)}
       {@const groupModules = modulesIn(group.keys)}
       {#if groupModules.length}
@@ -182,10 +198,14 @@
               <a
                 class="module-tile"
                 href={module.href}
+                data-module-key={module.key}
                 style={`--tile-color:${MODULE_COLOR[module.key] ?? 'var(--cl-muted)'}`}
               >
+                <span class="module-tile__backdrop" aria-hidden="true">
+                  <WorkspaceIcon name={module.icon} size={72} />
+                </span>
                 <span class="module-tile__top">
-                  <span class="module-tile__icon"><WorkspaceIcon name={module.icon} size={21} /></span>
+                  <span class="module-tile__icon"><WorkspaceIcon name={module.icon} size={24} /></span>
                   <span class="module-tile__arrow" aria-hidden="true">&rarr;</span>
                 </span>
                 <span class="module-tile__copy">
@@ -194,7 +214,7 @@
                 </span>
                 {#if signal}
                   <span class="module-tile__signal is-{signal.tone ?? 'neutral'}">
-                    <i aria-hidden="true"></i>{signal.label}
+                    <i aria-hidden="true"></i><strong>{signal.value}</strong><span>{signal.label}</span>
                   </span>
                 {/if}
               </a>
@@ -204,60 +224,6 @@
       {/if}
     {/each}
   </section>
-
-  {#if model}
-    <div class="home-secondary">
-      <section class="today-panel" aria-labelledby="today-title">
-        <div class="section-heading is-compact">
-          <div>
-            <span class="section-heading__eyebrow">{t('Today at a glance')}</span>
-            <h2 id="today-title">{t('Floor status')}</h2>
-          </div>
-          <a href="/timesheet/live">{t('Open live monitor')} <span aria-hidden="true">&rarr;</span></a>
-        </div>
-        <dl class="today-stats">
-          <div class:is-positive={model.live.working > 0}>
-            <dt>{t('People working now')}</dt>
-            <dd>{model.live.working}</dd>
-          </div>
-          <div class:is-problem={model.live.late > 0}>
-            <dt>{t('Waiting for a badge')}</dt>
-            <dd>{model.live.late}</dd>
-          </div>
-          <div>
-            <dt>{t('Services starting soon')}</dt>
-            <dd>{model.live.upcoming}</dd>
-          </div>
-        </dl>
-      </section>
-
-      <section class="attention-panel" aria-labelledby="attention-title">
-        <div class="section-heading is-compact">
-          <div>
-            <span class="section-heading__eyebrow">{t('Needs you')}</span>
-            <h2 id="attention-title">{t('Open decisions')}</h2>
-          </div>
-        </div>
-        {#if openActions.length}
-          <div class="attention-list">
-            {#each openActions.slice(0, 4) as action (action.key)}
-              <a href={action.href}>
-                <span class="attention-list__icon"><WorkspaceIcon name={ACTION_ICON[action.key]} size={17} /></span>
-                <span>
-                  <strong>{t(action.label)}</strong>
-                  <small>{t(action.meta)}</small>
-                </span>
-                <b>{action.count}</b>
-                <i aria-hidden="true">&rarr;</i>
-              </a>
-            {/each}
-          </div>
-        {:else}
-          <p class="attention-clear">{t('Nothing is waiting on you. The week is in good shape.')}</p>
-        {/if}
-      </section>
-    </div>
-  {/if}
 
   {#if upcoming.length}
     <section class="upcoming" aria-labelledby="upcoming-title">
@@ -344,14 +310,6 @@
     font-size: 15px;
   }
 
-  .section-heading a {
-    color: var(--cl-accent);
-    font-size: 12.5px;
-    font-weight: var(--rst-fw-medium);
-    text-decoration: none;
-    white-space: nowrap;
-  }
-
   .module-group h3 {
     margin-bottom: 0;
   }
@@ -369,6 +327,7 @@
     grid-template-rows: auto 1fr auto;
     gap: 12px;
     padding: 15px 16px 13px;
+    isolation: isolate;
     overflow: hidden;
     border: 1px solid var(--cl-line);
     border-top: 3px solid var(--tile-color);
@@ -380,6 +339,48 @@
       transform var(--cl-dur) var(--cl-ease),
       border-color var(--cl-dur) var(--cl-ease),
       box-shadow var(--cl-dur) var(--cl-ease);
+  }
+
+  .module-tile::before {
+    content: '';
+    position: absolute;
+    z-index: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 43%;
+    clip-path: polygon(38% 0, 100% 0, 100% 100%, 0 100%);
+    background: color-mix(in srgb, var(--tile-color) 5.5%, var(--cl-surface));
+    transition: background var(--cl-dur) var(--cl-ease);
+  }
+
+  .module-tile:hover::before {
+    background: color-mix(in srgb, var(--tile-color) 9%, var(--cl-surface));
+  }
+
+  .module-tile__backdrop {
+    position: absolute;
+    z-index: 0;
+    right: 9px;
+    bottom: 8px;
+    color: var(--tile-color);
+    opacity: .085;
+    transform: rotate(-4deg);
+    transition:
+      opacity var(--cl-dur) var(--cl-ease),
+      transform var(--cl-dur-slow) var(--cl-ease);
+  }
+
+  .module-tile:hover .module-tile__backdrop {
+    opacity: .14;
+    transform: rotate(0) translateY(-2px);
+  }
+
+  .module-tile__top,
+  .module-tile__copy,
+  .module-tile__signal {
+    position: relative;
+    z-index: 1;
   }
 
   .module-tile:hover {
@@ -400,8 +401,8 @@
   }
 
   .module-tile__icon {
-    width: 38px;
-    height: 38px;
+    width: 42px;
+    height: 42px;
     display: grid;
     place-items: center;
     border: 1px solid color-mix(in srgb, var(--tile-color) 20%, var(--cl-line));
@@ -425,6 +426,7 @@
 
   .module-tile__copy {
     min-width: 0;
+    max-width: 82%;
     display: grid;
     align-content: start;
     gap: 3px;
@@ -443,12 +445,25 @@
 
   .module-tile__signal {
     min-width: 0;
+    max-width: 84%;
     display: flex;
     align-items: center;
     gap: 6px;
     color: var(--cl-muted);
     font-size: 11.5px;
     font-weight: var(--rst-fw-medium);
+  }
+
+  .module-tile__signal strong {
+    color: var(--cl-ink);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .module-tile__signal span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .module-tile__signal i {
@@ -462,137 +477,6 @@
   .module-tile__signal.is-ok i { background: var(--cl-ok); }
   .module-tile__signal.is-attention i { background: var(--cl-attention); }
   .module-tile__signal.is-problem i { background: var(--cl-problem); }
-
-  .home-secondary {
-    display: grid;
-    grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
-    gap: 12px;
-  }
-
-  .today-panel,
-  .attention-panel {
-    display: grid;
-    align-content: start;
-    gap: 14px;
-    padding: 16px;
-    border: 1px solid var(--cl-line);
-    border-radius: var(--cl-radius);
-    background: var(--cl-surface);
-  }
-
-  .today-stats {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    margin: 0;
-    border-top: 1px solid var(--cl-line);
-  }
-
-  .today-stats > div {
-    min-width: 0;
-    display: grid;
-    gap: 5px;
-    padding: 13px 12px 2px 0;
-  }
-
-  .today-stats > div + div {
-    padding-left: 12px;
-    border-left: 1px solid var(--cl-line);
-  }
-
-  .today-stats dt {
-    overflow: hidden;
-    color: var(--cl-muted);
-    font-size: 11.5px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .today-stats dd {
-    margin: 0;
-    color: var(--cl-ink);
-    font-size: 24px;
-    font-weight: var(--rst-fw-display);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .today-stats .is-positive dd { color: var(--cl-ok); }
-  .today-stats .is-problem dd { color: var(--cl-problem); }
-
-  .attention-list {
-    display: grid;
-    border-top: 1px solid var(--cl-line);
-  }
-
-  .attention-list a {
-    min-width: 0;
-    display: grid;
-    grid-template-columns: 30px minmax(0, 1fr) auto 16px;
-    align-items: center;
-    gap: 10px;
-    padding: 9px 2px;
-    color: var(--cl-ink);
-    text-decoration: none;
-  }
-
-  .attention-list a + a {
-    border-top: 1px solid var(--cl-grid-line);
-  }
-
-  .attention-list a:hover strong {
-    color: var(--cl-accent);
-  }
-
-  .attention-list__icon {
-    width: 30px;
-    height: 30px;
-    display: grid;
-    place-items: center;
-    border-radius: 5px;
-    background: var(--cl-surface-muted);
-    color: var(--cl-muted);
-  }
-
-  .attention-list a > span:nth-child(2) {
-    min-width: 0;
-    display: grid;
-  }
-
-  .attention-list strong {
-    overflow: hidden;
-    font-size: 12.5px;
-    font-weight: var(--rst-fw-medium);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .attention-list small {
-    color: var(--cl-muted);
-    font-size: 10.5px;
-  }
-
-  .attention-list b {
-    min-width: 26px;
-    padding: 3px 6px;
-    border-radius: 5px;
-    background: var(--cl-attention-wash);
-    color: var(--cl-attention);
-    font-size: 11.5px;
-    font-weight: var(--rst-fw-bold);
-    text-align: center;
-  }
-
-  .attention-list a > i {
-    color: var(--cl-line-strong);
-    font-style: normal;
-  }
-
-  .attention-clear {
-    margin: 0;
-    padding-top: 12px;
-    border-top: 1px solid var(--cl-line);
-    color: var(--cl-muted);
-    font-size: 12.5px;
-  }
 
   .upcoming-grid {
     display: grid;
@@ -634,9 +518,6 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .home-secondary {
-      grid-template-columns: minmax(0, 1fr);
-    }
   }
 
   @media (max-width: 520px) {
@@ -653,8 +534,8 @@
     }
 
     .module-tile__icon {
-      width: 32px;
-      height: 32px;
+      width: 35px;
+      height: 35px;
     }
 
     .module-tile__copy strong {
@@ -663,6 +544,14 @@
 
     .module-tile__copy > span {
       display: none;
+    }
+
+    .module-tile__backdrop {
+      right: 5px;
+      bottom: 5px;
+      opacity: .07;
+      transform: scale(.78);
+      transform-origin: bottom right;
     }
 
     .module-tile__signal {

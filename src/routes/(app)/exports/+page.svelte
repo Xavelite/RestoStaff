@@ -175,7 +175,7 @@
             timezone,
             translate: t
           }),
-          title: t('Time and attendance export'),
+          title: t('Time export'),
           periodLabel
         });
         return;
@@ -263,8 +263,8 @@
     <div class="export-catalog">
       <header class="catalog-heading">
         <div>
-          <h2>{t('Choose an export')}</h2>
-          <p>{t('Configure the columns and file format before anything downloads.')}</p>
+          <h2>{t('Choose a file')}</h2>
+          <p>{t('Review the format, column order and real file preview before downloading.')}</p>
         </div>
         {#if loading}
           <span class="refreshing"><LoaderCircle size={14} aria-hidden="true" />{t('Refreshing…')}</span>
@@ -300,7 +300,7 @@
             disabled={!snapshot || loading || planningCount === 0 || !validRange || Boolean(preparing)}
             onclick={() => configureExport('planning')}
           >
-            {preparing === 'planning' ? t('Preparing…') : t('Configure')}
+            {preparing === 'planning' ? t('Preparing…') : t('Export')}
             {#if preparing === 'planning'}<LoaderCircle class="spin" size={15} aria-hidden="true" />{:else}<ArrowRight size={15} aria-hidden="true" />{/if}
           </button>
         </article>
@@ -309,7 +309,7 @@
           <span class="recipe-icon is-worked"><Clock3 size={20} aria-hidden="true" /></span>
           <div class="recipe-copy">
             <div class="recipe-title">
-              <strong>{t('Time and attendance')}</strong>
+              <strong>{t('Time')}</strong>
               <span class="record-count">{loading ? '…' : workedCount} {t('records')}</span>
             </div>
             <p>{t('Clock times, breaks, net hours and actual assignments.')}</p>
@@ -323,7 +323,7 @@
             disabled={!snapshot || loading || workedCount === 0 || !validRange || Boolean(preparing)}
             onclick={() => configureExport('worked')}
           >
-            {preparing === 'worked' ? t('Preparing…') : t('Configure')}
+              {preparing === 'worked' ? t('Preparing…') : t('Export')}
             {#if preparing === 'worked'}<LoaderCircle class="spin" size={15} aria-hidden="true" />{:else}<ArrowRight size={15} aria-hidden="true" />{/if}
           </button>
         </article>
@@ -353,7 +353,7 @@
               disabled={!completeWeeks || Boolean(preparing)}
               onclick={() => configureExport('social')}
             >
-              {preparing === 'social' ? t('Preparing…') : t('Configure')}
+              {preparing === 'social' ? t('Preparing…') : t('Export')}
               {#if preparing === 'social'}<LoaderCircle class="spin" size={15} aria-hidden="true" />{:else}<ArrowRight size={15} aria-hidden="true" />{/if}
             </button>
           </article>

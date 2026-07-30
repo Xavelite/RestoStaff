@@ -2,7 +2,6 @@ import type { ManagerOperationsReadModel } from '../api/workspace-snapshot';
 import type { Tables } from '../supabase/database.types';
 import {
   WEEKDAYS,
-  activeServiceKeys,
   clockLabel,
   clockMinutes,
   dateForWeekday,
@@ -10,6 +9,7 @@ import {
   configuredServiceKeys,
   hoursBetweenClocks,
   serviceDefaultHours,
+  serviceKeysWithEvidence,
   weekday,
   type ServiceKey
 } from '../calendar/date.ts';
@@ -584,6 +584,10 @@ export function buildPlanningWeek(input: {
   rows: WeekRow[];
   slotsByKey: Map<string, PlanningGridSlot>;
 } {
+  const serviceKeys = serviceKeysWithEvidence(
+    input.snapshot.services,
+    [...input.draft, ...(input.placementDraft ?? [])].map((shift) => shift.serviceKey)
+  );
   const days: WeekColumn[] = WEEKDAYS.map((label, index) => {
     const date = dateForWeekday(input.weekStart, index + 1);
     return { weekday: index + 1, label, date, today: date === input.today, past: date < input.today };
@@ -603,7 +607,7 @@ export function buildPlanningWeek(input: {
     .map((employee) => {
       let weekHours = 0;
       const cells: WeekCell[] = days.map((day) => {
-        const slots: WeekSlot[] = activeServiceKeys(input.snapshot.services).map((serviceKey) => {
+        const slots: WeekSlot[] = serviceKeys.map((serviceKey) => {
           const key = `${employee.id}|${day.date}|${serviceKey}`;
           const shift =
             input.draft.find(

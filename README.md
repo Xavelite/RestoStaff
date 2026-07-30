@@ -1,8 +1,8 @@
 # Restogogo
 
 Restogogo is a typed SvelteKit restaurant-operations application for Schedule,
-Time & attendance, employee self-service, restaurant and team setup, payroll
-preparation, documents, and PIN-based time clock workflows. It also includes
+Time, employee self-service, restaurant and team setup, payroll handoff,
+documents, and PIN-based time clock workflows. It also includes
 operational team messages, read-only role previews, Web Push notifications, and
 contextual pilot feedback. Reservations is an optional, separately gated track.
 
@@ -48,7 +48,7 @@ described in [`docs/PRODUCTION-READINESS.md`](docs/PRODUCTION-READINESS.md).
 - [`docs/DATABASE.md`](docs/DATABASE.md): baseline, migrations, and verification.
 - [`docs/DATABASE-MIGRATION.md`](docs/DATABASE-MIGRATION.md): existing-project deployment procedure.
 - [`docs/QUALITY.md`](docs/QUALITY.md): tests, browser matrix, and guardrails.
-- [`docs/PAYROLL.md`](docs/PAYROLL.md): payroll-preparation authority and engine quarantine.
+- [`docs/PAYROLL.md`](docs/PAYROLL.md): payroll authority and engine quarantine.
 - [`docs/RESERVATIONS.md`](docs/RESERVATIONS.md): optional booking track and unresolved space model.
 - [`docs/PRODUCTION-READINESS.md`](docs/PRODUCTION-READINESS.md): remaining gates.
 

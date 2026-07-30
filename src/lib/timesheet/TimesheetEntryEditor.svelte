@@ -37,8 +37,8 @@
     reason: string;
   };
 
-  // Content of the Timesheet entry drawer. Owns the manual/correction form, its
-  // client-side validation and the badge-proof view; the page owns the drawer
+  // Content of the Time entry dialog. Owns the manual/correction form, its
+  // client-side validation and the badge-proof view; the shared dialog
   // shell and performs the audited Timesheet mutation through the callbacks.
   let {
     slot,

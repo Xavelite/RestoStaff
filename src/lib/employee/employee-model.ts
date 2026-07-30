@@ -22,6 +22,7 @@ import {
   mondayFor,
   monthLabel,
   serviceDefaultHours,
+  serviceKeysWithEvidence,
   weekLabel,
   type ServiceKey
 } from '../calendar/date.ts';
@@ -254,6 +255,60 @@ export function availabilityForWeek(
   );
 }
 
+function employeeServiceEvidenceKeys(
+  snapshot: EmployeeOperationsReadModel,
+  employeeId: string,
+  from: string,
+  to: string
+): ServiceKey[] {
+  return [
+    ...snapshot.planned_shifts
+      .filter((shift) => {
+        const date = dateForWeekday(shift.week_start, shift.weekday);
+        return shift.employee_id === employeeId && date >= from && date <= to;
+      })
+      .map((shift) => shift.service_key),
+    ...snapshot.time_entries
+      .filter(
+        (entry) =>
+          entry.employee_id === employeeId &&
+          entry.business_date >= from &&
+          entry.business_date <= to &&
+          entry.status !== 'cancelled'
+      )
+      .map((entry) => entry.service_key),
+    ...snapshot.absences
+      .filter(
+        (absence) =>
+          absence.employee_id === employeeId &&
+          absence.start_date <= to &&
+          absence.end_date >= from &&
+          (absence.status === 'pending' || absence.status === 'approved') &&
+          Boolean(absence.service_key)
+      )
+      .map((absence) => absence.service_key ?? ''),
+    ...(snapshot.work_pattern_exceptions ?? [])
+      .filter(
+        (exception) =>
+          exception.employee_id === employeeId &&
+          exception.start_date <= to &&
+          exception.end_date >= from &&
+          (exception.status === 'pending' || exception.status === 'approved') &&
+          Boolean(exception.service_key)
+      )
+      .map((exception) => exception.service_key ?? ''),
+    ...snapshot.employee_availability_slots
+      .filter((slot) => {
+        const date = dateForWeekday(slot.week_start, slot.weekday);
+        return slot.employee_id === employeeId && date >= from && date <= to;
+      })
+      .map((slot) => slot.service_key),
+    ...snapshot.recurring_schedule_slots
+      .filter((slot) => slot.employee_id === employeeId && slot.active)
+      .map((slot) => slot.service_key)
+  ];
+}
+
 export function availabilitySubmissionStatus(
   snapshot: EmployeeOperationsReadModel,
   employeeId: string,
@@ -313,13 +368,26 @@ export function buildEmployeeWeek(input: {
     input.availabilityMode === 'fixed_schedule' && !published
       ? contractShiftsForWeek(input.snapshot, input.employeeId, input.weekStart)
       : publishedShiftsForWeek(input.snapshot, input.employeeId, input.weekStart);
+  const serviceKeys = serviceKeysWithEvidence(
+    input.snapshot.services,
+    [
+      ...shifts.map((shift) => shift.serviceKey),
+      ...employeeServiceEvidenceKeys(
+        input.snapshot,
+        input.employeeId,
+        input.weekStart,
+        addDays(input.weekStart, 6)
+      )
+    ]
+  );
+  const activeServiceKeySet = new Set(activeServiceKeys(input.snapshot.services));
   const days: WeekColumn[] = WEEKDAYS.map((label, index) => {
     const date = dateForWeekday(input.weekStart, index + 1);
     return { weekday: index + 1, label, date, today: date === input.today, past: date < input.today };
   });
   const slotsByKey = new Map<string, EmployeeWeekSlot>();
   for (const day of days) {
-    for (const serviceKey of activeServiceKeys(input.snapshot.services)) {
+    for (const serviceKey of serviceKeys) {
       const key = `${input.employeeId}|${day.date}|${serviceKey}`;
       const shift =
         shifts.find((item) => item.date === day.date && item.serviceKey === serviceKey) ??
@@ -385,6 +453,7 @@ export function buildEmployeeWeek(input: {
         else if (truth.absence?.status === 'pending') state = 'leave_pending';
       }
       const editable =
+        activeServiceKeySet.has(serviceKey) &&
         input.availabilityMode === 'weekly_availability' &&
         day.date >= input.today &&
         !truth.entry &&
@@ -397,9 +466,11 @@ export function buildEmployeeWeek(input: {
               ? 'Tap the shift to request time off.'
               : 'No planned shift.'
             : 'Availability is maintained by your manager.'
-          : day.date < input.today
-            ? 'Past availability is read-only.'
-            : truth.entry
+          : !activeServiceKeySet.has(serviceKey)
+            ? 'This service is archived.'
+            : day.date < input.today
+              ? 'Past availability is read-only.'
+              : truth.entry
                 ? 'Worked time cannot be replaced by availability.'
                 : baseSlot.absence === 'approved'
                   ? 'Approved leave already covers this service.'
@@ -456,7 +527,10 @@ export function employeeMonth(
     selectedDate,
     today,
     slotsForDate: (date) =>
-      activeServiceKeys(snapshot.services).map((serviceKey) => {
+      serviceKeysWithEvidence(
+        snapshot.services,
+        employeeServiceEvidenceKeys(snapshot, employeeId, date, date)
+      ).map((serviceKey) => {
         const presentation = withServiceDraft(
           projectServiceSlot(
             resolveWorkspaceServiceSlot({

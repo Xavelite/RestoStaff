@@ -308,7 +308,7 @@
     <nav class="editor-tabs" aria-label={t('Employee sections')}>
       <button type="button" class:is-active={section === 'people'} onclick={() => (section = 'people')}>{t('Profile')}</button>
       <button type="button" class:is-active={section === 'contract'} onclick={() => (section = 'contract')}>{t('Contract')}</button>
-      {#if canViewFinancials && payrollContext}<button type="button" class:is-active={section === 'payroll'} onclick={() => (section = 'payroll')}>{t('Payroll preparation')}</button>{/if}
+      {#if canViewFinancials && payrollContext}<button type="button" class:is-active={section === 'payroll'} onclick={() => (section = 'payroll')}>{t('Payroll')}</button>{/if}
     </nav>
 
     {#if section === 'people'}

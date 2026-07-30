@@ -89,7 +89,7 @@ test('Documents is one manager module with a deliberate upgrade handoff', async 
 
   assert.match(navigation, /key: 'documents'[\s\S]*?href: '\/documents'[\s\S]*?roles: MANAGER/);
   assert.match(page, /DocumentUploadDialog/);
-  assert.match(page, /DocumentDetailsDrawer/);
+  assert.match(page, /DocumentDetailsDialog/);
   assert.match(page, /submitPilotFeedback/);
   assert.match(page, /confirm pricing before changing the limit/);
   assert.match(security, /begin_restaurant_document_upload\(uuid,text,text,text,bigint,text,uuid,date,date,text,text\)/);

@@ -17,18 +17,6 @@ type PlanningExportField = (typeof PLANNING_EXPORT_FIELDS)[number]['key'];
 
 const FIELD_LABELS = new Map(PLANNING_EXPORT_FIELDS.map((field) => [field.key, field.label]));
 
-export const DEFAULT_PLANNING_EXPORT_COLUMNS: PlanningExportField[] = [
-  'employee',
-  'date',
-  'service',
-  'start',
-  'end',
-  'hours',
-  'area',
-  'position',
-  'note'
-];
-
 export function planningFieldLabel(key: string): string {
   return FIELD_LABELS.get(key as PlanningExportField) ?? key;
 }

@@ -3,18 +3,19 @@
   import { GripVertical } from '@lucide/svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { confirmAction } from '$lib/ui/confirm.svelte';
-  import { defaultAreaColor } from '$lib/ui/position-color';
+  import { buildPositionColorMap, defaultAreaColor } from '$lib/ui/position-color';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { useWorkspaceRestaurantContext } from '$lib/workspace-ui/workspace-context';
   import { restaurantConfig } from '$lib/workspace-ui/workspace-restaurant.svelte';
   import { createTableView } from '$lib/workspace-ui/table-view.svelte';
-  import WorkspaceCellBadge from '$lib/workspace-ui/WorkspaceCellBadge.svelte';
   import WorkspaceColChooser from '$lib/workspace-ui/WorkspaceColChooser.svelte';
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
+  import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
   import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
   import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
   import WorkspaceServiceIcon from '$lib/workspace-ui/WorkspaceServiceIcon.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
+  import WorkspaceToggle from '$lib/workspace-ui/WorkspaceToggle.svelte';
   import {
     duplicateAreaTypeCount,
     nextAreaInstanceNumber,
@@ -31,7 +32,13 @@
   import type { AreaDraft } from './restaurant-model';
 
   type SortKey = 'name' | 'positions' | 'floor' | 'active';
-  type GroupBy = 'none';
+  type GroupBy = 'floor' | 'status' | 'none';
+  type AreaGroup = {
+    key: string;
+    label: string;
+    color: string;
+    rows: AreaDraft[];
+  };
 
   const OPTIONAL_COLUMNS = [
     { key: 'hours', label: 'Default hours' },
@@ -42,7 +49,7 @@
   ] as const;
 
   const view = createTableView<SortKey, GroupBy>({
-    storageKey: 'rst-restaurant-areas-cols-v1',
+    storageKey: 'rst-restaurant-areas-cols-v2',
     columns: OPTIONAL_COLUMNS,
     defaultHidden: ['notes'],
     defaultExcluded: { active: ['archived'] }
@@ -57,6 +64,12 @@
   );
   const activeServices = $derived(
     context?.draft.services.filter((service) => service.active) ?? []
+  );
+  const positionColor = $derived(
+    buildPositionColorMap(
+      context?.draft.jobFunctions ?? [],
+      context?.draft.areas ?? []
+    )
   );
   const shown = (key: string) => view.shown(key);
   const colCount = $derived(
@@ -86,10 +99,21 @@
     }));
   }
 
-  function positionCount(areaId: string): number {
+  function positionsForArea(areaId: string) {
     return context?.draft.jobFunctions.filter(
       (position) => position.active && position.areaIds.includes(areaId)
-    ).length ?? 0;
+    ) ?? [];
+  }
+
+  function positionCount(areaId: string): number {
+    return positionsForArea(areaId).length;
+  }
+
+  function positionSummary(areaId: string): string {
+    const names = positionsForArea(areaId).map((position) => position.name).filter(Boolean);
+    if (!names.length) return t('No linked positions');
+    if (names.length <= 2) return names.join(', ');
+    return `${names.slice(0, 2).join(', ')} +${names.length - 2}`;
   }
 
   function placement(area: AreaDraft): AreaDraft {
@@ -209,13 +233,14 @@
     restaurantConfig.touch();
   }
 
-  async function toggleArea(area: AreaDraft): Promise<void> {
+  async function setAreaActive(area: AreaDraft, active: boolean): Promise<void> {
     if (!context || workspace.isPreview) return;
     if (!persistedAreaIds.has(area.id)) {
-      removeUnsaved(area.id);
+      area.active = active;
+      restaurantConfig.touch();
       return;
     }
-    if (!area.active) {
+    if (active) {
       area.active = true;
       restaurantConfig.touch();
       return;
@@ -242,7 +267,7 @@
   }
 
   function moveArea(targetId: string): void {
-    if (!context || !dragId || dragId === targetId || view.sort) return;
+    if (!context || !dragId || dragId === targetId || view.sort || view.grouping) return;
     const from = context.draft.areas.findIndex((area) => area.id === dragId);
     const to = context.draft.areas.findIndex((area) => area.id === targetId);
     if (from < 0 || to < 0) return;
@@ -260,6 +285,8 @@
     if (view.isExcluded('active', stable.active ? 'active' : 'archived')) return false;
     if (!view.matchesSearch('positions', `${positionCount(stable.id)}`)) return false;
     if (!view.matchesSearch('floor', floorLabel(stable.floorLevel))) return false;
+    if (!view.matchesSearch('hours', hoursSummary(stable))) return false;
+    if (!view.matchesSearch('notes', stable.notes)) return false;
     return view.matchesSearch('name', stable.name);
   }
 
@@ -284,10 +311,39 @@
       })
       .join(' · ');
   }
+
+  function groupedAreas(rows: AreaDraft[]): AreaGroup[] {
+    if (!view.grouping) return [{ key: 'all', label: '', color: '', rows }];
+    const groups = new Map<string, AreaGroup>();
+    for (const area of rows) {
+      const stable = placement(area);
+      const key =
+        view.groupBy === 'floor'
+          ? `floor:${stable.floorLevel ?? 'unset'}`
+          : stable.active
+            ? 'active'
+            : 'archived';
+      const label =
+        view.groupBy === 'floor'
+          ? floorLabel(stable.floorLevel)
+          : t(stable.active ? 'Active' : 'Archived');
+      const color =
+        view.groupBy === 'status'
+          ? stable.active
+            ? 'var(--cl-ok)'
+            : 'var(--cl-muted)'
+          : '';
+      const group = groups.get(key) ?? { key, label, color, rows: [] };
+      group.rows.push(area);
+      groups.set(key, group);
+    }
+    return [...groups.values()].sort((left, right) => left.label.localeCompare(right.label));
+  }
 </script>
 
 {#if context}
   {@const rows = view.ordered(context.draft.areas.filter(matches), sortValue)}
+  {@const groups = groupedAreas(rows)}
   {@const statusValues = [
     { value: 'active', label: t('Active') },
     { value: 'archived', label: t('Archived') }
@@ -330,9 +386,25 @@
                   filterKind="text"
                   searchValue={view.search('name')}
                   onsearch={(value) => view.setSearch('name', value)}
+                  groupValue={view.groupBy}
+                  groupOptions={[
+                    { value: 'none', label: t('No grouping') },
+                    { value: 'floor', label: t('Floor') },
+                    { value: 'status', label: t('Status') }
+                  ]}
+                  ongroupchange={(value) => view.setGroupBy(value as GroupBy)}
                 />
               </th>
-              {#if shown('hours')}<th>{t('Default hours')}</th>{/if}
+              {#if shown('hours')}
+                <th class="has-menu">
+                  <WorkspaceColMenu
+                    label={t('Default hours')}
+                    filterKind="text"
+                    searchValue={view.search('hours')}
+                    onsearch={(value) => view.setSearch('hours', value)}
+                  />
+                </th>
+              {/if}
               {#if shown('positions')}
                 <th class="has-menu">
                   <WorkspaceColMenu
@@ -359,7 +431,16 @@
                   />
                 </th>
               {/if}
-              {#if shown('notes')}<th>{t('Notes')}</th>{/if}
+              {#if shown('notes')}
+                <th class="has-menu">
+                  <WorkspaceColMenu
+                    label={t('Notes')}
+                    filterKind="text"
+                    searchValue={view.search('notes')}
+                    onsearch={(value) => view.setSearch('notes', value)}
+                  />
+                </th>
+              {/if}
               {#if shown('active')}
                 <th class="has-menu">
                   <WorkspaceColMenu
@@ -395,9 +476,22 @@
                 </td>
               </tr>
             {:else}
-              {#each rows as area (area.id)}
-                {@const reorderable = !view.sort}
-                {@const linkedPositions = positionCount(area.id)}
+              {#each groups as group (group.key)}
+                {#if view.grouping}
+                  <WorkspaceGroupRow
+                    colspan={colCount}
+                    label={group.label}
+                    meta={t('{count} areas', { count: group.rows.length })}
+                    color={group.color}
+                    collapsed={view.isCollapsed(group.key)}
+                    ontoggle={() => view.toggleGroup(group.key)}
+                  />
+                {/if}
+                {#if !view.isCollapsed(group.key)}
+                {#each group.rows as area (area.id)}
+                {@const reorderable = !view.sort && !view.grouping}
+                {@const linkedPositionRows = positionsForArea(area.id)}
+                {@const linkedPositions = linkedPositionRows.length}
                 <tr
                   class:is-new={!persistedAreaIds.has(area.id)}
                   draggable={reorderable && !workspace.isPreview}
@@ -412,7 +506,7 @@
                     <button
                       type="button"
                       disabled={!reorderable || workspace.isPreview}
-                      title={reorderable ? t('Drag to reorder') : t('Clear sorting to reorder')}
+                      title={reorderable ? t('Drag to reorder') : t('Clear grouping and sorting to reorder')}
                       aria-label={t('Drag to reorder')}
                     >
                       <GripVertical size={16} />
@@ -507,8 +601,16 @@
                   {/if}
                   {#if shown('positions')}
                     <td>
-                      <span class="cl-linkcount" class:is-zero={!linkedPositions} title={t('{count} positions', { count: linkedPositions })}>
-                        <span class="cl-linkcount__n">{linkedPositions}</span>
+                      <span class="position-stack" class:is-empty={!linkedPositions} title={positionSummary(area.id)}>
+                        {#each linkedPositionRows.slice(0, 3) as position (position.id)}
+                          <WorkspaceAreaIcon
+                            icon={position.iconKey || 'support'}
+                            color={positionColor.get(position.id) ?? area.color}
+                            size={13}
+                            compact
+                          />
+                        {/each}
+                        <span>{positionSummary(area.id)}</span>
                       </span>
                     </td>
                   {/if}
@@ -529,21 +631,26 @@
                     <td><input class="cl-field notes-field" disabled={workspace.isPreview} bind:value={area.notes} oninput={() => restaurantConfig.touch()} /></td>
                   {/if}
                   {#if shown('active')}
-                    <td><WorkspaceCellBadge label={area.active ? 'Active' : 'Archived'} tone={area.active ? 'success' : 'neutral'} icon={area.active ? 'check' : 'minus'} /></td>
+                    <td>
+                      <WorkspaceToggle
+                        checked={area.active}
+                        label={area.active ? 'Active' : 'Archived'}
+                        disabled={workspace.isPreview}
+                        onchange={(active) => void setAreaActive(area, active)}
+                      />
+                    </td>
                   {/if}
                   <td class="menu-cell">
-                    <WorkspaceRowMenu
-                      disabled={workspace.isPreview}
-                      items={[
-                        ...(persistedAreaIds.has(area.id)
-                          ? area.active
-                            ? [{ label: t('Archive'), tone: 'danger' as const, onselect: () => void toggleArea(area) }]
-                            : [{ label: t('Restore'), onselect: () => void toggleArea(area) }]
-                          : [{ label: t('Remove'), tone: 'danger' as const, onselect: () => void toggleArea(area) }])
-                      ]}
-                    />
+                    {#if !persistedAreaIds.has(area.id)}
+                      <WorkspaceRowMenu
+                        disabled={workspace.isPreview}
+                        items={[{ label: t('Remove'), tone: 'danger', onselect: () => removeUnsaved(area.id) }]}
+                      />
+                    {/if}
                   </td>
                 </tr>
+              {/each}
+                {/if}
               {/each}
             {/if}
           </tbody>
@@ -627,13 +734,34 @@
     min-width: 180px;
   }
 
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
+  .position-stack {
+    min-width: 150px;
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+
+  .position-stack :global(.area-icon) {
+    width: 25px;
+    height: 25px;
+    margin-right: -5px;
+    border: 2px solid var(--cl-surface);
+    border-radius: 6px;
+  }
+
+  .position-stack > span {
+    min-width: 0;
+    margin-left: 10px;
     overflow: hidden;
-    clip-path: inset(50%);
+    color: var(--cl-data-text);
+    font-size: 11.5px;
+    text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .position-stack.is-empty > span {
+    margin-left: 0;
+    color: var(--cl-muted);
   }
 
   .cl-grip {

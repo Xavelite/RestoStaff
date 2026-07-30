@@ -20,6 +20,7 @@ export type ReservationSource =
 export type ReservationServiceSetting = {
   restaurant_id: string;
   service_key: string;
+  capacity_mode: 'tables' | 'covers';
   booking_enabled: boolean;
   automatic_confirmation: boolean;
   slot_interval_minutes: number;
@@ -232,6 +233,7 @@ export type AvailabilityResult = {
   available: boolean;
   code: string;
   reason?: string;
+  capacity_mode?: 'tables' | 'covers';
   starts_at?: string;
   ends_at?: string;
   booked_covers?: number;
@@ -328,6 +330,10 @@ export function parseAvailability(value: Json): AvailabilityResult {
     available: data.available === true,
     code: String(data.code ?? ''),
     reason: typeof data.reason === 'string' ? data.reason : undefined,
+    capacity_mode:
+      data.capacity_mode === 'covers' || data.capacity_mode === 'tables'
+        ? data.capacity_mode
+        : undefined,
     starts_at: typeof data.starts_at === 'string' ? data.starts_at : undefined,
     ends_at: typeof data.ends_at === 'string' ? data.ends_at : undefined,
     booked_covers:

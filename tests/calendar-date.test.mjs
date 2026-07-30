@@ -7,6 +7,7 @@ import {
   hoursBetweenClocks,
   mondayFor,
   monthDates,
+  serviceKeysWithEvidence,
   todayInTimezone,
   weekdayDateLabel,
   weekdayLabel
@@ -41,4 +42,18 @@ test('weekday labels respect the active account locale', () => {
   assert.match(weekdayLabel('2026-07-20', 'nl-BE'), /^ma/i);
   assert.match(weekdayDateLabel('2026-07-20', 'fr-BE'), /^lun\.?.*20/i);
   assert.match(weekdayDateLabel('2026-07-20', 'nl-BE'), /^ma\.?.*20/i);
+});
+
+test('archived services return only when the viewed period contains evidence', () => {
+  const services = [
+    { service_key: 'lunch', name: 'Lunch', active: false, sort_order: 10 },
+    { service_key: 'evening', name: 'Evening', active: true, sort_order: 20 }
+  ];
+
+  assert.deepEqual(serviceKeysWithEvidence(services, []), ['evening']);
+  assert.deepEqual(serviceKeysWithEvidence(services, ['lunch']), ['lunch', 'evening']);
+  assert.deepEqual(
+    serviceKeysWithEvidence(services, ['late-night']),
+    ['evening', 'late-night']
+  );
 });

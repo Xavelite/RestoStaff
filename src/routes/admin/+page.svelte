@@ -37,7 +37,7 @@
     ['badge-terminal', 'Badge'],
     ['reservations', 'Reservations (acceptance track)'],
     ['documents', 'Documents'],
-    ['payroll', 'Payroll preparation'],
+    ['payroll', 'Payroll'],
     ['reports', 'Reports (experimental)'],
     ['exports', 'Exports'],
     ['settings', 'Settings'],

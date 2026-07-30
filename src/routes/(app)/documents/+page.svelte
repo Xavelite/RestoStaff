@@ -24,7 +24,7 @@
   import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
   import Dialog from '$lib/components/Dialog.svelte';
   import ActionButton from '$lib/components/ActionButton.svelte';
-  import DocumentDetailsDrawer from '$lib/documents/DocumentDetailsDrawer.svelte';
+  import DocumentDetailsDialog from '$lib/documents/DocumentDetailsDialog.svelte';
   import DocumentUploadDialog from '$lib/documents/DocumentUploadDialog.svelte';
   import {
     downloadRestaurantDocument,
@@ -441,7 +441,7 @@
     onclose={() => (uploadOpen = false)}
     onuploaded={load}
   />
-  <DocumentDetailsDrawer
+  <DocumentDetailsDialog
     open={Boolean(selectedDocument)}
     {restaurantId}
     document={selectedDocument}
@@ -791,7 +791,6 @@
   .upgrade-form small { color: var(--rst-ui-muted); font-size: 9px; font-weight: var(--rst-fw-medium); }
   .upgrade-form textarea { resize: vertical; }
   .upgrade-note { display: flex; gap: 8px; padding: 10px 11px; color: var(--rst-ui-muted); background: var(--rst-ui-surface-field); font-size: 9px; line-height: 1.45; }
-  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
   @media (max-width: 980px) {
     .storage-summary { grid-template-columns: auto auto minmax(120px, 1fr) auto; }
     .plan-copy { display: none; }

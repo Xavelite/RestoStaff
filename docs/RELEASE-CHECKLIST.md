@@ -32,8 +32,7 @@ reports zero errors and warnings, and the static production build succeeds.
 Create disposable fixtures using `supabase/seed/create-role-fixtures.ts`.
 
 - Owner: onboarding, Restaurant, Team private fields, invitation, Schedule
-  publish/revert, Time & attendance approve/reopen, exports, Payroll
-  preparation, and Badge terminal.
+  publish/revert, Time approve/reopen, exports, Payroll, and Badge terminal.
 - Manager: Restaurant and Team operations are available; costs, payroll data
   and payroll exports remain owner-only. Team invitation cannot grant manager
   unless caller is owner.

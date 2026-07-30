@@ -237,9 +237,9 @@ button.glow-card:hover {
   font-size: 12px;
 }
 
-/* -------------------------------------------------- drawer form fields --- */
+/* --------------------------------------------- dialog/editor form fields --- */
 
-/* The app's form language: underline fields, only ever inside Drawers. */
+/* The app's form language for focused dialog and inline editing surfaces. */
 .fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
+  import WorkspaceColumnResizeHandle from './WorkspaceColumnResizeHandle.svelte';
 
   type FilterValue = { value: string; label: string };
 
@@ -21,7 +22,9 @@
     ontoggle,
     onselectall,
     extra,
-    extraActive = false
+    extraActive = false,
+    resizable = true,
+    columnKey = label
   }: {
     label: string;
     labelIcon?: 'people';
@@ -40,6 +43,8 @@
     onselectall?: (on: boolean) => void;
     extra?: Snippet;
     extraActive?: boolean;
+    resizable?: boolean;
+    columnKey?: string;
   } = $props();
 
   let open = $state(false);
@@ -129,6 +134,10 @@
     <button bind:this={trigger} class="colhead__trigger" class:is-active={active} type="button" aria-haspopup="menu" aria-expanded={open} aria-label={t('Filter column')} title={t('Filter column')} onclick={toggleMenu}>
       <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" /></svg>
     </button>
+  {/if}
+
+  {#if resizable}
+    <WorkspaceColumnResizeHandle {columnKey} />
   {/if}
 
   {#if open}

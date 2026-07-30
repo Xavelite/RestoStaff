@@ -630,7 +630,6 @@
                           onclick={() => startInlineEdit(employee, 'email')}
                         >
                           <span>{employee.email || t('Add')}</span>
-                          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 20 4.3-1 10.8-10.8a2.1 2.1 0 0 0-3-3L5.3 16zM14.8 6.5l3 3" /></svg>
                         </button>
                       {/if}
                     </td>{/if}
@@ -658,7 +657,6 @@
                           onclick={() => startInlineEdit(employee, 'phone')}
                         >
                           <span>{employee.phone || t('Add')}</span>
-                          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 20 4.3-1 10.8-10.8a2.1 2.1 0 0 0-3-3L5.3 16zM14.8 6.5l3 3" /></svg>
                         </button>
                       {/if}
                     </td>{/if}
@@ -775,9 +773,7 @@
   .cell-value.employee-name { color: var(--cl-ink); font-weight: var(--rst-fw-medium); }
   .inline-cell { max-width: 260px; min-height: 30px; display: inline-flex; align-items: center; gap: 7px; overflow: hidden; margin: -3px -7px; padding: 4px 7px; border: 1px solid transparent; border-radius: 6px; color: var(--cl-muted); background: transparent; font: inherit; font-size: 13px; line-height: 1.35; text-align: left; cursor: text; transition: color var(--cl-dur) var(--cl-ease), border-color var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease); }
   .inline-cell span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .inline-cell svg { flex: 0 0 auto; opacity: 0; transition: opacity var(--cl-dur) var(--cl-ease); }
   .inline-cell:hover:not(:disabled), .inline-cell:focus-visible { border-color: color-mix(in srgb, var(--cl-accent) 22%, var(--cl-line)); color: var(--cl-ink); background: var(--cl-accent-wash); }
-  .inline-cell:hover:not(:disabled) svg, .inline-cell:focus-visible svg, .inline-cell.is-empty svg { opacity: .72; }
   .inline-cell.is-empty { color: var(--cl-accent); font-size: 12px; font-weight: var(--rst-fw-medium); }
   .inline-cell:disabled { cursor: default; }
   .inline-editor { border-color: var(--cl-accent); background: var(--cl-surface); box-shadow: 0 0 0 2px var(--cl-accent-wash); }

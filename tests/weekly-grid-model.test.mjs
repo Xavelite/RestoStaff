@@ -466,6 +466,92 @@ test('planning weekly grid is employee by seven days by two services', () => {
   assert.equal(model.rows[0].cells[0].slots[0].presentation.card?.label, '12:00–15:00');
 });
 
+test('archived services remain visible wherever operational evidence exists', () => {
+  const modelSnapshot = snapshot({
+    services: [
+      {
+        service_key: 'lunch',
+        name: 'Lunch',
+        active: false,
+        sort_order: 0,
+        metadata: { default_start: '12:00', default_end: '15:00' }
+      },
+      {
+        service_key: 'evening',
+        name: 'Evening',
+        active: true,
+        sort_order: 1,
+        metadata: { default_start: '18:00', default_end: '23:00' }
+      }
+    ],
+    work_weeks: [{ week_start: '2026-06-15', planning_status: 'published' }],
+    planned_shifts: [
+      {
+        id: 'p1',
+        employee_id: 'e1',
+        week_start: '2026-06-15',
+        weekday: 1,
+        service_key: 'lunch',
+        starts_at: '12:00',
+        ends_at: '15:00',
+        area_id: 'a1',
+        job_function_id: 'j1'
+      }
+    ],
+    time_entries: [
+      {
+        id: 't1',
+        employee_id: 'e1',
+        business_date: '2026-06-15',
+        service_key: 'lunch',
+        status: 'closed',
+        clock_in_at: '2026-06-15T10:00:00Z',
+        clock_out_at: '2026-06-15T13:00:00Z'
+      }
+    ]
+  });
+  const shiftDraft = [
+    {
+      employeeId: 'e1',
+      weekday: 1,
+      serviceKey: 'lunch',
+      areaId: 'a1',
+      jobFunctionId: 'j1',
+      startsAt: '12:00',
+      endsAt: '15:00',
+      source: 'published'
+    }
+  ];
+
+  const planning = buildPlanningWeek({
+    snapshot: modelSnapshot,
+    weekStart: '2026-06-15',
+    today: '2026-06-18',
+    draft: shiftDraft
+  });
+  const actuals = buildActualsWeek({
+    snapshot: modelSnapshot,
+    weekStart: '2026-06-15',
+    today: '2026-06-18'
+  });
+  const employee = buildEmployeeWeek({
+    snapshot: modelSnapshot,
+    employeeId: 'e1',
+    weekStart: '2026-06-15',
+    today: '2026-06-18',
+    availability: [],
+    availabilityMode: 'weekly_availability'
+  });
+
+  assert.ok(planning.slotsByKey.has('e1|2026-06-15|lunch'));
+  assert.ok(actuals.slotsByKey.has('e1|2026-06-15|lunch'));
+  assert.equal(employee.slotsByKey.get('e1|2026-06-15|lunch')?.editable, false);
+  assert.equal(
+    employee.slotsByKey.get('e1|2026-06-15|lunch')?.editReason,
+    'This service is archived.'
+  );
+});
+
 test('planning reads a planned shift as valid / attention / conflict against context', () => {
   const plan = { id: 'p1', startsAt: '12:00', endsAt: '15:00', area: 'Dining room' };
   const base = {

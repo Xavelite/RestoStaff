@@ -15,12 +15,14 @@
     areaName = new Map<string, string>(),
     positionName = new Map<string, string>(),
     services = [],
+    compact = false,
     onopen
   }: {
     slots: ActualSlot[];
     areaName?: Map<string, string>;
     positionName?: Map<string, string>;
     services?: ServicePeriod[];
+    compact?: boolean;
     onopen: (key: string) => void;
   } = $props();
 
@@ -106,7 +108,7 @@
 </script>
 
 {#if primary}
-  <button class="attendance-card is-{tone}" type="button" onclick={() => onopen(primary.key)}>
+  <button class="attendance-card is-{tone}" class:is-compact={compact} type="button" onclick={() => onopen(primary.key)}>
     <span class="attendance-card__signal" aria-hidden="true"></span>
     <span class="attendance-card__top">
       <strong>{mainRange}</strong>
@@ -236,6 +238,32 @@
   .attendance-card.is-planned .service-row__range,
   .attendance-card.is-planned .service-row b { color: var(--cl-muted); }
   .attendance-card.is-planned .service-row__icon { color: var(--cl-muted); opacity: .58; }
+  .attendance-card.is-compact {
+    min-height: 60px;
+    align-content: center;
+    gap: 5px;
+  }
+  .attendance-card.is-compact .attendance-card__services { display: none; }
+  .attendance-card.is-compact .attendance-card__summary {
+    font-size: 9px;
+  }
+  @media (max-width: 1180px) {
+    .attendance-card {
+      width: calc(100% - 4px);
+      margin: 2px;
+      padding: 6px;
+    }
+    .attendance-card__top {
+      gap: 2px;
+      padding-right: 6px;
+    }
+    .attendance-card__top strong { font-size: 10px; }
+    .attendance-card__top b { font-size: 8px; }
+    .attendance-card__summary { font-size: 8px; }
+    .service-row { grid-template-columns: 13px minmax(0, 1fr); gap: 3px; }
+    .service-row__range,
+    .service-row > b { display: none; }
+  }
   @keyframes live-pulse {
     50% { opacity: .55; box-shadow: 0 0 0 6px color-mix(in srgb, var(--card-tone) 0%, transparent); }
   }

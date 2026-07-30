@@ -11,7 +11,10 @@
   import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
   import WorkspaceColChooser from '$lib/workspace-ui/WorkspaceColChooser.svelte';
   import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
-  import WorkspaceCellBadge from '$lib/workspace-ui/WorkspaceCellBadge.svelte';
+  import WorkspacePeopleStack, {
+    type WorkspacePerson
+  } from '$lib/workspace-ui/WorkspacePeopleStack.svelte';
+  import WorkspaceToggle from '$lib/workspace-ui/WorkspaceToggle.svelte';
   import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
   import PositionLinkedAreasField, {
     type PositionLinkedAreaOption
@@ -63,6 +66,14 @@
     }
     return map;
   });
+  const employeeName = $derived(
+    new Map(
+      (workspace.team?.employees ?? []).map((employee) => [
+        employee.id,
+        employee.display_name
+      ])
+    )
+  );
   const positionColor = $derived(
     buildPositionColorMap(
       restaurantConfig.draft?.jobFunctions ?? [],
@@ -82,9 +93,9 @@
     { key: 'active', label: 'Status' }
   ] as const;
   const view = createTableView<SortKey, GroupBy>({
-    storageKey: 'rst-restaurant-positions-cols-v3',
+    storageKey: 'rst-restaurant-positions-cols-v4',
     columns: OPTIONAL_COLUMNS,
-    defaultHidden: ['cost'],
+    defaultHidden: [],
     defaultExcluded: { active: ['archived'] }
   });
 
@@ -289,18 +300,21 @@
     return `${labels.slice(0, 2).join(', ')} +${labels.length - 2}`;
   }
 
-  function removeOrTogglePosition(positionId: string) {
+  function removeUnsavedPosition(positionId: string) {
+    const draft = restaurantConfig.draft;
+    if (!draft || workspace.isPreview) return;
+    draft.jobFunctions = draft.jobFunctions.filter((item) => item.id !== positionId);
+    draft.coverage = draft.coverage.filter((item) => item.jobFunctionId !== positionId);
+    restaurantConfig.removePositionPlacement(positionId);
+    restaurantConfig.touch();
+  }
+
+  function setPositionActive(positionId: string, active: boolean) {
     const draft = restaurantConfig.draft;
     if (!draft || workspace.isPreview) return;
     const position = draft.jobFunctions.find((item) => item.id === positionId);
     if (!position) return;
-    if (persistedPositionIds.has(positionId)) {
-      position.active = !position.active;
-    } else {
-      draft.jobFunctions = draft.jobFunctions.filter((item) => item.id !== positionId);
-      draft.coverage = draft.coverage.filter((item) => item.jobFunctionId !== positionId);
-      restaurantConfig.removePositionPlacement(positionId);
-    }
+    position.active = active;
     restaurantConfig.touch();
   }
 
@@ -331,6 +345,15 @@
 
   function placementForPosition(position: PositionRow): PositionRow {
     return restaurantConfig.placementPosition(position);
+  }
+
+  function peopleForPosition(positionId: string): WorkspacePerson[] {
+    return [...(employeesByPosition.get(positionId) ?? [])]
+      .map((employeeId) => ({
+        id: employeeId,
+        name: employeeName.get(employeeId) ?? t('Employee')
+      }))
+      .sort((left, right) => left.name.localeCompare(right.name));
   }
 
   function sortValue(position: PositionRow, key: SortKey): string | number {
@@ -527,20 +550,37 @@
                           onchange={(areaIds) => setPositionAreas(position, areaIds)}
                         />
                       </td>
-                      {#if shown('cost')}<td class="is-num"><input class="cl-field cost" type="number" disabled={workspace.isPreview} min="0" step="0.5" bind:value={position.estimatedHourlyCost} oninput={() => restaurantConfig.touch()} /></td>{/if}
-                      {#if shown('employees')}<td><span class="cl-linkcount" class:is-zero={!headcount} title={t('{count} people', { count: headcount })}><span class="cl-linkcount__n">{headcount}</span></span></td>{/if}
-                      {#if shown('active')}<td><WorkspaceCellBadge label={position.active ? 'Active' : 'Archived'} tone={position.active ? 'success' : 'neutral'} icon={position.active ? 'check' : 'minus'} /></td>{/if}
+                      {#if shown('cost')}
+                        <td class="is-num">
+                          <label class="money-field">
+                            <span>€</span>
+                            <input class="cl-field cost" type="number" inputmode="decimal" disabled={workspace.isPreview} min="0" step="0.01" bind:value={position.estimatedHourlyCost} oninput={() => restaurantConfig.touch()} />
+                            <small>/h</small>
+                          </label>
+                        </td>
+                      {/if}
+                      {#if shown('employees')}
+                        <td>
+                          <WorkspacePeopleStack people={peopleForPosition(position.id)} />
+                        </td>
+                      {/if}
+                      {#if shown('active')}
+                        <td>
+                          <WorkspaceToggle
+                            checked={position.active}
+                            label={position.active ? 'Active' : 'Archived'}
+                            disabled={workspace.isPreview}
+                            onchange={(active) => setPositionActive(position.id, active)}
+                          />
+                        </td>
+                      {/if}
                       <td class="menu-cell">
-                        <WorkspaceRowMenu
-                          disabled={workspace.isPreview}
-                          items={[
-                            ...(persistedPositionIds.has(position.id)
-                              ? position.active
-                                ? [{ label: t('Archive'), tone: 'danger' as const, onselect: () => removeOrTogglePosition(position.id) }]
-                                : [{ label: t('Restore'), onselect: () => removeOrTogglePosition(position.id) }]
-                              : [{ label: t('Remove'), tone: 'danger' as const, onselect: () => removeOrTogglePosition(position.id) }])
-                          ]}
-                        />
+                        {#if !persistedPositionIds.has(position.id)}
+                          <WorkspaceRowMenu
+                            disabled={workspace.isPreview}
+                            items={[{ label: t('Remove'), tone: 'danger', onselect: () => removeUnsavedPosition(position.id) }]}
+                          />
+                        {/if}
                       </td>
                     </tr>
                   {/each}
@@ -555,10 +595,22 @@
 {/if}
 
 <style>
-  .cost { width: 120px; text-align: right; }
+  .money-field {
+    min-width: 112px;
+    display: inline-grid;
+    grid-template-columns: auto minmax(54px, 1fr) auto;
+    align-items: center;
+    gap: 4px;
+    color: var(--cl-ok);
+    font-weight: var(--rst-fw-bold);
+  }
+  .money-field small { color: var(--cl-muted); font-size: 10px; font-weight: var(--rst-fw-medium); }
+  .cost { width: 72px; text-align: right; font-variant-numeric: tabular-nums; }
+  .cost::-webkit-inner-spin-button,
+  .cost::-webkit-outer-spin-button { margin: 0; appearance: none; }
+  .cost { appearance: textfield; }
   .position-identity { min-width: 200px; display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 9px; }
   .position-identity :global(.area-icon) { width: 30px; height: 30px; border-radius: 6px; }
-  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .cl-grip { width: 34px; text-align: center; }
   .cl-grip button { display: inline-grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 5px; background: transparent; color: var(--cl-muted); cursor: grab; }
   .cl-grip button:hover:not(:disabled) { color: var(--cl-ink); background: var(--cl-surface-muted); }

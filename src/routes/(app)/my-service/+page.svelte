@@ -18,7 +18,7 @@
   } from '$lib/calendar/date';
   import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
   import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
-  import EmployeeSlotDrawer from '$lib/employee/EmployeeSlotDrawer.svelte';
+  import EmployeeSlotDialog from '$lib/employee/EmployeeSlotDialog.svelte';
   import {
     employeeSlotActionReason,
     defaultEmployeeTimeOffType,
@@ -50,6 +50,7 @@
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
 
   const snapshot = $derived(workspace.employeeOperations);
+  const activeServiceKeySet = $derived(new Set(activeServiceKeys(snapshot?.services)));
   const employeeId = $derived(workspace.active?.employee_id ?? '');
   const timezone = $derived(
     snapshot?.restaurant_settings.timezone ||
@@ -71,7 +72,7 @@
   let absenceTypeId = $state('');
   let actionComment = $state('');
   let availability = $state<AvailabilityDraft[]>([]);
-  let baseline = $state('');
+  let baseline = $state<AvailabilityDraft[] | null>(null);
   let loadedKey = $state('');
   let saving = $state(false);
   let feedback = $state('');
@@ -130,7 +131,9 @@
   const defaultTimeOffType = $derived(
     snapshot ? defaultEmployeeTimeOffType(snapshot.absence_types) : null
   );
-  const dirty = $derived(JSON.stringify(availability) !== baseline);
+  const dirty = $derived(
+    baseline !== null && JSON.stringify(availability) !== JSON.stringify(baseline)
+  );
   const hasPendingEdits = $derived(dirty || selectedTimeOffSlots.length > 0);
   const canSave = $derived(
     !saving &&
@@ -187,8 +190,9 @@
     if (!snapshot || !employeeId || !weekStart) return;
     const key = `${weekStart}|${snapshot.employee_availability_slots.map((row) => row.updated_at).join()}`;
     if (key === loadedKey) return;
-    availability = availabilityForWeek(snapshot, employeeId, activeWeek);
-    baseline = JSON.stringify(availability);
+    const loadedAvailability = availabilityForWeek(snapshot, employeeId, activeWeek);
+    availability = loadedAvailability;
+    baseline = loadedAvailability.map((slot) => ({ ...slot }));
     loadedKey = key;
     selectedKey = '';
     selectedAvailabilitySlots = [];
@@ -218,13 +222,19 @@
         : item
     );
     selectedAvailabilitySlots = availabilityChanges(
-      JSON.parse(baseline) as AvailabilityDraft[],
+      baseline ?? [],
       availability,
       employeeId
     );
   }
 
   function blockReasonFor(slot: EmployeeWeekSlot, mode: EmployeeSelfServiceMode): string {
+    if (mode === 'availability' && !activeServiceKeySet.has(slot.serviceKey)) {
+      const reason = t('This service is archived.');
+      feedback = reason;
+      feedbackTone = 'warning';
+      return reason;
+    }
     const reason = employeeSlotActionReason({
       truth: slot.truth,
       policy: availabilityMode,
@@ -238,8 +248,8 @@
     return reason;
   }
 
-  // Shared by the direct-tap fast path and the slot Drawer's buttons, so
-  // tapping and opening the Drawer always agree on what is possible.
+  // Shared by the direct-tap fast path and the slot dialog, so both entry
+  // points always agree on what is possible.
   function toggleAvailabilityFor(slot: EmployeeWeekSlot) {
     if (blockReasonFor(slot, 'availability')) return;
     // A direct availability tap owns the slot: drop any draft time-off request
@@ -252,7 +262,7 @@
     feedback = '';
   }
 
-  // The Drawer uses the same two explicit availability choices as the quick
+  // The dialog uses the same two explicit availability choices as the quick
   // tap, so every employee update is operationally unambiguous.
   function chooseAvailabilityFor(slot: EmployeeWeekSlot, state: AvailabilityDraft['state']) {
     if (blockReasonFor(slot, 'availability')) return;
@@ -290,11 +300,11 @@
       requestTimeOffFor(slot);
       return;
     }
-    if (availabilityMode === 'weekly_availability') {
+    if (availabilityMode === 'weekly_availability' && slot.editable) {
       toggleAvailabilityFor(slot);
       return;
     }
-    // Fixed-schedule (CDI/CDD): tapping a shift opens the drawer where the
+    // Fixed-schedule (CDI/CDD): tapping a shift opens the dialog where the
     // employee sets the leave type + note and confirms — no accidental
     // one-tap request.
     openSlotDetails(key);
@@ -305,9 +315,9 @@
     slotDetailsOpen = true;
   }
 
-  function toggleDrawerTimeOff() {
+  function toggleDialogTimeOff() {
     if (!selectedSlot) return;
-    // Confirming from the drawer stages the request (with the chosen type +
+    // Confirming from the dialog stages the request (with the chosen type +
     // note) and closes; the page action bar then submits it. Tapping again on a
     // still-staged slot simply removes it and closes.
     requestTimeOffFor(selectedSlot);
@@ -317,7 +327,7 @@
 
   function clearAvailabilitySelection(revertAvailability = false) {
     if (revertAvailability && baseline && availabilityMode === 'weekly_availability') {
-      availability = JSON.parse(baseline) as AvailabilityDraft[];
+      availability = baseline.map((slot) => ({ ...slot }));
     }
     selectedAvailabilitySlots = [];
   }
@@ -673,7 +683,7 @@
       </section>
     </div>
 
-    <EmployeeSlotDrawer
+    <EmployeeSlotDialog
       open={slotDetailsOpen}
       truth={selectedSlot?.truth ?? null}
       policy={availabilityMode}
@@ -689,7 +699,7 @@
       {saving}
       onclose={() => (slotDetailsOpen = false)}
       onSetAvailability={(state) => selectedSlot && chooseAvailabilityFor(selectedSlot, state)}
-      onRequestTimeOff={toggleDrawerTimeOff}
+      onRequestTimeOff={toggleDialogTimeOff}
       onCancelAbsence={cancelAbsence}
       onCancelChange={cancelWorkPatternException}
     />

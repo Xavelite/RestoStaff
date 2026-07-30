@@ -1,13 +1,12 @@
 <script lang="ts">
   import { page } from '$app/state';
+  import { onMount } from 'svelte';
   import {
     addDays,
-    activeServiceKeys,
     dateForWeekday,
     formatHours,
     hoursBetweenClocks,
     mondayFor,
-    serviceLabel,
     todayInTimezone,
     weekdayDateLabel,
     weekLabel,
@@ -18,22 +17,20 @@
   import { personInitials } from '$lib/ui/person';
   import ActionButton from '$lib/components/ActionButton.svelte';
   import Dialog from '$lib/components/Dialog.svelte';
+  import RosterExportDialog from '$lib/exports/RosterExportDialog.svelte';
+  import type { PreparedExport } from '$lib/exports/export-download';
   import { friendlyError } from '$lib/api/error-messages';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
-  import { getBadgeProofUrl } from '$lib/api/mutations';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
-  import TimesheetEntryEditor from '$lib/timesheet/TimesheetEntryEditor.svelte';
+  import TimesheetEntryDialog from '$lib/timesheet/TimesheetEntryDialog.svelte';
   import {
-    cancelTimesheetEntry,
-    resolveTimesheetLeave,
-    saveTimesheetEntry,
-    setTimesheetWeekStatus,
-    type TimesheetEntryValues
+    setTimesheetWeekStatus
   } from '$lib/timesheet/timesheet-actions';
   import {
     actualSlotsForDate,
+    actualsServiceKeysForWeek,
     actualsStatusForWeek,
     actualsWeekTotals,
     type ActualSlot
@@ -49,7 +46,6 @@
   type GroupMode = 'none' | 'contract' | 'position' | 'status';
 
   const snapshot = $derived(workspace.operations);
-  const serviceKeys = $derived(activeServiceKeys(snapshot?.services));
   const role = $derived(workspace.effectiveRole);
   const timezone = $derived(
     snapshot?.restaurant_settings.timezone ||
@@ -66,6 +62,9 @@
   const today = $derived(todayInTimezone(timezone, currentInstant));
   let weekOffset = $state(0);
   const activeWeek = $derived(addDays(mondayFor(today), weekOffset * 7));
+  const serviceKeys = $derived(
+    snapshot ? actualsServiceKeysForWeek(snapshot, activeWeek) : []
+  );
 
   $effect(() => {
     if (workspace.activeId && role && role !== 'employee') {
@@ -74,6 +73,8 @@
   });
 
   let onlyIssues = $state(false);
+  let compactCards = $state(false);
+  let exportOpen = $state(false);
   let search = $state('');
   let positionId = $state('');
   let employeeSort = $state<'asc' | 'desc'>('asc');
@@ -86,6 +87,15 @@
   let weekReason = $state('');
   let weekPicker = $state<HTMLInputElement>();
   let mobileDate = $state('');
+
+  onMount(() => {
+    compactCards = localStorage.getItem('rst-time-card-density') === 'compact';
+  });
+
+  function toggleCardDensity(): void {
+    compactCards = !compactCards;
+    localStorage.setItem('rst-time-card-density', compactCards ? 'compact' : 'detailed');
+  }
 
   const weekDates = $derived(
     Array.from({ length: 7 }, (_, index) => dateForWeekday(activeWeek, index + 1))
@@ -274,6 +284,50 @@
       .filter((slot): slot is ActualSlot => Boolean(slot && isTimesheetRow(slot)));
   }
 
+  function timesheetRosterFile(): PreparedExport {
+    const employeeIds = Array.from(
+      new Set(slots.filter(isTimesheetRow).map((slot) => slot.employeeId))
+    );
+    const rows = employeeIds
+      .map((employeeId) => {
+        const employeeSlots = slots.filter(
+          (slot) => slot.employeeId === employeeId && isTimesheetRow(slot)
+        );
+        const name = employeeSlots[0]?.employeeName ?? t('Unknown employee');
+        const cells = weekDates.map((date) =>
+          employeeSlots
+            .filter((slot) => slot.date === date)
+            .map((slot) => {
+              const range = slot.actualRange || slot.plannedRange || t(slot.status);
+              const planned =
+                slot.actualRange && slot.plannedRange && slot.actualRange !== slot.plannedRange
+                  ? `\n${t('Planned')} ${slot.plannedRange}`
+                  : '';
+              const assignment = [
+                areaName.get(slot.actualAreaId) ?? '',
+                positionName.get(slot.actualJobFunctionId) ?? ''
+              ].filter(Boolean).join(' · ');
+              return `${range}${planned}${assignment ? `\n${assignment}` : ''}`;
+            })
+            .join('\n')
+        );
+        const total = employeeSlots.reduce((sum, slot) => sum + slot.actualHours, 0);
+        return [name, ...cells, formatHours(total)];
+      })
+      .toSorted((left, right) => String(left[0]).localeCompare(String(right[0])));
+    return {
+      filename: `time-roster-${activeWeek}.xlsx`,
+      title: t('Time roster'),
+      periodLabel: weekLabel(activeWeek, i18n.intlLocale),
+      headers: [
+        t('Employee'),
+        ...weekDates.map((date) => weekdayDateLabel(date, i18n.intlLocale)),
+        t('Total')
+      ],
+      rows
+    };
+  }
+
   const mobileDayIndex = $derived(Math.max(0, weekDates.indexOf(mobileDate)));
   const mobileRows = $derived(
     gridRows
@@ -334,17 +388,6 @@
     });
   }
 
-  function closeEntry(): void {
-    if (saving) return;
-    void unsavedChanges.runOrRequest(() => {
-      selectedKey = '';
-    });
-  }
-
-  function serviceName(slot: ActualSlot): string {
-    return t(serviceLabel(slot.serviceKey, snapshot?.services));
-  }
-
   function openWeekAction(action: 'approve_week' | 'reopen_week') {
     weekAction = action;
     weekReason = '';
@@ -379,82 +422,24 @@
     }
   }
 
-  async function saveEntry(values: TimesheetEntryValues): Promise<boolean> {
-    if (!workspace.activeId || !selectedSlot || saving) return false;
-    saving = true;
-    try {
-      await saveTimesheetEntry({ restaurantId: workspace.activeId, slot: selectedSlot, values });
-      toasts.show(
-        values.isCorrection ? t('Timesheet entry corrected.') : t('Manual timesheet entry added.'),
-        'success'
-      );
-      selectedKey = '';
-      return true;
-    } catch (error) {
-      toasts.show(friendlyError(error), 'danger');
-      return false;
-    } finally {
-      saving = false;
-    }
-  }
-
-  async function cancelEntry(values: { reason: string }): Promise<boolean> {
-    if (!workspace.activeId || !selectedSlot?.entryId || saving) return false;
-    saving = true;
-    try {
-      await cancelTimesheetEntry({
-        restaurantId: workspace.activeId,
-        slot: selectedSlot,
-        reason: values.reason
-      });
-      toasts.show(t('Timesheet entry cancelled and retained in the audit trail.'), 'success');
-      selectedKey = '';
-      return true;
-    } catch (error) {
-      toasts.show(friendlyError(error), 'danger');
-      return false;
-    } finally {
-      saving = false;
-    }
-  }
-
-  async function resolveLeave(action: 'approve' | 'reject'): Promise<boolean> {
-    if (!workspace.activeId || !selectedSlot || saving) return false;
-    saving = true;
-    try {
-      await resolveTimesheetLeave({ restaurantId: workspace.activeId, slot: selectedSlot, action });
-      toasts.show(action === 'approve' ? t('Leave approved.') : t('Leave rejected.'), 'success');
-      selectedKey = '';
-      return true;
-    } catch (error) {
-      toasts.show(friendlyError(error), 'danger');
-      return false;
-    } finally {
-      saving = false;
-    }
-  }
-
-  async function loadProof(): Promise<string> {
-    if (!workspace.activeId || !selectedSlot?.entryId || !selectedSlot.proofEdge) return '';
-    return await getBadgeProofUrl({
-      restaurantId: workspace.activeId,
-      timeEntryId: selectedSlot.entryId,
-      edge: selectedSlot.proofEdge
-    });
-  }
 </script>
 
-<svelte:head><title>{t('Timesheet')} &middot; restogogo</title></svelte:head>
+<svelte:head><title>{t('Time')} &middot; restogogo</title></svelte:head>
 
 <WorkspacePage>
-  <section class="timesheet-panel">
+  <section class="timesheet-panel" class:is-compact={compactCards}>
     <header class="timesheet-head">
       <div class="timesheet-head__left">
-        <label class="review-switch" title={t('Only rows needing attention')}>
-          <span>{t('Review')}</span>
-          <input type="checkbox" role="switch" bind:checked={onlyIssues} />
+        <label class="detail-switch" title={t(compactCards ? 'Show detailed cards' : 'Show compact cards')}>
+          <span>{t('Details')}</span>
+          <input
+            type="checkbox"
+            role="switch"
+            checked={!compactCards}
+            aria-label={t('Show detailed time information')}
+            onchange={toggleCardDensity}
+          />
           <i aria-hidden="true"><b></b></i>
-          {#if totals.missing + totals.conflicts}<em>{totals.missing + totals.conflicts}</em>{/if}
         </label>
       </div>
 
@@ -487,6 +472,9 @@
       </div>
 
       <div class="timesheet-head__right">
+        <button class="icon-btn export-btn" type="button" aria-label={t('Export roster')} title={t('Export roster')} onclick={() => (exportOpen = true)}>
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+        </button>
         <span class="weekpill is-{weekStatus}">
           <span class="weekpill__dot"></span>
           {t(weekStatus === 'open' ? 'Open' : weekStatus === 'approved' ? 'Approved' : 'Locked')}
@@ -586,11 +574,12 @@
                       {/each}
                     </select>
                   </label>
+                  <label class="check"><input type="checkbox" bind:checked={onlyIssues} />{t('Only rows needing attention')}</label>
                 {/snippet}
               </WorkspacePrimaryColMenu>
             </th>
             {#each days as day, index (day.date)}
-              <th class="board__day" class:is-today={day.today} class:is-weekend={index >= 5}>
+              <th class="board__day" class:is-today={day.today} class:is-past={day.past} class:is-weekend={index >= 5}>
                 <div class="board__day-date"><b>{t(day.label)}</b> {Number(day.date.slice(-2))}</div>
                 <div class="board__day-lower">
                   <span class="board__day-people">
@@ -610,7 +599,16 @@
           {#each groupedRows(gridRows) as group (group.key)}
             <tbody>
               {#if groupMode !== 'none'}
-                <WorkspaceGroupRow colspan={days.length + 1} label={group.label} meta={`${group.rows.length} · ${formatHours(group.rows.reduce((sum, row) => sum + row.worked, 0))}`} collapsed={collapsedGroups.includes(group.key)} ontoggle={() => toggleGroup(group.key)} />
+                <WorkspaceGroupRow
+                  colspan={days.length + 1}
+                  label={group.label}
+                  meta={`${group.rows.length} · ${formatHours(group.rows.reduce((sum, row) => sum + row.worked, 0))}`}
+                  liveColumn={days.some((day) => day.today)
+                    ? days.findIndex((day) => day.today) + 1
+                    : -1}
+                  collapsed={collapsedGroups.includes(group.key)}
+                  ontoggle={() => toggleGroup(group.key)}
+                />
               {/if}
               {#if !collapsedGroups.includes(group.key)}
                 {#each group.rows as row (row.id)}
@@ -621,7 +619,12 @@
                       <span class="staff">
                         <span class="cl-avatar" style="--avatar-color:{employeeColor.get(row.id) ?? 'var(--cl-muted)'}">{personInitials(row.name)}</span>
                         <span class="staff__id">
-                          <span class="staff__name"><strong>{row.name}</strong>{#if row.attention}<em>{t('Review')}</em>{/if}</span>
+                          <span class="staff__name">
+                            <strong>{row.name}</strong>
+                            {#if row.attention}
+                              <i class="staff__attention" role="img" aria-label={t('Needs review')} title={t('Needs review')}></i>
+                            {/if}
+                          </span>
                           <span class="staff__hours"><span>{formatHours(row.planned)}</span><i>→</i><b>{formatHours(row.worked)}</b>{#if target}<em>{formatHours(target)} {t('contract')}</em>{/if}</span>
                           {#if row.planned}<span class="staff__meter" class:is-complete={row.worked >= row.planned - 0.01} class:is-over={row.worked > row.planned + 0.01}><i style={`width:${completion}%`}></i></span>{/if}
                         </span>
@@ -629,8 +632,8 @@
                     </td>
                     {#each days as day (day.date)}
                       {@const daySlots = cellSlots(row.id, day.date)}
-                      <td class="board__cell" class:is-past={day.past}>
-                        {#if daySlots.length}<TimesheetDayCard slots={daySlots} {areaName} {positionName} services={snapshot?.services ?? []} onopen={selectEntry} />{/if}
+                      <td class="board__cell" class:is-today={day.today} class:is-past={day.past}>
+                        {#if daySlots.length}<TimesheetDayCard slots={daySlots} {areaName} {positionName} services={snapshot?.services ?? []} compact={compactCards} onopen={selectEntry} />{/if}
                       </td>
                     {/each}
                   </tr>
@@ -644,32 +647,19 @@
   </section>
 </WorkspacePage>
 
-<Dialog
-  open={Boolean(selectedSlot)}
-  title={selectedSlot ? selectedSlot.employeeName : t('Timesheet')}
-  description={selectedSlot
-    ? `${weekdayDateLabel(selectedSlot.date, i18n.intlLocale)} · ${serviceName(selectedSlot)}`
-    : ''}
-  onclose={closeEntry}
->
-  {#if selectedSlot && snapshot && workspace.activeId}
-    <TimesheetEntryEditor
-      slot={selectedSlot}
-      restaurantId={workspace.activeId}
-      {timezone}
-      {editable}
-      jobFunctions={snapshot.job_functions}
-      workAreas={snapshot.work_areas ?? []}
-      services={snapshot.services}
-      adjustments={snapshot.time_entry_adjustments}
-      onsave={saveEntry}
-      oncancel={cancelEntry}
-      onproof={loadProof}
-      onresolveleave={resolveLeave}
-      onfeedback={(message, tone) => toasts.show(message, tone)}
-    />
-  {/if}
-</Dialog>
+<RosterExportDialog
+  open={exportOpen}
+  file={timesheetRosterFile()}
+  onclose={() => (exportOpen = false)}
+/>
+
+<TimesheetEntryDialog
+  slot={selectedSlot}
+  {snapshot}
+  {timezone}
+  {editable}
+  onclose={() => (selectedKey = '')}
+/>
 
 {#snippet weekFooter()}
   <ActionButton label={t('Cancel')} disabled={saving} onclick={() => (weekDialogOpen = false)} />
@@ -750,69 +740,6 @@
   .weekpill.is-open .weekpill__dot { background: var(--cl-attention); }
   .weekpill.is-approved, .weekpill.is-locked { color: var(--cl-ok); border-color: var(--cl-ok-line); background: var(--cl-ok-wash); }
   .weekpill.is-approved .weekpill__dot, .weekpill.is-locked .weekpill__dot { background: var(--cl-ok); }
-  /* --- week grid (shared shape with the Schedule board) ------------------ */
-  .timesheet-grid { max-height: calc(100vh - 228px); border: 1px solid var(--cl-line); border-radius: var(--cl-radius-surface); }
-  .board { min-width: 1220px; table-layout: fixed; border-collapse: separate; border-spacing: 0; }
-  .board thead th { position: sticky; top: 0; z-index: 3; height: 66px; border-bottom: 1px solid var(--cl-line-strong); background: var(--cl-thead); }
-  .board tbody tr { height: 90px; }
-  .board__staff {
-    width: 234px;
-    position: sticky;
-    left: 0;
-    z-index: 1;
-    background: var(--cl-surface);
-  }
-  th.board__staff { z-index: 4; background: var(--cl-thead); }
-  .staff { display: flex; align-items: center; gap: 10px; }
-  .staff__id { display: grid; gap: 1px; min-width: 0; }
-  .staff__id strong { font-weight: var(--rst-fw-medium); }
-  .staff__hours { font-size: 12px; color: var(--cl-muted); font-variant-numeric: tabular-nums; }
-  .staff__hours b { color: var(--cl-ink); font-weight: var(--rst-fw-bold); }
-  .board__day { display: table-cell; padding: 7px 6px; text-align: center; border-left: 1px solid var(--cl-line); }
-  .board__day.is-today { color: var(--cl-accent); }
-  .board__cell {
-    padding: 6px;
-    border-left: 1px solid var(--cl-line);
-    vertical-align: top;
-  }
-  .board__cell.is-past { background: color-mix(in srgb, var(--cl-surface-muted) 60%, transparent); }
-  /* Chips coloured by badge status: worked green, an issue red, a request
-     amber, a day off violet, an unworked planned shift neutral. */
-  .chip {
-    width: 100%;
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 6px;
-    margin-bottom: 4px;
-    padding: 6px 9px;
-    border: 1px solid transparent;
-    border-radius: 3px;
-    font: inherit;
-    font-variant-numeric: tabular-nums;
-    text-align: left;
-    cursor: pointer;
-    transition: border-color var(--cl-dur) var(--cl-ease);
-  }
-  .chip:hover { border-color: currentColor; box-shadow: 0 1px 4px color-mix(in srgb, currentColor 16%, transparent); }
-  .chip__time { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: var(--rst-fw-bold); }
-  .chip__hours { font-size: 12px; opacity: 0.75; }
-  .chip.is-worked { color: var(--cl-ok); background: var(--cl-ok-wash); border-color: var(--cl-ok-line); }
-  .chip.is-issue { color: var(--cl-problem); background: var(--cl-problem-wash); border-color: var(--cl-problem-line); }
-  .chip.is-pending { color: var(--cl-attention); background: var(--cl-attention-wash); border-color: var(--cl-attention-line); }
-  .chip.is-off { color: var(--cl-evening); background: var(--cl-evening-wash); border-color: color-mix(in srgb, var(--cl-evening) 24%, var(--cl-line)); }
-  .chip.is-muted, .chip.is-planned { color: var(--cl-muted); background: var(--cl-surface-muted); border-color: var(--cl-line); }
-  .chip__live {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--cl-ok);
-    animation: chip-pulse 1.8s var(--cl-ease) infinite;
-  }
-  @keyframes chip-pulse {
-    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(var(--cl-ok-rgb), 0.4); }
-    50% { opacity: 0.65; box-shadow: 0 0 0 4px rgba(var(--cl-ok-rgb), 0); }
-  }
   .weekform {
     display: grid;
     gap: 14px;
@@ -834,19 +761,7 @@
     line-height: 1.6;
   }
 
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-
-  /* Shared workplace shell: the same weekly hierarchy used by Planning. */
+  /* Shared workspace shell: the same weekly hierarchy used by Schedule. */
   .timesheet-panel { position: relative; display: grid; gap: 0; }
   .timesheet-head {
     position: relative;
@@ -904,7 +819,11 @@
     cursor: pointer;
   }
   .icon-btn:hover { color: var(--cl-ink); background: var(--cl-surface-muted); }
-  .review-switch {
+  .export-btn {
+    border: 1px solid var(--cl-line-strong);
+    border-radius: 6px;
+  }
+  .detail-switch {
     min-height: 30px;
     display: inline-flex;
     align-items: center;
@@ -915,8 +834,8 @@
     cursor: pointer;
     user-select: none;
   }
-  .review-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-  .review-switch > i {
+  .detail-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  .detail-switch > i {
     width: 32px;
     height: 18px;
     position: relative;
@@ -925,7 +844,7 @@
     border-radius: 999px;
     background: var(--cl-surface-muted);
   }
-  .review-switch > i b {
+  .detail-switch > i b {
     width: 12px;
     height: 12px;
     position: absolute;
@@ -936,21 +855,8 @@
     box-shadow: 0 1px 2px rgb(15 23 42 / .2);
     transition: transform var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease);
   }
-  .review-switch input:checked + i { border-color: var(--cl-problem-line); background: var(--cl-problem-wash); }
-  .review-switch input:checked + i b { background: var(--cl-problem); transform: translateX(14px); }
-  .review-switch em {
-    min-width: 18px;
-    height: 18px;
-    display: grid;
-    place-items: center;
-    padding: 0 5px;
-    border: 1px solid var(--cl-problem-line);
-    border-radius: 999px;
-    background: var(--cl-problem-wash);
-    color: var(--cl-problem);
-    font-size: 9px;
-    font-style: normal;
-  }
+  .detail-switch input:checked + i { border-color: color-mix(in srgb, var(--cl-accent) 54%, var(--cl-line)); background: color-mix(in srgb, var(--cl-accent) 18%, var(--cl-surface)); }
+  .detail-switch input:checked + i b { background: var(--cl-accent); transform: translateX(14px); }
   .approve-btn {
     min-height: 36px;
     padding: 7px 15px;
@@ -977,7 +883,7 @@
   }
   .timesheet-wrap .board {
     width: 100%;
-    min-width: 1270px;
+    min-width: 860px;
     border-spacing: 0;
     table-layout: fixed;
     border-collapse: separate;
@@ -1000,7 +906,7 @@
     vertical-align: middle;
   }
   .timesheet-wrap .board__staff {
-    width: 230px;
+    width: 180px;
     position: sticky;
     left: 0;
     z-index: 4;
@@ -1033,15 +939,42 @@
   .board__day-hours em { color: var(--cl-ok); font-style: normal; }
   .board__day-lower small { grid-column: 1 / -1; color: var(--cl-ok); font-size: 8px; }
   .board__day-lower small.is-problem { color: var(--cl-problem); }
-  .timesheet-wrap .board__day.is-today { color: var(--cl-accent); background: var(--cl-accent-wash); }
+  .timesheet-wrap .board__day.is-today { color: var(--cl-accent); background: color-mix(in srgb, var(--cl-accent) 10%, var(--cl-thead)); }
+  .timesheet-wrap .board__day.is-today,
+  .timesheet-wrap .board__cell.is-today {
+    box-shadow: inset var(--cl-live-marker-width) 0 0 var(--cl-live-marker);
+  }
+  .timesheet-wrap .board__day.is-past:not(.is-today) {
+    background-color: color-mix(in srgb, var(--cl-surface-muted) 68%, var(--cl-thead));
+    background-image: repeating-linear-gradient(
+      135deg,
+      transparent 0 8px,
+      color-mix(in srgb, var(--cl-muted) 7%, transparent) 8px 9px
+    );
+  }
   .timesheet-wrap .board__day.is-weekend:not(.is-today) { background: color-mix(in srgb, var(--cl-surface-muted) 58%, var(--cl-thead)); }
   .timesheet-wrap .board__cell { position: relative; border-left: 1px solid var(--cl-grid-line); vertical-align: top; }
-  .timesheet-wrap .board__cell.is-past { background: color-mix(in srgb, var(--cl-surface-muted) 68%, var(--cl-surface)); }
+  .timesheet-wrap .board__cell.is-past {
+    background-color: color-mix(in srgb, var(--cl-surface-muted) 68%, var(--cl-surface));
+  }
+  .timesheet-wrap .board__cell.is-past::after {
+    content: '';
+    position: absolute;
+    z-index: 6;
+    inset: 0;
+    pointer-events: none;
+    background-image: repeating-linear-gradient(
+      135deg,
+      transparent 0 8px,
+      color-mix(in srgb, var(--cl-muted) 9%, transparent) 8px 9px
+    );
+  }
+  .timesheet-panel.is-compact .timesheet-wrap .board td { height: 70px; }
   .timesheet-wrap .staff { display: flex; align-items: center; gap: 10px; padding: 10px 14px; }
   .timesheet-wrap .staff__id { min-width: 0; flex: 1; display: grid; gap: 3px; }
   .staff__name { min-width: 0; display: flex; align-items: center; gap: 7px; }
   .staff__name strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-  .staff__name em { padding: 2px 5px; border: 1px solid var(--cl-problem-line); border-radius: 999px; color: var(--cl-problem); background: var(--cl-problem-wash); font-size: 8px; font-style: normal; text-transform: uppercase; }
+  .staff__attention { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--cl-problem); box-shadow: 0 0 0 3px var(--cl-problem-wash); }
   .timesheet-wrap .staff__hours { display: flex; align-items: baseline; gap: 5px; color: var(--cl-muted); font-size: 10.5px; }
   .timesheet-wrap .staff__hours i { color: var(--cl-line-strong); font-style: normal; }
   .timesheet-wrap .staff__hours b { color: var(--cl-ok); }

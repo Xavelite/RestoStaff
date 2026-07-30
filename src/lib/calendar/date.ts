@@ -69,6 +69,28 @@ export function activeServiceKeys(
   return activeServicePeriods(services).map((service) => service.service_key);
 }
 
+/**
+ * Active services define new work. Inactive services return only when the
+ * period still contains a shift, badge entry or other durable evidence for
+ * them, so archiving configuration never hides operational history.
+ */
+export function serviceKeysWithEvidence(
+  services: readonly ServicePeriod[] | null | undefined,
+  evidenceKeys: Iterable<string>
+): ServiceKey[] {
+  const visible = new Set(activeServiceKeys(services));
+  for (const key of evidenceKeys) {
+    if (key.trim()) visible.add(key);
+  }
+  const configured = configuredServiceKeys(services);
+  const ordered = configured.filter((key) => visible.has(key));
+  const configuredSet = new Set(configured);
+  const unknown = [...visible]
+    .filter((key) => !configuredSet.has(key))
+    .sort((left, right) => left.localeCompare(right));
+  return [...ordered, ...unknown];
+}
+
 export function serviceDefaultHours(
   serviceKey: ServiceKey,
   services?: readonly ServicePeriod[] | null

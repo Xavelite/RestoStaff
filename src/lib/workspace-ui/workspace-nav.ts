@@ -30,7 +30,7 @@ export type WorkspaceModule = {
   /** Utility modules are separated from the everyday operational navigation. */
   utility?: boolean;
   /** Visual grouping for the manager sidebar. */
-  navSection?: 'home' | 'setup' | 'operations' | 'reservations' | 'payroll' | 'reports' | 'employee';
+  navSection?: 'home' | 'setup' | 'operations' | 'payroll' | 'records' | 'reports' | 'employee';
   subNav?: WorkspaceSubNavItem[];
 };
 
@@ -58,7 +58,7 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     key: 'home',
     href: '/home',
     label: 'Home',
-    summary: 'Your modules and what needs attention today',
+    summary: 'Every restaurant module in one place',
     icon: 'home',
     roles: MANAGER,
     navSection: 'home'
@@ -73,13 +73,14 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     navSection: 'operations',
     subNav: [
       { href: '/schedule', label: 'Roster' },
+      { href: '/schedule/calendar', label: 'Calendar' },
       { href: '/schedule/history', label: 'History' }
     ]
   },
   {
     key: 'time',
     href: '/timesheet',
-    label: 'Time & attendance',
+    label: 'Time',
     summary: 'Clock-ins, corrections and week approval',
     icon: 'time',
     roles: MANAGER,
@@ -127,7 +128,7 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     summary: 'Contracts, certificates and restaurant records',
     icon: 'documents',
     roles: MANAGER,
-    navSection: 'setup'
+    navSection: 'records'
   },
   {
     key: 'inventory',
@@ -146,7 +147,7 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     summary: 'Bookings, covers, tables and service demand',
     icon: 'reservations',
     roles: MANAGER,
-    navSection: 'reservations',
+    navSection: 'operations',
     subNav: [
       { href: '/reservations', label: 'Live' },
       { href: '/reservations/bookings', label: 'Bookings' },
@@ -209,7 +210,7 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     key: 'payroll',
     href: '/payroll/employees',
     aliases: ['/payroll'],
-    label: 'Payroll preparation',
+    label: 'Payroll',
     summary: 'Employment data and social-secretariat readiness',
     icon: 'payroll',
     roles: OWNER,
@@ -246,7 +247,7 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     summary: 'Operational files for planning, worked time and payroll handoff',
     icon: 'exports',
     roles: MANAGER,
-    navSection: 'reports'
+    navSection: 'records'
   },
   {
     key: 'settings',
@@ -285,16 +286,16 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
 
 const MODULE_ORDER = [
   'home',
+  'restaurant',
+  'team',
   'schedule',
   'time',
   'reservations',
-  'team',
-  'reports',
-  'exports',
-  'documents',
-  'restaurant',
   'badge-terminal',
   'payroll',
+  'documents',
+  'exports',
+  'reports',
   'settings',
   'inventory',
   'recipes',
@@ -311,6 +312,9 @@ export function moduleIsEntitled(
   moduleKey: string,
   entitlements?: ModuleEntitlements
 ): boolean {
+  if (WORKSPACE_MODULES.some((module) => module.key === moduleKey && module.placeholder)) {
+    return true;
+  }
   if (!entitlements) return true;
   const state = entitlements[moduleKey];
   return state === 'enabled' || state === 'preview';
