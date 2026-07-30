@@ -6199,15 +6199,328 @@ Object.assign(dutch, {
   'to review': 'te controleren'
 });
 
-// Optional workspace companion.
+// Optional contextual workspace companion.
 Object.assign(french, {
   'Call Popcorn': 'Appeler Popcorn',
   'Hide Popcorn': 'Masquer Popcorn',
-  'Make Popcorn pop': 'Faire éclater le pop-corn'
+  'Hear a Popcorn note': 'Écouter une note de Popcorn',
+  'Hear what Popcorn spotted': 'Écouter ce que Popcorn a repéré',
+  'Read Popcorn note aloud': 'Lire la note de Popcorn à voix haute',
+  'Live right now': 'En direct',
+  'Worth a look': 'À vérifier',
+  'Quick tip': 'Conseil rapide',
+  'Nobody is clocked in at this moment.': 'Personne n’est pointé pour le moment.',
+  '{count} people are clocked in.': '{count} personnes sont actuellement pointées.',
+  '{count} time-off requests may affect this week.':
+    '{count} demandes de congé peuvent affecter cette semaine.',
+  'Home is your module map; open a tile for the working detail.':
+    'L’accueil est la carte de vos modules ; ouvrez une tuile pour accéder au détail.',
+  "This week's schedule has unpublished changes.":
+    'Le planning de cette semaine contient des modifications non publiées.',
+  'Schedule published': 'Planning publié',
+  'Employees can see {count} planned services this week.':
+    'Les employés voient {count} services planifiés cette semaine.',
+  'Schedule in draft': 'Planning en brouillon',
+  '{count} planned services are still private this week.':
+    '{count} services planifiés sont encore privés cette semaine.',
+  'Planning signal': 'Signal de planning',
+  '{count} time-off requests are waiting and may affect the schedule.':
+    '{count} demandes de congé sont en attente et peuvent affecter le planning.',
+  'Employees only see the published plan, never your private draft.':
+    'Les employés voient uniquement le planning publié, jamais votre brouillon privé.',
+  'Calendar lens': 'Vue calendrier',
+  'Open a day to inspect and edit its schedule without leaving the calendar.':
+    'Ouvrez un jour pour consulter et modifier son planning sans quitter le calendrier.',
+  'Calendar edits still follow the same draft and publish rules as the roster.':
+    'Les modifications du calendrier suivent les mêmes règles de brouillon et de publication que la grille.',
+  'Audit trail': 'Journal d’audit',
+  'History records saved, published and reverted schedule decisions.':
+    'L’historique consigne les décisions de planning enregistrées, publiées et annulées.',
+  '{count} time records need review this week.':
+    '{count} enregistrements de temps doivent être vérifiés cette semaine.',
+  '{count} people are still clocked in.': '{count} personnes sont encore pointées.',
+  'Week in hours': 'Semaine en heures',
+  '{actual} worked hours are recorded against {planned} planned.':
+    '{actual} heures prestées sont enregistrées pour {planned} heures planifiées.',
+  'Open a card to review badge times, breaks and corrections together.':
+    'Ouvrez une carte pour vérifier ensemble les pointages, pauses et corrections.',
+  'Service is live': 'Service en cours',
+  '{count} people are clocked in right now.':
+    '{count} personnes sont pointées en ce moment.',
+  'Live monitor': 'Suivi en direct',
+  'No clock-in is open right now.': 'Aucun pointage n’est ouvert actuellement.',
+  "Open a person here to inspect today's evidence without leaving Live.":
+    'Ouvrez une personne ici pour consulter les données du jour sans quitter le suivi en direct.',
+  'Open a day to compare planned work, badges and corrections in place.':
+    'Ouvrez un jour pour comparer sur place planning, pointages et corrections.',
+  'Attention badges count records that still need a manager decision.':
+    'Les badges d’attention comptent les enregistrements qui nécessitent encore une décision.',
+  'Terminal roster': 'Équipe de la pointeuse',
+  '{count} active people belong to this workspace.':
+    '{count} personnes actives appartiennent à cet espace.',
+  'A badge PIN authorizes terminal actions; it never signs someone into the app.':
+    'Un code PIN autorise les actions sur la pointeuse ; il ne connecte jamais à l’application.',
+  'Evidence first': 'Les données d’abord',
+  'Reports explain patterns; Schedule and Time remain the source for operational changes.':
+    'Les rapports expliquent les tendances ; Planning et Temps restent la source des changements opérationnels.',
+  'Payroll setup': 'Configuration de la paie',
+  '{ready} of {total} active people have payroll details.':
+    '{ready} personnes actives sur {total} ont leurs données de paie.',
+  'Approve worked time before preparing the social-secretariat handoff.':
+    'Approuvez le temps presté avant de préparer la transmission au secrétariat social.',
+  'Contract setup': 'Configuration des contrats',
+  '{ready} of {total} active people have a current contract.':
+    '{ready} personnes actives sur {total} ont un contrat en cours.',
+  'Click anywhere in an editable cell, not only its text, to update it.':
+    'Cliquez n’importe où dans une cellule modifiable, pas seulement sur son texte.',
+  'App access': 'Accès à l’application',
+  '{active} people can sign in; {pending} invitations are pending.':
+    '{active} personnes peuvent se connecter ; {pending} invitations sont en attente.',
+  'Disabling access preserves employee history and badge records.':
+    'Désactiver l’accès conserve l’historique de l’employé et ses pointages.',
+  'Payroll details': 'Données de paie',
+  '{ready} of {total} active people have a payroll profile.':
+    '{ready} personnes actives sur {total} ont un profil de paie.',
+  'Decision waiting': 'Décision en attente',
+  '{count} time-off requests are waiting for a decision.':
+    '{count} demandes de congé attendent une décision.',
+  'No time-off request is waiting for a decision.':
+    'Aucune demande de congé n’attend de décision.',
+  'Team pulse': 'État de l’équipe',
+  '{active} active people; {pending} invitations are pending.':
+    '{active} personnes actives ; {pending} invitations sont en attente.',
+  'New rows stay highlighted until the shared Team workspace is saved.':
+    'Les nouvelles lignes restent surlignées jusqu’à l’enregistrement de l’espace Équipe.',
+  'Area map': 'Carte des zones',
+  '{areas} active areas span {floors} floor levels.':
+    '{areas} zones actives sont réparties sur {floors} niveaux.',
+  'Floor levels group the list and keep operational areas separate from reservation rooms.':
+    'Les niveaux regroupent la liste et séparent les zones opérationnelles des salles de réservation.',
+  'Position map': 'Carte des postes',
+  '{linked} of {total} active positions are linked to an area.':
+    '{linked} postes actifs sur {total} sont liés à une zone.',
+  'Area links guide planning defaults while still allowing another assignment.':
+    'Les liens de zone guident le planning par défaut tout en permettant une autre affectation.',
+  'Staffing rules': 'Règles d’effectif',
+  '{count} active rules define minimum service cover.':
+    '{count} règles actives définissent l’effectif minimum du service.',
+  'A weekday-specific staffing rule wins over the Every day fallback.':
+    'Une règle propre à un jour prévaut sur la règle de secours Tous les jours.',
+  'Restaurant setup': 'Configuration du restaurant',
+  '{areas} areas, {positions} positions and {services} service periods are active.':
+    '{areas} zones, {positions} postes et {services} périodes de service sont actifs.',
+  '{count} restaurant setup checks are still incomplete.':
+    '{count} contrôles de configuration du restaurant sont encore incomplets.',
+  'Address suggestions appear while you type; opening hours define when services can run.':
+    'Les adresses sont suggérées pendant la saisie ; les horaires définissent quand les services peuvent fonctionner.',
+  'Your week': 'Votre semaine',
+  'You have {count} published services this week.':
+    'Vous avez {count} services publiés cette semaine.',
+  '{count} approved time-off periods overlap this week.':
+    '{count} périodes de congé approuvées chevauchent cette semaine.',
+  'Your published schedule, availability and approved time off stay together here.':
+    'Votre planning publié, vos disponibilités et vos congés approuvés sont réunis ici.',
+  'Clock still open': 'Pointage encore ouvert',
+  '{count} clock-ins do not have a clock-out yet.':
+    '{count} pointages d’entrée n’ont pas encore de pointage de sortie.',
+  'Your time': 'Votre temps',
+  '{count} worked entries are recorded in this view.':
+    '{count} prestations sont enregistrées dans cette vue.',
+  'Open a day to inspect badge times, breaks and any correction.':
+    'Ouvrez un jour pour consulter les pointages, les pauses et les corrections.',
+  'Floor plans': 'Plans de salle',
+  'Reservation rooms and tables stay separate from operational work areas.':
+    'Les salles et tables de réservation restent séparées des zones de travail opérationnelles.',
+  'Reservation mode': 'Mode de réservation',
+  'Choose table assignment or a simple cover limit to match how the restaurant seats guests.':
+    'Choisissez l’attribution de tables ou une simple limite de couverts selon l’accueil du restaurant.',
+  'Online booking': 'Réservation en ligne',
+  'Public availability still follows the restaurant reservation settings.':
+    'La disponibilité publique respecte toujours les paramètres de réservation du restaurant.',
+  'Service flow': 'Flux du service',
+  "Live follows today's arrivals; Bookings keeps the complete reservation list.":
+    'Le direct suit les arrivées du jour ; Réservations conserve la liste complète.',
+  'Cover-based mode works when tables are assigned only as guests arrive.':
+    'Le mode par couverts convient lorsque les tables sont attribuées à l’arrivée des clients.',
+  'Document watch': 'Suivi des documents',
+  'Expiry attention catches files due within 30 days.':
+    'Le suivi d’expiration repère les fichiers arrivant à échéance dans les 30 jours.',
+  'Archived records stay in the audit trail after their stored file is removed.':
+    'Les enregistrements archivés restent dans le journal après suppression du fichier stocké.',
+  'Export preview': 'Aperçu de l’export',
+  'Choose the period, format and columns together; drag preview headers to reorder them.':
+    'Choisissez ensemble période, format et colonnes ; faites glisser les en-têtes pour les réordonner.',
+  'Schedule, worked time and payroll handoff each use their own file layout.':
+    'Planning, temps presté et transmission de paie utilisent chacun leur propre mise en page.',
+  'Time-off policy': 'Politique de congés',
+  'These types define what employees can request; archive only options no longer in use.':
+    'Ces types définissent ce que les employés peuvent demander ; archivez uniquement les options inutilisées.',
+  'Popcorn is listening': 'Popcorn vous écoute',
+  'Open a workspace module and I will surface its useful signals here.':
+    'Ouvrez un module et je vous présenterai ici ses signaux utiles.',
+  'Preview mode': 'Mode aperçu',
+  'Explore this role freely; changes stay disabled while preview is active.':
+    'Explorez librement ce rôle ; les modifications restent désactivées pendant l’aperçu.'
 });
 
 Object.assign(dutch, {
   'Call Popcorn': 'Roep Popcorn',
   'Hide Popcorn': 'Verberg Popcorn',
-  'Make Popcorn pop': 'Laat de popcorn poffen'
+  'Hear a Popcorn note': 'Luister naar een bericht van Popcorn',
+  'Hear what Popcorn spotted': 'Luister naar wat Popcorn heeft opgemerkt',
+  'Read Popcorn note aloud': 'Lees het bericht van Popcorn voor',
+  'Live right now': 'Nu live',
+  'Worth a look': 'Even nakijken',
+  'Quick tip': 'Snelle tip',
+  'Nobody is clocked in at this moment.': 'Niemand is momenteel ingeklokt.',
+  '{count} people are clocked in.': '{count} mensen zijn momenteel ingeklokt.',
+  '{count} time-off requests may affect this week.':
+    '{count} verlofaanvragen kunnen deze week beïnvloeden.',
+  'Home is your module map; open a tile for the working detail.':
+    'Start is je modulekaart; open een tegel voor de werkdetails.',
+  "This week's schedule has unpublished changes.":
+    'De planning van deze week bevat ongepubliceerde wijzigingen.',
+  'Schedule published': 'Planning gepubliceerd',
+  'Employees can see {count} planned services this week.':
+    'Medewerkers zien deze week {count} geplande diensten.',
+  'Schedule in draft': 'Planning in concept',
+  '{count} planned services are still private this week.':
+    '{count} geplande diensten zijn deze week nog privé.',
+  'Planning signal': 'Planningssignaal',
+  '{count} time-off requests are waiting and may affect the schedule.':
+    '{count} verlofaanvragen wachten en kunnen de planning beïnvloeden.',
+  'Employees only see the published plan, never your private draft.':
+    'Medewerkers zien alleen de gepubliceerde planning, nooit je privéconcept.',
+  'Calendar lens': 'Kalenderweergave',
+  'Open a day to inspect and edit its schedule without leaving the calendar.':
+    'Open een dag om de planning te bekijken en te wijzigen zonder de kalender te verlaten.',
+  'Calendar edits still follow the same draft and publish rules as the roster.':
+    'Kalenderwijzigingen volgen dezelfde concept- en publicatieregels als het rooster.',
+  'Audit trail': 'Auditlogboek',
+  'History records saved, published and reverted schedule decisions.':
+    'Geschiedenis registreert opgeslagen, gepubliceerde en teruggedraaide planningsbeslissingen.',
+  '{count} time records need review this week.':
+    '{count} tijdsregistraties moeten deze week worden nagekeken.',
+  '{count} people are still clocked in.': '{count} mensen zijn nog ingeklokt.',
+  'Week in hours': 'Week in uren',
+  '{actual} worked hours are recorded against {planned} planned.':
+    '{actual} gewerkte uren zijn geregistreerd tegenover {planned} geplande.',
+  'Open a card to review badge times, breaks and corrections together.':
+    'Open een kaart om prikmomenten, pauzes en correcties samen te bekijken.',
+  'Service is live': 'Dienst is bezig',
+  '{count} people are clocked in right now.': '{count} mensen zijn nu ingeklokt.',
+  'Live monitor': 'Live opvolging',
+  'No clock-in is open right now.': 'Er staat nu geen inklokmoment open.',
+  "Open a person here to inspect today's evidence without leaving Live.":
+    'Open hier een persoon om de gegevens van vandaag te bekijken zonder Live te verlaten.',
+  'Open a day to compare planned work, badges and corrections in place.':
+    'Open een dag om planning, prikmomenten en correcties ter plaatse te vergelijken.',
+  'Attention badges count records that still need a manager decision.':
+    'Aandachtsbadges tellen registraties waarvoor nog een managersbeslissing nodig is.',
+  'Terminal roster': 'Terminalteam',
+  '{count} active people belong to this workspace.':
+    '{count} actieve mensen behoren tot deze werkruimte.',
+  'A badge PIN authorizes terminal actions; it never signs someone into the app.':
+    'Een badgepincode bevestigt terminalacties; ze meldt niemand aan in de app.',
+  'Evidence first': 'Eerst de gegevens',
+  'Reports explain patterns; Schedule and Time remain the source for operational changes.':
+    'Rapporten verklaren patronen; Planning en Tijd blijven de bron voor operationele wijzigingen.',
+  'Payroll setup': 'Looninstellingen',
+  '{ready} of {total} active people have payroll details.':
+    '{ready} van {total} actieve mensen hebben loongegevens.',
+  'Approve worked time before preparing the social-secretariat handoff.':
+    'Keur gewerkte tijd goed voordat je de overdracht naar het sociaal secretariaat voorbereidt.',
+  'Contract setup': 'Contractinstellingen',
+  '{ready} of {total} active people have a current contract.':
+    '{ready} van {total} actieve mensen hebben een lopend contract.',
+  'Click anywhere in an editable cell, not only its text, to update it.':
+    'Klik eender waar in een bewerkbare cel, niet alleen op de tekst.',
+  'App access': 'App-toegang',
+  '{active} people can sign in; {pending} invitations are pending.':
+    '{active} mensen kunnen aanmelden; {pending} uitnodigingen wachten.',
+  'Disabling access preserves employee history and badge records.':
+    'Toegang uitschakelen bewaart de medewerkershistoriek en prikregistraties.',
+  'Payroll details': 'Loongegevens',
+  '{ready} of {total} active people have a payroll profile.':
+    '{ready} van {total} actieve mensen hebben een loonprofiel.',
+  'Decision waiting': 'Beslissing wacht',
+  '{count} time-off requests are waiting for a decision.':
+    '{count} verlofaanvragen wachten op een beslissing.',
+  'No time-off request is waiting for a decision.':
+    'Er wacht geen verlofaanvraag op een beslissing.',
+  'Team pulse': 'Teamstatus',
+  '{active} active people; {pending} invitations are pending.':
+    '{active} actieve mensen; {pending} uitnodigingen wachten.',
+  'New rows stay highlighted until the shared Team workspace is saved.':
+    'Nieuwe rijen blijven gemarkeerd tot de gedeelde Team-werkruimte is opgeslagen.',
+  'Area map': 'Zonekaart',
+  '{areas} active areas span {floors} floor levels.':
+    '{areas} actieve zones liggen verspreid over {floors} verdiepingen.',
+  'Floor levels group the list and keep operational areas separate from reservation rooms.':
+    'Verdiepingen groeperen de lijst en houden werkzones apart van reservatieruimtes.',
+  'Position map': 'Functiekaart',
+  '{linked} of {total} active positions are linked to an area.':
+    '{linked} van {total} actieve functies zijn aan een zone gekoppeld.',
+  'Area links guide planning defaults while still allowing another assignment.':
+    'Zonekoppelingen sturen de planningsstandaard, terwijl een andere toewijzing mogelijk blijft.',
+  'Staffing rules': 'Bezettingsregels',
+  '{count} active rules define minimum service cover.':
+    '{count} actieve regels bepalen de minimale dienstbezetting.',
+  'A weekday-specific staffing rule wins over the Every day fallback.':
+    'Een dagspecifieke bezettingsregel heeft voorrang op de standaard Elke dag.',
+  'Restaurant setup': 'Restaurantinstellingen',
+  '{areas} areas, {positions} positions and {services} service periods are active.':
+    '{areas} zones, {positions} functies en {services} dienstperiodes zijn actief.',
+  '{count} restaurant setup checks are still incomplete.':
+    '{count} controles van de restaurantinstellingen zijn nog onvolledig.',
+  'Address suggestions appear while you type; opening hours define when services can run.':
+    'Adressen worden voorgesteld tijdens het typen; openingsuren bepalen wanneer diensten kunnen lopen.',
+  'Your week': 'Jouw week',
+  'You have {count} published services this week.':
+    'Je hebt deze week {count} gepubliceerde diensten.',
+  '{count} approved time-off periods overlap this week.':
+    '{count} goedgekeurde verlofperiodes vallen in deze week.',
+  'Your published schedule, availability and approved time off stay together here.':
+    'Je gepubliceerde planning, beschikbaarheid en goedgekeurd verlof staan hier samen.',
+  'Clock still open': 'Prikregistratie nog open',
+  '{count} clock-ins do not have a clock-out yet.':
+    '{count} inklokmomenten hebben nog geen uitklokmoment.',
+  'Your time': 'Jouw tijd',
+  '{count} worked entries are recorded in this view.':
+    '{count} gewerkte registraties staan in deze weergave.',
+  'Open a day to inspect badge times, breaks and any correction.':
+    'Open een dag om prikmomenten, pauzes en correcties te bekijken.',
+  'Floor plans': 'Zaalplannen',
+  'Reservation rooms and tables stay separate from operational work areas.':
+    'Reservatieruimtes en tafels blijven gescheiden van operationele werkzones.',
+  'Reservation mode': 'Reservatiemodus',
+  'Choose table assignment or a simple cover limit to match how the restaurant seats guests.':
+    'Kies tafeltoewijzing of een eenvoudige couvertslimiet volgens hoe het restaurant gasten plaatst.',
+  'Online booking': 'Online reserveren',
+  'Public availability still follows the restaurant reservation settings.':
+    'Publieke beschikbaarheid volgt altijd de reservatie-instellingen van het restaurant.',
+  'Service flow': 'Dienstverloop',
+  "Live follows today's arrivals; Bookings keeps the complete reservation list.":
+    'Live volgt de aankomsten van vandaag; Reserveringen bewaart de volledige lijst.',
+  'Cover-based mode works when tables are assigned only as guests arrive.':
+    'Couvertsmodus past wanneer tafels pas bij aankomst van gasten worden toegewezen.',
+  'Document watch': 'Documentopvolging',
+  'Expiry attention catches files due within 30 days.':
+    'Vervalwaarschuwingen vinden bestanden die binnen 30 dagen vervallen.',
+  'Archived records stay in the audit trail after their stored file is removed.':
+    'Gearchiveerde registraties blijven in het auditlog nadat het opgeslagen bestand is verwijderd.',
+  'Export preview': 'Exportvoorbeeld',
+  'Choose the period, format and columns together; drag preview headers to reorder them.':
+    'Kies periode, formaat en kolommen samen; sleep voorbeeldkoppen om ze te ordenen.',
+  'Schedule, worked time and payroll handoff each use their own file layout.':
+    'Planning, gewerkte tijd en loonoverdracht gebruiken elk hun eigen bestandsindeling.',
+  'Time-off policy': 'Verlofbeleid',
+  'These types define what employees can request; archive only options no longer in use.':
+    'Deze types bepalen wat medewerkers kunnen aanvragen; archiveer alleen ongebruikte opties.',
+  'Popcorn is listening': 'Popcorn luistert',
+  'Open a workspace module and I will surface its useful signals here.':
+    'Open een werkruimtemodule en ik toon hier de nuttige signalen.',
+  'Preview mode': 'Voorbeeldmodus',
+  'Explore this role freely; changes stay disabled while preview is active.':
+    'Verken deze rol vrij; wijzigingen blijven uitgeschakeld zolang het voorbeeld actief is.'
 });

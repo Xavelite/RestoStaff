@@ -6,7 +6,14 @@
 // can mute it permanently, and browsers only let us make noise after they have
 // interacted with the page (see unlock).
 
-type SoundKind = 'notification' | 'message' | 'success' | 'error' | 'popcorn';
+type SoundKind =
+  | 'notification'
+  | 'message'
+  | 'success'
+  | 'error'
+  | 'popcorn'
+  | 'popcorn-success'
+  | 'popcorn-attention';
 
 const STORAGE_KEY = 'rst-sound-enabled';
 
@@ -35,6 +42,19 @@ const VOICES: Record<SoundKind, Array<[number, number, number]>> = {
     [175, 0, 95],
     [147, 135, 100],
     [210, 285, 115]
+  ],
+  // The same three pops with a light finishing sparkle.
+  'popcorn-success': [
+    [175, 0, 90],
+    [147, 125, 95],
+    [210, 250, 105],
+    [523, 350, 150]
+  ],
+  // A lower, closer rhythm when Popcorn found something worth reviewing.
+  'popcorn-attention': [
+    [165, 0, 105],
+    [131, 125, 125],
+    [165, 285, 150]
   ]
 };
 
@@ -102,14 +122,15 @@ class SoundController {
       try {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = kind === 'popcorn' ? 'triangle' : 'sine';
+        const popcornVoice = kind.startsWith('popcorn');
+        osc.type = popcornVoice ? 'triangle' : 'sine';
         osc.frequency.setValueAtTime(frequency, start);
-        if (kind === 'popcorn') {
+        if (popcornVoice) {
           osc.frequency.exponentialRampToValueAtTime(frequency * 0.48, start + duration);
         }
         // Quick fade in, exponential tail out — no clicks, no ringing.
         gain.gain.setValueAtTime(0.0001, start);
-        gain.gain.linearRampToValueAtTime(kind === 'popcorn' ? 0.11 : PEAK_GAIN, start + 0.015);
+        gain.gain.linearRampToValueAtTime(popcornVoice ? 0.11 : PEAK_GAIN, start + 0.015);
         gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
         osc.connect(gain).connect(ctx.destination);
         osc.start(start);
