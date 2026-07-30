@@ -23,6 +23,9 @@
   } from '@lucide/svelte';
   import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
+  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
+  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
+  import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import Dialog from '$lib/components/Dialog.svelte';
   import ActionButton from '$lib/components/ActionButton.svelte';
   import DocumentDetailsDialog from '$lib/documents/DocumentDetailsDialog.svelte';
@@ -332,7 +335,49 @@
           </div>
         </header>
 
-        {#if filteredDocuments.length}
+        {#if filteredDocuments.length && workspaceLayout.cards}
+          <WorkspaceCardGrid>
+            {#each filteredDocuments as document (document.id)}
+              {@const expiryState = documentExpiryState(document.expiresOn, today)}
+              {@const expiring = document.status !== 'archived' && (expiryState === 'expired' || expiryState === 'soon')}
+              <WorkspaceCard
+                accent={document.status === 'archived'
+                  ? null
+                  : expiryState === 'expired'
+                    ? 'var(--rst-state-danger)'
+                    : expiryState === 'soon'
+                      ? 'var(--rst-state-warning, #d99a1c)'
+                      : 'var(--cl-accent)'}
+                title={document.title}
+                subtitle={document.originalFilename}
+                badges={[
+                  { label: t(categoryLabel(document.category)), tone: 'neutral' as const },
+                  ...(document.status === 'archived'
+                    ? [{ label: t('Archived'), tone: 'neutral' as const }]
+                    : expiryState === 'expired'
+                      ? [{ label: t('Expired'), tone: 'danger' as const }]
+                      : expiryState === 'soon'
+                        ? [{ label: t('Due soon'), tone: 'warn' as const }]
+                        : []),
+                  ...(document.accessScope === 'owner'
+                    ? [{ label: t('Owner only'), tone: 'accent' as const }]
+                    : [])
+                ]}
+                meta={[
+                  { label: t('Employee'), value: document.employeeName ?? t('None'), muted: !document.employeeName },
+                  { label: t('Expiry'), value: dateLabel(document.expiresOn), muted: !expiring },
+                  { label: t('Size'), value: formatBytes(document.sizeBytes) },
+                  { label: t('Uploaded'), value: uploadedLabel(document.createdAt) }
+                ]}
+                onactivate={() => (selectedId = document.id)}
+              >
+                {#snippet media()}
+                  <FileText size={18} strokeWidth={1.7} aria-hidden="true" />
+                {/snippet}
+              </WorkspaceCard>
+            {/each}
+          </WorkspaceCardGrid>
+        {:else if filteredDocuments.length}
           <div class="cl-tablewrap">
             <table class="cl-table cl-mobile-rows">
               <thead>

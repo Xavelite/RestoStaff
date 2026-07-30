@@ -9,6 +9,9 @@
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
   import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
   import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
+  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
+  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
+  import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import WorkspaceColChooser from '$lib/workspace-ui/WorkspaceColChooser.svelte';
   import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
   import WorkspacePeopleStack, {
@@ -468,6 +471,39 @@
       <button class="cl-btn is-primary" type="button" disabled={workspace.isPreview || !restaurantConfig.draft} onclick={() => void addPosition()}><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>{t('Add position')}</button>
     {/snippet}
     {#snippet children()}
+      {#if workspaceLayout.cards}
+        <WorkspaceCardGrid>
+          {#each groups as group (group.key)}
+            {#each group.rows as position (position.id)}
+              {@const headcount = employeesByPosition.get(position.id)?.size ?? 0}
+              <WorkspaceCard
+                accent={positionColor.get(position.id) ?? null}
+                title={position.name || t('Position')}
+                subtitle={linkedAreaSetLabel(linkedPositionAreaIds(position))}
+                badges={[
+                  position.active
+                    ? { label: t('Active'), tone: 'ok' as const }
+                    : { label: t('Archived'), tone: 'neutral' as const }
+                ]}
+                meta={[
+                  { label: t('People'), value: String(headcount), muted: headcount === 0 },
+                  ...(workspace.canViewFinancials
+                    ? [{ label: t('Estimated hourly cost'), value: `€ ${position.estimatedHourlyCost}` }]
+                    : [])
+                ]}
+              >
+                {#snippet media()}
+                  <WorkspaceAreaIcon
+                    icon={positionAreaIcon(position)}
+                    color={positionColor.get(position.id) ?? 'var(--cl-line-strong)'}
+                    size={17}
+                  />
+                {/snippet}
+              </WorkspaceCard>
+            {/each}
+          {/each}
+        </WorkspaceCardGrid>
+      {:else}
       <div class="cl-tablewrap">
         <table class="cl-table cl-mobile-rows">
           <thead>
@@ -606,6 +642,7 @@
           {/if}
         </table>
       </div>
+      {/if}
     {/snippet}
   </WorkspaceTablePanel>
 {/if}

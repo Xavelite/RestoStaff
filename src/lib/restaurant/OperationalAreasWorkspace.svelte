@@ -17,6 +17,9 @@
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
   import WorkspaceToggle from '$lib/workspace-ui/WorkspaceToggle.svelte';
   import WorkspaceViewSwitch from '$lib/workspace-ui/WorkspaceViewSwitch.svelte';
+  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
+  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
+  import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import {
     duplicateAreaTypeCount,
     nextAreaInstanceNumber,
@@ -417,7 +420,39 @@
       </button>
     {/snippet}
     {#snippet children()}
-      {#if viewMode === 'list'}
+      {#if viewMode === 'list' && workspaceLayout.cards}
+        <WorkspaceCardGrid>
+          {#each groups as group (group.key)}
+            {#each group.rows as area (area.id)}
+              {@const linkedPositions = positionsForArea(area.id)}
+              <WorkspaceCard
+                accent={area.color ?? null}
+                title={area.name || t('Area')}
+                subtitle={instanceHint(area) || floorLabel(area.floorLevel)}
+                badges={[
+                  area.active
+                    ? { label: t('Active'), tone: 'ok' as const }
+                    : { label: t('Archived'), tone: 'neutral' as const }
+                ]}
+                meta={[
+                  { label: t('Floor'), value: floorLabel(area.floorLevel) },
+                  {
+                    label: t('Linked positions'),
+                    value: linkedPositions.length
+                      ? linkedPositions.map((position) => position.name).filter(Boolean).join(', ')
+                      : t('No linked positions'),
+                    muted: linkedPositions.length === 0
+                  }
+                ]}
+              >
+                {#snippet media()}
+                  <WorkspaceAreaIcon icon={area.iconKey} color={area.color} size={17} />
+                {/snippet}
+              </WorkspaceCard>
+            {/each}
+          {/each}
+        </WorkspaceCardGrid>
+      {:else if viewMode === 'list'}
       <div class="cl-tablewrap areas-table">
         <table class="cl-table cl-mobile-rows">
           <thead>
