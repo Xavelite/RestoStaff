@@ -173,6 +173,9 @@ test('the deployed app keeps its security headers and badge-camera policy', asyn
     (header) => header.key === 'Content-Security-Policy'
   );
   assert.match(applicationCsp.value, /frame-ancestors 'none'/);
+  // SvelteKit's deployed SPA shell contains its bootstrap inline. Blocking
+  // that script yields a successful HTTP response with a completely blank app.
+  assert.match(applicationCsp.value, /script-src[^;]*'unsafe-inline'/);
   assert.ok(
     application.headers.some(
       (header) => header.key === 'X-Frame-Options' && header.value === 'DENY'
@@ -184,4 +187,5 @@ test('the deployed app keeps its security headers and badge-camera policy', asyn
     (header) => header.key === 'Content-Security-Policy'
   );
   assert.match(bookingCsp.value, /frame-ancestors https:/);
+  assert.match(bookingCsp.value, /script-src[^;]*'unsafe-inline'/);
 });
