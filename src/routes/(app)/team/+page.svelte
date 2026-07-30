@@ -20,6 +20,9 @@
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
   import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
   import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
+  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
+  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
+  import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import WorkspaceColChooser from '$lib/workspace-ui/WorkspaceColChooser.svelte';
   import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
   import EmployeeInlineEditor from '$lib/workspace-ui/EmployeeInlineEditor.svelte';
@@ -460,6 +463,38 @@
         </button>
       {/snippet}
       {#snippet children()}
+      {#if workspaceLayout.cards}
+        <!-- Cards are a reading layout: the dense inline editing that rows offer
+             would fight the format, so a card opens the full employee editor. -->
+        <WorkspaceCardGrid>
+          {#each rows as group (group.key)}
+            {#each group.employees as employee (employee.id)}
+              <WorkspaceCard
+                accent={employeeColor.get(employee.id) ?? null}
+                initials={personInitials(employee.displayName || '?')}
+                title={employee.displayName || t('New employee')}
+                subtitle={team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position yet')}
+                badges={[
+                  ...(team.contractName.get(employee.contractTypeId)
+                    ? [{ label: team.contractName.get(employee.contractTypeId) ?? '', tone: 'neutral' as const }]
+                    : []),
+                  employee.active
+                    ? { label: t('Active'), tone: 'ok' as const }
+                    : { label: t('Archived'), tone: 'neutral' as const },
+                  ...(employee.jobFunctionIds.length > 1
+                    ? [{ label: `+${employee.jobFunctionIds.length - 1}`, tone: 'accent' as const }]
+                    : [])
+                ]}
+                meta={[
+                  { label: t('Email'), value: employee.email || '—', muted: !employee.email },
+                  { label: t('Phone'), value: employee.phone || '—', muted: !employee.phone }
+                ]}
+                onactivate={team.editable ? () => (detailId = employee.id) : null}
+              />
+            {/each}
+          {/each}
+        </WorkspaceCardGrid>
+      {:else}
       <div class="cl-tablewrap">
         <table class="cl-table cl-mobile-rows people-table">
           <thead>
@@ -693,6 +728,7 @@
           {/if}
         </table>
       </div>
+      {/if}
       {/snippet}
     </WorkspaceTablePanel>
 

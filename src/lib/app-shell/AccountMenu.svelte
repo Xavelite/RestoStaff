@@ -25,6 +25,7 @@
   import { supabase } from '$lib/supabase/client';
   import { confirmAction } from '$lib/ui/confirm.svelte';
   import { workspaceTheme, type WorkspaceTheme } from '$lib/ui/theme.svelte';
+  import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { orderedMemberships, roleHome } from '$lib/workspace/workspace-selection';
@@ -350,6 +351,23 @@
               aria-pressed={workspaceTheme.current === 'tangerine'}
               onclick={() => chooseTheme('tangerine')}
             ><i class="theme-swatch is-tangerine"></i>{t('Orange')}</button>
+          </div>
+        </div>
+        <div class="appearance-picker">
+          <span>{t('Layout')}</span>
+          <div role="group" aria-label={t('Workspace layout')}>
+            <button
+              type="button"
+              class:is-active={workspaceLayout.current === 'rows'}
+              aria-pressed={workspaceLayout.current === 'rows'}
+              onclick={() => workspaceLayout.set('rows')}
+            >{t('Rows')}</button>
+            <button
+              type="button"
+              class:is-active={workspaceLayout.current === 'cards'}
+              aria-pressed={workspaceLayout.current === 'cards'}
+              onclick={() => workspaceLayout.set('cards')}
+            >{t('Cards')}</button>
           </div>
         </div>
         <div class="appearance-picker">
