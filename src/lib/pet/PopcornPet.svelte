@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import { Volume2, X } from '@lucide/svelte';
+  import { Volume2, VolumeX, X } from '@lucide/svelte';
   import { onDestroy, onMount } from 'svelte';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import { sound } from '$lib/sound/sound.svelte';
@@ -13,15 +13,34 @@
   import { popcornPet } from './popcorn-pet.svelte';
 
   let animationKey = $state(0);
+  let animating = $state(false);
   let currentInstant = $state(new Date());
   let currentInsight = $state<PopcornInsight | null>(null);
+  let invitationVisible = $state(false);
   let reaction = $state<PopcornInsightTone>('info');
   let speechSupported = $state(false);
   let voiceActive = $state(false);
   let observedSequence = 0;
+  let observedVisibility = popcornPet.visible;
   let observedContext = '';
   let bubbleTimer: ReturnType<typeof setTimeout> | undefined;
+  let motionTimer: ReturnType<typeof setTimeout> | undefined;
   let speechRun = 0;
+  let availableVoices: SpeechSynthesisVoice[] = [];
+  let petRoot = $state<HTMLElement>();
+  let dragging = $state(false);
+  let bubbleOpensRight = $state(false);
+  let bubbleOpensBelow = $state(false);
+  let dragStartClientX = 0;
+  let dragStartClientY = 0;
+  let dragStartPositionX = 0;
+  let dragStartPositionY = 0;
+  let dragBaseLeft = 0;
+  let dragBaseTop = 0;
+  let dragWidth = 0;
+  let dragHeight = 0;
+  let dragMoved = false;
+  let suppressClick = false;
   const cursors = new Map<string, number>();
 
   const insights = $derived(
@@ -49,33 +68,145 @@
   });
 
   $effect(() => {
+    const visible = popcornPet.visible;
+    if (visible && !observedVisibility) {
+      showInvitation();
+      requestAnimationFrame(() => clampCurrentPosition(true));
+    }
+    observedVisibility = visible;
+  });
+
+  $effect(() => {
     const context = `${workspace.activeId ?? ''}|${page.url.pathname}`;
     if (observedContext && context !== observedContext) {
       if (bubbleTimer) clearTimeout(bubbleTimer);
+      if (motionTimer) clearTimeout(motionTimer);
       currentInsight = null;
+      invitationVisible = false;
+      animating = false;
       cancelSpeech();
     }
     observedContext = context;
   });
 
   onMount(() => {
+    const synthesis = window.speechSynthesis;
     speechSupported =
-      typeof window.speechSynthesis !== 'undefined' &&
+      typeof synthesis !== 'undefined' &&
       typeof window.SpeechSynthesisUtterance !== 'undefined';
+    const refreshVoices = () => {
+      availableVoices = synthesis?.getVoices() ?? [];
+    };
+    refreshVoices();
+    synthesis?.addEventListener('voiceschanged', refreshVoices);
+    const keepInsideViewport = () => clampCurrentPosition(true);
+    window.addEventListener('resize', keepInsideViewport);
+    requestAnimationFrame(() => clampCurrentPosition(true));
     const timer = setInterval(() => {
       currentInstant = new Date();
     }, 60_000);
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      synthesis?.removeEventListener('voiceschanged', refreshVoices);
+      window.removeEventListener('resize', keepInsideViewport);
+    };
   });
 
   onDestroy(() => {
     if (bubbleTimer) clearTimeout(bubbleTimer);
+    if (motionTimer) clearTimeout(motionTimer);
     cancelSpeech();
   });
 
   function requestPop(): void {
+    if (suppressClick) return;
     sound.unlock();
+    invitationVisible = false;
     popcornPet.pop();
+  }
+
+  function clamp(value: number, minimum: number, maximum: number): number {
+    return Math.min(Math.max(value, minimum), Math.max(minimum, maximum));
+  }
+
+  function updateBubblePlacement(
+    left: number,
+    top: number,
+    width: number,
+    height: number
+  ): void {
+    bubbleOpensRight = left + width / 2 < window.innerWidth / 2;
+    bubbleOpensBelow = top + height / 2 < 190;
+  }
+
+  function clampCurrentPosition(persist = false): void {
+    if (!petRoot || typeof window === 'undefined') return;
+    const rect = petRoot.getBoundingClientRect();
+    const baseLeft = rect.left - popcornPet.positionX;
+    const baseTop = rect.top - popcornPet.positionY;
+    const margin = 6;
+    const x = clamp(
+      popcornPet.positionX,
+      margin - baseLeft,
+      window.innerWidth - margin - baseLeft - rect.width
+    );
+    const y = clamp(
+      popcornPet.positionY,
+      margin - baseTop,
+      window.innerHeight - margin - baseTop - rect.height
+    );
+    popcornPet.setPosition(x, y, persist);
+    updateBubblePlacement(baseLeft + x, baseTop + y, rect.width, rect.height);
+  }
+
+  function startDrag(event: PointerEvent): void {
+    if (event.button !== 0 || !petRoot) return;
+    const rect = petRoot.getBoundingClientRect();
+    dragging = true;
+    dragMoved = false;
+    dragStartClientX = event.clientX;
+    dragStartClientY = event.clientY;
+    dragStartPositionX = popcornPet.positionX;
+    dragStartPositionY = popcornPet.positionY;
+    dragBaseLeft = rect.left - popcornPet.positionX;
+    dragBaseTop = rect.top - popcornPet.positionY;
+    dragWidth = rect.width;
+    dragHeight = rect.height;
+    (event.currentTarget as HTMLButtonElement).setPointerCapture(event.pointerId);
+  }
+
+  function moveDrag(event: PointerEvent): void {
+    if (!dragging) return;
+    const deltaX = event.clientX - dragStartClientX;
+    const deltaY = event.clientY - dragStartClientY;
+    if (!dragMoved && Math.hypot(deltaX, deltaY) < 5) return;
+    dragMoved = true;
+    event.preventDefault();
+    const margin = 6;
+    const x = clamp(
+      dragStartPositionX + deltaX,
+      margin - dragBaseLeft,
+      window.innerWidth - margin - dragBaseLeft - dragWidth
+    );
+    const y = clamp(
+      dragStartPositionY + deltaY,
+      margin - dragBaseTop,
+      window.innerHeight - margin - dragBaseTop - dragHeight
+    );
+    popcornPet.setPosition(x, y);
+    updateBubblePlacement(dragBaseLeft + x, dragBaseTop + y, dragWidth, dragHeight);
+  }
+
+  function endDrag(event: PointerEvent): void {
+    if (!dragging) return;
+    dragging = false;
+    const target = event.currentTarget as HTMLButtonElement;
+    if (target.hasPointerCapture(event.pointerId)) {
+      target.releasePointerCapture(event.pointerId);
+    }
+    popcornPet.persistPosition();
+    suppressClick = dragMoved;
+    if (suppressClick) setTimeout(() => (suppressClick = false), 0);
   }
 
   function nextInsight(): PopcornInsight {
@@ -97,16 +228,24 @@
 
   function triggerPop(): void {
     animationKey += 1;
+    animating = true;
+    invitationVisible = false;
     currentInsight = nextInsight();
     reaction = currentInsight.tone;
-    sound.play(
-      reaction === 'attention'
-        ? 'popcorn-attention'
-        : reaction === 'success'
-          ? 'popcorn-success'
-          : 'popcorn'
-    );
+    if (popcornPet.audioEnabled) {
+      sound.play(
+        reaction === 'attention'
+          ? 'popcorn-attention'
+          : reaction === 'success'
+            ? 'popcorn-success'
+            : 'popcorn'
+      );
+    }
     speak(currentInsight);
+    if (motionTimer) clearTimeout(motionTimer);
+    motionTimer = setTimeout(() => {
+      animating = false;
+    }, 2_200);
     if (bubbleTimer) clearTimeout(bubbleTimer);
     bubbleTimer = setTimeout(() => {
       currentInsight = null;
@@ -114,11 +253,66 @@
     }, 8_000);
   }
 
+  function showInvitation(): void {
+    animationKey += 1;
+    reaction = 'info';
+    currentInsight = null;
+    invitationVisible = true;
+    animating = true;
+    cancelSpeech();
+    if (popcornPet.audioEnabled) sound.play('popcorn');
+    if (motionTimer) clearTimeout(motionTimer);
+    motionTimer = setTimeout(() => {
+      animating = false;
+    }, 2_200);
+    if (bubbleTimer) clearTimeout(bubbleTimer);
+    bubbleTimer = setTimeout(() => {
+      invitationVisible = false;
+    }, 6_500);
+  }
+
   function localized(insight: PopcornInsight): { title: string; message: string } {
     return {
       title: t(insight.title, insight.params),
       message: t(insight.message, insight.params)
     };
+  }
+
+  function voiceScore(voice: SpeechSynthesisVoice, language: string): number {
+    const target = language.toLowerCase();
+    const root = target.slice(0, 2);
+    const voiceLanguage = voice.lang.toLowerCase();
+    if (!voiceLanguage.startsWith(root)) return -1_000;
+
+    const name = voice.name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+    const naturalHints = ['natural', 'neural', 'premium', 'enhanced', 'online'];
+    const trustedProviders = ['microsoft', 'google', 'apple'];
+    const poorVoiceHints = ['compact', 'espeak', 'festival', 'robot', 'whisper', 'zarvox'];
+    const familiarNaturalVoices: Record<string, string[]> = {
+      en: ['aria', 'jenny', 'sonia', 'samantha', 'daniel', 'serena', 'karen', 'moira', 'tessa'],
+      fr: ['denise', 'henri', 'thomas', 'audrey', 'amelie', 'marie'],
+      nl: ['fenna', 'maarten', 'ellen', 'xander']
+    };
+
+    let score = voiceLanguage === target ? 120 : 80;
+    if (naturalHints.some((hint) => name.includes(hint))) score += 70;
+    if (trustedProviders.some((provider) => name.includes(provider))) score += 24;
+    if ((familiarNaturalVoices[root] ?? []).some((hint) => name.includes(hint))) score += 36;
+    if (voice.default) score += 8;
+    if (poorVoiceHints.some((hint) => name.includes(hint))) score -= 100;
+    return score;
+  }
+
+  function preferredVoice(language: string): SpeechSynthesisVoice | null {
+    const voices = availableVoices.length
+      ? availableVoices
+      : window.speechSynthesis.getVoices();
+    return [...voices].sort(
+      (left, right) => voiceScore(right, language) - voiceScore(left, language)
+    )[0] ?? null;
   }
 
   function cancelSpeech(): void {
@@ -130,24 +324,17 @@
   }
 
   function speak(insight: PopcornInsight): void {
-    if (!sound.enabled || !speechSupported) return;
+    if (!sound.enabled || !popcornPet.audioEnabled || !speechSupported) return;
     const synthesis = window.speechSynthesis;
     const copy = localized(insight);
-    const utterance = new SpeechSynthesisUtterance(
-      `Dugh, dugh, dugh. ${copy.title}. ${copy.message}`
-    );
+    const utterance = new SpeechSynthesisUtterance(`${copy.title}. ${copy.message}`);
     const run = ++speechRun;
     const language = i18n.intlLocale;
-    const languageRoot = language.slice(0, 2).toLowerCase();
-    const voices = synthesis.getVoices();
     utterance.lang = language;
-    utterance.voice =
-      voices.find((voice) => voice.lang.toLowerCase() === language.toLowerCase()) ??
-      voices.find((voice) => voice.lang.toLowerCase().startsWith(languageRoot)) ??
-      null;
-    utterance.rate = 1.02;
-    utterance.pitch = 0.92;
-    utterance.volume = 0.82;
+    utterance.voice = preferredVoice(language);
+    utterance.rate = 0.96;
+    utterance.pitch = 1;
+    utterance.volume = 0.78;
     utterance.onstart = () => {
       if (run === speechRun) voiceActive = true;
     };
@@ -158,51 +345,73 @@
     synthesis.speak(utterance);
   }
 
-  function repeatSpeech(event: MouseEvent): void {
+  function toggleAudio(event: MouseEvent): void {
     event.stopPropagation();
-    if (!currentInsight) return;
-    sound.unlock();
-    speak(currentInsight);
+    if (popcornPet.audioEnabled) cancelSpeech();
+    popcornPet.toggleAudio();
   }
 
   function hide(): void {
     if (bubbleTimer) clearTimeout(bubbleTimer);
+    if (motionTimer) clearTimeout(motionTimer);
     currentInsight = null;
+    invitationVisible = false;
+    animating = false;
     cancelSpeech();
     popcornPet.hide();
   }
 </script>
 
 {#if popcornPet.visible}
-  <aside class="popcorn-pet" aria-label="Popcorn">
-    {#if currentInsight}
+  <aside
+    class="popcorn-pet"
+    class:is-dragging={dragging}
+    class:bubble-opens-right={bubbleOpensRight}
+    class:bubble-opens-below={bubbleOpensBelow}
+    style={`--pet-x:${popcornPet.positionX}px;--pet-y:${popcornPet.positionY}px`}
+    aria-label="Popcorn"
+    bind:this={petRoot}
+  >
+    {#if currentInsight || invitationVisible}
       {#key animationKey}
         <div
           class="popcorn-pet__bubble"
-          data-tone={currentInsight.tone}
+          class:is-invitation={invitationVisible}
+          data-tone={currentInsight?.tone ?? 'info'}
           role="status"
           aria-live="polite"
         >
           <div class="popcorn-pet__bubble-head">
-            <span><i aria-hidden="true"></i>dugh dugh dugh</span>
-            {#if speechSupported && sound.enabled}
+            <span><i aria-hidden="true"></i>Popcorn</span>
+            {#if currentInsight && speechSupported}
               <button
                 class:is-speaking={voiceActive}
                 type="button"
-                aria-label={t('Read Popcorn note aloud')}
-                title={t('Read Popcorn note aloud')}
-                onclick={repeatSpeech}
+                aria-label={t(popcornPet.audioEnabled ? 'Mute Popcorn sounds' : 'Unmute Popcorn sounds')}
+                title={t(popcornPet.audioEnabled ? 'Mute Popcorn sounds' : 'Unmute Popcorn sounds')}
+                onclick={toggleAudio}
               >
-                <Volume2 size={14} strokeWidth={2} aria-hidden="true" />
+                {#if popcornPet.audioEnabled}
+                  <Volume2 size={14} strokeWidth={2} aria-hidden="true" />
+                {:else}
+                  <VolumeX size={14} strokeWidth={2} aria-hidden="true" />
+                {/if}
               </button>
             {/if}
           </div>
-          <strong>{t(currentInsight.title, currentInsight.params)}</strong>
-          <p>{t(currentInsight.message, currentInsight.params)}</p>
+          {#if currentInsight}
+            <strong>{t(currentInsight.title, currentInsight.params)}</strong>
+            <p>{t(currentInsight.message, currentInsight.params)}</p>
+          {:else}
+            <button class="popcorn-pet__invitation" type="button" onclick={requestPop}>
+              <strong>{t('Click me for useful info')}</strong>
+              <span>{t('I can point out what matters on this page.')}</span>
+            </button>
+          {/if}
         </div>
 
         <span class="popcorn-pet__kernels" data-tone={reaction} aria-hidden="true">
-          {#each Array(6) as _}
+          {#each Array(3) as _}
             <i></i>
           {/each}
         </span>
@@ -222,11 +431,15 @@
     <button
       class="popcorn-pet__button"
       type="button"
-      aria-label={t(hasAttention ? 'Hear what Popcorn spotted' : 'Hear a Popcorn note')}
-      title={t(hasAttention ? 'Hear what Popcorn spotted' : 'Hear a Popcorn note')}
+      aria-label={t(hasAttention ? 'Show what Popcorn spotted' : 'Show a Popcorn note')}
+      title={t('Drag Popcorn or click for info')}
+      onpointerdown={startDrag}
+      onpointermove={moveDrag}
+      onpointerup={endDrag}
+      onpointercancel={endDrag}
       onclick={requestPop}
     >
-      {#if hasAttention && !currentInsight}
+      {#if hasAttention && !currentInsight && !invitationVisible}
         <span class="popcorn-pet__signal" aria-hidden="true"></span>
       {/if}
       {#key animationKey}
@@ -235,10 +448,14 @@
           class:is-success={reaction === 'success'}
           class:is-attention={reaction === 'attention'}
         >
-          <picture>
-            <source media="(prefers-reduced-motion: reduce)" srcset="/pet/popcorn-still.png" />
-            <img src="/pet/popcorn.gif" alt="" width="384" height="384" draggable="false" />
-          </picture>
+          {#if animating}
+            <picture>
+              <source media="(prefers-reduced-motion: reduce)" srcset="/pet/popcorn-still.png" />
+              <img src="/pet/popcorn.gif" alt="" width="384" height="384" draggable="false" />
+            </picture>
+          {:else}
+            <img src="/pet/popcorn-still.png" alt="" width="384" height="384" draggable="false" />
+          {/if}
         </span>
       {/key}
     </button>
@@ -254,7 +471,13 @@
     right: 86px;
     bottom: max(8px, env(safe-area-inset-bottom, 0px));
     pointer-events: none;
+    transform: translate3d(var(--pet-x, 0), var(--pet-y, 0), 0);
+    will-change: transform;
     animation: popcorn-arrive .46s var(--cl-ease-spring) both;
+  }
+
+  .popcorn-pet.is-dragging {
+    z-index: calc(var(--rst-z-panel) + 1);
   }
 
   .popcorn-pet__button {
@@ -268,9 +491,14 @@
     border: 0;
     background: transparent;
     color: inherit;
-    cursor: pointer;
+    cursor: grab;
     pointer-events: auto;
+    touch-action: none;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  .popcorn-pet.is-dragging .popcorn-pet__button {
+    cursor: grabbing;
   }
 
   .popcorn-pet__button:focus-visible {
@@ -294,7 +522,7 @@
   .popcorn-pet__motion {
     filter: drop-shadow(0 10px 12px rgb(15 23 42 / 18%));
     transform-origin: 50% 100%;
-    animation: popcorn-pop .58s var(--cl-ease-spring) both;
+    animation: popcorn-pop .34s var(--cl-ease) both;
   }
 
   .popcorn-pet__motion.is-success {
@@ -321,7 +549,7 @@
     border-radius: 50%;
     background: var(--cl-attention);
     box-shadow: 0 0 0 0 color-mix(in srgb, var(--cl-attention) 42%, transparent);
-    animation: popcorn-signal 1.8s ease-out infinite;
+    animation: popcorn-signal 2.4s ease-out infinite;
   }
 
   .popcorn-pet__bubble {
@@ -337,7 +565,7 @@
     background: var(--cl-surface);
     box-shadow: 0 12px 32px rgb(15 23 42 / 16%);
     pointer-events: auto;
-    animation: popcorn-say .28s var(--cl-ease-spring) both;
+    animation: popcorn-say .2s var(--cl-ease) both;
   }
 
   .popcorn-pet__bubble[data-tone='success'] {
@@ -359,6 +587,29 @@
     border-bottom: 1px solid var(--cl-line-strong);
     background: var(--cl-surface);
     transform: rotate(45deg);
+  }
+
+  .popcorn-pet.bubble-opens-right .popcorn-pet__bubble {
+    right: auto;
+    left: 24px;
+  }
+
+  .popcorn-pet.bubble-opens-right .popcorn-pet__bubble::after {
+    right: auto;
+    left: 34px;
+  }
+
+  .popcorn-pet.bubble-opens-below .popcorn-pet__bubble {
+    top: 145px;
+    bottom: auto;
+  }
+
+  .popcorn-pet.bubble-opens-below .popcorn-pet__bubble::after {
+    top: -6px;
+    bottom: auto;
+    border: 0;
+    border-top: 1px solid var(--cl-line-strong);
+    border-left: 1px solid var(--cl-line-strong);
   }
 
   .popcorn-pet__bubble-head {
@@ -441,6 +692,41 @@
     line-height: 1.42;
   }
 
+  .popcorn-pet__invitation {
+    width: 100%;
+    display: grid;
+    gap: 3px;
+    padding: 0;
+    border: 0;
+    color: inherit;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .popcorn-pet__invitation strong {
+    color: var(--cl-ink);
+    font-size: 13px;
+    line-height: 1.25;
+    transition: color var(--cl-dur) var(--cl-ease);
+  }
+
+  .popcorn-pet__invitation span {
+    color: var(--cl-muted);
+    font-size: 11.5px;
+    line-height: 1.42;
+  }
+
+  .popcorn-pet__invitation:hover strong,
+  .popcorn-pet__invitation:focus-visible strong {
+    color: var(--cl-accent);
+  }
+
+  .popcorn-pet__invitation:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--cl-accent) 55%, transparent);
+    outline-offset: 4px;
+  }
+
   .popcorn-pet__kernels {
     width: 92px;
     height: 72px;
@@ -462,7 +748,7 @@
     background: var(--kernel-color);
     box-shadow: inset -2px -1px 0 rgb(221 174 88 / 28%);
     opacity: 0;
-    animation: popcorn-kernel .82s var(--cl-ease-spring) both;
+    animation: popcorn-kernel .54s var(--cl-ease) both;
   }
 
   .popcorn-pet__kernels[data-tone='success'] i {
@@ -473,12 +759,9 @@
     --kernel-color: color-mix(in srgb, #fff2c7 74%, var(--cl-attention));
   }
 
-  .popcorn-pet__kernels i:nth-child(1) { --x: -35px; --y: -50px; animation-delay: 20ms; }
-  .popcorn-pet__kernels i:nth-child(2) { --x: -14px; --y: -66px; animation-delay: 80ms; }
-  .popcorn-pet__kernels i:nth-child(3) { --x: 9px; --y: -58px; animation-delay: 35ms; }
-  .popcorn-pet__kernels i:nth-child(4) { --x: 31px; --y: -44px; animation-delay: 110ms; }
-  .popcorn-pet__kernels i:nth-child(5) { --x: -28px; --y: -29px; animation-delay: 145ms; }
-  .popcorn-pet__kernels i:nth-child(6) { --x: 25px; --y: -24px; animation-delay: 175ms; }
+  .popcorn-pet__kernels i:nth-child(1) { --x: -17px; --y: -26px; animation-delay: 20ms; }
+  .popcorn-pet__kernels i:nth-child(2) { --x: 0; --y: -34px; animation-delay: 65ms; }
+  .popcorn-pet__kernels i:nth-child(3) { --x: 17px; --y: -24px; animation-delay: 35ms; }
 
   .popcorn-pet__close {
     width: 26px;
@@ -514,45 +797,43 @@
   }
 
   @keyframes popcorn-arrive {
-    from { opacity: 0; transform: translate(26px, 34px) rotate(4deg); }
-    to { opacity: 1; transform: translate(0, 0) rotate(0); }
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 
   @keyframes popcorn-pop {
-    0% { transform: scale(.94) translateY(6px); }
-    45% { transform: scale(1.04, .97) translateY(-7px) rotate(1deg); }
-    100% { transform: scale(1) translateY(0) rotate(0); }
+    0% { transform: scale(.99) translateY(1px); }
+    55% { transform: scale(1.01, .995) translateY(-2px); }
+    100% { transform: scale(1) translateY(0); }
   }
 
   @keyframes popcorn-celebrate {
-    0% { transform: scale(.94) translateY(6px) rotate(0); }
-    36% { transform: scale(1.04, .96) translateY(-11px) rotate(-2deg); }
-    64% { transform: scale(1.01) translateY(-4px) rotate(2deg); }
-    100% { transform: scale(1) translateY(0) rotate(0); }
+    0% { transform: scale(.99) translateY(1px); }
+    50% { transform: scale(1.012) translateY(-3px); }
+    100% { transform: scale(1) translateY(0); }
   }
 
   @keyframes popcorn-attention {
-    0% { transform: scale(.96) translateY(5px) rotate(0); }
-    34% { transform: scale(1.02) translateY(-6px) rotate(-3deg); }
-    56% { transform: scale(1.02) translateY(-5px) rotate(3deg); }
-    76% { transform: scale(1.01) translateY(-3px) rotate(-1deg); }
-    100% { transform: scale(1) translateY(0) rotate(0); }
+    0% { transform: translateY(1px) rotate(0); }
+    48% { transform: translateY(-2px) rotate(-.7deg); }
+    72% { transform: translateY(-1px) rotate(.7deg); }
+    100% { transform: translateY(0) rotate(0); }
   }
 
   @keyframes popcorn-say {
-    from { opacity: 0; transform: translateY(6px) scale(.92); }
+    from { opacity: 0; transform: translateY(2px) scale(.985); }
     to { opacity: 1; transform: translateY(0) scale(1); }
   }
 
   @keyframes popcorn-kernel {
-    0% { opacity: 0; transform: translate(0, 10px) scale(.3) rotate(0); }
-    24% { opacity: 1; }
-    72% { opacity: .9; }
-    100% { opacity: 0; transform: translate(var(--x), var(--y)) scale(1.05) rotate(170deg); }
+    0% { opacity: 0; transform: translate(0, 5px) scale(.55); }
+    28% { opacity: .8; }
+    72% { opacity: .65; }
+    100% { opacity: 0; transform: translate(var(--x), var(--y)) scale(.9) rotate(70deg); }
   }
 
   @keyframes popcorn-signal {
-    65%, 100% { box-shadow: 0 0 0 7px transparent; }
+    70%, 100% { box-shadow: 0 0 0 4px transparent; }
   }
 
   @keyframes popcorn-voice {
@@ -582,6 +863,18 @@
 
     .popcorn-pet__bubble::after {
       right: 27px;
+    }
+
+    .popcorn-pet.bubble-opens-right .popcorn-pet__bubble {
+      left: 0;
+    }
+
+    .popcorn-pet.bubble-opens-right .popcorn-pet__bubble::after {
+      left: 27px;
+    }
+
+    .popcorn-pet.bubble-opens-below .popcorn-pet__bubble {
+      top: 102px;
     }
 
     .popcorn-pet__bubble p {
