@@ -1,8 +1,8 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import Dialog from '$lib/components/Dialog.svelte';
   import type { WorkspaceRole } from '$lib/api/workspace';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
+  import { personInitials } from '$lib/ui/person';
   import { sound } from '$lib/sound/sound.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspaceRealtime } from '$lib/realtime/workspace-realtime.svelte';
@@ -34,32 +34,46 @@
   let messagePriority = $state<'normal' | 'urgent'>('normal');
   let acknowledgementRequired = $state(false);
   let selectedRecipients = $state<string[]>([]);
+  let recipientsOpen = $state(false);
   let handledDeepLink = $state('');
+
+  let scrollEl = $state<HTMLDivElement | null>(null);
+  let inputEl = $state<HTMLTextAreaElement | null>(null);
 
   const isManager = $derived(role === 'owner' || role === 'manager');
   const myRecipients = $derived(model?.messageRecipients.filter((row) => row.employee_id === employeeId) ?? []);
   const unreadMessages = $derived(myRecipients.filter((row) => !row.read_at).length);
   const badgeCount = $derived(unreadMessages);
-  const messages = $derived(model?.messages ?? []);
+  // A chat reads oldest first, so the newest update always sits nearest the composer.
+  const messages = $derived(
+    [...(model?.messages ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at))
+  );
 
   function contextKey() {
     return `${restaurantId ?? ''}|${role ?? ''}|${employeeId ?? ''}`;
   }
 
-  function employeeName(id: string) {
-    return model?.employees.find((employee) => employee.id === id)?.display_name ?? t('Employee');
-  }
-
-  function formatDate(value: string) {
-    return new Intl.DateTimeFormat(i18n.locale, {
-      weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC'
-    }).format(new Date(`${value}T00:00:00Z`));
-  }
-
   function formatMoment(value: string) {
     return new Intl.DateTimeFormat(i18n.locale, {
-      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+      hour: '2-digit', minute: '2-digit'
     }).format(new Date(value));
+  }
+
+  // Chat transcripts need a date spine, not a timestamp on every line.
+  function dayKey(value: string) {
+    return new Date(value).toDateString();
+  }
+
+  function dayLabel(value: string) {
+    const day = new Date(value);
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+    if (day.toDateString() === today.toDateString()) return t('Today');
+    if (day.toDateString() === yesterday.toDateString()) return t('Yesterday');
+    return new Intl.DateTimeFormat(i18n.locale, {
+      weekday: 'short', day: 'numeric', month: 'short'
+    }).format(day);
   }
 
   function recipientFor(messageId: string) {
@@ -73,12 +87,11 @@
     return { total: recipients.length, read, acknowledged };
   }
 
-  // A new message is the only thing that arrives here, so it is the cue.
   function countIncoming(snapshot: CommunicationsReadModel) {
     return snapshot.messages.length;
   }
 
-  // Set while the user's own action (or opening the dialog) is refreshing, so we
+  // Set while the user's own action (or opening the panel) is refreshing, so we
   // never chime at someone for something they just did themselves.
   let suppressChime = false;
 
@@ -92,8 +105,6 @@
       if (key !== contextKey()) return;
       const previous = model;
       model = result;
-      // Only chime for something that genuinely just arrived — never on the
-      // first load, a workspace switch, or a refresh that changed nothing.
       if (
         previous &&
         !suppressChime &&
@@ -124,6 +135,12 @@
     }
   }
 
+  function scrollToLatest(smooth = false) {
+    const el = scrollEl;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+  }
+
   async function openCenter() {
     open = true;
     suppressChime = true;
@@ -139,8 +156,28 @@
     }
   }
 
+  function closeCenter() {
+    open = false;
+    recipientsOpen = false;
+  }
+
+  function growInput() {
+    const el = inputEl;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  }
+
+  function onInputKeydown(event: KeyboardEvent) {
+    // Enter sends, Shift+Enter keeps the newline — the convention every chat uses.
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      void sendMessage();
+    }
+  }
+
   async function sendMessage() {
-    if (!restaurantId || !messageBody.trim()) return;
+    if (!restaurantId || !messageBody.trim() || busy) return;
     busy = true;
     try {
       await sendOperationalMessage({
@@ -154,7 +191,10 @@
       selectedRecipients = [];
       messagePriority = 'normal';
       acknowledgementRequired = false;
+      recipientsOpen = false;
+      if (inputEl) inputEl.style.height = 'auto';
       await publishAndRefresh();
+      scrollToLatest(true);
       toasts.show(t('Message sent.'), 'success');
     } catch (error) {
       toasts.show(error instanceof Error ? error.message : String(error), 'danger');
@@ -199,101 +239,221 @@
     if (workspaceRealtime.lastEvent === 'communications-updated') void refresh(true);
   });
 
+  // Keep the newest update in view whenever the transcript changes while open.
+  $effect(() => {
+    if (!open) return;
+    void messages.length;
+    void scrollEl;
+    requestAnimationFrame(() => scrollToLatest());
+  });
 </script>
+
+<svelte:window
+  onkeydown={(event) => {
+    if (event.key === 'Escape' && open) closeCenter();
+  }}
+/>
 
 <button
   class="communications-button"
   class:has-unread={badgeCount > 0}
+  class:is-open={open}
   type="button"
   aria-label={t('Team messages')}
   title={t('Team messages')}
-  onclick={() => openCenter()}
+  aria-expanded={open}
+  onclick={() => (open ? closeCenter() : openCenter())}
 >
-  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M5 17.5 3.8 21l4-2.1A9.5 9.5 0 1 0 5 17.5Z" />
-    <path d="M8 10h8M8 14h5" />
-  </svg>
-  {#if badgeCount > 0}<b>{badgeCount > 9 ? '9+' : badgeCount}</b>{/if}
+  {#if open}
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M6 6l12 12M18 6 6 18" />
+    </svg>
+  {:else}
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M5 17.5 3.8 21l4-2.1A9.5 9.5 0 1 0 5 17.5Z" />
+      <path d="M8 10h8M8 14h5" />
+    </svg>
+  {/if}
+  {#if badgeCount > 0 && !open}<b>{badgeCount > 9 ? '9+' : badgeCount}</b>{/if}
 </button>
 
-<Dialog
-  {open}
-  title="Messages"
-  description={isManager ? 'Reach the whole team, or just the people who need it.' : 'Updates from your restaurant.'}
-  size="large"
-  onclose={() => (open = false)}
->
-  {#if loading && !model}
-    <div class="empty-state">{t('Loading team updates…')}</div>
-  {:else}
-    <div class="center-stack">
-      {#if isManager}
-        <section class="composer">
-          <header><span>{t('New message')}</span><small>{t('Selected employees receive a phone notification.')}</small></header>
-          <textarea rows="3" maxlength="1000" bind:value={messageBody} placeholder={t('What does the team need to know?')}></textarea>
-          <div class="composer-options">
-            <div class="segmented" aria-label={t('Priority')}>
-              <button type="button" class:is-active={messagePriority === 'normal'} onclick={() => (messagePriority = 'normal')}>{t('Normal')}</button>
-              <button type="button" class:is-active={messagePriority === 'urgent'} onclick={() => (messagePriority = 'urgent')}>{t('Urgent')}</button>
-            </div>
-            <label class="check"><input type="checkbox" bind:checked={acknowledgementRequired} /> {t('Ask for confirmation')}</label>
-          </div>
-          <details class="recipients">
-            <summary>
-              <span>
-                <strong>{t('Recipients')}</strong>
-                <small>{selectedRecipients.length ? t('{count} selected', { count: selectedRecipients.length }) : t('Everyone active')}</small>
-              </span>
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
-            </summary>
-            <div>
-              <button class="everyone-recipient" class:is-active={!selectedRecipients.length} type="button" onclick={() => (selectedRecipients = [])}>
-                <span>{t('Everyone active')}</span>
-                <small>{t('Send to the whole restaurant team.')}</small>
-              </button>
-              <p>{t('Or choose employees')}</p>
-              {#each model?.employees ?? [] as employee (employee.id)}
-                <label><input type="checkbox" checked={selectedRecipients.includes(employee.id)} onchange={() => selectedRecipients = selectedRecipients.includes(employee.id) ? selectedRecipients.filter((id) => id !== employee.id) : [...selectedRecipients, employee.id]} /> {employee.display_name}</label>
-              {/each}
-            </div>
-          </details>
-          <button class="primary" type="button" disabled={busy || !messageBody.trim()} onclick={sendMessage}>{t(busy ? 'Sending…' : 'Send message')}</button>
-        </section>
-      {/if}
+{#if open}
+  <!-- A docked panel, not a modal: the workspace behind it stays readable and
+       usable while a manager keeps an eye on the conversation. -->
+  <div class="chat" role="dialog" aria-modal="false" aria-label={t('Team messages')}>
+    <header class="chat__head">
+      <span class="chat__mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 17.5 3.8 21l4-2.1A9.5 9.5 0 1 0 5 17.5Z" />
+          <path d="M8 10h8M8 14h5" />
+        </svg>
+      </span>
+      <span class="chat__title">
+        <strong>{t('Team messages')}</strong>
+        <small>{isManager ? t('Reach the whole team, or just the people who need it.') : t('Updates from your restaurant.')}</small>
+      </span>
+      <button class="chat__close" type="button" aria-label={t('Close')} onclick={closeCenter}>
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M6 6l12 12M18 6 6 18" />
+        </svg>
+      </button>
+    </header>
 
-      <section class="feed">
-        <header class="feed-head"><strong>{t('Message history')}</strong><span>{messages.length}</span></header>
-        {#each messages as message (message.id)}
+    <div class="chat__scroll" bind:this={scrollEl}>
+      {#if loading && !model}
+        <p class="chat__hint">{t('Loading team updates…')}</p>
+      {:else if !messages.length}
+        <div class="chat__empty">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 17.5 3.8 21l4-2.1A9.5 9.5 0 1 0 5 17.5Z" />
+            <path d="M8 10h8M8 14h5" />
+          </svg>
+          <strong>{t('No messages yet')}</strong>
+          <span>{isManager ? t('Send an update when the team needs shared context.') : t('Restaurant updates will appear here.')}</span>
+        </div>
+      {:else}
+        {#each messages as message, index (message.id)}
           {@const receipt = recipientFor(message.id)}
           {@const summary = messageRecipientSummary(message.id)}
-          <article class:urgent={message.priority === 'urgent'} class:unread={!isManager && !receipt?.read_at}>
-            <div class="message-mark" aria-hidden="true"></div>
-            <div class="message-copy">
-              <header>
-                <strong>{message.priority === 'urgent' ? t('Urgent') : (message.sender_name ?? t('Management'))}</strong>
+          {@const sender = message.sender_name ?? t('Management')}
+          {#if index === 0 || dayKey(message.created_at) !== dayKey(messages[index - 1].created_at)}
+            <p class="chat__day"><span>{dayLabel(message.created_at)}</span></p>
+          {/if}
+          <article class="bubble" class:is-mine={isManager} class:is-urgent={message.priority === 'urgent'}>
+            {#if !isManager}
+              <span class="bubble__avatar" aria-hidden="true">{personInitials(sender)}</span>
+            {/if}
+            <div class="bubble__body">
+              {#if !isManager}
+                <span class="bubble__sender">{sender}</span>
+              {/if}
+              {#if message.priority === 'urgent'}
+                <span class="bubble__flag">{t('Urgent')}</span>
+              {/if}
+              <p class="bubble__text">{message.body}</p>
+              <span class="bubble__meta">
                 <time>{formatMoment(message.created_at)}</time>
-              </header>
-              <p>{message.body}</p>
-              {#if isManager}
-                <small>{t('{read} of {total} read', { read: summary.read, total: summary.total })}{#if message.acknowledgement_required}{' · '}{t('{count} confirmed', { count: summary.acknowledged })}{/if}</small>
-              {:else if message.acknowledgement_required}
-                <button class="confirm-read" type="button" disabled={busy || Boolean(receipt?.acknowledged_at)} onclick={() => acknowledge(message)}>
+                {#if isManager}
+                  <span>{t('{read} of {total} read', { read: summary.read, total: summary.total })}{#if message.acknowledgement_required}{' · '}{t('{count} confirmed', { count: summary.acknowledged })}{/if}</span>
+                {/if}
+              </span>
+              {#if !isManager && message.acknowledgement_required}
+                <button
+                  class="bubble__confirm"
+                  type="button"
+                  disabled={busy || Boolean(receipt?.acknowledged_at)}
+                  onclick={() => acknowledge(message)}
+                >
                   {receipt?.acknowledged_at ? t('Confirmed') : t('Confirm I’ve read this')}
                 </button>
               {/if}
             </div>
           </article>
-        {:else}
-          <div class="empty-state">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M5 17.5 3.8 21l4-2.1A9.5 9.5 0 1 0 5 17.5Z" /><path d="M8 10h8M8 14h5" /></svg>
-            <strong>{t('No messages yet')}</strong>
-            <span>{t(isManager ? 'Send an update when the team needs shared context.' : 'Restaurant updates will appear here.')}</span>
-          </div>
         {/each}
-      </section>
+      {/if}
     </div>
-  {/if}
-</Dialog>
+
+    {#if isManager}
+      <div class="composer">
+        {#if recipientsOpen}
+          <div class="composer__people">
+            <button
+              class="composer__everyone"
+              class:is-active={!selectedRecipients.length}
+              type="button"
+              onclick={() => (selectedRecipients = [])}
+            >
+              <strong>{t('Everyone active')}</strong>
+              <small>{t('Send to the whole restaurant team.')}</small>
+            </button>
+            <p>{t('Or choose employees')}</p>
+            <div class="composer__list">
+              {#each model?.employees ?? [] as employee (employee.id)}
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={selectedRecipients.includes(employee.id)}
+                    onchange={() => selectedRecipients = selectedRecipients.includes(employee.id)
+                      ? selectedRecipients.filter((id) => id !== employee.id)
+                      : [...selectedRecipients, employee.id]}
+                  />
+                  <span>{employee.display_name}</span>
+                </label>
+              {/each}
+            </div>
+          </div>
+        {/if}
+
+        <div class="composer__chips">
+          <button
+            class="chip"
+            class:is-set={selectedRecipients.length > 0}
+            type="button"
+            aria-expanded={recipientsOpen}
+            onclick={() => (recipientsOpen = !recipientsOpen)}
+          >
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19" />
+              <circle cx="10" cy="8" r="3" />
+              <path d="M20 19v-1.5a3.5 3.5 0 0 0-2.5-3.35M15.5 5.2a3 3 0 0 1 0 5.6" />
+            </svg>
+            {selectedRecipients.length ? t('{count} selected', { count: selectedRecipients.length }) : t('Everyone active')}
+          </button>
+          <button
+            class="chip"
+            class:is-urgent={messagePriority === 'urgent'}
+            type="button"
+            aria-pressed={messagePriority === 'urgent'}
+            onclick={() => (messagePriority = messagePriority === 'urgent' ? 'normal' : 'urgent')}
+          >
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 8v5M12 16.5v.01" />
+              <path d="M10.3 3.9 2.4 17.4A1.9 1.9 0 0 0 4 20.3h16a1.9 1.9 0 0 0 1.6-2.9L13.7 3.9a1.9 1.9 0 0 0-3.4 0Z" />
+            </svg>
+            {t('Urgent')}
+          </button>
+          <button
+            class="chip"
+            class:is-set={acknowledgementRequired}
+            type="button"
+            aria-pressed={acknowledgementRequired}
+            onclick={() => (acknowledgementRequired = !acknowledgementRequired)}
+          >
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m4 12.5 5 5L20 6.5" />
+            </svg>
+            {t('Ask for confirmation')}
+          </button>
+        </div>
+
+        <div class="composer__row">
+          <textarea
+            bind:this={inputEl}
+            bind:value={messageBody}
+            rows="1"
+            maxlength="1000"
+            placeholder={t('What does the team need to know?')}
+            oninput={growInput}
+            onkeydown={onInputKeydown}
+          ></textarea>
+          <button
+            class="composer__send"
+            type="button"
+            aria-label={t('Send')}
+            title={t('Send')}
+            disabled={busy || !messageBody.trim()}
+            onclick={sendMessage}
+          >
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4.5 12h13M12 5.5 18.5 12 12 18.5" />
+            </svg>
+          </button>
+        </div>
+        <p class="composer__hint">{t('Selected employees receive a phone notification.')}</p>
+      </div>
+    {/if}
+  </div>
+{/if}
 
 <style>
   /* Operational messages are a persistent workspace tool, not topbar chrome.
@@ -304,82 +464,273 @@
   .communications-button:focus-visible { outline: 3px solid rgba(var(--cl-accent-rgb), .24); outline-offset: 3px; }
   .communications-button:active { transform: translateY(0); }
   .communications-button > svg { display: block; }
-  .communications-button.has-unread > svg { color: white; }
   .communications-button b { position: absolute; top: -3px; right: -3px; min-width: 19px; height: 19px; display: grid; place-items: center; padding: 0 4px; border: 2px solid var(--cl-bg); border-radius: var(--rst-ui-radius-pill); color: white; background: var(--rst-state-danger); font-size: 9px; font-weight: 800; animation: rst-pop-in .32s var(--rst-ease-spring) backwards; }
-  .center-stack { display: grid; gap: 16px; }
-  .composer { display: grid; gap: 11px; padding: 14px; border: 1px solid var(--rst-ui-line); border-radius: var(--rst-ui-radius-lg); background: var(--rst-ui-surface-field); }
-  .composer header { display: grid; gap: 2px; }
-  .composer header span { font-size: 14px; font-weight: 800; }
-  .composer header small, .feed small { color: var(--rst-ui-muted); font-size: 10px; }
-  textarea, input { min-height: 38px; padding: 9px 10px; border: 1px solid var(--rst-ui-line); border-radius: var(--rst-ui-radius-md); color: var(--rst-ui-text); background: var(--rst-ui-surface-panel); font: inherit; }
-  textarea { resize: vertical; }
-  .composer-options { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .segmented { display: inline-flex; padding: 3px; border: 1px solid var(--rst-ui-line); border-radius: var(--rst-ui-radius-md); background: var(--rst-ui-surface-panel); }
-  .segmented button { min-height: 29px; padding: 4px 9px; border: 0; border-radius: 5px; color: var(--rst-ui-muted); background: transparent; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
-  .segmented button.is-active { color: var(--rst-ui-text); background: var(--rst-ui-hover-bg); }
-  .check, .recipients label { display: flex; align-items: center; gap: 6px; font-size: 11px; }
-  .check input, .recipients input { min-height: auto; accent-color: var(--rst-ui-action); }
-  .recipients {
+
+  /* The panel is docked above its own launcher so the eye never loses the
+     thread between the button pressed and the conversation that opened. */
+  .chat {
+    position: fixed;
+    z-index: var(--rst-z-panel, 200);
+    right: 22px;
+    bottom: calc(max(22px, env(safe-area-inset-bottom, 0px)) + 64px);
+    width: 384px;
+    max-width: calc(100vw - 32px);
+    height: min(560px, calc(100dvh - 150px));
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
     overflow: hidden;
     border: 1px solid var(--rst-ui-line);
-    border-radius: var(--rst-ui-radius-md);
+    border-radius: 16px;
     background: var(--rst-ui-surface-panel);
+    box-shadow: 0 24px 60px rgba(15, 23, 42, .22), 0 4px 14px rgba(15, 23, 42, .12);
+    animation: rst-chat-in .18s var(--rst-ease-spring, ease) backwards;
   }
-  .recipients summary {
+
+  @keyframes rst-chat-in {
+    from { opacity: 0; transform: translateY(10px) scale(.98); }
+  }
+
+  .chat__head {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 10px;
-    padding: 9px 10px;
-    color: var(--rst-ui-muted);
-    font-size: 11px;
-    cursor: pointer;
-    list-style: none;
+    padding: 12px 12px 12px 14px;
+    border-bottom: 1px solid var(--rst-ui-divider-soft);
+    background: var(--rst-ui-surface-field);
   }
-  .recipients summary::-webkit-details-marker { display: none; }
-  .recipients summary > span { display: grid; gap: 1px; }
-  .recipients summary strong { color: var(--rst-ui-text); font-size: 11px; }
-  .recipients summary svg { transition: transform .16s ease; }
-  .recipients[open] summary svg { transform: rotate(90deg); }
-  .recipients > div { max-height: 190px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; overflow: auto; padding: 9px 10px 10px; border-top: 1px solid var(--rst-ui-divider-soft); }
-  .recipients > div > p { grid-column: 1 / -1; margin: 3px 0 0; color: var(--rst-ui-muted); font-size: 9px; font-weight: var(--rst-fw-bold); text-transform: uppercase; }
-  .everyone-recipient {
-    grid-column: 1 / -1;
+  .chat__mark {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    color: var(--rst-on-accent-text);
+    background: var(--cl-accent);
+  }
+  .chat__title { min-width: 0; display: grid; gap: 1px; }
+  .chat__title strong { font-size: 13px; font-weight: var(--rst-fw-bold); }
+  .chat__title small {
+    overflow: hidden;
+    color: var(--rst-ui-muted);
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .chat__close {
+    flex: none;
+    margin-left: auto;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 8px;
+    color: var(--rst-ui-muted);
+    background: transparent;
+    cursor: pointer;
+  }
+  .chat__close:hover { color: var(--rst-ui-text); background: var(--rst-ui-hover-bg); }
+
+  .chat__scroll {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    overflow-y: auto;
+    padding: 14px 12px;
+    background: var(--rst-ui-surface-field);
+  }
+
+  .chat__day {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0 2px;
+  }
+  .chat__day::before, .chat__day::after {
+    content: '';
+    height: 1px;
+    background: var(--rst-ui-divider-soft);
+  }
+  .chat__day span { color: var(--rst-ui-muted); font-size: 9px; font-weight: var(--rst-fw-bold); text-transform: uppercase; }
+
+  .bubble { display: flex; gap: 8px; max-width: 100%; }
+  .bubble.is-mine { justify-content: flex-end; }
+  .bubble__avatar {
+    flex: none;
+    align-self: flex-end;
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: var(--rst-ui-text);
+    background: var(--rst-ui-surface-field-strong);
+    font-size: 9px;
+    font-weight: var(--rst-fw-bold);
+  }
+  .bubble__body {
+    min-width: 0;
+    max-width: 84%;
+    display: grid;
+    gap: 4px;
+    padding: 9px 11px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: 14px 14px 14px 4px;
+    background: var(--rst-ui-surface-panel);
+  }
+  .bubble.is-mine .bubble__body {
+    border-color: transparent;
+    border-radius: 14px 14px 4px 14px;
+    color: var(--rst-on-accent-text);
+    background: var(--cl-accent);
+  }
+  .bubble.is-urgent .bubble__body { border-color: var(--rst-state-danger); }
+  .bubble.is-mine.is-urgent .bubble__body {
+    border-color: transparent;
+    background: var(--rst-state-danger);
+  }
+  .bubble__sender { color: var(--rst-ui-muted); font-size: 10px; font-weight: var(--rst-fw-bold); }
+  .bubble__flag {
+    justify-self: start;
+    padding: 1px 6px;
+    border-radius: var(--rst-ui-radius-pill);
+    color: var(--rst-state-danger);
+    background: var(--rst-ui-surface-panel);
+    font-size: 9px;
+    font-weight: var(--rst-fw-bold);
+    text-transform: uppercase;
+  }
+  .bubble__text { margin: 0; font-size: 12.5px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .bubble__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px 8px;
+    color: var(--rst-ui-muted);
+    font-size: 9px;
+  }
+  .bubble.is-mine .bubble__meta { color: color-mix(in srgb, var(--rst-on-accent-text) 78%, transparent); }
+  .bubble__confirm {
+    justify-self: start;
+    margin-top: 2px;
+    min-height: 26px;
+    padding: 3px 9px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: var(--rst-ui-radius-pill);
+    color: var(--rst-ui-action);
+    background: var(--rst-ui-surface-field);
+    font: inherit;
+    font-size: 10px;
+    font-weight: var(--rst-fw-bold);
+    cursor: pointer;
+  }
+  .bubble__confirm:disabled { color: var(--rst-ui-muted); cursor: default; }
+
+  .chat__hint, .chat__empty { color: var(--rst-ui-muted); font-size: 11px; text-align: center; }
+  .chat__hint { margin: 0; padding: 24px 8px; }
+  .chat__empty { display: grid; justify-items: center; gap: 5px; padding: 34px 14px; }
+  .chat__empty svg { margin-bottom: 3px; color: var(--cl-accent); }
+  .chat__empty strong { color: var(--rst-ui-text); font-size: 12.5px; }
+  .chat__empty span { max-width: 240px; font-size: 10.5px; line-height: 1.45; }
+
+  .composer {
+    position: relative;
+    display: grid;
+    gap: 7px;
+    padding: 10px 12px 11px;
+    border-top: 1px solid var(--rst-ui-divider-soft);
+    background: var(--rst-ui-surface-panel);
+  }
+  .composer__chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 25px;
+    padding: 3px 8px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: var(--rst-ui-radius-pill);
+    color: var(--rst-ui-muted);
+    background: var(--rst-ui-surface-field);
+    font: inherit;
+    font-size: 10px;
+    font-weight: var(--rst-fw-medium);
+    cursor: pointer;
+  }
+  .chip:hover { color: var(--rst-ui-text); }
+  .chip.is-set { border-color: var(--rst-ui-action); color: var(--rst-ui-action); background: var(--rst-ui-action-soft); }
+  .chip.is-urgent { border-color: var(--rst-state-danger); color: var(--rst-state-danger); background: color-mix(in srgb, var(--rst-state-danger) 10%, transparent); }
+
+  .composer__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 7px; }
+  .composer__row textarea {
+    min-height: 38px;
+    max-height: 120px;
+    padding: 9px 11px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: 18px;
+    color: var(--rst-ui-text);
+    background: var(--rst-ui-surface-field);
+    font: inherit;
+    font-size: 12.5px;
+    line-height: 1.4;
+    resize: none;
+  }
+  .composer__row textarea:focus { border-color: var(--rst-ui-action); outline: none; }
+  .composer__send {
+    flex: none;
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 50%;
+    color: var(--rst-on-accent-text);
+    background: var(--cl-accent);
+    cursor: pointer;
+    transition: background .16s ease, opacity .16s ease;
+  }
+  .composer__send:hover:not(:disabled) { background: var(--cl-accent-hover); }
+  .composer__send:disabled { opacity: .4; cursor: default; }
+  .composer__hint { margin: 0; color: var(--rst-ui-muted); font-size: 9px; }
+
+  .composer__people {
+    max-height: 214px;
+    display: grid;
+    align-content: start;
+    gap: 6px;
+    overflow-y: auto;
+    padding: 10px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: 12px;
+    background: var(--rst-ui-surface-field);
+  }
+  .composer__everyone {
     display: grid;
     gap: 1px;
-    padding: 8px 9px;
+    padding: 7px 9px;
     border: 1px solid var(--rst-ui-line);
-    border-radius: 6px;
+    border-radius: 8px;
     color: var(--rst-ui-text);
-    background: transparent;
+    background: var(--rst-ui-surface-panel);
     font: inherit;
     text-align: left;
     cursor: pointer;
   }
-  .everyone-recipient.is-active { border-color: var(--rst-ui-action); background: var(--rst-ui-action-soft); }
-  .everyone-recipient span { font-size: 11px; font-weight: var(--rst-fw-bold); }
-  .everyone-recipient small { color: var(--rst-ui-muted); font-size: 9px; }
-  button.primary { border-color: var(--rst-ui-action); color: var(--rst-on-accent-text); background: var(--rst-ui-action); }
-  .composer > .primary { min-height: 38px; justify-self: end; padding: 7px 14px; border-radius: var(--rst-ui-radius-md); font: inherit; font-size: 12px; font-weight: 750; cursor: pointer; }
-  button:disabled { opacity: .5; cursor: default; }
-  .feed { display: grid; border-top: 1px solid var(--rst-ui-divider-soft); }
-  .feed-head { min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 4px; border-bottom: 1px solid var(--rst-ui-divider-soft); }
-  .feed-head strong { font-size: 11px; text-transform: uppercase; }
-  .feed-head span { min-width: 20px; height: 20px; display: grid; place-items: center; border-radius: 10px; color: var(--rst-ui-muted); background: var(--rst-ui-surface-field-strong); font-size: 9px; }
-  .feed article { position: relative; display: grid; grid-template-columns: 4px minmax(0, 1fr); gap: 11px; padding: 14px 4px; border-bottom: 1px solid var(--rst-ui-divider-soft); }
-  .message-mark { width: 3px; border-radius: 2px; background: var(--rst-ui-line); }
-  .feed article.unread .message-mark { background: var(--rst-ui-action); }
-  .feed article.urgent .message-mark { background: var(--rst-state-danger); }
-  .message-copy { min-width: 0; display: grid; gap: 6px; }
-  .message-copy header { display: flex; justify-content: space-between; gap: 10px; }
-  .message-copy strong { font-size: 12px; }
-  .message-copy time { color: var(--rst-ui-muted); font-size: 10px; }
-  .message-copy p { margin: 0; font-size: 13px; line-height: 1.45; white-space: pre-wrap; }
-  .confirm-read { justify-self: start; min-height: 30px; padding: 4px 9px; border: 1px solid var(--rst-ui-line); border-radius: var(--rst-ui-radius-md); color: var(--rst-ui-action); background: transparent; font: inherit; font-size: 10px; font-weight: 750; cursor: pointer; }
-  .empty-state { display: grid; justify-items: center; gap: 5px; padding: 30px 16px; color: var(--rst-ui-muted); text-align: center; font-size: 12px; }
-  .empty-state svg { margin-bottom: 3px; color: var(--rst-ui-action); }
-  .empty-state strong { color: var(--rst-ui-text); font-size: 13px; }
-  .empty-state span { max-width: 270px; font-size: 11px; line-height: 1.45; }
+  .composer__everyone.is-active { border-color: var(--rst-ui-action); background: var(--rst-ui-action-soft); }
+  .composer__everyone strong { font-size: 11px; }
+  .composer__everyone small { color: var(--rst-ui-muted); font-size: 9px; }
+  .composer__people > p {
+    margin: 2px 0 0;
+    color: var(--rst-ui-muted);
+    font-size: 9px;
+    font-weight: var(--rst-fw-bold);
+    text-transform: uppercase;
+  }
+  .composer__list { display: grid; gap: 4px; }
+  .composer__list label { display: flex; align-items: center; gap: 7px; font-size: 11px; cursor: pointer; }
+  .composer__list input { accent-color: var(--rst-ui-action); }
+
+  /* On a phone the conversation earns the whole screen. */
   @media (max-width: 520px) {
     .communications-button {
       right: max(14px, env(safe-area-inset-right, 0px));
@@ -387,7 +738,18 @@
       width: 48px;
       min-height: 48px;
     }
-    .composer-options { align-items: stretch; flex-direction: column; }
-    .recipients > div { grid-template-columns: 1fr; }
+    .chat {
+      right: 0;
+      left: 0;
+      bottom: 0;
+      width: auto;
+      max-width: none;
+      height: min(84dvh, calc(100dvh - 56px));
+      border-right: 0;
+      border-bottom: 0;
+      border-left: 0;
+      border-radius: 18px 18px 0 0;
+    }
+    .bubble__body { max-width: 88%; }
   }
 </style>
