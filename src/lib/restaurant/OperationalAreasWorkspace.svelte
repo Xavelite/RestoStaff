@@ -16,6 +16,7 @@
   import WorkspaceServiceIcon from '$lib/workspace-ui/WorkspaceServiceIcon.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
   import WorkspaceToggle from '$lib/workspace-ui/WorkspaceToggle.svelte';
+  import WorkspaceViewSwitch from '$lib/workspace-ui/WorkspaceViewSwitch.svelte';
   import {
     duplicateAreaTypeCount,
     nextAreaInstanceNumber,
@@ -76,6 +77,7 @@
     3 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length
   );
   let dragId = $state('');
+  let viewMode = $state<'list' | 'plan'>('list');
 
   function areaIdentities(): AreaInstanceIdentity[] {
     return (context?.draft.areas ?? []).map((area) => ({
@@ -160,6 +162,7 @@
     context.draft.areas = [area, ...context.draft.areas];
     restaurantConfig.placementArea(area);
     restaurantConfig.touch();
+    viewMode = 'list';
     view.resetFilters();
     await tick();
     document.getElementById(`area-catalogue-${id}`)?.focus();
@@ -339,11 +342,47 @@
     }
     return [...groups.values()].sort((left, right) => left.label.localeCompare(right.label));
   }
+
+  function floorPlanGroups(rows: AreaDraft[]): AreaGroup[] {
+    const groups = new Map<string, AreaGroup>();
+    for (const area of rows) {
+      const stable = placement(area);
+      const key = `floor:${stable.floorLevel ?? 'unset'}`;
+      const group = groups.get(key) ?? {
+        key,
+        label: floorLabel(stable.floorLevel),
+        color: '',
+        rows: []
+      };
+      group.rows.push(area);
+      groups.set(key, group);
+    }
+    return [...groups.values()]
+      .map((group) => ({
+        ...group,
+        rows: group.rows.toSorted((left, right) =>
+          placement(left).name.localeCompare(placement(right).name)
+        )
+      }))
+      .toSorted((left, right) => {
+        const leftFloor = placement(left.rows[0])?.floorLevel ?? Number.MAX_SAFE_INTEGER;
+        const rightFloor = placement(right.rows[0])?.floorLevel ?? Number.MAX_SAFE_INTEGER;
+        return leftFloor - rightFloor;
+      });
+  }
+
+  async function openAreaFromPlan(areaId: string): Promise<void> {
+    viewMode = 'list';
+    view.resetFilters();
+    await tick();
+    document.getElementById(`area-catalogue-${areaId}`)?.focus();
+  }
 </script>
 
 {#if context}
   {@const rows = view.ordered(context.draft.areas.filter(matches), sortValue)}
   {@const groups = groupedAreas(rows)}
+  {@const planGroups = floorPlanGroups(rows)}
   {@const statusValues = [
     { value: 'active', label: t('Active') },
     { value: 'archived', label: t('Archived') }
@@ -361,6 +400,11 @@
       <span><i class="dot is-green"></i>{t('{count} active', { count: rows.filter((area) => placement(area).active).length })}</span>
     {/snippet}
     {#snippet actions()}
+      <WorkspaceViewSwitch
+        value={viewMode}
+        secondary="plan"
+        onchange={(value) => (viewMode = value === 'plan' ? 'plan' : 'list')}
+      />
       <button
         class="cl-btn is-primary"
         type="button"
@@ -372,6 +416,7 @@
       </button>
     {/snippet}
     {#snippet children()}
+      {#if viewMode === 'list'}
       <div class="cl-tablewrap areas-table">
         <table class="cl-table cl-mobile-rows">
           <thead>
@@ -656,6 +701,78 @@
           </tbody>
         </table>
       </div>
+      {:else if planGroups.length}
+        <div class="area-plan">
+          {#each planGroups as group (group.key)}
+            <section class="area-plan__floor" aria-label={group.label}>
+              <header>
+                <span>
+                  <strong>{group.label}</strong>
+                  <small>{group.rows.length === 1 ? t('1 area') : t('{count} areas', { count: group.rows.length })}</small>
+                </span>
+                <span class="area-plan__floor-line" aria-hidden="true"></span>
+              </header>
+              <div class="area-plan__grid">
+                {#each group.rows as area (area.id)}
+                  {@const stable = placement(area)}
+                  {@const linkedPositionRows = positionsForArea(area.id)}
+                  <button
+                    class="area-tile"
+                    class:is-archived={!stable.active}
+                    style={`--area-tone:${stable.color || 'var(--cl-info)'}`}
+                    type="button"
+                    aria-label={`${stable.name}, ${positionSummary(area.id)}, ${hoursSummary(stable)}`}
+                    onclick={() => void openAreaFromPlan(area.id)}
+                  >
+                    <span class="area-tile__identity">
+                      <WorkspaceAreaIcon
+                        icon={stable.iconKey}
+                        color={stable.color}
+                        size={18}
+                      />
+                      <span>
+                        <strong>{stable.name || t('New area')}</strong>
+                        {#if instanceHint(stable)}<small>{instanceHint(stable)}</small>{/if}
+                      </span>
+                    </span>
+                    <span class="area-tile__positions">
+                      <span class="area-tile__icons" aria-hidden="true">
+                        {#each linkedPositionRows.slice(0, 4) as position (position.id)}
+                          <WorkspaceAreaIcon
+                            icon={position.iconKey || 'support'}
+                            color={positionColor.get(position.id) ?? stable.color}
+                            size={13}
+                            compact
+                          />
+                        {/each}
+                      </span>
+                      <span>
+                        <strong>{linkedPositionRows.length}</strong>
+                        <small>{t(linkedPositionRows.length === 1 ? 'position' : 'positions')}</small>
+                      </span>
+                    </span>
+                    <span class="area-tile__hours">
+                      {#each activeServices as service (service.serviceKey)}
+                        {@const hours = stable.serviceHours[service.serviceKey]}
+                        <span>
+                          <WorkspaceServiceIcon service={service.serviceKey} size={12} />
+                          <strong>{service.name}</strong>
+                          <small>{hours?.start || '—'}–{hours?.end || '—'}</small>
+                        </span>
+                      {/each}
+                    </span>
+                  </button>
+                {/each}
+              </div>
+            </section>
+          {/each}
+        </div>
+      {:else}
+        <div class="cl-empty">
+          <strong>{t('No areas yet')}</strong>
+          <span>{t('Add the parts of the restaurant you plan and staff, such as Dining room, Bar or Kitchen.')}</span>
+        </div>
+      {/if}
     {/snippet}
   </WorkspaceTablePanel>
 {/if}
@@ -791,11 +908,212 @@
     opacity: 0.35;
   }
 
+  .area-plan {
+    display: grid;
+    gap: 18px;
+    padding: 18px;
+  }
+
+  .area-plan__floor {
+    min-width: 0;
+    display: grid;
+    gap: 9px;
+  }
+
+  .area-plan__floor > header {
+    min-height: 28px;
+    display: grid;
+    grid-template-columns: auto minmax(48px, 1fr);
+    align-items: center;
+    gap: 12px;
+  }
+
+  .area-plan__floor > header > span:first-child {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .area-plan__floor > header strong {
+    color: var(--cl-ink);
+    font-size: 12px;
+  }
+
+  .area-plan__floor > header small {
+    color: var(--cl-muted);
+    font-size: 9.5px;
+  }
+
+  .area-plan__floor-line {
+    height: 1px;
+    background: linear-gradient(90deg, var(--cl-line-strong), transparent);
+  }
+
+  .area-plan__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(245px, 1fr));
+    gap: 10px;
+  }
+
+  .area-tile {
+    --area-tone: var(--cl-info);
+    position: relative;
+    min-width: 0;
+    min-height: 134px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto 1fr;
+    gap: 14px 12px;
+    overflow: hidden;
+    padding: 14px;
+    border: 1px solid color-mix(in srgb, var(--area-tone) 28%, var(--cl-line));
+    border-radius: var(--cl-radius);
+    color: var(--cl-ink);
+    background:
+      linear-gradient(135deg, color-mix(in srgb, var(--area-tone) 7%, var(--cl-surface)) 0 58%, var(--cl-surface) 58% 100%);
+    box-shadow: inset 0 3px 0 var(--area-tone), 0 1px 2px rgba(15, 23, 42, 0.04);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition:
+      border-color var(--cl-dur) var(--cl-ease),
+      box-shadow var(--cl-dur) var(--cl-ease),
+      transform var(--cl-dur) var(--cl-ease);
+  }
+
+  .area-tile:hover {
+    border-color: color-mix(in srgb, var(--area-tone) 52%, var(--cl-line));
+    box-shadow: inset 0 3px 0 var(--area-tone), 0 5px 14px rgba(15, 23, 42, 0.08);
+    transform: translateY(-1px);
+  }
+
+  .area-tile:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--area-tone) 52%, transparent);
+    outline-offset: 2px;
+  }
+
+  .area-tile.is-archived {
+    opacity: 0.62;
+    filter: saturate(0.55);
+  }
+
+  .area-tile__identity {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 9px;
+  }
+
+  .area-tile__identity > span:last-child {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+
+  .area-tile__identity strong,
+  .area-tile__identity small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .area-tile__identity strong {
+    font-size: 13px;
+  }
+
+  .area-tile__identity small {
+    color: var(--cl-muted);
+    font-size: 9px;
+  }
+
+  .area-tile__positions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .area-tile__positions > span:last-child {
+    display: grid;
+    gap: 1px;
+    text-align: right;
+  }
+
+  .area-tile__positions strong {
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .area-tile__positions small {
+    color: var(--cl-muted);
+    font-size: 8.5px;
+  }
+
+  .area-tile__icons {
+    display: flex;
+    align-items: center;
+  }
+
+  .area-tile__icons :global(.area-icon) {
+    width: 24px;
+    height: 24px;
+    margin-right: -6px;
+    border: 2px solid var(--cl-surface);
+    border-radius: 6px;
+  }
+
+  .area-tile__hours {
+    grid-column: 1 / -1;
+    align-self: end;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+    gap: 6px;
+  }
+
+  .area-tile__hours > span {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 7px;
+    border: 1px solid color-mix(in srgb, var(--area-tone) 16%, var(--cl-line));
+    border-radius: 5px;
+    background: color-mix(in srgb, var(--cl-surface) 78%, transparent);
+  }
+
+  .area-tile__hours strong,
+  .area-tile__hours small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .area-tile__hours strong {
+    font-size: 9.5px;
+  }
+
+  .area-tile__hours small {
+    color: var(--cl-muted);
+    font-size: 9px;
+    font-variant-numeric: tabular-nums;
+  }
+
   .area-mobile-details {
     display: none;
   }
 
   @media (max-width: 760px) {
+    .area-plan {
+      gap: 14px;
+      padding: 12px;
+    }
+
+    .area-plan__grid {
+      grid-template-columns: 1fr;
+    }
+
     .areas-table :global(.cl-table) {
       min-width: 0;
     }

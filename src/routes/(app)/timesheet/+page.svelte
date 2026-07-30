@@ -292,6 +292,10 @@
       .filter((slot): slot is ActualSlot => Boolean(slot && isTimesheetRow(slot)));
   }
 
+  function issueCountLabel(count: number): string {
+    return t(count === 1 ? '{count} issue' : '{count} issues', { count });
+  }
+
   function timesheetRosterFile(): PreparedExport {
     const employeeIds = Array.from(
       new Set(slots.filter(isTimesheetRow).map((slot) => slot.employeeId))
@@ -512,7 +516,7 @@
         <span><b>{formatHours(dayPlanned[mobileDayIndex])}</b>{t('planned')}</span>
         <span><b>{formatHours(dayWorked[mobileDayIndex])}</b>{t('worked')}</span>
         <span class:is-problem={dayIssues[mobileDayIndex] > 0}>
-          <b>{dayIssues[mobileDayIndex]}</b>{t('issues')}
+          <b>{dayIssues[mobileDayIndex]}</b>{t(dayIssues[mobileDayIndex] === 1 ? 'issue' : 'issues')}
         </span>
       </div>
 
@@ -595,7 +599,7 @@
                     {dayEmployees[index]}
                   </span>
                   <b class="board__day-hours">{formatHours(dayPlanned[index])} → <em>{formatHours(dayWorked[index])}</em></b>
-                  <small class:is-problem={dayIssues[index] > 0}>{dayIssues[index] ? t('{count} issues', { count: dayIssues[index] }) : t('Ready')}</small>
+                  <small class:is-problem={dayIssues[index] > 0}>{dayIssues[index] ? issueCountLabel(dayIssues[index]) : t('Ready')}</small>
                 </div>
               </th>
             {/each}

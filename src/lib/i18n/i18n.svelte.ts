@@ -3724,6 +3724,12 @@ Object.assign(french, {
   'No reason recorded': 'Aucun motif enregistré',
   'No schedule history matches these filters':
     'Aucun historique de planning ne correspond à ces filtres',
+  'No schedule history yet': 'Aucun historique de planning pour le moment',
+  'Clear a column filter to review other schedule events.':
+    'Effacez un filtre de colonne pour consulter les autres événements du planning.',
+  'issue': 'problème',
+  'position': 'poste',
+  'positions': 'postes',
   'Time roster': 'Grille des heures',
   'Show detailed time information': 'Afficher le détail des heures',
   '{hours} worked': '{hours} prestées',
@@ -3802,6 +3808,12 @@ Object.assign(dutch, {
   'No reason recorded': 'Geen reden geregistreerd',
   'No schedule history matches these filters':
     'Geen planningsgeschiedenis komt overeen met deze filters',
+  'No schedule history yet': 'Nog geen planningsgeschiedenis',
+  'Clear a column filter to review other schedule events.':
+    'Wis een kolomfilter om andere planningsgebeurtenissen te bekijken.',
+  'issue': 'probleem',
+  'position': 'functie',
+  'positions': 'functies',
   'Time roster': 'Tijdrooster',
   'Show detailed time information': 'Gedetailleerde tijdinformatie tonen',
   '{hours} worked': '{hours} gewerkt',

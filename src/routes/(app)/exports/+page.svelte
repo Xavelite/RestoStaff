@@ -4,8 +4,11 @@
     CalendarDays,
     Clock3,
     FileLock2,
+    FileSpreadsheet,
+    FileText,
     LoaderCircle,
-    ShieldCheck
+    ShieldCheck,
+    TableProperties
   } from '@lucide/svelte';
   import { getManagerOperationsReadModel } from '$lib/api/workspace';
   import type { ManagerOperationsReadModel } from '$lib/api/workspace-snapshot';
@@ -209,6 +212,14 @@
 
 <svelte:head><title>{t('Exports')} &middot; restogogo</title></svelte:head>
 
+{#snippet formatTags()}
+  <div class="format-tags" aria-label={t('Available formats')}>
+    <span class="is-xlsx"><FileSpreadsheet size={12} aria-hidden="true" />XLSX</span>
+    <span class="is-pdf"><FileText size={12} aria-hidden="true" />PDF</span>
+    <span class="is-csv"><TableProperties size={12} aria-hidden="true" />CSV</span>
+  </div>
+{/snippet}
+
 <WorkspacePage>
   <section class="export-studio" aria-label={t('Export workspace')}>
     <aside class="scope-panel">
@@ -290,9 +301,7 @@
               <span class="record-count">{loading ? '…' : planningCount} {t('records')}</span>
             </div>
             <p>{t('Employees, service times, areas, positions and planned hours.')}</p>
-            <div class="format-tags" aria-label={t('Available formats')}>
-              <span>XLSX</span><span>PDF</span><span>CSV</span>
-            </div>
+            {@render formatTags()}
           </div>
           <button
             class="configure-button"
@@ -313,9 +322,7 @@
               <span class="record-count">{loading ? '…' : workedCount} {t('records')}</span>
             </div>
             <p>{t('Clock times, breaks, net hours and actual assignments.')}</p>
-            <div class="format-tags" aria-label={t('Available formats')}>
-              <span>XLSX</span><span>PDF</span><span>CSV</span>
-            </div>
+            {@render formatTags()}
           </div>
           <button
             class="configure-button"
@@ -343,9 +350,7 @@
                   <span class="requirement">{t('Select complete Monday-to-Sunday weeks to prepare this file.')}</span>
                 {/if}
               </p>
-              <div class="format-tags" aria-label={t('Available formats')}>
-                <span>XLSX</span><span>PDF</span><span>CSV</span>
-              </div>
+              {@render formatTags()}
             </div>
             <button
               class="configure-button"
@@ -530,16 +535,24 @@
     color: var(--cl-mod-payroll);
     background: color-mix(in srgb, var(--cl-mod-payroll) 9%, var(--cl-surface));
   }
-  .format-tags { display: flex; gap: 5px; margin-top: 3px; }
+  .format-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 3px; }
   .format-tags span {
-    padding: 2px 5px;
-    border: 1px solid var(--cl-line);
-    border-radius: 3px;
-    color: var(--cl-muted);
+    min-width: 51px;
+    min-height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 3px 6px;
+    border: 1px solid color-mix(in srgb, currentColor 22%, var(--cl-line));
+    border-radius: 4px;
     background: var(--cl-surface);
     font-size: 8.5px;
     font-weight: var(--rst-fw-bold);
   }
+  .format-tags span.is-xlsx { color: #18864b; background: color-mix(in srgb, #18864b 5%, var(--cl-surface)); }
+  .format-tags span.is-pdf { color: #c43b3b; background: color-mix(in srgb, #c43b3b 5%, var(--cl-surface)); }
+  .format-tags span.is-csv { color: #2563a9; background: color-mix(in srgb, #2563a9 5%, var(--cl-surface)); }
   .requirement { color: var(--cl-attention); font-weight: var(--rst-fw-medium); }
   .configure-button {
     min-height: 36px;

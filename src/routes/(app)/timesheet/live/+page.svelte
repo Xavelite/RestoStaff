@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { LayoutGrid, List } from '@lucide/svelte';
   import {
     addDays,
     formatHours,
@@ -22,6 +21,7 @@
   import WorkspaceService from '$lib/workspace-ui/WorkspaceService.svelte';
   import WorkspaceStat from '$lib/workspace-ui/WorkspaceStat.svelte';
   import WorkspaceStatus from '$lib/workspace-ui/WorkspaceStatus.svelte';
+  import WorkspaceViewSwitch from '$lib/workspace-ui/WorkspaceViewSwitch.svelte';
   import { isTimesheetRow, slotLabel, slotTone } from '$lib/workspace-ui/workspace-time';
 
   const snapshot = $derived(workspace.operations);
@@ -174,10 +174,11 @@
         <span>{t('Updated {time}', { time: updatedAt })}</span>
       </div>
       <div class="queue-controls">
-        <div class="view-switch" aria-label={t('View')}>
-          <button type="button" class:is-active={viewMode === 'list'} title={t('List')} aria-label={t('List')} onclick={() => (viewMode = 'list')}><List size={15} aria-hidden="true" /></button>
-          <button type="button" class:is-active={viewMode === 'floor'} title={t('Floor')} aria-label={t('Floor')} onclick={() => (viewMode = 'floor')}><LayoutGrid size={15} aria-hidden="true" /></button>
-        </div>
+        <WorkspaceViewSwitch
+          value={viewMode}
+          secondary="floor"
+          onchange={(value) => (viewMode = value === 'floor' ? 'floor' : 'list')}
+        />
         <div class="queue-filters" aria-label={t('Filter')}>
           {#each [
             { key: 'all', label: 'All', count: rows.length },
@@ -321,7 +322,6 @@
   .queue-head > div:first-child { display: grid; gap: 3px; }
   .queue-head > div:first-child > span { color: var(--cl-muted); font-size: 10px; }
   .queue-controls { display: flex; align-items: center; gap: 7px; }
-  .view-switch,
   .queue-filters {
     display: flex;
     padding: 3px;
@@ -329,19 +329,6 @@
     border-radius: 7px;
     background: var(--cl-surface);
   }
-  .view-switch button {
-    width: 30px;
-    height: 30px;
-    display: grid;
-    place-items: center;
-    padding: 0;
-    border: 0;
-    border-radius: 5px;
-    color: var(--cl-muted);
-    background: transparent;
-    cursor: pointer;
-  }
-  .view-switch button.is-active { color: var(--cl-accent); background: var(--cl-accent-wash); }
   .queue-filters button {
     min-height: 30px;
     display: flex;
@@ -448,7 +435,7 @@
     .queue-controls { align-items: stretch; flex-direction: column; }
     .queue-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .queue-filters button { min-width: 0; justify-content: center; padding-inline: 3px; }
-    .view-switch { align-self: flex-start; }
+    .queue-controls :global(.view-switch) { align-self: flex-start; }
     .floor-monitor { grid-template-columns: 1fr; }
   }
 </style>

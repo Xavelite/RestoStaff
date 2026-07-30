@@ -3,6 +3,7 @@
   import { friendlyError } from '$lib/api/error-messages';
   import Dialog from '$lib/components/Dialog.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
+  import WorkspaceViewSwitch from '$lib/workspace-ui/WorkspaceViewSwitch.svelte';
   import WorkspacePalettePicker from '$lib/workspace-ui/WorkspacePalettePicker.svelte';
   import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
   import WorkspaceCellBadge from '$lib/workspace-ui/WorkspaceCellBadge.svelte';
@@ -101,6 +102,10 @@
   const TABLE_COLLISION_GAP = 6;
   const editorReadOnly = $derived(workspace.isPreview);
   const planGeometryReadOnly = $derived(compactViewport || workspace.isPreview);
+
+  function changeAreaView(view: 'list' | 'plan'): void {
+    editorView = view;
+  }
   function catalogueAreaItems(): WorkspaceCataloguePickerItem[] {
     return WORKSPACE_AREA_CATALOGUE.map((area) => ({
       key: area.key,
@@ -801,7 +806,7 @@
     } else {
       assignRoom(room);
     }
-    editorView = 'plan';
+    changeAreaView('plan');
   }
 
   function moveAreaToFloor(roomId: string, floorId: string, navigate = false): void {
@@ -1756,10 +1761,11 @@
     {/snippet}
     {#snippet actions()}
       {#if mode === 'areas'}
-        <div class="view-switch" aria-label={t('View')}>
-          <button class:is-active={editorView === 'list'} type="button" onclick={() => (editorView = 'list')}>{t('List')}</button>
-          <button class:is-active={editorView === 'plan'} type="button" onclick={() => (editorView = 'plan')}>{t('Plan')}</button>
-        </div>
+        <WorkspaceViewSwitch
+          value={editorView}
+          secondary="plan"
+          onchange={(value) => changeAreaView(value === 'plan' ? 'plan' : 'list')}
+        />
         <button
           class="cl-btn is-primary"
           type="button"
@@ -2234,9 +2240,6 @@
   .layout-warning { color: var(--cl-problem); font-weight: var(--rst-fw-semibold); }
   .layout-warning i { width: 6px; height: 6px; display: inline-block; margin-right: 5px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 13%, transparent); }
   .floor-loading { display: grid; gap: 16px; padding: 24px; }
-  .view-switch { display: inline-flex; align-items: center; padding: 2px; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); background: var(--cl-surface-muted); }
-  .view-switch button { min-height: 30px; padding: 5px 12px; border: 0; border-radius: calc(var(--cl-radius) - 2px); background: transparent; color: var(--cl-muted); font: inherit; font-size: 12px; font-weight: var(--rst-fw-medium); cursor: pointer; }
-  .view-switch button.is-active { background: var(--cl-surface); color: var(--cl-ink); box-shadow: 0 1px 3px rgb(15 23 42 / 10%); }
   .area-directory { --cl-grid-max-height: calc(100dvh - 190px); }
   .area-directory .cl-table { min-width: 680px; }
   .area-row-name { min-width: 230px; display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 9px; }

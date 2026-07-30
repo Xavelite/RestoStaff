@@ -39,7 +39,7 @@
 {#snippet footer()}
   <button class="cl-btn" type="button" disabled={downloading} onclick={onclose}>{t('Cancel')}</button>
   <button class="cl-btn is-primary" type="button" disabled={!file || downloading} onclick={() => void download()}>
-    {t(downloading ? 'Preparing…' : 'Download')}
+    {t(downloading ? 'Preparing…' : 'Download')} {format === 'xlsx' ? 'XLSX' : 'PDF'}
   </button>
 {/snippet}
 
@@ -53,12 +53,12 @@
 >
   <div class="export-flow">
     <div class="format-picker" aria-label={t('File format')}>
-      <button type="button" class:is-active={format === 'pdf'} onclick={() => (format = 'pdf')}>
+      <button class="is-pdf" type="button" class:is-active={format === 'pdf'} onclick={() => (format = 'pdf')}>
         <span><FileText size={19} strokeWidth={1.7} aria-hidden="true" /></span>
         <strong>PDF</strong>
         <small>{t('Ready to print or share')}</small>
       </button>
-      <button type="button" class:is-active={format === 'xlsx'} onclick={() => (format = 'xlsx')}>
+      <button class="is-xlsx" type="button" class:is-active={format === 'xlsx'} onclick={() => (format = 'xlsx')}>
         <span><FileSpreadsheet size={19} strokeWidth={1.7} aria-hidden="true" /></span>
         <strong>Excel</strong>
         <small>{t('Editable weekly roster')}</small>
@@ -126,9 +126,11 @@
     display: grid;
     place-items: center;
     border-radius: 6px;
-    color: var(--cl-accent);
-    background: color-mix(in srgb, var(--cl-accent) 10%, transparent);
+    color: var(--format-color);
+    background: color-mix(in srgb, var(--format-color) 9%, transparent);
   }
+  .format-picker button.is-pdf { --format-color: #c43b3b; }
+  .format-picker button.is-xlsx { --format-color: #18864b; }
   .format-picker strong { font-size: 12px; }
   .format-picker small { color: var(--cl-muted); font-size: 10px; }
   .preview {

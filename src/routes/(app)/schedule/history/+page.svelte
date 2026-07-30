@@ -25,9 +25,13 @@
     }
   });
 
+  const allEvents = $derived(
+    (snapshot?.work_week_events ?? []).filter((event) =>
+      event.event_type.startsWith('planning_')
+    )
+  );
   const events = $derived(
-    (snapshot?.work_week_events ?? [])
-      .filter((event) => event.event_type.startsWith('planning_'))
+    allEvents
       .filter((event) => {
         const needle = eventSearch.trim().toLocaleLowerCase(i18n.intlLocale);
         if (!needle) return true;
@@ -47,6 +51,10 @@
         return sortDir === 'asc' ? compared : -compared;
       })
   );
+  const filtersActive = $derived(
+    Boolean(eventSearch.trim() || weekSearch.trim() || actorFilters.size)
+  );
+  const filteredEmpty = $derived(allEvents.length > 0 && filtersActive);
 
   function stamp(value: string): string {
     const date = new Date(value);
@@ -62,62 +70,62 @@
 
 <WorkspacePage>
   <section class="history-surface" aria-label={t('Schedule history')}>
-    {#if events.length}
-      <div class="cl-tablewrap">
-        <table class="cl-table">
-          <thead>
-            <tr>
-              <th>
-                <WorkspaceColMenu
-                  label="Event"
-                  columnKey="schedule-history-event"
-                  filterKind="text"
-                  searchValue={eventSearch}
-                  onsearch={(value) => (eventSearch = value)}
-                />
-              </th>
-              <th>
-                <WorkspaceColMenu
-                  label="Week"
-                  columnKey="schedule-history-week"
-                  filterKind="text"
-                  searchValue={weekSearch}
-                  onsearch={(value) => (weekSearch = value)}
-                />
-              </th>
-              <th>
-                <WorkspaceColMenu
-                  label="Actor"
-                  columnKey="schedule-history-actor"
-                  filterKind="values"
-                  filterValues={[
-                    { value: 'owner', label: t('Owner') },
-                    { value: 'manager', label: t('Manager') },
-                    { value: 'employee', label: t('Employee') },
-                    { value: 'system', label: t('System') }
-                  ]}
-                  selected={actorFilters}
-                  ontoggle={(value) => {
-                    const next = new Set(actorFilters);
-                    if (next.has(value)) next.delete(value);
-                    else next.add(value);
-                    actorFilters = next;
-                  }}
-                  onselectall={() => (actorFilters = new Set())}
-                />
-              </th>
-              <th>
-                <WorkspaceColMenu
-                  label="When"
-                  columnKey="schedule-history-when"
-                  sortable
-                  {sortDir}
-                  onsort={(value) => (sortDir = value)}
-                />
-              </th>
-            </tr>
-          </thead>
-          <tbody>
+    <div class="cl-tablewrap">
+      <table class="cl-table">
+        <thead>
+          <tr>
+            <th>
+              <WorkspaceColMenu
+                label="Event"
+                columnKey="schedule-history-event"
+                filterKind="text"
+                searchValue={eventSearch}
+                onsearch={(value) => (eventSearch = value)}
+              />
+            </th>
+            <th>
+              <WorkspaceColMenu
+                label="Week"
+                columnKey="schedule-history-week"
+                filterKind="text"
+                searchValue={weekSearch}
+                onsearch={(value) => (weekSearch = value)}
+              />
+            </th>
+            <th>
+              <WorkspaceColMenu
+                label="Actor"
+                columnKey="schedule-history-actor"
+                filterKind="values"
+                filterValues={[
+                  { value: 'owner', label: t('Owner') },
+                  { value: 'manager', label: t('Manager') },
+                  { value: 'employee', label: t('Employee') },
+                  { value: 'system', label: t('System') }
+                ]}
+                selected={actorFilters}
+                ontoggle={(value) => {
+                  const next = new Set(actorFilters);
+                  if (next.has(value)) next.delete(value);
+                  else next.add(value);
+                  actorFilters = next;
+                }}
+                onselectall={() => (actorFilters = new Set())}
+              />
+            </th>
+            <th>
+              <WorkspaceColMenu
+                label="When"
+                columnKey="schedule-history-when"
+                sortable
+                {sortDir}
+                onsort={(value) => (sortDir = value)}
+              />
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {#if events.length}
             {#each events as event (event.id)}
               <tr>
                 <td class="event-cell">
@@ -132,16 +140,22 @@
                 <td><time datetime={event.created_at}>{stamp(event.created_at)}</time></td>
               </tr>
             {/each}
-          </tbody>
-        </table>
-      </div>
-    {:else}
-      <div class="cl-empty">
-        <span class="cl-empty__icon" aria-hidden="true"><History size={18} /></span>
-        <strong>{t('No schedule history matches these filters')}</strong>
-        <span>{t('Saving and publishing a week records an audited event here.')}</span>
-      </div>
-    {/if}
+          {:else}
+            <tr>
+              <td colspan="4">
+                <div class="cl-empty">
+                  <span class="cl-empty__icon" aria-hidden="true"><History size={18} /></span>
+                  <strong>{t(filteredEmpty ? 'No schedule history matches these filters' : 'No schedule history yet')}</strong>
+                  <span>{t(filteredEmpty
+                    ? 'Clear a column filter to review other schedule events.'
+                    : 'Saving and publishing a week records an audited event here.')}</span>
+                </div>
+              </td>
+            </tr>
+          {/if}
+        </tbody>
+      </table>
+    </div>
   </section>
 </WorkspacePage>
 
