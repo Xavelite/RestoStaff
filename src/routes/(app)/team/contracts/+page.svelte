@@ -13,6 +13,9 @@
   import { useWorkspaceTeamContext } from '$lib/workspace-ui/workspace-context';
   import WorkspaceCellBadge from '$lib/workspace-ui/WorkspaceCellBadge.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
+  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
+  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
+  import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
   import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
   import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
@@ -208,6 +211,32 @@
         <span><i class="dot is-orange"></i>{t('{count} incomplete', { count: incomplete })}</span>
       {/snippet}
       {#snippet children()}
+      {#if workspaceLayout.cards}
+        <WorkspaceCardGrid>
+          {#each groups as group (group.key)}
+            {#each group.employees as employee (employee.id)}
+              {@const missing = gaps(employee)}
+              <WorkspaceCard
+                accent={employeeColor.get(employee.id) ?? null}
+                initials={personInitials(employee.displayName || '?')}
+                title={employee.displayName || t('New employee')}
+                subtitle={team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position yet')}
+                badges={[
+                  {
+                    label: team.contractName.get(employee.contractTypeId) || t('No contract'),
+                    tone: employee.contractTypeId ? ('neutral' as const) : ('warn' as const)
+                  },
+                  { label: t(REGIME_LABEL[employee.workRegime] ?? employee.workRegime), tone: 'neutral' as const },
+                  ...(missing.length
+                    ? [{ label: t('{count} details missing', { count: missing.length }), tone: 'warn' as const }]
+                    : [])
+                ]}
+                onactivate={team.canManageOperations && team.editable ? () => openDetails(employee.id) : null}
+              />
+            {/each}
+          {/each}
+        </WorkspaceCardGrid>
+      {:else}
       <div class="cl-tablewrap">
         <table class="cl-table cl-mobile-rows contract-table">
           <thead>
@@ -299,6 +328,7 @@
           {/if}
         </table>
       </div>
+      {/if}
       {/snippet}
     </WorkspaceTablePanel>
 

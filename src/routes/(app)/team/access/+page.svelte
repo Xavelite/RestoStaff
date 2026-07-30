@@ -9,6 +9,9 @@
   import { useWorkspaceTeamContext } from '$lib/workspace-ui/workspace-context';
   import WorkspaceCellBadge from '$lib/workspace-ui/WorkspaceCellBadge.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
+  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
+  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
+  import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
   import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
   import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
@@ -165,6 +168,40 @@
         <span><i class="dot is-green"></i>{t('{count} with app access', { count: appEnabled })}</span>
       {/snippet}
       {#snippet children()}
+        {#if workspaceLayout.cards}
+          <WorkspaceCardGrid>
+            {#each groups as group (group.key)}
+              {#each group.employees as employee (employee.id)}
+                <WorkspaceCard
+                  accent={employeeColor.get(employee.id) ?? null}
+                  initials={personInitials(employee.displayName)}
+                  title={employee.displayName}
+                  subtitle={employee.accessRole ? t(roleLabel(employee.accessRole)) : null}
+                  badges={[
+                    {
+                      label: t(ACCESS_LABEL[employee.accessState] ?? employee.accessState),
+                      tone: employee.accessState === 'active'
+                        ? ('ok' as const)
+                        : employee.accessState === 'invited'
+                          ? ('accent' as const)
+                          : employee.accessState === 'expired' || employee.accessState === 'revoked'
+                            ? ('warn' as const)
+                            : ('neutral' as const)
+                    },
+                    {
+                      label: employee.pinStatus === 'set' ? t('PIN set') : t('No PIN'),
+                      tone: employee.pinStatus === 'set' ? ('accent' as const) : ('neutral' as const)
+                    }
+                  ]}
+                  meta={[
+                    { label: t('Email'), value: employee.email || '—', muted: !employee.email }
+                  ]}
+                  onactivate={team.editable ? () => (detailId = employee.id) : null}
+                />
+              {/each}
+            {/each}
+          </WorkspaceCardGrid>
+        {:else}
         <div class="cl-tablewrap">
           <table class="cl-table cl-mobile-rows">
             <thead><tr>
@@ -217,6 +254,7 @@
             {/if}
           </table>
         </div>
+        {/if}
       {/snippet}
     </WorkspaceTablePanel>
 

@@ -16,6 +16,9 @@
   import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
   import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
+  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
+  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
+  import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import { createTableView } from '$lib/workspace-ui/table-view.svelte';
   import type { ManagerOperationsReadModel } from '$lib/api/workspace-snapshot';
 
@@ -155,6 +158,46 @@
         <a class="cl-btn" href="/settings/absence-types">{t('Time-off types')}</a>
       {/snippet}
       {#snippet children()}
+      {#if workspaceLayout.cards}
+        <WorkspaceCardGrid>
+          {#each groups as group (group.key)}
+            {#each group.rows as absence (absence.id)}
+              {@const service = asService(absence.service_key)}
+              <WorkspaceCard
+                accent={employeeColor.get(absence.employee_id) ?? null}
+                initials={personInitials(employeeName.get(absence.employee_id) ?? '?')}
+                title={employeeName.get(absence.employee_id) ?? '—'}
+                subtitle={typeName.get(absence.absence_type_id ?? '') ?? '—'}
+                badges={[
+                  {
+                    label: absence.status,
+                    tone: absence.status === 'approved'
+                      ? ('ok' as const)
+                      : absence.status === 'pending'
+                        ? ('warn' as const)
+                        : absence.status === 'rejected'
+                          ? ('danger' as const)
+                          : ('neutral' as const)
+                  },
+                  { label: service ? serviceName(service) : t('Full day'), tone: 'neutral' as const }
+                ]}
+                meta={[
+                  {
+                    label: t('Period'),
+                    value: absence.end_date !== absence.start_date
+                      ? `${formatDate(absence.start_date)} → ${formatDate(absence.end_date)}`
+                      : formatDate(absence.start_date)
+                  },
+                  { label: t('Duration'), value: durationLabel(absence) },
+                  ...(absence.employee_comment
+                    ? [{ label: t('Comment'), value: absence.employee_comment, muted: true }]
+                    : [])
+                ]}
+              />
+            {/each}
+          {/each}
+        </WorkspaceCardGrid>
+      {:else}
       <div class="cl-tablewrap">
         <table class="cl-table">
           {#if allAbsences.length}
@@ -203,6 +246,7 @@
           {/if}
         </table>
       </div>
+      {/if}
       {/snippet}
     </WorkspaceTablePanel>
 
