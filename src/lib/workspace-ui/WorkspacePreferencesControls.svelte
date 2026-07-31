@@ -4,8 +4,11 @@
     Check,
     LayoutGrid,
     List,
+    Monitor,
+    Moon,
     PanelLeft,
     PanelLeftClose,
+    Sun,
     Volume2,
     VolumeX
   } from '@lucide/svelte';
@@ -47,26 +50,38 @@
 
   <fieldset>
     <legend>{t('Theme')}</legend>
-    <div class="preference-options">
+    <div class="preference-options is-theme">
       <button
         type="button"
-        class:is-active={workspaceTheme.current === 'cobalt'}
-        aria-pressed={workspaceTheme.current === 'cobalt'}
-        onclick={() => workspaceTheme.set('cobalt')}
+        disabled
+        aria-disabled="true"
+        aria-label={`${t('Light')} · ${t('Coming soon')}`}
+        title={t('Coming soon')}
       >
-        <i class="swatch is-cobalt" aria-hidden="true"></i>
-        <span>{t('Blue')}</span>
-        {#if workspaceTheme.current === 'cobalt'}<Check class="check" size={14} aria-hidden="true" />{/if}
+        <Sun size={16} aria-hidden="true" />
+        <span>{t('Light')}</span>
+        <i class="theme-soon" aria-hidden="true"></i>
       </button>
       <button
         type="button"
-        class:is-active={workspaceTheme.current === 'tangerine'}
-        aria-pressed={workspaceTheme.current === 'tangerine'}
-        onclick={() => workspaceTheme.set('tangerine')}
+        class:is-active={workspaceTheme.current === 'classic'}
+        aria-pressed={workspaceTheme.current === 'classic'}
+        onclick={() => workspaceTheme.set('classic')}
       >
-        <i class="swatch is-tangerine" aria-hidden="true"></i>
-        <span>{t('Orange')}</span>
-        {#if workspaceTheme.current === 'tangerine'}<Check class="check" size={14} aria-hidden="true" />{/if}
+        <Monitor size={16} aria-hidden="true" />
+        <span>{t('Classic')}</span>
+        {#if workspaceTheme.current === 'classic'}<Check class="check" size={14} aria-hidden="true" />{/if}
+      </button>
+      <button
+        type="button"
+        disabled
+        aria-disabled="true"
+        aria-label={`${t('Dark')} · ${t('Coming soon')}`}
+        title={t('Coming soon')}
+      >
+        <Moon size={16} aria-hidden="true" />
+        <span>{t('Dark')}</span>
+        <i class="theme-soon" aria-hidden="true"></i>
       </button>
     </div>
   </fieldset>
@@ -132,6 +147,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
   }
+  .preference-options.is-theme { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .preference-options button {
     min-width: 0;
     min-height: 38px;
@@ -154,6 +170,13 @@
     border-color: var(--rst-ui-action);
     background: var(--rst-state-selected-bg);
   }
+  .preference-options button:disabled {
+    color: var(--rst-ui-muted);
+    background: var(--rst-ui-surface-field);
+    opacity: .62;
+    cursor: not-allowed;
+  }
+  .preference-options button:disabled:hover { border-color: var(--rst-ui-line); }
   .preference-options button > :global(svg:first-child) { color: var(--rst-ui-muted); }
   .preference-options button.is-active > :global(svg:first-child),
   .preference-options :global(svg.check) { color: var(--rst-ui-action); }
@@ -162,15 +185,13 @@
     outline: 2px solid color-mix(in srgb, var(--cl-accent) 55%, transparent);
     outline-offset: 2px;
   }
-  .swatch {
-    width: 14px;
-    height: 14px;
-    border: 2px solid #fff;
+  .theme-soon {
+    width: 5px;
+    height: 5px;
+    justify-self: center;
     border-radius: 50%;
-    box-shadow: 0 0 0 1px var(--rst-ui-line-strong);
+    background: var(--rst-ui-line-strong);
   }
-  .swatch.is-cobalt { background: #315efb; }
-  .swatch.is-tangerine { background: #ff5a1f; }
   .preference-sound {
     width: 100%;
     min-height: 48px;

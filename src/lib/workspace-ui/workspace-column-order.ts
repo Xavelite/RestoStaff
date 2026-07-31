@@ -205,8 +205,16 @@ function installDragHandle(
 
   const moveGhost = (clientX: number, clientY: number) => {
     if (!ghost) return;
-    ghost.style.left = `${Math.max(12, Math.min(clientX + 14, window.innerWidth - ghost.offsetWidth - 12))}px`;
-    ghost.style.top = `${Math.max(12, Math.min(clientY + 14, window.innerHeight - ghost.offsetHeight - 12))}px`;
+    const left = Math.max(
+      12,
+      Math.min(clientX - ghost.offsetWidth / 2, window.innerWidth - ghost.offsetWidth - 12)
+    );
+    const below = clientY + 18;
+    const top = below + ghost.offsetHeight <= window.innerHeight - 12
+      ? below
+      : Math.max(12, clientY - ghost.offsetHeight - 18);
+    ghost.style.left = `${left}px`;
+    ghost.style.top = `${top}px`;
   };
 
   const finishPointerDrag = (event: PointerEvent, commit: boolean) => {
@@ -250,10 +258,24 @@ function installDragHandle(
     document.documentElement.classList.add('is-reordering-column');
     ghost = document.createElement('div');
     ghost.className = 'workspace-column-drag-ghost';
-    ghost.textContent =
+    ghost.setAttribute('aria-hidden', 'true');
+    const rect = cell.getBoundingClientRect();
+    ghost.style.setProperty('--drag-column-width', `${Math.min(320, Math.max(152, rect.width))}px`);
+    const copy = document.createElement('span');
+    copy.className = 'workspace-column-drag-ghost__copy';
+    const label = document.createElement('strong');
+    label.textContent =
       cell.querySelector<HTMLElement>('.colhead__copy > span')?.textContent?.trim() ||
       cell.textContent?.trim() ||
       t('Column');
+    copy.append(label);
+    const metaText = cell.querySelector<HTMLElement>('.colhead__copy small')?.textContent?.trim();
+    if (metaText) {
+      const meta = document.createElement('small');
+      meta.textContent = metaText;
+      copy.append(meta);
+    }
+    ghost.append(copy);
     document.body.append(ghost);
     moveGhost(clientX, clientY);
   };

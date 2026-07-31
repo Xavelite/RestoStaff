@@ -1879,15 +1879,11 @@
   .board td { height: 96px; padding: 0; border-bottom: 1px solid color-mix(in srgb, var(--cl-ink) 14%, var(--cl-grid-line)); background: var(--cl-surface); background-clip: padding-box; vertical-align: middle; }
   .board__staff { position: sticky; left: 0; z-index: 4; width: 180px; border-right: 1px solid var(--cl-grid-line); background: var(--cl-surface) !important; }
   thead .board__staff { z-index: 10; background: var(--cl-thead) !important; }
-  thead .board__staff :global(.cl-primary-head) { position: relative; }
-  thead .board__staff :global(.cl-primary-head > .colhead) { width: 100%; padding-inline: 0; }
-  thead .board__staff :global(.colhead__label) { justify-content: center; padding-inline: 0; }
-  thead .board__staff :global(.colhead__copy) { width: auto; justify-items: center; }
-  thead .board__staff :global(.colhead__meta) { width: auto; justify-content: center; }
+  thead .board__staff :global(.cl-primary-head) { min-height: 72px; }
+  thead .board__staff :global(.colhead__copy) { justify-items: center; }
+  thead .board__staff :global(.colhead__meta) { justify-content: center; }
   thead .board__staff :global(.colhead__copy > span) { font-size: var(--rst-fs-body); line-height: 1.15; }
   thead .board__staff :global(.colhead__copy small) { font-size: var(--rst-fs-label); line-height: 1.2; }
-  thead .board__staff :global(.colhead__trigger) { position: absolute; top: 50%; right: 31px; transform: translateY(-50%); }
-  thead .board__staff :global(.groupmenu) { position: absolute; top: 0; right: 0; bottom: 0; padding-right: 6px; }
   .board__day { position: relative; border-left: 1px solid var(--cl-grid-line); text-align: center !important; }
   .board__day-date { color: var(--cl-ink); font-size: var(--rst-fs-body); line-height: 1.1; letter-spacing: 0; text-align: center; white-space: nowrap; }
   .board__day-date b { font-weight: var(--rst-fw-bold); }

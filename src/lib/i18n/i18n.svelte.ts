@@ -3710,8 +3710,10 @@ Object.assign(dutch, {
 
 Object.assign(french, {
   'Theme': 'Thème',
-  'Blue': 'Bleu',
-  'Orange': 'Orange',
+  'Classic': 'Classique',
+  'Light': 'Clair',
+  'Dark': 'Sombre',
+  'Coming soon': 'Bientôt disponible',
   'Export': 'Exporter',
   'File format': 'Format du fichier',
   'Choose how you want to use the file.': 'Choisissez comment utiliser le fichier.',
@@ -3798,8 +3800,10 @@ Object.assign(french, {
 
 Object.assign(dutch, {
   'Theme': 'Thema',
-  'Blue': 'Blauw',
-  'Orange': 'Oranje',
+  'Classic': 'Klassiek',
+  'Light': 'Licht',
+  'Dark': 'Donker',
+  'Coming soon': 'Binnenkort beschikbaar',
   'Export': 'Exporteren',
   'File format': 'Bestandsformaat',
   'Choose how you want to use the file.': 'Kies hoe u het bestand wilt gebruiken.',

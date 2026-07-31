@@ -105,6 +105,7 @@ test('device preferences live in one topbar menu and domain policy stays in Team
     'src/lib/workspace-ui/WorkspacePreferencesControls.svelte',
     'utf8'
   );
+  const theme = await readFile('src/lib/ui/theme.svelte.ts', 'utf8');
   const settings = await readFile('src/routes/(app)/settings/+page.svelte', 'utf8');
   const account = await readFile('src/lib/app-shell/AccountMenu.svelte', 'utf8');
   const communications = await readFile(
@@ -127,6 +128,13 @@ test('device preferences live in one topbar menu and domain policy stays in Team
   assert.match(settings, /<WorkspacePreferencesControls \/>/);
   assert.match(preferenceControls, /workspaceLayout\.set/);
   assert.match(preferenceControls, /workspaceTheme\.set/);
+  assert.match(preferenceControls, /t\('Classic'\)/);
+  assert.match(preferenceControls, /t\('Light'\)/);
+  assert.match(preferenceControls, /t\('Dark'\)/);
+  assert.equal((preferenceControls.match(/^\s+disabled$/gm) ?? []).length, 2);
+  assert.doesNotMatch(preferenceControls, /tangerine|t\('Orange'\)|t\('Blue'\)/);
+  assert.match(theme, /type WorkspaceTheme = 'classic'/);
+  assert.doesNotMatch(theme, /tangerine|cobalt/);
   assert.match(preferenceControls, /sound\.toggle/);
   assert.match(preferenceControls, /workspaceShellPreferences\.setSidebarMode/);
   assert.match(preferences, /window\.addEventListener\('pointerdown', closeOutside, true\)/);
@@ -134,6 +142,24 @@ test('device preferences live in one topbar menu and domain policy stays in Team
   assert.match(nav, /key: 'settings'/);
   assert.match(nav, /utility: true/);
   assert.match(nav, /href: '\/team\/time-off-types'/);
+});
+
+test('Schedule and Time share collision-free roster headers and visible column drag feedback', async () => {
+  const schedule = await readFile('src/routes/(app)/schedule/+page.svelte', 'utf8');
+  const timesheet = await readFile('src/routes/(app)/timesheet/+page.svelte', 'utf8');
+  const colMenu = await readFile('src/lib/workspace-ui/WorkspaceColMenu.svelte', 'utf8');
+  const ordering = await readFile('src/lib/workspace-ui/workspace-column-order.ts', 'utf8');
+  const workspaceCss = await readFile('src/lib/workspace-ui/workspace.css', 'utf8');
+
+  assert.ok(timesheet.includes('label={`${gridRows.length}/${rosterEmployeeCount}`}'));
+  assert.match(timesheet, /metaSeparator="arrow"/);
+  assert.match(timesheet, /height:\s*72px/);
+  assert.doesNotMatch(timesheet, /\.colhead__trigger\)[^\n]*position:\s*absolute/);
+  assert.doesNotMatch(schedule, /\.colhead__trigger\)[^\n]*position:\s*absolute/);
+  assert.match(colMenu, /class:is-comparison=\{metaSeparator === 'arrow'\}/);
+  assert.match(ordering, /workspace-column-drag-ghost__copy/);
+  assert.match(ordering, /clientX - ghost\.offsetWidth \/ 2/);
+  assert.match(workspaceCss, /\.workspace-column-drag-ghost\s*\{[\s\S]*box-shadow:[\s\S]*0 18px 42px/);
 });
 
 test('the app shell stays free of atmosphere imagery', async () => {

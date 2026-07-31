@@ -1,18 +1,18 @@
-type WorkspaceTheme = 'cobalt' | 'tangerine';
+type WorkspaceTheme = 'classic';
 
 const THEME_STORAGE_KEY = 'rst-workspace-theme';
 
 class WorkspaceThemeState {
   initialized = $state(false);
-  current = $state<WorkspaceTheme>('cobalt');
+  current = $state<WorkspaceTheme>('classic');
 
   init(): void {
     if (typeof document === 'undefined') return;
     try {
-      const stored = localStorage.getItem(THEME_STORAGE_KEY);
-      this.current = stored === 'tangerine' ? 'tangerine' : 'cobalt';
+      this.current = 'classic';
+      localStorage.setItem(THEME_STORAGE_KEY, this.current);
     } catch {
-      this.current = 'cobalt';
+      this.current = 'classic';
     }
     this.apply();
     this.initialized = true;

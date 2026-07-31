@@ -11,6 +11,7 @@
     labelIcon,
     meta = '',
     metaParts = [],
+    metaSeparator = 'dot',
     align = 'left',
     sortable = false,
     sortDir = null,
@@ -31,6 +32,7 @@
     labelIcon?: 'people';
     meta?: string;
     metaParts?: string[];
+    metaSeparator?: 'dot' | 'arrow';
     align?: 'left' | 'center' | 'right';
     sortable?: boolean;
     sortDir?: 'asc' | 'desc' | null;
@@ -124,7 +126,7 @@
         {label}
       </span>
       {#if metaParts.length}
-        <small class="colhead__meta">
+        <small class="colhead__meta" class:is-comparison={metaSeparator === 'arrow'}>
           {#each metaParts as part}
             <span>{part}</span>
           {/each}

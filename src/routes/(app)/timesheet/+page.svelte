@@ -124,6 +124,9 @@
       ? weekDates.flatMap((date) => actualSlotsForDate(snapshot, date, today, currentInstant))
       : []
   );
+  const rosterEmployeeCount = $derived(
+    new Set(slots.filter(isTimesheetRow).map((slot) => slot.employeeId)).size
+  );
   const totals = $derived(
     snapshot
       ? actualsWeekTotals(snapshot, activeWeek, today, currentInstant)
@@ -585,11 +588,12 @@
       <table class="board">
         <thead>
           <tr>
-            <th class="board__staff has-menu">
+            <th class="board__staff has-menu" scope="col">
               <WorkspacePrimaryColMenu
-                label={`${gridRows.length}`}
+                label={`${gridRows.length}/${rosterEmployeeCount}`}
                 labelIcon="people"
-                meta={`${formatHours(totals.plannedHours)} → ${formatHours(totals.actualHours)}`}
+                metaParts={[formatHours(totals.plannedHours), formatHours(totals.actualHours)]}
+                metaSeparator="arrow"
                 align="center"
                 sortable
                 sortDir={employeeSort}
@@ -847,8 +851,8 @@
     grid-template-columns: minmax(180px, 1fr) auto minmax(250px, 1fr);
     align-items: center;
     gap: 18px;
-    min-height: 50px;
-    padding: 4px 0 6px;
+    min-height: 54px;
+    padding: 5px 0 7px;
   }
   .timesheet-head__left { justify-self: start; display: flex; align-items: center; }
   .timesheet-head__right { justify-self: end; display: flex; align-items: center; gap: 7px; }
@@ -935,6 +939,8 @@
   }
   .detail-switch input:checked + i { border-color: color-mix(in srgb, var(--cl-accent) 54%, var(--cl-line)); background: color-mix(in srgb, var(--cl-accent) 18%, var(--cl-surface)); }
   .detail-switch input:checked + i b { background: var(--cl-accent); transform: translateX(14px); }
+  .detail-switch:has(input:checked) { color: var(--cl-ink); }
+  .detail-switch:has(input:focus-visible) > i { outline: 2px solid color-mix(in srgb, var(--cl-accent) 28%, transparent); outline-offset: 2px; }
   .approve-btn {
     min-height: 36px;
     padding: 7px 15px;
@@ -970,8 +976,8 @@
   }
   .timesheet-wrap .board thead { position: sticky; top: 0; z-index: 8; }
   .timesheet-wrap .board th {
-    height: 66px;
-    padding: 5px 9px;
+    height: 72px;
+    padding: 6px 10px;
     border-bottom: 1px solid color-mix(in srgb, var(--cl-accent) 65%, var(--cl-line));
     background: var(--cl-thead);
   }
@@ -992,20 +998,16 @@
     background: var(--cl-surface) !important;
   }
   .timesheet-wrap thead .board__staff { z-index: 10; background: var(--cl-thead) !important; }
-  .timesheet-wrap thead .board__staff :global(.cl-primary-head) { position: relative; }
-  .timesheet-wrap thead .board__staff :global(.cl-primary-head > .colhead) { width: 100%; padding-inline: 0; }
-  .timesheet-wrap thead .board__staff :global(.colhead__label) { justify-content: center; padding-inline: 0; }
-  .timesheet-wrap thead .board__staff :global(.colhead__copy) { width: auto; justify-items: center; }
-  .timesheet-wrap thead .board__staff :global(.colhead__meta) { width: auto; justify-content: center; }
-  .timesheet-wrap thead .board__staff :global(.colhead__trigger) { position: absolute; top: 50%; right: 31px; transform: translateY(-50%); }
-  .timesheet-wrap thead .board__staff :global(.groupmenu) { position: absolute; top: 0; right: 0; bottom: 0; padding-right: 6px; }
+  .timesheet-wrap thead .board__staff :global(.cl-primary-head) { min-height: 72px; }
+  .timesheet-wrap thead .board__staff :global(.colhead__copy) { justify-items: center; }
+  .timesheet-wrap thead .board__staff :global(.colhead__meta) { justify-content: center; }
   .timesheet-wrap .board__day { position: relative; border-left: 1px solid var(--cl-grid-line); text-align: center; }
-  .board__day-date { color: var(--cl-ink); font-size: var(--rst-fs-control); line-height: 1.05; white-space: nowrap; }
+  .board__day-date { color: var(--cl-ink); font-size: var(--rst-fs-body); line-height: 1.1; white-space: nowrap; }
   .board__day-lower {
-    min-height: 38px;
+    min-height: 42px;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: 22px 12px;
+    grid-template-rows: 25px 13px;
     align-items: center;
     margin-top: 2px;
     color: var(--cl-muted);

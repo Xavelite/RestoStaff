@@ -12,6 +12,7 @@
     labelIcon,
     meta = '',
     metaParts = [],
+    metaSeparator = 'dot',
     align = 'left',
     sortable = false,
     sortDir = null,
@@ -35,6 +36,7 @@
     labelIcon?: 'people';
     meta?: string;
     metaParts?: string[];
+    metaSeparator?: 'dot' | 'arrow';
     align?: 'left' | 'center' | 'right';
     sortable?: boolean;
     sortDir?: 'asc' | 'desc' | null;
@@ -63,6 +65,7 @@
       {labelIcon}
       {meta}
       {metaParts}
+      {metaSeparator}
       {align}
       {sortable}
       {sortDir}
@@ -84,6 +87,7 @@
       {labelIcon}
       {meta}
       {metaParts}
+      {metaSeparator}
       {align}
       {sortable}
       {sortDir}
