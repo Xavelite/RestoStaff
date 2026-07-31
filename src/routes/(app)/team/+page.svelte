@@ -20,9 +20,10 @@
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
   import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
   import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
-  import WorkspacePersonTile from '$lib/workspace-ui/WorkspacePersonTile.svelte';
-  import WorkspaceTileGrid from '$lib/workspace-ui/WorkspaceTileGrid.svelte';
+  import WorkspacePersonCard from '$lib/workspace-ui/WorkspacePersonCard.svelte';
+  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
   import WorkspaceTag from '$lib/workspace-ui/WorkspaceTag.svelte';
+  import { ACCESS_LABEL, accessTone } from '$lib/team/access-labels';
   import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import WorkspaceColChooser from '$lib/workspace-ui/WorkspaceColChooser.svelte';
   import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
@@ -469,33 +470,39 @@
              groups them, and the one dot says whether they can actually sign in.
              Contact detail stays in the row layout and the employee editor,
              which is where anyone reading an address is already headed. -->
-        <WorkspaceTileGrid>
+        <WorkspaceCardGrid>
           {#each rows as group (group.key)}
             {#each group.employees as employee (employee.id)}
               {@const contract = team.contractName.get(employee.contractTypeId)}
-              <WorkspacePersonTile
+              <WorkspacePersonCard
                 name={employee.displayName || t('New employee')}
-                role={team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position yet')}
                 accent={employeeColor.get(employee.id) ?? null}
-                presence={employee.accessState === 'active' ? 'ok' : employee.accessState === 'invited' ? 'warn' : 'none'}
-                presenceLabel={employee.accessState.replace('_', ' ')}
+                roles={employee.jobFunctionIds.length
+                  ? employee.jobFunctionIds.map((id) => ({
+                      label: team.jobName.get(id) ?? t('No position yet'),
+                      color: positionColor.get(id) ?? null
+                    }))
+                  : [{ label: t('No position yet'), color: null }]}
+                statusLabel={employee.active ? t('Active') : t('Archived')}
+                statusTone={employee.active ? 'ok' : 'neutral'}
+                details={[
+                  { kind: 'mail' as const, value: employee.email || t('No email'), muted: !employee.email },
+                  { kind: 'phone' as const, value: employee.phone || t('No phone'), muted: !employee.phone }
+                ]}
                 dimmed={!employee.active}
                 onactivate={team.editable ? () => (detailId = employee.id) : null}
               >
-                {#snippet children()}
-                  {#if contract}<WorkspaceTag label={contract} />{/if}
-                  {#if employee.jobFunctionIds.length > 1}
-                    <WorkspaceTag label={`+${employee.jobFunctionIds.length - 1}`} tone="accent" />
-                  {/if}
-                  {#if !employee.active}<WorkspaceTag label={t('Archived')} />{/if}
-                  {#if !employee.email && !employee.phone}
-                    <WorkspaceTag label={t('No contact details')} tone="warn" />
-                  {/if}
+                {#snippet tags()}
+                  <WorkspaceTag label={contract || t('No contract')} tone={contract ? 'neutral' : 'warn'} />
+                  <WorkspaceTag
+                    label={t(ACCESS_LABEL[employee.accessState] ?? employee.accessState)}
+                    tone={accessTone(employee.accessState)}
+                  />
                 {/snippet}
-              </WorkspacePersonTile>
+              </WorkspacePersonCard>
             {/each}
           {/each}
-        </WorkspaceTileGrid>
+        </WorkspaceCardGrid>
       {:else}
       <div class="cl-tablewrap">
         <table class="cl-table cl-mobile-rows people-table">

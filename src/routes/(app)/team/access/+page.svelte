@@ -2,6 +2,7 @@
   import { Pencil } from '@lucide/svelte';
   import { onMount, tick } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
+  import { ACCESS_LABEL } from '$lib/team/access-labels';
   import { personInitials } from '$lib/ui/person';
   import { buildEmployeeColorMap } from '$lib/ui/position-color';
   import { workspace } from '$lib/workspace/workspace.svelte';
@@ -54,15 +55,6 @@
         )
       : new Map<string, string>()
   );
-
-  const ACCESS_LABEL: Record<string, string> = {
-    active: 'Enabled',
-    disabled: 'Disabled',
-    invited: 'Invited',
-    expired: 'Invitation expired',
-    revoked: 'Invitation revoked',
-    not_invited: 'Not invited'
-  };
 
   onMount(view.restore);
 

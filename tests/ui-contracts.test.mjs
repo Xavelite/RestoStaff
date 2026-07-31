@@ -92,7 +92,7 @@ test('every rows-or-cards workspace keeps both render contracts', async () => {
   const bespokeSurfaces = [
     ['src/lib/restaurant/OperationalAreasWorkspace.svelte', /class="area-cards"/],
     ['src/lib/reservations/ReservationsWorkspace.svelte', /class="agenda"/],
-    ['src/routes/(app)/team/+page.svelte', /<WorkspaceTileGrid/]
+    ['src/routes/(app)/team/+page.svelte', /<WorkspacePersonCard/]
   ];
   for (const [file, marker] of bespokeSurfaces) {
     const source = await readFile(file, 'utf8');
