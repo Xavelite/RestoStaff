@@ -12,8 +12,7 @@
   import { friendlyError } from '$lib/api/error-messages';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
-  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
-  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
+  import WorkspaceTag from '$lib/workspace-ui/WorkspaceTag.svelte';
   import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
   import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
@@ -757,40 +756,53 @@
       </section>
     {:else}
     {#if workspaceLayout.cards && !loading && reservations.length}
-      <!-- A service reads as a sequence of guests, so each booking is one object
-           carrying its own time, party and table rather than a row to decode. -->
-      <WorkspaceCardGrid>
-        {#each reservations as reservation (reservation.id)}
+      <!-- A service is a clock, not a list. The agenda puts the hour on a spine
+           and hangs each booking off the moment it arrives, so a host reads the
+           shape of the night — where the rushes are and where the room breathes
+           — instead of decoding a time column. -->
+      <ol class="agenda">
+        {#each reservations as reservation, index (reservation.id)}
           {@const cancelled = ['cancelled', 'no_show'].includes(reservation.status)}
-          <WorkspaceCard
-            accent={cancelled ? null : 'var(--cl-accent)'}
-            title={reservation.guest.display_name}
-            subtitle={reservation.guest.phone || reservation.guest.email || t('No contact details')}
-            badges={[
-              {
-                label: t(reservationStatusMeta(reservation.status).label),
-                tone: cancelled ? ('neutral' as const) : ('accent' as const)
-              },
-              { label: `${reservation.party_size} ${t('guests')}`, tone: 'neutral' as const }
-            ]}
-            meta={[
-              { label: t('Time'), value: timeLabel(reservation.starts_at) },
-              {
-                label: t('Room & table'),
-                value: reservation.table_labels.join(' + ') || t('Unassigned'),
-                muted: !reservation.table_labels.length
-              },
-              { label: t('Source'), value: t(sourceLabel(reservation.source)) },
-              {
-                label: t('Notes'),
-                value: reservation.guest_comment || reservation.internal_notes || '—',
-                muted: !reservation.guest_comment && !reservation.internal_notes
-              }
-            ]}
-            onactivate={() => openReservation(reservation)}
-          />
+          {@const slot = timeLabel(reservation.starts_at)}
+          {@const newSlot = index === 0 || timeLabel(reservations[index - 1].starts_at) !== slot}
+          {@const note = reservation.guest_comment || reservation.internal_notes}
+          <li class="agenda__row" class:is-cancelled={cancelled}>
+            <span class="agenda__time" aria-hidden={!newSlot}>{newSlot ? slot : ''}</span>
+            <span class="agenda__rail" aria-hidden="true"><i></i></span>
+            <button class="agenda__booking" type="button" onclick={() => openReservation(reservation)}>
+              <span class="agenda__lead">
+                <strong>{reservation.guest.display_name}</strong>
+                <span class="agenda__party" title={t('Guests')}>
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19" />
+                    <circle cx="10" cy="8" r="3" />
+                    <path d="M20 19v-1.5a3.5 3.5 0 0 0-2.5-3.35" />
+                  </svg>
+                  {reservation.party_size}
+                </span>
+                <WorkspaceTag
+                  label={t(reservationStatusMeta(reservation.status).label)}
+                  tone={cancelled ? 'neutral' : 'ok'}
+                />
+              </span>
+              <span class="agenda__facts">
+                <span class="agenda__table" class:is-empty={!reservation.table_labels.length}>
+                  <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="6" width="18" height="4" rx="1.4" />
+                    <path d="M6 10v8M18 10v8" />
+                  </svg>
+                  {reservation.table_labels.join(' + ') || t('Unassigned')}
+                </span>
+                <span>{t(sourceLabel(reservation.source))}</span>
+                <span class="agenda__contact">
+                  {reservation.guest.phone || reservation.guest.email || t('No contact details')}
+                </span>
+              </span>
+              {#if note}<span class="agenda__note">{note}</span>{/if}
+            </button>
+          </li>
         {/each}
-      </WorkspaceCardGrid>
+      </ol>
     {:else}
     <div class="cl-tablewrap">
       <table class="cl-table cl-mobile-rows reservation-table">
@@ -1183,6 +1195,102 @@
 </Dialog>
 
 <style>
+  /* The agenda: an hour spine on the left, bookings hanging off it. */
+  .agenda { display: grid; align-content: start; gap: 0; margin: 0; padding: 14px 16px 18px; list-style: none; }
+
+  .agenda__row { display: grid; grid-template-columns: 52px 18px minmax(0, 1fr); align-items: stretch; }
+
+  .agenda__time {
+    padding-top: 14px;
+    color: var(--rst-ui-text);
+    font-size: var(--rst-fs-control);
+    font-weight: var(--rst-fw-bold);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .agenda__rail { position: relative; display: block; }
+  .agenda__rail::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 1px;
+    background: var(--rst-ui-divider-soft);
+    transform: translateX(-50%);
+  }
+  .agenda__row:first-child .agenda__rail::before { top: 14px; }
+  .agenda__row:last-child .agenda__rail::before { bottom: auto; height: 20px; }
+  .agenda__rail i {
+    position: absolute;
+    top: 19px;
+    left: 50%;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--cl-accent);
+    box-shadow: 0 0 0 3px var(--rst-ui-surface-panel);
+    transform: translate(-50%, -50%);
+  }
+  .agenda__row.is-cancelled .agenda__rail i { background: var(--rst-ui-line-strong); }
+
+  .agenda__booking {
+    /* An agenda entry is a note, not a banner: capping the width keeps the eye
+       travelling down the hour spine instead of across empty space. */
+    max-width: 620px;
+    display: grid;
+    gap: 4px;
+    margin: 4px 0 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: 12px;
+    color: var(--rst-ui-text);
+    background: var(--rst-ui-surface-panel);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color .16s ease, box-shadow .18s ease, transform .18s ease;
+  }
+  .agenda__booking:hover {
+    border-color: color-mix(in srgb, var(--cl-accent) 45%, var(--rst-ui-line));
+    box-shadow: 0 8px 22px rgba(15, 23, 42, .08);
+    transform: translateY(-1px);
+  }
+  .agenda__booking:focus-visible { outline: 2px solid color-mix(in srgb, var(--cl-accent) 55%, transparent); outline-offset: 2px; }
+  .agenda__row.is-cancelled .agenda__booking { opacity: .6; }
+
+  .agenda__lead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .agenda__lead strong { font-size: var(--rst-fs-body); font-weight: var(--rst-fw-bold); }
+
+  .agenda__party {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--rst-ui-muted);
+    font-size: var(--rst-fs-label);
+    font-weight: var(--rst-fw-bold);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .agenda__facts { display: flex; flex-wrap: wrap; gap: 3px 12px; color: var(--rst-ui-muted); font-size: var(--rst-fs-caption); }
+  .agenda__table { display: inline-flex; align-items: center; gap: 4px; color: var(--rst-ui-text); font-weight: var(--rst-fw-medium); }
+  .agenda__table.is-empty { color: var(--rst-state-warning-text, #8a5a00); }
+  .agenda__contact { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .agenda__note {
+    margin-top: 1px;
+    color: var(--rst-ui-muted);
+    font-size: var(--rst-fs-caption);
+    font-style: italic;
+    line-height: 1.4;
+  }
+
+  @media (max-width: 520px) {
+    .agenda { padding: 10px 10px 14px; }
+    .agenda__row { grid-template-columns: 42px 14px minmax(0, 1fr); }
+  }
+
   :global(.cl-tablepanel__meta b) {
     color: var(--cl-ink);
     font-variant-numeric: tabular-nums;

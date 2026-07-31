@@ -800,14 +800,16 @@
   .notifications-shell { position: relative; }
   .notification-button {
     position: relative;
-    width: 36px;
-    min-height: 36px;
+    width: 34px;
+    min-height: 34px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     padding: 0;
     border: 1px solid transparent;
-    border-radius: var(--rst-ui-radius-md);
+    /* Circular, like the preferences control beside it: two peer icon buttons
+       in the same corner should not disagree about their own shape. */
+    border-radius: var(--rst-ui-radius-round);
     color: var(--rst-topbar-muted, var(--rst-ui-muted));
     background: transparent;
     font: inherit;

@@ -66,13 +66,11 @@ test('the product type scale owns every application font size', async () => {
 test('every rows-or-cards workspace keeps both render contracts', async () => {
   const paritySurfaces = [
     'src/lib/reservations/ReservationSetupWorkspace.svelte',
-    'src/lib/reservations/ReservationsWorkspace.svelte',
     'src/lib/team/TimeOffPoliciesWorkspace.svelte',
     'src/routes/(app)/badge-terminal/+page.svelte',
     'src/routes/(app)/documents/+page.svelte',
     'src/routes/(app)/restaurant/coverage/+page.svelte',
     'src/routes/(app)/restaurant/positions/+page.svelte',
-    'src/routes/(app)/team/+page.svelte',
     'src/routes/(app)/team/absences/+page.svelte',
     'src/routes/(app)/team/access/+page.svelte',
     'src/routes/(app)/team/contracts/+page.svelte',
@@ -87,9 +85,22 @@ test('every rows-or-cards workspace keeps both render contracts', async () => {
     assert.match(source, /<table|<WorkspaceTablePanel/, `${file} lost its row records`);
   }
 
+  // Surfaces whose alternative view outgrew the generic card keep the same
+  // contract — a preference, an alternative collection, and the rows — but name
+  // their own visual, because a floor band, a people wall and a service agenda
+  // are the point rather than a card with different words in it.
+  const bespokeSurfaces = [
+    ['src/lib/restaurant/OperationalAreasWorkspace.svelte', /class="area-cards"/],
+    ['src/lib/reservations/ReservationsWorkspace.svelte', /class="agenda"/],
+    ['src/routes/(app)/team/+page.svelte', /<WorkspaceTileGrid/]
+  ];
+  for (const [file, marker] of bespokeSurfaces) {
+    const source = await readFile(file, 'utf8');
+    assert.match(source, /workspaceLayout\.cards/, `${file} lost the shared preference`);
+    assert.match(source, marker, `${file} lost its alternative collection`);
+    assert.match(source, /<table|<WorkspaceTablePanel/, `${file} lost its row records`);
+  }
   const areas = await readFile('src/lib/restaurant/OperationalAreasWorkspace.svelte', 'utf8');
-  assert.match(areas, /workspaceLayout\.cards/);
-  assert.match(areas, /class="area-cards"/);
   assert.match(areas, /class="area-tile"/);
   assert.match(areas, /<table class="cl-table cl-mobile-rows">/);
   assert.doesNotMatch(areas, /WorkspaceViewSwitch|WorkspaceCardGrid/);

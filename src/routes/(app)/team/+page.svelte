@@ -20,8 +20,9 @@
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
   import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
   import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
-  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
-  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
+  import WorkspacePersonTile from '$lib/workspace-ui/WorkspacePersonTile.svelte';
+  import WorkspaceTileGrid from '$lib/workspace-ui/WorkspaceTileGrid.svelte';
+  import WorkspaceTag from '$lib/workspace-ui/WorkspaceTag.svelte';
   import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import WorkspaceColChooser from '$lib/workspace-ui/WorkspaceColChooser.svelte';
   import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
@@ -464,40 +465,37 @@
       {/snippet}
       {#snippet children()}
       {#if workspaceLayout.cards}
-        <!-- Cards are a reading layout: the dense inline editing that rows offer
-             would fight the format, so a card opens the full employee editor. -->
-        <WorkspaceCardGrid>
+        <!-- People are a directory, not records: faces lead, the position colour
+             groups them, and the one dot says whether they can actually sign in.
+             Contact detail stays in the row layout and the employee editor,
+             which is where anyone reading an address is already headed. -->
+        <WorkspaceTileGrid>
           {#each rows as group (group.key)}
             {#each group.employees as employee (employee.id)}
-              <WorkspaceCard
+              {@const contract = team.contractName.get(employee.contractTypeId)}
+              <WorkspacePersonTile
+                name={employee.displayName || t('New employee')}
+                role={team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position yet')}
                 accent={employeeColor.get(employee.id) ?? null}
-                initials={personInitials(employee.displayName || '?')}
-                title={employee.displayName || t('New employee')}
-                subtitle={team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position yet')}
-                badges={[
-                  ...(team.contractName.get(employee.contractTypeId)
-                    ? [{ label: team.contractName.get(employee.contractTypeId) ?? '', tone: 'neutral' as const }]
-                    : []),
-                  employee.active
-                    ? { label: t('Active'), tone: 'ok' as const }
-                    : { label: t('Archived'), tone: 'neutral' as const },
-                  ...(employee.jobFunctionIds.length > 1
-                    ? [{ label: `+${employee.jobFunctionIds.length - 1}`, tone: 'accent' as const }]
-                    : []),
-                  {
-                    label: employee.accessState.replace('_', ' '),
-                    tone: employee.accessState === 'active' ? ('accent' as const) : ('neutral' as const)
-                  }
-                ]}
-                meta={[
-                  { label: t('Email'), value: employee.email || '—', muted: !employee.email, icon: 'mail' as const },
-                  { label: t('Phone'), value: employee.phone || '—', muted: !employee.phone, icon: 'phone' as const }
-                ]}
+                presence={employee.accessState === 'active' ? 'ok' : employee.accessState === 'invited' ? 'warn' : 'none'}
+                presenceLabel={employee.accessState.replace('_', ' ')}
+                dimmed={!employee.active}
                 onactivate={team.editable ? () => (detailId = employee.id) : null}
-              />
+              >
+                {#snippet children()}
+                  {#if contract}<WorkspaceTag label={contract} />{/if}
+                  {#if employee.jobFunctionIds.length > 1}
+                    <WorkspaceTag label={`+${employee.jobFunctionIds.length - 1}`} tone="accent" />
+                  {/if}
+                  {#if !employee.active}<WorkspaceTag label={t('Archived')} />{/if}
+                  {#if !employee.email && !employee.phone}
+                    <WorkspaceTag label={t('No contact details')} tone="warn" />
+                  {/if}
+                {/snippet}
+              </WorkspacePersonTile>
             {/each}
           {/each}
-        </WorkspaceCardGrid>
+        </WorkspaceTileGrid>
       {:else}
       <div class="cl-tablewrap">
         <table class="cl-table cl-mobile-rows people-table">

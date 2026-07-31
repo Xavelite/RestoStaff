@@ -55,10 +55,12 @@
     display: grid;
     place-items: center;
     padding: 0;
-    border: 1px solid var(--rst-topbar-line, transparent);
+    border: 1px solid transparent;
     border-radius: var(--rst-ui-radius-round);
     color: var(--rst-topbar-text, var(--rst-ui-text));
-    background: var(--rst-topbar-control-bg, transparent);
+    /* Transparent at rest so the account chip stays the only filled thing up
+       here; the fill arrives on hover and while the menu is open. */
+    background: transparent;
     cursor: pointer;
     transition: background .16s ease, color .16s ease, border-color .16s ease;
   }
