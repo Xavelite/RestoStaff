@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import { GripVertical, Map as MapIcon } from '@lucide/svelte';
+  import { GripVertical } from '@lucide/svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { confirmAction } from '$lib/ui/confirm.svelte';
   import { buildPositionColorMap, defaultAreaColor } from '$lib/ui/position-color';
@@ -401,10 +401,6 @@
       <span><i class="dot is-green"></i>{t('{count} active', { count: rows.filter((area) => placement(area).active).length })}</span>
     {/snippet}
     {#snippet actions()}
-      <a class="cl-btn" href="/restaurant/floor-plan">
-        <MapIcon size={15} aria-hidden="true" />
-        {t('Floor plan')}
-      </a>
       <button
         class="cl-btn is-primary"
         type="button"
