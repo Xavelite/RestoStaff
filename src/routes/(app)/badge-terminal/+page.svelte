@@ -17,6 +17,9 @@
   import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
   import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
   import WorkspaceStatus from '$lib/workspace-ui/WorkspaceStatus.svelte';
+  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
+  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
+  import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
 
@@ -138,6 +141,36 @@
     {/snippet}
 
     {#snippet children()}
+      {#if workspaceLayout.cards}
+        <!-- A device roster reads by state: a terminal that is live on the floor
+             should not look like one that has never connected. -->
+        <WorkspaceCardGrid>
+          {#each stations as station (station.id)}
+            <WorkspaceCard
+              accent={isOnline(station) ? 'var(--cl-ok, #157f4b)' : station.lastUsedAt ? null : 'var(--rst-state-warning, #d99a1c)'}
+              title={station.label}
+              badges={[
+                isOnline(station)
+                  ? { label: t('Online'), tone: 'ok' as const }
+                  : station.lastUsedAt
+                    ? { label: t('Offline'), tone: 'neutral' as const }
+                    : { label: t('Waiting for first connection'), tone: 'warn' as const }
+              ]}
+              meta={[
+                { label: t('Paired'), value: stamp(station.createdAt) },
+                { label: t('Last used'), value: stamp(station.lastUsedAt) || t('Never'), muted: !station.lastUsedAt }
+              ]}
+            >
+              {#snippet media()}
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="6" y="3" width="12" height="18" rx="2" />
+                  <path d="M10 17h4" />
+                </svg>
+              {/snippet}
+            </WorkspaceCard>
+          {/each}
+        </WorkspaceCardGrid>
+      {:else}
       <div class="cl-tablewrap">
         <table class="cl-table">
           <thead>
@@ -202,6 +235,7 @@
           </tbody>
         </table>
       </div>
+      {/if}
     {/snippet}
   </WorkspaceTablePanel>
 </WorkspacePage>

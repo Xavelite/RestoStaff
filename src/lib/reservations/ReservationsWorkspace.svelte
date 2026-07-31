@@ -12,6 +12,9 @@
   import { friendlyError } from '$lib/api/error-messages';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
+  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
+  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
+  import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
   import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
   import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
@@ -727,6 +730,36 @@
         {/if}
       </section>
     {:else}
+    {#if workspaceLayout.cards && !loading && reservations.length}
+      <!-- A service reads as a sequence of guests, so each booking is one object
+           carrying its own time, party and table rather than a row to decode. -->
+      <WorkspaceCardGrid>
+        {#each reservations as reservation (reservation.id)}
+          {@const cancelled = ['cancelled', 'no_show'].includes(reservation.status)}
+          <WorkspaceCard
+            accent={cancelled ? null : 'var(--cl-accent)'}
+            title={reservation.guest.display_name}
+            subtitle={reservation.guest.phone || reservation.guest.email || t('No contact details')}
+            badges={[
+              {
+                label: t(reservationStatusMeta(reservation.status).label),
+                tone: cancelled ? ('neutral' as const) : ('accent' as const)
+              },
+              { label: `${reservation.party_size} ${t('guests')}`, tone: 'neutral' as const }
+            ]}
+            meta={[
+              { label: t('Time'), value: timeLabel(reservation.starts_at) },
+              {
+                label: t('Room & table'),
+                value: reservation.table_labels.join(' + ') || t('Unassigned'),
+                muted: !reservation.table_labels.length
+              }
+            ]}
+            onactivate={() => openReservation(reservation)}
+          />
+        {/each}
+      </WorkspaceCardGrid>
+    {:else}
     <div class="cl-tablewrap">
       <table class="cl-table cl-mobile-rows reservation-table">
         <thead>
@@ -887,6 +920,7 @@
         </tbody>
       </table>
     </div>
+    {/if}
       {/if}
       {/snippet}
     </WorkspaceTablePanel>

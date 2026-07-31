@@ -10,6 +10,9 @@
   import WorkspacePicker from '$lib/workspace-ui/WorkspacePicker.svelte';
   import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
   import WorkspaceServiceIcon from '$lib/workspace-ui/WorkspaceServiceIcon.svelte';
+  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
+  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
+  import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import { restaurantConfig } from '$lib/workspace-ui/workspace-restaurant.svelte';
   import type {
     CoverageDraft,
@@ -427,6 +430,48 @@
           {/each}
         </div>
 
+        {#if workspaceLayout.cards}
+          <!-- One rule per card with its whole week on show. The matrix compares
+               weekdays down a column; this compares them across a single rule,
+               which is the unit a manager actually edits. -->
+          <div class="coverage-desktop">
+            <WorkspaceCardGrid>
+              {#each groups as group (group.key)}
+                {#each group.rows as row (rowKey(row))}
+                  <WorkspaceCard
+                    accent={areaColor.get(row.areaId) ?? null}
+                    title={areaName.get(row.areaId) ?? '—'}
+                    subtitle={`${jobName.get(row.jobFunctionId) ?? '—'} · ${serviceName(row.serviceKey)}`}
+                  >
+                    {#snippet media()}
+                      <WorkspaceAreaIcon icon={areaIcon(row.areaId)} color={areaColor.get(row.areaId)} size={17} compact />
+                    {/snippet}
+                    {#snippet children()}
+                      <div class="cov-strip">
+                        {#each WEEKDAYS as day, index (index)}
+                          {@const value = entry(draft, row, index + 1)}
+                          <label class="cov-strip__day" class:is-set={Boolean(value)}>
+                            <span>{t(day).slice(0, 3)}</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              placeholder="—"
+                              value={value?.requiredCount ?? ''}
+                              disabled={workspace.isPreview}
+                              aria-label={`${t(day)} ${t('required people')}`}
+                              oninput={(event) => setCount(row, index + 1, event.currentTarget.value)}
+                            />
+                          </label>
+                        {/each}
+                      </div>
+                    {/snippet}
+                  </WorkspaceCard>
+                {/each}
+              {/each}
+            </WorkspaceCardGrid>
+          </div>
+        {:else}
         <div class="cl-tablewrap coverage-desktop">
           <table class="cl-table cov">
             <thead>
@@ -488,12 +533,64 @@
             {/if}
           </table>
         </div>
+        {/if}
       {/snippet}
     </WorkspaceTablePanel>
 
 {/if}
 
 <style>
+  /* The week as one strip: seven equal days, so an uneven rule shows its shape
+     at a glance and a set day reads as filled rather than merely typed in. */
+  .cov-strip {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 4px;
+    width: 100%;
+  }
+
+  .cov-strip__day { display: grid; gap: 3px; justify-items: center; min-width: 0; }
+
+  .cov-strip__day > span {
+    color: var(--rst-ui-muted);
+    font-size: 8.5px;
+    font-weight: var(--rst-fw-bold);
+    letter-spacing: .03em;
+    text-transform: uppercase;
+  }
+
+  .cov-strip__day input {
+    width: 100%;
+    min-width: 0;
+    height: 30px;
+    padding: 2px;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: 7px;
+    color: var(--rst-ui-muted);
+    background: var(--rst-ui-surface-field);
+    font: inherit;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
+  .cov-strip__day input::-webkit-outer-spin-button,
+  .cov-strip__day input::-webkit-inner-spin-button { margin: 0; -webkit-appearance: none; }
+
+  .cov-strip__day.is-set input {
+    border-color: color-mix(in srgb, var(--cl-accent) 42%, var(--rst-ui-line));
+    color: var(--rst-ui-text);
+    background: var(--rst-ui-action-soft);
+    font-weight: var(--rst-fw-bold);
+  }
+
+  .cov-strip__day input:focus {
+    border-color: var(--cl-accent);
+    outline: none;
+  }
+
   .cov { min-width: 980px; }
   .cov__day { text-align: center; }
   .num { width: 62px; height: 34px; text-align: center; font-variant-numeric: tabular-nums; color: var(--cl-muted); }
