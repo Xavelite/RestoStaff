@@ -456,23 +456,22 @@
 {/if}
 
 <style>
-  /* Operational messages are a persistent workspace tool, not topbar chrome.
-     The floating action stays reachable while a manager works through a long
-     grid and gives the message centre one predictable home on every module. */
-  .communications-button { position: fixed; z-index: var(--rst-z-panel, 200); right: 22px; bottom: max(22px, env(safe-area-inset-bottom, 0px)); width: 52px; min-height: 52px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 1px solid color-mix(in srgb, var(--cl-accent) 72%, white); border-radius: 50%; color: white; background: var(--cl-accent); box-shadow: 0 13px 30px rgba(var(--cl-accent-rgb), .28), 0 3px 10px rgba(15, 23, 42, .18); font: inherit; line-height: 1; cursor: pointer; transition: transform .18s var(--cl-ease), background .18s ease, border-color .18s ease, box-shadow .18s ease; }
-  .communications-button:hover { border-color: color-mix(in srgb, var(--cl-accent-hover) 72%, white); color: white; background: var(--cl-accent-hover); box-shadow: 0 16px 34px rgba(var(--cl-accent-rgb), .32), 0 4px 12px rgba(15, 23, 42, .2); transform: translateY(-2px); }
-  .communications-button:focus-visible { outline: 3px solid rgba(var(--cl-accent-rgb), .24); outline-offset: 3px; }
-  .communications-button:active { transform: translateY(0); }
+  /* Messages are communication chrome, beside notifications. Keeping their
+     launcher in the topbar prevents it from obscuring forms and grid actions. */
+  .communications-button { position: relative; z-index: 1; width: 36px; min-height: 36px; flex: none; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 1px solid var(--rst-topbar-line, transparent); border-radius: 50%; color: var(--rst-topbar-text, var(--cl-shell-text)); background: var(--rst-topbar-control-bg, transparent); box-shadow: none; font: inherit; line-height: 1; cursor: pointer; transition: background .16s ease, border-color .16s ease, color .16s ease; }
+  .communications-button:hover,
+  .communications-button.is-open { border-color: var(--rst-topbar-line, var(--cl-shell-line)); color: var(--rst-topbar-text, var(--cl-shell-text)); background: var(--rst-topbar-control-hover, var(--cl-shell-hover)); }
+  .communications-button:focus-visible { outline: 3px solid rgba(var(--cl-accent-rgb), .24); outline-offset: 2px; }
   .communications-button > svg { display: block; }
-  .communications-button b { position: absolute; top: -3px; right: -3px; min-width: 19px; height: 19px; display: grid; place-items: center; padding: 0 4px; border: 2px solid var(--cl-bg); border-radius: var(--rst-ui-radius-pill); color: white; background: var(--rst-state-danger); font-size: 9px; font-weight: 800; animation: rst-pop-in .32s var(--rst-ease-spring) backwards; }
+  .communications-button b { position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; display: grid; place-items: center; padding: 0 4px; border: 2px solid var(--cl-shell); border-radius: var(--rst-ui-radius-pill); color: white; background: var(--rst-state-danger); font-size: var(--rst-fs-micro); font-weight: 800; animation: rst-pop-in .32s var(--rst-ease-spring) backwards; }
 
   /* The panel is docked above its own launcher so the eye never loses the
-     thread between the button pressed and the conversation that opened. */
+     thread between the topbar button and the conversation that opened. */
   .chat {
     position: fixed;
     z-index: var(--rst-z-panel, 200);
     right: 22px;
-    bottom: calc(max(22px, env(safe-area-inset-bottom, 0px)) + 64px);
+    top: calc(var(--cl-topbar) + 8px);
     width: 384px;
     max-width: calc(100vw - 32px);
     height: min(560px, calc(100dvh - 150px));
@@ -481,6 +480,7 @@
     overflow: hidden;
     border: 1px solid var(--rst-ui-line);
     border-radius: 16px;
+    color: var(--rst-ui-text);
     background: var(--rst-ui-surface-panel);
     box-shadow: 0 24px 60px rgba(15, 23, 42, .22), 0 4px 14px rgba(15, 23, 42, .12);
     animation: rst-chat-in .18s var(--rst-ease-spring, ease) backwards;
@@ -508,11 +508,11 @@
     background: var(--cl-accent);
   }
   .chat__title { min-width: 0; display: grid; gap: 1px; }
-  .chat__title strong { font-size: 13px; font-weight: var(--rst-fw-bold); }
+  .chat__title strong { font-size: var(--rst-fs-body); font-weight: var(--rst-fw-bold); }
   .chat__title small {
     overflow: hidden;
     color: var(--rst-ui-muted);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -552,7 +552,7 @@
     height: 1px;
     background: var(--rst-ui-divider-soft);
   }
-  .chat__day span { color: var(--rst-ui-muted); font-size: 9px; font-weight: var(--rst-fw-bold); text-transform: uppercase; }
+  .chat__day span { color: var(--rst-ui-muted); font-size: var(--rst-fs-micro); font-weight: var(--rst-fw-bold); text-transform: uppercase; }
 
   .bubble { display: flex; gap: 8px; max-width: 100%; }
   .bubble.is-mine { justify-content: flex-end; }
@@ -566,7 +566,7 @@
     border-radius: 50%;
     color: var(--rst-ui-text);
     background: var(--rst-ui-surface-field-strong);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
     font-weight: var(--rst-fw-bold);
   }
   .bubble__body {
@@ -590,24 +590,24 @@
     border-color: transparent;
     background: var(--rst-state-danger);
   }
-  .bubble__sender { color: var(--rst-ui-muted); font-size: 10px; font-weight: var(--rst-fw-bold); }
+  .bubble__sender { color: var(--rst-ui-muted); font-size: var(--rst-fs-caption); font-weight: var(--rst-fw-bold); }
   .bubble__flag {
     justify-self: start;
     padding: 1px 6px;
     border-radius: var(--rst-ui-radius-pill);
     color: var(--rst-state-danger);
     background: var(--rst-ui-surface-panel);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
   }
-  .bubble__text { margin: 0; font-size: 12.5px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .bubble__text { margin: 0; font-size: var(--rst-fs-body); line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
   .bubble__meta {
     display: flex;
     flex-wrap: wrap;
     gap: 3px 8px;
     color: var(--rst-ui-muted);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
   }
   .bubble.is-mine .bubble__meta { color: color-mix(in srgb, var(--rst-on-accent-text) 78%, transparent); }
   .bubble__confirm {
@@ -620,18 +620,18 @@
     color: var(--rst-ui-action);
     background: var(--rst-ui-surface-field);
     font: inherit;
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     font-weight: var(--rst-fw-bold);
     cursor: pointer;
   }
   .bubble__confirm:disabled { color: var(--rst-ui-muted); cursor: default; }
 
-  .chat__hint, .chat__empty { color: var(--rst-ui-muted); font-size: 11px; text-align: center; }
+  .chat__hint, .chat__empty { color: var(--rst-ui-muted); font-size: var(--rst-fs-label); text-align: center; }
   .chat__hint { margin: 0; padding: 24px 8px; }
   .chat__empty { display: grid; justify-items: center; gap: 5px; padding: 34px 14px; }
   .chat__empty svg { margin-bottom: 3px; color: var(--cl-accent); }
-  .chat__empty strong { color: var(--rst-ui-text); font-size: 12.5px; }
-  .chat__empty span { max-width: 240px; font-size: 10.5px; line-height: 1.45; }
+  .chat__empty strong { color: var(--rst-ui-text); font-size: var(--rst-fs-body); }
+  .chat__empty span { max-width: 240px; font-size: var(--rst-fs-label); line-height: 1.45; }
 
   .composer {
     position: relative;
@@ -653,7 +653,7 @@
     color: var(--rst-ui-muted);
     background: var(--rst-ui-surface-field);
     font: inherit;
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     font-weight: var(--rst-fw-medium);
     cursor: pointer;
   }
@@ -671,7 +671,7 @@
     color: var(--rst-ui-text);
     background: var(--rst-ui-surface-field);
     font: inherit;
-    font-size: 12.5px;
+    font-size: var(--rst-fs-body);
     line-height: 1.4;
     resize: none;
   }
@@ -691,7 +691,7 @@
   }
   .composer__send:hover:not(:disabled) { background: var(--cl-accent-hover); }
   .composer__send:disabled { opacity: .4; cursor: default; }
-  .composer__hint { margin: 0; color: var(--rst-ui-muted); font-size: 9px; }
+  .composer__hint { margin: 0; color: var(--rst-ui-muted); font-size: var(--rst-fs-micro); }
 
   .composer__people {
     max-height: 214px;
@@ -717,28 +717,23 @@
     cursor: pointer;
   }
   .composer__everyone.is-active { border-color: var(--rst-ui-action); background: var(--rst-ui-action-soft); }
-  .composer__everyone strong { font-size: 11px; }
-  .composer__everyone small { color: var(--rst-ui-muted); font-size: 9px; }
+  .composer__everyone strong { font-size: var(--rst-fs-label); }
+  .composer__everyone small { color: var(--rst-ui-muted); font-size: var(--rst-fs-micro); }
   .composer__people > p {
     margin: 2px 0 0;
     color: var(--rst-ui-muted);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
   }
   .composer__list { display: grid; gap: 4px; }
-  .composer__list label { display: flex; align-items: center; gap: 7px; font-size: 11px; cursor: pointer; }
+  .composer__list label { display: flex; align-items: center; gap: 7px; font-size: var(--rst-fs-label); cursor: pointer; }
   .composer__list input { accent-color: var(--rst-ui-action); }
 
   /* On a phone the conversation earns the whole screen. */
   @media (max-width: 520px) {
-    .communications-button {
-      right: max(14px, env(safe-area-inset-right, 0px));
-      bottom: max(14px, env(safe-area-inset-bottom, 0px));
-      width: 48px;
-      min-height: 48px;
-    }
     .chat {
+      top: auto;
       right: 0;
       left: 0;
       bottom: 0;

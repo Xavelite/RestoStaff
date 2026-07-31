@@ -85,7 +85,7 @@
     border-bottom: 1px solid var(--cl-line);
     background: color-mix(in srgb, var(--cl-accent) 4%, var(--cl-surface-muted));
     color: var(--cl-muted);
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
   }
@@ -146,7 +146,7 @@
     place-items: center;
     justify-self: start;
     border-radius: 50%;
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     font-weight: var(--rst-fw-bold);
     font-variant-numeric: tabular-nums;
   }
@@ -158,7 +158,7 @@
   .month__primary {
     overflow: hidden;
     color: var(--cl-ink);
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     font-weight: var(--rst-fw-bold);
     font-variant-numeric: tabular-nums;
     text-overflow: ellipsis;
@@ -167,7 +167,7 @@
   .month__meta {
     overflow: hidden;
     color: var(--cl-muted);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -178,7 +178,7 @@
     border-radius: 999px;
     color: var(--cl-attention);
     background: var(--cl-attention-wash);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
     font-weight: var(--rst-fw-bold);
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -199,7 +199,7 @@
   .month__day :global(.people-stack__more) {
     width: 23px;
     height: 23px;
-    font-size: 8px;
+    font-size: var(--rst-fs-micro);
   }
   .month__bar {
     position: absolute;
@@ -218,7 +218,7 @@
     .month__head {
       min-width: 0;
       padding: 8px 1px;
-      font-size: 8px;
+      font-size: var(--rst-fs-micro);
       text-align: center;
     }
     .month__day {
@@ -231,9 +231,9 @@
     .month__num {
       min-width: 21px;
       height: 21px;
-      font-size: 11px;
+      font-size: var(--rst-fs-label);
     }
-    .month__primary { font-size: 9px; }
+    .month__primary { font-size: var(--rst-fs-micro); }
     .month__meta,
     .month__day :global(.people-stack) { display: none; }
     .month__flag {

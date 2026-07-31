@@ -108,17 +108,17 @@
 <style>
   .preview-picker { display: grid; gap: 12px; }
   .search { display: grid; gap: 6px; }
-  .search span { font-size: 11px; font-weight: var(--rst-fw-bold); color: var(--rst-ui-muted); }
+  .search span { font-size: var(--rst-fs-label); font-weight: var(--rst-fw-bold); color: var(--rst-ui-muted); }
   .search input { min-height: 40px; padding: 8px 11px; border: 1px solid var(--rst-ui-line); border-radius: var(--rst-ui-radius-md); color: var(--rst-ui-text); background: var(--rst-ui-surface-field); font: inherit; }
   .persona-list { display: grid; max-height: 52vh; overflow: auto; border-block: 1px solid var(--rst-ui-divider-soft); }
   .persona-list button { min-height: 58px; display: grid; grid-template-columns: 34px minmax(0, 1fr) auto 16px; align-items: center; gap: 10px; padding: 9px 4px; border: 0; border-bottom: 1px solid var(--rst-ui-divider-soft); color: var(--rst-ui-text); background: transparent; text-align: left; font: inherit; cursor: pointer; }
   .persona-list button:hover:not(:disabled) { background: var(--rst-ui-hover-bg); }
-  .avatar { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; color: var(--rst-ui-action); background: rgba(var(--rst-ui-action-rgb), .12); font-size: 12px; font-weight: 800; }
+  .avatar { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; color: var(--rst-ui-action); background: rgba(var(--rst-ui-action-rgb), .12); font-size: var(--rst-fs-control); font-weight: 800; }
   .identity { min-width: 0; display: grid; gap: 2px; }
   .identity strong, .identity small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .identity strong { font-size: 13px; }
-  .identity small, .state { color: var(--rst-ui-muted); font-size: 11px; }
-  .role { padding: 4px 7px; border-radius: 5px; background: var(--rst-ui-surface-field); color: var(--rst-ui-muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
-  .arrow { color: var(--rst-ui-muted); font-size: 20px; }
+  .identity strong { font-size: var(--rst-fs-body); }
+  .identity small, .state { color: var(--rst-ui-muted); font-size: var(--rst-fs-label); }
+  .role { padding: 4px 7px; border-radius: 5px; background: var(--rst-ui-surface-field); color: var(--rst-ui-muted); font-size: var(--rst-fs-caption); font-weight: 800; text-transform: uppercase; }
+  .arrow { color: var(--rst-ui-muted); font-size: var(--rst-fs-title-lg); }
   .state { margin: 24px 0; text-align: center; }
 </style>

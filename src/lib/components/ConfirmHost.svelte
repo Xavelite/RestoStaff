@@ -65,12 +65,12 @@
   }
   .confirm-message strong {
     color: var(--rst-ui-text);
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
   }
   .confirm-body {
     margin: 4px 0 0;
     color: var(--rst-ui-muted);
-    font-size: 12.5px;
+    font-size: var(--rst-fs-body);
     line-height: 1.55;
   }
 </style>

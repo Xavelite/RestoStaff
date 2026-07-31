@@ -10,7 +10,7 @@
 
 .page-kicker {
   color: var(--rst-ui-action);
-  font-size: 11px;
+  font-size: var(--rst-fs-label);
   font-weight: var(--rst-fw-display);
   letter-spacing: 0;
   text-transform: uppercase;
@@ -45,14 +45,14 @@
 }
 
 .readiness-dial strong {
-  font-size: clamp(28px, 3.4vw, 40px);
+  font-size: var(--rst-fs-hero);
   line-height: 0.9;
   letter-spacing: 0;
 }
 
 .readiness-dial span {
   color: #ffd9c8;
-  font-size: 9px;
+  font-size: var(--rst-fs-micro);
   font-weight: var(--rst-fw-display);
   letter-spacing: 0;
   text-transform: uppercase;
@@ -82,7 +82,7 @@
 
 .hero-stats dt {
   color: rgba(255, 250, 242, 0.64);
-  font-size: 10px;
+  font-size: var(--rst-fs-caption);
   font-weight: var(--rst-fw-display);
   text-transform: uppercase;
 }
@@ -90,7 +90,7 @@
 .hero-stats dd {
   margin: 0;
   color: #fff;
-  font-size: 20px;
+  font-size: var(--rst-fs-title-lg);
   font-weight: var(--rst-fw-display);
 }
 
@@ -105,12 +105,12 @@
 }
 
 .section-head strong {
-  font-size: 18px;
+  font-size: var(--rst-fs-title);
 }
 
 .section-head span {
   color: var(--rst-ui-muted);
-  font-size: 12px;
+  font-size: var(--rst-fs-control);
   font-weight: var(--rst-fw-bold);
   text-transform: uppercase;
   letter-spacing: 0;
@@ -152,7 +152,7 @@
 
 .ghost-card strong {
   color: var(--rst-ui-action);
-  font-size: 13px;
+  font-size: var(--rst-fs-body);
   font-weight: var(--rst-fw-bold);
   text-align: center;
   white-space: normal;
@@ -166,7 +166,7 @@
   border-radius: 999px;
   color: #fff;
   background: var(--rst-ui-action);
-  font-size: 19px;
+  font-size: var(--rst-fs-title-lg);
   font-weight: var(--rst-fw-display);
   box-shadow: 0 8px 18px rgba(var(--rst-ui-action-rgb), 0.38);
 }
@@ -221,20 +221,20 @@ button.glow-card:hover {
 
 .glow-card__kicker {
   color: var(--glow-ink, #7dd3fc);
-  font-size: 10px;
+  font-size: var(--rst-fs-caption);
   font-weight: var(--rst-fw-display);
   letter-spacing: 0;
   text-transform: uppercase;
 }
 
 .glow-card > strong {
-  font-size: 20px;
+  font-size: var(--rst-fs-title-lg);
 }
 
 .glow-card > p {
   margin: 0;
   color: rgba(255, 250, 242, 0.7);
-  font-size: 12px;
+  font-size: var(--rst-fs-control);
 }
 
 /* --------------------------------------------- dialog/editor form fields --- */
@@ -251,7 +251,7 @@ button.glow-card:hover {
   align-content: start;
   gap: 6px;
   color: var(--rst-ui-muted);
-  font-size: 12px;
+  font-size: var(--rst-fs-control);
   font-weight: var(--rst-fw-bold);
 }
 

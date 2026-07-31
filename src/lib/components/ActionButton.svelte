@@ -28,7 +28,7 @@
     color: var(--rst-ui-text);
     background: var(--rst-ui-surface-field-strong);
     font: inherit;
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     font-weight: var(--rst-fw-bold);
     cursor: pointer;
   }

@@ -35,7 +35,7 @@
     color: var(--rst-ui-text);
     background: color-mix(in srgb, var(--rst-ui-bg-2) 90%, rgb(var(--toast-rgb)));
     box-shadow: 0 14px 40px rgba(0, 0, 0, .32);
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     pointer-events: auto;
   }
   .toast.is-success { --toast-rgb: var(--rst-state-success-rgb); }
@@ -49,7 +49,7 @@
     color: var(--rst-ui-muted);
     background: transparent;
     font: inherit;
-    font-size: 20px;
+    font-size: var(--rst-fs-title-lg);
     cursor: pointer;
   }
   button:hover { color: var(--rst-ui-text); background: var(--rst-ui-surface-field-strong); }

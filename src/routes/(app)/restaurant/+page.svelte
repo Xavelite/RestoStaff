@@ -11,6 +11,7 @@
   import { restaurantConfig } from '$lib/workspace-ui/workspace-restaurant.svelte';
   import WorkspaceService from '$lib/workspace-ui/WorkspaceService.svelte';
   import WorkspaceServiceIcon from '$lib/workspace-ui/WorkspaceServiceIcon.svelte';
+  import WorkspaceTimeRange from '$lib/workspace-ui/WorkspaceTimeRange.svelte';
   import {
     LOGO_ACCEPT,
     removeRestaurantLogo,
@@ -488,26 +489,14 @@
                     oninput={() => restaurantConfig.touch()}
                   />
                 </label>
-                <label>
-                  <span>{t('Default start')}</span>
-                  <input
-                    class="cl-field time"
-                    type="time"
-                    disabled={!context.canSave}
-                    bind:value={service.defaultStart}
-                    oninput={() => restaurantConfig.touch()}
-                  />
-                </label>
-                <label>
-                  <span>{t('Default end')}</span>
-                  <input
-                    class="cl-field time"
-                    type="time"
-                    disabled={!context.canSave}
-                    bind:value={service.defaultEnd}
-                    oninput={() => restaurantConfig.touch()}
-                  />
-                </label>
+                <WorkspaceTimeRange
+                  bind:start={service.defaultStart}
+                  bind:end={service.defaultEnd}
+                  startLabel={t('Default start')}
+                  endLabel={t('Default end')}
+                  disabled={!context.canSave}
+                  onchange={() => restaurantConfig.touch()}
+                />
                 <label class="switch compact service-period__state">
                   <input
                     type="checkbox"
@@ -559,25 +548,15 @@
                               />
                               <span>{t(period.open ? 'Open' : 'Closed')}</span>
                             </label>
-                            <span class="range">
-                              <input
-                                class="cl-field time"
-                                type="time"
-                                aria-label={`${service.name} ${t(WEEKDAYS[weekdayIndex])} ${t('Start')}`}
-                                disabled={!context.canSave || !period.open}
-                                bind:value={period.start}
-                                oninput={() => restaurantConfig.touch()}
-                              />
-                              <i>&ndash;</i>
-                              <input
-                                class="cl-field time"
-                                type="time"
-                                aria-label={`${service.name} ${t(WEEKDAYS[weekdayIndex])} ${t('End')}`}
-                                disabled={!context.canSave || !period.open}
-                                bind:value={period.end}
-                                oninput={() => restaurantConfig.touch()}
-                              />
-                            </span>
+                            <WorkspaceTimeRange
+                              bind:start={period.start}
+                              bind:end={period.end}
+                              startAriaLabel={`${service.name} ${t(WEEKDAYS[weekdayIndex])} ${t('Start')}`}
+                              endAriaLabel={`${service.name} ${t(WEEKDAYS[weekdayIndex])} ${t('End')}`}
+                              disabled={!context.canSave || !period.open}
+                              compact
+                              onchange={() => restaurantConfig.touch()}
+                            />
                           </span>
                         {:else}
                           <span class="day-hours is-closed">
@@ -654,7 +633,7 @@
     border-radius: var(--cl-radius);
     background: color-mix(in srgb, var(--cl-accent) 7%, var(--cl-surface));
     color: var(--cl-accent);
-    font-size: 22px;
+    font-size: var(--rst-fs-heading);
     font-weight: var(--rst-fw-display);
   }
 
@@ -676,7 +655,7 @@
     color: var(--cl-ink);
     background: transparent;
     font: inherit;
-    font-size: 19px;
+    font-size: var(--rst-fs-title-lg);
     font-weight: var(--rst-fw-display);
     text-overflow: ellipsis;
     transition: border-color var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease);
@@ -698,7 +677,7 @@
     flex-wrap: wrap;
     gap: 3px 12px;
     color: var(--cl-muted);
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
   }
 
   .identity-head__meta span {
@@ -750,7 +729,7 @@
 
   .field-group__title {
     color: var(--cl-muted);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     font-weight: var(--rst-fw-bold);
     letter-spacing: .06em;
     text-transform: uppercase;
@@ -772,7 +751,7 @@
     color: var(--cl-muted);
     background: transparent;
     font: inherit;
-    font-size: 10.5px;
+    font-size: var(--rst-fs-label);
   }
   .location-state.is-searching :global(svg) {
     animation: location-pulse 1s ease-in-out infinite alternate;
@@ -819,7 +798,7 @@
   }
 
   .identity-fields :global(.cl-label > span) {
-    font-size: 11.5px;
+    font-size: var(--rst-fs-control);
     font-weight: var(--rst-fw-regular);
   }
 
@@ -827,7 +806,7 @@
     min-width: 0;
     min-height: 35px;
     padding-inline: 10px;
-    font-size: 12.5px;
+    font-size: var(--rst-fs-body);
   }
   .input-with-icon {
     position: relative;
@@ -878,7 +857,7 @@
     color: var(--cl-ink);
     background: transparent;
     font: inherit;
-    font-size: 10.5px;
+    font-size: var(--rst-fs-label);
     line-height: 1.35;
     text-align: left;
     cursor: pointer;
@@ -898,7 +877,7 @@
   .location-error {
     margin: 0;
     color: var(--cl-muted);
-    font-size: 10.5px;
+    font-size: var(--rst-fs-label);
     line-height: 1.4;
   }
   .location-error { color: var(--cl-problem); }
@@ -925,7 +904,7 @@
     padding: 5px 8px;
     border-top: 1px solid var(--cl-line);
     background: var(--cl-surface);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
   }
   .location-map__footer span,
   .location-map__footer a {
@@ -969,11 +948,11 @@
   }
   .location-map__empty strong {
     color: var(--cl-ink);
-    font-size: 11.5px;
+    font-size: var(--rst-fs-control);
   }
   .location-map__empty small {
     max-width: 210px;
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     line-height: 1.35;
   }
   .map-attribution {
@@ -984,7 +963,7 @@
     border-radius: 2px;
     color: #334155;
     background: rgb(255 255 255 / .84);
-    font-size: 8px;
+    font-size: var(--rst-fs-micro);
     text-decoration: none;
   }
   .location-map.is-empty .map-attribution { bottom: 3px; }
@@ -992,7 +971,7 @@
   .logo-error {
     margin: 10px 16px 0;
     color: var(--cl-problem);
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
     font-style: normal;
     line-height: 1.35;
   }
@@ -1012,7 +991,7 @@
   .service-period {
     min-width: 0;
     display: grid;
-    grid-template-columns: 24px minmax(130px, 1fr) 102px 102px auto;
+    grid-template-columns: 24px minmax(130px, 1fr) minmax(169px, auto) auto;
     align-items: end;
     gap: 10px;
     padding: 9px 12px;
@@ -1031,7 +1010,7 @@
     display: grid;
     gap: 4px;
     color: var(--cl-muted);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
   }
 
   .service-period :global(.cl-field) {
@@ -1095,7 +1074,7 @@
 
   .service-row {
     color: var(--cl-ink);
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     font-weight: var(--rst-fw-bold);
   }
 
@@ -1103,7 +1082,7 @@
     display: block;
     margin-top: 3px;
     color: var(--cl-muted);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     font-weight: var(--rst-fw-regular);
     font-variant-numeric: tabular-nums;
   }
@@ -1123,7 +1102,7 @@
     gap: 7px;
     min-width: 0;
     color: var(--cl-muted);
-    font-size: 10.5px;
+    font-size: var(--rst-fs-label);
     cursor: pointer;
   }
 
@@ -1151,41 +1130,6 @@
   .switch input:focus-visible {
     outline: 2px solid color-mix(in srgb, var(--cl-accent) 22%, transparent);
     outline-offset: 2px;
-  }
-
-  .range {
-    display: inline-grid;
-    grid-template-columns: minmax(64px, 1fr) auto minmax(64px, 1fr);
-    align-items: center;
-    gap: 5px;
-  }
-
-  .range i {
-    color: var(--cl-muted);
-    font-style: normal;
-    text-align: center;
-  }
-
-  /* Doubled class so this beats the shared `.cl-table td .cl-field` typography:
-     the weekday grid is dense, and at the table's 13px a time field no longer
-     fits HH:MM plus the browser's own picker control inside its column. */
-  .time.cl-field {
-    width: 100%;
-    min-width: 0;
-    min-height: 34px;
-    padding: 5px 4px;
-    border-color: transparent;
-    background: color-mix(in srgb, var(--cl-surface-muted) 76%, var(--cl-surface));
-    font-size: 10.5px;
-    font-weight: var(--rst-fw-medium);
-    font-variant-numeric: tabular-nums;
-    text-align: center;
-  }
-
-  .time:hover:not(:disabled),
-  .time:focus {
-    border-color: color-mix(in srgb, var(--cl-accent) 40%, var(--cl-line-strong));
-    background: var(--cl-surface);
   }
 
   /* The meta strip names the same configurable services as the table below. */

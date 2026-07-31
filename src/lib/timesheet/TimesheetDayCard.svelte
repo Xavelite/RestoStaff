@@ -275,8 +275,8 @@
     gap: 8px;
     padding-right: 8px;
   }
-  .attendance-card__top strong { overflow: hidden; color: var(--cl-ink); font-size: 12px; line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
-  .attendance-card__top b { flex: 0 0 auto; color: color-mix(in srgb, var(--card-color) 78%, var(--cl-ink)); font-size: 10px; }
+  .attendance-card__top strong { overflow: hidden; color: var(--cl-ink); font-size: var(--rst-fs-control); line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
+  .attendance-card__top b { flex: 0 0 auto; color: color-mix(in srgb, var(--card-color) 78%, var(--cl-ink)); font-size: var(--rst-fs-caption); }
   .attendance-card__summary {
     min-width: 0;
     display: flex;
@@ -284,7 +284,7 @@
     gap: 4px;
     overflow: hidden;
     color: var(--cl-muted);
-    font-size: 8.5px;
+    font-size: var(--rst-fs-micro);
     line-height: 1.2;
     white-space: nowrap;
   }
@@ -300,14 +300,14 @@
     align-items: center;
     gap: 4px;
     color: var(--cl-muted);
-    font-size: 8.5px;
+    font-size: var(--rst-fs-micro);
     line-height: 1.3;
   }
   .service-row__icon { display: grid; place-items: center; color: var(--cl-lunch); }
   .service-row.is-evening .service-row__icon { color: var(--cl-evening); }
   .service-row__range { color: color-mix(in srgb, var(--cl-ink) 78%, var(--cl-muted)); font-weight: var(--rst-fw-bold); white-space: nowrap; }
   .service-row__assignment { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .service-row b { color: color-mix(in srgb, var(--card-color) 72%, var(--cl-ink)); font-size: 8.5px; white-space: nowrap; }
+  .service-row b { color: color-mix(in srgb, var(--card-color) 72%, var(--cl-ink)); font-size: var(--rst-fs-micro); white-space: nowrap; }
   .attendance-card.is-planned .attendance-card__top b,
   .attendance-card.is-planned .service-row__range,
   .attendance-card.is-planned .service-row b { color: var(--cl-muted); }
@@ -319,7 +319,7 @@
   }
   .attendance-card.is-compact .attendance-card__services { display: none; }
   .attendance-card.is-compact .attendance-card__summary {
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
   }
   @media (max-width: 1180px) {
     .attendance-card {
@@ -331,9 +331,9 @@
       gap: 2px;
       padding-right: 6px;
     }
-    .attendance-card__top strong { font-size: 10px; }
-    .attendance-card__top b { font-size: 8px; }
-    .attendance-card__summary { font-size: 8px; }
+    .attendance-card__top strong { font-size: var(--rst-fs-caption); }
+    .attendance-card__top b { font-size: var(--rst-fs-micro); }
+    .attendance-card__summary { font-size: var(--rst-fs-micro); }
     .service-row { grid-template-columns: 13px minmax(0, 1fr); gap: 3px; }
     .service-row__range,
     .service-row > b { display: none; }

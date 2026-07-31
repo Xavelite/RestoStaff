@@ -429,7 +429,7 @@
   .catalogue-menu__heading {
     padding: 7px 9px 5px;
     color: var(--cl-muted);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     font-weight: var(--rst-fw-bold);
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -493,14 +493,14 @@
   }
 
   .catalogue-option strong {
-    font-size: 12.5px;
+    font-size: var(--rst-fs-body);
     font-weight: var(--rst-fw-semibold);
   }
 
   .catalogue-option small {
     margin-top: 2px;
     color: var(--cl-muted);
-    font-size: 10.5px;
+    font-size: var(--rst-fs-label);
     text-transform: capitalize;
   }
 
@@ -523,14 +523,14 @@
     border-radius: 6px;
     color: var(--cl-accent);
     background: var(--cl-accent-wash);
-    font-size: 17px;
+    font-size: var(--rst-fs-title);
     font-weight: var(--rst-fw-medium);
   }
 
   .catalogue-menu__empty {
     padding: 13px 10px;
     color: var(--cl-muted);
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     text-align: center;
   }
 </style>

@@ -265,16 +265,16 @@
 {/if}
 
 <style>
-  .employee-link { max-width: 230px; overflow: hidden; padding: 3px 0; border: 0; color: var(--cl-ink); background: transparent; font: inherit; font-size: 13px; font-weight: var(--rst-fw-medium); text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+  .employee-link { max-width: 230px; overflow: hidden; padding: 3px 0; border: 0; color: var(--cl-ink); background: transparent; font: inherit; font-size: var(--rst-fs-body); font-weight: var(--rst-fw-medium); text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
   .employee-link:hover:not(:disabled) { color: var(--cl-accent); text-decoration: underline; text-underline-offset: 2px; }
   .employee-link:disabled { cursor: default; }
-  .inline-cell { max-width: 260px; min-height: 30px; display: inline-flex; align-items: center; gap: 7px; overflow: hidden; margin: -3px -7px; padding: 4px 7px; border: 1px solid transparent; border-radius: 6px; color: var(--cl-muted); background: transparent; font: inherit; font-size: 13px; text-align: left; cursor: text; }
+  .inline-cell { max-width: 260px; min-height: 30px; display: inline-flex; align-items: center; gap: 7px; overflow: hidden; margin: -3px -7px; padding: 4px 7px; border: 1px solid transparent; border-radius: 6px; color: var(--cl-muted); background: transparent; font: inherit; font-size: var(--rst-fs-body); text-align: left; cursor: text; }
   .inline-cell span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .inline-cell:hover:not(:disabled), .inline-cell:focus-visible { border-color: color-mix(in srgb, var(--cl-accent) 22%, var(--cl-line)); color: var(--cl-ink); background: var(--cl-accent-wash); }
-  .inline-cell.is-empty { color: var(--cl-accent); font-size: 12px; font-weight: var(--rst-fw-medium); }
+  .inline-cell.is-empty { color: var(--cl-accent); font-size: var(--rst-fs-control); font-weight: var(--rst-fw-medium); }
   .inline-cell :global(svg) { flex: 0 0 auto; color: var(--cl-accent); }
   .action-cell { padding: 0 !important; }
   .email-editor { min-width: 160px; height: 32px; border-color: var(--cl-accent); box-shadow: 0 0 0 2px var(--cl-accent-wash); }
-  .empty-link { justify-self: center; color: var(--cl-accent); font-size: 13px; font-weight: var(--rst-fw-medium); text-decoration: none; }
+  .empty-link { justify-self: center; color: var(--cl-accent); font-size: var(--rst-fs-body); font-weight: var(--rst-fw-medium); text-decoration: none; }
   .empty-link:hover { text-decoration: underline; }
 </style>

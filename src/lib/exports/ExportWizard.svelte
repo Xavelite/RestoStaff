@@ -488,7 +488,7 @@
   .period-controls > label { min-width: 0; display: grid; gap: 5px; }
   .period-controls > label > span {
     color: var(--rst-ui-muted);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
   }
@@ -506,8 +506,8 @@
   .period-summary > span { min-width: 0; display: grid; gap: 1px; }
   .period-summary strong,
   .period-summary small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .period-summary strong { color: var(--rst-ui-text); font-size: 10px; }
-  .period-summary small { color: var(--rst-ui-muted); font-size: 8.5px; }
+  .period-summary strong { color: var(--rst-ui-text); font-size: var(--rst-fs-caption); }
+  .period-summary small { color: var(--rst-ui-muted); font-size: var(--rst-fs-micro); }
   .period-summary.is-invalid { border-left-color: var(--rst-state-danger-text); background: var(--rst-state-danger-bg); }
   .period-summary.is-invalid > :global(svg) { color: var(--rst-state-danger-text); }
   .wizard-state {
@@ -520,8 +520,8 @@
     color: var(--rst-ui-muted);
     text-align: center;
   }
-  .wizard-state strong { color: var(--rst-ui-text); font-size: 13px; }
-  .wizard-state span { max-width: 420px; font-size: 10.5px; line-height: 1.45; }
+  .wizard-state strong { color: var(--rst-ui-text); font-size: var(--rst-fs-body); }
+  .wizard-state span { max-width: 420px; font-size: var(--rst-fs-label); line-height: 1.45; }
   .wizard-state.is-problem { color: var(--rst-state-danger-text); }
   .wizard-state.is-attention { color: var(--rst-state-warning-text); }
   :global(.spin) { animation: spin 800ms linear infinite; }
@@ -543,11 +543,11 @@
   }
   .section-copy strong {
     color: var(--rst-ui-text);
-    font-size: 12.5px;
+    font-size: var(--rst-fs-body);
   }
   .section-copy span {
     color: var(--rst-ui-muted);
-    font-size: 10.5px;
+    font-size: var(--rst-fs-label);
     line-height: 1.35;
   }
   .format-switch {
@@ -571,7 +571,7 @@
     color: var(--rst-ui-muted);
     background: transparent;
     font: inherit;
-    font-size: 11.5px;
+    font-size: var(--rst-fs-control);
     font-weight: var(--rst-fw-bold);
     cursor: pointer;
   }
@@ -621,7 +621,7 @@
     color: var(--rst-ui-muted);
     background: var(--rst-ui-surface-panel);
     font: inherit;
-    font-size: 10.5px;
+    font-size: var(--rst-fs-label);
     font-weight: var(--rst-fw-bold);
     cursor: pointer;
   }
@@ -655,7 +655,7 @@
     padding: 5px 7px;
     border-radius: 4px;
     color: var(--rst-ui-text);
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
     cursor: pointer;
   }
   .column-picker label:hover { background: var(--rst-ui-hover-bg); }
@@ -750,11 +750,11 @@
   }
   .preview-block > header strong {
     color: var(--rst-ui-text);
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
   }
   .preview-block > header span {
     color: var(--rst-ui-muted);
-    font-size: 10.5px;
+    font-size: var(--rst-fs-label);
   }
   .preview-scroll {
     min-height: 205px;
@@ -764,7 +764,7 @@
   table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 10.5px;
+    font-size: var(--rst-fs-label);
     white-space: nowrap;
   }
   th,
@@ -799,7 +799,7 @@
     padding: 7px 12px;
     color: var(--rst-ui-muted);
     background: var(--rst-ui-surface-panel-head);
-    font-size: 10.5px;
+    font-size: var(--rst-fs-label);
   }
   .no-preview,
   .no-columns {
@@ -807,7 +807,7 @@
     display: grid;
     place-items: center;
     color: var(--rst-ui-muted);
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
   }
   .no-columns {
     align-content: center;
@@ -817,7 +817,7 @@
     color: var(--rst-ui-text);
   }
   .no-columns span {
-    font-size: 10.5px;
+    font-size: var(--rst-fs-label);
   }
   .wizard-footer {
     width: 100%;
@@ -832,7 +832,7 @@
   }
   .footer-note {
     color: var(--rst-ui-muted);
-    font-size: 10.5px;
+    font-size: var(--rst-fs-label);
   }
   .download-button {
     min-height: 38px;
@@ -846,7 +846,7 @@
     color: var(--rst-on-accent-text);
     background: var(--rst-ui-action);
     font: inherit;
-    font-size: 12.5px;
+    font-size: var(--rst-fs-body);
     font-weight: var(--rst-fw-bold);
     cursor: pointer;
   }

@@ -129,8 +129,8 @@
     border-radius: var(--cl-radius);
     background: var(--cl-surface-muted);
   }
-  .day-overview__summary span { display: grid; gap: 1px; color: var(--cl-muted); font-size: 9px; text-transform: uppercase; }
-  .day-overview__summary b { color: var(--cl-ink); font-size: 14px; text-transform: none; }
+  .day-overview__summary span { display: grid; gap: 1px; color: var(--cl-muted); font-size: var(--rst-fs-micro); text-transform: uppercase; }
+  .day-overview__summary b { color: var(--cl-ink); font-size: var(--rst-fs-body-lg); text-transform: none; }
   .day-overview__services { overflow: hidden; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); }
   .day-overview__services > button {
     width: 100%;
@@ -153,9 +153,9 @@
   .day-overview__services > button:hover { background: var(--cl-surface-muted); }
   .service-icon { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; color: var(--cl-info); background: color-mix(in srgb, var(--cl-info) 10%, var(--cl-surface)); }
   .day-overview__services > button > span:nth-child(2) { min-width: 0; display: grid; gap: 2px; }
-  .day-overview__services small { overflow: hidden; color: var(--cl-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-  .day-overview__services b { font-size: 11px; font-variant-numeric: tabular-nums; }
-  .service-state { padding: 3px 7px; border-radius: 999px; color: var(--cl-muted); background: var(--cl-surface-muted); font-size: 9px; font-weight: var(--rst-fw-bold); }
+  .day-overview__services small { overflow: hidden; color: var(--cl-muted); font-size: var(--rst-fs-caption); text-overflow: ellipsis; white-space: nowrap; }
+  .day-overview__services b { font-size: var(--rst-fs-label); font-variant-numeric: tabular-nums; }
+  .service-state { padding: 3px 7px; border-radius: 999px; color: var(--cl-muted); background: var(--cl-surface-muted); font-size: var(--rst-fs-micro); font-weight: var(--rst-fw-bold); }
   .service-state.is-live,
   .service-state.is-recorded { color: var(--cl-ok); background: var(--cl-ok-wash); }
   .service-state.is-adjusted,
@@ -173,7 +173,7 @@
     background: color-mix(in srgb, var(--cl-accent) 4%, var(--cl-surface));
   }
   .day-overview__action > span { min-width: 0; display: grid; gap: 3px; }
-  .day-overview__action small { color: var(--cl-muted); font-size: 10px; }
+  .day-overview__action small { color: var(--cl-muted); font-size: var(--rst-fs-caption); }
   @media (max-width: 760px) {
     .day-overview__services > button { grid-template-columns: 28px minmax(0, 1fr) auto; }
     .day-overview__services .service-state,

@@ -309,13 +309,13 @@
     background: rgba(var(--rst-ui-action-rgb), .1);
   }
   .file-icon { width: 40px; height: 40px; }
-  .drop-zone > strong { color: var(--rst-ui-text); font-size: 13px; }
-  .drop-zone > span:not(.upload-icon):not(.file-icon) { font-size: 11px; }
+  .drop-zone > strong { color: var(--rst-ui-text); font-size: var(--rst-fs-body); }
+  .drop-zone > span:not(.upload-icon):not(.file-icon) { font-size: var(--rst-fs-label); }
   .file-copy { min-width: 0; display: grid; gap: 4px; }
   .file-copy strong,
   .file-copy span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .file-copy strong { color: var(--rst-ui-text); font-size: 12px; }
-  .file-copy span { font-size: 10px; }
+  .file-copy strong { color: var(--rst-ui-text); font-size: var(--rst-fs-control); }
+  .file-copy span { font-size: var(--rst-fs-caption); }
   .drop-zone button {
     width: 30px;
     height: 30px;
@@ -335,7 +335,7 @@
     justify-content: space-between;
     gap: 10px;
     color: var(--rst-ui-muted);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
   }
   .limits strong { color: var(--rst-ui-text-soft); }
   .field-grid {
@@ -344,8 +344,8 @@
     gap: 12px;
   }
   label { min-width: 0; display: grid; gap: 6px; }
-  label > span:first-child { font-size: 11px; font-weight: var(--rst-fw-bold); }
-  label small { color: var(--rst-ui-muted); font-size: 9px; font-weight: var(--rst-fw-medium); }
+  label > span:first-child { font-size: var(--rst-fs-label); font-weight: var(--rst-fw-bold); }
+  label small { color: var(--rst-ui-muted); font-size: var(--rst-fs-micro); font-weight: var(--rst-fw-medium); }
   .is-wide { grid-column: 1 / -1; }
   textarea { resize: vertical; }
   .category-note {
@@ -358,8 +358,8 @@
     color: var(--rst-ui-muted);
     background: var(--rst-ui-surface-field);
   }
-  .category-note strong { color: var(--rst-ui-text); font-size: 11px; }
-  .category-note span { font-size: 10px; line-height: 1.4; }
+  .category-note strong { color: var(--rst-ui-text); font-size: var(--rst-fs-label); }
+  .category-note span { font-size: var(--rst-fs-caption); line-height: 1.4; }
   .access-toggle {
     grid-template-columns: auto auto auto minmax(0, 1fr);
     align-items: center;
@@ -390,13 +390,13 @@
   .access-toggle > input:checked + .toggle-track i { transform: translateX(15px); }
   .access-icon { color: var(--rst-ui-muted); }
   .access-toggle > span:last-child { display: grid; gap: 2px; }
-  .access-toggle strong { font-size: 11px; }
-  .access-toggle small { font-size: 9px; }
-  .field-error { margin: 0; color: var(--rst-state-danger-text); font-size: 10px; }
+  .access-toggle strong { font-size: var(--rst-fs-label); }
+  .access-toggle small { font-size: var(--rst-fs-micro); }
+  .field-error { margin: 0; color: var(--rst-state-danger-text); font-size: var(--rst-fs-caption); }
   :global(dialog footer .storage-left) {
     margin-right: auto;
     color: var(--rst-ui-muted);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
   }
   @media (max-width: 760px) {
     .upload-layout { grid-template-columns: 1fr; }

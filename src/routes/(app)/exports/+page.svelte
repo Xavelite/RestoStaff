@@ -381,8 +381,8 @@
     gap: 16px;
   }
   .catalog-heading h2, .catalog-heading p { margin: 0; }
-  .catalog-heading h2 { color: var(--cl-ink); font-size: 17px; }
-  .catalog-heading p { margin-top: 4px; color: var(--cl-muted); font-size: 12px; }
+  .catalog-heading h2 { color: var(--cl-ink); font-size: var(--rst-fs-title); }
+  .catalog-heading p { margin-top: 4px; color: var(--cl-muted); font-size: var(--rst-fs-control); }
   .operational-error {
     display: grid;
     gap: 4px;
@@ -391,7 +391,7 @@
     border-radius: var(--cl-radius);
     background: color-mix(in srgb, var(--cl-problem) 4%, var(--cl-surface));
     color: var(--cl-muted);
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
   }
   .operational-error strong { color: var(--cl-problem); }
   .recipe-list { border-top: 1px solid var(--cl-line); }
@@ -421,16 +421,16 @@
   .recipe-icon.is-payroll { --recipe-color: var(--cl-mod-payroll); }
   .recipe-copy { min-width: 0; display: grid; gap: 5px; }
   .recipe-title { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-  .recipe-title strong { color: var(--cl-ink); font-size: 14px; }
+  .recipe-title strong { color: var(--cl-ink); font-size: var(--rst-fs-body-lg); }
   .recipe-copy p {
     margin: 0;
     color: var(--cl-muted);
-    font-size: 11.5px;
+    font-size: var(--rst-fs-control);
     line-height: 1.4;
   }
   .owner-tag {
     color: var(--cl-muted);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     font-weight: var(--rst-fw-bold);
   }
   .owner-tag {
@@ -451,7 +451,7 @@
     border: 1px solid color-mix(in srgb, currentColor 22%, var(--cl-line));
     border-radius: 4px;
     background: var(--cl-surface);
-    font-size: 8.5px;
+    font-size: var(--rst-fs-micro);
     font-weight: var(--rst-fw-bold);
   }
   .format-tags span.is-xlsx { color: #18864b; background: color-mix(in srgb, #18864b 5%, var(--cl-surface)); }
@@ -468,7 +468,7 @@
     color: var(--cl-ink);
     background: var(--cl-surface);
     font: inherit;
-    font-size: 11.5px;
+    font-size: var(--rst-fs-control);
     font-weight: var(--rst-fw-bold);
     cursor: pointer;
   }
@@ -495,7 +495,7 @@
       background: transparent;
     }
     .export-catalog { gap: 12px; padding: 16px 4px 0; }
-    .catalog-heading h2 { font-size: 15px; }
+    .catalog-heading h2 { font-size: var(--rst-fs-title-sm); }
     .recipe {
       grid-template-columns: auto minmax(0, 1fr);
       gap: 10px;

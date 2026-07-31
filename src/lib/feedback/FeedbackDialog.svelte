@@ -99,7 +99,7 @@
     color: var(--rst-ui-muted);
     background: var(--rst-ui-surface-field);
     font: inherit;
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     font-weight: var(--rst-fw-bold);
     cursor: pointer;
   }
@@ -109,7 +109,7 @@
     background: rgba(var(--rst-ui-action-rgb), .1);
   }
   label { display: grid; gap: 7px; }
-  label > span { font-size: 12px; font-weight: var(--rst-fw-bold); }
+  label > span { font-size: var(--rst-fs-control); font-weight: var(--rst-fw-bold); }
   textarea {
     width: 100%;
     resize: vertical;
@@ -120,6 +120,6 @@
     background: var(--rst-ui-surface-field);
     font: inherit;
   }
-  small { color: var(--rst-ui-muted); font-size: 11px; }
+  small { color: var(--rst-ui-muted); font-size: var(--rst-fs-label); }
   @media (max-width: 520px) { .category-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>

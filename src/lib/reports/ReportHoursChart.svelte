@@ -74,13 +74,13 @@
     justify-content: space-between;
     gap: 16px;
   }
-  figcaption strong { color: var(--cl-ink); font-size: 13px; }
+  figcaption strong { color: var(--cl-ink); font-size: var(--rst-fs-body); }
   .report-chart__legend {
     display: flex;
     align-items: center;
     gap: 6px;
     color: var(--cl-muted);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
   }
   .report-chart__legend i {
     width: 8px;
@@ -129,7 +129,7 @@
   .report-chart__bucket > span {
     overflow: hidden;
     color: var(--cl-muted);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
     text-align: center;
     text-overflow: ellipsis;
     white-space: nowrap;

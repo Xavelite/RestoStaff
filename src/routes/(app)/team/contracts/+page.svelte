@@ -341,18 +341,18 @@
 <style>
   .contract-table { min-width: 1080px; }
   .employee-name { font-weight: var(--rst-fw-medium); }
-  .cell-value { max-width: 230px; display: block; overflow: hidden; padding: 3px 0; border: 0; background: transparent; color: var(--cl-ink); font: inherit; font-size: 13px; line-height: 1.35; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+  .cell-value { max-width: 230px; display: block; overflow: hidden; padding: 3px 0; border: 0; background: transparent; color: var(--cl-ink); font: inherit; font-size: var(--rst-fs-body); line-height: 1.35; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
   .cell-value:hover:not(:disabled) { color: var(--cl-accent); text-decoration: underline; text-underline-offset: 2px; }
   .cell-value:disabled { cursor: default; }
-  .position-identity { min-width: 112px; max-width: 190px; display: inline-grid; grid-template-columns: 16px minmax(0, 1fr); align-items: center; gap: 7px; color: var(--cl-ink); font-size: 13px; }
+  .position-identity { min-width: 112px; max-width: 190px; display: inline-grid; grid-template-columns: 16px minmax(0, 1fr); align-items: center; gap: 7px; color: var(--cl-ink); font-size: var(--rst-fs-body); }
   .position-identity > i { width: 6px; height: 20px; border-radius: 2px; background: var(--position-color); }
   .position-identity > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .grid-field { min-width: 0; width: 100%; min-height: 31px; padding: 4px 7px; border: 1px solid transparent; border-radius: 6px; outline: 0; color: var(--cl-data-text); background: transparent; font: inherit; font-size: 12px; font-variant-numeric: tabular-nums; transition: border-color var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease); }
+  .grid-field { min-width: 0; width: 100%; min-height: 31px; padding: 4px 7px; border: 1px solid transparent; border-radius: 6px; outline: 0; color: var(--cl-data-text); background: transparent; font: inherit; font-size: var(--rst-fs-control); font-variant-numeric: tabular-nums; transition: border-color var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease); }
   .grid-field:hover:not(:disabled) { border-color: var(--cl-line); background: var(--cl-surface-muted); }
   .grid-field:focus { border-color: var(--cl-accent); background: var(--cl-surface); box-shadow: 0 0 0 2px var(--cl-accent-wash); }
   .grid-field:disabled { color: var(--cl-muted); opacity: 1; }
   .date-field { min-width: 126px; }
   .hours-field { min-width: 74px; display: inline-grid; grid-template-columns: minmax(0, 1fr) 14px; align-items: center; }
   .hours-field .grid-field { text-align: right; }
-  .hours-field > span { color: var(--cl-muted); font-size: 11px; }
+  .hours-field > span { color: var(--cl-muted); font-size: var(--rst-fs-label); }
 </style>

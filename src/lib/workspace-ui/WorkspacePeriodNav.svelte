@@ -40,7 +40,7 @@
   .nav__label {
     min-width: 190px;
     padding: 0 4px;
-    font-size: 14px;
+    font-size: var(--rst-fs-body-lg);
     font-weight: var(--rst-fw-bold);
     text-align: center;
     white-space: nowrap;

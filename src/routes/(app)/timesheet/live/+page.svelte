@@ -426,10 +426,10 @@
 <style>
   .queue-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
   .queue-head > div:first-child { display: grid; gap: 3px; }
-  .queue-head > div:first-child > span { color: var(--cl-muted); font-size: 10px; }
+  .queue-head > div:first-child > span { color: var(--cl-muted); font-size: var(--rst-fs-caption); }
   .queue-summary { display: flex; align-items: center; gap: 12px; margin-top: 5px; }
-  .queue-summary span { display: inline-flex; align-items: baseline; gap: 4px; color: var(--cl-muted); font-size: 9px; text-transform: uppercase; }
-  .queue-summary b { color: var(--cl-ink); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .queue-summary span { display: inline-flex; align-items: baseline; gap: 4px; color: var(--cl-muted); font-size: var(--rst-fs-micro); text-transform: uppercase; }
+  .queue-summary b { color: var(--cl-ink); font-size: var(--rst-fs-control); font-variant-numeric: tabular-nums; }
   .queue-summary span.is-live,
   .queue-summary span.is-live b { color: var(--cl-ok); }
   .queue-summary span.is-problem,
@@ -453,7 +453,7 @@
     color: var(--cl-muted);
     background: transparent;
     font: inherit;
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     cursor: pointer;
   }
   .queue-filters button.is-active { color: var(--cl-accent); background: var(--cl-accent-wash); font-weight: var(--rst-fw-bold); }
@@ -464,7 +464,7 @@
     place-items: center;
     border-radius: 9px;
     background: var(--cl-surface-muted);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
   }
   .live-tag { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; color: var(--cl-ok); font-weight: var(--rst-fw-bold); }
   .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-ok); animation: live-pulse 1.8s var(--cl-ease) infinite; }
@@ -498,7 +498,7 @@
   .floor-monitor article > header span { min-width: 0; display: flex; align-items: center; gap: 7px; }
   .floor-monitor article > header i { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--area-tone); }
   .floor-monitor article > header strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .floor-monitor article > header em { color: var(--cl-muted); font-size: 9px; font-style: normal; white-space: nowrap; }
+  .floor-monitor article > header em { color: var(--cl-muted); font-size: var(--rst-fs-micro); font-style: normal; white-space: nowrap; }
   .floor-monitor article > div { display: grid; }
   .floor-monitor article button {
     min-width: 0;
@@ -523,7 +523,7 @@
   .floor-monitor article button > span:nth-child(2) { min-width: 0; display: grid; gap: 2px; }
   .floor-monitor article button strong,
   .floor-monitor article button small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .floor-monitor article button small { color: var(--cl-muted); font-size: 9px; }
+  .floor-monitor article button small { color: var(--cl-muted); font-size: var(--rst-fs-micro); }
   .shift-details {
     margin: 0;
     display: grid;
@@ -541,7 +541,7 @@
     border-bottom: 1px solid var(--cl-grid-line);
   }
   .shift-details div:last-child { border-bottom: 0; }
-  .shift-details dt { color: var(--cl-muted); font-size: 10px; }
+  .shift-details dt { color: var(--cl-muted); font-size: var(--rst-fs-caption); }
   .shift-details dd { margin: 0; font-weight: var(--rst-fw-bold); }
   @media (max-width: 760px) {
     .queue-head { align-items: stretch; flex-direction: column; }

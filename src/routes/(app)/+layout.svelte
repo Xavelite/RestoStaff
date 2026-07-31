@@ -7,7 +7,7 @@
   import UnsavedChangesHost from '$lib/navigation/UnsavedChangesHost.svelte';
   import ToastHost from '$lib/components/ToastHost.svelte';
   import NotificationBell from '$lib/components/NotificationBell.svelte';
-  import WorkspaceLayoutToggle from '$lib/workspace-ui/WorkspaceLayoutToggle.svelte';
+  import WorkspacePreferencesMenu from '$lib/workspace-ui/WorkspacePreferencesMenu.svelte';
   import CommunicationCenter from '$lib/communications/CommunicationCenter.svelte';
   import PopcornPet from '$lib/pet/PopcornPet.svelte';
   import AccountMenu from '$lib/app-shell/AccountMenu.svelte';
@@ -277,9 +277,15 @@
         <span class="cl-topbar__spacer"></span>
 
 
-        <WorkspaceLayoutToggle />
+        <WorkspacePreferencesMenu {sidebarMode} onsidebarmode={setSidebarMode} />
 
         {#if !workspace.isPreview}
+          <CommunicationCenter
+            restaurantId={workspace.activeId}
+            role={workspace.effectiveRole}
+            employeeId={workspace.effectiveEmployeeId}
+          />
+
           <NotificationBell
             restaurantId={workspace.activeId}
             role={workspace.effectiveRole}
@@ -292,8 +298,6 @@
 
         <AccountMenu
           isPlatformAdmin={session.isPlatformAdmin}
-          {sidebarMode}
-          onsidebarmode={setSidebarMode}
           onnotificationsettings={() => (notificationSettingsRequest += 1)}
         />
       </header>
@@ -382,14 +386,6 @@
       </main>
 
       <PopcornPet />
-
-      {#if !workspace.isPreview}
-        <CommunicationCenter
-          restaurantId={workspace.activeId}
-          role={workspace.effectiveRole}
-          employeeId={workspace.effectiveEmployeeId}
-        />
-      {/if}
     </div>
   {/if}
   <ConfirmHost />
@@ -423,7 +419,7 @@
     border: 1px solid var(--cl-line);
     border-radius: var(--cl-radius);
     background: var(--cl-surface);
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
   }
   .cl-state {
     display: grid;
@@ -433,13 +429,13 @@
   }
   .cl-state h1 {
     margin: 0;
-    font-size: 22px;
+    font-size: var(--rst-fs-heading);
     font-weight: var(--rst-fw-display);
   }
   .cl-state p {
     margin: 0;
     color: var(--cl-muted);
-    font-size: 14px;
+    font-size: var(--rst-fs-body-lg);
     line-height: 1.55;
   }
   .cl-state__actions {

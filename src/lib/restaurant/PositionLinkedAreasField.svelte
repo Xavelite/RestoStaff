@@ -269,7 +269,7 @@
     color: var(--cl-ink);
     background: transparent;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     text-align: left;
     cursor: pointer;
   }
@@ -358,12 +358,12 @@
   }
 
   .linked-areas__head strong {
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
   }
 
   .linked-areas__head span {
     color: var(--cl-muted);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     font-variant-numeric: tabular-nums;
   }
 
@@ -394,7 +394,7 @@
     color: var(--cl-ink);
     background: transparent;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
   }
 
   .linked-areas__options {
@@ -415,7 +415,7 @@
     color: var(--cl-ink);
     background: transparent;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     text-align: left;
     cursor: pointer;
   }
@@ -448,7 +448,7 @@
 
   .linked-areas__options small {
     color: var(--cl-accent);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -458,7 +458,7 @@
     margin: 0;
     padding: 16px 10px;
     color: var(--cl-muted);
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
     text-align: center;
   }
 
@@ -475,7 +475,7 @@
     color: var(--cl-ink);
     background: var(--cl-surface);
     font: inherit;
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
     cursor: pointer;
   }
 

@@ -4,6 +4,7 @@ import { csvText } from '../src/lib/exports/csv.ts';
 import {
   parseManagerOperationsReadModel,
   parseRestaurantReadModel,
+  parseScheduleHistoryReadModel,
   parseTeamReadModel,
   parseWorkspaceBootstrap
 } from '../src/lib/api/workspace-snapshot.ts';
@@ -43,6 +44,19 @@ test('manager operations parsing gives audit collections explicit empty defaults
   assert.deepEqual(snapshot.work_areas, []);
   assert.deepEqual(snapshot.employee_job_functions, []);
   assert.deepEqual(snapshot.recurring_schedule_slots, []);
+});
+
+test('schedule history parsing keeps its focused event contract', () => {
+  const history = parseScheduleHistoryReadModel({
+    restaurant_id: 'restaurant-1',
+    events: [{ id: 'event-1', event_type: 'planning_published' }]
+  });
+  assert.equal(history.restaurant_id, 'restaurant-1');
+  assert.deepEqual(history.events.map((event) => event.id), ['event-1']);
+  assert.throws(
+    () => parseScheduleHistoryReadModel({ events: [] }),
+    /restaurant identity/
+  );
 });
 
 test('canonical work areas preserve identifiers at the Restaurant boundary', () => {

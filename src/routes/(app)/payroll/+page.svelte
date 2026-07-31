@@ -116,15 +116,15 @@
   .payroll-path a > span:nth-child(2) { min-width: 0; display: grid; gap: 2px; }
   .payroll-path small {
     color: var(--cl-muted);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
   }
-  .payroll-path strong { font-size: 12.5px; }
+  .payroll-path strong { font-size: var(--rst-fs-body); }
   .payroll-path em {
     overflow: hidden;
     color: var(--cl-muted);
-    font-size: 10.5px;
+    font-size: var(--rst-fs-label);
     font-style: normal;
     line-height: 1.35;
     text-overflow: ellipsis;

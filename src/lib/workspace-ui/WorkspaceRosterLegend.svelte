@@ -26,7 +26,7 @@
     gap: 14px;
     padding: 10px 68px 0 2px;
     color: var(--cl-muted);
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
   }
 
   .roster-legend__item {

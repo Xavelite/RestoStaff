@@ -182,7 +182,7 @@
     border: 1px solid var(--cl-line);
     border-radius: 999px;
     color: var(--cl-muted);
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     font-weight: var(--rst-fw-bold);
   }
   .weekpill__dot {
@@ -212,7 +212,7 @@
     align-items: center;
     gap: 6px;
     color: var(--cl-attention);
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     font-weight: var(--rst-fw-bold);
   }
   .weekbar__unsaved::before {

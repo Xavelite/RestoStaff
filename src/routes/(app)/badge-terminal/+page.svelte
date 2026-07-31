@@ -287,7 +287,7 @@
   }
   .paired > span {
     color: var(--cl-muted);
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     font-weight: var(--rst-fw-medium);
   }
   .paired code {
@@ -296,12 +296,12 @@
     border-radius: var(--cl-radius);
     background: var(--cl-surface-muted);
     font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
-    font-size: 14px;
+    font-size: var(--rst-fs-body-lg);
     word-break: break-all;
   }
   .paired small {
     color: var(--cl-muted);
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     line-height: 1.5;
   }
 </style>

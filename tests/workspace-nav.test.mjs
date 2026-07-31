@@ -12,6 +12,7 @@ test('Team root resolves to People while deeper routes resolve to their exact ta
   assert.deepEqual(subNavItemForPath(team, '/team/payroll')?.roles, ['owner']);
   assert.equal(subNavItemForPath(team, '/team/access')?.href, '/team/access');
   assert.equal(subNavItemForPath(team, '/team/absences')?.href, '/team/absences');
+  assert.equal(subNavItemForPath(team, '/team/time-off-types')?.href, '/team/time-off-types');
 });
 
 test('Restaurant root and nested routes resolve deterministically', () => {

@@ -7160,6 +7160,10 @@ export type Database = {
         Args: { p_restaurant_id: string }
         Returns: Json
       }
+      get_schedule_history_read_model: {
+        Args: { p_limit?: number; p_restaurant_id: string }
+        Returns: Json
+      }
       get_team_read_model: { Args: { p_restaurant_id: string }; Returns: Json }
       get_team_read_model_v2: {
         Args: { p_restaurant_id: string }

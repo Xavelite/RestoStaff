@@ -155,7 +155,7 @@
         <span><i class="dot is-orange"></i>{t('{count} pending', { count: allAbsences.filter((absence) => absence.status === 'pending').length })}</span>
       {/snippet}
       {#snippet actions()}
-        <a class="cl-btn" href="/settings/absence-types">{t('Time-off types')}</a>
+        <a class="cl-btn" href="/team/time-off-types">{t('Time-off types')}</a>
       {/snippet}
       {#snippet children()}
       {#if workspaceLayout.cards}
@@ -253,5 +253,5 @@
 {/if}
 
 <style>
-  .period time { color: var(--cl-ink); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .period time { color: var(--cl-ink); font-size: var(--rst-fs-body); font-variant-numeric: tabular-nums; white-space: nowrap; }
 </style>

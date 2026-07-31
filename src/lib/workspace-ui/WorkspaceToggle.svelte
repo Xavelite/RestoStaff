@@ -32,7 +32,7 @@
     align-items: center;
     gap: 8px;
     color: var(--cl-data-text);
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     font-weight: var(--rst-fw-medium);
     line-height: 1;
     cursor: pointer;

@@ -1,6 +1,8 @@
 <script lang="ts">
-  import { History } from '@lucide/svelte';
-  import { addDays, todayInTimezone, weekLabel } from '$lib/calendar/date';
+  import { History, RefreshCw } from '@lucide/svelte';
+  import { getScheduleHistoryReadModel } from '$lib/api/workspace';
+  import type { ScheduleHistoryReadModel } from '$lib/api/workspace-snapshot';
+  import { weekLabel } from '$lib/calendar/date';
   import { workWeekEventLabel } from '$lib/calendar/work-week-events';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
@@ -9,29 +11,50 @@
   import WorkspaceTimeline, { type TimelineEntry } from '$lib/workspace-ui/WorkspaceTimeline.svelte';
   import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
 
-  const snapshot = $derived(workspace.operations);
-  const timezone = $derived(
-    snapshot?.restaurant_settings.timezone ||
-      workspace.bootstrap?.restaurant_settings.timezone ||
-      'Europe/Brussels'
-  );
-  const today = $derived(todayInTimezone(timezone, new Date()));
+  let history = $state<ScheduleHistoryReadModel | null>(null);
+  let loading = $state(false);
+  let errorMessage = $state('');
+  let reloadToken = $state(0);
   let eventSearch = $state('');
   let weekSearch = $state('');
   let actorFilters = $state<Set<string>>(new Set());
   let sortDir = $state<'asc' | 'desc'>('desc');
 
   $effect(() => {
-    if (workspace.activeId && workspace.effectiveRole !== 'employee') {
-      void workspace.loadOperations(addDays(today, -183), addDays(today, 14)).catch(() => undefined);
+    const restaurantId = workspace.activeId;
+    const requestVersion = reloadToken;
+    if (!restaurantId || workspace.effectiveRole === 'employee') {
+      history = null;
+      loading = false;
+      errorMessage = '';
+      return;
     }
+
+    let cancelled = false;
+    loading = true;
+    errorMessage = '';
+    void getScheduleHistoryReadModel(restaurantId)
+      .then((result) => {
+        if (!cancelled && requestVersion === reloadToken && workspace.activeId === restaurantId) {
+          history = result;
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          history = null;
+          errorMessage = error instanceof Error ? error.message : String(error);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) loading = false;
+      });
+
+    return () => {
+      cancelled = true;
+    };
   });
 
-  const allEvents = $derived(
-    (snapshot?.work_week_events ?? []).filter((event) =>
-      event.event_type.startsWith('planning_')
-    )
-  );
+  const allEvents = $derived(history?.events ?? []);
   const events = $derived(
     allEvents
       .filter((event) => {
@@ -105,7 +128,21 @@
 
 <WorkspacePage>
   <section class="history-surface" aria-label={t('Schedule history')}>
-    {#if workspaceLayout.cards && events.length}
+    {#if errorMessage}
+      <div class="cl-empty history-state is-error">
+        <span class="cl-empty__icon" aria-hidden="true"><History size={18} /></span>
+        <strong>{t('Schedule history could not be loaded')}</strong>
+        <span>{errorMessage}</span>
+        <button class="cl-btn" type="button" onclick={() => (reloadToken += 1)}>
+          <RefreshCw size={14} aria-hidden="true" />{t('Try again')}
+        </button>
+      </div>
+    {:else if loading && !history}
+      <div class="cl-empty history-state" aria-live="polite">
+        <span class="cl-empty__icon spin" aria-hidden="true"><RefreshCw size={18} /></span>
+        <strong>{t('Loading schedule history...')}</strong>
+      </div>
+    {:else if workspaceLayout.cards && events.length}
       <WorkspaceTimeline entries={timelineEntries} />
     {:else}
     <div class="cl-tablewrap">
@@ -186,7 +223,7 @@
                   <strong>{t(filteredEmpty ? 'No schedule history matches these filters' : 'No schedule history yet')}</strong>
                   <span>{t(filteredEmpty
                     ? 'Clear a column filter to review other schedule events.'
-                    : 'Saving and publishing a week records an audited event here.')}</span>
+                    : 'Publishing, reverting and finalizing a week records an audited event here.')}</span>
                 </div>
               </td>
             </tr>
@@ -205,6 +242,14 @@
     border-radius: var(--cl-radius-surface);
     background: var(--cl-surface);
   }
+  .history-state { min-height: 220px; }
+  .history-state.is-error .cl-empty__icon {
+    color: var(--cl-danger);
+    background: var(--cl-danger-wash);
+  }
+  .history-state .cl-btn { margin-top: 4px; }
+  .spin { animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
   .event-cell {
     min-width: 280px;
     display: grid;
@@ -239,7 +284,7 @@
     border-radius: 999px;
     color: var(--cl-info);
     background: var(--cl-info-wash);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
     font-weight: var(--rst-fw-bold);
   }
   time {

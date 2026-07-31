@@ -234,7 +234,7 @@
   .login__brand b {
     display: inline-flex;
     align-items: baseline;
-    font-size: 27px;
+    font-size: var(--rst-fs-display-sm);
     font-weight: var(--rst-fw-display);
     letter-spacing: 0;
   }
@@ -244,13 +244,13 @@
   .login__title {
     margin: 0;
     color: var(--rst-command-text);
-    font-size: 28px;
+    font-size: var(--rst-fs-display-sm);
     font-weight: var(--rst-fw-display);
   }
   .login__subtitle {
     margin: 0;
     color: rgba(255, 250, 242, .7);
-    font-size: 14px;
+    font-size: var(--rst-fs-body-lg);
     line-height: 1.5;
   }
   .field {
@@ -259,7 +259,7 @@
     gap: 6px;
   }
   .field__label {
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     font-weight: var(--rst-fw-bold);
     color: rgba(255, 250, 242, .72);
     text-transform: uppercase;
@@ -281,12 +281,12 @@
   .login__error {
     margin: 0;
     color: var(--rst-state-danger-text);
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
   }
   .login__success {
     margin: 0;
     color: var(--rst-state-success-text);
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
   }
   .login__submit {
     margin-top: 4px;
@@ -308,7 +308,7 @@
     color: rgba(255, 250, 242, .76);
     background: transparent;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     font-weight: var(--rst-fw-bold);
     cursor: pointer;
   }

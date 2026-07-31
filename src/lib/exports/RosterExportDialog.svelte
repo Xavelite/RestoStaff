@@ -131,8 +131,8 @@
   }
   .format-picker button.is-pdf { --format-color: #c43b3b; }
   .format-picker button.is-xlsx { --format-color: #18864b; }
-  .format-picker strong { font-size: 12px; }
-  .format-picker small { color: var(--cl-muted); font-size: 10px; }
+  .format-picker strong { font-size: var(--rst-fs-control); }
+  .format-picker small { color: var(--cl-muted); font-size: var(--rst-fs-caption); }
   .preview {
     min-width: 0;
     overflow: hidden;
@@ -154,10 +154,10 @@
     justify-content: center;
     border-top: 1px solid var(--cl-line);
     color: var(--cl-muted);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
   }
-  .preview > header strong { font-size: 11px; }
-  .preview > header span { color: var(--cl-muted); font-size: 9px; }
+  .preview > header strong { font-size: var(--rst-fs-label); }
+  .preview > header span { color: var(--cl-muted); font-size: var(--rst-fs-micro); }
   .preview > div { overflow: auto; }
   table {
     min-width: 760px;
@@ -165,7 +165,7 @@
     border-spacing: 0;
     border-collapse: separate;
     table-layout: fixed;
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
   }
   th, td {
     min-width: 0;

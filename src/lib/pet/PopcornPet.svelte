@@ -626,7 +626,7 @@
     align-items: center;
     gap: 6px;
     color: var(--cl-muted);
-    font-size: 9.5px;
+    font-size: var(--rst-fs-caption);
     font-weight: var(--rst-fw-bold);
     letter-spacing: .05em;
     text-transform: uppercase;
@@ -681,14 +681,14 @@
   .popcorn-pet__bubble > strong {
     display: block;
     margin: 0;
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     line-height: 1.25;
   }
 
   .popcorn-pet__bubble p {
     margin: 3px 0 0;
     color: var(--cl-muted);
-    font-size: 11.5px;
+    font-size: var(--rst-fs-control);
     line-height: 1.42;
   }
 
@@ -706,14 +706,14 @@
 
   .popcorn-pet__invitation strong {
     color: var(--cl-ink);
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     line-height: 1.25;
     transition: color var(--cl-dur) var(--cl-ease);
   }
 
   .popcorn-pet__invitation span {
     color: var(--cl-muted);
-    font-size: 11.5px;
+    font-size: var(--rst-fs-control);
     line-height: 1.42;
   }
 
@@ -878,7 +878,7 @@
     }
 
     .popcorn-pet__bubble p {
-      font-size: 11px;
+      font-size: var(--rst-fs-label);
     }
 
     .popcorn-pet__kernels {

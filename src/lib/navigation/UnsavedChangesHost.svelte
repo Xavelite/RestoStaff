@@ -33,7 +33,7 @@
 
 <style>
   .leave-copy { display: grid; gap: 8px; }
-  .leave-copy p { margin: 0; color: var(--rst-ui-muted); font-size: 13px; line-height: 1.5; }
+  .leave-copy p { margin: 0; color: var(--rst-ui-muted); font-size: var(--rst-fs-body); line-height: 1.5; }
   .leave-copy strong { color: var(--rst-ui-text); }
   .leave-error { padding: 9px 10px; border: 1px solid var(--rst-state-danger-border); border-radius: var(--rst-ui-radius-md); color: var(--rst-state-danger-text) !important; background: var(--rst-state-danger-bg); }
 </style>

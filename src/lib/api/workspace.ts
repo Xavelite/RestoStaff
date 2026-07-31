@@ -5,6 +5,7 @@ import {
   parseEmployeeOperationsReadModel,
   parseManagerOperationsReadModel,
   parseRestaurantReadModel,
+  parseScheduleHistoryReadModel,
   parseTeamReadModel,
   parseWorkspaceBootstrap
 } from './workspace-snapshot';
@@ -72,6 +73,18 @@ export async function getEmployeeOperationsReadModel(
   });
   if (error) throw toApiError(error, 'Your schedule could not be loaded.');
   return parseEmployeeOperationsReadModel(data);
+}
+
+export async function getScheduleHistoryReadModel(
+  restaurantId: string,
+  limit = 500
+) {
+  const { data, error } = await supabase.rpc('get_schedule_history_read_model', {
+    p_restaurant_id: restaurantId,
+    p_limit: limit
+  });
+  if (error) throw toApiError(error, 'Schedule history could not be loaded.');
+  return parseScheduleHistoryReadModel(data);
 }
 
 export async function getTeamReadModel(restaurantId: string) {

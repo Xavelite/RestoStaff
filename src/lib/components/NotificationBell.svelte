@@ -829,7 +829,7 @@
     border-radius: var(--rst-ui-radius-pill);
     color: var(--rst-on-accent-text);
     background: var(--rst-state-danger);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
     animation: rst-pop-in .32s var(--rst-ease-spring) backwards;
   }
   .notification-menu {
@@ -877,7 +877,7 @@
   .notification-detail p,
   .notification-settings small {
     color: var(--rst-ui-muted);
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
   }
   .notification-settings-trigger,
   .notification-header-actions button,
@@ -889,7 +889,7 @@
     color: var(--rst-ui-text);
     background: var(--rst-ui-surface-field-strong);
     font: inherit;
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     cursor: pointer;
   }
   .notification-header-actions {
@@ -933,7 +933,7 @@
   }
   .notification-row > button:first-child:hover,
   .notification-row.is-setup:hover { background: var(--rst-ui-section-row-hover); }
-  .notification-row strong { font-size: 13px; }
+  .notification-row strong { font-size: var(--rst-fs-body); }
   .dismiss {
     position: absolute;
     top: 9px;
@@ -959,7 +959,7 @@
     border-radius: var(--rst-ui-radius-pill);
     color: var(--rst-ui-muted);
     background: var(--rst-ui-surface-field-strong);
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
     font-weight: var(--rst-fw-bold);
     text-transform: capitalize;
   }
@@ -967,7 +967,7 @@
   .detail-pill.is-attention { color: var(--rst-state-warning-text); background: var(--rst-state-warning-bg); }
   .detail-pill.is-success { color: var(--rst-state-success-text); background: var(--rst-state-success-bg); }
   .notification-settings { display: grid; gap: 8px; }
-  .notification-settings > p { margin: 0; color: var(--rst-ui-muted); font-size: 13px; }
+  .notification-settings > p { margin: 0; color: var(--rst-ui-muted); font-size: var(--rst-fs-body); }
   .phone-channel {
     display: grid;
     grid-template-columns: 38px minmax(0, 1fr) auto;
@@ -990,7 +990,7 @@
   }
   .phone-channel__icon svg { width: 21px; height: 21px; }
   .phone-channel > div:nth-child(2) { display: grid; gap: 3px; }
-  .phone-channel strong { font-size: 13px; }
+  .phone-channel strong { font-size: var(--rst-fs-body); }
   .phone-channel__error { color: var(--rst-state-danger-text) !important; }
   .notification-settings__head,
   .notification-setting {
@@ -1002,7 +1002,7 @@
   .notification-settings__head {
     padding: 4px 12px 0;
     color: var(--rst-ui-muted);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
   }
@@ -1017,7 +1017,7 @@
   .channel-check { min-height: 32px; display: grid; place-items: center; cursor: pointer; }
   .channel-check input { width: 17px; height: 17px; margin: 0; accent-color: var(--rst-ui-action); }
   .channel-check input:disabled { cursor: not-allowed; opacity: .45; }
-  .notification-settings strong { font-size: 13px; }
+  .notification-settings strong { font-size: var(--rst-fs-body); }
   @media (max-width: 520px) {
     .notifications-shell { position: static; }
     .notification-menu {

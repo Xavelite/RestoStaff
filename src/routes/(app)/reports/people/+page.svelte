@@ -131,8 +131,8 @@
     gap: 16px;
   }
   .workforce-lens header > div:first-child { display: grid; gap: 3px; }
-  .workforce-lens header strong { color: var(--cl-ink); font-size: 13px; }
-  .workforce-lens header span { color: var(--cl-muted); font-size: 10px; }
+  .workforce-lens header strong { color: var(--cl-ink); font-size: var(--rst-fs-body); }
+  .workforce-lens header span { color: var(--cl-muted); font-size: var(--rst-fs-caption); }
   .workforce-filter {
     display: flex;
     padding: 3px;
@@ -148,7 +148,7 @@
     background: transparent;
     color: var(--cl-muted);
     font: inherit;
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     cursor: pointer;
   }
   .workforce-filter button.is-active { background: var(--cl-surface); color: var(--cl-accent); font-weight: var(--rst-fw-bold); box-shadow: 0 1px 2px rgba(17,24,39,.06); }
@@ -169,7 +169,7 @@
   .workforce-bars button:hover,
   .workforce-bars button.is-active { border-color: var(--cl-accent-line); background: var(--cl-accent-wash); }
   .workforce-bars button > span { display: flex; justify-content: space-between; gap: 8px; }
-  .workforce-bars em { color: var(--cl-muted); font-size: 11px; font-style: normal; }
+  .workforce-bars em { color: var(--cl-muted); font-size: var(--rst-fs-label); font-style: normal; }
   .workforce-bars i { height: 6px; overflow: hidden; border-radius: 3px; background: var(--cl-surface-muted); }
   .workforce-bars b { height: 100%; display: block; border-radius: inherit; background: var(--cl-info); }
   @media (max-width: 760px) {

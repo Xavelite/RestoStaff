@@ -400,14 +400,14 @@
   .terminal-head p,
   .eyebrow {
     color: var(--rst-ui-panel-title);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
   }
 
   .terminal-head h1 {
     margin-top: 3px;
-    font-size: 32px;
+    font-size: var(--rst-fs-display);
   }
 
   .terminal-meta,
@@ -427,12 +427,12 @@
 
   .terminal-meta time strong {
     color: var(--rst-ui-text);
-    font-size: 22px;
+    font-size: var(--rst-fs-heading);
   }
 
   .terminal-meta time span {
     max-width: 70px;
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
     line-height: 1.2;
   }
 
@@ -453,7 +453,7 @@
   }
 
   .terminal-meta :global(a) {
-    font-size: 24px;
+    font-size: var(--rst-fs-heading-lg);
   }
 
   .terminal-grid {
@@ -500,7 +500,7 @@
     border: 0;
     color: var(--rst-ui-panel-title);
     background: transparent;
-    font-size: 23px;
+    font-size: var(--rst-fs-heading);
   }
 
   .people {
@@ -557,7 +557,7 @@
 
   .person-copy strong {
     overflow: hidden;
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -567,7 +567,7 @@
     align-items: center;
     gap: 5px;
     color: var(--rst-ui-muted);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
   }
 
   .person-copy small i {
@@ -588,7 +588,7 @@
 
   .person-arrow {
     color: var(--rst-ui-muted);
-    font-size: 22px;
+    font-size: var(--rst-fs-heading);
   }
 
   .challenge {
@@ -612,7 +612,7 @@
     border-radius: var(--rst-ui-radius-md);
     color: var(--rst-ui-muted);
     background: var(--rst-ui-surface-field);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     font-weight: var(--rst-fw-bold);
     text-align: center;
   }
@@ -648,7 +648,7 @@
   .proof-step h2,
   .success h2 {
     margin: 5px 0 0;
-    font-size: 20px;
+    font-size: var(--rst-fs-title-lg);
   }
 
   .pin {
@@ -689,7 +689,7 @@
     background: var(--rst-ui-surface-field-strong);
     box-shadow: 0 3px 0 rgba(38, 27, 18, .08);
     font: inherit;
-    font-size: 21px;
+    font-size: var(--rst-fs-heading);
     font-weight: var(--rst-fw-display);
     cursor: pointer;
   }
@@ -707,7 +707,7 @@
 
   .keypad button.keypad-tool {
     color: var(--rst-ui-muted);
-    font-size: 17px;
+    font-size: var(--rst-fs-title);
   }
 
   .primary-action,
@@ -719,7 +719,7 @@
     color: var(--rst-ui-text);
     background: var(--rst-ui-surface-field-strong);
     font: inherit;
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     font-weight: var(--rst-fw-bold);
     cursor: pointer;
   }
@@ -760,13 +760,13 @@
     width: 44px;
     height: 44px;
     margin-bottom: 14px;
-    font-size: 20px;
+    font-size: var(--rst-fs-title-lg);
   }
 
   .expires {
     margin: 7px 0 20px;
     color: var(--rst-ui-muted);
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
   }
 
   .proof-upload {
@@ -786,7 +786,7 @@
     overflow: hidden;
     max-width: 290px;
     color: var(--rst-ui-muted);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -811,7 +811,7 @@
     width: 68px;
     height: 68px;
     margin-bottom: 18px;
-    font-size: 32px;
+    font-size: var(--rst-fs-display);
     box-shadow: 0 0 0 12px rgba(var(--rst-state-success-rgb), .08);
   }
 
@@ -822,12 +822,12 @@
   }
 
   .success p strong {
-    font-size: 34px;
+    font-size: var(--rst-fs-display-lg);
   }
 
   .success p span {
     color: var(--rst-ui-muted);
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
   }
 
   @keyframes badge-shake {
@@ -874,7 +874,7 @@
     }
 
     .terminal-meta time strong {
-      font-size: 18px;
+      font-size: var(--rst-fs-title);
     }
 
     .people > button {

@@ -53,6 +53,7 @@ declare
     'public.get_workspace_context(uuid)'::regprocedure,
     'public.get_workspace_bootstrap_v2(uuid)'::regprocedure,
     'public.get_manager_operations_read_model(uuid,date,date)'::regprocedure,
+    'public.get_schedule_history_read_model(uuid,integer)'::regprocedure,
     'public.get_employee_operations_read_model(uuid,date,date)'::regprocedure,
     'public.get_team_read_model_v2(uuid)'::regprocedure,
     'public.get_time_entry_payroll_evidence(uuid,uuid)'::regprocedure,

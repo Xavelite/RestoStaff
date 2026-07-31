@@ -1144,7 +1144,7 @@
 
   .gate-hero h1 {
     margin: 0;
-    font-size: clamp(40px, 8vw, 76px);
+    font-size: var(--rst-fs-hero-xl);
     line-height: 0.92;
     letter-spacing: 0;
   }
@@ -1226,7 +1226,7 @@
 
   .launch-hero h1 {
     margin: 0;
-    font-size: clamp(34px, 5.2vw, 64px);
+    font-size: var(--rst-fs-hero-lg);
     line-height: 0.94;
     letter-spacing: 0;
   }
@@ -1235,7 +1235,7 @@
     max-width: 620px;
     margin: 0;
     color: rgba(255, 250, 242, 0.82);
-    font-size: clamp(14px, 1.3vw, 17px);
+    font-size: var(--rst-fs-title-sm);
     line-height: 1.45;
   }
 
@@ -1309,7 +1309,7 @@
     border-radius: var(--rst-ui-radius-round);
     color: var(--rst-ui-muted);
     background: var(--rst-ui-surface-field-strong);
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     font-weight: var(--rst-fw-display);
   }
 
@@ -1331,7 +1331,7 @@
 
   .step-chip__label strong {
     overflow: hidden;
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -1339,7 +1339,7 @@
   .step-chip__label small {
     overflow: hidden;
     color: var(--rst-ui-muted);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
     text-overflow: ellipsis;
@@ -1391,7 +1391,7 @@
 
   .stage-head h2 {
     margin: 4px 0 0;
-    font-size: clamp(26px, 3.4vw, 40px);
+    font-size: var(--rst-fs-hero);
     line-height: 0.96;
     letter-spacing: 0;
   }
@@ -1403,7 +1403,7 @@
     color: var(--rst-ui-panel-title);
     background: transparent;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     font-weight: var(--rst-fw-bold);
     cursor: pointer;
   }
@@ -1419,7 +1419,7 @@
   .stage-hint {
     margin: 0;
     color: var(--rst-ui-muted);
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
   }
 
   .stage-empty {
@@ -1444,7 +1444,7 @@
     display: grid;
     gap: 6px;
     color: var(--rst-ui-muted);
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     font-weight: var(--rst-fw-bold);
   }
 
@@ -1511,13 +1511,13 @@
     border-radius: var(--rst-ui-radius-round);
     color: var(--rst-ui-action);
     background: var(--rst-ui-action-soft);
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     font-weight: var(--rst-fw-display);
   }
 
   .rhythm-card__name {
     min-width: 0;
-    font-size: 16px;
+    font-size: var(--rst-fs-title-sm);
     font-weight: var(--rst-fw-display);
   }
 
@@ -1528,7 +1528,7 @@
     border-radius: var(--rst-ui-radius-md);
     color: var(--rst-ui-muted);
     background: transparent;
-    font-size: 18px;
+    font-size: var(--rst-fs-title);
     cursor: pointer;
   }
 
@@ -1561,7 +1561,7 @@
     color: var(--rst-ui-action);
     background: var(--rst-ui-surface-panel);
     font: inherit;
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     font-weight: var(--rst-fw-bold);
     cursor: pointer;
   }
@@ -1604,7 +1604,7 @@
   }
 
   .day-chips span {
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     font-weight: var(--rst-fw-display);
   }
 
@@ -1618,7 +1618,7 @@
   }
 
   .day-chips.is-compact span {
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
   }
 
   /* ---- Work map builders ------------------------------------------- */
@@ -1636,12 +1636,12 @@
   }
 
   .build-head strong {
-    font-size: 18px;
+    font-size: var(--rst-fs-title);
   }
 
   .build-head span {
     color: var(--rst-ui-muted);
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
   }
@@ -1661,7 +1661,7 @@
     background: #fff;
     color: var(--rst-ui-text);
     font: inherit;
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
   }
 
   .catalogue-add select {
@@ -1725,7 +1725,7 @@
     min-height: 26px;
     padding: 0;
     border: 0;
-    font-size: 15px;
+    font-size: var(--rst-fs-title-sm);
     font-weight: var(--rst-fw-display);
   }
 
@@ -1746,7 +1746,7 @@
     border-radius: var(--rst-ui-radius-round);
     color: var(--rst-ui-muted);
     background: var(--rst-ui-surface-field);
-    font-size: 15px;
+    font-size: var(--rst-fs-title-sm);
     line-height: 1;
     cursor: pointer;
   }
@@ -1770,7 +1770,7 @@
     display: flex;
     align-items: end;
     color: var(--rst-ui-muted);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
     letter-spacing: 0;
@@ -1780,7 +1780,7 @@
     overflow: hidden;
     padding: 8px 4px;
     color: var(--rst-ui-text);
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     font-weight: var(--rst-fw-display);
     text-align: center;
     text-overflow: ellipsis;
@@ -1798,14 +1798,14 @@
 
   .matrix__row-head strong {
     overflow: hidden;
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .matrix__row-head small {
     color: var(--rst-ui-muted);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
   }
@@ -1818,7 +1818,7 @@
     border-radius: var(--rst-ui-radius-md);
     color: #fff;
     background: var(--rst-ui-surface-field);
-    font-size: 15px;
+    font-size: var(--rst-fs-title-sm);
     font-weight: var(--rst-fw-display);
     cursor: pointer;
     transition: transform 0.14s var(--rst-ease-out), background-color 0.14s ease, border-color 0.14s ease;
@@ -1881,7 +1881,7 @@
 
   .review-grid strong {
     overflow: hidden;
-    font-size: 19px;
+    font-size: var(--rst-fs-title-lg);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -1917,7 +1917,7 @@
   }
 
   .blueprint__head strong {
-    font-size: 19px;
+    font-size: var(--rst-fs-title-lg);
     line-height: 1.05;
     letter-spacing: 0;
   }
@@ -1925,7 +1925,7 @@
   .blueprint__head p {
     margin: 0;
     color: rgba(255, 250, 242, 0.7);
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
   }
 
   .blueprint__rhythm {
@@ -1941,7 +1941,7 @@
     border-radius: var(--rst-ui-radius-md);
     color: rgba(255, 250, 242, 0.5);
     background: rgba(255, 255, 255, 0.08);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
     font-weight: var(--rst-fw-display);
     text-transform: uppercase;
   }
@@ -1985,7 +1985,7 @@
     border-radius: var(--rst-ui-radius-pill);
     color: #19304b;
     background: #fff4dc;
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
     font-style: normal;
     font-weight: var(--rst-fw-bold);
   }
@@ -1998,7 +1998,7 @@
   .blueprint__empty {
     margin: 0;
     color: rgba(255, 250, 242, 0.6);
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     line-height: 1.5;
   }
 

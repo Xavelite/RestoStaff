@@ -148,7 +148,7 @@
     color: color-mix(in srgb, var(--card-accent) 78%, var(--rst-ui-text));
     background: color-mix(in srgb, var(--card-accent) 12%, var(--rst-ui-surface-field));
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--card-accent) 26%, transparent);
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     font-weight: var(--rst-fw-bold);
     letter-spacing: .01em;
   }
@@ -156,7 +156,7 @@
   .card__identity { min-width: 0; display: grid; gap: 2px; }
   .card__title {
     overflow: hidden;
-    font-size: 13.5px;
+    font-size: var(--rst-fs-body-lg);
     font-weight: var(--rst-fw-bold);
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -164,7 +164,7 @@
   .card__subtitle {
     overflow: hidden;
     color: var(--rst-ui-muted);
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -174,7 +174,7 @@
     padding: 2px 8px;
     border: 1px solid transparent;
     border-radius: var(--rst-ui-radius-pill);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     font-weight: var(--rst-fw-bold);
     white-space: nowrap;
   }
@@ -195,7 +195,7 @@
   .card__meta > div { min-width: 0; display: grid; gap: 2px; }
   .card__meta dt {
     color: var(--rst-ui-muted);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
     font-weight: var(--rst-fw-bold);
     letter-spacing: .04em;
     text-transform: uppercase;
@@ -203,7 +203,7 @@
   .card__meta dd {
     overflow: hidden;
     margin: 0;
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     font-variant-numeric: tabular-nums;
     text-overflow: ellipsis;
     white-space: nowrap;

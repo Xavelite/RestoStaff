@@ -24,7 +24,6 @@
   import { sound } from '$lib/sound/sound.svelte';
   import { supabase } from '$lib/supabase/client';
   import { confirmAction } from '$lib/ui/confirm.svelte';
-  import { workspaceTheme, type WorkspaceTheme } from '$lib/ui/theme.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { orderedMemberships, roleHome } from '$lib/workspace/workspace-selection';
@@ -32,14 +31,10 @@
 
   let {
     isPlatformAdmin = false,
-    onnotificationsettings,
-    sidebarMode = 'pinned',
-    onsidebarmode
+    onnotificationsettings
   }: {
     isPlatformAdmin?: boolean;
     onnotificationsettings: () => void;
-    sidebarMode?: 'pinned' | 'auto';
-    onsidebarmode?: (mode: 'pinned' | 'auto') => void;
   } = $props();
 
   let open = $state(false);
@@ -91,10 +86,6 @@
       window.removeEventListener('keydown', closeOnEscape);
     };
   });
-
-  function chooseTheme(theme: WorkspaceTheme): void {
-    workspaceTheme.set(theme);
-  }
 
   function togglePopcorn(): void {
     open = false;
@@ -335,47 +326,10 @@
         {/if}
         <span class="menu-label">{t('Account')}</span>
         <button type="button" onclick={openAccount}>{t('Account settings')}</button>
-        <div class="appearance-picker">
-          <span>{t('Appearance')}</span>
-          <div role="group" aria-label={t('Theme')}>
-            <button
-              type="button"
-              class:is-active={workspaceTheme.current === 'cobalt'}
-              aria-pressed={workspaceTheme.current === 'cobalt'}
-              onclick={() => chooseTheme('cobalt')}
-            ><i class="theme-swatch is-cobalt"></i>{t('Blue')}</button>
-            <button
-              type="button"
-              class:is-active={workspaceTheme.current === 'tangerine'}
-              aria-pressed={workspaceTheme.current === 'tangerine'}
-              onclick={() => chooseTheme('tangerine')}
-            ><i class="theme-swatch is-tangerine"></i>{t('Orange')}</button>
-          </div>
-        </div>
-        <div class="appearance-picker">
-          <span>{t('Sidebar')}</span>
-          <div role="group" aria-label={t('Sidebar behavior')}>
-            <button
-              type="button"
-              class:is-active={sidebarMode === 'pinned'}
-              aria-pressed={sidebarMode === 'pinned'}
-              onclick={() => onsidebarmode?.('pinned')}
-            >{t('Pinned')}</button>
-            <button
-              type="button"
-              class:is-active={sidebarMode === 'auto'}
-              aria-pressed={sidebarMode === 'auto'}
-              onclick={() => onsidebarmode?.('auto')}
-            >{t('Auto-hide')}</button>
-          </div>
-        </div>
         {#if !appInstall.installed}
           <button type="button" onclick={installApp}>{t('Install app')}</button>
         {/if}
         <button type="button" onclick={() => { open = false; pinDialogOpen = true; }}>{t('Change badge PIN')}</button>
-        <button type="button" onclick={() => sound.toggle()}>
-          {sound.enabled ? t('Sound on') : t('Sound off')}
-        </button>
         <button type="button" onclick={togglePopcorn}>
           {popcornPet.visible ? t('Hide Popcorn') : t('Call Popcorn')}
         </button>
@@ -450,10 +404,6 @@
       {/if}
       <ActionButton label="Notification settings" onclick={openNotificationSettings} />
     </section>
-    <label class="account-toggle">
-      <span><strong>{t('App sounds')}</strong><small>{t('Play short cues for messages and completed actions.')}</small></span>
-      <input type="checkbox" checked={sound.enabled} onchange={(event) => sound.setEnabled(event.currentTarget.checked)} />
-    </label>
     <MfaSettings />
   </div>
 </Dialog>
@@ -547,14 +497,14 @@
     border-radius: var(--rst-ui-radius-round);
     color: var(--rst-on-accent-text);
     background: var(--rst-ui-action);
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
     font-weight: var(--rst-fw-display);
   }
   .account-button:hover { background: var(--account-hover); }
   .account-button:active { transform: none; }
   .account-button__email {
     color: var(--account-muted);
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     font-style: normal;
   }
   .menu {
@@ -602,7 +552,7 @@
     color: var(--rst-ui-text);
     background: transparent;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     text-align: left;
     text-decoration: none;
     cursor: pointer;
@@ -619,7 +569,7 @@
   .workspace-switcher > span {
     padding: 0 4px 4px;
     color: var(--rst-ui-muted);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     font-weight: var(--rst-fw-bold);
     letter-spacing: 0;
     text-transform: uppercase;
@@ -648,58 +598,13 @@
     padding: 9px 14px 5px;
     border-bottom: 1px solid var(--rst-ui-divider-soft);
     color: var(--rst-ui-muted);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
   }
-  .appearance-picker {
-    display: grid;
-    gap: 7px;
-    padding: 10px 14px 12px;
-    border-bottom: 1px solid var(--rst-ui-divider-soft);
-  }
-  .appearance-picker > span {
-    color: var(--rst-ui-muted);
-    font-size: 11px;
-    font-weight: var(--rst-fw-bold);
-  }
-  .appearance-picker > div {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 6px;
-  }
-  .appearance-picker button {
-    min-height: 34px;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 6px 9px;
-    border: 1px solid var(--rst-ui-line);
-    border-radius: var(--rst-ui-radius-sm);
-    color: var(--rst-ui-text);
-    background: var(--rst-ui-surface-field);
-    font: inherit;
-    font-size: 11px;
-    cursor: pointer;
-  }
-  .appearance-picker button:hover,
-  .appearance-picker button.is-active {
-    border-color: var(--rst-ui-action);
-    background: var(--rst-state-selected-bg);
-  }
-  .theme-swatch {
-    width: 13px;
-    height: 13px;
-    flex: 0 0 auto;
-    border: 2px solid #fff;
-    border-radius: 50%;
-    box-shadow: 0 0 0 1px var(--rst-ui-line-strong);
-  }
-  .theme-swatch.is-cobalt { background: #315efb; }
-  .theme-swatch.is-tangerine { background: #ff5a1f; }
   .pin-form { display: grid; gap: 12px; }
   .pin-form label { display: grid; gap: 6px; }
-  .pin-form span { color: var(--rst-ui-muted); font-size: 11px; font-weight: var(--rst-fw-bold); }
+  .pin-form span { color: var(--rst-ui-muted); font-size: var(--rst-fs-label); font-weight: var(--rst-fw-bold); }
   .pin-form input,
   .pin-form select {
     min-height: 42px;
@@ -721,23 +626,13 @@
   }
   .account-device img { width: 34px; height: 34px; }
   .account-device > div { display: grid; gap: 2px; }
-  .account-device strong { font-size: 13px; }
+  .account-device strong { font-size: var(--rst-fs-body); }
   .account-device small,
-  .account-toggle small,
-  .install-guide small { color: var(--rst-ui-muted); font-size: 11px; line-height: 1.45; }
+  .install-guide small { color: var(--rst-ui-muted); font-size: var(--rst-fs-label); line-height: 1.45; }
   .account-device > :global(button) { grid-column: 1 / -1; width: 100%; }
-  .account-toggle {
-    grid-template-columns: minmax(0, 1fr) auto !important;
-    align-items: center;
-    padding-top: 12px;
-    border-top: 1px solid var(--rst-ui-line);
-  }
-  .account-toggle > span { display: grid; gap: 2px; }
-  .account-toggle strong { color: var(--rst-ui-text); font-size: 13px; }
-  .account-toggle input { width: 18px; min-height: 18px; accent-color: var(--rst-ui-action); }
   .install-guide { display: grid; justify-items: start; gap: 10px; }
   .install-guide img { width: 52px; height: 52px; }
-  .install-guide strong { font-size: 16px; }
+  .install-guide strong { font-size: var(--rst-fs-title-sm); }
   .install-guide p { margin: 0; line-height: 1.55; }
 
   @media (max-width: 1180px) {

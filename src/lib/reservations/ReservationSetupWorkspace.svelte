@@ -365,7 +365,7 @@
 
   .svc-field > span {
     color: var(--rst-ui-muted);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
     font-weight: var(--rst-fw-bold);
     letter-spacing: .04em;
     text-transform: uppercase;
@@ -383,7 +383,7 @@
     border-radius: var(--cl-radius);
     background: var(--cl-problem-wash);
     color: var(--cl-problem);
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
   }
   .setup-loading { display: grid; gap: 16px; padding: 24px; }
   .services-grid { min-width: 940px; }
@@ -393,12 +393,12 @@
   .service-name.is-lunch { color: var(--cl-lunch); }
   .service-name.is-evening { color: var(--cl-evening); }
   .service-name > strong { color: var(--cl-ink); }
-  td > small { margin-left: 4px; color: var(--cl-muted); font-size: 10px; }
+  td > small { margin-left: 4px; color: var(--cl-muted); font-size: var(--rst-fs-caption); }
   .number-field { width: 62px; text-align: right; font-variant-numeric: tabular-nums; }
   .cover-field { width: 78px; text-align: right; }
   .capacity-cell { min-width: 180px; display: flex; align-items: center; gap: 8px; }
   .capacity-cell > label { display: inline-flex; align-items: center; gap: 4px; }
-  .capacity-cell small { color: var(--cl-muted); font-size: 9px; }
+  .capacity-cell small { color: var(--cl-muted); font-size: var(--rst-fs-micro); }
   .range-field { display: inline-flex; align-items: center; gap: 4px; }
   .range-field i { color: var(--cl-muted); font-style: normal; }
 </style>

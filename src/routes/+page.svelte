@@ -193,7 +193,7 @@
 
   .kicker {
     color: var(--rst-ui-action);
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
     font-weight: var(--rst-fw-display);
     letter-spacing: 0;
     text-transform: uppercase;
@@ -201,7 +201,7 @@
 
   .wordmark {
     font-weight: var(--rst-fw-display);
-    font-size: 18px;
+    font-size: var(--rst-fs-title);
   }
   .wordmark i { color: var(--rst-ui-action); font-style: normal; }
   .wordmark b { color: currentColor; }
@@ -226,7 +226,7 @@
     color: #fffaf2;
     text-decoration: none;
     font-weight: var(--rst-fw-bold);
-    font-size: 14px;
+    font-size: var(--rst-fs-body-lg);
     transition: background-color 0.18s ease, border-color 0.18s ease;
   }
 
@@ -310,7 +310,7 @@
 
   .hero h1 {
     margin: 0;
-    font-size: clamp(34px, 4.6vw, 58px);
+    font-size: var(--rst-fs-hero-lg);
     font-weight: var(--rst-fw-display);
     line-height: 0.99;
     letter-spacing: 0;
@@ -320,7 +320,7 @@
     max-width: 560px;
     margin: 0;
     color: rgba(255, 250, 242, 0.85);
-    font-size: clamp(15px, 1.4vw, 18px);
+    font-size: var(--rst-fs-title);
     line-height: 1.5;
   }
 
@@ -337,7 +337,7 @@
     border-radius: var(--rst-ui-radius-md);
     text-decoration: none;
     font-weight: var(--rst-fw-bold);
-    font-size: 15px;
+    font-size: var(--rst-fs-title-sm);
     transition: transform 0.18s var(--rst-ease-out), background-color 0.18s ease, border-color 0.18s ease;
   }
 
@@ -409,7 +409,7 @@
     flex: 1;
     min-width: 0;
     color: rgba(255, 250, 242, 0.72);
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
     font-weight: var(--rst-fw-bold);
     letter-spacing: 0;
     white-space: nowrap;
@@ -432,7 +432,7 @@
     align-items: center;
     padding: 4px 10px;
     border-radius: 999px;
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
     font-weight: var(--rst-fw-display);
     white-space: nowrap;
   }
@@ -483,7 +483,7 @@
 
   .demo__head b {
     color: rgba(255, 250, 242, 0.55);
-    font-size: 8px;
+    font-size: var(--rst-fs-micro);
     font-weight: var(--rst-fw-display);
     letter-spacing: 0;
     text-transform: uppercase;
@@ -491,7 +491,7 @@
 
   .demo__head i {
     color: rgba(255, 250, 242, 0.85);
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
     font-style: normal;
     font-weight: var(--rst-fw-display);
   }
@@ -504,7 +504,7 @@
     border-radius: 50%;
     color: #0b121a;
     background: var(--tone, #f06423);
-    font-size: 8px;
+    font-size: var(--rst-fs-micro);
     font-weight: var(--rst-fw-display);
   }
 
@@ -557,7 +557,7 @@
     border-radius: 999px;
     color: #0b121a;
     background: var(--rst-green);
-    font-size: 8px;
+    font-size: var(--rst-fs-micro);
     font-weight: var(--rst-fw-display);
   }
 
@@ -596,7 +596,7 @@
 
   .module-card h2 {
     margin: 0;
-    font-size: 22px;
+    font-size: var(--rst-fs-heading);
     font-weight: var(--rst-fw-display);
     letter-spacing: 0;
   }
@@ -604,7 +604,7 @@
   .module-card p {
     margin: 0;
     color: var(--rst-ui-muted);
-    font-size: 14px;
+    font-size: var(--rst-fs-body-lg);
     line-height: 1.5;
   }
 
@@ -619,7 +619,7 @@
   .module-card li {
     position: relative;
     padding-left: 20px;
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     font-weight: var(--rst-fw-bold);
   }
 
@@ -641,7 +641,7 @@
   .week h2 {
     margin: 0;
     max-width: 620px;
-    font-size: 34px;
+    font-size: var(--rst-fs-display-lg);
     font-weight: var(--rst-fw-display);
     letter-spacing: 0;
   }
@@ -664,20 +664,20 @@
 
   .week__steps span {
     color: var(--rst-ui-action);
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     font-weight: var(--rst-fw-display);
   }
 
   .week__steps h3 {
     margin: 0;
-    font-size: 17px;
+    font-size: var(--rst-fs-title);
     font-weight: var(--rst-fw-display);
   }
 
   .week__steps p {
     margin: 0;
     color: var(--rst-ui-muted);
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     line-height: 1.5;
   }
 
@@ -698,7 +698,7 @@
 
   .closing h2 {
     margin: 0;
-    font-size: 36px;
+    font-size: var(--rst-fs-display-lg);
     font-weight: var(--rst-fw-display);
     letter-spacing: 0;
   }
@@ -706,7 +706,7 @@
   .closing p {
     margin: 0 0 8px;
     color: rgba(255, 250, 242, 0.8);
-    font-size: 15px;
+    font-size: var(--rst-fs-title-sm);
   }
 
   .landing__footer {
@@ -716,11 +716,11 @@
     padding: 18px clamp(20px, 5vw, 48px);
     border-top: 1px solid var(--rst-ui-line);
     color: var(--rst-ui-muted);
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
   }
 
   .landing__footer .wordmark {
-    font-size: 15px;
+    font-size: var(--rst-fs-title-sm);
     color: var(--rst-ui-text);
   }
 
@@ -837,13 +837,13 @@
 
   @media (max-width: 520px) {
     .hero h1 {
-      font-size: 34px;
+      font-size: var(--rst-fs-display-lg);
       line-height: 1.04;
     }
 
     .week h2,
     .closing h2 {
-      font-size: 28px;
+      font-size: var(--rst-fs-display-sm);
     }
   }
 </style>

@@ -3769,6 +3769,10 @@ Object.assign(french, {
   'No schedule history matches these filters':
     'Aucun historique de planning ne correspond à ces filtres',
   'No schedule history yet': 'Aucun historique de planning pour le moment',
+  'Schedule history could not be loaded': "L'historique du planning n'a pas pu Ãªtre chargÃ©",
+  'Loading schedule history...': "Chargement de l'historique du planning...",
+  'Publishing, reverting and finalizing a week records an audited event here.':
+    'Publier, restaurer ou finaliser une semaine enregistre ici un Ã©vÃ©nement auditÃ©.',
   'Clear a column filter to review other schedule events.':
     'Effacez un filtre de colonne pour consulter les autres événements du planning.',
   'issue': 'problème',
@@ -3853,6 +3857,10 @@ Object.assign(dutch, {
   'No schedule history matches these filters':
     'Geen planningsgeschiedenis komt overeen met deze filters',
   'No schedule history yet': 'Nog geen planningsgeschiedenis',
+  'Schedule history could not be loaded': 'De planningsgeschiedenis kon niet worden geladen',
+  'Loading schedule history...': 'Planningsgeschiedenis laden...',
+  'Publishing, reverting and finalizing a week records an audited event here.':
+    'Een week publiceren, terugzetten of afronden registreert hier een gecontroleerde gebeurtenis.',
   'Clear a column filter to review other schedule events.':
     'Wis een kolomfilter om andere planningsgebeurtenissen te bekijken.',
   'issue': 'probleem',
@@ -4596,7 +4604,6 @@ Object.assign(french, {
   'Guest request': 'Demande du client',
   'Internal note': 'Note interne',
   'Checking availability…': 'Vérification de la disponibilité…',
-  'Not available yet': 'Pas encore disponible',
   'Applying service, capacity and table rules.': 'Application des règles de service, capacité et tables.',
   'A suitable table or capacity slot is available.': 'Une table ou une capacité adaptée est disponible.',
   'Reservation setup saved.': 'Configuration des réservations enregistrée.',
@@ -4759,7 +4766,6 @@ Object.assign(dutch, {
   'Guest request': 'Verzoek van de gast',
   'Internal note': 'Interne notitie',
   'Checking availability…': 'Beschikbaarheid controleren…',
-  'Not available yet': 'Nog niet beschikbaar',
   'Applying service, capacity and table rules.': 'Service-, capaciteits- en tafelregels toepassen.',
   'A suitable table or capacity slot is available.': 'Een geschikte tafel of capaciteit is beschikbaar.',
   'Reservation setup saved.': 'Reservatie-instellingen opgeslagen.',

@@ -23,7 +23,7 @@
     border-radius: 6px;
     background: var(--cl-surface);
     color: var(--cl-muted);
-    font-size: 11.5px;
+    font-size: var(--rst-fs-control);
     font-weight: var(--rst-fw-bold);
     line-height: 1;
     white-space: nowrap;
@@ -35,7 +35,7 @@
     place-items: center;
     border-radius: 50%;
     background: var(--cl-surface-muted);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
     font-style: normal;
   }
   .is-pending { border-color: color-mix(in srgb, var(--cl-attention) 45%, var(--cl-line)); color: var(--cl-attention); }

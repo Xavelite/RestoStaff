@@ -932,12 +932,12 @@
 {/if}
 
 <style>
-  .period-label { min-width: 180px; text-align: center; font-size: 13px; }
-  .pending-copy { color: var(--cl-attention); font-size: 12px; font-weight: var(--rst-fw-bold); }
+  .period-label { min-width: 180px; text-align: center; font-size: var(--rst-fs-body); }
+  .pending-copy { color: var(--cl-attention); font-size: var(--rst-fs-control); font-weight: var(--rst-fw-bold); }
   .employee-workspace { display: grid; gap: 16px; }
   .employee-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .has-unit { display: flex; align-items: baseline; gap: 5px; }
-  .has-unit small { color: var(--cl-muted); font-size: 10px; font-weight: var(--rst-fw-medium); }
+  .has-unit small { color: var(--cl-muted); font-size: var(--rst-fs-caption); font-weight: var(--rst-fw-medium); }
 
   .time-layout {
     display: grid;
@@ -968,7 +968,7 @@
   .weekday-row span {
     padding: 10px 8px;
     color: var(--cl-muted);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     font-weight: var(--rst-fw-display);
     letter-spacing: 0;
     text-align: center;
@@ -1016,7 +1016,7 @@
     height: 24px;
     place-items: center;
     border-radius: 999px;
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     font-weight: var(--rst-fw-bold);
   }
 
@@ -1046,7 +1046,7 @@
     border-radius: var(--rst-ui-radius-pill);
     color: var(--rst-ui-muted);
     background: var(--rst-state-neutral-bg);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
     font-weight: var(--rst-fw-bold);
   }
 
@@ -1057,7 +1057,7 @@
     padding: 9px 12px;
     border-top: 1px solid var(--rst-ui-divider-soft);
     color: var(--cl-muted);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
   }
   .calendar-legend span { display: inline-flex; align-items: center; gap: 5px; }
   .calendar-legend i { width: 7px; height: 7px; border-radius: 50%; background: var(--rst-ui-quiet); }
@@ -1096,7 +1096,7 @@
   }
 
   .day-panel__head strong {
-    font-size: 18px;
+    font-size: var(--rst-fs-title);
   }
 
   .day-panel__proof {
@@ -1106,12 +1106,12 @@
   }
 
   .day-panel__proof strong {
-    font-size: 20px;
+    font-size: var(--rst-fs-title-lg);
   }
 
   .day-panel__proof span {
     color: var(--cl-muted);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
   }
@@ -1150,7 +1150,7 @@
     place-items: center;
     border-radius: 999px;
     background: var(--cl-accent-wash);
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
   }
 
   .day-service__tap span {
@@ -1161,7 +1161,7 @@
 
   .day-service__tap strong {
     overflow: hidden;
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -1169,7 +1169,7 @@
   .day-service__tap small {
     overflow: hidden;
     color: var(--cl-muted);
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -1186,7 +1186,7 @@
     border-radius: 999px;
     color: var(--cl-muted);
     background: transparent;
-    font-size: 14px;
+    font-size: var(--rst-fs-body-lg);
     line-height: 1;
     cursor: pointer;
   }
@@ -1219,7 +1219,7 @@
   }
   .day-list article:last-child { border-bottom: 0; }
   .day-list article > div { display: grid; justify-items: start; gap: 4px; }
-  .day-list span, .day-list small, .day-list p { color: var(--rst-ui-muted); font-size: 12px; }
+  .day-list span, .day-list small, .day-list p { color: var(--rst-ui-muted); font-size: var(--rst-fs-control); }
   .day-list p { margin: 0; padding: 18px 14px; }
 
   @media (max-width: 1180px) {
@@ -1240,19 +1240,19 @@
     }
     .employee-stats .cl-stat__label {
       overflow: hidden;
-      font-size: 9px;
+      font-size: var(--rst-fs-micro);
       text-overflow: ellipsis;
       white-space: nowrap;
     }
     .employee-stats .cl-stat__value {
-      font-size: 17px;
+      font-size: var(--rst-fs-title);
     }
     .has-unit {
       display: grid;
       gap: 0;
     }
     .has-unit small {
-      font-size: 8px;
+      font-size: var(--rst-fs-micro);
     }
     .calendar-legend {
       gap: 6px 10px;

@@ -47,8 +47,7 @@ export type WorkspaceIcon =
   | 'payroll'
   | 'badge'
   | 'reports'
-  | 'exports'
-  | 'settings';
+  | 'exports';
 
 const MANAGER: WorkspaceRole[] = ['owner', 'manager'];
 const OWNER: WorkspaceRole[] = ['owner'];
@@ -105,7 +104,8 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
       { href: '/team/contracts', label: 'Contracts' },
       { href: '/team/payroll', label: 'Payroll', roles: OWNER },
       { href: '/team/access', label: 'Access' },
-      { href: '/team/absences', label: 'Time off' }
+      { href: '/team/absences', label: 'Time off' },
+      { href: '/team/time-off-types', label: 'Time-off types' }
     ]
   },
   {
@@ -251,18 +251,6 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     roles: MANAGER,
     navSection: 'records'
   },
-  {
-    key: 'settings',
-    href: '/settings/absence-types',
-    label: 'Settings',
-    summary: 'Time-off policy and request rules',
-    icon: 'settings',
-    roles: MANAGER,
-    utility: true,
-    subNav: [
-      { href: '/settings/absence-types', label: 'Time-off types' }
-    ]
-  },
   // Employees share the same shell; their two screens are simply the only
   // modules their role can see.
   {
@@ -297,7 +285,6 @@ const MODULE_ORDER = [
   'documents',
   'exports',
   'reports',
-  'settings',
   'inventory',
   'recipes',
   'purchasing',

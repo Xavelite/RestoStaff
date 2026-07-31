@@ -27,6 +27,98 @@ test('responsive CSS uses only the product breakpoint ladder', async () => {
   assert.deepEqual(violations, []);
 });
 
+test('the product type scale owns every application font size', async () => {
+  const tokens = await readFile('src/lib/styles/tokens.css', 'utf8');
+  for (const token of [
+    'micro',
+    'caption',
+    'label',
+    'control',
+    'body',
+    'body-lg',
+    'title-sm',
+    'title',
+    'title-lg',
+    'heading',
+    'heading-lg',
+    'display-sm',
+    'display',
+    'display-lg',
+    'hero',
+    'hero-lg',
+    'hero-xl'
+  ]) {
+    assert.match(tokens, new RegExp(`--rst-fs-${token}:\\s*\\d+px`));
+  }
+  assert.doesNotMatch(tokens, /--rst-fs-[^:]+:\s*\d+\.\d+px/);
+
+  const violations = [];
+  for (const file of await sourceFiles('src', ['.svelte', '.css'])) {
+    if (file.endsWith(path.join('styles', 'tokens.css'))) continue;
+    const source = await readFile(file, 'utf8');
+    for (const match of source.matchAll(/font-size\s*:\s*([^;\n}]+)/g)) {
+      if (/\d+(?:\.\d+)?px/.test(match[1])) violations.push(`${file}: ${match[0]}`);
+    }
+  }
+  assert.deepEqual(violations, []);
+});
+
+test('every rows-or-cards workspace keeps both render contracts', async () => {
+  const paritySurfaces = [
+    'src/lib/reservations/ReservationSetupWorkspace.svelte',
+    'src/lib/reservations/ReservationsWorkspace.svelte',
+    'src/lib/restaurant/OperationalAreasWorkspace.svelte',
+    'src/lib/team/TimeOffPoliciesWorkspace.svelte',
+    'src/routes/(app)/badge-terminal/+page.svelte',
+    'src/routes/(app)/documents/+page.svelte',
+    'src/routes/(app)/restaurant/coverage/+page.svelte',
+    'src/routes/(app)/restaurant/positions/+page.svelte',
+    'src/routes/(app)/team/+page.svelte',
+    'src/routes/(app)/team/absences/+page.svelte',
+    'src/routes/(app)/team/access/+page.svelte',
+    'src/routes/(app)/team/contracts/+page.svelte',
+    'src/routes/(app)/team/payroll/+page.svelte',
+    'src/routes/(app)/timesheet/live/+page.svelte'
+  ];
+  for (const file of paritySurfaces) {
+    const source = await readFile(file, 'utf8');
+    assert.match(source, /workspaceLayout\.cards/, `${file} lost the shared preference`);
+    assert.match(source, /<WorkspaceCardGrid/, `${file} lost its card collection`);
+    assert.match(source, /<WorkspaceCard/, `${file} lost its card records`);
+    assert.match(source, /<table|<WorkspaceTablePanel/, `${file} lost its row records`);
+  }
+});
+
+test('device preferences live in one topbar menu and domain policy stays in Team', async () => {
+  const layout = await readFile('src/routes/(app)/+layout.svelte', 'utf8');
+  const preferences = await readFile(
+    'src/lib/workspace-ui/WorkspacePreferencesMenu.svelte',
+    'utf8'
+  );
+  const account = await readFile('src/lib/app-shell/AccountMenu.svelte', 'utf8');
+  const communications = await readFile(
+    'src/lib/communications/CommunicationCenter.svelte',
+    'utf8'
+  );
+  const nav = await readFile('src/lib/workspace-ui/workspace-nav.ts', 'utf8');
+  const topbar = layout.slice(
+    layout.indexOf('<header class="cl-topbar"'),
+    layout.indexOf('</header>', layout.indexOf('<header class="cl-topbar"'))
+  );
+
+  assert.match(layout, /<WorkspacePreferencesMenu \{sidebarMode\} onsidebarmode=\{setSidebarMode\}/);
+  assert.match(topbar, /<WorkspacePreferencesMenu[\s\S]*<CommunicationCenter[\s\S]*<NotificationBell/);
+  assert.match(communications, /\.communications-button\s*\{[^}]*position:\s*relative;/);
+  assert.match(communications, /\.chat\s*\{[^}]*position:\s*fixed;/);
+  assert.match(preferences, /workspaceLayout\.set/);
+  assert.match(preferences, /workspaceTheme\.set/);
+  assert.match(preferences, /sound\.toggle/);
+  assert.match(preferences, /window\.addEventListener\('pointerdown', closeOutside, true\)/);
+  assert.doesNotMatch(account, /appearance-picker|workspaceTheme|sidebarMode/);
+  assert.doesNotMatch(nav, /key: 'settings'/);
+  assert.match(nav, /href: '\/team\/time-off-types'/);
+});
+
 test('the app shell stays free of atmosphere imagery', async () => {
   // The single design is deliberately flat: no per-route background photos, no
   // gradients. This pins that the atmosphere layer stays retired.
@@ -363,7 +455,7 @@ test('operational core exposes planning, attendance and payroll as one workspace
   assert.match(payroll, /href="\/team\/payroll"/);
   assert.match(payroll, /href="\/timesheet"/);
   assert.match(payroll, /href="\/exports"/);
-  assert.match(absences, /href="\/settings\/absence-types"/);
+  assert.match(absences, /href="\/team\/time-off-types"/);
   assert.doesNotMatch(absences, /href="\/restaurant\/absence-types"/);
   assert.match(absences, /\{#if allAbsences\.length\}\s*<thead>/);
 });
@@ -445,7 +537,7 @@ test('unsaved changes guard routes and context-changing account actions', async 
   assert.match(reservationFloorPlans, /isDirty: \(\) => floorPlansDraft\.dirty/);
   assert.match(
     reservationFloorPlans,
-    /navigationScopes: \['\/restaurant', '\/settings', '\/reservations'\]/
+    /navigationScopes: \['\/restaurant', '\/reservations'\]/
   );
   assert.match(reservationSetup, /id: 'reservation-setup'/);
   assert.match(reservationSetup, /isDirty: \(\) => dirty/);
@@ -495,9 +587,9 @@ test('Team and Restaurant use one route-scoped workspace instead of mounting sta
   assert.doesNotMatch(restaurantProfile, /<h2>\{t\('Weekly service periods'\)\}<\/h2>/);
 });
 
-test('Settings owns the canonical time-off policy workspace', async () => {
-  const settingsPage = await readFile(
-    'src/routes/(app)/settings/absence-types/+page.svelte',
+test('Team owns the canonical time-off policy workspace', async () => {
+  const teamPage = await readFile(
+    'src/routes/(app)/team/time-off-types/+page.svelte',
     'utf8'
   );
   const workspace = await readFile(
@@ -505,10 +597,10 @@ test('Settings owns the canonical time-off policy workspace', async () => {
     'utf8'
   );
   assert.match(
-    settingsPage,
+    teamPage,
     /import TimeOffPoliciesWorkspace from '\$lib\/team\/TimeOffPoliciesWorkspace\.svelte'/
   );
-  assert.match(settingsPage, /<TimeOffPoliciesWorkspace \/>/);
+  assert.match(teamPage, /<TimeOffPoliciesWorkspace \/>/);
   assert.match(workspace, /<WorkspacePrimaryColMenu/);
   assert.match(workspace, /rst-time-off-policies-cols-v1/);
   assert.match(workspace, /rst-restaurant-absence-types-cols-v2/);

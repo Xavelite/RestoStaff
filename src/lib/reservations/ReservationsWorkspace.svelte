@@ -1156,7 +1156,7 @@
                 ? t('Checking availability…')
                 : availability?.available
                   ? t('Available')
-                  : t('Not available yet')}
+                  : t('Unavailable')}
             </strong>
             <small>
               {availabilityLoading
@@ -1205,7 +1205,7 @@
   }
   .online-state {
     color: var(--cl-attention);
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     font-weight: var(--rst-fw-medium);
     text-decoration: none;
   }
@@ -1262,7 +1262,7 @@
   .reservation-period__date > svg { color: var(--cl-muted); }
   .reservation-period__date > span {
     overflow: hidden;
-    font-size: 12.5px;
+    font-size: var(--rst-fs-body);
     font-weight: var(--rst-fw-bold);
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1312,7 +1312,7 @@
     background: transparent;
     color: var(--cl-text);
     font: inherit;
-    font-size: 11.5px;
+    font-size: var(--rst-fs-control);
     font-weight: var(--rst-fw-bold);
     cursor: pointer;
   }
@@ -1321,7 +1321,7 @@
     align-items: center;
     gap: 12px;
     color: var(--cl-muted);
-    font-size: 10.5px;
+    font-size: var(--rst-fs-label);
     font-weight: var(--rst-fw-medium);
   }
   .live-floor__meta > span + span {
@@ -1352,7 +1352,7 @@
     padding: 2px 5px;
     border-radius: 999px;
     background: var(--cl-accent-wash);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
     text-align: center;
   }
   .live-floor__meta > a:hover { text-decoration: underline; }
@@ -1380,12 +1380,12 @@
   }
   .arrival-list > button:last-child { border-bottom: 0; }
   .arrival-list > button:hover { background: var(--cl-surface-muted); }
-  .arrival-list time { color: var(--cl-text); font-size: 12px; font-weight: var(--rst-fw-bold); font-variant-numeric: tabular-nums; }
+  .arrival-list time { color: var(--cl-text); font-size: var(--rst-fs-control); font-weight: var(--rst-fw-bold); font-variant-numeric: tabular-nums; }
   .arrival-list > button > span { min-width: 0; display: grid; gap: 3px; }
   .arrival-list > button > span strong,
   .arrival-list > button > span small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .arrival-list > button > span strong { font-size: 12px; }
-  .arrival-list > button > span small { color: var(--cl-muted); font-size: 10.5px; }
+  .arrival-list > button > span strong { font-size: var(--rst-fs-control); }
+  .arrival-list > button > span small { color: var(--cl-muted); font-size: var(--rst-fs-label); }
   .arrival-list__empty {
     min-height: 240px;
     display: grid;
@@ -1396,8 +1396,8 @@
     color: var(--cl-muted);
     text-align: center;
   }
-  .arrival-list__empty strong { color: var(--cl-text); font-size: 12px; }
-  .arrival-list__empty > span:last-child { max-width: 330px; font-size: 10.5px; line-height: 1.45; }
+  .arrival-list__empty strong { color: var(--cl-text); font-size: var(--rst-fs-control); }
+  .arrival-list__empty > span:last-child { max-width: 330px; font-size: var(--rst-fs-label); line-height: 1.45; }
   .reservation-table th:first-child { min-width: 190px; }
   .reservation-table th:nth-child(2) { width: 90px; }
   .reservation-table th:nth-child(3) { width: 72px; }
@@ -1420,8 +1420,8 @@
     cursor: pointer;
   }
   .guest-cell__name { font-weight: var(--rst-fw-bold); }
-  .guest-cell small, .time-cell + small { color: var(--cl-muted); font-size: 11px; }
-  .time-cell { display: block; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .guest-cell small, .time-cell + small { color: var(--cl-muted); font-size: var(--rst-fs-label); }
+  .time-cell { display: block; font-size: var(--rst-fs-body-lg); font-variant-numeric: tabular-nums; }
   .party-cell { display: inline-flex; align-items: center; gap: 6px; font-weight: var(--rst-fw-bold); }
   .party-cell svg { color: var(--cl-muted); }
   .source {
@@ -1431,10 +1431,10 @@
     border-radius: 4px;
     background: var(--cl-surface-muted);
     color: var(--cl-muted);
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
     font-weight: var(--rst-fw-medium);
   }
-  .muted { color: var(--cl-muted); font-size: 12px; }
+  .muted { color: var(--cl-muted); font-size: var(--rst-fs-control); }
   .note { max-width: 210px; display: block; overflow: hidden; color: var(--cl-muted); text-overflow: ellipsis; white-space: nowrap; }
   .reservation-form { display: grid; gap: 14px; }
   .reservation-form__fields {
@@ -1463,7 +1463,7 @@
     padding-bottom: 8px;
     border-bottom: 1px solid var(--cl-line);
     color: var(--cl-ink);
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     font-weight: var(--rst-fw-bold);
     letter-spacing: .025em;
     text-transform: uppercase;
@@ -1491,8 +1491,8 @@
     color: var(--cl-accent);
   }
   .capacity-only-note > div { display: grid; gap: 2px; }
-  .capacity-only-note strong { color: var(--cl-ink); font-size: 11.5px; }
-  .capacity-only-note small { color: var(--cl-muted); font-size: 10.5px; line-height: 1.4; }
+  .capacity-only-note strong { color: var(--cl-ink); font-size: var(--rst-fs-control); }
+  .capacity-only-note small { color: var(--cl-muted); font-size: var(--rst-fs-label); line-height: 1.4; }
   textarea.cl-field { height: auto; min-height: 58px; resize: vertical; }
   .availability {
     display: flex;
@@ -1515,15 +1515,15 @@
     border-radius: 50%;
     background: var(--cl-surface);
     color: var(--cl-muted);
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     font-weight: var(--rst-fw-bold);
   }
   .is-ok .availability__symbol { color: var(--cl-ok); }
   .is-problem .availability__symbol { color: var(--cl-problem); }
   .availability > div { display: grid; gap: 2px; }
-  .availability strong { font-size: 12px; }
-  .availability small { color: var(--cl-muted); font-size: 11px; }
-  .form-error { margin: 0; color: var(--cl-problem); font-size: 12px; }
+  .availability strong { font-size: var(--rst-fs-control); }
+  .availability small { color: var(--cl-muted); font-size: var(--rst-fs-label); }
+  .form-error { margin: 0; color: var(--cl-problem); font-size: var(--rst-fs-control); }
   @media (max-width: 760px) {
     .reservation-actions { flex-wrap: wrap; justify-content: flex-end; }
     .reservation-period__date { min-width: 190px; }

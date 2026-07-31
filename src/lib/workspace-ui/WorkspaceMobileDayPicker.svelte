@@ -68,13 +68,13 @@
 
   button:last-child { border-right: 0; }
   button span {
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
   }
   button b {
     color: var(--cl-ink);
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     font-weight: var(--rst-fw-bold);
   }
   button.is-today::after {

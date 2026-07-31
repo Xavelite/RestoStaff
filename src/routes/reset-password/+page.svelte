@@ -56,8 +56,8 @@
   main { min-height: 100vh; display: grid; place-items: center; padding: 22px; }
   form { width: min(100%, 440px); display: grid; gap: 13px; padding: 24px; border: 1px solid var(--rst-ui-line); border-radius: var(--rst-ui-radius-xl); background: var(--rst-ui-surface-panel); }
   .brand { margin: 0 0 8px; color: var(--rst-ui-panel-title); font-weight: var(--rst-fw-display); }
-  h1 { margin: 0; font-size: 28px; }
+  h1 { margin: 0; font-size: var(--rst-fs-display-sm); }
   .intro { margin: -5px 0 5px; color: var(--rst-ui-muted); line-height: 1.5; }
-  label { display: grid; gap: 6px; color: var(--rst-ui-muted); font-size: 11px; font-weight: var(--rst-fw-bold); }
+  label { display: grid; gap: 6px; color: var(--rst-ui-muted); font-size: var(--rst-fs-label); font-weight: var(--rst-fw-bold); }
   input { min-height: 44px; padding: 10px 12px; border: 1px solid var(--rst-ui-line); border-radius: var(--rst-ui-radius-md); color: var(--rst-ui-text); background: var(--rst-ui-surface-field-strong); font: inherit; }
 </style>

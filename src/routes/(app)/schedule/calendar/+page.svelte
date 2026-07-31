@@ -520,7 +520,7 @@
     align-items: center;
     gap: 7px;
     color: var(--cl-muted);
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
     font-weight: var(--rst-fw-bold);
     cursor: pointer;
   }
@@ -568,7 +568,7 @@
   .day-inspector small,
   .day-inspector em { color: var(--cl-muted); }
   .day-inspector small { display: flex; align-items: center; gap: 4px; }
-  .day-inspector em { font-size: 10px; font-style: normal; }
+  .day-inspector em { font-size: var(--rst-fs-caption); font-style: normal; }
   .day-inspector b { font-variant-numeric: tabular-nums; }
   .day-summary {
     display: flex;
@@ -582,11 +582,11 @@
     display: grid;
     gap: 1px;
     color: var(--cl-muted);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
     text-transform: uppercase;
   }
-  .day-summary b { color: var(--cl-ink); font-size: 13px; text-transform: none; }
-  .shift-dialog__hint { margin-right: auto; align-self: center; color: var(--cl-muted); font-size: 11px; }
+  .day-summary b { color: var(--cl-ink); font-size: var(--rst-fs-body); text-transform: none; }
+  .shift-dialog__hint { margin-right: auto; align-self: center; color: var(--cl-muted); font-size: var(--rst-fs-label); }
   @media (max-width: 760px) {
     .calendar-toolbar { width: 100%; flex-wrap: wrap; }
     .day-summary { gap: 12px; overflow-x: auto; }

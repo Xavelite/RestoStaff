@@ -78,7 +78,7 @@
     border-radius: 999px;
     color: color-mix(in srgb, var(--badge-color) 76%, var(--cl-ink));
     background: var(--badge-wash);
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     font-weight: var(--rst-fw-bold);
     line-height: 1.2;
     white-space: nowrap;

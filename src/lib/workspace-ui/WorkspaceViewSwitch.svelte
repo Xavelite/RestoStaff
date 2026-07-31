@@ -104,7 +104,7 @@
   }
 
   button span {
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
     font-weight: var(--rst-fw-bold);
   }
 

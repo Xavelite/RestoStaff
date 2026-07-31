@@ -255,7 +255,7 @@
     align-items: center;
     gap: 7px;
     color: var(--cl-muted);
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
     font-weight: var(--rst-fw-bold);
     cursor: pointer;
   }
@@ -312,12 +312,12 @@
     display: grid;
     gap: 1px;
     color: var(--cl-muted);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
     text-transform: uppercase;
   }
   .day-summary span.is-problem,
   .day-summary span.is-problem b { color: var(--cl-problem); }
-  .day-summary b { color: var(--cl-ink); font-size: 13px; text-transform: none; }
+  .day-summary b { color: var(--cl-ink); font-size: var(--rst-fs-body); text-transform: none; }
   @media (max-width: 760px) {
     .calendar-toolbar { width: 100%; flex-wrap: wrap; }
     .day-summary { gap: 12px; overflow-x: auto; }

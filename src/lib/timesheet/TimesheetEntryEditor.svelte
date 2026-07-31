@@ -451,7 +451,7 @@
 
   .leave-decision span {
     color: var(--rst-state-warning-text);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     font-weight: var(--rst-fw-display);
     letter-spacing: 0;
     text-transform: uppercase;
@@ -461,7 +461,7 @@
     display: block;
     margin-top: 3px;
     color: var(--rst-ui-text);
-    font-size: 14px;
+    font-size: var(--rst-fs-body-lg);
   }
 
   .leave-decision__actions {
@@ -481,11 +481,11 @@
     background: var(--rst-summary-bg);
     animation: rst-fade-up .3s var(--rst-ease-out) backwards;
   }
-  .hours-summary__kicker { color: var(--rst-summary-kicker); font-size: 10px; font-weight: var(--rst-fw-display); letter-spacing: 0; text-transform: uppercase; }
+  .hours-summary__kicker { color: var(--rst-summary-kicker); font-size: var(--rst-fs-caption); font-weight: var(--rst-fw-display); letter-spacing: 0; text-transform: uppercase; }
   .hours-summary__stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
   .hours-summary__stats div { display: grid; gap: 3px; padding: 10px; border-radius: var(--rst-ui-radius-md); background: var(--rst-summary-tile); }
-  .hours-summary__stats span { color: var(--rst-summary-quiet); font-size: 10px; font-weight: var(--rst-fw-bold); text-transform: uppercase; }
-  .hours-summary__stats strong { font-size: 18px; }
+  .hours-summary__stats span { color: var(--rst-summary-quiet); font-size: var(--rst-fs-caption); font-weight: var(--rst-fw-bold); text-transform: uppercase; }
+  .hours-summary__stats strong { font-size: var(--rst-fs-title); }
 
   form {
     display: grid;
@@ -496,13 +496,13 @@
   form label { display: grid; gap: 5px; }
   form label span {
     color: var(--rst-ui-muted);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     font-weight: var(--rst-fw-bold);
     text-transform: uppercase;
   }
   form .reason { grid-column: 1 / -1; }
   .payroll-evidence { grid-column: 1 / -1; display: grid; gap: 12px; margin: 2px 0; padding: 13px; border: 1px solid var(--rst-ui-line); border-radius: var(--rst-ui-radius-lg); }
-  .payroll-evidence legend { padding: 0 6px; color: var(--rst-ui-text); font-size: 11px; font-weight: var(--rst-fw-display); text-transform: uppercase; }
+  .payroll-evidence legend { padding: 0 6px; color: var(--rst-ui-text); font-size: var(--rst-fs-label); font-weight: var(--rst-fw-display); text-transform: uppercase; }
   .assignment-grid, .break-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .payroll-evidence select { min-height: 39px; padding: 7px 9px; border: 1px solid var(--rst-ui-line); border-radius: var(--rst-ui-radius-md); color: var(--rst-ui-text); background: var(--rst-ui-surface-field-strong); font: inherit; }
   .break-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -512,8 +512,8 @@
   .break-head button { min-height: 36px; padding: 7px 11px; }
   .break-list { display: grid; gap: 8px; }
   .break-row { grid-template-columns: repeat(2, minmax(0, 1fr)) 36px; align-items: end; }
-  .break-row > button { width: 36px; height: 36px; font-size: 18px; }
-  .proof { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--rst-ui-muted); font-size: 11px; }
+  .break-row > button { width: 36px; height: 36px; font-size: var(--rst-fs-title); }
+  .proof { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--rst-ui-muted); font-size: var(--rst-fs-label); }
   .proof-preview {
     margin: 0 14px 14px;
     display: grid;
@@ -525,13 +525,13 @@
   }
   .proof-preview figcaption {
     color: var(--rst-ui-muted);
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     line-height: 1.45;
   }
   .proof-image { display: block; width: 100%; max-height: 52vh; object-fit: contain; border-radius: var(--rst-ui-radius-md); background: #000; }
 
   .adjustments { padding: 4px 14px 14px; border-top: 1px solid var(--rst-ui-divider-soft); }
-  .adjustments > strong { display: block; padding: 10px 0; font-size: 11px; text-transform: uppercase; }
+  .adjustments > strong { display: block; padding: 10px 0; font-size: var(--rst-fs-label); text-transform: uppercase; }
   .trail-line { position: relative; display: grid; gap: 10px; padding-left: 8px; }
   .trail-line::before {
     content: '';
@@ -556,9 +556,9 @@
     box-shadow: 0 0 0 1px rgba(240, 100, 35, 0.32);
   }
   .trail-line article div { padding: 10px; border: 1px solid var(--rst-ui-line); border-radius: var(--rst-ui-radius-lg); background: var(--rst-ui-surface-field); }
-  .trail-line article strong { display: block; color: var(--rst-ui-text); font-size: 12px; text-transform: capitalize; }
-  .trail-line article p { margin: 3px 0 0; color: var(--rst-ui-muted); font-size: 11px; line-height: 1.4; }
-  .trail-line article time { display: block; margin-top: 6px; color: var(--rst-ui-action); font-size: 10px; font-weight: var(--rst-fw-display); letter-spacing: 0; text-transform: uppercase; }
+  .trail-line article strong { display: block; color: var(--rst-ui-text); font-size: var(--rst-fs-control); text-transform: capitalize; }
+  .trail-line article p { margin: 3px 0 0; color: var(--rst-ui-muted); font-size: var(--rst-fs-label); line-height: 1.4; }
+  .trail-line article time { display: block; margin-top: 6px; color: var(--rst-ui-action); font-size: var(--rst-fs-caption); font-weight: var(--rst-fw-display); letter-spacing: 0; text-transform: uppercase; }
 
   form input {
     padding: 7px 2px;

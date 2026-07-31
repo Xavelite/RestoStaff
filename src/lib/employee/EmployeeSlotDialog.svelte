@@ -242,7 +242,7 @@
   .fact span,
   .fact small {
     color: var(--rst-ui-muted);
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
   }
   .fact.is-pending {
     border-color: var(--rst-state-warning-border);
@@ -255,7 +255,7 @@
   .muted {
     margin: 0;
     color: var(--rst-ui-muted);
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
   }
   .slot-actions {
     display: grid;
@@ -264,7 +264,7 @@
     border-top: 1px solid var(--rst-ui-divider-soft);
   }
   .slot-actions > strong {
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
   }
   .availability-picker {
     display: grid;
@@ -281,13 +281,13 @@
     background: var(--rst-ui-surface-field);
     color: var(--rst-ui-muted);
     font: inherit;
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     font-weight: var(--rst-fw-bold);
     cursor: pointer;
     transition: border-color .16s ease, background .16s ease, color .16s ease, transform .16s ease;
   }
   .availability-option b {
-    font-size: 17px;
+    font-size: var(--rst-fs-title);
     line-height: 1;
   }
   .availability-option:hover:not(:disabled) {
@@ -316,7 +316,7 @@
   .availability-hint {
     margin: 0;
     color: var(--rst-ui-muted);
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
   }
   .request-details {
     display: grid;
@@ -328,7 +328,7 @@
     display: grid;
     gap: 6px;
     color: var(--rst-ui-muted);
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
     font-weight: var(--rst-fw-bold);
   }
   .request-details input,

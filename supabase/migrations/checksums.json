@@ -159,6 +159,8 @@
     "20260729235112_reservation_floor_entitlement_boundary.sql": "1a4a437632819c1ca71a9613ddf34520ec968c8bd4b3ed645f642fe681ca2cab",
     "20260730001717_retire_atomic_venue_browser_boundary.sql": "a583734a1a3c31b29d6ececb7dfef87c98ba8fea170ce4d211bd6a54b82f1dfd",
     "20260730015402_restore_reservations_preview.sql": "6e26437125c3dd56a555877fdef6258f7b2f654478c1189ea5b82c5c2eede68b",
-    "20260730173642_separate_reservation_setup_from_floor_plan.sql": "c7eac856f61d7928d0c1eab294ce4a7b826dd86dad7468ca5d4d157a3e53cf16"
+    "20260730173642_separate_reservation_setup_from_floor_plan.sql": "c7eac856f61d7928d0c1eab294ce4a7b826dd86dad7468ca5d4d157a3e53cf16",
+    "20260731174246_schedule_history_read_model.sql": "7e367497e60093abba5ecd4b7ec073e9a2a3b132707276e01aebef21d01af32e",
+    "20260731174659_schedule_history_payload_projection.sql": "9d77784a0e1dd4074fa6f7bc5b5a156ee08a3c88b4577b810d7ec787dd702a87"
   }
 }

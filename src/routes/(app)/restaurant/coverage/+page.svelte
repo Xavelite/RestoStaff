@@ -553,7 +553,7 @@
 
   .cov-strip__day > span {
     color: var(--rst-ui-muted);
-    font-size: 8.5px;
+    font-size: var(--rst-fs-micro);
     font-weight: var(--rst-fw-bold);
     letter-spacing: .03em;
     text-transform: uppercase;
@@ -569,7 +569,7 @@
     color: var(--rst-ui-muted);
     background: var(--rst-ui-surface-field);
     font: inherit;
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     font-variant-numeric: tabular-nums;
     text-align: center;
     -moz-appearance: textfield;
@@ -596,12 +596,12 @@
   .num { width: 62px; height: 34px; text-align: center; font-variant-numeric: tabular-nums; color: var(--cl-muted); }
   .num.is-set { color: var(--cl-ink); font-weight: var(--rst-fw-bold); }
   .num::placeholder { color: var(--cl-line-strong); }
-  .remove { min-height: 30px; height: 30px; width: 30px; color: var(--cl-problem); font-size: 18px; }
-  .inline-warning td { padding-block: 7px !important; color: var(--cl-attention); background: var(--cl-attention-wash); font-size: 12px; }
+  .remove { min-height: 30px; height: 30px; width: 30px; color: var(--cl-problem); font-size: var(--rst-fs-title); }
+  .inline-warning td { padding-block: 7px !important; color: var(--cl-attention); background: var(--cl-attention-wash); font-size: var(--rst-fs-control); }
   .group-service { display: inline-flex; }
   .group-service.is-lunch { color: var(--cl-lunch); }
   .group-service.is-evening { color: var(--cl-evening); }
-  .suggestion-action span { min-width: 21px; height: 21px; display: grid; place-items: center; padding-inline: 4px; border: 1px solid color-mix(in srgb, var(--cl-accent) 25%, var(--cl-line)); border-radius: 5px; background: var(--cl-accent-wash); color: var(--cl-accent); font-size: 10px; font-weight: var(--rst-fw-bold); }
+  .suggestion-action span { min-width: 21px; height: 21px; display: grid; place-items: center; padding-inline: 4px; border: 1px solid color-mix(in srgb, var(--cl-accent) 25%, var(--cl-line)); border-radius: 5px; background: var(--cl-accent-wash); color: var(--cl-accent); font-size: var(--rst-fs-caption); font-weight: var(--rst-fw-bold); }
   .coverage-mobile { display: none; }
   @media (max-width: 760px) {
     .coverage-desktop { display: none; }
@@ -639,7 +639,7 @@
       background: transparent;
       color: var(--cl-muted);
       font: inherit;
-      font-size: 11px;
+      font-size: var(--rst-fs-label);
       font-weight: var(--rst-fw-medium);
       cursor: pointer;
     }
@@ -669,7 +669,7 @@
     .coverage-mobile__target { display: grid; justify-items: center; gap: 3px; }
     .coverage-mobile__target > span {
       color: var(--cl-muted);
-      font-size: 9px;
+      font-size: var(--rst-fs-micro);
       font-weight: var(--rst-fw-bold);
       text-transform: uppercase;
     }
@@ -678,7 +678,7 @@
       grid-column: 1 / -1;
       margin: 0;
       color: var(--cl-attention);
-      font-size: 11px;
+      font-size: var(--rst-fs-label);
     }
     .coverage-mobile__empty { border: 1px solid var(--cl-line); border-radius: var(--cl-radius-surface); }
   }

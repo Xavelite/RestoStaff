@@ -188,7 +188,7 @@
   }
   .pair-brand > b {
     display: inline-flex;
-    font-size: 16px;
+    font-size: var(--rst-fs-title-sm);
     font-weight: var(--rst-fw-display);
   }
   .pair-brand em {
@@ -199,7 +199,7 @@
 
   .pair-eyebrow {
     color: #667085;
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     font-weight: var(--rst-fw-bold);
     letter-spacing: .06em;
     text-transform: uppercase;
@@ -208,13 +208,13 @@
   .pair-card h1 {
     margin: 2px 0 0;
     color: #17212f;
-    font-size: 24px;
+    font-size: var(--rst-fs-heading-lg);
   }
 
   .pair-card p {
     margin: 0 0 8px;
     color: #667085;
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     line-height: 1.5;
   }
 
@@ -231,7 +231,7 @@
     color: #17212f;
     background: #fff;
     font: inherit;
-    font-size: 16px;
+    font-size: var(--rst-fs-title-sm);
     letter-spacing: 0;
     text-align: center;
   }
@@ -248,7 +248,7 @@
     color: #fff;
     background: #315efb;
     font: inherit;
-    font-size: 15px;
+    font-size: var(--rst-fs-title-sm);
     font-weight: var(--rst-fw-display);
     cursor: pointer;
   }
@@ -262,13 +262,13 @@
   .pair-error {
     margin: 4px 0 0 !important;
     color: var(--rst-state-danger-text);
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
   }
 
   .unpair-warning {
     margin: 0;
     color: var(--rst-ui-text);
-    font-size: 14px;
+    font-size: var(--rst-fs-body-lg);
     line-height: 1.55;
   }
 </style>

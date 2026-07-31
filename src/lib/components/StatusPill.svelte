@@ -24,7 +24,7 @@
     border-radius: var(--rst-ui-radius-md);
     color: var(--pill-text);
     background: rgba(var(--pill-rgb), .1);
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
     font-weight: var(--rst-fw-bold);
     line-height: 1;
     white-space: nowrap;

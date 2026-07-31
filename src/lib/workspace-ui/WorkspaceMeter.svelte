@@ -47,7 +47,7 @@
     transition: width var(--cl-dur-slow) var(--cl-ease);
   }
   .meter__label {
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     font-variant-numeric: tabular-nums;
     color: var(--cl-ink);
   }

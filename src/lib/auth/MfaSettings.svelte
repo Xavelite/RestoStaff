@@ -252,13 +252,13 @@
     display: grid;
     gap: 3px;
   }
-  strong { color: var(--cl-ink); font-size: 11.5px; }
+  strong { color: var(--cl-ink); font-size: var(--rst-fs-control); }
   small,
   p,
   .available > span {
     margin: 0;
     color: var(--cl-muted);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     line-height: 1.45;
   }
   header > span {
@@ -268,7 +268,7 @@
     border-radius: 999px;
     color: var(--cl-muted);
     background: var(--cl-surface);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
     font-weight: var(--rst-fw-bold);
   }
   header > span.is-active {
@@ -296,11 +296,11 @@
   code {
     overflow-wrap: anywhere;
     color: var(--cl-ink);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
   }
   label span {
     color: var(--cl-muted);
-    font-size: 9.5px;
+    font-size: var(--rst-fs-caption);
     font-weight: var(--rst-fw-bold);
   }
   input {

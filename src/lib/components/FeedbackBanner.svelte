@@ -22,7 +22,7 @@
     border-radius: var(--rst-ui-radius-md);
     color: var(--rst-ui-text);
     background: rgba(var(--tone-rgb), 0.1);
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
   }
 
   .feedback.is-success {

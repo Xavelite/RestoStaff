@@ -99,6 +99,22 @@ export type ManagerOperationsReadModel = WorkspaceBase & {
   payroll_export_runs: PayrollExportRunSummary[];
 };
 
+export type ScheduleHistoryEvent = Pick<
+  Tables<'work_week_events'>,
+  | 'id'
+  | 'restaurant_id'
+  | 'week_start'
+  | 'event_type'
+  | 'reason'
+  | 'actor_role'
+  | 'created_at'
+>;
+
+export type ScheduleHistoryReadModel = {
+  restaurant_id: string;
+  events: ScheduleHistoryEvent[];
+};
+
 export type EmployeeOperationsReadModel = WorkspaceBase & {
   employees: Tables<'employees'>[];
   employee_contracts: Tables<'employee_contracts'>[];
@@ -271,6 +287,16 @@ export function parseManagerOperationsReadModel(value: Json): ManagerOperationsR
     work_pattern_exceptions: rows(data, 'work_pattern_exceptions'),
     work_pattern_exception_events: rows(data, 'work_pattern_exception_events'),
     payroll_export_runs: rows(data, 'payroll_export_runs')
+  };
+}
+
+export function parseScheduleHistoryReadModel(value: Json): ScheduleHistoryReadModel {
+  if (!isRecord(value) || typeof value.restaurant_id !== 'string') {
+    throw new TypeError('The schedule history read model is missing its restaurant identity.');
+  }
+  return {
+    restaurant_id: value.restaurant_id,
+    events: rows<ScheduleHistoryEvent>(value, 'events')
   };
 }
 

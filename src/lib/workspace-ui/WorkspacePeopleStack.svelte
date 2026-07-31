@@ -67,7 +67,7 @@
     border-radius: 50%;
     color: hsl(var(--avatar-hue, 218) 42% 31%);
     background: hsl(var(--avatar-hue, 218) 62% 91%);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
     font-weight: var(--rst-fw-bold);
     line-height: 1;
   }
@@ -81,7 +81,7 @@
   .people-stack__empty {
     margin-left: -7px;
     color: var(--cl-muted);
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
     white-space: nowrap;
   }
 </style>

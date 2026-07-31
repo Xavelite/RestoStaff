@@ -540,7 +540,7 @@
 
 <style>
   .editor-tabs { display: flex; gap: 4px; margin: -4px 0 16px; padding-bottom: 10px; border-bottom: 1px solid var(--cl-line); }
-  .editor-tabs button { min-height: 34px; padding: 6px 11px; border: 1px solid transparent; border-radius: var(--cl-radius); color: var(--cl-muted); background: transparent; font: inherit; font-size: 13px; font-weight: var(--rst-fw-medium); cursor: pointer; }
+  .editor-tabs button { min-height: 34px; padding: 6px 11px; border: 1px solid transparent; border-radius: var(--cl-radius); color: var(--cl-muted); background: transparent; font: inherit; font-size: var(--rst-fs-body); font-weight: var(--rst-fw-medium); cursor: pointer; }
   .editor-tabs button:hover { color: var(--cl-ink); background: var(--cl-surface-muted); }
   .editor-tabs button.is-active { color: var(--cl-accent); border-color: var(--cl-line); background: var(--cl-accent-wash); }
   .editor-spacer { margin-left: auto; }
@@ -548,28 +548,28 @@
   .archive-action.is-restore { color: var(--cl-ok); }
   .status-readonly { min-height: 2.5rem; display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); background: var(--cl-surface-muted); }
   .position-field { padding: 12px; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); }
-  .position-field legend { padding: 0 5px; color: var(--cl-muted); font-size: 13px; font-weight: var(--rst-fw-medium); }
+  .position-field legend { padding: 0 5px; color: var(--cl-muted); font-size: var(--rst-fs-body); font-weight: var(--rst-fw-medium); }
   .position-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
-  .position-grid > div { min-height: 40px; display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; gap: 8px; padding: 7px 9px; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); background: var(--cl-surface-muted); font-size: 13px; }
+  .position-grid > div { min-height: 40px; display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; gap: 8px; padding: 7px 9px; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); background: var(--cl-surface-muted); font-size: var(--rst-fs-body); }
   .position-grid > div.is-selected { grid-column: 1 / -1; grid-template-columns: minmax(150px, 1fr) minmax(150px, .9fr) auto; border-color: var(--cl-line-strong); background: var(--cl-accent-wash); }
   .position-grid label { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: center; gap: 8px; cursor: pointer; }
-  .position-grid select { min-width: 0; height: 30px; padding: 0 28px 0 9px; border: 1px solid var(--cl-line); border-radius: 5px; background: var(--cl-surface); color: var(--cl-ink); font: inherit; font-size: 11px; }
-  .position-grid button { padding: 3px 7px; border: 0; border-radius: 4px; color: var(--cl-muted); background: transparent; font: inherit; font-size: 11px; cursor: pointer; }
+  .position-grid select { min-width: 0; height: 30px; padding: 0 28px 0 9px; border: 1px solid var(--cl-line); border-radius: 5px; background: var(--cl-surface); color: var(--cl-ink); font: inherit; font-size: var(--rst-fs-label); }
+  .position-grid button { padding: 3px 7px; border: 0; border-radius: 4px; color: var(--cl-muted); background: transparent; font: inherit; font-size: var(--rst-fs-label); cursor: pointer; }
   .position-grid button.is-primary { color: var(--cl-accent); font-weight: var(--rst-fw-bold); }
   .position-grid input, .sensitive-toggle input { width: 15px; height: 15px; accent-color: var(--cl-accent); }
-  .field-empty { margin: 0; color: var(--cl-muted); font-size: 13px; }
-  .sensitive-toggle { display: inline-flex; align-items: center; gap: 7px; color: var(--cl-ink); font-size: 13px; }
+  .field-empty { margin: 0; color: var(--cl-muted); font-size: var(--rst-fs-body); }
+  .sensitive-toggle { display: inline-flex; align-items: center; gap: 7px; color: var(--cl-ink); font-size: var(--rst-fs-body); }
   .contract-actions { display: flex; align-items: center; gap: 12px; padding-top: 4px; }
-  .contract-actions small { color: var(--cl-muted); font-size: 12px; }
+  .contract-actions small { color: var(--cl-muted); font-size: var(--rst-fs-control); }
   .contract-history { display: grid; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); overflow: hidden; }
   .contract-history article { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-top: 1px solid var(--cl-line); }
   .contract-history article:first-child { border-top: 0; }
   .contract-history article.is-current { background: var(--cl-surface-muted); }
   .contract-history div { display: grid; gap: 3px; }
-  .contract-history strong { font-size: 13px; }
-  .contract-history span, .contract-history em { color: var(--cl-muted); font-size: 12px; font-style: normal; }
+  .contract-history strong { font-size: var(--rst-fs-body); }
+  .contract-history span, .contract-history em { color: var(--cl-muted); font-size: var(--rst-fs-control); font-style: normal; }
   .textarea { min-height: 90px; resize: vertical; }
-  .editor-state { padding: 14px; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); color: var(--cl-muted); background: var(--cl-surface-muted); font-size: 13px; }
+  .editor-state { padding: 14px; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); color: var(--cl-muted); background: var(--cl-surface-muted); font-size: var(--rst-fs-body); }
   .editor-state.is-error { color: var(--cl-problem); border-color: var(--cl-problem-line); background: var(--cl-problem-wash); }
 
   @media (max-width: 760px) {

@@ -15,6 +15,26 @@
   --rst-service-lunch: #ffce54;
   --rst-service-evening: #9aa8ec;
   --rst-ui-font: Manrope, "Segoe UI", Arial, sans-serif;
+  /* Type scale. Components choose a role from this ladder instead of inventing
+     one-off pixel sizes; the compact workspace still has enough resolution
+     without fractional values that render differently across browsers. */
+  --rst-fs-micro: 9px;
+  --rst-fs-caption: 10px;
+  --rst-fs-label: 11px;
+  --rst-fs-control: 12px;
+  --rst-fs-body: 13px;
+  --rst-fs-body-lg: 14px;
+  --rst-fs-title-sm: 16px;
+  --rst-fs-title: 18px;
+  --rst-fs-title-lg: 20px;
+  --rst-fs-heading: 22px;
+  --rst-fs-heading-lg: 24px;
+  --rst-fs-display-sm: 28px;
+  --rst-fs-display: 32px;
+  --rst-fs-display-lg: 36px;
+  --rst-fs-hero: 40px;
+  --rst-fs-hero-lg: 56px;
+  --rst-fs-hero-xl: 72px;
   --rst-ui-bg: #f4ede0;
   --rst-ui-bg-2: #fffaf2;
   --rst-ui-bg-deep: #eadfcd; /* deepest warm base — use instead of raw page-shadow colors */

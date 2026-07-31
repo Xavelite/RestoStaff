@@ -26,12 +26,12 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     font-weight: var(--rst-fw-medium);
     white-space: nowrap;
   }
   .svc__glyph {
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     line-height: 1;
   }
   .svc.is-lunch .svc__glyph { color: var(--cl-lunch); }

@@ -69,8 +69,8 @@
     background: var(--cl-surface);
   }
   figcaption { display: grid; gap: 3px; }
-  figcaption strong { color: var(--cl-ink); font-size: 13px; }
-  figcaption span { color: var(--cl-muted); font-size: 10px; }
+  figcaption strong { color: var(--cl-ink); font-size: var(--rst-fs-body); }
+  figcaption span { color: var(--cl-muted); font-size: var(--rst-fs-caption); }
   .report-pulse__scroll { min-width: 0; overflow-x: auto; }
   .report-pulse__grid {
     min-width: 340px;
@@ -83,7 +83,7 @@
     display: flex;
     align-items: center;
     color: var(--cl-muted);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
     font-weight: var(--rst-fw-bold);
   }
   .report-pulse__day { justify-content: center; }
@@ -104,7 +104,7 @@
     border-radius: 9px;
     background: var(--cl-surface);
     color: var(--cl-attention);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
     font-style: normal;
     font-weight: var(--rst-fw-bold);
   }

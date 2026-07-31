@@ -55,7 +55,7 @@
     padding: 3px 0;
     color: var(--rst-ui-muted);
     background: var(--rst-ui-surface-panel);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
     font-weight: var(--rst-fw-bold);
     letter-spacing: .05em;
     text-transform: uppercase;
@@ -96,8 +96,8 @@
 
   .timeline__body { min-width: 0; display: grid; gap: 3px; padding: 8px 0 14px; }
   .timeline__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin: 0; }
-  .timeline__head strong { font-size: 12.5px; font-weight: var(--rst-fw-bold); }
-  .timeline__head time { color: var(--rst-ui-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+  .timeline__head strong { font-size: var(--rst-fs-body); font-weight: var(--rst-fw-bold); }
+  .timeline__head time { color: var(--rst-ui-muted); font-size: var(--rst-fs-caption); font-variant-numeric: tabular-nums; }
 
   .timeline__facts { display: flex; flex-wrap: wrap; gap: 5px; margin: 1px 0 0; }
   .timeline__facts span {
@@ -105,11 +105,11 @@
     border-radius: var(--rst-ui-radius-pill);
     color: var(--rst-ui-muted);
     background: var(--rst-ui-surface-field-strong);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     font-weight: var(--rst-fw-medium);
   }
 
-  .timeline__note { margin: 3px 0 0; color: var(--rst-ui-muted); font-size: 11.5px; line-height: 1.45; }
+  .timeline__note { margin: 3px 0 0; color: var(--rst-ui-muted); font-size: var(--rst-fs-control); line-height: 1.45; }
 
   @media (max-width: 520px) {
     .timeline { padding: 12px 12px 16px; }

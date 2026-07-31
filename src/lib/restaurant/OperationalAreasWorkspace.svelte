@@ -15,6 +15,7 @@
   import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
   import WorkspaceServiceIcon from '$lib/workspace-ui/WorkspaceServiceIcon.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
+  import WorkspaceTimeRange from '$lib/workspace-ui/WorkspaceTimeRange.svelte';
   import WorkspaceToggle from '$lib/workspace-ui/WorkspaceToggle.svelte';
   import WorkspaceViewSwitch from '$lib/workspace-ui/WorkspaceViewSwitch.svelte';
   import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
@@ -655,12 +656,17 @@
                           <span>{t('Default hours')}</span>
                           {#each activeServices as service (service.serviceKey)}
                             {@const hours = area.serviceHours[service.serviceKey]}
-                            <label>
+                            <div class="mobile-hours__row">
                               <span>{service.name}</span>
-                              <input class="cl-field" type="time" disabled={workspace.isPreview} bind:value={hours.start} oninput={() => restaurantConfig.touch()} />
-                              <i>–</i>
-                              <input class="cl-field" type="time" disabled={workspace.isPreview} bind:value={hours.end} oninput={() => restaurantConfig.touch()} />
-                            </label>
+                              <WorkspaceTimeRange
+                                bind:start={hours.start}
+                                bind:end={hours.end}
+                                startAriaLabel={`${service.name} ${t('Start')}`}
+                                endAriaLabel={`${service.name} ${t('End')}`}
+                                disabled={workspace.isPreview}
+                                onchange={() => restaurantConfig.touch()}
+                              />
+                            </div>
                           {/each}
                         </div>
                       </div>
@@ -671,12 +677,17 @@
                       <div class="area-hours">
                         {#each activeServices as service (service.serviceKey)}
                           {@const hours = area.serviceHours[service.serviceKey]}
-                          <label title={service.name}>
+                          <div class="area-hours__row" title={service.name}>
                             <span><WorkspaceServiceIcon service={service.serviceKey} size={12} />{service.name}</span>
-                            <input class="cl-field" type="time" disabled={workspace.isPreview} bind:value={hours.start} oninput={() => restaurantConfig.touch()} />
-                            <i>–</i>
-                            <input class="cl-field" type="time" disabled={workspace.isPreview} bind:value={hours.end} oninput={() => restaurantConfig.touch()} />
-                          </label>
+                            <WorkspaceTimeRange
+                              bind:start={hours.start}
+                              bind:end={hours.end}
+                              startAriaLabel={`${service.name} ${t('Start')}`}
+                              endAriaLabel={`${service.name} ${t('End')}`}
+                              disabled={workspace.isPreview}
+                              onchange={() => restaurantConfig.touch()}
+                            />
+                          </div>
                         {/each}
                       </div>
                     </td>
@@ -836,7 +847,7 @@
   .area-identity__field small {
     overflow: hidden;
     color: var(--cl-muted);
-    font-size: 10px;
+    font-size: var(--rst-fs-caption);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -847,37 +858,24 @@
     gap: 4px;
   }
 
-  .area-hours label {
+  .area-hours__row {
     display: grid;
-    grid-template-columns: minmax(72px, 1fr) 78px 8px 78px;
+    grid-template-columns: minmax(72px, 1fr) auto;
     align-items: center;
     gap: 5px;
   }
 
-  .area-hours label > span {
+  .area-hours__row > span {
     min-width: 0;
     display: flex;
     align-items: center;
     gap: 5px;
     overflow: hidden;
     color: var(--cl-muted);
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
     font-weight: var(--rst-fw-bold);
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .area-hours .cl-field {
-    min-width: 0;
-    height: 29px;
-    padding: 3px 5px;
-    font-size: 11px;
-  }
-
-  .area-hours i {
-    color: var(--cl-muted);
-    font-style: normal;
-    text-align: center;
   }
 
   .floor-select {
@@ -908,7 +906,7 @@
     margin-left: 10px;
     overflow: hidden;
     color: var(--cl-data-text);
-    font-size: 11.5px;
+    font-size: var(--rst-fs-control);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -973,12 +971,12 @@
 
   .area-plan__floor > header strong {
     color: var(--cl-ink);
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
   }
 
   .area-plan__floor > header small {
     color: var(--cl-muted);
-    font-size: 9.5px;
+    font-size: var(--rst-fs-caption);
   }
 
   .area-plan__floor-line {
@@ -1056,12 +1054,12 @@
   }
 
   .area-tile__identity strong {
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
   }
 
   .area-tile__identity small {
     color: var(--cl-muted);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
   }
 
   .area-tile__positions {
@@ -1078,13 +1076,13 @@
   }
 
   .area-tile__positions strong {
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     font-variant-numeric: tabular-nums;
   }
 
   .area-tile__positions small {
     color: var(--cl-muted);
-    font-size: 8.5px;
+    font-size: var(--rst-fs-micro);
   }
 
   .area-tile__icons {
@@ -1128,12 +1126,12 @@
   }
 
   .area-tile__hours strong {
-    font-size: 9.5px;
+    font-size: var(--rst-fs-caption);
   }
 
   .area-tile__hours small {
     color: var(--cl-muted);
-    font-size: 9px;
+    font-size: var(--rst-fs-micro);
     font-variant-numeric: tabular-nums;
   }
 
@@ -1168,7 +1166,7 @@
     .area-mobile-details summary {
       padding-top: 8px;
       color: var(--cl-accent);
-      font-size: 11px;
+      font-size: var(--rst-fs-label);
       font-weight: var(--rst-fw-bold);
       cursor: pointer;
     }
@@ -1183,7 +1181,7 @@
       display: grid;
       gap: 4px;
       color: var(--cl-muted);
-      font-size: 11px;
+      font-size: var(--rst-fs-label);
       font-weight: var(--rst-fw-bold);
     }
 
@@ -1194,22 +1192,17 @@
 
     .mobile-hours > span {
       color: var(--cl-muted);
-      font-size: 11px;
+      font-size: var(--rst-fs-label);
       font-weight: var(--rst-fw-bold);
     }
 
-    .mobile-hours label {
+    .mobile-hours__row {
       display: grid;
-      grid-template-columns: minmax(62px, 1fr) 86px 8px 86px;
+      grid-template-columns: minmax(62px, 1fr) auto;
       align-items: center;
       gap: 5px;
       color: var(--cl-muted);
-      font-size: 11px;
-    }
-
-    .mobile-hours i {
-      font-style: normal;
-      text-align: center;
+      font-size: var(--rst-fs-label);
     }
   }
 </style>

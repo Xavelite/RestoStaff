@@ -170,17 +170,17 @@
 <style>
   .connections-layout { display: grid; gap: 18px; }
   .cl-card__head > div { display: grid; gap: 4px; }
-  .cl-card__head p { margin: 0; color: var(--cl-muted); font-size: 12px; line-height: 1.45; }
+  .cl-card__head p { margin: 0; color: var(--cl-muted); font-size: var(--rst-fs-control); line-height: 1.45; }
   .cl-card__body, .connection-body { display: grid; gap: 20px; }
   .form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; max-width: 820px; }
-  .cl-label small { color: var(--cl-muted); font-size: 11px; line-height: 1.35; }
+  .cl-label small { color: var(--cl-muted); font-size: var(--rst-fs-label); line-height: 1.35; }
   .cl-label .field-warning { color: var(--cl-attention); }
   .connection-dot { width: 7px; height: 7px; display: inline-block; border-radius: 50%; background: var(--cl-line-strong); }
   .connection-dot.is-ready { background: var(--cl-ok); }
-  .scope-tag { padding: 4px 9px; border: 1px solid var(--cl-line); border-radius: 999px; background: var(--cl-surface-muted); color: var(--cl-muted); font-size: 11px; font-weight: var(--rst-fw-bold); white-space: nowrap; }
+  .scope-tag { padding: 4px 9px; border: 1px solid var(--cl-line); border-radius: 999px; background: var(--cl-surface-muted); color: var(--cl-muted); font-size: var(--rst-fs-label); font-weight: var(--rst-fw-bold); white-space: nowrap; }
   .scope-note { display: grid; gap: 3px; max-width: 820px; padding: 12px 14px; border-left: 3px solid var(--cl-accent); background: var(--cl-accent-wash); }
-  .scope-note strong { font-size: 13px; }
-  .scope-note span { color: var(--cl-muted); font-size: 12px; line-height: 1.45; }
+  .scope-note strong { font-size: var(--rst-fs-body); }
+  .scope-note span { color: var(--cl-muted); font-size: var(--rst-fs-control); line-height: 1.45; }
   .access-card { min-height: 240px; display: grid; place-items: center; }
   @media (max-width: 760px) {
     .form { grid-template-columns: minmax(0, 1fr); }

@@ -24,6 +24,6 @@
   .icon { width: 50px; height: 50px; display: grid; place-items: center; border: 1px solid var(--cl-line); border-radius: var(--cl-radius); color: var(--cl-accent); background: var(--cl-surface-muted); }
   h2, p { margin: 0; }
   small { color: var(--cl-accent); font-weight: var(--rst-fw-bold); text-transform: uppercase; letter-spacing: .04em; }
-  h2 { margin-top: 5px; font-size: 22px; }
+  h2 { margin-top: 5px; font-size: var(--rst-fs-heading); }
   p { margin-top: 7px; color: var(--cl-muted); line-height: 1.5; }
 </style>

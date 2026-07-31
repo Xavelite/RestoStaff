@@ -1,4 +1,4 @@
-export type WorkspaceTheme = 'cobalt' | 'tangerine';
+type WorkspaceTheme = 'cobalt' | 'tangerine';
 
 const THEME_STORAGE_KEY = 'rst-workspace-theme';
 

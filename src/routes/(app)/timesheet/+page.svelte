@@ -805,7 +805,7 @@
     border: 1px solid var(--cl-line);
     border-radius: 999px;
     color: var(--cl-muted);
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     font-weight: var(--rst-fw-bold);
   }
   .weekpill__dot {
@@ -824,13 +824,13 @@
   }
   .weekform__blocked {
     margin: 0;
-    font-size: 14px;
+    font-size: var(--rst-fs-body-lg);
     font-weight: var(--rst-fw-bold);
   }
   .weekform__warnings {
     display: grid;
     gap: 6px;
-    font-size: 14px;
+    font-size: var(--rst-fs-body-lg);
   }
   .weekform__warnings ul {
     margin: 0;
@@ -878,7 +878,7 @@
     background: var(--cl-surface);
     color: var(--cl-ink);
     font: inherit;
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     font-weight: var(--rst-fw-bold);
     cursor: pointer;
   }
@@ -907,7 +907,7 @@
     align-items: center;
     gap: 8px;
     color: var(--cl-muted);
-    font-size: 11.5px;
+    font-size: var(--rst-fs-control);
     font-weight: var(--rst-fw-bold);
     cursor: pointer;
     user-select: none;
@@ -943,13 +943,13 @@
     background: var(--cl-accent);
     color: white;
     font: inherit;
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     font-weight: var(--rst-fw-bold);
     cursor: pointer;
   }
   .approve-btn.is-reopen { border-color: var(--cl-line-strong); background: var(--cl-surface); color: var(--cl-ink); }
   .approve-btn:disabled { opacity: .45; cursor: default; }
-  .weekpill { min-height: 30px; padding: 4px 10px; font-size: 10.5px; }
+  .weekpill { min-height: 30px; padding: 4px 10px; font-size: var(--rst-fs-label); }
 
   .timesheet-wrap {
     max-height: calc(100vh - 188px);
@@ -966,7 +966,7 @@
     table-layout: fixed;
     border-collapse: separate;
     color: var(--cl-ink);
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
   }
   .timesheet-wrap .board thead { position: sticky; top: 0; z-index: 8; }
   .timesheet-wrap .board th {
@@ -1000,7 +1000,7 @@
   .timesheet-wrap thead .board__staff :global(.colhead__trigger) { position: absolute; top: 50%; right: 31px; transform: translateY(-50%); }
   .timesheet-wrap thead .board__staff :global(.groupmenu) { position: absolute; top: 0; right: 0; bottom: 0; padding-right: 6px; }
   .timesheet-wrap .board__day { position: relative; border-left: 1px solid var(--cl-grid-line); text-align: center; }
-  .board__day-date { color: var(--cl-ink); font-size: 12px; line-height: 1.05; white-space: nowrap; }
+  .board__day-date { color: var(--cl-ink); font-size: var(--rst-fs-control); line-height: 1.05; white-space: nowrap; }
   .board__day-lower {
     min-height: 38px;
     display: grid;
@@ -1009,13 +1009,13 @@
     align-items: center;
     margin-top: 2px;
     color: var(--cl-muted);
-    font-size: 8.5px;
+    font-size: var(--rst-fs-micro);
     font-variant-numeric: tabular-nums;
   }
   .board__day-people { display: inline-flex; align-items: center; justify-content: center; gap: 3px; }
-  .board__day-hours { color: color-mix(in srgb, var(--cl-ink) 74%, var(--cl-muted)); font-size: 8.5px; }
+  .board__day-hours { color: color-mix(in srgb, var(--cl-ink) 74%, var(--cl-muted)); font-size: var(--rst-fs-micro); }
   .board__day-hours em { color: var(--cl-ok); font-style: normal; }
-  .board__day-lower small { grid-column: 1 / -1; color: var(--cl-ok); font-size: 8px; }
+  .board__day-lower small { grid-column: 1 / -1; color: var(--cl-ok); font-size: var(--rst-fs-micro); }
   .board__day-lower small.is-problem { color: var(--cl-problem); }
   .timesheet-wrap .board__day.is-today { color: var(--cl-accent); background: color-mix(in srgb, var(--cl-accent) 10%, var(--cl-thead)); }
   .timesheet-wrap .board__day.is-today::before,
@@ -1060,12 +1060,12 @@
   .timesheet-wrap .staff { display: flex; align-items: center; gap: 10px; padding: 10px 14px; }
   .timesheet-wrap .staff__id { min-width: 0; flex: 1; display: grid; gap: 3px; }
   .staff__name { min-width: 0; display: flex; align-items: center; gap: 7px; }
-  .staff__name strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+  .staff__name strong { overflow: hidden; font-size: var(--rst-fs-body); text-overflow: ellipsis; white-space: nowrap; }
   .staff__attention { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--cl-problem); box-shadow: 0 0 0 3px var(--cl-problem-wash); }
-  .timesheet-wrap .staff__hours { display: flex; align-items: baseline; gap: 5px; color: var(--cl-muted); font-size: 10.5px; }
+  .timesheet-wrap .staff__hours { display: flex; align-items: baseline; gap: 5px; color: var(--cl-muted); font-size: var(--rst-fs-label); }
   .timesheet-wrap .staff__hours i { color: var(--cl-line-strong); font-style: normal; }
   .timesheet-wrap .staff__hours b { color: var(--cl-ok); }
-  .timesheet-wrap .staff__hours em { margin-left: auto; color: var(--cl-muted); font-size: 8.5px; font-style: normal; }
+  .timesheet-wrap .staff__hours em { margin-left: auto; color: var(--cl-muted); font-size: var(--rst-fs-micro); font-style: normal; }
   .staff__meter { width: 100%; height: 4px; overflow: hidden; border-radius: 999px; background: var(--cl-line); }
   .staff__meter > i { display: block; height: 100%; border-radius: inherit; background: var(--cl-info); }
   .staff__meter.is-complete > i { background: var(--cl-ok); }
@@ -1102,13 +1102,13 @@
       padding: 9px 8px;
       border-right: 1px solid var(--cl-grid-line);
       color: var(--cl-muted);
-      font-size: 9px;
+      font-size: var(--rst-fs-micro);
       white-space: nowrap;
     }
     .mobile-day-summary > span:last-child { border-right: 0; }
     .mobile-day-summary b {
       color: var(--cl-ink);
-      font-size: 12px;
+      font-size: var(--rst-fs-control);
       font-weight: var(--rst-fw-bold);
       font-variant-numeric: tabular-nums;
     }
@@ -1120,7 +1120,7 @@
     }
     .mobile-search > span {
       color: var(--cl-muted);
-      font-size: 10px;
+      font-size: var(--rst-fs-caption);
       font-weight: var(--rst-fw-bold);
       text-transform: uppercase;
     }
@@ -1157,7 +1157,7 @@
     .mobile-attendance > header strong {
       overflow: hidden;
       color: var(--cl-ink);
-      font-size: 12.5px;
+      font-size: var(--rst-fs-body);
       font-weight: var(--rst-fw-bold);
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -1165,7 +1165,7 @@
     .mobile-attendance > header small {
       overflow: hidden;
       color: var(--cl-muted);
-      font-size: 10px;
+      font-size: var(--rst-fs-caption);
       text-overflow: ellipsis;
       white-space: nowrap;
     }
@@ -1175,7 +1175,7 @@
       border-radius: 5px;
       background: var(--cl-problem-wash);
       color: var(--cl-problem);
-      font-size: 9px;
+      font-size: var(--rst-fs-micro);
       font-style: normal;
       font-weight: var(--rst-fw-bold);
       text-transform: uppercase;

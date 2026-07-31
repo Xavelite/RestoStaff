@@ -379,7 +379,7 @@
     background: transparent;
     color: var(--cl-ink);
     font: inherit;
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     font-weight: var(--rst-fw-medium);
     text-align: left;
     text-overflow: ellipsis;
@@ -408,7 +408,7 @@
     background: transparent;
     color: inherit;
     font: inherit;
-    font-size: 12.5px;
+    font-size: var(--rst-fs-body);
     text-align: left;
     text-overflow: ellipsis;
     white-space: nowrap;

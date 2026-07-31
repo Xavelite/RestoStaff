@@ -259,14 +259,14 @@
   .home-intro h1 {
     margin: 0;
     color: var(--cl-ink);
-    font-size: 22px;
+    font-size: var(--rst-fs-heading);
     font-weight: var(--rst-fw-display);
   }
 
   .home-intro p {
     margin: 3px 0 0;
     color: var(--cl-muted);
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
   }
 
   .workspace,
@@ -292,7 +292,7 @@
     display: block;
     margin: 0 0 3px;
     color: var(--cl-muted);
-    font-size: 10.5px;
+    font-size: var(--rst-fs-label);
     font-weight: var(--rst-fw-bold);
     letter-spacing: .06em;
     text-transform: uppercase;
@@ -301,7 +301,7 @@
   .section-heading h2 {
     margin: 0;
     color: var(--cl-ink);
-    font-size: 16px;
+    font-size: var(--rst-fs-title-sm);
     font-weight: var(--rst-fw-display);
   }
 
@@ -310,7 +310,7 @@
   }
 
   .section-heading.is-compact h2 {
-    font-size: 15px;
+    font-size: var(--rst-fs-title-sm);
   }
 
   .module-group h3 {
@@ -414,13 +414,13 @@
   }
 
   .module-tile__copy strong {
-    font-size: 15px;
+    font-size: var(--rst-fs-title-sm);
     font-weight: var(--rst-fw-bold);
   }
 
   .module-tile__copy > span {
     color: var(--cl-muted);
-    font-size: 11.5px;
+    font-size: var(--rst-fs-control);
     line-height: 1.42;
   }
 
@@ -440,13 +440,13 @@
     align-items: center;
     gap: 6px;
     color: var(--cl-muted);
-    font-size: 11.5px;
+    font-size: var(--rst-fs-control);
     font-weight: var(--rst-fw-medium);
   }
 
   .module-tile__signal strong {
     color: var(--cl-ink);
-    font-size: 13px;
+    font-size: var(--rst-fs-body);
     font-variant-numeric: tabular-nums;
   }
 
@@ -470,14 +470,14 @@
 
   .module-tile__open {
     color: var(--cl-muted);
-    font-size: 11px;
+    font-size: var(--rst-fs-label);
     font-weight: var(--rst-fw-medium);
   }
 
   .module-tile__arrow {
     flex: 0 0 auto;
     color: color-mix(in srgb, var(--tile-color) 48%, var(--cl-line-strong));
-    font-size: 18px;
+    font-size: var(--rst-fs-title);
     transition:
       color var(--cl-dur) var(--cl-ease),
       transform var(--cl-dur) var(--cl-ease);
@@ -517,7 +517,7 @@
 
   .upcoming-tile strong {
     overflow: hidden;
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     font-weight: var(--rst-fw-medium);
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -555,7 +555,7 @@
     }
 
     .module-tile__copy strong {
-      font-size: 12.5px;
+      font-size: var(--rst-fs-body);
     }
 
     .module-tile__copy > span {
@@ -564,12 +564,12 @@
 
     .module-tile__signal {
       align-self: end;
-      font-size: 10px;
+      font-size: var(--rst-fs-caption);
       line-height: 1.25;
     }
 
     .module-tile__arrow {
-      font-size: 15px;
+      font-size: var(--rst-fs-title-sm);
     }
 
     .upcoming-grid {

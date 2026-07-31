@@ -182,12 +182,12 @@
   main { min-height: 100vh; display: grid; place-items: center; padding: 22px; }
   section { width: min(100%, 460px); padding: 24px; border: 1px solid var(--rst-ui-line); border-radius: var(--rst-ui-radius-xl); background: var(--rst-ui-surface-panel); }
   .brand { margin: 0 0 22px; color: var(--rst-ui-panel-title); font-weight: var(--rst-fw-display); }
-  h1 { margin: 0; font-size: 28px; }
+  h1 { margin: 0; font-size: var(--rst-fs-display-sm); }
   .intro { margin: 8px 0 18px; color: var(--rst-ui-muted); line-height: 1.55; }
   .context { display: grid; gap: 3px; margin: 0 0 18px; padding: 12px; border: 1px solid var(--rst-ui-line); border-radius: var(--rst-ui-radius-md); background: var(--rst-ui-surface-field); }
   .context span, .context small { color: var(--rst-ui-muted); }
   form { display: grid; gap: 13px; }
-  label { display: grid; gap: 6px; color: var(--rst-ui-muted); font-size: 11px; font-weight: var(--rst-fw-bold); }
+  label { display: grid; gap: 6px; color: var(--rst-ui-muted); font-size: var(--rst-fs-label); font-weight: var(--rst-fw-bold); }
   input { min-height: 44px; padding: 10px 12px; border: 1px solid var(--rst-ui-line); border-radius: var(--rst-ui-radius-md); color: var(--rst-ui-text); background: var(--rst-ui-surface-field-strong); font: inherit; letter-spacing: 0; }
   .login { display: block; width: 100%; padding: 11px 14px; border: 0; border-radius: var(--rst-ui-radius-md); color: var(--rst-on-accent-text); background: var(--rst-ui-action); font: inherit; font-weight: var(--rst-fw-bold); text-align: center; text-decoration: none; cursor: pointer; }
 </style>

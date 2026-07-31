@@ -151,14 +151,14 @@
   h2, p { margin: 0; }
   h2 {
     color: var(--cl-ink, var(--rst-ui-text));
-    font-size: 17px;
+    font-size: var(--rst-fs-title);
     font-weight: var(--rst-fw-display);
     line-height: 1.2;
   }
   p {
     margin-top: 4px;
     color: var(--cl-muted, var(--rst-ui-muted));
-    font-size: 12px;
+    font-size: var(--rst-fs-control);
     line-height: 1.4;
   }
   header button {

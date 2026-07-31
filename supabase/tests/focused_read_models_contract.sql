@@ -18,6 +18,9 @@ begin
      or to_regprocedure(
        'public.get_employee_operations_read_model(uuid,date,date)'
      ) is null
+     or to_regprocedure(
+       'public.get_schedule_history_read_model(uuid,integer)'
+     ) is null
      or to_regprocedure('public.get_team_read_model_v2(uuid)') is null
      or to_regprocedure('public.get_restaurant_read_model_v2(uuid)') is null then
     raise exception 'Focused public read-model contracts are incomplete.';
@@ -37,6 +40,7 @@ begin
     'public.get_workspace_bootstrap_v2(uuid)'::regprocedure,
     'public.get_manager_operations_read_model(uuid,date,date)'::regprocedure,
     'public.get_employee_operations_read_model(uuid,date,date)'::regprocedure,
+    'public.get_schedule_history_read_model(uuid,integer)'::regprocedure,
     'public.get_team_read_model_v2(uuid)'::regprocedure,
     'public.get_restaurant_read_model_v2(uuid)'::regprocedure
   ]
@@ -76,6 +80,11 @@ begin
       'public.get_manager_operations_read_model(uuid,date,date)'::regprocedure
     )
   ) = 0 or position(
+    'Owner or manager access required.'
+    in pg_get_functiondef(
+      'public.get_schedule_history_read_model(uuid,integer)'::regprocedure
+    )
+  ) = 0 or position(
     'Employee access required.'
     in pg_get_functiondef(
       'public.get_employee_operations_read_model(uuid,date,date)'::regprocedure
@@ -87,6 +96,15 @@ begin
     )
   ) = 0 then
     raise exception 'Focused read-model role guards are incomplete.';
+  end if;
+
+  if position(
+    'planning\_%'
+    in pg_get_functiondef(
+      'public.get_schedule_history_read_model(uuid,integer)'::regprocedure
+    )
+  ) = 0 then
+    raise exception 'Schedule History does not stay focused on planning events.';
   end if;
 
   select id into v_restaurant_id

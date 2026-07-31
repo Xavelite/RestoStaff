@@ -657,7 +657,7 @@
     color: var(--cl-ok);
     font-weight: var(--rst-fw-bold);
   }
-  .money-field small { color: var(--cl-muted); font-size: 10px; font-weight: var(--rst-fw-medium); }
+  .money-field small { color: var(--cl-muted); font-size: var(--rst-fs-caption); font-weight: var(--rst-fw-medium); }
   .cost { width: 72px; text-align: right; font-variant-numeric: tabular-nums; }
   .cost::-webkit-inner-spin-button,
   .cost::-webkit-outer-spin-button { margin: 0; appearance: none; }
