@@ -308,6 +308,9 @@ test('Popcorn is an optional local companion with accessible motion and sound', 
   assert.match(pet, /\{#if animating \|\| voiceActive\}[\s\S]*ai-speed-rabbit-active\.gif[\s\S]*ai-speed-rabbit-idle\.gif/);
   assert.match(pet, /class:pet-on-right=\{petOnRight\}/);
   assert.match(pet, /\.popcorn-pet\.pet-on-right img[\s\S]*scaleX\(-1\)/);
+  assert.match(pet, /class="popcorn-pet__audio"/);
+  assert.doesNotMatch(pet, /class="popcorn-pet__bubble-head"/);
+  assert.doesNotMatch(pet, /\.popcorn-pet__bubble::after/);
   assert.ok(activeGif.length > 0);
   assert.ok(idleGif.length > 0);
   assert.match(pet, /onpointerdown=\{startDrag\}/);

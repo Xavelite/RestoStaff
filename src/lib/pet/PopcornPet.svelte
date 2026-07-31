@@ -380,28 +380,27 @@
         <div
           class="popcorn-pet__bubble"
           class:is-invitation={invitationVisible}
+          class:has-audio={Boolean(currentInsight && speechSupported)}
           data-tone={currentInsight?.tone ?? 'info'}
           role="status"
           aria-live="polite"
         >
-          <div class="popcorn-pet__bubble-head">
-            <span><i aria-hidden="true"></i>Popcorn</span>
-            {#if currentInsight && speechSupported}
-              <button
-                class:is-speaking={voiceActive}
-                type="button"
-                aria-label={t(popcornPet.audioEnabled ? 'Mute Popcorn sounds' : 'Unmute Popcorn sounds')}
-                title={t(popcornPet.audioEnabled ? 'Mute Popcorn sounds' : 'Unmute Popcorn sounds')}
-                onclick={toggleAudio}
-              >
-                {#if popcornPet.audioEnabled}
-                  <Volume2 size={14} strokeWidth={2} aria-hidden="true" />
-                {:else}
-                  <VolumeX size={14} strokeWidth={2} aria-hidden="true" />
-                {/if}
-              </button>
-            {/if}
-          </div>
+          {#if currentInsight && speechSupported}
+            <button
+              class="popcorn-pet__audio"
+              class:is-speaking={voiceActive}
+              type="button"
+              aria-label={t(popcornPet.audioEnabled ? 'Mute Popcorn sounds' : 'Unmute Popcorn sounds')}
+              title={t(popcornPet.audioEnabled ? 'Mute Popcorn sounds' : 'Unmute Popcorn sounds')}
+              onclick={toggleAudio}
+            >
+              {#if popcornPet.audioEnabled}
+                <Volume2 size={14} strokeWidth={2} aria-hidden="true" />
+              {:else}
+                <VolumeX size={14} strokeWidth={2} aria-hidden="true" />
+              {/if}
+            </button>
+          {/if}
           {#if currentInsight}
             <strong>{t(currentInsight.title, currentInsight.params)}</strong>
             <p>{t(currentInsight.message, currentInsight.params)}</p>
@@ -561,50 +560,36 @@
   }
 
   .popcorn-pet__bubble {
-    width: min(278px, calc(100vw - 24px));
+    width: min(286px, calc(100vw - 24px));
     position: absolute;
     z-index: 5;
-    right: 24px;
-    bottom: 145px;
-    padding: 11px 12px 12px;
-    border: 1px solid var(--cl-line-strong);
-    border-radius: 7px;
+    right: 18px;
+    bottom: 148px;
+    padding: 13px 14px 14px;
+    border: 1px solid color-mix(in srgb, var(--cl-line-strong) 82%, transparent);
+    border-left: 3px solid var(--cl-accent);
+    border-radius: 8px;
     color: var(--cl-ink);
-    background: var(--cl-surface);
-    box-shadow: 0 12px 32px rgb(15 23 42 / 16%);
+    background: color-mix(in srgb, var(--cl-surface) 97%, transparent);
+    box-shadow:
+      0 18px 44px rgb(15 23 42 / 14%),
+      0 2px 8px rgb(15 23 42 / 8%);
+    backdrop-filter: blur(12px);
     pointer-events: auto;
     animation: popcorn-say .2s var(--cl-ease) both;
   }
 
   .popcorn-pet__bubble[data-tone='success'] {
-    border-top-color: color-mix(in srgb, var(--cl-ok) 72%, var(--cl-line));
+    border-left-color: color-mix(in srgb, var(--cl-ok) 78%, var(--cl-line));
   }
 
   .popcorn-pet__bubble[data-tone='attention'] {
-    border-top-color: color-mix(in srgb, var(--cl-attention) 76%, var(--cl-line));
-  }
-
-  .popcorn-pet__bubble::after {
-    content: '';
-    width: 10px;
-    height: 10px;
-    position: absolute;
-    right: 34px;
-    bottom: -6px;
-    border-right: 1px solid var(--cl-line-strong);
-    border-bottom: 1px solid var(--cl-line-strong);
-    background: var(--cl-surface);
-    transform: rotate(45deg);
+    border-left-color: color-mix(in srgb, var(--cl-attention) 82%, var(--cl-line));
   }
 
   .popcorn-pet.bubble-opens-right .popcorn-pet__bubble {
     right: auto;
-    left: 24px;
-  }
-
-  .popcorn-pet.bubble-opens-right .popcorn-pet__bubble::after {
-    right: auto;
-    left: 34px;
+    left: 18px;
   }
 
   .popcorn-pet.bubble-opens-below .popcorn-pet__bubble {
@@ -612,55 +597,13 @@
     bottom: auto;
   }
 
-  .popcorn-pet.bubble-opens-below .popcorn-pet__bubble::after {
-    top: -6px;
-    bottom: auto;
-    border: 0;
-    border-top: 1px solid var(--cl-line-strong);
-    border-left: 1px solid var(--cl-line-strong);
-  }
-
-  .popcorn-pet__bubble-head {
-    min-height: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 4px;
-  }
-
-  .popcorn-pet__bubble-head > span {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--cl-muted);
-    font-size: var(--rst-fs-caption);
-    font-weight: var(--rst-fw-bold);
-    letter-spacing: .05em;
-    text-transform: uppercase;
-  }
-
-  .popcorn-pet__bubble-head > span i {
-    width: 6px;
-    height: 6px;
-    flex: 0 0 auto;
-    border-radius: 50%;
-    background: var(--cl-accent);
-  }
-
-  .popcorn-pet__bubble[data-tone='success'] .popcorn-pet__bubble-head > span i {
-    background: var(--cl-ok);
-  }
-
-  .popcorn-pet__bubble[data-tone='attention'] .popcorn-pet__bubble-head > span i {
-    background: var(--cl-attention);
-  }
-
-  .popcorn-pet__bubble-head button {
-    width: 24px;
-    height: 24px;
+  .popcorn-pet__audio {
+    width: 28px;
+    height: 28px;
+    position: absolute;
+    top: 8px;
+    right: 8px;
     display: grid;
-    flex: 0 0 auto;
     place-items: center;
     padding: 0;
     border: 0;
@@ -674,16 +617,20 @@
       transform var(--cl-dur) var(--cl-ease);
   }
 
-  .popcorn-pet__bubble-head button:hover,
-  .popcorn-pet__bubble-head button:focus-visible {
+  .popcorn-pet__audio:hover,
+  .popcorn-pet__audio:focus-visible {
     color: var(--cl-accent);
     background: var(--cl-surface-muted);
     outline: none;
   }
 
-  .popcorn-pet__bubble-head button.is-speaking {
+  .popcorn-pet__audio.is-speaking {
     color: var(--cl-accent);
     animation: popcorn-voice .8s ease-in-out infinite alternate;
+  }
+
+  .popcorn-pet__bubble.has-audio > strong {
+    padding-right: 28px;
   }
 
   .popcorn-pet__bubble > strong {
@@ -866,19 +813,11 @@
       width: min(220px, calc(100vw - 100px));
       right: 0;
       bottom: 102px;
-      padding: 9px 10px 10px;
-    }
-
-    .popcorn-pet__bubble::after {
-      right: 27px;
+      padding: 11px 12px 12px;
     }
 
     .popcorn-pet.bubble-opens-right .popcorn-pet__bubble {
       left: 0;
-    }
-
-    .popcorn-pet.bubble-opens-right .popcorn-pet__bubble::after {
-      left: 27px;
     }
 
     .popcorn-pet.bubble-opens-below .popcorn-pet__bubble {
@@ -912,7 +851,7 @@
     .popcorn-pet__motion,
     .popcorn-pet__bubble,
     .popcorn-pet__signal,
-    .popcorn-pet__bubble-head button.is-speaking {
+    .popcorn-pet__audio.is-speaking {
       animation: none;
     }
 
