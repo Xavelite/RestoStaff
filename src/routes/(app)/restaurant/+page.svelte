@@ -1,8 +1,19 @@
 <script lang="ts">
-  import { ExternalLink, Globe2, MapPin, Search } from '@lucide/svelte';
+  import {
+    BadgeCheck,
+    ChevronDown,
+    ChevronUp,
+    ExternalLink,
+    Globe2,
+    Mail,
+    MapPin,
+    Phone,
+    Search,
+    Star
+  } from '@lucide/svelte';
   import { onDestroy } from 'svelte';
   import { friendlyError } from '$lib/api/error-messages';
-  import { WEEKDAYS, type ServiceKey } from '$lib/calendar/date';
+  import { todayInTimezone, weekday, WEEKDAYS } from '$lib/calendar/date';
   import { t } from '$lib/i18n/i18n.svelte';
   import { confirmAction } from '$lib/ui/confirm.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
@@ -19,12 +30,14 @@
     uploadRestaurantLogo
   } from '$lib/restaurant/logo-api';
   import {
+    googleMapsSearchUrl,
     osmEmbedUrl,
     osmLocationUrl,
     restaurantAddressQuery,
     searchBelgianRestaurantAddress,
     type RestaurantAddressCandidate
   } from '$lib/restaurant/address-geocoding';
+  import { normalizedWebsite } from '$lib/restaurant/restaurant-model';
 
   let logoBusy = $state(false);
   let logoError = $state('');
@@ -32,6 +45,7 @@
   let locationBusy = $state(false);
   let locationError = $state('');
   let locationCandidates = $state<RestaurantAddressCandidate[]>([]);
+  let hoursExpanded = $state(false);
   let addressSearchTimer: ReturnType<typeof setTimeout> | undefined;
   let locationRequest = 0;
   const snapshot = $derived(workspace.restaurant);
@@ -99,6 +113,33 @@
       label: draft.locationLabel
     };
   });
+  const publicWebsiteUrl = $derived(normalizedWebsite(context?.draft.websiteUrl ?? ''));
+  const googleListingUrl = $derived.by(() => {
+    const draft = context?.draft;
+    if (!draft) return '';
+    return googleMapsSearchUrl({
+      restaurantName: draft.displayName,
+      street: draft.address,
+      postalCode: draft.postalCode,
+      city: draft.city
+    });
+  });
+  const profileReadiness = $derived.by(() => {
+    const draft = context?.draft;
+    if (!draft) return { complete: 0, total: 5, percent: 0 };
+    const checks = [
+      Boolean(logoUrl),
+      Boolean(draft.email.trim()),
+      Boolean(draft.phone.trim()),
+      Boolean(publicWebsiteUrl),
+      Boolean(resolvedLocation)
+    ];
+    const complete = checks.filter(Boolean).length;
+    return { complete, total: checks.length, percent: Math.round((complete / checks.length) * 100) };
+  });
+  const restaurantToday = $derived(
+    weekday(todayInTimezone(snapshot?.restaurant_settings.timezone || 'Europe/Brussels'))
+  );
 
   function touchAddress() {
     if (!context) return;
@@ -159,15 +200,9 @@
     restaurantConfig.touch();
   }
 
-  function serviceOpenDays(
-    opening: NonNullable<typeof context>['draft']['opening'],
-    serviceKey: ServiceKey
-  ): number {
-    return opening.filter((day) => day.services[serviceKey]?.open).length;
-  }
-
   function addServicePeriod() {
     if (!context) return;
+    hoursExpanded = true;
     const index = context.draft.services.length + 1;
     let serviceKey = `service-${index}`;
     while (context.draft.services.some((service) => service.serviceKey === serviceKey)) {
@@ -196,6 +231,7 @@
 
   function restoreDayNightStarter() {
     if (!context) return;
+    hoursExpanded = true;
     const starters = [
       {
         serviceKey: 'lunch',
@@ -275,13 +311,17 @@
     ondiscard={context.discard}
   >
     {#snippet meta()}
-      {#each activeServices as service (service.serviceKey)}
-        <span class="svc-meta is-{service.serviceKey}">
-          <WorkspaceServiceIcon service={service.serviceKey} size={13} />
-          <strong>{service.name}</strong>
-          <span>{serviceOpenDays(draft.opening, service.serviceKey)} {t('open days')}</span>
+      <span class="profile-meta">
+        <BadgeCheck size={14} aria-hidden="true" />
+        <strong>{profileReadiness.complete}/{profileReadiness.total}</strong>
+        <span>{t('profile details')}</span>
+      </span>
+      {#if resolvedLocation}
+        <span class="profile-meta is-ready">
+          <MapPin size={14} aria-hidden="true" />
+          <span>{t('Location confirmed')}</span>
         </span>
-      {/each}
+      {/if}
     {/snippet}
     {#snippet children()}
       <div class="restaurant-workspace">
@@ -329,11 +369,17 @@
               <div class="field-row is-contact">
                 <label class="cl-label">
                   <span>{t('Email')}</span>
-                  <input class="cl-field" type="email" bind:value={draft.email} oninput={() => restaurantConfig.touch()} />
+                  <span class="input-with-icon">
+                    <Mail size={14} aria-hidden="true" />
+                    <input class="cl-field" type="email" bind:value={draft.email} oninput={() => restaurantConfig.touch()} />
+                  </span>
                 </label>
                 <label class="cl-label">
                   <span>{t('Phone')}</span>
-                  <input class="cl-field" bind:value={draft.phone} oninput={() => restaurantConfig.touch()} />
+                  <span class="input-with-icon">
+                    <Phone size={14} aria-hidden="true" />
+                    <input class="cl-field" bind:value={draft.phone} oninput={() => restaurantConfig.touch()} />
+                  </span>
                 </label>
                 <label class="cl-label">
                   <span>{t('Website')}</span>
@@ -455,25 +501,115 @@
                 </div>
               </div>
             </section>
+
+            <section class="field-group presence-panel">
+              <div class="field-group__head">
+                <span class="field-group__title">{t('Public presence')}</span>
+                <strong class="presence-score">{t('{percent}% ready', { percent: profileReadiness.percent })}</strong>
+              </div>
+              <div
+                class="presence-progress"
+                role="progressbar"
+                aria-label={t('Public presence')}
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow={profileReadiness.percent}
+              >
+                <i style:width={`${profileReadiness.percent}%`}></i>
+              </div>
+              <div class="presence-links">
+                <a href={googleListingUrl} target="_blank" rel="noreferrer">
+                  <span class="presence-link__icon is-google"><MapPin size={16} aria-hidden="true" /></span>
+                  <span><strong>{t('Google Maps')}</strong><small>{t('Listing and reviews')}</small></span>
+                  <ExternalLink size={14} aria-hidden="true" />
+                </a>
+                {#if publicWebsiteUrl}
+                  <a href={publicWebsiteUrl} target="_blank" rel="noreferrer">
+                    <span class="presence-link__icon"><Globe2 size={16} aria-hidden="true" /></span>
+                    <span><strong>{t('Website')}</strong><small>{t('Open website')}</small></span>
+                    <ExternalLink size={14} aria-hidden="true" />
+                  </a>
+                {:else}
+                  <div class="presence-link is-missing">
+                    <span class="presence-link__icon"><Globe2 size={16} aria-hidden="true" /></span>
+                    <span><strong>{t('Website')}</strong><small>{t('Website missing')}</small></span>
+                  </div>
+                {/if}
+                <div class="presence-link" class:is-missing={!draft.email.trim() && !draft.phone.trim()}>
+                  <span class="presence-link__icon"><Phone size={16} aria-hidden="true" /></span>
+                  <span>
+                    <strong>{t('Contact channels')}</strong>
+                    <small>{t('{count} available', { count: Number(Boolean(draft.email.trim())) + Number(Boolean(draft.phone.trim())) })}</small>
+                  </span>
+                </div>
+              </div>
+              <div class="review-note">
+                <Star size={16} aria-hidden="true" />
+                <p>
+                  <strong>{t('Google reviews')}</strong>
+                  <span>{t('Ratings stay live in Google. Open the listing to review the current score and guest feedback.')}</span>
+                </p>
+              </div>
+            </section>
           </div>
         </section>
 
         <section class="cl-card hours-card">
           <div class="cl-card__head">
-            <h3>{t('Opening hours')}</h3>
-            {#if context.canSave}
-              <div class="hours-actions">
-                {#if starterNeedsRestore}
-                  <button class="cl-btn" type="button" onclick={restoreDayNightStarter}>
-                    {t('Use Day & Night starter')}
-                  </button>
-                {/if}
-                <button class="cl-btn" type="button" onclick={addServicePeriod}>
-                  {t('Add service period')}
-                </button>
-              </div>
-            {/if}
+            <div class="hours-heading">
+              <h3>{t('Opening hours')}</h3>
+              <span>{t('Weekly service overview')}</span>
+            </div>
+            <div class="hours-actions">
+              <span class="hours-count">{t('{count} service periods', { count: activeServices.length })}</span>
+              <button class="cl-btn" type="button" aria-expanded={hoursExpanded} onclick={() => (hoursExpanded = !hoursExpanded)}>
+                {#if hoursExpanded}<ChevronUp size={15} aria-hidden="true" />{:else}<ChevronDown size={15} aria-hidden="true" />{/if}
+                {t(hoursExpanded ? 'Close editor' : 'Edit hours')}
+              </button>
+            </div>
           </div>
+          <div class="hours-summary">
+            {#each WEEKDAYS as weekdayLabel, weekdayIndex}
+              {@const day = draft.opening.find((candidate) => candidate.weekday === weekdayIndex + 1)}
+              {@const openPeriods = activeServices.filter((service) => day?.services[service.serviceKey]?.open)}
+              <article class:is-today={restaurantToday === weekdayIndex + 1} class:is-closed={!openPeriods.length}>
+                <header>
+                  <strong>{t(weekdayLabel)}</strong>
+                  {#if restaurantToday === weekdayIndex + 1}<span>{t('Today')}</span>{/if}
+                </header>
+                {#if openPeriods.length}
+                  <div>
+                    {#each openPeriods as service (service.serviceKey)}
+                      {@const period = day?.services[service.serviceKey]}
+                      <span class="hours-summary__period is-{service.serviceKey}">
+                        <WorkspaceServiceIcon service={service.serviceKey} size={13} />
+                        <b>{service.name}</b>
+                        <em>{period?.start}&ndash;{period?.end}</em>
+                      </span>
+                    {/each}
+                  </div>
+                {:else}
+                  <span class="hours-summary__closed">{t('Closed')}</span>
+                {/if}
+              </article>
+            {/each}
+          </div>
+          {#if hoursExpanded}
+            <div class="hours-editor__head">
+              <strong>{t('Service periods')}</strong>
+              {#if context.canSave}
+                <div class="hours-editor__actions">
+                  {#if starterNeedsRestore}
+                    <button class="cl-btn" type="button" onclick={restoreDayNightStarter}>
+                      {t('Use Day & Night starter')}
+                    </button>
+                  {/if}
+                  <button class="cl-btn" type="button" onclick={addServicePeriod}>
+                    {t('Add service period')}
+                  </button>
+                </div>
+              {/if}
+            </div>
           <div class="service-periods" aria-label={t('Service periods')}>
             {#each draft.services as service (service.serviceKey)}
               <div class="service-period" class:is-inactive={!service.active}>
@@ -570,6 +706,7 @@
               </tbody>
             </table>
           </div>
+          {/if}
         </section>
       </div>
     {/snippet}
@@ -593,12 +730,16 @@
     overflow: hidden;
     border-color: var(--cl-line-strong);
   }
-  .hours-actions {
-    display: flex;
+  .profile-meta {
+    display: inline-flex;
     align-items: center;
-    gap: 7px;
+    gap: 5px;
   }
-
+  .profile-meta > :global(svg) { color: var(--cl-accent); }
+  .profile-meta strong { color: var(--cl-ink); }
+  .profile-meta span { color: var(--cl-muted); }
+  .profile-meta.is-ready > :global(svg),
+  .profile-meta.is-ready span { color: var(--cl-ok); }
   /* The restaurant leads with its own name and mark, so the identity reads as a
      heading rather than as one more form field competing with the others. */
   .identity-head {
@@ -607,13 +748,10 @@
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 14px;
-    padding: 14px 16px;
+    padding: 17px 18px;
     border-bottom: 1px solid var(--cl-line);
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--cl-accent) 4%, var(--cl-surface)),
-      var(--cl-surface) 78%
-    );
+    background: color-mix(in srgb, var(--cl-accent) 2.5%, var(--cl-surface));
+    box-shadow: inset 0 3px 0 var(--cl-accent);
   }
 
   .identity-head__main {
@@ -624,8 +762,8 @@
 
   .logo-tile {
     flex: 0 0 auto;
-    width: 54px;
-    height: 54px;
+    width: 62px;
+    height: 62px;
     display: grid;
     place-items: center;
     overflow: hidden;
@@ -712,7 +850,7 @@
   .identity-fields {
     min-width: 0;
     display: grid;
-    grid-template-columns: minmax(290px, .62fr) minmax(0, 1.38fr);
+    grid-template-columns: minmax(250px, .72fr) minmax(550px, 1.55fr) minmax(260px, .73fr);
   }
 
   .field-group {
@@ -778,10 +916,7 @@
   }
 
   .field-row.is-contact {
-    grid-template-columns: minmax(0, 1fr) minmax(0, .75fr);
-  }
-  .field-row.is-contact > :last-child {
-    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .field-row.is-address {
@@ -968,6 +1103,96 @@
   }
   .location-map.is-empty .map-attribution { bottom: 3px; }
 
+  .presence-panel {
+    position: relative;
+    background: color-mix(in srgb, var(--cl-warning, #f59e0b) 2.5%, var(--cl-surface));
+  }
+  .presence-score {
+    color: var(--cl-accent);
+    font-size: var(--rst-fs-label);
+  }
+  .presence-progress {
+    height: 5px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--cl-line);
+  }
+  .presence-progress i {
+    height: 100%;
+    display: block;
+    border-radius: inherit;
+    background: var(--cl-accent);
+    transition: width .24s var(--cl-ease);
+  }
+  .presence-links {
+    display: grid;
+    overflow: hidden;
+    border: 1px solid var(--cl-line);
+    border-radius: var(--cl-radius-sm);
+    background: var(--cl-surface);
+  }
+  .presence-links > a,
+  .presence-link {
+    min-width: 0;
+    min-height: 48px;
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 9px;
+    border-bottom: 1px solid var(--cl-line);
+    color: var(--cl-ink);
+    text-decoration: none;
+  }
+  .presence-links > :last-child { border-bottom: 0; }
+  .presence-links > a:hover { background: var(--cl-accent-wash); }
+  .presence-links > a:focus-visible {
+    position: relative;
+    z-index: 1;
+    outline: 2px solid color-mix(in srgb, var(--cl-accent) 45%, transparent);
+    outline-offset: -2px;
+  }
+  .presence-links > a > :global(svg:last-child) { color: var(--cl-muted); }
+  .presence-link.is-missing { color: var(--cl-muted); background: var(--cl-surface-muted); }
+  .presence-link__icon {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--cl-line);
+    border-radius: var(--cl-radius-sm);
+    color: var(--cl-accent);
+    background: var(--cl-accent-wash);
+  }
+  .presence-link__icon.is-google {
+    color: #b45309;
+    background: #fff7ed;
+    border-color: #fed7aa;
+  }
+  .presence-links strong,
+  .presence-links small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .presence-links strong { font-size: var(--rst-fs-control); }
+  .presence-links small { margin-top: 1px; color: var(--cl-muted); font-size: var(--rst-fs-caption); }
+  .review-note {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid #fed7aa;
+    border-radius: var(--cl-radius-sm);
+    color: #9a3412;
+    background: #fff7ed;
+  }
+  .review-note > :global(svg) { margin-top: 1px; fill: #fbbf24; color: #b45309; }
+  .review-note p { display: grid; gap: 2px; margin: 0; }
+  .review-note strong { font-size: var(--rst-fs-label); }
+  .review-note span { color: #7c2d12; font-size: var(--rst-fs-caption); line-height: 1.4; }
+
   .logo-error {
     margin: 10px 16px 0;
     color: var(--cl-problem);
@@ -981,6 +1206,89 @@
     overflow-x: auto;
     scrollbar-gutter: stable;
   }
+
+  .hours-heading {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+  .hours-heading span {
+    color: var(--cl-muted);
+    font-size: var(--rst-fs-caption);
+  }
+  .hours-actions { display: flex; align-items: center; gap: 8px; }
+  .hours-actions :global(.cl-btn) { display: inline-flex; align-items: center; gap: 6px; }
+  .hours-count {
+    color: var(--cl-muted);
+    font-size: var(--rst-fs-label);
+    font-weight: var(--rst-fw-semibold);
+  }
+  .hours-summary {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(118px, 1fr));
+    overflow-x: auto;
+    border-bottom: 1px solid var(--cl-line);
+    background: var(--cl-surface);
+    scrollbar-gutter: stable;
+  }
+  .hours-summary article {
+    min-width: 0;
+    min-height: 92px;
+    display: grid;
+    align-content: start;
+    gap: 7px;
+    padding: 10px;
+    border-right: 1px solid var(--cl-line);
+    background: var(--cl-surface);
+  }
+  .hours-summary article:last-child { border-right: 0; }
+  .hours-summary article.is-today {
+    background: color-mix(in srgb, var(--cl-accent) 5%, var(--cl-surface));
+    box-shadow: inset 0 3px 0 var(--cl-accent);
+  }
+  .hours-summary article.is-closed { background: var(--cl-surface-muted); }
+  .hours-summary article > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .hours-summary article > header strong { font-size: var(--rst-fs-control); }
+  .hours-summary article > header span {
+    padding: 2px 5px;
+    border-radius: 999px;
+    color: var(--cl-accent);
+    background: var(--cl-accent-wash);
+    font-size: var(--rst-fs-micro);
+    font-weight: var(--rst-fw-bold);
+  }
+  .hours-summary article > div { display: grid; gap: 4px; }
+  .hours-summary__period {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 1px 5px;
+    color: var(--cl-ink);
+  }
+  .hours-summary__period > :global(svg) { grid-row: 1 / 3; color: var(--cl-muted); }
+  .hours-summary__period.is-lunch > :global(svg) { color: var(--cl-lunch); }
+  .hours-summary__period.is-evening > :global(svg) { color: var(--cl-evening); }
+  .hours-summary__period b { overflow: hidden; font-size: var(--rst-fs-caption); text-overflow: ellipsis; white-space: nowrap; }
+  .hours-summary__period em { color: var(--cl-muted); font-size: var(--rst-fs-micro); font-style: normal; font-variant-numeric: tabular-nums; }
+  .hours-summary__closed { color: var(--cl-muted); font-size: var(--rst-fs-label); }
+  .hours-editor__head {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--cl-line);
+    background: var(--cl-surface-muted);
+  }
+  .hours-editor__head > strong { font-size: var(--rst-fs-control); }
+  .hours-editor__actions { display: flex; align-items: center; gap: 7px; }
 
   .service-periods {
     display: grid;
@@ -1132,25 +1440,6 @@
     outline-offset: 2px;
   }
 
-  /* The meta strip names the same configurable services as the table below. */
-  .svc-meta {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .svc-meta strong {
-    color: var(--cl-ink);
-    font-size: inherit;
-  }
-
-  .svc-meta span {
-    color: var(--cl-muted);
-  }
-
-  .svc-meta.is-lunch :global(.service-icon) { color: var(--cl-lunch); }
-  .svc-meta.is-evening :global(.service-icon) { color: var(--cl-evening); }
-
   @media (max-width: 1180px) {
     .identity-fields {
       grid-template-columns: minmax(0, 1fr);
@@ -1182,6 +1471,23 @@
 
     .logo-actions {
       grid-column: 1 / -1;
+    }
+
+    .hours-card :global(.cl-card__head) {
+      align-items: flex-start;
+    }
+    .hours-actions {
+      align-items: flex-end;
+      flex-direction: column;
+    }
+    .hours-count { display: none; }
+    .hours-editor__head {
+      align-items: stretch;
+      flex-direction: column;
+    }
+    .hours-editor__actions {
+      align-items: stretch;
+      flex-direction: column;
     }
 
     .field-row.is-contact,

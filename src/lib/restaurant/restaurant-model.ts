@@ -330,7 +330,7 @@ export function restaurantDraft(snapshot: RestaurantReadModel): RestaurantDraft 
 
 const nullable = (value: string) => value.trim() || null;
 
-function normalizedWebsite(value: string): string | null {
+export function normalizedWebsite(value: string): string | null {
   const candidate = value.trim();
   if (!candidate) return null;
   try {

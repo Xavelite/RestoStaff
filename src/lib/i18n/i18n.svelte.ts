@@ -6572,3 +6572,41 @@ Object.assign(dutch, {
   'Explore this role freely; changes stay disabled while preview is active.':
     'Verken deze rol vrij; wijzigingen blijven uitgeschakeld zolang het voorbeeld actief is.'
 });
+
+Object.assign(french, {
+  'profile details': 'détails du profil',
+  'Public presence': 'Présence en ligne',
+  '{percent}% ready': '{percent} % prêt',
+  'Google Maps': 'Google Maps',
+  'Listing and reviews': 'Fiche et avis',
+  'Open website': 'Ouvrir le site',
+  'Website missing': 'Site web manquant',
+  'Contact channels': 'Canaux de contact',
+  '{count} available': '{count} disponibles',
+  'Google reviews': 'Avis Google',
+  'Ratings stay live in Google. Open the listing to review the current score and guest feedback.':
+    'Les notes restent à jour sur Google. Ouvrez la fiche pour consulter le score actuel et les avis des clients.',
+  'Weekly service overview': 'Aperçu hebdomadaire des services',
+  '{count} service periods': '{count} périodes de service',
+  'Close editor': 'Fermer l’éditeur',
+  'Edit hours': 'Modifier les horaires'
+});
+
+Object.assign(dutch, {
+  'profile details': 'profielgegevens',
+  'Public presence': 'Online aanwezigheid',
+  '{percent}% ready': '{percent}% klaar',
+  'Google Maps': 'Google Maps',
+  'Listing and reviews': 'Vermelding en beoordelingen',
+  'Open website': 'Website openen',
+  'Website missing': 'Website ontbreekt',
+  'Contact channels': 'Contactkanalen',
+  '{count} available': '{count} beschikbaar',
+  'Google reviews': 'Google-beoordelingen',
+  'Ratings stay live in Google. Open the listing to review the current score and guest feedback.':
+    'Beoordelingen blijven actueel in Google. Open de vermelding om de huidige score en feedback van gasten te bekijken.',
+  'Weekly service overview': 'Wekelijks dienstenoverzicht',
+  '{count} service periods': '{count} dienstperiodes',
+  'Close editor': 'Editor sluiten',
+  'Edit hours': 'Uren bewerken'
+});

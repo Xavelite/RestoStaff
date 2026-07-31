@@ -166,3 +166,15 @@ export function osmLocationUrl(latitude: number, longitude: number): string {
   url.hash = `map=18/${latitude}/${longitude}`;
   return url.toString();
 }
+
+export function googleMapsSearchUrl(input: {
+  restaurantName?: string;
+  street?: string;
+  postalCode?: string;
+  city?: string;
+}): string {
+  const url = new URL('https://www.google.com/maps/search/');
+  url.searchParams.set('api', '1');
+  url.searchParams.set('query', restaurantAddressQuery(input));
+  return url.toString();
+}

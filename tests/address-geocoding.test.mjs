@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  googleMapsSearchUrl,
   osmEmbedUrl,
   osmLocationUrl,
   restaurantAddressQuery,
@@ -45,6 +46,20 @@ test('restaurant address lookup is explicit, Belgian and maps provider fields sa
     postalCode: '1000',
     city: 'Brussels'
   }]);
+});
+
+test('Google listing links use the free cross-platform Maps URL contract', () => {
+  const url = new URL(googleMapsSearchUrl({
+    restaurantName: 'Demo',
+    street: 'Rue Haute 1',
+    postalCode: '1000',
+    city: 'Brussels'
+  }));
+
+  assert.equal(url.origin, 'https://www.google.com');
+  assert.equal(url.pathname, '/maps/search/');
+  assert.equal(url.searchParams.get('api'), '1');
+  assert.equal(url.searchParams.get('query'), 'Rue Haute 1, 1000 Brussels, Belgium');
 });
 
 test('OpenStreetMap links retain the resolved marker without hand-built markup', () => {
