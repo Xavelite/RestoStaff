@@ -578,6 +578,32 @@
       draft.preferred_table_id = '';
     }
   }
+
+  /**
+   * The time is what the operator means; the service is derivable from it.
+   *
+   * Asking someone to keep a service picker in sync with the clock made a valid
+   * booking look impossible: choosing an evening time while the picker still
+   * said the lunch service returned "outside this service" with no hint that
+   * the fix was a second, unrelated field. So a typed time now moves the
+   * service to whichever open one actually contains it, and only a time that
+   * belongs to no service is refused.
+   */
+  function setDraftTime(localTime: string) {
+    draft.local_time = localTime;
+    if (!localTime) return;
+    const owning = (data?.services ?? []).find((service) => {
+      if (!service.setting?.booking_enabled) return false;
+      const opening = serviceStart(service);
+      const closes = service.exception?.availability === 'open'
+        ? service.exception.closes_at
+        : service.opening?.closes_at;
+      const closing = clockLabel(closes) || serviceDefaultHours(service.service_key).end;
+      if (!opening || !closing) return false;
+      return localTime >= opening && localTime <= closing;
+    });
+    if (owning && owning.service_key !== draft.service_key) setDraftService(owning.service_key);
+  }
 </script>
 
 <svelte:head><title>{t('Reservations')} &middot; restogogo</title></svelte:head>
@@ -1016,7 +1042,12 @@
             </label>
             <label class="cl-label">
               <span>{t('Time')}</span>
-              <input class="cl-field" type="time" bind:value={draft.local_time} />
+              <input
+                class="cl-field"
+                type="time"
+                value={draft.local_time}
+                oninput={(event) => setDraftTime(event.currentTarget.value)}
+              />
             </label>
             <label class="cl-label">
               <span>{t('Guests')}</span>
