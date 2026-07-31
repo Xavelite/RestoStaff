@@ -7,6 +7,7 @@
   import UnsavedChangesHost from '$lib/navigation/UnsavedChangesHost.svelte';
   import ToastHost from '$lib/components/ToastHost.svelte';
   import NotificationBell from '$lib/components/NotificationBell.svelte';
+  import WorkspaceLayoutToggle from '$lib/workspace-ui/WorkspaceLayoutToggle.svelte';
   import CommunicationCenter from '$lib/communications/CommunicationCenter.svelte';
   import PopcornPet from '$lib/pet/PopcornPet.svelte';
   import AccountMenu from '$lib/app-shell/AccountMenu.svelte';
@@ -275,6 +276,8 @@
 
         <span class="cl-topbar__spacer"></span>
 
+
+        <WorkspaceLayoutToggle />
 
         {#if !workspace.isPreview}
           <NotificationBell

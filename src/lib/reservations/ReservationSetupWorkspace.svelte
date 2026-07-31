@@ -7,6 +7,9 @@
   import WorkspacePicker from '$lib/workspace-ui/WorkspacePicker.svelte';
   import WorkspaceServiceIcon from '$lib/workspace-ui/WorkspaceServiceIcon.svelte';
   import WorkspaceToggle from '$lib/workspace-ui/WorkspaceToggle.svelte';
+  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
+  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
+  import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import { getReservationSetup, saveReservationSetup } from '$lib/reservations/reservation-api';
   import type { ReservationSetup, ReservationSetupDraft } from '$lib/reservations/reservation-types';
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
@@ -179,6 +182,64 @@
       {#if loading && !draft}
         <div class="setup-loading"><span class="cl-skel"></span><span class="cl-skel"></span><span class="cl-skel"></span></div>
       {:else if draft}
+        {#if workspaceLayout.cards}
+          <!-- Each service owns its booking rules, so it owns a card. The grid
+               made you read one service across seven columns to change one number. -->
+          <WorkspaceCardGrid>
+            {#each draft.services as service (service.service_key)}
+              <WorkspaceCard
+                title={t(serviceName(service.service_key))}
+              >
+                {#snippet media()}
+                  <WorkspaceServiceIcon service={service.service_key} size={16} />
+                {/snippet}
+                {#snippet children()}
+                  <div class="svc-fields">
+                    <WorkspaceToggle
+                      checked={service.booking_enabled}
+                      label={service.booking_enabled ? 'Open' : 'Closed'}
+                      onchange={(next) => {
+                        service.booking_enabled = next;
+                        touch();
+                      }}
+                    />
+                    <label class="svc-field">
+                      <span>{t('Duration')}</span>
+                      <input class="cl-field number-field" type="number" min="15" max="720" step="15" bind:value={service.default_duration_minutes} oninput={touch} />
+                    </label>
+                    <label class="svc-field">
+                      <span>{t('Interval')}</span>
+                      <input class="cl-field number-field" type="number" min="5" max="120" step="5" bind:value={service.slot_interval_minutes} oninput={touch} />
+                    </label>
+                    <div class="svc-field">
+                      <span>{t('Party size')}</span>
+                      <span class="range-field">
+                        <input class="cl-field number-field" aria-label={t('Minimum party size')} type="number" min="1" max="100" bind:value={service.minimum_party_size} oninput={touch} />
+                        <i>–</i>
+                        <input class="cl-field number-field" aria-label={t('Maximum party size')} type="number" min="1" max="500" bind:value={service.maximum_party_size} oninput={touch} />
+                      </span>
+                    </div>
+                    <div class="svc-field">
+                      <span>{t('Capacity model')}</span>
+                      <WorkspacePicker
+                        value={service.capacity_mode}
+                        options={capacityOptions}
+                        ariaLabel={t('Capacity model')}
+                        onchange={(next) => {
+                          service.capacity_mode = next === 'covers' ? 'covers' : 'tables';
+                          if (service.capacity_mode === 'covers' && service.maximum_covers === null) {
+                            service.maximum_covers = Math.max(40, service.maximum_party_size);
+                          }
+                          touch();
+                        }}
+                      />
+                    </div>
+                  </div>
+                {/snippet}
+              </WorkspaceCard>
+            {/each}
+          </WorkspaceCardGrid>
+        {:else}
         <div class="cl-tablewrap is-unbounded">
           <table class="cl-table services-grid">
             <thead>
@@ -265,12 +326,27 @@
             </tbody>
           </table>
         </div>
+        {/if}
       {/if}
     {/snippet}
   </WorkspaceTablePanel>
 </WorkspacePage>
 
 <style>
+  /* Booking rules stack as label-over-control pairs so one service's whole
+     setup is legible without reading across a wide row. */
+  .svc-fields { display: grid; gap: 8px; width: 100%; }
+
+  .svc-field { display: grid; gap: 3px; min-width: 0; }
+
+  .svc-field > span {
+    color: var(--rst-ui-muted);
+    font-size: 9px;
+    font-weight: var(--rst-fw-bold);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
   .setup-error {
     padding: 10px 12px;
     border: 1px solid var(--cl-problem-line);
