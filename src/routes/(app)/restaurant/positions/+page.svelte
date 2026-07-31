@@ -388,6 +388,13 @@
     discard();
   }
 
+  async function editPositionFromCard(positionId: string): Promise<void> {
+    workspaceLayout.set('rows');
+    view.resetFilters();
+    await tick();
+    document.getElementById(`position-catalogue-${positionId}`)?.focus();
+  }
+
   function groupedPositions(rows: PositionRow[]): PositionGroup[] {
     if (!view.grouping) {
       return [{ key: 'all', label: '', placementLabel: '', color: '', rows }];
@@ -472,37 +479,62 @@
     {/snippet}
     {#snippet children()}
       {#if workspaceLayout.cards}
-        <WorkspaceCardGrid>
+        <div class="position-visual">
           {#each groups as group (group.key)}
-            {#each group.rows as position (position.id)}
-              {@const headcount = employeesByPosition.get(position.id)?.size ?? 0}
-              <WorkspaceCard
-                accent={positionColor.get(position.id) ?? null}
-                title={position.name || t('Position')}
-                subtitle={linkedAreaSetLabel(linkedPositionAreaIds(position))}
-                badges={[
-                  position.active
-                    ? { label: t('Active'), tone: 'ok' as const }
-                    : { label: t('Archived'), tone: 'neutral' as const }
-                ]}
-                meta={[
-                  { label: t('People'), value: String(headcount), muted: headcount === 0 },
-                  ...(workspace.canViewFinancials
-                    ? [{ label: t('Estimated hourly cost'), value: `€ ${position.estimatedHourlyCost}` }]
-                    : [])
-                ]}
-              >
-                {#snippet media()}
-                  <WorkspaceAreaIcon
-                    icon={positionAreaIcon(position)}
-                    color={positionColor.get(position.id) ?? 'var(--cl-line-strong)'}
-                    size={17}
-                  />
-                {/snippet}
-              </WorkspaceCard>
-            {/each}
+            <section class="position-visual__group" style={`--group-tone:${group.color || 'var(--cl-line-strong)'}`}>
+              {#if group.label}
+                <header>
+                  <span class="position-visual__group-icon">
+                    <WorkspaceAreaIcon
+                      icon={view.groupBy === 'category' ? positionCategoryIcon(group.key.replace('category:', '')) : 'support'}
+                      color={group.color || 'var(--cl-muted)'}
+                      size={15}
+                      compact
+                    />
+                  </span>
+                  <strong>{group.label}</strong>
+                  <small>{group.rows.length === 1 ? t('1 position') : t('{count} positions', { count: group.rows.length })}</small>
+                  <i aria-hidden="true"></i>
+                </header>
+              {/if}
+              <WorkspaceCardGrid>
+                {#each group.rows as position (position.id)}
+                  {@const headcount = employeesByPosition.get(position.id)?.size ?? 0}
+                  <WorkspaceCard
+                    accent={positionColor.get(position.id) ?? null}
+                    title={position.name || t('Position')}
+                    subtitle={linkedAreaSetLabel(linkedPositionAreaIds(position))}
+                    badges={[
+                      position.active
+                        ? { label: t('Active'), tone: 'ok' as const }
+                        : { label: t('Archived'), tone: 'neutral' as const },
+                      { label: t('{count} people', { count: headcount }), tone: headcount ? 'accent' as const : 'neutral' as const }
+                    ]}
+                    meta={workspace.canViewFinancials
+                      ? [{ label: t('Estimated hourly cost'), value: `€ ${position.estimatedHourlyCost}` }]
+                      : []}
+                    onactivate={() => void editPositionFromCard(position.id)}
+                  >
+                    {#snippet media()}
+                      <WorkspaceAreaIcon
+                        icon={positionAreaIcon(position)}
+                        color={positionColor.get(position.id) ?? 'var(--cl-line-strong)'}
+                        size={17}
+                      />
+                    {/snippet}
+                    {#snippet children()}
+                      {#if headcount}
+                        <WorkspacePeopleStack people={peopleForPosition(position.id)} />
+                      {:else}
+                        <span class="position-visual__empty">{t('No staff assigned')}</span>
+                      {/if}
+                    {/snippet}
+                  </WorkspaceCard>
+                {/each}
+              </WorkspaceCardGrid>
+            </section>
           {/each}
-        </WorkspaceCardGrid>
+        </div>
       {:else}
       <div class="cl-tablewrap">
         <table class="cl-table cl-mobile-rows">
@@ -648,6 +680,30 @@
 {/if}
 
 <style>
+  .position-visual {
+    display: grid;
+    gap: 18px;
+    padding: 18px;
+  }
+  .position-visual__group { min-width: 0; display: grid; gap: 9px; }
+  .position-visual__group > header {
+    min-height: 28px;
+    display: grid;
+    grid-template-columns: auto auto auto minmax(40px, 1fr);
+    align-items: center;
+    gap: 7px;
+  }
+  .position-visual__group > header strong { font-size: var(--rst-fs-control); }
+  .position-visual__group > header small { color: var(--cl-muted); font-size: var(--rst-fs-caption); }
+  .position-visual__group > header i {
+    height: 1px;
+    margin-left: 5px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--group-tone) 54%, var(--cl-line)), transparent);
+  }
+  .position-visual__group-icon { display: inline-flex; }
+  .position-visual__group :global(.card-grid) { padding: 0; }
+  .position-visual__empty { color: var(--cl-muted); font-size: var(--rst-fs-label); }
+
   .money-field {
     min-width: 112px;
     display: inline-grid;

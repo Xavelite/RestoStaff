@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import WorkspaceColMenu from './WorkspaceColMenu.svelte';
+  import WorkspaceColumnResizeHandle from './WorkspaceColumnResizeHandle.svelte';
   import WorkspaceGroupMenu from './WorkspaceGroupMenu.svelte';
 
   type FilterValue = { value: string; label: string };
@@ -27,7 +28,8 @@
     groupValue = 'none',
     groupOptions = [],
     ongroupchange,
-    groupLabel = 'Group rows'
+    groupLabel = 'Group rows',
+    columnKey = label
   }: {
     label: string;
     labelIcon?: 'people';
@@ -50,6 +52,7 @@
     groupOptions?: GroupOption[];
     ongroupchange?: (value: string) => void;
     groupLabel?: string;
+    columnKey?: string;
   } = $props();
 </script>
 
@@ -73,6 +76,7 @@
       {onselectall}
       {extra}
       {extraActive}
+      resizable={false}
     />
   {:else}
     <WorkspaceColMenu
@@ -92,6 +96,7 @@
       {ontoggle}
       {onselectall}
       {extraActive}
+      resizable={false}
     />
   {/if}
 
@@ -103,4 +108,10 @@
       label={groupLabel}
     />
   {/if}
+
+  <WorkspaceColumnResizeHandle {columnKey} />
 </div>
+
+<style>
+  .cl-primary-head { position: relative; }
+</style>

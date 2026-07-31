@@ -8,8 +8,7 @@
     Mail,
     MapPin,
     Phone,
-    Search,
-    Star
+    Search
   } from '@lucide/svelte';
   import { onDestroy } from 'svelte';
   import { friendlyError } from '$lib/api/error-messages';
@@ -38,6 +37,7 @@
     type RestaurantAddressCandidate
   } from '$lib/restaurant/address-geocoding';
   import { normalizedWebsite } from '$lib/restaurant/restaurant-model';
+  import { isValidEmail, isValidPhone } from '$lib/validation/contact';
 
   let logoBusy = $state(false);
   let logoError = $state('');
@@ -114,6 +114,15 @@
     };
   });
   const publicWebsiteUrl = $derived(normalizedWebsite(context?.draft.websiteUrl ?? ''));
+  const emailInvalid = $derived(
+    Boolean(context?.draft.email.trim()) && !isValidEmail(context?.draft.email ?? '')
+  );
+  const phoneInvalid = $derived(
+    Boolean(context?.draft.phone.trim()) && !isValidPhone(context?.draft.phone ?? '')
+  );
+  const websiteInvalid = $derived(
+    Boolean(context?.draft.websiteUrl.trim()) && !publicWebsiteUrl
+  );
   const googleListingUrl = $derived.by(() => {
     const draft = context?.draft;
     if (!draft) return '';
@@ -126,7 +135,7 @@
   });
   const profileReadiness = $derived.by(() => {
     const draft = context?.draft;
-    if (!draft) return { complete: 0, total: 5, percent: 0 };
+    if (!draft) return { complete: 0, total: 5 };
     const checks = [
       Boolean(logoUrl),
       Boolean(draft.email.trim()),
@@ -135,34 +144,65 @@
       Boolean(resolvedLocation)
     ];
     const complete = checks.filter(Boolean).length;
-    return { complete, total: checks.length, percent: Math.round((complete / checks.length) * 100) };
+    return { complete, total: checks.length };
   });
   const restaurantToday = $derived(
     weekday(todayInTimezone(snapshot?.restaurant_settings.timezone || 'Europe/Brussels'))
   );
+
+  function locationSearchIsReady(): boolean {
+    if (!context) return false;
+    const draft = context.draft;
+    const hasLocality =
+      draft.postalCode.trim().length >= 3 || draft.city.trim().length >= 2;
+    return (
+      (draft.address.trim().length >= 4 && hasLocality) ||
+      (draft.displayName.trim().length >= 3 && draft.city.trim().length >= 2)
+    );
+  }
+
+  function scheduleLocationSearch(includeRestaurantName: boolean) {
+    clearTimeout(addressSearchTimer);
+    locationRequest += 1;
+    locationBusy = false;
+    locationCandidates = [];
+    locationError = '';
+    if (locationSearchIsReady()) {
+      addressSearchTimer = setTimeout(
+        () => void locateRestaurant(true, includeRestaurantName),
+        700
+      );
+    }
+  }
+
+  function touchIdentity() {
+    restaurantConfig.touch();
+    scheduleLocationSearch(true);
+  }
 
   function touchAddress() {
     if (!context) return;
     context.draft.locationLatitude = null;
     context.draft.locationLongitude = null;
     context.draft.locationLabel = '';
-    locationCandidates = [];
-    locationError = '';
     restaurantConfig.touch();
-    clearTimeout(addressSearchTimer);
-    const hasEnoughAddress =
-      context.draft.address.trim().length >= 4 &&
-      (context.draft.postalCode.trim().length >= 3 ||
-        context.draft.city.trim().length >= 2);
-    if (hasEnoughAddress) {
-      addressSearchTimer = setTimeout(() => void locateRestaurant(true), 650);
-    }
+    scheduleLocationSearch(false);
   }
 
-  async function locateRestaurant(automatic = false) {
+  function submitLocationSearch(event: KeyboardEvent) {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    clearTimeout(addressSearchTimer);
+    const fromRestaurantName =
+      event.currentTarget instanceof HTMLElement &&
+      event.currentTarget.classList.contains('name-field');
+    void locateRestaurant(false, fromRestaurantName);
+  }
+
+  async function locateRestaurant(automatic = false, includeRestaurantName = true) {
     if (!context) return;
     const query = restaurantAddressQuery({
-      restaurantName: context.draft.displayName,
+      restaurantName: includeRestaurantName ? context.draft.displayName : '',
       street: context.draft.address,
       postalCode: context.draft.postalCode,
       city: context.draft.city
@@ -341,7 +381,8 @@
                 aria-label={t('Display name')}
                 placeholder={t('Restaurant name')}
                 bind:value={draft.displayName}
-                oninput={() => restaurantConfig.touch()}
+                oninput={touchIdentity}
+                onkeydown={submitLocationSearch}
               />
               <div class="identity-head__meta">
                 <span>{t('Belgium')}</span>
@@ -371,15 +412,17 @@
                   <span>{t('Email')}</span>
                   <span class="input-with-icon">
                     <Mail size={14} aria-hidden="true" />
-                    <input class="cl-field" type="email" bind:value={draft.email} oninput={() => restaurantConfig.touch()} />
+                    <input class="cl-field" class:is-invalid={emailInvalid} type="email" autocomplete="email" aria-invalid={emailInvalid} bind:value={draft.email} oninput={() => restaurantConfig.touch()} />
                   </span>
+                  {#if emailInvalid}<small class="field-error">{t('Enter a valid email address.')}</small>{/if}
                 </label>
                 <label class="cl-label">
                   <span>{t('Phone')}</span>
                   <span class="input-with-icon">
                     <Phone size={14} aria-hidden="true" />
-                    <input class="cl-field" bind:value={draft.phone} oninput={() => restaurantConfig.touch()} />
+                    <input class="cl-field" class:is-invalid={phoneInvalid} type="tel" inputmode="tel" autocomplete="tel" aria-invalid={phoneInvalid} bind:value={draft.phone} oninput={() => restaurantConfig.touch()} />
                   </span>
+                  {#if phoneInvalid}<small class="field-error">{t('Enter a valid phone number.')}</small>{/if}
                 </label>
                 <label class="cl-label">
                   <span>{t('Website')}</span>
@@ -387,12 +430,17 @@
                     <Globe2 size={14} aria-hidden="true" />
                     <input
                       class="cl-field"
-                      type="url"
+                      type="text"
+                      inputmode="url"
+                      autocomplete="url"
                       placeholder="https://"
+                      class:is-invalid={websiteInvalid}
+                      aria-invalid={websiteInvalid}
                       bind:value={draft.websiteUrl}
                       oninput={() => restaurantConfig.touch()}
                     />
                   </span>
+                  {#if websiteInvalid}<small class="field-error">{t('Enter a valid website address.')}</small>{/if}
                 </label>
               </div>
             </section>
@@ -415,7 +463,7 @@
                     class="location-state is-retry"
                     type="button"
                     disabled={!draft.address.trim() && !draft.city.trim()}
-                    onclick={() => void locateRestaurant()}
+                    onclick={() => void locateRestaurant(false, false)}
                   >
                     <Search size={13} aria-hidden="true" />
                     {t('Try address search again')}
@@ -432,16 +480,16 @@
                   <div class="field-row is-address">
                     <label class="cl-label">
                       <span>{t('Street and number')}</span>
-                      <input class="cl-field" autocomplete="street-address" bind:value={draft.address} oninput={touchAddress} />
+                      <input class="cl-field" autocomplete="street-address" bind:value={draft.address} oninput={touchAddress} onkeydown={submitLocationSearch} />
                     </label>
                     <div class="address-lower">
                       <label class="cl-label">
                         <span>{t('Postal code')}</span>
-                        <input class="cl-field" autocomplete="postal-code" bind:value={draft.postalCode} oninput={touchAddress} />
+                        <input class="cl-field" autocomplete="postal-code" bind:value={draft.postalCode} oninput={touchAddress} onkeydown={submitLocationSearch} />
                       </label>
                       <label class="cl-label">
                         <span>{t('City')}</span>
-                        <input class="cl-field" autocomplete="address-level2" bind:value={draft.city} oninput={touchAddress} />
+                        <input class="cl-field" autocomplete="address-level2" bind:value={draft.city} oninput={touchAddress} onkeydown={submitLocationSearch} />
                       </label>
                       <label class="cl-label">
                         <span>{t('Country')}</span>
@@ -503,24 +551,11 @@
             </section>
 
             <section class="field-group presence-panel">
-              <div class="field-group__head">
-                <span class="field-group__title">{t('Public presence')}</span>
-                <strong class="presence-score">{t('{percent}% ready', { percent: profileReadiness.percent })}</strong>
-              </div>
-              <div
-                class="presence-progress"
-                role="progressbar"
-                aria-label={t('Public presence')}
-                aria-valuemin="0"
-                aria-valuemax="100"
-                aria-valuenow={profileReadiness.percent}
-              >
-                <i style:width={`${profileReadiness.percent}%`}></i>
-              </div>
+              <span class="field-group__title">{t('Public presence')}</span>
               <div class="presence-links">
                 <a href={googleListingUrl} target="_blank" rel="noreferrer">
                   <span class="presence-link__icon is-google"><MapPin size={16} aria-hidden="true" /></span>
-                  <span><strong>{t('Google Maps')}</strong><small>{t('Listing and reviews')}</small></span>
+                  <span><strong>{t('Google Maps')}</strong><small>{t('Public listing')}</small></span>
                   <ExternalLink size={14} aria-hidden="true" />
                 </a>
                 {#if publicWebsiteUrl}
@@ -542,13 +577,6 @@
                     <small>{t('{count} available', { count: Number(Boolean(draft.email.trim())) + Number(Boolean(draft.phone.trim())) })}</small>
                   </span>
                 </div>
-              </div>
-              <div class="review-note">
-                <Star size={16} aria-hidden="true" />
-                <p>
-                  <strong>{t('Google reviews')}</strong>
-                  <span>{t('Ratings stay live in Google. Open the listing to review the current score and guest feedback.')}</span>
-                </p>
               </div>
             </section>
           </div>
@@ -850,7 +878,7 @@
   .identity-fields {
     min-width: 0;
     display: grid;
-    grid-template-columns: minmax(250px, .72fr) minmax(550px, 1.55fr) minmax(260px, .73fr);
+    grid-template-columns: minmax(235px, .58fr) minmax(650px, 1.9fr) minmax(245px, .62fr);
   }
 
   .field-group {
@@ -960,10 +988,19 @@
     width: 100%;
     padding-left: 31px;
   }
+  .identity-fields :global(.cl-field.is-invalid) {
+    border-color: color-mix(in srgb, var(--cl-problem) 62%, var(--cl-line));
+    background: color-mix(in srgb, var(--cl-problem) 4%, var(--cl-surface));
+  }
+  .field-error {
+    color: var(--cl-problem);
+    font-size: var(--rst-fs-caption);
+    font-weight: var(--rst-fw-medium);
+  }
   .location-layout {
     min-width: 0;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(230px, .72fr);
+    grid-template-columns: minmax(0, .92fr) minmax(320px, 1.08fr);
     align-items: stretch;
     gap: 12px;
   }
@@ -1018,7 +1055,7 @@
   .location-error { color: var(--cl-problem); }
   .location-map {
     position: relative;
-    min-height: 170px;
+    min-height: 220px;
     overflow: hidden;
     border: 1px solid var(--cl-line-strong);
     border-radius: var(--cl-radius);
@@ -1026,7 +1063,7 @@
   }
   .location-map iframe {
     width: 100%;
-    height: 138px;
+    height: 188px;
     display: block;
     border: 0;
   }
@@ -1062,7 +1099,7 @@
     text-decoration: none;
   }
   .location-map__empty {
-    min-height: 168px;
+    min-height: 218px;
     display: grid;
     align-content: center;
     justify-items: center;
@@ -1105,24 +1142,7 @@
 
   .presence-panel {
     position: relative;
-    background: color-mix(in srgb, var(--cl-warning, #f59e0b) 2.5%, var(--cl-surface));
-  }
-  .presence-score {
-    color: var(--cl-accent);
-    font-size: var(--rst-fs-label);
-  }
-  .presence-progress {
-    height: 5px;
-    overflow: hidden;
-    border-radius: 999px;
-    background: var(--cl-line);
-  }
-  .presence-progress i {
-    height: 100%;
-    display: block;
-    border-radius: inherit;
-    background: var(--cl-accent);
-    transition: width .24s var(--cl-ease);
+    background: color-mix(in srgb, var(--cl-accent) 1.5%, var(--cl-surface));
   }
   .presence-links {
     display: grid;
@@ -1178,21 +1198,6 @@
   }
   .presence-links strong { font-size: var(--rst-fs-control); }
   .presence-links small { margin-top: 1px; color: var(--cl-muted); font-size: var(--rst-fs-caption); }
-  .review-note {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 8px;
-    padding: 10px;
-    border: 1px solid #fed7aa;
-    border-radius: var(--cl-radius-sm);
-    color: #9a3412;
-    background: #fff7ed;
-  }
-  .review-note > :global(svg) { margin-top: 1px; fill: #fbbf24; color: #b45309; }
-  .review-note p { display: grid; gap: 2px; margin: 0; }
-  .review-note strong { font-size: var(--rst-fs-label); }
-  .review-note span { color: #7c2d12; font-size: var(--rst-fs-caption); line-height: 1.4; }
-
   .logo-error {
     margin: 10px 16px 0;
     color: var(--cl-problem);

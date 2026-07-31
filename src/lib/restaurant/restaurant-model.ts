@@ -8,6 +8,7 @@ import {
 } from './workspace-catalogue.ts';
 import { uniqueAreaTechnicalCode } from './area-instance.ts';
 import type { RestaurantSavePayload } from '$lib/api/mutations';
+import { isValidEmail, isValidPhone } from '../validation/contact.ts';
 import {
   WEEKDAYS,
   configuredServicePeriods,
@@ -365,6 +366,12 @@ export function restaurantDraftValidationError(draft: RestaurantDraft): string |
   if (!activeServices.length) return 'At least one active service period is required.';
   if (new Set(activeServices.map((service) => service.serviceKey)).size !== activeServices.length) {
     return 'Each service period needs a unique key.';
+  }
+  if (!isValidEmail(draft.email)) {
+    return 'Enter a valid restaurant email address.';
+  }
+  if (!isValidPhone(draft.phone)) {
+    return 'Enter a valid restaurant phone number.';
   }
   if (draft.websiteUrl.trim() && !normalizedWebsite(draft.websiteUrl)) {
     return 'Enter a valid restaurant website.';

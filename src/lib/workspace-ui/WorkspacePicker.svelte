@@ -2,6 +2,7 @@
   import { Pencil } from '@lucide/svelte';
   import { tick } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
+  import { portal } from '$lib/ui/portal';
   import type { ServiceKey } from '$lib/calendar/date';
   import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
   import WorkspaceServiceIcon from './WorkspaceServiceIcon.svelte';
@@ -93,7 +94,7 @@
   $effect(() => {
     if (!open) return;
     const onDocClick = (event: MouseEvent) => {
-      if (root && !root.contains(event.target as Node)) open = false;
+      if (root && !root.contains(event.target as Node) && !menu?.contains(event.target as Node)) open = false;
     };
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') open = false;
@@ -145,7 +146,7 @@
   </button>
 
   {#if open}
-    <div bind:this={menu} class="cl-picker__menu colmenu is-floating" style={`left:${menuLeft}px;top:${menuTop}px;min-width:${menuWidth}px`} role="listbox">
+    <div use:portal bind:this={menu} class="cl-picker__menu colmenu is-floating" style={`left:${menuLeft}px;top:${menuTop}px;min-width:${menuWidth}px`} role="listbox">
       {#if searchable}
         <div class="colmenu__search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.2-3.2" /></svg>

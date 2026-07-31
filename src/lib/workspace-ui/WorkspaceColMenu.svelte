@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tick, type Snippet } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
+  import { portal } from '$lib/ui/portal';
   import WorkspaceColumnResizeHandle from './WorkspaceColumnResizeHandle.svelte';
 
   type FilterValue = { value: string; label: string };
@@ -94,7 +95,7 @@
   $effect(() => {
     if (!open) return;
     const onDocClick = (event: MouseEvent) => {
-      if (root && !root.contains(event.target as Node)) open = false;
+      if (root && !root.contains(event.target as Node) && !menu?.contains(event.target as Node)) open = false;
     };
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') open = false;
@@ -148,7 +149,7 @@
   {/if}
 
   {#if open}
-    <div bind:this={menu} class="colmenu is-floating" class:is-right={menuRight} style={`left:${menuLeft}px;top:${menuTop}px`} role="menu">
+    <div use:portal bind:this={menu} class="colmenu is-floating" class:is-right={menuRight} style={`left:${menuLeft}px;top:${menuTop}px`} role="menu">
       {#if filterKind === 'text'}
         <div class="colmenu__search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.2-3.2" /></svg>

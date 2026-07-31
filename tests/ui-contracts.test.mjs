@@ -791,7 +791,8 @@ test('Restaurant profile keeps public presence honest and opening hours compact'
   assert.match(profile, /googleListingUrl/);
   assert.match(profile, /class="hours-summary"/);
   assert.match(profile, /\{#if hoursExpanded\}/);
-  assert.match(profile, /Ratings stay live in Google/);
+  assert.match(profile, /Public listing/);
+  assert.doesNotMatch(profile, /Ratings stay live in Google|presence-progress/);
   assert.match(location, /https:\/\/www\.google\.com\/maps\/search\//);
   assert.doesNotMatch(profile, /GOOGLE_MAPS_API_KEY|places\.googleapis\.com/);
 });

@@ -14,6 +14,7 @@
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
   import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
   import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
+  import WorkspacePicker from '$lib/workspace-ui/WorkspacePicker.svelte';
   import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
   import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
@@ -199,6 +200,23 @@
     { value: 'ready', label: t('Ready') },
     { value: 'incomplete', label: t('Incomplete') }
   ];
+  const workerOptions = [
+    { value: '', label: t('Not set') },
+    { value: 'blue_collar', label: t('Blue-collar worker') },
+    { value: 'white_collar', label: t('White-collar employee') }
+  ];
+  const salaryOptions = [
+    { value: '', label: t('Not set') },
+    { value: 'hourly', label: t('Hourly') },
+    { value: 'monthly', label: t('Monthly') }
+  ];
+  const functionOptions = $derived([
+    { value: '', label: t('Not set') },
+    ...(teamDraft.payrollCatalogue?.referenceFunctions ?? []).map((item) => ({
+      value: item.code,
+      label: `${item.code} · ${item.name_en || item.name_fr || item.name_nl || item.code}`
+    }))
+  ]);
 </script>
 
 <svelte:head><title>{t('Payroll')} &middot; {t('Team')} &middot; restogogo</title></svelte:head>
@@ -328,12 +346,12 @@
                           <span>{missing.length ? t('{count} details missing', { count: missing.length }) : t('Ready')}</span>
                         </span>
                       </td>
-                      {#if shown('position')}<td>{team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position')}</td>{/if}
-                      {#if shown('payrollId')}<td class="action-cell"><button type="button" onclick={() => (detailId = employee.id)}>{employee.payrollEmployeeId || t('Add payroll ID')}</button></td>{/if}
-                      {#if shown('worker')}<td class="action-cell"><button type="button" onclick={() => (detailId = employee.id)}>{workerLabel(employee)}</button></td>{/if}
-                      {#if shown('function')}<td class="action-cell"><button type="button" onclick={() => (detailId = employee.id)}>{functionLabel(employee)}</button></td>{/if}
-                      {#if shown('salary')}<td class="action-cell"><button type="button" onclick={() => (detailId = employee.id)}>{salaryLabel(employee)}</button></td>{/if}
-                      {#if shown('bank')}<td class="action-cell"><button type="button" onclick={() => (detailId = employee.id)}>{bankLabel(employee)}</button></td>{/if}
+                      {#if shown('position')}<td class="readonly-cell">{team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position')}</td>{/if}
+                      {#if shown('payrollId')}<td class="editable-cell"><input class="grid-field" type="text" value={employee.payrollEmployeeId} placeholder={t('Add payroll ID')} disabled={!team.editable} aria-label={`${t('Payroll ID')} · ${employee.displayName}`} oninput={(event) => teamDraft.update(employee.id, { payrollEmployeeId: event.currentTarget.value })} /></td>{/if}
+                      {#if shown('worker')}<td><WorkspacePicker value={employee.workerStatus} options={workerOptions} disabled={!team.editable} ariaLabel={`${t('Worker status')} · ${employee.displayName}`} onchange={(value) => teamDraft.update(employee.id, { workerStatus: value as EmployeeDraft['workerStatus'] })} /></td>{/if}
+                      {#if shown('function')}<td><WorkspacePicker value={employee.cp302ReferenceFunctionCode} options={functionOptions} disabled={!team.editable} ariaLabel={`${t('CP 302 function')} · ${employee.displayName}`} onchange={(value) => teamDraft.update(employee.id, { cp302ReferenceFunctionCode: value })} /></td>{/if}
+                      {#if shown('salary')}<td class="salary-cell"><div class="salary-inline"><WorkspacePicker value={employee.salaryBasis} options={salaryOptions} disabled={!team.editable} ariaLabel={`${t('Salary basis')} · ${employee.displayName}`} onchange={(value) => teamDraft.update(employee.id, { salaryBasis: value as EmployeeDraft['salaryBasis'] })} />{#if employee.salaryBasis}<span class="money-input"><span>€</span><input class="grid-field" type="text" inputmode="decimal" value={employee.salaryBasis === 'monthly' ? employee.contractualMonthlySalary : employee.contractualHourlyRate} placeholder="0.00" disabled={!team.editable} aria-label={`${t(employee.salaryBasis === 'monthly' ? 'Monthly salary' : 'Hourly rate')} · ${employee.displayName}`} oninput={(event) => teamDraft.update(employee.id, employee.salaryBasis === 'monthly' ? { contractualMonthlySalary: event.currentTarget.value } : { contractualHourlyRate: event.currentTarget.value })} /></span>{/if}</div></td>{/if}
+                      {#if shown('bank')}<td class="editable-cell"><input class="grid-field bank-field" type="text" value={employee.iban} placeholder={t('Add IBAN')} disabled={!team.editable} autocomplete="off" aria-label={`${t('IBAN')} · ${employee.displayName}`} oninput={(event) => teamDraft.update(employee.id, { iban: event.currentTarget.value.toUpperCase() })} /></td>{/if}
                       {#if shown('readiness')}<td class="action-cell"><button type="button" onclick={() => (detailId = employee.id)}>{#if missing.length}<WorkspaceCellBadge label={'{count} missing'} params={{ count: missing.length }} tone="warning" icon="warning" />{:else}<WorkspaceCellBadge label="Ready" tone="success" icon="check" />{/if}</button></td>{/if}
                       <td class="menu-cell"><WorkspaceRowMenu items={[{ label: t('Open payroll setup'), onselect: () => (detailId = employee.id) }]} /></td>
                     </tr>
@@ -396,6 +414,37 @@
   .action-cell {
     padding: 0 !important;
   }
+
+  .readonly-cell {
+    color: var(--cl-muted) !important;
+    background: color-mix(in srgb, var(--cl-surface-muted) 58%, var(--cl-surface)) !important;
+  }
+
+  .editable-cell,
+  .salary-cell { padding: 0 !important; }
+
+  .grid-field {
+    width: 100%;
+    min-height: var(--cl-row);
+    padding: 9px 14px;
+    border: 1px solid transparent;
+    border-radius: 0;
+    outline: 0;
+    color: var(--cl-ink);
+    background: transparent;
+    font: inherit;
+    font-size: var(--rst-fs-body);
+    transition: border-color var(--cl-dur) var(--cl-ease), background var(--cl-dur) var(--cl-ease);
+  }
+  .grid-field:hover:not(:disabled) { background: var(--cl-surface-muted); }
+  .grid-field:focus { border-color: var(--cl-accent); background: var(--cl-surface); box-shadow: inset 0 0 0 1px var(--cl-accent); }
+  .grid-field::placeholder { color: var(--cl-accent); }
+  .salary-inline { min-width: 225px; display: grid; grid-template-columns: minmax(105px, .9fr) minmax(100px, 1fr); align-items: center; }
+  .salary-inline > :global(.cl-picker) { border-right: 1px solid var(--cl-line); }
+  .money-input { position: relative; min-width: 0; display: block; }
+  .money-input > span { position: absolute; z-index: 1; left: 10px; top: 50%; color: var(--cl-muted); font-size: var(--rst-fs-control); transform: translateY(-50%); pointer-events: none; }
+  .money-input .grid-field { padding-left: 25px; }
+  .bank-field { min-width: 170px; font-variant-numeric: tabular-nums; }
 
   .action-cell > button {
     width: 100%;

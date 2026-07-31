@@ -40,6 +40,12 @@
     placementLabel: string;
     rows: Row[];
   };
+  type CoverageVisualRule = {
+    key: string;
+    areaId: string;
+    jobFunctionId: string;
+    rows: Row[];
+  };
 
   let newRows = $state<NewRow[]>([]);
   let mobileWeekday = $state(1);
@@ -317,6 +323,30 @@
     });
   }
 
+  function mergedCoverageRules(rows: Row[]): CoverageVisualRule[] {
+    const merged = new Map<string, CoverageVisualRule>();
+    for (const row of rows) {
+      const key = `${row.areaId}|${row.jobFunctionId}`;
+      const rule = merged.get(key) ?? {
+        key,
+        areaId: row.areaId,
+        jobFunctionId: row.jobFunctionId,
+        rows: []
+      };
+      rule.rows.push(row);
+      merged.set(key, rule);
+    }
+    const serviceOrder = new Map(
+      (restaurantConfig.draft?.services ?? []).map((service, index) => [service.serviceKey, index])
+    );
+    return [...merged.values()].map((rule) => ({
+      ...rule,
+      rows: rule.rows.toSorted(
+        (left, right) => (serviceOrder.get(left.serviceKey) ?? 999) - (serviceOrder.get(right.serviceKey) ?? 999)
+      )
+    }));
+  }
+
   const readRestaurantContext = useWorkspaceRestaurantContext();
   const context = $derived(readRestaurantContext());
 </script>
@@ -431,45 +461,62 @@
         </div>
 
         {#if workspaceLayout.cards}
-          <!-- One rule per card with its whole week on show. The matrix compares
-               weekdays down a column; this compares them across a single rule,
-               which is the unit a manager actually edits. -->
-          <div class="coverage-desktop">
-            <WorkspaceCardGrid>
-              {#each groups as group (group.key)}
-                {#each group.rows as row (rowKey(row))}
-                  <WorkspaceCard
-                    accent={areaColor.get(row.areaId) ?? null}
-                    title={areaName.get(row.areaId) ?? '—'}
-                    subtitle={`${jobName.get(row.jobFunctionId) ?? '—'} · ${serviceName(row.serviceKey)}`}
-                  >
-                    {#snippet media()}
-                      <WorkspaceAreaIcon icon={areaIcon(row.areaId)} color={areaColor.get(row.areaId)} size={17} compact />
-                    {/snippet}
-                    {#snippet children()}
-                      <div class="cov-strip">
-                        {#each WEEKDAYS as day, index (index)}
-                          {@const value = entry(draft, row, index + 1)}
-                          <label class="cov-strip__day" class:is-set={Boolean(value)}>
-                            <span>{t(day).slice(0, 3)}</span>
-                            <input
-                              type="number"
-                              min="0"
-                              step="1"
-                              placeholder="—"
-                              value={value?.requiredCount ?? ''}
-                              disabled={workspace.isPreview}
-                              aria-label={`${t(day)} ${t('required people')}`}
-                              oninput={(event) => setCount(row, index + 1, event.currentTarget.value)}
-                            />
-                          </label>
-                        {/each}
-                      </div>
-                    {/snippet}
-                  </WorkspaceCard>
-                {/each}
-              {/each}
-            </WorkspaceCardGrid>
+          <div class="coverage-desktop staffing-visual">
+            {#each groups as group (group.key)}
+              <section class="staffing-visual__group">
+                {#if group.label}
+                  {@const combinationCount = mergedCoverageRules(group.rows).length}
+                  <header>
+                    <strong>{group.label}</strong>
+                    <small>{combinationCount === 1 ? t('1 staffing combination') : t('{count} staffing combinations', { count: combinationCount })}</small>
+                    <i aria-hidden="true"></i>
+                  </header>
+                {/if}
+                <WorkspaceCardGrid>
+                  {#each mergedCoverageRules(group.rows) as rule (rule.key)}
+                    <WorkspaceCard
+                      accent={areaColor.get(rule.areaId) ?? null}
+                      title={jobName.get(rule.jobFunctionId) ?? '—'}
+                      subtitle={areaName.get(rule.areaId) ?? '—'}
+                    >
+                      {#snippet media()}
+                        <WorkspaceAreaIcon icon={positionIcon(rule.jobFunctionId)} color={positionColor.get(rule.jobFunctionId)} size={17} compact />
+                      {/snippet}
+                      {#snippet children()}
+                        <div class="staffing-services">
+                          {#each rule.rows as row (rowKey(row))}
+                            <section class="staffing-service">
+                              <header>
+                                <span><WorkspaceServiceIcon service={row.serviceKey} size={14} />{serviceName(row.serviceKey)}</span>
+                                <button type="button" disabled={workspace.isPreview} title={t('Remove requirement')} aria-label={t('Remove requirement')} onclick={() => removeRow(row)}>×</button>
+                              </header>
+                              <div class="cov-strip">
+                                {#each WEEKDAYS as day, index (index)}
+                                  {@const value = entry(draft, row, index + 1)}
+                                  <label class="cov-strip__day" class:is-set={Boolean(value)}>
+                                    <span>{t(day).slice(0, 3)}</span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="1"
+                                      placeholder="—"
+                                      value={value?.requiredCount ?? ''}
+                                      disabled={workspace.isPreview}
+                                      aria-label={`${t(day)} ${t('required people')}`}
+                                      oninput={(event) => setCount(row, index + 1, event.currentTarget.value)}
+                                    />
+                                  </label>
+                                {/each}
+                              </div>
+                            </section>
+                          {/each}
+                        </div>
+                      {/snippet}
+                    </WorkspaceCard>
+                  {/each}
+                </WorkspaceCardGrid>
+              </section>
+            {/each}
           </div>
         {:else}
         <div class="cl-tablewrap coverage-desktop">
@@ -540,6 +587,26 @@
 {/if}
 
 <style>
+  .staffing-visual { display: grid; gap: 18px; padding: 18px; }
+  .staffing-visual__group { min-width: 0; display: grid; gap: 9px; }
+  .staffing-visual__group > header {
+    display: grid;
+    grid-template-columns: auto auto minmax(40px, 1fr);
+    align-items: baseline;
+    gap: 8px;
+  }
+  .staffing-visual__group > header strong { font-size: var(--rst-fs-control); }
+  .staffing-visual__group > header small { color: var(--cl-muted); font-size: var(--rst-fs-caption); }
+  .staffing-visual__group > header i { height: 1px; background: linear-gradient(90deg, var(--cl-line-strong), transparent); }
+  .staffing-visual__group :global(.card-grid) { padding: 0; }
+  .staffing-services { width: 100%; display: grid; gap: 11px; }
+  .staffing-service { min-width: 0; display: grid; gap: 6px; }
+  .staffing-service + .staffing-service { padding-top: 10px; border-top: 1px solid var(--cl-line); }
+  .staffing-service > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .staffing-service > header span { display: inline-flex; align-items: center; gap: 6px; color: var(--cl-ink); font-size: var(--rst-fs-label); font-weight: var(--rst-fw-bold); }
+  .staffing-service > header button { width: 24px; height: 24px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 5px; color: var(--cl-muted); background: transparent; font: inherit; cursor: pointer; }
+  .staffing-service > header button:hover:not(:disabled) { color: var(--cl-problem); background: var(--cl-surface-muted); }
+
   /* The week as one strip: seven equal days, so an uneven rule shows its shape
      at a glance and a set day reads as filled rather than merely typed in. */
   .cov-strip {

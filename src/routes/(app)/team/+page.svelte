@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Pencil } from '@lucide/svelte';
+  import { Mail, Pencil, Phone } from '@lucide/svelte';
   import { onMount, tick } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import {
@@ -490,8 +490,8 @@
                   }
                 ]}
                 meta={[
-                  { label: t('Email'), value: employee.email || '—', muted: !employee.email },
-                  { label: t('Phone'), value: employee.phone || '—', muted: !employee.phone }
+                  { label: t('Email'), value: employee.email || '—', muted: !employee.email, icon: 'mail' as const },
+                  { label: t('Phone'), value: employee.phone || '—', muted: !employee.phone, icon: 'phone' as const }
                 ]}
                 onactivate={team.editable ? () => (detailId = employee.id) : null}
               />
@@ -610,7 +610,7 @@
                       <span class="cl-mobile-summary">
                         <span>{team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position yet')}</span>
                         <span>{team.contractName.get(employee.contractTypeId) || t('No contract')}</span>
-                        {#if employee.email}<span>{employee.email}</span>{/if}
+                        {#if employee.email}<span class="contact-summary"><Mail size={12} aria-hidden="true" />{employee.email}</span>{/if}
                       </span>
                     </td>
                     {#if shown('position')}
@@ -665,6 +665,7 @@
                           aria-label={`${t('Email')} · ${employee.displayName}`}
                           onclick={() => startInlineEdit(employee, 'email')}
                         >
+                          <Mail size={13} aria-hidden="true" />
                           <span>{employee.email || t('Add')}</span>
                           {#if !employee.email}<Pencil size={12} aria-hidden="true" />{/if}
                         </button>
@@ -693,6 +694,7 @@
                           aria-label={`${t('Phone')} · ${employee.displayName}`}
                           onclick={() => startInlineEdit(employee, 'phone')}
                         >
+                          <Phone size={13} aria-hidden="true" />
                           <span>{employee.phone || t('Add')}</span>
                           {#if !employee.phone}<Pencil size={12} aria-hidden="true" />{/if}
                         </button>
@@ -823,6 +825,8 @@
   .inline-cell.is-empty { color: var(--cl-accent); font-size: var(--rst-fs-control); font-weight: var(--rst-fw-medium); }
   .inline-cell:disabled { cursor: default; }
   .inline-cell :global(svg) { flex: 0 0 auto; color: var(--cl-accent); }
+  .contact-summary { display: inline-flex; align-items: center; gap: 4px; }
+  .contact-summary :global(svg) { flex: 0 0 auto; color: var(--cl-accent); }
   .action-cell { padding: 0 !important; }
   .inline-editor { border-color: var(--cl-accent); background: var(--cl-surface); box-shadow: 0 0 0 2px var(--cl-accent-wash); }
   .posmenu__trigger { min-width: 170px; max-width: 230px; display: inline-grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 7px; padding: 6px 9px; border: 1px solid color-mix(in srgb, var(--position-color) 28%, var(--cl-line)); border-radius: 6px; background: color-mix(in srgb, var(--position-color) 7%, var(--cl-surface)); color: var(--cl-ink); font: inherit; font-size: var(--rst-fs-body); text-align: left; cursor: pointer; white-space: nowrap; }

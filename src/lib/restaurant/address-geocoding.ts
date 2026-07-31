@@ -92,9 +92,11 @@ export function restaurantAddressQuery(input: {
   city?: string;
 }): string {
   const street = text(input.street);
+  const restaurantName = text(input.restaurantName);
   const city = [text(input.postalCode), text(input.city)].filter(Boolean).join(' ');
   return [
-    street || text(input.restaurantName),
+    restaurantName,
+    street,
     city,
     'Belgium'
   ]

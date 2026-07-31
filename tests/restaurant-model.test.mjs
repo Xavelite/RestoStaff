@@ -2,6 +2,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { setupItemCode } from '../src/lib/restaurant/setup-item-code.ts';
+import { isValidEmail, isValidPhone } from '../src/lib/validation/contact.ts';
+
+test('contact validation accepts useful formatting without accepting malformed values', () => {
+  assert.equal(isValidEmail('hello@restogogo.com'), true);
+  assert.equal(isValidEmail('hello@restogogo'), false);
+  assert.equal(isValidPhone('+32 (0)2 123 45 67'), true);
+  assert.equal(isValidPhone('12345'), false);
+  assert.equal(isValidPhone('call-me'), false);
+});
 
 test('new restaurant items derive their code from the complete current name', () => {
   const id = '12345678-1234-1234-1234-123456789abc';

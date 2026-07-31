@@ -1,9 +1,10 @@
 <script lang="ts">
+  import { Mail, Phone } from '@lucide/svelte';
   import type { Snippet } from 'svelte';
 
   export type CardBadgeTone = 'neutral' | 'accent' | 'ok' | 'warn' | 'danger';
   export type CardBadge = { label: string; tone?: CardBadgeTone };
-  export type CardMeta = { label: string; value: string; muted?: boolean };
+  export type CardMeta = { label: string; value: string; muted?: boolean; icon?: 'mail' | 'phone' };
 
   let {
     accent = null,
@@ -60,7 +61,11 @@
     <dl class="card__meta">
       {#each meta as row (row.label)}
         <div>
-          <dt>{row.label}</dt>
+          <dt>
+            {#if row.icon === 'mail'}<Mail size={12} aria-hidden="true" />{/if}
+            {#if row.icon === 'phone'}<Phone size={12} aria-hidden="true" />{/if}
+            {row.label}
+          </dt>
           <dd class:is-muted={row.muted}>{row.value}</dd>
         </div>
       {/each}
@@ -186,12 +191,16 @@
   }
   .card__meta > div { min-width: 0; display: grid; gap: 2px; }
   .card__meta dt {
+    display: flex;
+    align-items: center;
+    gap: 4px;
     color: var(--rst-ui-muted);
     font-size: var(--rst-fs-micro);
     font-weight: var(--rst-fw-bold);
     letter-spacing: .04em;
     text-transform: uppercase;
   }
+  .card__meta dt :global(svg) { color: var(--card-accent); }
   .card__meta dd {
     overflow: hidden;
     margin: 0;

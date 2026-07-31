@@ -35,7 +35,7 @@ test('restaurant address lookup is explicit, Belgian and maps provider fields sa
     ]), { status: 200 });
   });
 
-  assert.equal(query, 'Rue Haute 1, 1000 Brussels, Belgium');
+  assert.equal(query, 'Demo, Rue Haute 1, 1000 Brussels, Belgium');
   assert.equal(requested.searchParams.get('countrycodes'), 'be');
   assert.equal(requested.searchParams.get('addressdetails'), '1');
   assert.deepEqual(results, [{
@@ -59,7 +59,14 @@ test('Google listing links use the free cross-platform Maps URL contract', () =>
   assert.equal(url.origin, 'https://www.google.com');
   assert.equal(url.pathname, '/maps/search/');
   assert.equal(url.searchParams.get('api'), '1');
-  assert.equal(url.searchParams.get('query'), 'Rue Haute 1, 1000 Brussels, Belgium');
+  assert.equal(url.searchParams.get('query'), 'Demo, Rue Haute 1, 1000 Brussels, Belgium');
+});
+
+test('restaurant name can drive autocomplete before a street is known', () => {
+  assert.equal(
+    restaurantAddressQuery({ restaurantName: 'Bouillon Bruxelles', city: 'Brussels' }),
+    'Bouillon Bruxelles, Brussels, Belgium'
+  );
 });
 
 test('OpenStreetMap links retain the resolved marker without hand-built markup', () => {

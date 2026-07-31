@@ -196,6 +196,18 @@ function installDragHandle(
   handle.innerHTML =
     '<svg viewBox="0 0 20 20" width="12" height="12" fill="currentColor" aria-hidden="true"><circle cx="7" cy="5" r="1.2"/><circle cx="13" cy="5" r="1.2"/><circle cx="7" cy="10" r="1.2"/><circle cx="13" cy="10" r="1.2"/><circle cx="7" cy="15" r="1.2"/><circle cx="13" cy="15" r="1.2"/></svg>';
   host.prepend(handle);
+  let ghost: HTMLDivElement | null = null;
+
+  const removeGhost = () => {
+    ghost?.remove();
+    ghost = null;
+  };
+
+  const moveGhost = (clientX: number, clientY: number) => {
+    if (!ghost) return;
+    ghost.style.left = `${Math.max(12, Math.min(clientX + 14, window.innerWidth - ghost.offsetWidth - 12))}px`;
+    ghost.style.top = `${Math.max(12, Math.min(clientY + 14, window.innerHeight - ghost.offsetHeight - 12))}px`;
+  };
 
   const finishPointerDrag = (event: PointerEvent, commit: boolean) => {
     if (state.dragKey !== key) return;
@@ -208,6 +220,7 @@ function installDragHandle(
     state.dragKey = '';
     cell.classList.remove('is-column-dragging');
     document.documentElement.classList.remove('is-reordering-column');
+    removeGhost();
     clearDropState(table, state);
   };
 
@@ -230,20 +243,29 @@ function installDragHandle(
     target.classList.toggle('is-column-drop-after', after);
   };
 
-  const beginDrag = () => {
+  const beginDrag = (clientX: number, clientY: number) => {
     state.dragKey = key;
     clearDropState(table, state);
     cell.classList.add('is-column-dragging');
     document.documentElement.classList.add('is-reordering-column');
+    ghost = document.createElement('div');
+    ghost.className = 'workspace-column-drag-ghost';
+    ghost.textContent =
+      cell.querySelector<HTMLElement>('.colhead__copy > span')?.textContent?.trim() ||
+      cell.textContent?.trim() ||
+      t('Column');
+    document.body.append(ghost);
+    moveGhost(clientX, clientY);
   };
 
   handle.addEventListener('mousedown', (event) => {
     if (event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
-    beginDrag();
+    beginDrag(event.clientX, event.clientY);
     const move = (moveEvent: MouseEvent) => {
       moveEvent.preventDefault();
+      moveGhost(moveEvent.clientX, moveEvent.clientY);
       updateDropTarget(moveEvent.clientX, moveEvent.clientY);
     };
     const up = () => {
@@ -255,6 +277,7 @@ function installDragHandle(
       state.dragKey = '';
       cell.classList.remove('is-column-dragging');
       document.documentElement.classList.remove('is-reordering-column');
+      removeGhost();
       clearDropState(table, state);
     };
     window.addEventListener('mousemove', move);
@@ -267,13 +290,14 @@ function installDragHandle(
     if (event.pointerType === 'mouse') return;
     event.preventDefault();
     event.stopPropagation();
-    beginDrag();
+    beginDrag(event.clientX, event.clientY);
     handle.setPointerCapture(event.pointerId);
   });
 
   handle.addEventListener('pointermove', (event) => {
     if (state.dragKey !== key) return;
     event.preventDefault();
+    moveGhost(event.clientX, event.clientY);
     updateDropTarget(event.clientX, event.clientY);
   });
 

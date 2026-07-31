@@ -1024,6 +1024,9 @@
 .cl-table thead:hover th:not(:first-child)::before {
   background: color-mix(in srgb, var(--cl-line-strong) 66%, transparent);
 }
+.cl-table thead th:not(:first-child):hover::before {
+  background: var(--cl-accent);
+}
 
 .cl-table thead th:first-child {
   z-index: 25;
@@ -2232,7 +2235,7 @@
 }
 .colmenu.is-floating {
   position: fixed;
-  z-index: 460;
+  z-index: 600;
   right: auto;
   max-height: min(420px, calc(100vh - 24px));
   overflow: auto;
@@ -2273,17 +2276,37 @@
   user-select: none !important;
 }
 .cl-table th.is-column-dragging {
-  opacity: .56;
+  color: var(--cl-accent);
+  background: var(--cl-accent-wash);
 }
 .cl-table th.is-column-drop::before {
-  top: 4px;
-  bottom: 4px;
-  width: 2px;
+  top: 2px;
+  bottom: 2px;
+  width: 3px;
   background: var(--cl-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--cl-accent) 12%, transparent);
 }
 .cl-table th.is-column-drop-after::before {
   right: 0;
   left: auto;
+}
+.workspace-column-drag-ghost {
+  position: fixed;
+  z-index: 700;
+  max-width: 260px;
+  overflow: hidden;
+  padding: 8px 11px;
+  border: 1px solid color-mix(in srgb, var(--cl-accent) 46%, var(--cl-line));
+  border-radius: 6px;
+  color: var(--cl-ink);
+  background: var(--cl-surface);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .18);
+  font-size: var(--rst-fs-control);
+  font-weight: var(--rst-fw-bold);
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 
