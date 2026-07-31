@@ -29,6 +29,7 @@
   let availableVoices: SpeechSynthesisVoice[] = [];
   let petRoot = $state<HTMLElement>();
   let dragging = $state(false);
+  let petOnRight = $state(true);
   let bubbleOpensRight = $state(false);
   let bubbleOpensBelow = $state(false);
   let dragStartClientX = 0;
@@ -135,7 +136,8 @@
     width: number,
     height: number
   ): void {
-    bubbleOpensRight = left + width / 2 < window.innerWidth / 2;
+    petOnRight = left + width / 2 >= window.innerWidth / 2;
+    bubbleOpensRight = !petOnRight;
     bubbleOpensBelow = top + height / 2 < 190;
   }
 
@@ -366,6 +368,7 @@
   <aside
     class="popcorn-pet"
     class:is-dragging={dragging}
+    class:pet-on-right={petOnRight}
     class:bubble-opens-right={bubbleOpensRight}
     class:bubble-opens-below={bubbleOpensBelow}
     style={`--pet-x:${popcornPet.positionX}px;--pet-y:${popcornPet.positionY}px`}
@@ -448,13 +451,13 @@
           class:is-success={reaction === 'success'}
           class:is-attention={reaction === 'attention'}
         >
-          {#if animating}
+          {#if animating || voiceActive}
             <picture>
-              <source media="(prefers-reduced-motion: reduce)" srcset="/pet/popcorn-still.png" />
-              <img src="/pet/popcorn.gif" alt="" width="384" height="384" draggable="false" />
+              <source media="(prefers-reduced-motion: reduce)" srcset="/pet/ai-speed-rabbit-idle.gif" />
+              <img src="/pet/ai-speed-rabbit-active.gif" alt="" width="384" height="384" draggable="false" />
             </picture>
           {:else}
-            <img src="/pet/popcorn-still.png" alt="" width="384" height="384" draggable="false" />
+            <img src="/pet/ai-speed-rabbit-idle.gif" alt="" width="384" height="384" draggable="false" />
           {/if}
         </span>
       {/key}
@@ -536,6 +539,11 @@
   .popcorn-pet img {
     object-fit: contain;
     user-select: none;
+    transition: transform .18s var(--cl-ease);
+  }
+
+  .popcorn-pet.pet-on-right img {
+    transform: scaleX(-1);
   }
 
   .popcorn-pet__signal {

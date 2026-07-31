@@ -259,8 +259,8 @@ test('Popcorn is an optional local companion with accessible motion and sound', 
   const insights = await readFile('src/lib/pet/popcorn-insights.ts', 'utf8');
   const state = await readFile('src/lib/pet/popcorn-pet.svelte.ts', 'utf8');
   const sound = await readFile('src/lib/sound/sound.svelte.ts', 'utf8');
-  const gif = await readFile('static/pet/popcorn.gif');
-  const still = await readFile('static/pet/popcorn-still.png');
+  const activeGif = await readFile('static/pet/ai-speed-rabbit-active.gif');
+  const idleGif = await readFile('static/pet/ai-speed-rabbit-idle.gif');
 
   assert.match(layout, /import PopcornPet from '\$lib\/pet\/PopcornPet\.svelte'/);
   assert.match(layout, /<PopcornPet \/>/);
@@ -279,7 +279,11 @@ test('Popcorn is an optional local companion with accessible motion and sound', 
   assert.match(pet, /i18n\.intlLocale/);
   assert.match(pet, /natural.*neural.*premium.*enhanced.*online/);
   assert.match(pet, /utterance\.rate = 0\.96/);
-  assert.match(pet, /\{#if animating\}[\s\S]*popcorn\.gif[\s\S]*popcorn-still\.png/);
+  assert.match(pet, /\{#if animating \|\| voiceActive\}[\s\S]*ai-speed-rabbit-active\.gif[\s\S]*ai-speed-rabbit-idle\.gif/);
+  assert.match(pet, /class:pet-on-right=\{petOnRight\}/);
+  assert.match(pet, /\.popcorn-pet\.pet-on-right img[\s\S]*scaleX\(-1\)/);
+  assert.ok(activeGif.length > 0);
+  assert.ok(idleGif.length > 0);
   assert.match(pet, /onpointerdown=\{startDrag\}/);
   assert.match(pet, /onpointermove=\{moveDrag\}/);
   assert.match(pet, /VolumeX/);
@@ -298,8 +302,8 @@ test('Popcorn is an optional local companion with accessible motion and sound', 
   assert.match(sound, /popcorn:\s*\[/);
   assert.match(sound, /'popcorn-success':\s*\[/);
   assert.match(sound, /'popcorn-attention':\s*\[/);
-  assert.ok(/^GIF8[79]a$/.test(gif.subarray(0, 6).toString('ascii')));
-  assert.ok(still.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])));
+  assert.ok(/^GIF8[79]a$/.test(activeGif.subarray(0, 6).toString('ascii')));
+  assert.ok(/^GIF8[79]a$/.test(idleGif.subarray(0, 6).toString('ascii')));
 });
 
 test('service labels are not reimplemented outside their domain helper', async () => {
