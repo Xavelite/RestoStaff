@@ -47,7 +47,8 @@ export type WorkspaceIcon =
   | 'payroll'
   | 'badge'
   | 'reports'
-  | 'exports';
+  | 'exports'
+  | 'settings';
 
 const MANAGER: WorkspaceRole[] = ['owner', 'manager'];
 const OWNER: WorkspaceRole[] = ['owner'];
@@ -119,6 +120,7 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     subNav: [
       { href: '/restaurant', label: 'Profile' },
       { href: '/restaurant/areas', label: 'Areas' },
+      { href: '/restaurant/floor-plan', label: 'Floor plan' },
       { href: '/restaurant/positions', label: 'Positions' },
       { href: '/restaurant/coverage', label: 'Staffing' }
     ]
@@ -153,7 +155,6 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     subNav: [
       { href: '/reservations', label: 'Live' },
       { href: '/reservations/bookings', label: 'Bookings' },
-      { href: '/reservations/floor-plans', label: 'Floor plan' },
       { href: '/reservations/setup', label: 'Settings' },
       { href: '/reservations/api', label: 'Online booking' }
     ]
@@ -251,6 +252,16 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     roles: MANAGER,
     navSection: 'records'
   },
+  {
+    key: 'settings',
+    href: '/settings',
+    label: 'Settings',
+    summary: 'Your workspace appearance and behaviour',
+    icon: 'settings',
+    roles: [...MANAGER, ...EMPLOYEE],
+    utility: true,
+    navSection: 'employee'
+  },
   // Employees share the same shell; their two screens are simply the only
   // modules their role can see.
   {
@@ -291,6 +302,7 @@ const MODULE_ORDER = [
   'menu-costing',
   'tasks',
   'food-safety',
+  'settings',
   'my-service',
   'my-time'
 ] as const;
@@ -300,6 +312,7 @@ export function moduleIsEntitled(
   moduleKey: string,
   entitlements?: ModuleEntitlements
 ): boolean {
+  if (moduleKey === 'settings') return true;
   if (WORKSPACE_MODULES.some((module) => module.key === moduleKey && module.placeholder)) {
     return true;
   }

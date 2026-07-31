@@ -58,6 +58,7 @@
     tablesEditable = editable,
     tablesSelectable = true,
     showTableCount = true,
+    showLegend = true,
     selectedTableId = '',
     selectedRoomId = '',
     invalidTableIds = new Set<string>(),
@@ -84,6 +85,7 @@
     tablesEditable?: boolean;
     tablesSelectable?: boolean;
     showTableCount?: boolean;
+    showLegend?: boolean;
     selectedTableId?: string;
     selectedRoomId?: string;
     invalidTableIds?: ReadonlySet<string>;
@@ -972,7 +974,7 @@
     </div>
   </div>
 
-  {#if !editable}
+  {#if !editable && showLegend}
     <div class="floor__legend" aria-label={t('Table status legend')}>
       <span><i class="is-available"></i>{t('Available')}</span>
       <span><i class="is-reserved"></i>{t('Reserved')}</span>

@@ -456,22 +456,20 @@
 {/if}
 
 <style>
-  /* Messages are communication chrome, beside notifications. Keeping their
-     launcher in the topbar prevents it from obscuring forms and grid actions. */
-  .communications-button { position: relative; z-index: 1; width: 36px; min-height: 36px; flex: none; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 1px solid var(--rst-topbar-line, transparent); border-radius: 50%; color: var(--rst-topbar-text, var(--cl-shell-text)); background: var(--rst-topbar-control-bg, transparent); box-shadow: none; font: inherit; line-height: 1; cursor: pointer; transition: background .16s ease, border-color .16s ease, color .16s ease; }
-  .communications-button:hover,
-  .communications-button.is-open { border-color: var(--rst-topbar-line, var(--cl-shell-line)); color: var(--rst-topbar-text, var(--cl-shell-text)); background: var(--rst-topbar-control-hover, var(--cl-shell-hover)); }
-  .communications-button:focus-visible { outline: 3px solid rgba(var(--cl-accent-rgb), .24); outline-offset: 2px; }
+  .communications-button { position: fixed; z-index: var(--rst-z-panel, 200); right: 22px; bottom: max(22px, env(safe-area-inset-bottom, 0px)); width: 52px; min-height: 52px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 1px solid color-mix(in srgb, var(--cl-accent) 72%, white); border-radius: 50%; color: white; background: var(--cl-accent); box-shadow: 0 13px 30px rgba(var(--cl-accent-rgb), .28), 0 3px 10px rgba(15, 23, 42, .18); font: inherit; line-height: 1; cursor: pointer; transition: transform .18s var(--cl-ease), background .18s ease, border-color .18s ease, box-shadow .18s ease; }
+  .communications-button:hover { border-color: color-mix(in srgb, var(--cl-accent-hover) 72%, white); color: white; background: var(--cl-accent-hover); box-shadow: 0 16px 34px rgba(var(--cl-accent-rgb), .32), 0 4px 12px rgba(15, 23, 42, .2); transform: translateY(-2px); }
+  .communications-button:focus-visible { outline: 3px solid rgba(var(--cl-accent-rgb), .24); outline-offset: 3px; }
+  .communications-button:active { transform: translateY(0); }
   .communications-button > svg { display: block; }
-  .communications-button b { position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; display: grid; place-items: center; padding: 0 4px; border: 2px solid var(--cl-shell); border-radius: var(--rst-ui-radius-pill); color: white; background: var(--rst-state-danger); font-size: var(--rst-fs-micro); font-weight: 800; animation: rst-pop-in .32s var(--rst-ease-spring) backwards; }
+  .communications-button b { position: absolute; top: -3px; right: -3px; min-width: 19px; height: 19px; display: grid; place-items: center; padding: 0 4px; border: 2px solid var(--cl-bg); border-radius: var(--rst-ui-radius-pill); color: white; background: var(--rst-state-danger); font-size: var(--rst-fs-micro); font-weight: 800; animation: rst-pop-in .32s var(--rst-ease-spring) backwards; }
 
   /* The panel is docked above its own launcher so the eye never loses the
-     thread between the topbar button and the conversation that opened. */
+     thread between the button pressed and the conversation that opened. */
   .chat {
     position: fixed;
     z-index: var(--rst-z-panel, 200);
     right: 22px;
-    top: calc(var(--cl-topbar) + 8px);
+    bottom: calc(max(22px, env(safe-area-inset-bottom, 0px)) + 64px);
     width: 384px;
     max-width: calc(100vw - 32px);
     height: min(560px, calc(100dvh - 150px));
@@ -732,8 +730,13 @@
 
   /* On a phone the conversation earns the whole screen. */
   @media (max-width: 520px) {
+    .communications-button {
+      right: max(14px, env(safe-area-inset-right, 0px));
+      bottom: max(14px, env(safe-area-inset-bottom, 0px));
+      width: 48px;
+      min-height: 48px;
+    }
     .chat {
-      top: auto;
       right: 0;
       left: 0;
       bottom: 0;

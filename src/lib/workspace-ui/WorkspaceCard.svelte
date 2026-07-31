@@ -73,11 +73,11 @@
 {/snippet}
 
 {#if onactivate}
-  <button class="card is-clickable" class:has-accent={Boolean(accent)} {style} type="button" onclick={onactivate}>
+  <button class="card is-clickable" {style} type="button" onclick={onactivate}>
     {@render body()}
   </button>
 {:else}
-  <article class="card" class:has-accent={Boolean(accent)} {style}>
+  <article class="card" {style}>
     {@render body()}
   </article>
 {/if}
@@ -90,36 +90,28 @@
     min-width: 0;
     display: grid;
     align-content: start;
-    gap: 10px;
+    gap: 11px;
     overflow: hidden;
     padding: 15px 15px 14px;
-    border: 1px solid var(--rst-ui-line);
-    border-radius: 14px;
+    border: 1px solid color-mix(in srgb, var(--card-accent) 24%, var(--rst-ui-line));
+    border-radius: var(--rst-ui-radius-md);
     color: var(--rst-ui-text);
-    background: var(--rst-ui-surface-panel);
+    background:
+      linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--card-accent) 6%, var(--rst-ui-surface-panel)) 0 54%,
+        var(--rst-ui-surface-panel) 54% 100%
+      );
     box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
     text-align: left;
     font: inherit;
     transition: border-color .16s ease, box-shadow .18s ease, transform .18s ease;
   }
 
-  /* A whisper of the entity's colour, so a wall of cards still reads as sorted
-     by area or role without shouting a full colour block at the eye. */
-  .card.has-accent::before {
-    content: '';
-    position: absolute;
-    z-index: -1;
-    inset: 0 auto auto 0;
-    width: 180px;
-    height: 120px;
-    background: radial-gradient(120px 80px at 0 0, color-mix(in srgb, var(--card-accent) 13%, transparent), transparent 70%);
-    pointer-events: none;
-  }
-
   .card__rule {
     position: absolute;
     inset: 0 0 auto 0;
-    height: 2px;
+    height: 3px;
     background: var(--card-accent);
     opacity: .85;
   }
@@ -127,8 +119,8 @@
   .card.is-clickable { cursor: pointer; }
   .card.is-clickable:hover {
     border-color: color-mix(in srgb, var(--card-accent) 42%, var(--rst-ui-line));
-    box-shadow: 0 10px 26px rgba(15, 23, 42, .09), 0 2px 6px rgba(15, 23, 42, .05);
-    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, .08), 0 1px 3px rgba(15, 23, 42, .05);
+    transform: translateY(-1px);
   }
   .card.is-clickable:focus-visible {
     outline: 2px solid color-mix(in srgb, var(--card-accent) 55%, transparent);
@@ -144,7 +136,7 @@
     place-items: center;
     width: 38px;
     height: 38px;
-    border-radius: 12px;
+    border-radius: 7px;
     color: color-mix(in srgb, var(--card-accent) 78%, var(--rst-ui-text));
     background: color-mix(in srgb, var(--card-accent) 12%, var(--rst-ui-surface-field));
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--card-accent) 26%, transparent);

@@ -724,17 +724,18 @@ function staticInsights(pathname: string): PopcornInsight[] {
     ];
   }
 
+  if (pathname === '/restaurant/floor-plan' || pathname === '/reservations/floor-plans') {
+    return [
+      note(
+        'restaurant-floor-plan',
+        'info',
+        'Floor plan',
+        'Shape areas and place reservation tables on the same restaurant plan.'
+      )
+    ];
+  }
+
   if (routeIs(pathname, '/reservations')) {
-    if (pathname === '/reservations/floor-plans') {
-      return [
-        note(
-          'reservations-floor-plan',
-          'info',
-          'Floor plans',
-          'Reservation rooms and tables stay separate from operational work areas.'
-        )
-      ];
-    }
     if (pathname === '/reservations/setup') {
       return [
         note(

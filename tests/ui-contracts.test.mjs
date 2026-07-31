@@ -67,7 +67,6 @@ test('every rows-or-cards workspace keeps both render contracts', async () => {
   const paritySurfaces = [
     'src/lib/reservations/ReservationSetupWorkspace.svelte',
     'src/lib/reservations/ReservationsWorkspace.svelte',
-    'src/lib/restaurant/OperationalAreasWorkspace.svelte',
     'src/lib/team/TimeOffPoliciesWorkspace.svelte',
     'src/routes/(app)/badge-terminal/+page.svelte',
     'src/routes/(app)/documents/+page.svelte',
@@ -87,6 +86,13 @@ test('every rows-or-cards workspace keeps both render contracts', async () => {
     assert.match(source, /<WorkspaceCard/, `${file} lost its card records`);
     assert.match(source, /<table|<WorkspaceTablePanel/, `${file} lost its row records`);
   }
+
+  const areas = await readFile('src/lib/restaurant/OperationalAreasWorkspace.svelte', 'utf8');
+  assert.match(areas, /workspaceLayout\.cards/);
+  assert.match(areas, /class="area-cards"/);
+  assert.match(areas, /class="area-tile"/);
+  assert.match(areas, /<table class="cl-table cl-mobile-rows">/);
+  assert.doesNotMatch(areas, /WorkspaceViewSwitch|WorkspaceCardGrid/);
 });
 
 test('device preferences live in one topbar menu and domain policy stays in Team', async () => {
@@ -95,6 +101,11 @@ test('device preferences live in one topbar menu and domain policy stays in Team
     'src/lib/workspace-ui/WorkspacePreferencesMenu.svelte',
     'utf8'
   );
+  const preferenceControls = await readFile(
+    'src/lib/workspace-ui/WorkspacePreferencesControls.svelte',
+    'utf8'
+  );
+  const settings = await readFile('src/routes/(app)/settings/+page.svelte', 'utf8');
   const account = await readFile('src/lib/app-shell/AccountMenu.svelte', 'utf8');
   const communications = await readFile(
     'src/lib/communications/CommunicationCenter.svelte',
@@ -106,16 +117,22 @@ test('device preferences live in one topbar menu and domain policy stays in Team
     layout.indexOf('</header>', layout.indexOf('<header class="cl-topbar"'))
   );
 
-  assert.match(layout, /<WorkspacePreferencesMenu \{sidebarMode\} onsidebarmode=\{setSidebarMode\}/);
-  assert.match(topbar, /<WorkspacePreferencesMenu[\s\S]*<CommunicationCenter[\s\S]*<NotificationBell/);
-  assert.match(communications, /\.communications-button\s*\{[^}]*position:\s*relative;/);
+  assert.match(layout, /<WorkspacePreferencesMenu \/>/);
+  assert.match(topbar, /<WorkspacePreferencesMenu[\s\S]*<NotificationBell/);
+  assert.doesNotMatch(topbar, /<CommunicationCenter/);
+  assert.match(layout, /<PopcornPet \/>[\s\S]*<CommunicationCenter/);
+  assert.match(communications, /\.communications-button\s*\{[^}]*position:\s*fixed;/);
   assert.match(communications, /\.chat\s*\{[^}]*position:\s*fixed;/);
-  assert.match(preferences, /workspaceLayout\.set/);
-  assert.match(preferences, /workspaceTheme\.set/);
-  assert.match(preferences, /sound\.toggle/);
+  assert.match(preferences, /<WorkspacePreferencesControls \/>/);
+  assert.match(settings, /<WorkspacePreferencesControls \/>/);
+  assert.match(preferenceControls, /workspaceLayout\.set/);
+  assert.match(preferenceControls, /workspaceTheme\.set/);
+  assert.match(preferenceControls, /sound\.toggle/);
+  assert.match(preferenceControls, /workspaceShellPreferences\.setSidebarMode/);
   assert.match(preferences, /window\.addEventListener\('pointerdown', closeOutside, true\)/);
   assert.doesNotMatch(account, /appearance-picker|workspaceTheme|sidebarMode/);
-  assert.doesNotMatch(nav, /key: 'settings'/);
+  assert.match(nav, /key: 'settings'/);
+  assert.match(nav, /utility: true/);
   assert.match(nav, /href: '\/team\/time-off-types'/);
 });
 
@@ -359,7 +376,7 @@ test('people edit contact cells inline while employee identity opens one complet
   assert.match(teamPage, /unsavedChanges\.register/);
 });
 
-test('Restaurant Areas owns operational staffing zones while Reservations owns guest floors', async () => {
+test('Restaurant separates operational area records from their shared floor geometry', async () => {
   const nav = await readFile('src/lib/workspace-ui/workspace-nav.ts', 'utf8');
   const areasRoute = await readFile('src/routes/(app)/restaurant/areas/+page.svelte', 'utf8');
   const areas = await readFile('src/lib/restaurant/OperationalAreasWorkspace.svelte', 'utf8');
@@ -531,13 +548,11 @@ test('unsaved changes guard routes and context-changing account actions', async 
   assert.match(timesheetDialog, /function close\(\)[\s\S]*unsavedChanges\.runOrRequest\(onclose\)/);
   assert.match(accessControl, /id: `team-invitation-\$\{employee\.id\}`/);
   assert.match(accessControl, /isDirty: \(\) => inviteDirty/);
-  assert.match(reservationFloorPlans, /id: mode === 'areas' \? 'restaurant-floor-layout' : 'reservation-table-layout'/);
-  // The floor-plan draft outlives the view, so its guard is scoped to the tabs
-  // that edit the same plan instead of blocking every navigation.
+  assert.match(reservationFloorPlans, /id: 'restaurant-floor-plan'/);
   assert.match(reservationFloorPlans, /isDirty: \(\) => floorPlansDraft\.dirty/);
   assert.match(
     reservationFloorPlans,
-    /navigationScopes: \['\/restaurant', '\/reservations'\]/
+    /navigationScopes: \['\/restaurant'\]/
   );
   assert.match(reservationSetup, /id: 'reservation-setup'/);
   assert.match(reservationSetup, /isDirty: \(\) => dirty/);
@@ -684,11 +699,15 @@ test('Planning, Team, Restaurant and Payroll use the same first-column grouping 
   assert.match(schedule, /t\('\{count\} employees', \{ count: group\.rows\.length \}\).*formatHours\(group\.hours\)/s);
 });
 
-test('operational Areas and optional reservation floor plans have separate ownership', async () => {
+test('Restaurant owns the single operational and reservation floor-plan editor', async () => {
   const page = await readFile('src/routes/(app)/restaurant/areas/+page.svelte', 'utf8');
   const areas = await readFile('src/lib/restaurant/OperationalAreasWorkspace.svelte', 'utf8');
-  const reservationPage = await readFile(
-    'src/routes/(app)/reservations/floor-plans/+page.svelte',
+  const floorPlanPage = await readFile(
+    'src/routes/(app)/restaurant/floor-plan/+page.svelte',
+    'utf8'
+  );
+  const reservationRedirect = await readFile(
+    'src/routes/(app)/reservations/floor-plans/+page.ts',
     'utf8'
   );
   const workspace = await readFile(
@@ -703,7 +722,10 @@ test('operational Areas and optional reservation floor plans have separate owner
   assert.match(areas, /context\.draft\.areas/);
   assert.match(areas, /context\.save/);
   assert.doesNotMatch(areas, /ReservationFloorPlan|saveRestaurantAreasModel/);
-  assert.match(reservationPage, /<ReservationFloorPlansWorkspace/);
+  assert.match(floorPlanPage, /<ReservationFloorPlansWorkspace mode=\{layer\} restaurantContext=\{context\}/);
+  assert.match(floorPlanPage, /layer === 'tables'/);
+  assert.match(floorPlanPage, /\{#key layer\}/);
+  assert.match(reservationRedirect, /redirect\(307, '\/restaurant\/floor-plan\?layer=tables'\)/);
   assert.match(workspace, /const CANONICAL_FLOOR_LEVELS = \[-1, 0, 1, 2\] as const/);
   assert.match(workspace, /function persistedFloorName\(/);
   assert.doesNotMatch(workspace, /function addFloor\(\)/);
@@ -729,7 +751,7 @@ test('operational Areas and optional reservation floor plans have separate owner
   assert.doesNotMatch(canvas, /Floor plan zoom|zoom-value/);
 });
 
-test('Home integrates labelled upcoming modules while Areas and Tables stay separate', async () => {
+test('Home integrates labelled upcoming modules while Restaurant owns one floor plan', async () => {
   const home = await readFile('src/routes/(app)/home/+page.svelte', 'utf8');
   const nav = await readFile('src/lib/workspace-ui/workspace-nav.ts', 'utf8');
   const layout = await readFile('src/routes/(app)/+layout.svelte', 'utf8');
@@ -745,7 +767,8 @@ test('Home integrates labelled upcoming modules while Areas and Tables stay sepa
   assert.match(home, /\{t\('Coming next'\)\}/);
   assert.doesNotMatch(home, /tile--upcoming/);
   assert.match(nav, /\/restaurant\/areas', label: 'Areas'/);
-  assert.match(nav, /\/reservations\/floor-plans', label: 'Floor plan'/);
+  assert.match(nav, /\/restaurant\/floor-plan', label: 'Floor plan'/);
+  assert.doesNotMatch(nav, /\/reservations\/floor-plans', label: 'Floor plan'/);
   const reportsBlock = nav.match(/key: 'reports'[\s\S]*?  \},/)?.[0] ?? '';
   assert.match(reportsBlock, /subNav:/);
   assert.doesNotMatch(reportsBlock, /placeholder|homeOnly/);

@@ -28,8 +28,8 @@ test('reservation navigation is a live workspace with setup beneath it', () => {
     '/reservations/bookings'
   );
   assert.equal(
-    subNavItemForPath(reservations, '/reservations/floor-plans')?.href,
-    '/reservations/floor-plans'
+    reservations?.subNav?.some((item) => item.href === '/reservations/floor-plans'),
+    false
   );
   assert.equal(
     subNavItemForPath(reservations, '/reservations/setup')?.href,
@@ -163,14 +163,13 @@ test('restaurant area catalogue creates physical instances without hiding repeat
   assert.doesNotMatch(workspace, /disabled:\s*Boolean\(existing/);
   assert.match(workspace, /async function addArea\(\)/);
   assert.match(workspace, /restaurantContext\.draft\.areas = \[area, \.\.\.areas\]/);
-  // The plan lives in a store, so a tab change keeps a new area's placement.
-  assert.match(workspace, /const pendingAreaIds = \$derived\(floorPlansDraft\.pendingAreaIds\)/);
-  assert.match(workspace, /floorPlansDraft\.pendingAreaIds = \[id, \.\.\.pendingAreaIds\]/);
-  assert.match(workspace, /pendingAreaIds = \[id, \.\.\.pendingAreaIds\]/);
-  // Adding an area keeps the user's current view. The same focused editor is
-  // available in the list row and in the plan's selected-area rail.
+  assert.match(workspace, /function reconcileDraftRoomsWithAreas\(\)/);
+  assert.match(workspace, /room\.active = shouldBeActive/);
+  assert.match(workspace, /if \(draft\.rooms\.some\(\(room\) => room\.work_area_id === area\.id\)\) continue/);
+  // The visual editor has one canvas surface; operational rows and cards stay
+  // in Restaurant Areas instead of being duplicated here.
+  assert.doesNotMatch(workspace, /pendingAreaIds|editorView|area-directory/);
   assert.doesNotMatch(workspace, /autoOpen/);
-  assert.doesNotMatch(workspace, /editorView = 'list';\s*await tick\(\)/);
   // Compact screens can edit details; only freeform plan geometry remains
   // read-only because drag positioning needs a precise pointer workspace.
   assert.match(workspace, /const editorReadOnly = \$derived\(workspace\.isPreview\)/);
@@ -182,12 +181,29 @@ test('restaurant area catalogue creates physical instances without hiding repeat
   assert.match(workspace, /roomsEditable=\{!planGeometryReadOnly\}/);
   assert.match(workspace, /selectedRoomId = room\.id;[\s\S]*field\?\.focus\(\)/);
   assert.match(workspace, /field\?\.focus\(\)/);
-  assert.match(workspace, /class:is-new=\{pendingAreaIds\.includes\(room\.work_area_id\)\}/);
   assert.doesNotMatch(workspace, /removeEmptyNewArea/);
   assert.doesNotMatch(workspace, /Boolean\(newAreaId\)/);
   assert.match(workspace, /nextAreaInstanceNumber\(/);
   assert.match(workspace, /typeAreaName\(/);
   assert.doesNotMatch(workspace, /existingArea\.active = true/);
+});
+
+test('discard resets restaurant areas before rebuilding the shared floor plan', async () => {
+  const workspace = await readFile(
+    'src/lib/reservations/ReservationFloorPlansWorkspace.svelte',
+    'utf8'
+  );
+  const discardStart = workspace.indexOf('function discard()');
+  const restaurantDiscard = workspace.indexOf('restaurantContext?.discard();', discardStart);
+  const floorPlanRestore = workspace.indexOf(
+    'floorPlansDraft.restore(toDraft(source));',
+    discardStart
+  );
+
+  assert.notEqual(discardStart, -1);
+  assert.notEqual(restaurantDiscard, -1);
+  assert.notEqual(floorPlanRestore, -1);
+  assert.ok(restaurantDiscard < floorPlanRestore);
 });
 
 test('moving an area preserves its footprint and table containment remains save-enforced', async () => {

@@ -20,6 +20,7 @@
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspaceTheme } from '$lib/ui/theme.svelte';
   import WorkspaceIcon from '$lib/workspace-ui/WorkspaceIcon.svelte';
+  import { workspaceShellPreferences } from '$lib/workspace-ui/workspace-shell-preferences.svelte';
   import { installWorkspaceColumnOrdering } from '$lib/workspace-ui/workspace-column-order';
   
   import {
@@ -40,7 +41,6 @@
   // device so a manager who likes the wide list keeps it and one who wants the
   // room keeps the rail.
   let sidebarCollapsed = $state(false);
-  let sidebarMode = $state<'pinned' | 'auto'>('pinned');
   let sendingVerification = $state(false);
   let verificationSent = $state(false);
   let notificationSettingsRequest = $state(0);
@@ -67,18 +67,17 @@
   onMount(() => {
     try {
       sidebarCollapsed = localStorage.getItem('rst-workspace-rail') === 'on';
-      sidebarMode = localStorage.getItem('rst-sidebar-mode') === 'auto' ? 'auto' : 'pinned';
     } catch {
       sidebarCollapsed = false;
-      sidebarMode = 'pinned';
     }
+    workspaceShellPreferences.init();
   });
 
   onMount(installWorkspaceColumnOrdering);
 
   function toggleRail() {
-    if (sidebarMode === 'auto') {
-      setSidebarMode('pinned');
+    if (workspaceShellPreferences.sidebarMode === 'auto') {
+      workspaceShellPreferences.setSidebarMode('pinned');
       sidebarCollapsed = false;
       try {
         localStorage.setItem('rst-workspace-rail', 'off');
@@ -92,15 +91,6 @@
       localStorage.setItem('rst-workspace-rail', sidebarCollapsed ? 'on' : 'off');
     } catch {
       // A device that refuses storage still toggles for this session.
-    }
-  }
-
-  function setSidebarMode(mode: 'pinned' | 'auto'): void {
-    sidebarMode = mode;
-    try {
-      localStorage.setItem('rst-sidebar-mode', mode);
-    } catch {
-      // The preference still applies for this session.
     }
   }
 
@@ -232,8 +222,8 @@
   {:else}
     <div
       class="cl-app"
-      class:is-rail={sidebarCollapsed || sidebarMode === 'auto'}
-      class:is-auto-rail={sidebarMode === 'auto'}
+      class:is-rail={sidebarCollapsed || workspaceShellPreferences.sidebarMode === 'auto'}
+      class:is-auto-rail={workspaceShellPreferences.sidebarMode === 'auto'}
       data-module={activeModule?.key ?? 'home'}
     >
       <a class="cl-brand" href="/home" aria-label="Restogogo">
@@ -277,15 +267,9 @@
         <span class="cl-topbar__spacer"></span>
 
 
-        <WorkspacePreferencesMenu {sidebarMode} onsidebarmode={setSidebarMode} />
+        <WorkspacePreferencesMenu />
 
         {#if !workspace.isPreview}
-          <CommunicationCenter
-            restaurantId={workspace.activeId}
-            role={workspace.effectiveRole}
-            employeeId={workspace.effectiveEmployeeId}
-          />
-
           <NotificationBell
             restaurantId={workspace.activeId}
             role={workspace.effectiveRole}
@@ -312,9 +296,9 @@
         <button
           class="cl-rail-toggle"
           type="button"
-          aria-label={sidebarMode === 'auto' ? t('Pin menu') : sidebarCollapsed ? t('Expand menu') : t('Collapse menu')}
-          title={sidebarMode === 'auto' ? t('Pin menu') : sidebarCollapsed ? t('Expand menu') : t('Collapse menu')}
-          aria-pressed={sidebarCollapsed || sidebarMode === 'auto'}
+          aria-label={workspaceShellPreferences.sidebarMode === 'auto' ? t('Pin menu') : sidebarCollapsed ? t('Expand menu') : t('Collapse menu')}
+          title={workspaceShellPreferences.sidebarMode === 'auto' ? t('Pin menu') : sidebarCollapsed ? t('Expand menu') : t('Collapse menu')}
+          aria-pressed={sidebarCollapsed || workspaceShellPreferences.sidebarMode === 'auto'}
           onclick={toggleRail}
         >
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 6l-6 6 6 6" /></svg>
@@ -386,6 +370,14 @@
       </main>
 
       <PopcornPet />
+
+      {#if !workspace.isPreview}
+        <CommunicationCenter
+          restaurantId={workspace.activeId}
+          role={workspace.effectiveRole}
+          employeeId={workspace.effectiveEmployeeId}
+        />
+      {/if}
     </div>
   {/if}
   <ConfirmHost />

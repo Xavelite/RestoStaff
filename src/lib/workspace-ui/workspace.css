@@ -2016,7 +2016,7 @@
 
   .cl-topbar.has-tabs {
     display: grid;
-    grid-template-columns: 36px minmax(0, 1fr) 36px 36px 36px 36px;
+    grid-template-columns: 36px minmax(0, 1fr) 36px 36px 36px;
     grid-template-rows: 60px 46px;
     gap: 0 6px;
     align-items: center;
@@ -2038,18 +2038,13 @@
     grid-row: 1;
   }
 
-  .cl-topbar.has-tabs > .communications-button {
+  .cl-topbar.has-tabs > .notifications-shell {
     grid-column: 4;
     grid-row: 1;
   }
 
-  .cl-topbar.has-tabs > .notifications-shell {
-    grid-column: 5;
-    grid-row: 1;
-  }
-
   .cl-topbar.has-tabs > .menu-wrap {
-    grid-column: 6;
+    grid-column: 5;
     grid-row: 1;
   }
 

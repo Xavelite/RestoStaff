@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Settings } from '@lucide/svelte';
   import type { WorkspaceIcon } from './workspace-nav';
 
   let { name, size = 20 }: { name: WorkspaceIcon; size?: number } = $props();
@@ -6,6 +7,9 @@
 
 <!-- One line-drawn set, single stroke weight, no fills: the icons identify a
      module without adding colour or decoration. -->
+{#if name === 'settings'}
+  <Settings {size} strokeWidth={1.6} aria-hidden="true" />
+{:else}
 <svg
   viewBox="0 0 24 24"
   width={size}
@@ -59,6 +63,7 @@
     <path d="M5 14v6h14v-6" />
   {/if}
 </svg>
+{/if}
 
 <style>
   svg {

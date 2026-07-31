@@ -89,7 +89,7 @@ export function duplicateAreaTypeCount(
   ).length;
 }
 
-export function areaInstanceLocator(
+function areaInstanceLocator(
   area: AreaInstanceIdentity,
   areas: ReadonlyArray<AreaInstanceIdentity>
 ): string {

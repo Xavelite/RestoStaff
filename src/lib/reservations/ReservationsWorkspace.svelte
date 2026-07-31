@@ -726,7 +726,7 @@
               {t('Arrivals')}
               <small>{liveReservations.length}</small>
             </button>
-            <a href="/reservations/floor-plans">
+            <a href="/restaurant/floor-plan?layer=tables">
               {t('Edit layout')}
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
             </a>
@@ -751,7 +751,7 @@
             <span class="cl-empty__icon" aria-hidden="true"><MapPinned size={18} /></span>
             <strong>{t('No reservable room yet')}</strong>
             <span>{t('Set up areas in Restaurant → Areas, then add tables in Reservations → Tables.')}</span>
-            <a class="cl-btn is-primary" href="/reservations/floor-plans">{t('Open Tables')}</a>
+            <a class="cl-btn is-primary" href="/restaurant/floor-plan?layer=tables">{t('Open floor plan')}</a>
           </div>
         {/if}
       </section>

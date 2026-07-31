@@ -20,8 +20,6 @@ class FloorPlansDraft {
   source = $state<ReservationFloorPlans | null>(null);
   draft = $state<ReservationFloorPlansDraft | null>(null);
   dirty = $state(false);
-  /** Areas added since the last save. They stay marked as new rows. */
-  pendingAreaIds = $state<string[]>([]);
 
   /** True once this restaurant's plan is loaded, so a remount does not refetch. */
   holds(restaurantId: string): boolean {
@@ -33,14 +31,12 @@ class FloorPlansDraft {
     this.source = source;
     this.draft = draft;
     this.dirty = false;
-    this.pendingAreaIds = [];
   }
 
   /** Go back to the last loaded plan. */
   restore(draft: ReservationFloorPlansDraft): void {
     this.draft = draft;
     this.dirty = false;
-    this.pendingAreaIds = [];
   }
 
   touch(): void {

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import { GripVertical } from '@lucide/svelte';
+  import { GripVertical, Map as MapIcon } from '@lucide/svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { confirmAction } from '$lib/ui/confirm.svelte';
   import { buildPositionColorMap, defaultAreaColor } from '$lib/ui/position-color';
@@ -17,9 +17,6 @@
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
   import WorkspaceTimeRange from '$lib/workspace-ui/WorkspaceTimeRange.svelte';
   import WorkspaceToggle from '$lib/workspace-ui/WorkspaceToggle.svelte';
-  import WorkspaceViewSwitch from '$lib/workspace-ui/WorkspaceViewSwitch.svelte';
-  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
-  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
   import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import {
     duplicateAreaTypeCount,
@@ -82,7 +79,6 @@
     3 + OPTIONAL_COLUMNS.filter((column) => shown(column.key)).length
   );
   let dragId = $state('');
-  let viewMode = $state<'list' | 'plan'>('list');
 
   function areaIdentities(): AreaInstanceIdentity[] {
     return (context?.draft.areas ?? []).map((area) => ({
@@ -167,7 +163,7 @@
     context.draft.areas = [area, ...context.draft.areas];
     restaurantConfig.placementArea(area);
     restaurantConfig.touch();
-    viewMode = 'list';
+    workspaceLayout.set('rows');
     view.resetFilters();
     await tick();
     document.getElementById(`area-catalogue-${id}`)?.focus();
@@ -376,8 +372,8 @@
       });
   }
 
-  async function openAreaFromPlan(areaId: string): Promise<void> {
-    viewMode = 'list';
+  async function editAreaFromCard(areaId: string): Promise<void> {
+    workspaceLayout.set('rows');
     view.resetFilters();
     await tick();
     document.getElementById(`area-catalogue-${areaId}`)?.focus();
@@ -405,11 +401,10 @@
       <span><i class="dot is-green"></i>{t('{count} active', { count: rows.filter((area) => placement(area).active).length })}</span>
     {/snippet}
     {#snippet actions()}
-      <WorkspaceViewSwitch
-        value={viewMode}
-        secondary="plan"
-        onchange={(value) => (viewMode = value === 'plan' ? 'plan' : 'list')}
-      />
+      <a class="cl-btn" href="/restaurant/floor-plan">
+        <MapIcon size={15} aria-hidden="true" />
+        {t('Floor plan')}
+      </a>
       <button
         class="cl-btn is-primary"
         type="button"
@@ -421,40 +416,7 @@
       </button>
     {/snippet}
     {#snippet children()}
-      {#if viewMode === 'list' && workspaceLayout.cards}
-        <WorkspaceCardGrid>
-          {#each groups as group (group.key)}
-            {#each group.rows as area (area.id)}
-              {@const linkedPositions = positionsForArea(area.id)}
-              <WorkspaceCard
-                accent={area.color ?? null}
-                title={area.name || t('Area')}
-                subtitle={instanceHint(area) || floorLabel(area.floorLevel)}
-                badges={[
-                  area.active
-                    ? { label: t('Active'), tone: 'ok' as const }
-                    : { label: t('Archived'), tone: 'neutral' as const }
-                ]}
-                meta={[
-                  { label: t('Floor'), value: floorLabel(area.floorLevel) },
-                  { label: t('Default hours'), value: hoursSummary(area) },
-                  {
-                    label: t('Linked positions'),
-                    value: linkedPositions.length
-                      ? linkedPositions.map((position) => position.name).filter(Boolean).join(', ')
-                      : t('No linked positions'),
-                    muted: linkedPositions.length === 0
-                  }
-                ]}
-              >
-                {#snippet media()}
-                  <WorkspaceAreaIcon icon={area.iconKey} color={area.color} size={17} />
-                {/snippet}
-              </WorkspaceCard>
-            {/each}
-          {/each}
-        </WorkspaceCardGrid>
-      {:else if viewMode === 'list'}
+      {#if !workspaceLayout.cards}
       <div class="cl-tablewrap areas-table">
         <table class="cl-table cl-mobile-rows">
           <thead>
@@ -750,17 +712,17 @@
         </table>
       </div>
       {:else if planGroups.length}
-        <div class="area-plan">
+        <div class="area-cards">
           {#each planGroups as group (group.key)}
-            <section class="area-plan__floor" aria-label={group.label}>
+            <section class="area-cards__floor" aria-label={group.label}>
               <header>
                 <span>
                   <strong>{group.label}</strong>
                   <small>{group.rows.length === 1 ? t('1 area') : t('{count} areas', { count: group.rows.length })}</small>
                 </span>
-                <span class="area-plan__floor-line" aria-hidden="true"></span>
+                <span class="area-cards__floor-line" aria-hidden="true"></span>
               </header>
-              <div class="area-plan__grid">
+              <div class="area-cards__grid">
                 {#each group.rows as area (area.id)}
                   {@const stable = placement(area)}
                   {@const linkedPositionRows = positionsForArea(area.id)}
@@ -770,7 +732,7 @@
                     style={`--area-tone:${stable.color || 'var(--cl-info)'}`}
                     type="button"
                     aria-label={`${stable.name}, ${positionSummary(area.id)}, ${hoursSummary(stable)}`}
-                    onclick={() => void openAreaFromPlan(area.id)}
+                    onclick={() => void editAreaFromCard(area.id)}
                   >
                     <span class="area-tile__identity">
                       <WorkspaceAreaIcon
@@ -784,6 +746,9 @@
                       </span>
                     </span>
                     <span class="area-tile__positions">
+                      <span class="area-tile__state" class:is-archived={!stable.active}>
+                        <i aria-hidden="true"></i>{t(stable.active ? 'Active' : 'Archived')}
+                      </span>
                       <span class="area-tile__icons" aria-hidden="true">
                         {#each linkedPositionRows.slice(0, 4) as position (position.id)}
                           <WorkspaceAreaIcon
@@ -798,6 +763,9 @@
                         <strong>{linkedPositionRows.length}</strong>
                         <small>{t(linkedPositionRows.length === 1 ? 'position' : 'positions')}</small>
                       </span>
+                    </span>
+                    <span class="area-tile__position-names" class:is-empty={!linkedPositionRows.length}>
+                      {positionSummary(area.id)}
                     </span>
                     <span class="area-tile__hours">
                       {#each activeServices as service (service.serviceKey)}
@@ -943,19 +911,19 @@
     opacity: 0.35;
   }
 
-  .area-plan {
+  .area-cards {
     display: grid;
     gap: 18px;
     padding: 18px;
   }
 
-  .area-plan__floor {
+  .area-cards__floor {
     min-width: 0;
     display: grid;
     gap: 9px;
   }
 
-  .area-plan__floor > header {
+  .area-cards__floor > header {
     min-height: 28px;
     display: grid;
     grid-template-columns: auto minmax(48px, 1fr);
@@ -963,28 +931,28 @@
     gap: 12px;
   }
 
-  .area-plan__floor > header > span:first-child {
+  .area-cards__floor > header > span:first-child {
     display: flex;
     align-items: baseline;
     gap: 8px;
   }
 
-  .area-plan__floor > header strong {
+  .area-cards__floor > header strong {
     color: var(--cl-ink);
     font-size: var(--rst-fs-control);
   }
 
-  .area-plan__floor > header small {
+  .area-cards__floor > header small {
     color: var(--cl-muted);
     font-size: var(--rst-fs-caption);
   }
 
-  .area-plan__floor-line {
+  .area-cards__floor-line {
     height: 1px;
     background: linear-gradient(90deg, var(--cl-line-strong), transparent);
   }
 
-  .area-plan__grid {
+  .area-cards__grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(245px, 1fr));
     gap: 10px;
@@ -994,11 +962,11 @@
     --area-tone: var(--cl-info);
     position: relative;
     min-width: 0;
-    min-height: 134px;
+    min-height: 154px;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: auto 1fr;
-    gap: 14px 12px;
+    grid-template-rows: auto auto 1fr;
+    gap: 10px 12px;
     overflow: hidden;
     padding: 14px;
     border: 1px solid color-mix(in srgb, var(--area-tone) 28%, var(--cl-line));
@@ -1053,6 +1021,38 @@
     white-space: nowrap;
   }
 
+  .area-tile__state {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 7px;
+    border: 1px solid color-mix(in srgb, var(--cl-ok) 24%, var(--cl-line));
+    border-radius: var(--rst-ui-radius-pill);
+    color: var(--cl-ok);
+    background: color-mix(in srgb, var(--cl-ok) 8%, var(--cl-surface));
+    font-size: var(--rst-fs-micro);
+    font-weight: var(--rst-fw-bold);
+    white-space: nowrap;
+  }
+
+  .area-tile__positions > .area-tile__state {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+
+  .area-tile__state i {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .area-tile__state.is-archived {
+    border-color: var(--cl-line);
+    color: var(--cl-muted);
+    background: var(--cl-surface-muted);
+  }
+
   .area-tile__identity strong {
     font-size: var(--rst-fs-body);
   }
@@ -1063,11 +1063,24 @@
   }
 
   .area-tile__positions {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto auto;
     align-items: center;
     justify-content: flex-end;
-    gap: 8px;
+    gap: 5px 8px;
   }
+
+  .area-tile__position-names {
+    min-width: 0;
+    align-self: center;
+    overflow: hidden;
+    color: var(--cl-data-text);
+    font-size: var(--rst-fs-label);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .area-tile__position-names.is-empty { color: var(--cl-muted); }
 
   .area-tile__positions > span:last-child {
     display: grid;
@@ -1140,12 +1153,12 @@
   }
 
   @media (max-width: 760px) {
-    .area-plan {
+    .area-cards {
       gap: 14px;
       padding: 12px;
     }
 
-    .area-plan__grid {
+    .area-cards__grid {
       grid-template-columns: 1fr;
     }
 

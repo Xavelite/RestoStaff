@@ -3,12 +3,8 @@
   import { friendlyError } from '$lib/api/error-messages';
   import Dialog from '$lib/components/Dialog.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
-  import WorkspaceViewSwitch from '$lib/workspace-ui/WorkspaceViewSwitch.svelte';
   import WorkspacePalettePicker from '$lib/workspace-ui/WorkspacePalettePicker.svelte';
   import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
-  import WorkspaceCellBadge from '$lib/workspace-ui/WorkspaceCellBadge.svelte';
-  import WorkspacePicker from '$lib/workspace-ui/WorkspacePicker.svelte';
-  import { StableDraftPlacement } from '$lib/workspace-ui/stable-draft-placement';
   import type { WorkspaceRestaurantContext } from '$lib/workspace-ui/workspace-context';
   import { restaurantConfig } from '$lib/workspace-ui/workspace-restaurant.svelte';
   import { floorPlansDraft } from './floor-plans-draft.svelte';
@@ -44,7 +40,6 @@
   } from '$lib/restaurant/workspace-catalogue';
   import {
     areaInstanceLabel,
-    areaInstanceLocator,
     duplicateAreaTypeCount,
     nextAreaInstanceNumber,
     type AreaInstanceIdentity
@@ -67,7 +62,6 @@
   const source = $derived(floorPlansDraft.source);
   const draft = $derived(floorPlansDraft.draft);
   const dirty = $derived(floorPlansDraft.dirty);
-  const pendingAreaIds = $derived(floorPlansDraft.pendingAreaIds);
   let loading = $state(false);
   let saving = $state(false);
   let error = $state('');
@@ -86,16 +80,6 @@
   };
   let combinationEditor = $state<CombinationEditor | null>(null);
   let compactViewport = $state(false);
-  let editorView = $state<'plan' | 'list'>('list');
-  type AreaDirectoryPlacement = {
-    id: string;
-    floorOrder: number;
-    positionX: number;
-    positionY: number;
-    name: string;
-  };
-  const areaDirectoryPlacement =
-    new StableDraftPlacement<AreaDirectoryPlacement>(structuredClone);
   const CANONICAL_FLOOR_LEVELS = [-1, 0, 1, 2] as const;
   const ROOM_GRID = 20;
   const TABLE_GRID = 10;
@@ -103,9 +87,6 @@
   const editorReadOnly = $derived(workspace.isPreview);
   const planGeometryReadOnly = $derived(compactViewport || workspace.isPreview);
 
-  function changeAreaView(view: 'list' | 'plan'): void {
-    editorView = view;
-  }
   function catalogueAreaItems(): WorkspaceCataloguePickerItem[] {
     return WORKSPACE_AREA_CATALOGUE.map((area) => ({
       key: area.key,
@@ -158,9 +139,6 @@
   });
   const selectedFloorIndex = $derived(
     selectableFloors.findIndex((floor) => floor.id === selectedFloorId)
-  );
-  const floorOptions = $derived(
-    selectableFloors.map((floor) => ({ value: floor.id, label: floorLabel(floor) }))
   );
   const mergedRooms = $derived.by(() => {
     if (!draft || !source) return [] as ReservationRoom[];
@@ -223,30 +201,6 @@
   });
   const floorRooms = $derived(
     mergedRooms.filter((room) => room.floor_id === selectedFloorId)
-  );
-  const orderedAreaRooms = $derived(
-    [...mergedRooms].sort((left, right) => {
-      const leftPendingIndex = pendingAreaIds.indexOf(left.work_area_id);
-      const rightPendingIndex = pendingAreaIds.indexOf(right.work_area_id);
-      const leftIsPending = leftPendingIndex >= 0;
-      const rightIsPending = rightPendingIndex >= 0;
-      if (leftIsPending !== rightIsPending) return leftIsPending ? -1 : 1;
-      if (leftIsPending && rightIsPending && leftPendingIndex !== rightPendingIndex) {
-        return leftPendingIndex - rightPendingIndex;
-      }
-      const leftPlacement = areaDirectoryPlacement.snapshotFor(
-        directoryPlacement(left)
-      );
-      const rightPlacement = areaDirectoryPlacement.snapshotFor(
-        directoryPlacement(right)
-      );
-      return (
-        leftPlacement.floorOrder - rightPlacement.floorOrder ||
-        leftPlacement.positionY - rightPlacement.positionY ||
-        leftPlacement.positionX - rightPlacement.positionX ||
-        leftPlacement.name.localeCompare(rightPlacement.name)
-      );
-    })
   );
   const floorTables = $derived(
     (draft?.tables ?? []).filter(
@@ -346,6 +300,7 @@
     // would throw away work the user can still see in the other tab.
     if (!restaurantId) return;
     if (floorPlansDraft.holds(restaurantId)) {
+      reconcileDraftRoomsWithAreas();
       ensureSelectedFloor(floorPlansDraft.draft);
       return;
     }
@@ -364,13 +319,53 @@
       '';
   }
 
+  function reconcileDraftRoomsWithAreas(): void {
+    if (!draft || !restaurantContext) return;
+    const activeAreas = restaurantContext.draft.areas.filter((area) => area.active);
+    const activeAreaIds = new Set(activeAreas.map((area) => area.id));
+    let changed = false;
+
+    for (const room of draft.rooms) {
+      const shouldBeActive = activeAreaIds.has(room.work_area_id);
+      if (room.active === shouldBeActive) continue;
+      room.active = shouldBeActive;
+      changed = true;
+    }
+
+    for (const area of activeAreas) {
+      if (draft.rooms.some((room) => room.work_area_id === area.id)) continue;
+      const floor = draft.floors.find((candidate) => candidate.level === (area.floorLevel ?? 0)) ??
+        draft.floors.find((candidate) => candidate.level === 0) ??
+        draft.floors[0];
+      const geometry = floor
+        ? nextAreaGeometry(
+            floor,
+            draft.rooms.filter((room) => room.active && room.floor_id === floor.id).length
+          )
+        : { x: 24, y: 24, width: 452, height: 252 };
+      draft.rooms.push({
+        id: crypto.randomUUID(),
+        work_area_id: area.id,
+        floor_id: floor?.id ?? null,
+        position_x: geometry.x,
+        position_y: geometry.y,
+        width: geometry.width,
+        height: geometry.height,
+        active: true,
+        sort_order: draft.rooms.length
+      });
+      changed = true;
+    }
+
+    if (changed) touch();
+  }
+
   async function load(restaurantId: string) {
     loading = true;
     error = '';
     try {
       const next = await getReservationFloorPlans(restaurantId);
       floorPlansDraft.adopt(next, toDraft(next));
-      resetAreaDirectoryPlacement();
       const loaded = floorPlansDraft.draft!;
       ensureSelectedFloor(loaded);
       selectedRoomId = '';
@@ -384,38 +379,6 @@
   }
 
   function toDraft(value: ReservationFloorPlans): ReservationFloorPlansDraft {
-    const activeAreaIds = new Set(
-      value.areas.filter((area) => area.active).map((area) => area.id)
-    );
-    const rooms = value.rooms.map((room) => ({
-      id: room.id,
-      work_area_id: room.work_area_id,
-      floor_id: room.floor_id,
-      position_x: Number(room.position_x),
-      position_y: Number(room.position_y),
-      width: Number(room.width),
-      height: Number(room.height),
-      // A room is the stable spatial identity of an active work area. Revive
-      // archived legacy rooms in Areas rather than generating a duplicate ID.
-      active: mode === 'areas' && activeAreaIds.has(room.work_area_id) ? true : room.active,
-      sort_order: room.sort_order
-    }));
-    if (mode === 'areas') {
-      for (const area of value.areas.filter((item) => item.active)) {
-        if (rooms.some((room) => room.work_area_id === area.id)) continue;
-        rooms.push({
-          id: crypto.randomUUID(),
-          work_area_id: area.id,
-          floor_id: null,
-          position_x: 24,
-          position_y: 24,
-          width: 452,
-          height: 252,
-          active: true,
-          sort_order: rooms.length
-        });
-      }
-    }
     const floors = value.floors.map((floor) => ({
       ...floor,
       canvas_width: Number(floor.canvas_width),
@@ -438,6 +401,49 @@
         sort_order: index
       });
     }
+    const activeAreas = restaurantContext
+      ? restaurantContext.draft.areas.filter((area) => area.active)
+      : value.areas.filter((area) => area.active);
+    const activeAreaIds = new Set(
+      activeAreas.map((area) => area.id)
+    );
+    const rooms = value.rooms.map((room) => ({
+      id: room.id,
+      work_area_id: room.work_area_id,
+      floor_id: room.floor_id,
+      position_x: Number(room.position_x),
+      position_y: Number(room.position_y),
+      width: Number(room.width),
+      height: Number(room.height),
+      // A room is the stable spatial identity of an active work area. Revive
+      // archived legacy rooms rather than generating a duplicate ID.
+      active: activeAreaIds.has(room.work_area_id),
+      sort_order: room.sort_order
+    }));
+    for (const area of activeAreas) {
+      if (rooms.some((room) => room.work_area_id === area.id)) continue;
+      const areaLevel = 'floorLevel' in area ? area.floorLevel ?? 0 : area.floor_level ?? 0;
+      const floor = floors.find((candidate) => candidate.level === areaLevel) ??
+        floors.find((candidate) => candidate.level === 0) ??
+        floors[0];
+      const floorRoomCount = rooms.filter(
+        (room) => room.active && room.floor_id === floor?.id
+      ).length;
+      const geometry = floor
+        ? nextAreaGeometry(floor, floorRoomCount)
+        : { x: 24, y: 24, width: 452, height: 252 };
+      rooms.push({
+        id: crypto.randomUUID(),
+        work_area_id: area.id,
+        floor_id: floor?.id ?? null,
+        position_x: geometry.x,
+        position_y: geometry.y,
+        width: geometry.width,
+        height: geometry.height,
+        active: true,
+        sort_order: rooms.length
+      });
+    }
     return {
       floors,
       rooms,
@@ -457,39 +463,6 @@
 
   function touch() {
     floorPlansDraft.touch();
-  }
-
-  function directoryPlacement(
-    room: Pick<
-      ReservationRoomDraft,
-      'id' | 'work_area_id' | 'floor_id' | 'position_x' | 'position_y'
-    >
-  ): AreaDirectoryPlacement {
-    const floor = draft?.floors.find((item) => item.id === room.floor_id);
-    const area = restaurantContext?.draft.areas.find(
-      (item) => item.id === room.work_area_id
-    );
-    const sourceRoom = source?.rooms.find((item) => item.id === room.id);
-    const sourceArea = source?.areas.find((item) => item.id === room.work_area_id);
-    return {
-      id: room.id,
-      floorOrder: floor?.sort_order ?? Number.MAX_SAFE_INTEGER,
-      positionX: Number(room.position_x),
-      positionY: Number(room.position_y),
-      name:
-        (area ? restaurantConfig.placementArea(area).name : '') ||
-        sourceRoom?.name ||
-        sourceArea?.name ||
-        ''
-    };
-  }
-
-  function resetAreaDirectoryPlacement(): void {
-    areaDirectoryPlacement.reset(
-      (draft?.rooms ?? [])
-        .filter((room) => room.active)
-        .map((room) => directoryPlacement(room))
-    );
   }
 
   function clamp(value: number, minimum: number, maximum: number): number {
@@ -571,24 +544,6 @@
     }));
   }
 
-  function areaInstanceLocatorFor(
-    areaId: string,
-    floorId: string | null
-  ): string {
-    const level = draft?.floors.find((floor) => floor.id === floorId)?.level ?? 0;
-    const identities = areaInstanceIdentities().map((candidate) =>
-      candidate.id === areaId ? { ...candidate, floorLevel: level } : candidate
-    );
-    const area = identities.find((candidate) => candidate.id === areaId);
-    if (
-      !area ||
-      duplicateAreaTypeCount(area, identities) <= 1
-    ) {
-      return '';
-    }
-    return areaInstanceLocator(area, identities);
-  }
-
   function floorCountLabel(count: number): string {
     return count === 1 ? t('1 floor') : t('{count} floors', { count });
   }
@@ -666,15 +621,11 @@
       sort_order: draft.rooms.length
     };
     draft.rooms = [...draft.rooms, room];
-    areaDirectoryPlacement.snapshotFor(directoryPlacement(room));
     selectedRoomId = room.id;
     selectedTableId = '';
     restaurantConfig.touch();
     touch();
-    floorPlansDraft.pendingAreaIds = [id, ...pendingAreaIds];
     await tick();
-    // Keep the current view. List users edit the new row; plan users edit the
-    // selected area in the details rail without losing the floor context.
     const field = document.getElementById(`area-picker-${id}`);
     field?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     field?.focus();
@@ -774,7 +725,6 @@
       draft.rooms = draft.rooms.filter((room) => room.id !== roomDraft.id);
       draft.tables = draft.tables.filter((table) => table.room_id !== roomDraft.id);
       restaurantConfig.removeAreaPlacement(areaDraft.id);
-      areaDirectoryPlacement.remove(roomDraft.id);
     }
     draft.combinations = reconcileTableCombinations(
       draft.combinations,
@@ -787,26 +737,9 @@
     for (const position of restaurantContext.draft.jobFunctions) {
       position.areaIds = position.areaIds.filter((areaId) => areaId !== archivedAreaId);
     }
-    floorPlansDraft.pendingAreaIds = pendingAreaIds.filter((areaId) => areaId !== archivedAreaId);
     restaurantConfig.touch();
     selectedRoomId = '';
     touch();
-  }
-
-  function assignRoom(room: ReservationRoom) {
-    if (!selectedFloor) return;
-    moveAreaToFloor(room.id, selectedFloor.id, true);
-  }
-
-  function openAreaOnPlan(room: ReservationRoom): void {
-    if (room.floor_id) {
-      selectedFloorId = room.floor_id;
-      selectedRoomId = room.id;
-      selectedTableId = '';
-    } else {
-      assignRoom(room);
-    }
-    changeAreaView('plan');
   }
 
   function moveAreaToFloor(roomId: string, floorId: string, navigate = false): void {
@@ -1661,13 +1594,15 @@
     saving = true;
     error = '';
     try {
-      if (restaurantContext) {
-        throw new Error('Operational areas must be saved from Restaurant, not Reservations.');
-      } else if (dirty) {
+      const planWasDirty = dirty;
+      if (restaurantContext?.dirty) {
+        await restaurantContext.save();
+      }
+      if (planWasDirty) {
         await saveReservationFloorPlans(workspace.activeId, draft, source?.revision ?? 0);
       }
       await load(workspace.activeId);
-      toasts.show(t(mode === 'areas' ? 'Areas saved.' : 'Tables saved.'), 'success');
+      toasts.show(t('Floor plan saved.'), 'success');
     } catch (cause) {
       error = friendlyError(cause);
       toasts.show(error, 'danger');
@@ -1678,8 +1613,8 @@
 
   function discard() {
     if (!source) return;
+    restaurantContext?.discard();
     floorPlansDraft.restore(toDraft(source));
-    resetAreaDirectoryPlacement();
     const restored = floorPlansDraft.draft!;
     selectedFloorId =
       restored.floors.find((floor) => floor.active && floor.level === 0)?.id ??
@@ -1688,17 +1623,14 @@
     selectedRoomId = '';
     selectedTableId = '';
     combinationEditor = null;
-    restaurantContext?.discard();
   }
 
   onMount(() =>
     unsavedChanges.register({
-      id: mode === 'areas' ? 'restaurant-floor-layout' : 'reservation-table-layout',
-      label: mode === 'areas' ? 'Restaurant floor layout' : 'Reservation table layout',
+      id: 'restaurant-floor-plan',
+      label: 'Restaurant floor plan',
       priority: 20,
-      // The draft outlives this view, so moving between the tabs that edit the
-      // same plan costs nothing. Only leaving them is worth a question.
-      navigationScopes: ['/restaurant', '/reservations'],
+      navigationScopes: ['/restaurant'],
       isDirty: () => floorPlansDraft.dirty,
       save,
       discard
@@ -1740,7 +1672,7 @@
   </div>
 {/snippet}
 
-<svelte:head><title>{t(mode === 'areas' ? 'Areas' : 'Tables')} &middot; restogogo</title></svelte:head>
+<svelte:head><title>{t('Floor plan')} &middot; restogogo</title></svelte:head>
 
 {#if error}<div class="floor-error" role="alert">{error}</div>{/if}
 
@@ -1761,11 +1693,6 @@
     {/snippet}
     {#snippet actions()}
       {#if mode === 'areas'}
-        <WorkspaceViewSwitch
-          value={editorView}
-          secondary="plan"
-          onchange={(value) => changeAreaView(value === 'plan' ? 'plan' : 'list')}
-        />
         <button
           class="cl-btn is-primary"
           type="button"
@@ -1778,99 +1705,6 @@
       {#if loading && !draft}
         <div class="floor-loading"><span class="cl-skel"></span><span class="cl-skel"></span></div>
       {:else if draft}
-        {#if mode === 'areas' && editorView === 'list'}
-          <div class="cl-tablewrap area-directory">
-            <table class="cl-table cl-mobile-rows">
-              <thead>
-                <tr>
-                  <th>{t('Area')}</th>
-                  <th>{t('Floor')}</th>
-                  <th class="is-num">{t('Positions')}</th>
-                  <th>{t('Status')}</th>
-                  <th aria-label={t('Actions')}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {#each orderedAreaRooms as room (room.id)}
-                  {@const floor = draft.floors.find((item) => item.id === room.floor_id)}
-                  {@const areaDraft = restaurantContext?.draft.areas.find((area) => area.id === room.work_area_id)}
-                  <tr
-                    class:is-attention={!room.floor_id}
-                    class:is-new={pendingAreaIds.includes(room.work_area_id)}
-                  >
-                    <td class="cl-mobile-primary">
-                      <span class="area-row-name">
-                        <WorkspaceAreaIcon icon={areaIconFor(room.work_area_id)} color={room.area_color} size={18} />
-                        {#if areaDraft}
-                          <span class="area-name-editor">
-                            <WorkspaceCataloguePicker
-                              inputId={`area-picker-${areaDraft.id}`}
-                              bind:value={areaDraft.name}
-                              selectedKey={areaDraft.catalogueKey}
-                              items={catalogueAreaItems()}
-                              label={t('Area')}
-                              placeholder={t('Select or type an area')}
-                              disabled={editorReadOnly}
-                              recommendedLabel={t('Suggested areas')}
-                              allLabel={t('All system areas')}
-                              customLabel={t('Custom area')}
-                              browseLabel={t('Browse system areas')}
-                              noMatchesLabel={t('No matching system areas')}
-                              customDescription={t('Keep this area specific to your restaurant')}
-                              formatCustomLabel={(name) => t('Use “{name}” as a custom area', { name })}
-                              onvaluechange={(value) => typeAreaName(areaDraft.id, value)}
-                              onselect={(item) => selectAreaCatalogue(areaDraft.id, item)}
-                              oncustom={(name) => selectCustomArea(areaDraft.id, name)}
-                            />
-                            {#if areaInstanceLocatorFor(areaDraft.id, room.floor_id)}
-                              <small class="area-instance-locator">{areaInstanceLocatorFor(areaDraft.id, room.floor_id)}</small>
-                            {/if}
-                          </span>
-                        {:else}
-                          <strong>{room.name}</strong>
-                        {/if}
-                      </span>
-                      <span class="cl-mobile-summary">
-                        <span>{floor ? floorLabel(floor) : t('Not placed')}</span>
-                        <span>{t('{count} positions', { count: positionCountForArea(room.work_area_id) })}</span>
-                      </span>
-                    </td>
-                    <td>
-                      <WorkspacePicker
-                        value={room.floor_id ?? ''}
-                        options={floorOptions}
-                        disabled={editorReadOnly}
-                        placeholder="Not placed"
-                        ariaLabel={t('Floor')}
-                        onchange={(next) => moveAreaToFloor(room.id, next)}
-                      />
-                    </td>
-                    <td class="is-num">{positionCountForArea(room.work_area_id)}</td>
-                    <td><WorkspaceCellBadge label={floor ? 'Active' : 'Needs placement'} tone={floor ? 'success' : 'warning'} icon={floor ? 'check' : 'warning'} /></td>
-                    <td class="menu-cell">
-                      <WorkspaceRowMenu
-                        disabled={editorReadOnly}
-                        items={[
-                          {
-                            label: t(floor ? 'Open plan' : 'Place'),
-                            onselect: () => openAreaOnPlan(room)
-                          },
-                          {
-                            label: t('Archive'),
-                            tone: 'danger',
-                            onselect: () => void archiveArea(room.id)
-                          }
-                        ]}
-                      />
-                    </td>
-                  </tr>
-                {:else}
-                  <tr class="cl-mobile-empty"><td colspan="5"><div class="cl-empty"><strong>{t('No areas yet')}</strong><span>{t('Add an area to start shaping your restaurant.')}</span></div></td></tr>
-                {/each}
-              </tbody>
-            </table>
-          </div>
-        {:else}
         <div class="area-editor">
           <section class="cl-card plan-card">
             {#if selectedFloor}
@@ -2188,6 +2022,7 @@
                   tablesEditable={mode === 'tables' && !planGeometryReadOnly}
                   tablesSelectable
                   showTableCount={mode === 'tables'}
+                  showLegend={mode === 'tables'}
                   selectedRoomId={selectedTableId ? '' : selectedRoomId}
                   {selectedTableId}
                   invalidTableIds={overlappingTableIds}
@@ -2220,7 +2055,6 @@
           </section>
         </div>
       {/if}
-      {/if}
     {/snippet}
 </WorkspaceTablePanel>
 
@@ -2240,12 +2074,6 @@
   .layout-warning { color: var(--cl-problem); font-weight: var(--rst-fw-semibold); }
   .layout-warning i { width: 6px; height: 6px; display: inline-block; margin-right: 5px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 13%, transparent); }
   .floor-loading { display: grid; gap: 16px; padding: 24px; }
-  .area-directory { --cl-grid-max-height: calc(100dvh - 190px); }
-  .area-directory .cl-table { min-width: 680px; }
-  .area-row-name { min-width: 230px; display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 9px; }
-  .area-row-name > strong { font-size: var(--rst-fs-control); }
-  .area-name-editor { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 7px; }
-  .area-instance-locator { padding: 2px 5px; border: 1px solid var(--cl-line); border-radius: 4px; color: var(--cl-muted); background: var(--cl-surface-muted); font-size: var(--rst-fs-caption); font-weight: var(--rst-fw-semibold); white-space: nowrap; }
   .area-editor { min-width: 0; display: grid; gap: 10px; }
   .plan-card { min-width: 0; display: grid; grid-template-columns: minmax(560px, 1fr) 286px; grid-template-rows: minmax(480px, 1fr); overflow: hidden; border-color: var(--cl-line-strong); }
   .area-canvas { min-width: 0; grid-column: 1; grid-row: 1; padding: 0; border-right: 1px solid var(--cl-line); background: var(--cl-surface-muted); }

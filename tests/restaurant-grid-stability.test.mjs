@@ -58,7 +58,7 @@ test('Restaurant grids consume stable placement for filters, sorting and groupin
     readFile('src/lib/workspace-ui/workspace-restaurant.svelte.ts', 'utf8'),
     readFile('src/routes/(app)/restaurant/positions/+page.svelte', 'utf8'),
     readFile('src/routes/(app)/restaurant/coverage/+page.svelte', 'utf8'),
-    readFile('src/lib/reservations/ReservationFloorPlansWorkspace.svelte', 'utf8')
+    readFile('src/lib/restaurant/OperationalAreasWorkspace.svelte', 'utf8')
   ]);
 
   assert.match(config, /#areaPlacement = new StableDraftPlacement<AreaDraft>/);
@@ -78,7 +78,8 @@ test('Restaurant grids consume stable placement for filters, sorting and groupin
   assert.match(coverage, /placementPositionName\(row\.jobFunctionId\)/);
   assert.match(coverage, /a\.placementLabel\.localeCompare\(b\.placementLabel\)/);
 
-  assert.match(areas, /areaDirectoryPlacement\.snapshotFor/);
-  assert.match(areas, /resetAreaDirectoryPlacement\(\)/);
-  assert.match(areas, /leftPlacement\.floorOrder - rightPlacement\.floorOrder/);
+  assert.match(areas, /function placement\(area: AreaDraft\)/);
+  assert.match(areas, /restaurantConfig\.placementArea\(area\)/);
+  assert.match(areas, /floorPlanGroups\(rows\)/);
+  assert.match(areas, /placement\(left\)\.name\.localeCompare/);
 });
