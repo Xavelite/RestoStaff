@@ -6,6 +6,8 @@
   import { workspace } from '$lib/workspace/workspace.svelte';
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
   import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
+  import WorkspaceTimeline, { type TimelineEntry } from '$lib/workspace-ui/WorkspaceTimeline.svelte';
+  import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
 
   const snapshot = $derived(workspace.operations);
   const timezone = $derived(
@@ -56,6 +58,39 @@
   );
   const filteredEmpty = $derived(allEvents.length > 0 && filtersActive);
 
+  function dayHeading(value: string): string {
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return '';
+    return new Intl.DateTimeFormat(i18n.intlLocale, { dateStyle: 'full' }).format(date);
+  }
+
+  function clockStamp(value: string): string {
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return '';
+    return new Intl.DateTimeFormat(i18n.intlLocale, { timeStyle: 'short' }).format(date);
+  }
+
+  // Publishing is the event that changes what the team sees, so it carries the
+  // strongest tone; reverting reads as a warning; everything else stays quiet.
+  function eventTone(eventType: string): TimelineEntry['tone'] {
+    if (eventType.includes('publish')) return 'ok';
+    if (eventType.includes('revert') || eventType.includes('unpublish')) return 'warn';
+    return 'neutral';
+  }
+
+  const timelineEntries = $derived<TimelineEntry[]>(
+    events.map((event) => ({
+      id: event.id,
+      day: dayHeading(event.created_at),
+      title: t(workWeekEventLabel(event.event_type)),
+      description: event.reason || null,
+      facts: [weekLabel(event.week_start, i18n.intlLocale), t(event.actor_role || 'System')],
+      time: clockStamp(event.created_at),
+      isoTime: event.created_at,
+      tone: eventTone(event.event_type)
+    }))
+  );
+
   function stamp(value: string): string {
     const date = new Date(value);
     if (!Number.isFinite(date.getTime())) return '';
@@ -70,6 +105,9 @@
 
 <WorkspacePage>
   <section class="history-surface" aria-label={t('Schedule history')}>
+    {#if workspaceLayout.cards && events.length}
+      <WorkspaceTimeline entries={timelineEntries} />
+    {:else}
     <div class="cl-tablewrap">
       <table class="cl-table">
         <thead>
@@ -156,6 +194,7 @@
         </tbody>
       </table>
     </div>
+    {/if}
   </section>
 </WorkspacePage>
 

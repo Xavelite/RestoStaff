@@ -16,6 +16,9 @@
   import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
   import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
+  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
+  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
+  import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
 
   type GroupBy = 'readiness' | 'worker' | 'basis' | 'none';
   type SortKey =
@@ -218,6 +221,42 @@
       <span><i class="dot is-green"></i>{t('{ready} of {total} ready', { ready: readyCount, total: filtered.length })}</span>
     {/snippet}
     {#snippet children()}
+      {#if workspaceLayout.cards}
+        <!-- Readiness is the whole question this page answers, so it drives the
+             card's colour: amber means someone still blocks the handoff. -->
+        <WorkspaceCardGrid>
+          {#each groups as group (group.key)}
+            {#each group.employees as employee (employee.id)}
+              {@const missing = gaps(employee)}
+              <WorkspaceCard
+                accent={missing.length ? 'var(--rst-state-warning, #d99a1c)' : 'var(--cl-ok, #157f4b)'}
+                initials={personInitials(employee.displayName || '?')}
+                title={employee.displayName}
+                subtitle={team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position')}
+                badges={[
+                  missing.length
+                    ? { label: t('{count} details missing', { count: missing.length }), tone: 'warn' as const }
+                    : { label: t('Ready'), tone: 'ok' as const },
+                  { label: workerLabel(employee), tone: 'neutral' as const }
+                ]}
+                meta={[
+                  ...(shown('payrollId')
+                    ? [{
+                        label: t('Payroll ID'),
+                        value: employee.payrollEmployeeId || '—',
+                        muted: !employee.payrollEmployeeId
+                      }]
+                    : []),
+                  ...(shown('function') ? [{ label: t('Function'), value: functionLabel(employee) }] : []),
+                  ...(shown('salary') ? [{ label: t('Salary'), value: salaryLabel(employee) }] : []),
+                  ...(shown('bank') ? [{ label: t('Bank'), value: bankLabel(employee) }] : [])
+                ]}
+                onactivate={() => (detailId = employee.id)}
+              />
+            {/each}
+          {/each}
+        </WorkspaceCardGrid>
+      {:else}
       <div class="cl-tablewrap">
         <table class="cl-table cl-mobile-rows payroll-table">
           <thead>
@@ -305,6 +344,7 @@
           {/if}
         </table>
       </div>
+      {/if}
     {/snippet}
   </WorkspaceTablePanel>
 
