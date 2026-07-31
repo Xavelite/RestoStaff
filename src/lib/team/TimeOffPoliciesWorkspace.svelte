@@ -4,6 +4,9 @@
   import { workspace } from '$lib/workspace/workspace.svelte';
   import WorkspaceStatus from '$lib/workspace-ui/WorkspaceStatus.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
+  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
+  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
+  import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
   import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
   import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
@@ -97,6 +100,26 @@
   <WorkspaceTablePanel>
     {#snippet meta()}<span><i class="dot"></i>{t('{count} types', { count: types.length })}</span>{/snippet}
     {#snippet children()}
+      {#if workspaceLayout.cards}
+        <WorkspaceCardGrid>
+          {#each groups as group (group.key)}
+            {#each group.rows as type (type.id)}
+              <WorkspaceCard
+                title={type.name}
+                badges={[
+                  { label: t(PAID_LABEL[type.paid_policy ?? 'neutral'] ?? type.paid_policy ?? '—'), tone: 'neutral' as const },
+                  type.active
+                    ? { label: t('Active'), tone: 'ok' as const }
+                    : { label: t('Archived'), tone: 'neutral' as const }
+                ]}
+                meta={[
+                  { label: t('Needs approval'), value: type.requires_approval ? t('Yes') : t('No') }
+                ]}
+              />
+            {/each}
+          {/each}
+        </WorkspaceCardGrid>
+      {:else}
       <div class="cl-tablewrap">
         <table class="cl-table cl-mobile-rows">
           <thead><tr>
@@ -153,6 +176,7 @@
           {/if}
         </table>
       </div>
+      {/if}
     {/snippet}
   </WorkspaceTablePanel>
 {/if}
