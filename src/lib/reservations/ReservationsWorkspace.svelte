@@ -753,6 +753,12 @@
                 label: t('Room & table'),
                 value: reservation.table_labels.join(' + ') || t('Unassigned'),
                 muted: !reservation.table_labels.length
+              },
+              { label: t('Source'), value: t(sourceLabel(reservation.source)) },
+              {
+                label: t('Notes'),
+                value: reservation.guest_comment || reservation.internal_notes || '—',
+                muted: !reservation.guest_comment && !reservation.internal_notes
               }
             ]}
             onactivate={() => openReservation(reservation)}

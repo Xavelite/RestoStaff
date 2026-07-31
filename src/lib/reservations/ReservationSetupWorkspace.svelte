@@ -234,6 +234,30 @@
                         }}
                       />
                     </div>
+                    <label class="svc-field">
+                      <span>{t('Service cover limit')}</span>
+                      <input
+                        class="cl-field cover-field"
+                        type="number"
+                        min={service.maximum_party_size}
+                        max="10000"
+                        placeholder={service.capacity_mode === 'tables' ? t('No cap') : ''}
+                        bind:value={service.maximum_covers}
+                        oninput={touch}
+                      />
+                    </label>
+                    <div class="svc-field">
+                      <span>{t('Confirmation')}</span>
+                      <WorkspacePicker
+                        value={service.automatic_confirmation ? 'automatic' : 'manual'}
+                        options={confirmationOptions}
+                        ariaLabel={t('Confirmation')}
+                        onchange={(next) => {
+                          service.automatic_confirmation = next === 'automatic';
+                          touch();
+                        }}
+                      />
+                    </div>
                   </div>
                 {/snippet}
               </WorkspaceCard>
@@ -346,6 +370,11 @@
     letter-spacing: .04em;
     text-transform: uppercase;
   }
+
+  /* The grid sized these inputs for a narrow column; in a card they get the
+     full width, so a placeholder like "No cap" is never clipped. */
+  .svc-field :global(.cl-field) { width: 100%; min-width: 0; }
+  .svc-field .range-field { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 6px; }
 
   .setup-error {
     padding: 10px 12px;

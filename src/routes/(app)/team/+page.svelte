@@ -483,7 +483,11 @@
                     : { label: t('Archived'), tone: 'neutral' as const },
                   ...(employee.jobFunctionIds.length > 1
                     ? [{ label: `+${employee.jobFunctionIds.length - 1}`, tone: 'accent' as const }]
-                    : [])
+                    : []),
+                  {
+                    label: employee.accessState.replace('_', ' '),
+                    tone: employee.accessState === 'active' ? ('accent' as const) : ('neutral' as const)
+                  }
                 ]}
                 meta={[
                   { label: t('Email'), value: employee.email || '—', muted: !employee.email },

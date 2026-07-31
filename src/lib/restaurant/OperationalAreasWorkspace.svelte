@@ -436,6 +436,7 @@
                 ]}
                 meta={[
                   { label: t('Floor'), value: floorLabel(area.floorLevel) },
+                  { label: t('Default hours'), value: hoursSummary(area) },
                   {
                     label: t('Linked positions'),
                     value: linkedPositions.length
