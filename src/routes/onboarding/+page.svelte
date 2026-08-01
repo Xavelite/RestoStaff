@@ -1122,49 +1122,60 @@
 {/if}
 
 <style>
+  /* The signed-out gate used to paint a module atmosphere photo under a dark
+     wash, which rendered as rust-coloured blocks behind the copy — the app shell
+     already has a contract test forbidding exactly that imagery, and this gate
+     was simply missed. It is the same moment as sign-in, so it now wears the
+     same card. */
   .setup-gate {
-    width: 100vw;
+    width: 100%;
     min-height: 100vh;
     min-height: 100dvh;
     display: grid;
     place-items: center;
     padding: 24px;
-    overflow: hidden;
-    background:
-      linear-gradient(90deg, rgba(11, 18, 26, 0.94), rgba(11, 18, 26, 0.68)),
-      url('/module-backgrounds/restaurant.webp') center / cover;
+    background: var(--cl-bg, var(--rst-ui-bg));
   }
 
   .gate-hero {
-    width: min(680px, 100%);
+    width: min(440px, 100%);
     display: grid;
-    gap: 14px;
-    color: #fffaf2;
+    gap: 12px;
+    padding: 28px;
+    border: 1px solid var(--cl-line, var(--rst-ui-line));
+    border-radius: 18px;
+    color: var(--cl-ink, var(--rst-ui-text));
+    background: var(--cl-surface, var(--rst-ui-surface-panel));
+    box-shadow: 0 20px 50px rgba(15, 23, 42, .10), 0 2px 6px rgba(15, 23, 42, .04);
   }
 
   .gate-hero h1 {
     margin: 0;
-    font-size: var(--rst-fs-hero-xl);
-    line-height: 0.92;
-    letter-spacing: 0;
+    font-size: var(--rst-fs-title-lg);
+    font-weight: var(--rst-fw-display);
+    line-height: 1.2;
+    letter-spacing: -.01em;
   }
 
   .gate-hero p {
-    max-width: 520px;
     margin: 0;
-    color: rgba(255, 250, 242, 0.78);
+    color: var(--cl-muted, var(--rst-ui-muted));
+    font-size: var(--rst-fs-body);
     line-height: 1.5;
   }
 
   .gate-hero a {
-    width: fit-content;
-    min-height: 42px;
+    justify-self: stretch;
+    min-height: 44px;
+    margin-top: 4px;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     padding: 0 16px;
-    border-radius: var(--rst-ui-radius-md);
+    border-radius: 10px;
     color: var(--rst-on-accent-text);
-    background: var(--rst-ui-action);
+    background: var(--cl-accent, var(--rst-ui-action));
+    font-size: var(--rst-fs-body);
     font-weight: var(--rst-fw-bold);
     text-decoration: none;
   }
@@ -1185,10 +1196,11 @@
     gap: 22px;
     align-items: center;
     padding: clamp(26px, 5vw, 52px);
-    color: #fffaf2;
-    background:
-      linear-gradient(95deg, rgba(11, 18, 26, 0.98) 0%, rgba(11, 18, 26, 0.88) 47%, rgba(240, 100, 35, 0.26) 100%),
-      url('/module-backgrounds/restaurant.webp') center / cover;
+    /* Same shell navy as the app topbar. The orange wash over a module photo
+       was the last of the old atmosphere treatment; the text stays light so
+       contrast is unchanged. */
+    color: var(--rst-topbar-text, #f5f7fb);
+    background: var(--cl-shell, #101828);
   }
 
   .launch-hero::before {
@@ -1197,12 +1209,10 @@
     inset: -18%;
     z-index: 0;
     pointer-events: none;
-    background:
-      radial-gradient(circle at 18% 18%, rgba(var(--rst-ui-action-rgb), 0.26), transparent 28%),
-      radial-gradient(circle at 86% 28%, rgba(247, 183, 51, 0.18), transparent 34%),
-      radial-gradient(circle at 74% 88%, rgba(66, 216, 132, 0.13), transparent 32%);
+    /* One quiet accent glow instead of three drifting coloured lights: the
+       amber and green ones belonged to the retired palette. */
+    background: radial-gradient(circle at 18% 18%, rgba(var(--rst-ui-action-rgb), 0.20), transparent 34%);
     mix-blend-mode: screen;
-    animation: rst-ambient-shift 14s ease-in-out infinite alternate;
   }
 
   .launch-hero::after {
