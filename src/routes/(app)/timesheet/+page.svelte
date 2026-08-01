@@ -125,7 +125,7 @@
       : []
   );
   const rosterEmployeeCount = $derived(
-    new Set(slots.filter(isTimesheetRow).map((slot) => slot.employeeId)).size
+    snapshot?.employees.filter((employee) => employee.active).length ?? 0
   );
   const totals = $derived(
     snapshot
@@ -143,8 +143,7 @@
       ? slots.filter(
           (slot) =>
             slot.employeeId === selectedDayEmployeeId &&
-            slot.date === selectedDayDate &&
-            isTimesheetRow(slot)
+            slot.date === selectedDayDate
         )
       : []
   );
@@ -255,8 +254,8 @@
     selectedKey = requested;
   });
 
-  // The employees to show: everyone with any planned or recorded time this week,
-  // narrowed to those with an issue when the filter is on.
+  // Every active employee remains available for a manual entry, even when the
+  // week has no plan or badge evidence for them yet.
   type GridRow = {
     id: string;
     name: string;
@@ -273,6 +272,22 @@
     const contractTypeName = new Map(
       (snapshot?.contract_types ?? []).map((contract) => [contract.id, contract.name])
     );
+    for (const employee of snapshot?.employees.filter((item) => item.active) ?? []) {
+      const primaryPositionId = employeePosition.get(employee.id) ?? '';
+      const contract = (snapshot?.employee_contracts ?? []).find(
+        (item) => item.employee_id === employee.id && item.active && item.is_current
+      );
+      byId.set(employee.id, {
+        id: employee.id,
+        name: employee.display_name,
+        worked: 0,
+        planned: 0,
+        attention: false,
+        positionId: primaryPositionId,
+        position: positionName.get(primaryPositionId) ?? t('No position'),
+        contract: contractTypeName.get(contract?.contract_type_id ?? '') ?? t('No contract')
+      });
+    }
     for (const slot of slots) {
       if (!isTimesheetRow(slot)) continue;
       const primaryPositionId = employeePosition.get(slot.employeeId) ?? '';
@@ -310,7 +325,7 @@
   function cellSlots(employeeId: string, date: string): ActualSlot[] {
     return serviceKeys
       .map((service) => slotByKey.get(`${employeeId}|${date}|${service}`))
-      .filter((slot): slot is ActualSlot => Boolean(slot && isTimesheetRow(slot)));
+      .filter((slot): slot is ActualSlot => Boolean(slot));
   }
 
   function issueCountLabel(count: number): string {
@@ -422,7 +437,7 @@
   }
 
   function selectDay(daySlots: ActualSlot[]): void {
-    const first = daySlots.find(isTimesheetRow);
+    const first = daySlots[0];
     if (!first) return;
     selectedDayEmployeeId = first.employeeId;
     selectedDayDate = first.date;
@@ -572,7 +587,15 @@
                 </span>
                 <em class:is-ready={!rowNeedsReview}>{t(rowNeedsReview ? 'Review' : 'Ready')}</em>
               </header>
-              <TimesheetDayCard slots={item.slots} {areaName} {areaColor} {positionName} services={snapshot?.services ?? []} onopen={() => selectDay(item.slots)} />
+              <TimesheetDayCard
+                slots={item.slots}
+                {areaName}
+                {areaColor}
+                {positionName}
+                services={snapshot?.services ?? []}
+                allowEmpty={editable && mobileDate <= today}
+                onopen={() => selectDay(item.slots)}
+              />
             </article>
           {/each}
         {:else}
@@ -692,7 +715,18 @@
                         class:is-today={day.today}
                         class:is-past={day.past}
                       >
-                        {#if daySlots.length}<TimesheetDayCard slots={daySlots} {areaName} {areaColor} {positionName} services={snapshot?.services ?? []} compact={compactCards} onopen={() => selectDay(daySlots)} />{/if}
+                        {#if daySlots.length}
+                          <TimesheetDayCard
+                            slots={daySlots}
+                            {areaName}
+                            {areaColor}
+                            {positionName}
+                            services={snapshot?.services ?? []}
+                            compact={compactCards}
+                            allowEmpty={editable && day.date <= today}
+                            onopen={() => selectDay(daySlots)}
+                          />
+                        {/if}
                       </td>
                     {/each}
                   </tr>

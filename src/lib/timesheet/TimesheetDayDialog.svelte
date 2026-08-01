@@ -1,13 +1,13 @@
 <script lang="ts">
   import type { ManagerOperationsReadModel } from '$lib/api/workspace-snapshot';
-  import { formatHours, hoursBetweenClocks, serviceLabel, weekdayDateLabel } from '$lib/calendar/date';
+  import { activeServiceKeys, formatHours, hoursBetweenClocks, serviceLabel, weekdayDateLabel } from '$lib/calendar/date';
   import Dialog from '$lib/components/Dialog.svelte';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import { friendlyError } from '$lib/api/error-messages';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import WorkspaceServiceIcon from '$lib/workspace-ui/WorkspaceServiceIcon.svelte';
-  import { slotLabel } from '$lib/workspace-ui/workspace-time';
+  import { isTimesheetRow, slotLabel } from '$lib/workspace-ui/workspace-time';
   import { recordPlannedTimesheetDay } from './timesheet-actions';
   import type { ActualSlot } from './timesheet-model';
 
@@ -30,9 +30,11 @@
   let busy = $state(false);
   const employee = $derived(slots[0]?.employeeName ?? '');
   const date = $derived(slots[0]?.date ?? '');
+  const activeServices = $derived(new Set(activeServiceKeys(snapshot?.services)));
   const visible = $derived(
-    slots.filter((slot) => slot.planned || slot.entryId || slot.status !== 'empty')
+    slots.filter((slot) => isTimesheetRow(slot) || activeServices.has(slot.serviceKey))
   );
+  const activityCount = $derived(visible.filter(isTimesheetRow).length);
   const missingPlanned = $derived(
     visible.filter(
       (slot) =>
@@ -87,18 +89,22 @@
     <div class="day-overview__summary">
       <span><b>{formatHours(planned)}</b>{t('planned')}</span>
       <span><b>{formatHours(worked)}</b>{t('worked')}</span>
-      <span><b>{visible.length}</b>{t('services')}</span>
+      <span><b>{activityCount}</b>{t('services')}</span>
     </div>
 
     <div class="day-overview__services">
       {#each visible as slot (slot.key)}
-        <button type="button" onclick={() => onedit(slot.key)}>
+        <button
+          type="button"
+          disabled={!editable && !isTimesheetRow(slot)}
+          onclick={() => onedit(slot.key)}
+        >
           <span class="service-icon"><WorkspaceServiceIcon service={slot.serviceKey} size={17} /></span>
           <span>
             <strong>{t(serviceLabel(slot.serviceKey, snapshot?.services))}</strong>
-            <small>{slot.actualRange || slot.plannedRange || t('No time recorded')}</small>
-          </span>
-          <span class="service-state is-{slot.status}">{t(slotLabel(slot.status))}</span>
+              <small>{slot.actualRange || slot.plannedRange || t(isTimesheetRow(slot) ? 'No time recorded' : 'Manual entry')}</small>
+            </span>
+          <span class="service-state is-{slot.status}">{t(isTimesheetRow(slot) ? slotLabel(slot.status) : 'Add time')}</span>
           <b>{slot.actualHours ? formatHours(slot.actualHours) : slot.truth.plan ? formatHours(hoursBetweenClocks(slot.truth.plan.startsAt, slot.truth.plan.endsAt)) : '-'}</b>
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
         </button>

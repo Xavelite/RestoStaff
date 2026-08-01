@@ -732,6 +732,10 @@ test('employee month shows one effective truth per service slot', () => {
 test('actuals weekly grid uses correction semantics and keeps empty slots actionable', () => {
   const model = buildActualsWeek({
     snapshot: snapshot({
+      employees: [
+        { id: 'e1', active: true, display_name: 'Alex' },
+        { id: 'e2', active: true, display_name: 'Sam' }
+      ],
       time_entries: [
         {
           id: 't1',
@@ -755,4 +759,6 @@ test('actuals weekly grid uses correction semantics and keeps empty slots action
   assert.equal(lunch.presentation.card?.tone, 'correction');
   assert.equal(evening.presentation.card, null);
   assert.ok(model.slotsByKey.has(evening.key));
+  assert.equal(model.rows.length, 2);
+  assert.ok(model.slotsByKey.has('e2|2026-06-15|lunch'));
 });

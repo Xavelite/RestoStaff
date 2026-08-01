@@ -5,6 +5,7 @@
     serviceLabel,
     type ServicePeriod
   } from '$lib/calendar/date';
+  import { Plus } from '@lucide/svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { isTimesheetRow, slotLabel } from '$lib/workspace-ui/workspace-time';
   import type { ActualSlot } from './timesheet-model';
@@ -17,6 +18,7 @@
     positionName = new Map<string, string>(),
     services = [],
     compact = false,
+    allowEmpty = false,
     onopen
   }: {
     slots: ActualSlot[];
@@ -25,6 +27,7 @@
     positionName?: Map<string, string>;
     services?: ServicePeriod[];
     compact?: boolean;
+    allowEmpty?: boolean;
     onopen: () => void;
   } = $props();
 
@@ -191,6 +194,14 @@
       {/each}
     </span>
   </button>
+{:else if allowEmpty}
+  <button class="attendance-card is-empty" type="button" onclick={onopen}>
+    <Plus size={15} strokeWidth={2} />
+    <span>
+      <strong>{t('Add time')}</strong>
+      <small>{t('Manual entry')}</small>
+    </span>
+  </button>
 {/if}
 
 <style>
@@ -221,6 +232,28 @@
     box-shadow: 0 1px 3px rgb(15 23 42 / .075), inset 0 0 0 1px rgb(255 255 255 / .5);
     transition: border-color var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease), transform var(--cl-dur) var(--cl-ease);
     --card-color: var(--cl-info);
+  }
+  .attendance-card.is-empty {
+    min-height: 76px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border-style: dashed;
+    border-color: var(--cl-line-strong);
+    color: var(--cl-muted);
+    background: transparent;
+    box-shadow: none;
+  }
+  .attendance-card.is-empty > span { display: grid; gap: 1px; text-align: left; }
+  .attendance-card.is-empty strong { color: inherit; font-size: var(--rst-fs-label); }
+  .attendance-card.is-empty small { font-size: var(--rst-fs-micro); }
+  .attendance-card.is-empty:hover,
+  .attendance-card.is-empty:focus-visible {
+    border-color: var(--cl-accent);
+    color: var(--cl-accent);
+    background: color-mix(in srgb, var(--cl-accent) 4%, var(--cl-surface));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cl-accent) 10%, transparent);
   }
   .attendance-card::before {
     content: '';

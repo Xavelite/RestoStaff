@@ -525,6 +525,20 @@ test('operational core exposes planning, attendance and payroll as one workspace
   assert.match(absences, /\{#if allAbsences\.length\}\s*<thead>/);
 });
 
+test('Timesheet keeps every active employee and empty past service reachable for manual time', async () => {
+  const timesheet = await readFile('src/routes/(app)/timesheet/+page.svelte', 'utf8');
+  const dayCard = await readFile('src/lib/timesheet/TimesheetDayCard.svelte', 'utf8');
+  const dayDialog = await readFile('src/lib/timesheet/TimesheetDayDialog.svelte', 'utf8');
+
+  assert.match(timesheet, /snapshot\?\.employees\.filter\(\(item\) => item\.active\)/);
+  assert.match(timesheet, /\.filter\(\(slot\): slot is ActualSlot => Boolean\(slot\)\)/);
+  assert.match(timesheet, /allowEmpty=\{editable && day\.date <= today\}/);
+  assert.match(timesheet, /allowEmpty=\{editable && mobileDate <= today\}/);
+  assert.match(dayCard, /\{:else if allowEmpty\}[\s\S]*t\('Add time'\)/);
+  assert.match(dayDialog, /isTimesheetRow\(slot\) \|\| activeServices\.has\(slot\.serviceKey\)/);
+  assert.match(dayDialog, /t\(isTimesheetRow\(slot\) \? slotLabel\(slot\.status\) : 'Add time'\)/);
+});
+
 test('Exports is a standalone manager records module', async () => {
   const nav = await readFile('src/lib/workspace-ui/workspace-nav.ts', 'utf8');
   const exportsPage = await readFile('src/routes/(app)/exports/+page.svelte', 'utf8');
