@@ -335,7 +335,7 @@
           </div>
         </header>
 
-        {#if filteredDocuments.length && workspaceLayout.cards}
+        {#if filteredDocuments.length && workspaceLayout.visual}
           <WorkspaceCardGrid>
             {#each filteredDocuments as document (document.id)}
               {@const expiryState = documentExpiryState(document.expiresOn, today)}

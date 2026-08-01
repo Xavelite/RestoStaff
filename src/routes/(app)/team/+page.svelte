@@ -466,7 +466,7 @@
         </button>
       {/snippet}
       {#snippet children()}
-      {#if workspaceLayout.cards}
+      {#if workspaceLayout.visual}
         <!-- People are a directory, not records: faces lead, the position colour
              groups them, and the one dot says whether they can actually sign in.
              Contact detail stays in the row layout and the employee editor,

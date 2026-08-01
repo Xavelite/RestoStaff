@@ -755,7 +755,7 @@
         {/if}
       </section>
     {:else}
-    {#if workspaceLayout.cards && !loading && reservations.length}
+    {#if workspaceLayout.visual && !loading && reservations.length}
       <!-- A service is a clock, not a list. The agenda puts the hour on a spine
            and hangs each booking off the moment it arrives, so a host reads the
            shape of the night — where the rushes are and where the room breathes

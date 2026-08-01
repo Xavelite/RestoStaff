@@ -389,7 +389,7 @@
   }
 
   async function editPositionFromCard(positionId: string): Promise<void> {
-    workspaceLayout.set('rows');
+    workspaceLayout.set('grid');
     view.resetFilters();
     await tick();
     document.getElementById(`position-catalogue-${positionId}`)?.focus();
@@ -478,7 +478,7 @@
       <button class="cl-btn is-primary" type="button" disabled={workspace.isPreview || !restaurantConfig.draft} onclick={() => void addPosition()}><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>{t('Add position')}</button>
     {/snippet}
     {#snippet children()}
-      {#if workspaceLayout.cards}
+      {#if workspaceLayout.visual}
         <div class="position-visual">
           {#each groups as group (group.key)}
             <section class="position-visual__group" style={`--group-tone:${group.color || 'var(--cl-line-strong)'}`}>

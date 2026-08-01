@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Inbox } from '@lucide/svelte';
+  import { CalendarDays, Check, Inbox, X } from '@lucide/svelte';
   import { saveAbsence } from '$lib/api/mutations';
   import { friendlyError } from '$lib/api/error-messages';
   import { activeServicePeriods, serviceLabel, type ServiceKey } from '$lib/calendar/date';
@@ -24,8 +24,6 @@
     unpaid: 'Unpaid',
     neutral: 'Neutral'
   };
-  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
-  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
   import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import { createTableView } from '$lib/workspace-ui/table-view.svelte';
   import type { ManagerOperationsReadModel } from '$lib/api/workspace-snapshot';
@@ -66,6 +64,7 @@
 
   type AbsenceRow = ManagerOperationsReadModel['absences'][number];
   type AbsenceGroup = { key: string; label: string; rows: AbsenceRow[] };
+  type AbsenceLane = { status: string; label: string; rows: AbsenceRow[] };
 
   function groupedRows(rows: AbsenceRow[], employeeName: Map<string, string>, typeNameForGroup: Map<string, string>): AbsenceGroup[] {
     if (!view.grouping) return [{ key: 'all', label: '', rows }];
@@ -78,6 +77,19 @@
       map.set(key, group);
     }
     return [...map.values()].sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  function visualAbsenceLanes(rows: AbsenceRow[]): AbsenceLane[] {
+    const lanes: AbsenceLane[] = [
+      { status: 'pending', label: 'Needs review', rows: [] },
+      { status: 'approved', label: 'Approved', rows: [] },
+      { status: 'rejected', label: 'Rejected', rows: [] },
+      { status: 'cancelled', label: 'Cancelled', rows: [] }
+    ];
+    for (const absence of rows.toSorted((left, right) => right.start_date.localeCompare(left.start_date))) {
+      lanes.find((lane) => lane.status === absence.status)?.rows.push(absence);
+    }
+    return lanes;
   }
 
   function toneFor(status: string): 'success' | 'warning' | 'danger' {
@@ -165,49 +177,58 @@
 
     <WorkspaceTablePanel>
       {#snippet meta()}
-        <span><i class="dot"></i>{t('{count} requests', { count: rows.length })}</span>
+        {@const requestCount = workspaceLayout.visual ? allAbsences.length : rows.length}
+        <span><i class="dot"></i>{requestCount === 1 ? t('1 request') : t('{count} requests', { count: requestCount })}</span>
         <span><i class="dot is-orange"></i>{t('{count} pending', { count: allAbsences.filter((absence) => absence.status === 'pending').length })}</span>
       {/snippet}
       {#snippet children()}
-      {#if workspaceLayout.cards}
-        <WorkspaceCardGrid>
-          {#each groups as group (group.key)}
-            {#each group.rows as absence (absence.id)}
-              {@const service = asService(absence.service_key)}
-              <WorkspaceCard
-                accent={employeeColor.get(absence.employee_id) ?? null}
-                initials={personInitials(employeeName.get(absence.employee_id) ?? '?')}
-                title={employeeName.get(absence.employee_id) ?? '—'}
-                subtitle={typeName.get(absence.absence_type_id ?? '') ?? '—'}
-                badges={[
-                  {
-                    label: absence.status,
-                    tone: absence.status === 'approved'
-                      ? ('ok' as const)
-                      : absence.status === 'pending'
-                        ? ('warn' as const)
-                        : absence.status === 'rejected'
-                          ? ('danger' as const)
-                          : ('neutral' as const)
-                  },
-                  { label: service ? serviceName(service) : t('Full day'), tone: 'neutral' as const }
-                ]}
-                meta={[
-                  {
-                    label: t('Period'),
-                    value: absence.end_date !== absence.start_date
-                      ? `${formatDate(absence.start_date)} → ${formatDate(absence.end_date)}`
-                      : formatDate(absence.start_date)
-                  },
-                  { label: t('Duration'), value: durationLabel(absence) },
-                  ...(absence.employee_comment
-                    ? [{ label: t('Comment'), value: absence.employee_comment, muted: true }]
-                    : [])
-                ]}
-              />
+      {#if workspaceLayout.visual}
+        {#if !allAbsences.length}
+          <div class="cl-empty leave-empty"><span class="cl-empty__icon" aria-hidden="true"><Inbox size={18} /></span><strong>{t('Nothing to review')}</strong><span>{t('Time-off requests appear here as employees send them.')}</span></div>
+        {:else}
+          <div class="leave-lanes" aria-label={t('Time off lifecycle')}>
+            {#each visualAbsenceLanes(allAbsences) as lane (lane.status)}
+              <section class="leave-lane is-{lane.status}">
+                <header>
+                  <span><strong>{t(lane.label)}</strong><small>{lane.rows.length}</small></span>
+                  <i aria-hidden="true"></i>
+                </header>
+                <div class="leave-lane__requests">
+                  {#each lane.rows as absence (absence.id)}
+                    {@const service = asService(absence.service_key)}
+                    <article class="leave-ticket" style={`--person-tone:${employeeColor.get(absence.employee_id) ?? 'var(--cl-line-strong)'}`}>
+                      <header>
+                        <span class="cl-avatar">{personInitials(employeeName.get(absence.employee_id) ?? '?')}</span>
+                        <span>
+                          <strong>{employeeName.get(absence.employee_id) ?? '—'}</strong>
+                          <small>{typeName.get(absence.absence_type_id ?? '') ?? t('No type')}</small>
+                        </span>
+                        <WorkspaceCellBadge label={absence.status} tone={toneFor(absence.status)} icon={iconFor(absence.status)} />
+                      </header>
+                      <div class="leave-ticket__period">
+                        <CalendarDays size={14} aria-hidden="true" />
+                        <strong>{formatDate(absence.start_date)}{#if absence.end_date !== absence.start_date} → {formatDate(absence.end_date)}{/if}</strong>
+                        <span>{durationLabel(absence)}</span>
+                      </div>
+                      <div class="leave-ticket__meta">
+                        {#if service}<WorkspaceService {service} label={serviceName(service)} />{:else}<span>{t('Full day')}</span>{/if}
+                        {#if absence.employee_comment}<p>{absence.employee_comment}</p>{/if}
+                      </div>
+                      {#if absence.status === 'pending'}
+                        <footer>
+                          <button class="cl-btn" type="button" disabled={!teamContext.editable || busy === absence.id} onclick={() => void resolve(absence.id, absence.employee_id, 'reject')}><X size={14} aria-hidden="true" />{t('Reject')}</button>
+                          <button class="cl-btn is-primary" type="button" disabled={!teamContext.editable || busy === absence.id} onclick={() => void resolve(absence.id, absence.employee_id, 'approve')}><Check size={14} aria-hidden="true" />{t('Approve')}</button>
+                        </footer>
+                      {/if}
+                    </article>
+                  {:else}
+                    <span class="leave-lane__empty">{t('No requests')}</span>
+                  {/each}
+                </div>
+              </section>
             {/each}
-          {/each}
-        </WorkspaceCardGrid>
+          </div>
+        {/if}
       {:else}
       <div class="cl-tablewrap">
         <table class="cl-table">
@@ -269,5 +290,51 @@
 {/if}
 
 <style>
+  .leave-empty { min-height: 190px; }
+  .leave-lanes {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(240px, 1fr));
+    gap: 12px;
+    padding: 14px;
+    overflow-x: auto;
+  }
+  .leave-lane { --lane-tone: var(--cl-line-strong); min-width: 240px; align-self: start; }
+  .leave-lane.is-pending { --lane-tone: var(--rst-state-warning); }
+  .leave-lane.is-approved { --lane-tone: var(--cl-ok); }
+  .leave-lane.is-rejected { --lane-tone: var(--rst-state-danger); }
+  .leave-lane.is-cancelled { --lane-tone: var(--cl-muted); }
+  .leave-lane > header { display: flex; align-items: center; gap: 9px; min-height: 36px; padding: 0 3px 8px; }
+  .leave-lane > header > span { display: flex; align-items: center; gap: 7px; }
+  .leave-lane > header strong { font-size: var(--rst-fs-label); }
+  .leave-lane > header small { min-width: 22px; padding: 2px 6px; border-radius: var(--rst-ui-radius-pill); color: var(--lane-tone); background: color-mix(in srgb, var(--lane-tone) 12%, transparent); font-size: var(--rst-fs-micro); text-align: center; }
+  .leave-lane > header i { flex: 1; height: 1px; background: linear-gradient(90deg, color-mix(in srgb, var(--lane-tone) 40%, transparent), transparent); }
+  .leave-lane__requests { display: grid; gap: 8px; }
+  .leave-ticket {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--cl-line);
+    border-top: 3px solid var(--lane-tone);
+    border-radius: var(--rst-ui-radius-md);
+    background: var(--rst-ui-surface-panel);
+  }
+  .leave-ticket > header { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+  .leave-ticket > header .cl-avatar { --avatar-color: var(--person-tone); }
+  .leave-ticket > header > span:nth-child(2) { min-width: 0; display: grid; gap: 2px; }
+  .leave-ticket > header strong { overflow: hidden; font-size: var(--rst-fs-body); text-overflow: ellipsis; white-space: nowrap; }
+  .leave-ticket > header small { overflow: hidden; color: var(--cl-muted); font-size: var(--rst-fs-caption); text-overflow: ellipsis; white-space: nowrap; }
+  .leave-ticket__period { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px; padding: 9px; border-radius: var(--rst-ui-radius-sm); background: var(--rst-ui-surface-field); font-variant-numeric: tabular-nums; }
+  .leave-ticket__period :global(svg) { color: var(--lane-tone); }
+  .leave-ticket__period strong { font-size: var(--rst-fs-control); }
+  .leave-ticket__period span { color: var(--cl-muted); font-size: var(--rst-fs-caption); font-weight: var(--rst-fw-bold); }
+  .leave-ticket__meta { min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 7px; color: var(--cl-muted); font-size: var(--rst-fs-caption); }
+  .leave-ticket__meta p { min-width: 0; flex: 1 1 100%; overflow: hidden; margin: 0; text-overflow: ellipsis; white-space: nowrap; }
+  .leave-ticket footer { display: flex; justify-content: flex-end; gap: 7px; padding-top: 9px; border-top: 1px solid var(--rst-ui-divider-soft); }
+  .leave-ticket footer .cl-btn { min-height: 30px; }
+  .leave-lane__empty { display: grid; place-items: center; min-height: 92px; border: 1px dashed var(--cl-line); border-radius: var(--rst-ui-radius-md); color: var(--cl-muted); font-size: var(--rst-fs-label); }
   .period time { color: var(--cl-ink); font-size: var(--rst-fs-body); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  @media (max-width: 760px) {
+    .leave-lanes { grid-template-columns: 1fr; padding: 10px; overflow: visible; }
+    .leave-lane { min-width: 0; }
+  }
 </style>

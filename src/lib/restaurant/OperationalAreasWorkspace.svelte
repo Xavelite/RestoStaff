@@ -163,7 +163,7 @@
     context.draft.areas = [area, ...context.draft.areas];
     restaurantConfig.placementArea(area);
     restaurantConfig.touch();
-    workspaceLayout.set('rows');
+    workspaceLayout.set('grid');
     view.resetFilters();
     await tick();
     document.getElementById(`area-catalogue-${id}`)?.focus();
@@ -373,7 +373,7 @@
   }
 
   async function editAreaFromCard(areaId: string): Promise<void> {
-    workspaceLayout.set('rows');
+    workspaceLayout.set('grid');
     view.resetFilters();
     await tick();
     document.getElementById(`area-catalogue-${areaId}`)?.focus();
@@ -412,7 +412,7 @@
       </button>
     {/snippet}
     {#snippet children()}
-      {#if !workspaceLayout.cards}
+      {#if !workspaceLayout.visual}
       <div class="cl-tablewrap areas-table">
         <table class="cl-table cl-mobile-rows">
           <thead>

@@ -357,7 +357,7 @@
 
     {#snippet children()}
       <div class="desktop-device-view">
-      {#if workspaceLayout.cards}
+      {#if workspaceLayout.visual}
         <!-- A device roster reads by state: a terminal that is live on the floor
              should not look like one that has never connected. -->
         <WorkspaceCardGrid>

@@ -1,9 +1,10 @@
 /**
  * How this account likes to read its workspaces.
  *
- * Rows are the dense, scannable default — the right shape when someone is
- * comparing many records or editing in place. Cards trade that density for a
- * calmer, more visual read of the same data.
+ * Grid is the dense, scannable default: the right shape when someone is
+ * comparing many records or editing in place. Visual lets each module choose
+ * the clearest second representation: entity tiles, a matrix, a lifecycle
+ * board, a timeline, or another domain-specific view.
  *
  * It is one account-level preference rather than a per-page toggle: a person
  * has a way they like to read, and it should follow them across every module
@@ -13,22 +14,24 @@
 
 const STORAGE_KEY = 'rst-workspace-layout';
 
-type WorkspaceLayoutMode = 'rows' | 'cards';
+type WorkspaceLayoutMode = 'grid' | 'visual';
 
 class WorkspaceLayoutPreference {
-  current = $state<WorkspaceLayoutMode>('rows');
+  current = $state<WorkspaceLayoutMode>('grid');
 
   constructor() {
     if (typeof localStorage === 'undefined') return;
     try {
-      if (localStorage.getItem(STORAGE_KEY) === 'cards') this.current = 'cards';
+      const stored = localStorage.getItem(STORAGE_KEY);
+      // Keep the preference saved before the layout contract was renamed.
+      if (stored === 'visual' || stored === 'cards') this.current = 'visual';
     } catch {
       // A device that refuses storage still reads in the default rows.
     }
   }
 
-  get cards(): boolean {
-    return this.current === 'cards';
+  get visual(): boolean {
+    return this.current === 'visual';
   }
 
   set(next: WorkspaceLayoutMode): void {

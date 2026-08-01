@@ -83,14 +83,13 @@ test('every grid-or-visual workspace keeps both render contracts', async () => {
     'src/routes/(app)/team/absences/+page.svelte',
     'src/routes/(app)/team/access/+page.svelte',
     'src/routes/(app)/team/contracts/+page.svelte',
-    'src/routes/(app)/team/payroll/+page.svelte',
-    'src/routes/(app)/timesheet/live/+page.svelte'
+    'src/routes/(app)/team/payroll/+page.svelte'
   ];
   const visualCollection =
-    /<WorkspaceCardGrid|<WorkspacePersonCard|class="agenda"|class="area-cards"|class="timeline"|class="leave-lanes"/;
+    /<WorkspaceCardGrid|<WorkspacePersonCard|class="access-board"|class="agenda"|class="area-cards"|class="staffing-matrix"|class="timeline"|class="leave-lanes"/;
   for (const file of surfaces) {
     const source = await readFile(file, 'utf8');
-    assert.match(source, /workspaceLayout\.cards/, `${file} lost the shared preference`);
+    assert.match(source, /workspaceLayout\.visual/, `${file} lost the shared preference`);
     assert.match(source, visualCollection, `${file} lost its visual collection`);
     assert.match(source, /<table|<WorkspaceTablePanel/, `${file} lost its row records`);
   }
@@ -98,6 +97,12 @@ test('every grid-or-visual workspace keeps both render contracts', async () => {
   assert.match(areas, /class="area-tile"/);
   assert.match(areas, /<table class="cl-table cl-mobile-rows">/);
   assert.doesNotMatch(areas, /WorkspaceViewSwitch|WorkspaceCardGrid/);
+
+  const live = await readFile('src/routes/(app)/timesheet/live/+page.svelte', 'utf8');
+  assert.match(live, /<WorkspaceViewSwitch/);
+  assert.match(live, /class="floor-monitor"/);
+  assert.match(live, /<table class="cl-table cl-mobile-rows">/);
+  assert.doesNotMatch(live, /workspaceLayout|WorkspaceCardGrid/);
 });
 
 test('device preferences live in one topbar menu and domain policy stays in Team', async () => {

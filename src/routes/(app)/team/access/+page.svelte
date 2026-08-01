@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Pencil } from '@lucide/svelte';
+  import { CheckCircle2, Clock3, KeyRound, Mail, Pencil, ShieldOff, UserPlus } from '@lucide/svelte';
   import { onMount, tick } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { ACCESS_LABEL } from '$lib/team/access-labels';
@@ -10,8 +10,6 @@
   import { useWorkspaceTeamContext } from '$lib/workspace-ui/workspace-context';
   import WorkspaceCellBadge from '$lib/workspace-ui/WorkspaceCellBadge.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
-  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
-  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
   import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
   import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
@@ -25,6 +23,12 @@
   type GroupBy = 'status' | 'role' | 'none';
   type SortKey = 'name' | 'email' | 'role' | 'pin' | 'status';
   type Group = { key: string; label: string; employees: EmployeeDraft[] };
+  type AccessLane = {
+    key: 'enabled' | 'invited' | 'setup' | 'disabled';
+    label: string;
+    description: string;
+    employees: EmployeeDraft[];
+  };
 
   let detailId = $state('');
   let editingEmployeeId = $state('');
@@ -106,6 +110,26 @@
     return '—';
   }
 
+  function visualAccessLanes(rows: EmployeeDraft[]): AccessLane[] {
+    const lanes: AccessLane[] = [
+      { key: 'enabled', label: 'Enabled', description: 'Can sign in now', employees: [] },
+      { key: 'invited', label: 'Invitation sent', description: 'Waiting for account setup', employees: [] },
+      { key: 'setup', label: 'Needs setup', description: 'Invite or renew access', employees: [] },
+      { key: 'disabled', label: 'Disabled', description: 'Sign-in is blocked', employees: [] }
+    ];
+    for (const employee of rows) {
+      const key = employee.accessState === 'active'
+        ? 'enabled'
+        : employee.accessState === 'invited'
+          ? 'invited'
+          : employee.accessState === 'disabled'
+            ? 'disabled'
+            : 'setup';
+      lanes.find((lane) => lane.key === key)?.employees.push(employee);
+    }
+    return lanes;
+  }
+
   async function startEmailEdit(employee: EmployeeDraft): Promise<void> {
     if (!team?.editable) return;
     editingEmployeeId = employee.id;
@@ -160,39 +184,50 @@
         <span><i class="dot is-green"></i>{t('{count} with app access', { count: appEnabled })}</span>
       {/snippet}
       {#snippet children()}
-        {#if workspaceLayout.cards}
-          <WorkspaceCardGrid>
-            {#each groups as group (group.key)}
-              {#each group.employees as employee (employee.id)}
-                <WorkspaceCard
-                  accent={employeeColor.get(employee.id) ?? null}
-                  initials={personInitials(employee.displayName)}
-                  title={employee.displayName}
-                  subtitle={employee.accessRole ? t(roleLabel(employee.accessRole)) : null}
-                  badges={[
-                    {
-                      label: t(ACCESS_LABEL[employee.accessState] ?? employee.accessState),
-                      tone: employee.accessState === 'active'
-                        ? ('ok' as const)
-                        : employee.accessState === 'invited'
-                          ? ('accent' as const)
-                          : employee.accessState === 'expired' || employee.accessState === 'revoked'
-                            ? ('warn' as const)
-                            : ('neutral' as const)
-                    },
-                    {
-                      label: employee.pinStatus === 'set' ? t('PIN set') : t('No PIN'),
-                      tone: employee.pinStatus === 'set' ? ('accent' as const) : ('neutral' as const)
-                    }
-                  ]}
-                  meta={[
-                    { label: t('Email'), value: employee.email || '—', muted: !employee.email }
-                  ]}
-                  onactivate={team.editable ? () => (detailId = employee.id) : null}
-                />
-              {/each}
+        {#if workspaceLayout.visual}
+          <div class="access-board" aria-label={t('Access readiness')}>
+            {#each visualAccessLanes(ordered(filtered)) as lane (lane.key)}
+              <section class="access-lane is-{lane.key}">
+                <header>
+                  <span class="access-lane__icon" aria-hidden="true">
+                    {#if lane.key === 'enabled'}<CheckCircle2 size={17} />
+                    {:else if lane.key === 'invited'}<Clock3 size={17} />
+                    {:else if lane.key === 'disabled'}<ShieldOff size={17} />
+                    {:else}<UserPlus size={17} />{/if}
+                  </span>
+                  <span>
+                    <strong>{t(lane.label)}</strong>
+                    <small>{t(lane.description)}</small>
+                  </span>
+                  <b>{lane.employees.length}</b>
+                </header>
+                <div class="access-lane__body">
+                  {#each lane.employees as employee (employee.id)}
+                    <button
+                      class="access-person"
+                      type="button"
+                      disabled={!team.editable}
+                      style={`--person-tone:${employeeColor.get(employee.id) ?? 'var(--cl-line-strong)'}`}
+                      onclick={() => (detailId = employee.id)}
+                    >
+                      <span class="cl-avatar">{personInitials(employee.displayName)}</span>
+                      <span class="access-person__identity">
+                        <strong>{employee.displayName}</strong>
+                        <small><Mail size={12} aria-hidden="true" />{employee.email || t('No email')}</small>
+                      </span>
+                      <span class="access-person__facts">
+                        <span>{employee.accessRole ? t(roleLabel(employee.accessRole)) : t('No role')}</span>
+                        <span class:is-ready={employee.pinStatus === 'set'}><KeyRound size={12} aria-hidden="true" />{employee.pinStatus === 'set' ? t('PIN set') : t('No PIN')}</span>
+                        {#if lane.key === 'setup'}<span>{t(ACCESS_LABEL[employee.accessState] ?? employee.accessState)}</span>{/if}
+                      </span>
+                    </button>
+                  {:else}
+                    <span class="access-lane__empty">{t('Nobody here')}</span>
+                  {/each}
+                </div>
+              </section>
             {/each}
-          </WorkspaceCardGrid>
+          </div>
         {:else}
         <div class="cl-tablewrap">
           <table class="cl-table cl-mobile-rows">
@@ -257,6 +292,77 @@
 {/if}
 
 <style>
+  .access-board {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(220px, 1fr));
+    gap: 12px;
+    padding: 14px;
+    overflow-x: auto;
+  }
+  .access-lane {
+    --lane-tone: var(--cl-line-strong);
+    min-width: 220px;
+    align-self: start;
+    overflow: hidden;
+    border: 1px solid var(--cl-line);
+    border-top: 3px solid var(--lane-tone);
+    border-radius: var(--rst-ui-radius-md);
+    background: var(--rst-ui-surface-panel);
+  }
+  .access-lane.is-enabled { --lane-tone: var(--cl-ok); }
+  .access-lane.is-invited { --lane-tone: var(--cl-accent); }
+  .access-lane.is-setup { --lane-tone: var(--rst-state-warning); }
+  .access-lane.is-disabled { --lane-tone: var(--cl-muted); }
+  .access-lane > header {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 9px;
+    padding: 12px;
+    border-bottom: 1px solid var(--rst-ui-divider-soft);
+    background: color-mix(in srgb, var(--lane-tone) 7%, var(--rst-ui-surface-panel));
+  }
+  .access-lane > header > span:nth-child(2) { min-width: 0; display: grid; gap: 1px; }
+  .access-lane > header strong { font-size: var(--rst-fs-control); }
+  .access-lane > header small { overflow: hidden; color: var(--cl-muted); font-size: var(--rst-fs-caption); text-overflow: ellipsis; white-space: nowrap; }
+  .access-lane > header b {
+    min-width: 24px;
+    padding: 3px 6px;
+    border-radius: var(--rst-ui-radius-pill);
+    color: var(--lane-tone);
+    background: color-mix(in srgb, var(--lane-tone) 11%, transparent);
+    font-size: var(--rst-fs-caption);
+    text-align: center;
+  }
+  .access-lane__icon { display: grid; place-items: center; color: var(--lane-tone); }
+  .access-lane__body { display: grid; padding: 5px 10px 8px; }
+  .access-person {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px 10px;
+    padding: 11px 2px;
+    border: 0;
+    border-bottom: 1px solid var(--rst-ui-divider-soft);
+    color: var(--cl-ink);
+    background: transparent;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .access-person:last-child { border-bottom: 0; }
+  .access-person:hover:not(:disabled) { color: var(--cl-accent); }
+  .access-person:focus-visible { outline: 2px solid color-mix(in srgb, var(--cl-accent) 48%, transparent); outline-offset: 1px; }
+  .access-person:disabled { cursor: default; }
+  .access-person .cl-avatar { grid-row: 1 / span 2; border-color: color-mix(in srgb, var(--person-tone) 35%, var(--cl-line)); color: var(--person-tone); }
+  .access-person__identity { min-width: 0; display: grid; gap: 3px; }
+  .access-person__identity strong { overflow: hidden; font-size: var(--rst-fs-body); text-overflow: ellipsis; white-space: nowrap; }
+  .access-person__identity small { min-width: 0; display: flex; align-items: center; gap: 4px; overflow: hidden; color: var(--cl-muted); font-size: var(--rst-fs-caption); text-overflow: ellipsis; white-space: nowrap; }
+  .access-person__identity small :global(svg) { flex: none; }
+  .access-person__facts { display: flex; flex-wrap: wrap; gap: 4px; }
+  .access-person__facts > span { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; border-radius: var(--rst-ui-radius-pill); color: var(--cl-muted); background: var(--rst-ui-surface-field-strong); font-size: var(--rst-fs-micro); font-weight: var(--rst-fw-medium); }
+  .access-person__facts > span.is-ready { color: var(--cl-accent); background: var(--cl-accent-wash); }
+  .access-lane__empty { padding: 20px 4px; color: var(--cl-muted); font-size: var(--rst-fs-label); text-align: center; }
   .employee-link { max-width: 230px; overflow: hidden; padding: 3px 0; border: 0; color: var(--cl-ink); background: transparent; font: inherit; font-size: var(--rst-fs-body); font-weight: var(--rst-fw-medium); text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
   .employee-link:hover:not(:disabled) { color: var(--cl-accent); text-decoration: underline; text-underline-offset: 2px; }
   .employee-link:disabled { cursor: default; }
@@ -269,4 +375,11 @@
   .email-editor { min-width: 160px; height: 32px; border-color: var(--cl-accent); box-shadow: 0 0 0 2px var(--cl-accent-wash); }
   .empty-link { justify-self: center; color: var(--cl-accent); font-size: var(--rst-fs-body); font-weight: var(--rst-fw-medium); text-decoration: none; }
   .empty-link:hover { text-decoration: underline; }
+  @media (max-width: 980px) {
+    .access-board { grid-template-columns: repeat(2, minmax(230px, 1fr)); }
+  }
+  @media (max-width: 520px) {
+    .access-board { grid-template-columns: 1fr; padding: 10px; overflow: visible; }
+    .access-lane { min-width: 0; }
+  }
 </style>

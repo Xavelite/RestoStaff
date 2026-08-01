@@ -244,7 +244,7 @@
       <span><i class="dot is-green"></i>{t('{ready} of {total} ready', { ready: readyCount, total: filtered.length })}</span>
     {/snippet}
     {#snippet children()}
-      {#if workspaceLayout.cards}
+      {#if workspaceLayout.visual}
         <!-- Readiness is the question this page answers, but a warning colour on
              every record is decoration rather than signal: at the pilot start
              nobody has payroll data yet, so all nine cards were amber. The

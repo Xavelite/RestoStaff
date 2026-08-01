@@ -213,7 +213,7 @@
         <span><i class="dot is-orange"></i>{t('{count} incomplete', { count: incomplete })}</span>
       {/snippet}
       {#snippet children()}
-      {#if workspaceLayout.cards}
+      {#if workspaceLayout.visual}
         {#each groups as group (group.key)}
           {#snippet contractCards()}
             <WorkspaceCardGrid>

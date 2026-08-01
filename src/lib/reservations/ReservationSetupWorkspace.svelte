@@ -182,7 +182,7 @@
       {#if loading && !draft}
         <div class="setup-loading"><span class="cl-skel"></span><span class="cl-skel"></span><span class="cl-skel"></span></div>
       {:else if draft}
-        {#if workspaceLayout.cards}
+        {#if workspaceLayout.visual}
           <!-- Each service owns its booking rules, so it owns a card. The grid
                made you read one service across seven columns to change one number. -->
           <WorkspaceCardGrid>

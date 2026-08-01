@@ -142,7 +142,7 @@
         <span class="cl-empty__icon spin" aria-hidden="true"><RefreshCw size={18} /></span>
         <strong>{t('Loading schedule history...')}</strong>
       </div>
-    {:else if workspaceLayout.cards && events.length}
+    {:else if workspaceLayout.visual && events.length}
       <WorkspaceTimeline entries={timelineEntries} />
     {:else}
     <div class="cl-tablewrap">

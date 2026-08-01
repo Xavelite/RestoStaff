@@ -27,23 +27,23 @@
     <div class="preference-options">
       <button
         type="button"
-        class:is-active={!workspaceLayout.cards}
-        aria-pressed={!workspaceLayout.cards}
-        onclick={() => workspaceLayout.set('rows')}
+        class:is-active={!workspaceLayout.visual}
+        aria-pressed={!workspaceLayout.visual}
+        onclick={() => workspaceLayout.set('grid')}
       >
         <List size={16} aria-hidden="true" />
-        <span>{t('Rows')}</span>
-        {#if !workspaceLayout.cards}<Check class="check" size={14} aria-hidden="true" />{/if}
+        <span>{t('Grid')}</span>
+        {#if !workspaceLayout.visual}<Check class="check" size={14} aria-hidden="true" />{/if}
       </button>
       <button
         type="button"
-        class:is-active={workspaceLayout.cards}
-        aria-pressed={workspaceLayout.cards}
-        onclick={() => workspaceLayout.set('cards')}
+        class:is-active={workspaceLayout.visual}
+        aria-pressed={workspaceLayout.visual}
+        onclick={() => workspaceLayout.set('visual')}
       >
         <LayoutGrid size={16} aria-hidden="true" />
-        <span>{t('Cards')}</span>
-        {#if workspaceLayout.cards}<Check class="check" size={14} aria-hidden="true" />{/if}
+        <span>{t('Visual')}</span>
+        {#if workspaceLayout.visual}<Check class="check" size={14} aria-hidden="true" />{/if}
       </button>
     </div>
   </fieldset>

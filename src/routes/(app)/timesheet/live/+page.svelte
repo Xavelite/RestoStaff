@@ -22,9 +22,6 @@
   import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
   import WorkspaceService from '$lib/workspace-ui/WorkspaceService.svelte';
   import WorkspaceStatus from '$lib/workspace-ui/WorkspaceStatus.svelte';
-  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
-  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
-  import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import WorkspaceViewSwitch from '$lib/workspace-ui/WorkspaceViewSwitch.svelte';
   import { isTimesheetRow, slotLabel, slotTone } from '$lib/workspace-ui/workspace-time';
 
@@ -227,53 +224,7 @@
       </div>
     </div>
 
-    {#if viewMode === 'list' && workspaceLayout.cards}
-      <!-- A presence board: who is on the floor right now reads by colour and a
-           live counter, not by scanning a clock column. -->
-      <WorkspaceCardGrid>
-        {#each groupedRows as group (group.key)}
-          {#each group.slots as slot (slot.key)}
-            {@const tone = slotTone(slot.status)}
-            <WorkspaceCard
-              accent={slot.status === 'live'
-                ? 'var(--cl-ok, #157f4b)'
-                : tone === 'problem'
-                  ? 'var(--rst-state-danger)'
-                  : tone === 'attention'
-                    ? 'var(--rst-state-warning, #d99a1c)'
-                    : (employeeColor.get(slot.employeeId) ?? null)}
-              initials={personInitials(slot.employeeName)}
-              title={slot.employeeName}
-              subtitle={t(serviceLabel(slot.serviceKey, snapshot?.services))}
-              badges={[
-                {
-                  label: t(slotLabel(slot.status)),
-                  tone: slot.status === 'live'
-                    ? ('ok' as const)
-                    : tone === 'problem'
-                      ? ('danger' as const)
-                      : tone === 'attention'
-                        ? ('warn' as const)
-                        : ('neutral' as const)
-                }
-              ]}
-              meta={[
-                { label: t('Planned'), value: slot.plannedRange || '—', muted: !slot.plannedRange },
-                { label: t('Actual'), value: slot.actualRange || '—', muted: !slot.actualRange },
-                { label: t('Hours'), value: slot.actualHours ? formatHours(slot.actualHours) : '—', muted: !slot.actualHours }
-              ]}
-              onactivate={() => (selectedKey = slot.key)}
-            >
-              {#snippet children()}
-                {#if slot.status === 'live'}
-                  <span class="live-tag"><span class="live-dot" aria-hidden="true"></span><LiveDuration since={slot.clockInAt} /></span>
-                {/if}
-              {/snippet}
-            </WorkspaceCard>
-          {/each}
-        {/each}
-      </WorkspaceCardGrid>
-    {:else if viewMode === 'list'}
+    {#if viewMode === 'list'}
       <div class="cl-tablewrap">
         <table class="cl-table cl-mobile-rows">
           <thead>

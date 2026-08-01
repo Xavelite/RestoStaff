@@ -10,8 +10,6 @@
   import WorkspacePicker from '$lib/workspace-ui/WorkspacePicker.svelte';
   import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
   import WorkspaceServiceIcon from '$lib/workspace-ui/WorkspaceServiceIcon.svelte';
-  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
-  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
   import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import { restaurantConfig } from '$lib/workspace-ui/workspace-restaurant.svelte';
   import type {
@@ -460,8 +458,34 @@
           {/each}
         </div>
 
-        {#if workspaceLayout.cards}
+        {#if workspaceLayout.visual}
           <div class="coverage-desktop staffing-visual">
+            {#if newRows.length}
+              <section class="staffing-drafts">
+                <header><strong>{t('New staffing rules')}</strong><small>{newRows.length}</small><i aria-hidden="true"></i></header>
+                {#each newRows as row (row.tempId)}
+                  {@const pendingKey = row.areaId && row.jobFunctionId && row.serviceKey ? `${row.areaId}|${row.jobFunctionId}|${row.serviceKey}` : ''}
+                  {@const duplicate = Boolean(pendingKey) && pendingKey !== row.stagedKey && exists(row.areaId, row.jobFunctionId, row.serviceKey as ServiceKey)}
+                  <article class="staffing-draft">
+                    <div class="staffing-draft__fields">
+                      <WorkspacePicker value={row.areaId} placeholder="Choose area" ariaLabel={t('Area')} options={activeAreas.map((area) => ({ value: area.id, label: areaName.get(area.id) ?? area.name, color: areaColor.get(area.id), icon: areaIcon(area.id) }))} onchange={(next) => patchNewRow(row.tempId, { areaId: next })} />
+                      <WorkspacePicker value={row.jobFunctionId} placeholder="Choose position" ariaLabel={t('Position')} options={activePositions.filter((job) => positionSupportsArea(job, row.areaId)).map((job) => ({ value: job.id, label: job.name, color: positionColor.get(job.id), icon: positionIcon(job.id) }))} onchange={(next) => patchNewRow(row.tempId, { jobFunctionId: next })} />
+                      <WorkspacePicker value={row.serviceKey} placeholder="Choose service" ariaLabel={t('Service')} options={serviceValues} onchange={(next) => patchNewRow(row.tempId, { serviceKey: next as PendingService })} />
+                      <button class="cl-btn is-icon remove" type="button" title={t('Remove')} aria-label={t('Remove')} onclick={() => removeNewRow(row.tempId)}>×</button>
+                    </div>
+                    <div class="cov-strip">
+                      {#each WEEKDAYS as day, index (day)}
+                        <label class="cov-strip__day" class:is-set={row.counts[index] != null}>
+                          <span>{t(day).slice(0, 3)}</span>
+                          <input type="number" min="0" step="1" placeholder="—" value={row.counts[index] ?? ''} aria-label={`${t(day)} ${t('required people')}`} oninput={(event) => setNewCount(row.tempId, index, event.currentTarget.value)} />
+                        </label>
+                      {/each}
+                    </div>
+                    {#if duplicate}<p class="staffing-draft__warning">{t('This area, position and service already has a coverage row.')}</p>{/if}
+                  </article>
+                {/each}
+              </section>
+            {/if}
             {#each groups as group (group.key)}
               <section class="staffing-visual__group">
                 {#if group.label}
@@ -472,49 +496,39 @@
                     <i aria-hidden="true"></i>
                   </header>
                 {/if}
-                <WorkspaceCardGrid>
+                <div class="staffing-matrix">
+                  <div class="staffing-matrix__head" aria-hidden="true">
+                    <span>{t('Position')} · {t('Area')}</span>
+                    <span>{t('Service')}</span>
+                    <span class="staffing-matrix__days">{#each WEEKDAYS as day (day)}<i>{t(day).slice(0, 3)}</i>{/each}</span>
+                    <span></span>
+                  </div>
                   {#each mergedCoverageRules(group.rows) as rule (rule.key)}
-                    <WorkspaceCard
-                      accent={areaColor.get(rule.areaId) ?? null}
-                      title={jobName.get(rule.jobFunctionId) ?? '—'}
-                      subtitle={areaName.get(rule.areaId) ?? '—'}
-                    >
-                      {#snippet media()}
-                        <WorkspaceAreaIcon icon={positionIcon(rule.jobFunctionId)} color={positionColor.get(rule.jobFunctionId)} size={17} compact />
-                      {/snippet}
-                      {#snippet children()}
-                        <div class="staffing-services">
-                          {#each rule.rows as row (rowKey(row))}
-                            <section class="staffing-service">
-                              <header>
-                                <span><WorkspaceServiceIcon service={row.serviceKey} size={14} />{serviceName(row.serviceKey)}</span>
-                                <button type="button" disabled={workspace.isPreview} title={t('Remove requirement')} aria-label={t('Remove requirement')} onclick={() => removeRow(row)}>×</button>
-                              </header>
-                              <div class="cov-strip">
-                                {#each WEEKDAYS as day, index (index)}
-                                  {@const value = entry(draft, row, index + 1)}
-                                  <label class="cov-strip__day" class:is-set={Boolean(value)}>
-                                    <span>{t(day).slice(0, 3)}</span>
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      step="1"
-                                      placeholder="—"
-                                      value={value?.requiredCount ?? ''}
-                                      disabled={workspace.isPreview}
-                                      aria-label={`${t(day)} ${t('required people')}`}
-                                      oninput={(event) => setCount(row, index + 1, event.currentTarget.value)}
-                                    />
-                                  </label>
-                                {/each}
-                              </div>
-                            </section>
-                          {/each}
-                        </div>
-                      {/snippet}
-                    </WorkspaceCard>
+                    <article class="staffing-rule" style={`--rule-tone:${areaColor.get(rule.areaId) ?? 'var(--cl-line-strong)'}`}>
+                      <div class="staffing-rule__identity">
+                        <span class="staffing-rule__icon"><WorkspaceAreaIcon icon={positionIcon(rule.jobFunctionId)} color={positionColor.get(rule.jobFunctionId)} size={17} compact /></span>
+                        <span><strong>{jobName.get(rule.jobFunctionId) ?? '—'}</strong><small>{areaName.get(rule.areaId) ?? '—'}</small></span>
+                      </div>
+                      <div class="staffing-services">
+                        {#each rule.rows as row (rowKey(row))}
+                          <section class="staffing-service">
+                            <span class="staffing-service__name"><WorkspaceServiceIcon service={row.serviceKey} size={14} />{serviceName(row.serviceKey)}</span>
+                            <div class="cov-strip">
+                              {#each WEEKDAYS as day, index (index)}
+                                {@const value = entry(draft, row, index + 1)}
+                                <label class="cov-strip__day" class:is-set={Boolean(value)}>
+                                  <span>{t(day).slice(0, 3)}</span>
+                                  <input type="number" min="0" step="1" placeholder="—" value={value?.requiredCount ?? ''} disabled={workspace.isPreview} aria-label={`${t(day)} ${t('required people')}`} oninput={(event) => setCount(row, index + 1, event.currentTarget.value)} />
+                                </label>
+                              {/each}
+                            </div>
+                            <button type="button" disabled={workspace.isPreview} title={t('Remove requirement')} aria-label={t('Remove requirement')} onclick={() => removeRow(row)}>×</button>
+                          </section>
+                        {/each}
+                      </div>
+                    </article>
                   {/each}
-                </WorkspaceCardGrid>
+                </div>
               </section>
             {/each}
           </div>
@@ -587,7 +601,7 @@
 {/if}
 
 <style>
-  .staffing-visual { display: grid; gap: 18px; padding: 18px; }
+  .staffing-visual { display: grid; gap: 20px; padding: 18px; }
   .staffing-visual__group { min-width: 0; display: grid; gap: 9px; }
   .staffing-visual__group > header {
     display: grid;
@@ -598,14 +612,33 @@
   .staffing-visual__group > header strong { font-size: var(--rst-fs-control); }
   .staffing-visual__group > header small { color: var(--cl-muted); font-size: var(--rst-fs-caption); }
   .staffing-visual__group > header i { height: 1px; background: linear-gradient(90deg, var(--cl-line-strong), transparent); }
-  .staffing-visual__group :global(.card-grid) { padding: 0; }
-  .staffing-services { width: 100%; display: grid; gap: 11px; }
-  .staffing-service { min-width: 0; display: grid; gap: 6px; }
-  .staffing-service + .staffing-service { padding-top: 10px; border-top: 1px solid var(--cl-line); }
-  .staffing-service > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .staffing-service > header span { display: inline-flex; align-items: center; gap: 6px; color: var(--cl-ink); font-size: var(--rst-fs-label); font-weight: var(--rst-fw-bold); }
-  .staffing-service > header button { width: 24px; height: 24px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 5px; color: var(--cl-muted); background: transparent; font: inherit; cursor: pointer; }
-  .staffing-service > header button:hover:not(:disabled) { color: var(--cl-problem); background: var(--cl-surface-muted); }
+  .staffing-matrix { min-width: 790px; overflow: hidden; border: 1px solid var(--cl-line); border-radius: var(--rst-ui-radius-md); background: var(--rst-ui-surface-panel); }
+  .staffing-matrix__head { display: grid; grid-template-columns: 220px 118px minmax(0, 1fr) 34px; align-items: center; gap: 10px; min-height: 36px; padding: 0 10px; border-bottom: 1px solid var(--cl-line); color: var(--cl-muted); background: var(--rst-ui-surface-field); font-size: var(--rst-fs-micro); font-weight: var(--rst-fw-bold); text-transform: uppercase; }
+  .staffing-matrix__days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; text-align: center; }
+  .staffing-matrix__days i { font-style: normal; }
+  .staffing-rule { --rule-tone: var(--cl-line-strong); display: grid; grid-template-columns: 220px minmax(0, 1fr); min-width: 0; border-left: 3px solid var(--rule-tone); border-bottom: 1px solid var(--rst-ui-divider-soft); }
+  .staffing-rule:last-child { border-bottom: 0; }
+  .staffing-rule__identity { min-width: 0; display: flex; align-items: center; gap: 9px; padding: 11px; background: color-mix(in srgb, var(--rule-tone) 6%, var(--rst-ui-surface-panel)); }
+  .staffing-rule__identity > span:last-child { min-width: 0; display: grid; gap: 2px; }
+  .staffing-rule__identity strong, .staffing-rule__identity small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .staffing-rule__identity strong { font-size: var(--rst-fs-control); }
+  .staffing-rule__identity small { color: var(--cl-muted); font-size: var(--rst-fs-caption); }
+  .staffing-rule__icon { flex: none; width: 32px; height: 32px; display: grid; place-items: center; border-radius: var(--rst-ui-radius-sm); background: color-mix(in srgb, var(--rule-tone) 10%, var(--rst-ui-surface-field)); }
+  .staffing-services { min-width: 0; display: grid; }
+  .staffing-service { min-width: 0; display: grid; grid-template-columns: 118px minmax(0, 1fr) 34px; align-items: center; gap: 10px; padding: 7px 10px; }
+  .staffing-service + .staffing-service { border-top: 1px solid var(--rst-ui-divider-soft); }
+  .staffing-service__name { min-width: 0; display: flex; align-items: center; gap: 6px; overflow: hidden; font-size: var(--rst-fs-label); font-weight: var(--rst-fw-bold); text-overflow: ellipsis; white-space: nowrap; }
+  .staffing-service > button { width: 26px; height: 26px; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--rst-ui-radius-sm); color: var(--cl-muted); background: transparent; font: inherit; cursor: pointer; }
+  .staffing-service > button:hover:not(:disabled) { color: var(--cl-problem); background: var(--cl-surface-muted); }
+  .staffing-service .cov-strip__day > span { display: none; }
+  .staffing-drafts { display: grid; gap: 8px; }
+  .staffing-drafts > header { display: grid; grid-template-columns: auto auto minmax(40px, 1fr); align-items: center; gap: 8px; }
+  .staffing-drafts > header strong { font-size: var(--rst-fs-control); }
+  .staffing-drafts > header small { color: var(--cl-accent); font-size: var(--rst-fs-caption); }
+  .staffing-drafts > header i { height: 1px; background: linear-gradient(90deg, var(--cl-accent-line), transparent); }
+  .staffing-draft { display: grid; gap: 10px; padding: 11px; border: 1px solid var(--cl-accent-line); border-left: 3px solid var(--cl-accent); border-radius: var(--rst-ui-radius-md); background: var(--rst-state-selected-bg); }
+  .staffing-draft__fields { display: grid; grid-template-columns: repeat(3, minmax(150px, 1fr)) 32px; align-items: center; gap: 8px; }
+  .staffing-draft__warning { margin: 0; color: var(--cl-attention); font-size: var(--rst-fs-caption); }
 
   /* The week as one strip: seven equal days, so an uneven rule shows its shape
      at a glance and a set day reads as filled rather than merely typed in. */
