@@ -176,7 +176,7 @@
     gap: 9px;
     padding: 28px;
     border: 1px solid #dfe5ed;
-    border-top: 3px solid #ff5a1f;
+    border-top: 3px solid var(--cl-accent, var(--rst-ui-action));
     border-radius: 6px;
     background: #fff;
     box-shadow: 0 14px 34px rgb(15 23 42 / 9%);
@@ -202,11 +202,14 @@
     font-size: var(--rst-fs-title-sm);
     font-weight: var(--rst-fw-display);
   }
+  /* Same halves as the app shell and sign-in: ink then accent. The station used
+     to invert them — orange "esto", dark "gogo" — so the pairing screen read as
+     a different product from the one it pairs with. */
   .pair-brand em {
-    color: #ff5a1f;
+    color: var(--cl-ink, var(--rst-ui-text));
     font-style: normal;
   }
-  .pair-brand em + em { color: #17212f; }
+  .pair-brand em + em { color: var(--cl-accent, var(--rst-ui-action)); }
 
   .pair-eyebrow {
     color: #667085;
