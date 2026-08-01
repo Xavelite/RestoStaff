@@ -13,8 +13,10 @@
   import { useWorkspaceTeamContext } from '$lib/workspace-ui/workspace-context';
   import WorkspaceCellBadge from '$lib/workspace-ui/WorkspaceCellBadge.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
-  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
+  import WorkspacePersonCard from '$lib/workspace-ui/WorkspacePersonCard.svelte';
   import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
+  import WorkspaceCardGroup from '$lib/workspace-ui/WorkspaceCardGroup.svelte';
+  import WorkspaceTag from '$lib/workspace-ui/WorkspaceTag.svelte';
   import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
   import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
@@ -212,30 +214,48 @@
       {/snippet}
       {#snippet children()}
       {#if workspaceLayout.cards}
-        <WorkspaceCardGrid>
-          {#each groups as group (group.key)}
-            {#each group.employees as employee (employee.id)}
-              {@const missing = gaps(employee)}
-              <WorkspaceCard
-                accent={employeeColor.get(employee.id) ?? null}
-                initials={personInitials(employee.displayName || '?')}
-                title={employee.displayName || t('New employee')}
-                subtitle={team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position yet')}
-                badges={[
-                  {
-                    label: team.contractName.get(employee.contractTypeId) || t('No contract'),
-                    tone: employee.contractTypeId ? ('neutral' as const) : ('warn' as const)
-                  },
-                  { label: t(REGIME_LABEL[employee.workRegime] ?? employee.workRegime), tone: 'neutral' as const },
-                  ...(missing.length
-                    ? [{ label: t('{count} details missing', { count: missing.length }), tone: 'warn' as const }]
-                    : [])
-                ]}
-                onactivate={team.canManageOperations && team.editable ? () => openDetails(employee.id) : null}
-              />
-            {/each}
-          {/each}
-        </WorkspaceCardGrid>
+        {#each groups as group (group.key)}
+          {#snippet contractCards()}
+            <WorkspaceCardGrid>
+              {#each group.employees as employee (employee.id)}
+                {@const missing = gaps(employee)}
+                <WorkspacePersonCard
+                  name={employee.displayName || t('New employee')}
+                  accent={employeeColor.get(employee.id) ?? null}
+                  roles={employee.jobFunctionIds.length
+                    ? employee.jobFunctionIds.map((id) => ({
+                        label: team.jobName.get(id) ?? t('No position yet'),
+                        color: positionColor.get(id) ?? null
+                      }))
+                    : [{ label: t('No position yet'), color: null }]}
+                  statusLabel={missing.length
+                    ? t('{count} details missing', { count: missing.length })
+                    : t('Ready')}
+                  statusTone={missing.length ? 'warn' : 'ok'}
+                  onactivate={team.canManageOperations && team.editable ? () => openDetails(employee.id) : null}
+                >
+                  {#snippet tags()}
+                    <WorkspaceTag
+                      label={team.contractName.get(employee.contractTypeId) || t('No contract')}
+                      tone={employee.contractTypeId ? 'neutral' : 'warn'}
+                    />
+                    <WorkspaceTag label={t(REGIME_LABEL[employee.workRegime] ?? employee.workRegime)} />
+                  {/snippet}
+                </WorkspacePersonCard>
+              {/each}
+            </WorkspaceCardGrid>
+          {/snippet}
+          {#if view.grouping && group.label}
+            <WorkspaceCardGroup
+              label={group.label}
+              meta={peopleCountLabel(group.employees.length)}
+            >
+              {@render contractCards()}
+            </WorkspaceCardGroup>
+          {:else}
+            {@render contractCards()}
+          {/if}
+        {/each}
       {:else}
       <div class="cl-tablewrap">
         <table class="cl-table cl-mobile-rows contract-table">

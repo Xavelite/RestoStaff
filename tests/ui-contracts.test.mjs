@@ -73,8 +73,6 @@ test('every rows-or-cards workspace keeps both render contracts', async () => {
     'src/routes/(app)/restaurant/positions/+page.svelte',
     'src/routes/(app)/team/absences/+page.svelte',
     'src/routes/(app)/team/access/+page.svelte',
-    'src/routes/(app)/team/contracts/+page.svelte',
-    'src/routes/(app)/team/payroll/+page.svelte',
     'src/routes/(app)/timesheet/live/+page.svelte'
   ];
   for (const file of paritySurfaces) {
@@ -92,7 +90,9 @@ test('every rows-or-cards workspace keeps both render contracts', async () => {
   const bespokeSurfaces = [
     ['src/lib/restaurant/OperationalAreasWorkspace.svelte', /class="area-cards"/],
     ['src/lib/reservations/ReservationsWorkspace.svelte', /class="agenda"/],
-    ['src/routes/(app)/team/+page.svelte', /<WorkspacePersonCard/]
+    ['src/routes/(app)/team/+page.svelte', /<WorkspacePersonCard/],
+    ['src/routes/(app)/team/contracts/+page.svelte', /<WorkspacePersonCard/],
+    ['src/routes/(app)/team/payroll/+page.svelte', /<WorkspacePersonCard/]
   ];
   for (const [file, marker] of bespokeSurfaces) {
     const source = await readFile(file, 'utf8');
@@ -893,4 +893,22 @@ test('the product spells its own name one way', async () => {
     }
   }
   assert.deepEqual(offenders, []);
+});
+
+test('Team tabs share one person card and honour the grid grouping', async () => {
+  // People, Contracts and Payroll each had their own person treatment — one
+  // left-edge card with contact rows, two top-rule cards without — on adjacent
+  // tabs of the same module. They also flowed ungrouped in the visual layout
+  // while their grids grouped, silently dropping an organising dimension the
+  // person had chosen in the column menu.
+  for (const file of [
+    'src/routes/(app)/team/+page.svelte',
+    'src/routes/(app)/team/contracts/+page.svelte',
+    'src/routes/(app)/team/payroll/+page.svelte'
+  ]) {
+    const source = await readFile(file, 'utf8');
+    assert.match(source, /<WorkspacePersonCard/, `${file} should use the shared person card`);
+    assert.match(source, /<WorkspaceCardGroup/, `${file} should group its cards like its rows`);
+    assert.doesNotMatch(source, /<WorkspaceCard\s/, `${file} still renders the generic card`);
+  }
 });

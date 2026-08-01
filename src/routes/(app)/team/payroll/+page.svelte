@@ -17,7 +17,9 @@
   import WorkspacePicker from '$lib/workspace-ui/WorkspacePicker.svelte';
   import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
-  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
+  import WorkspacePersonCard from '$lib/workspace-ui/WorkspacePersonCard.svelte';
+  import WorkspaceCardGroup from '$lib/workspace-ui/WorkspaceCardGroup.svelte';
+  import WorkspaceTag from '$lib/workspace-ui/WorkspaceTag.svelte';
   import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
   import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
 
@@ -73,6 +75,9 @@
         )
       : new Map<string, string>()
   );
+
+  /** Kept beside gaps() so the progress denominator cannot drift from it. */
+  const payrollFieldCount = 6;
 
   function gaps(employee: EmployeeDraft): string[] {
     const missing: string[] = [];
@@ -240,40 +245,67 @@
     {/snippet}
     {#snippet children()}
       {#if workspaceLayout.cards}
-        <!-- Readiness is the whole question this page answers, so it drives the
-             card's colour: amber means someone still blocks the handoff. -->
-        <WorkspaceCardGrid>
-          {#each groups as group (group.key)}
-            {#each group.employees as employee (employee.id)}
-              {@const missing = gaps(employee)}
-              <WorkspaceCard
-                accent={missing.length ? 'var(--rst-state-warning, #d99a1c)' : 'var(--cl-ok, #157f4b)'}
-                initials={personInitials(employee.displayName || '?')}
-                title={employee.displayName}
-                subtitle={team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position')}
-                badges={[
-                  missing.length
-                    ? { label: t('{count} details missing', { count: missing.length }), tone: 'warn' as const }
-                    : { label: t('Ready'), tone: 'ok' as const },
-                  { label: workerLabel(employee), tone: 'neutral' as const }
-                ]}
-                meta={[
-                  ...(shown('payrollId')
-                    ? [{
-                        label: t('Payroll ID'),
-                        value: employee.payrollEmployeeId || '—',
-                        muted: !employee.payrollEmployeeId
-                      }]
-                    : []),
-                  ...(shown('function') ? [{ label: t('Function'), value: functionLabel(employee) }] : []),
-                  ...(shown('salary') ? [{ label: t('Salary'), value: salaryLabel(employee) }] : []),
-                  ...(shown('bank') ? [{ label: t('Bank'), value: bankLabel(employee) }] : [])
-                ]}
-                onactivate={() => (detailId = employee.id)}
-              />
-            {/each}
-          {/each}
-        </WorkspaceCardGrid>
+        <!-- Readiness is the question this page answers, but a warning colour on
+             every record is decoration rather than signal: at the pilot start
+             nobody has payroll data yet, so all nine cards were amber. The
+             identity colour leads instead, and readiness is stated as progress
+             so the number moves as details land. Fields nobody has filled in on
+             any record collapse into one line rather than repeating "Not set"
+             four times per card. -->
+        {#each groups as group (group.key)}
+          {#snippet payrollCards()}
+            <WorkspaceCardGrid>
+              {#each group.employees as employee (employee.id)}
+                {@const missing = gaps(employee)}
+                {@const captured = payrollFieldCount - missing.length}
+                <WorkspacePersonCard
+                  name={employee.displayName}
+                  accent={employeeColor.get(employee.id) ?? null}
+                  roles={[{
+                    label: team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position'),
+                    color: employeeColor.get(employee.id) ?? null
+                  }]}
+                  statusLabel={missing.length
+                    ? `${captured}/${payrollFieldCount}`
+                    : t('Ready')}
+                  statusTone={missing.length ? 'warn' : 'ok'}
+                  details={[
+                    ...(shown('payrollId') && employee.payrollEmployeeId
+                      ? [{ kind: 'id' as const, value: employee.payrollEmployeeId }]
+                      : []),
+                    ...(shown('function') && functionLabel(employee) !== t('Not set')
+                      ? [{ kind: 'text' as const, value: functionLabel(employee) }]
+                      : []),
+                    ...(shown('salary') && salaryLabel(employee) !== t('Not set')
+                      ? [{ kind: 'text' as const, value: salaryLabel(employee) }]
+                      : []),
+                    ...(shown('bank') && bankLabel(employee) !== t('Not set')
+                      ? [{ kind: 'text' as const, value: bankLabel(employee) }]
+                      : [])
+                  ]}
+                  onactivate={() => (detailId = employee.id)}
+                >
+                  {#snippet tags()}
+                    {#if missing.length === payrollFieldCount}
+                      <!-- Worker status is one of the six, so when none are set
+                           its "Not set" only repeats the sentence beside it. -->
+                      <WorkspaceTag label={t('Nothing captured yet')} tone="warn" />
+                    {:else}
+                      <WorkspaceTag label={workerLabel(employee)} />
+                    {/if}
+                  {/snippet}
+                </WorkspacePersonCard>
+              {/each}
+            </WorkspaceCardGrid>
+          {/snippet}
+          {#if view.grouping && group.label}
+            <WorkspaceCardGroup label={group.label} meta={peopleCountLabel(group.employees.length)}>
+              {@render payrollCards()}
+            </WorkspaceCardGroup>
+          {:else}
+            {@render payrollCards()}
+          {/if}
+        {/each}
       {:else}
       <div class="cl-tablewrap">
         <table class="cl-table cl-mobile-rows payroll-table">

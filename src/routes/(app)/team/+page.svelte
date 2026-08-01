@@ -22,6 +22,7 @@
   import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
   import WorkspacePersonCard from '$lib/workspace-ui/WorkspacePersonCard.svelte';
   import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
+  import WorkspaceCardGroup from '$lib/workspace-ui/WorkspaceCardGroup.svelte';
   import WorkspaceTag from '$lib/workspace-ui/WorkspaceTag.svelte';
   import { ACCESS_LABEL, accessTone } from '$lib/team/access-labels';
   import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
@@ -470,8 +471,9 @@
              groups them, and the one dot says whether they can actually sign in.
              Contact detail stays in the row layout and the employee editor,
              which is where anyone reading an address is already headed. -->
-        <WorkspaceCardGrid>
-          {#each rows as group (group.key)}
+        {#each rows as group (group.key)}
+          {#snippet peopleCards()}
+          <WorkspaceCardGrid>
             {#each group.employees as employee (employee.id)}
               {@const contract = team.contractName.get(employee.contractTypeId)}
               <WorkspacePersonCard
@@ -501,8 +503,20 @@
                 {/snippet}
               </WorkspacePersonCard>
             {/each}
-          {/each}
-        </WorkspaceCardGrid>
+          </WorkspaceCardGrid>
+          {/snippet}
+          {#if view.grouping && group.label}
+            <WorkspaceCardGroup
+              label={group.label}
+              meta={peopleCountLabel(group.employees.length)}
+              color={group.color ?? null}
+            >
+              {@render peopleCards()}
+            </WorkspaceCardGroup>
+          {:else}
+            {@render peopleCards()}
+          {/if}
+        {/each}
       {:else}
       <div class="cl-tablewrap">
         <table class="cl-table cl-mobile-rows people-table">
