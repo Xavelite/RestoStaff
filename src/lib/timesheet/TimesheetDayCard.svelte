@@ -195,12 +195,17 @@
     </span>
   </button>
 {:else if allowEmpty}
-  <button class="attendance-card is-empty" type="button" onclick={onopen}>
-    <Plus size={15} strokeWidth={2} />
-    <span>
-      <strong>{t('Add time')}</strong>
-      <small>{t('Manual entry')}</small>
-    </span>
+  <!-- The label stays in the accessible name rather than on screen: a week can
+       hold twenty of these, and a placeholder must never out-shout the records
+       around it. Schedule's empty halves read the same way. -->
+  <button
+    class="attendance-card is-empty"
+    type="button"
+    aria-label={`${t('Add time')} · ${t('Manual entry')}`}
+    title={t('Add time')}
+    onclick={onopen}
+  >
+    <Plus size={16} strokeWidth={2} aria-hidden="true" />
   </button>
 {/if}
 
@@ -233,28 +238,29 @@
     transition: border-color var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease), transform var(--cl-dur) var(--cl-ease);
     --card-color: var(--cl-info);
   }
+  /* Empty is empty: no border, no fill, just a faint plus that firms up when
+     reached for. It stays a real button so keyboard and touch can find it
+     without depending on hover. */
   .attendance-card.is-empty {
     min-height: 76px;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 7px;
-    border-style: dashed;
-    border-color: var(--cl-line-strong);
+    border-color: transparent;
     color: var(--cl-muted);
     background: transparent;
     box-shadow: none;
+    opacity: .32;
+    transition: opacity .16s ease, color .16s ease, background .16s ease;
   }
-  .attendance-card.is-empty > span { display: grid; gap: 1px; text-align: left; }
-  .attendance-card.is-empty strong { color: inherit; font-size: var(--rst-fs-label); }
-  .attendance-card.is-empty small { font-size: var(--rst-fs-micro); }
   .attendance-card.is-empty:hover,
   .attendance-card.is-empty:focus-visible {
-    border-color: var(--cl-accent);
     color: var(--cl-accent);
-    background: color-mix(in srgb, var(--cl-accent) 4%, var(--cl-surface));
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cl-accent) 10%, transparent);
+    background: color-mix(in srgb, var(--cl-accent) 5%, transparent);
+    opacity: 1;
   }
+  /* The coloured rule marks a real record; an empty half has nothing to mark. */
+  .attendance-card.is-empty::before { display: none; }
   .attendance-card::before {
     content: '';
     position: absolute;

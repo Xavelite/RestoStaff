@@ -1982,8 +1982,13 @@
     );
   }
   .service-zone:not(:disabled):hover { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cl-accent) 38%, transparent); }
-  .service-zone__cue { position: absolute; inset: 0; display: grid; place-items: center; color: transparent; font-size: var(--rst-fs-title-sm); transition: color var(--cl-dur) var(--cl-ease); }
-  .service-zone:not(:disabled):hover .service-zone__cue { color: color-mix(in srgb, var(--cl-accent) 76%, var(--cl-muted)); }
+  /* Faint at rest rather than invisible, and revealed on focus as well as
+     hover — the cue was hover-only, so a keyboard or a tablet had no way to
+     discover that an empty half is plannable. Matches the empty half in Time. */
+  .service-zone__cue { position: absolute; inset: 0; display: grid; place-items: center; opacity: .32; color: var(--cl-muted); font-size: var(--rst-fs-title-sm); transition: color var(--cl-dur) var(--cl-ease), opacity var(--cl-dur) var(--cl-ease); }
+  .service-zone:disabled .service-zone__cue { opacity: 0; }
+  .service-zone:not(:disabled):hover .service-zone__cue,
+  .service-zone:not(:disabled):focus-visible .service-zone__cue { opacity: 1; color: color-mix(in srgb, var(--cl-accent) 76%, var(--cl-muted)); }
   .service-zone__state { position: absolute; left: 6px; right: 6px; bottom: 6px; overflow: hidden; color: var(--cl-muted); font-size: var(--rst-fs-micro); font-weight: var(--rst-fw-medium); text-align: center; text-overflow: ellipsis; white-space: nowrap; }
   .service-canvas.has-card > .service-zone { pointer-events: none; }
 

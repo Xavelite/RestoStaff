@@ -13,6 +13,10 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
     align-content: start;
+    /* Each card sizes to its own content. Without this a short record is
+       stretched to match the tallest card in its row, which left large dead
+       gaps wherever one card wrapped its tags onto a second line. */
+    align-items: start;
     gap: 12px;
     padding: 14px;
   }

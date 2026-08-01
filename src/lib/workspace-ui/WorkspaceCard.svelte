@@ -101,12 +101,10 @@
     border: 1px solid color-mix(in srgb, var(--card-accent) 24%, var(--rst-ui-line));
     border-radius: var(--rst-ui-radius-md);
     color: var(--rst-ui-text);
-    background:
-      linear-gradient(
-        135deg,
-        color-mix(in srgb, var(--card-accent) 6%, var(--rst-ui-surface-panel)) 0 54%,
-        var(--rst-ui-surface-panel) 54% 100%
-      );
+    /* Flat, not a diagonal two-tone split. The hard 135° edge cut across every
+       card and fought the content for attention; identity is already carried by
+       the accent border and the rule above it. */
+    background: var(--rst-ui-surface-panel);
     box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
     text-align: left;
     font: inherit;
