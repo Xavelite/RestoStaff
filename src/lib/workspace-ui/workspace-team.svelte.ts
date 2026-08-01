@@ -39,6 +39,17 @@ class WorkspaceTeamDraft {
   #loadedKey = '';
   #loadedRestaurantId = '';
   #baseline = '[]';
+  /**
+   * The revision this draft was actually built from.
+   *
+   * `sync()` deliberately refuses to re-baseline a dirty draft, but the global
+   * snapshot behind it keeps reloading — a realtime event from another manager
+   * replaces it. Reading the revision at save time therefore submitted the old
+   * draft stamped with the *new* revision, so the server's stale-write guard saw
+   * a match and accepted it, silently discarding the other manager's work.
+   * Saving with the revision captured here is what makes that guard fire.
+   */
+  #baselineRevision = 0;
   #supplementaryRestaurantId = '';
   #supplementaryPromiseRestaurantId = '';
   #supplementaryPromise: Promise<void> | null = null;
@@ -163,6 +174,7 @@ class WorkspaceTeamDraft {
     ) return;
     this.#loadedRestaurantId = restaurantId;
     this.#loadedKey = key;
+    this.#baselineRevision = snapshot.workspace_revision;
     this.employees = employeeDrafts(snapshot, this.employmentTerms);
     this.#placement.reset(this.employees);
     this.#pending.reset();
@@ -231,7 +243,7 @@ class WorkspaceTeamDraft {
 
     await saveTeam(
       restaurantId,
-      snapshot.workspace_revision,
+      this.#baselineRevision,
       teamSavePayload(restaurantId, sourceDrafts, role, termUpdates)
     );
     await workspace.loadTeam(true);

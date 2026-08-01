@@ -35,6 +35,13 @@ class WorkspaceRestaurantDraft {
   /** Plain, not $state: sync() must be safe to call from an $effect. */
   #loadedRestaurantId = '';
   #loadedKey = '';
+  /**
+   * The revision this draft was built from. `sync()` will not re-baseline a
+   * dirty draft, but the snapshot behind it still reloads when another manager
+   * saves, so reading the revision at save time submitted stale edits stamped
+   * with the newer revision and slipped past the server's stale-write guard.
+   */
+  #baselineRevision = 0;
 
   sync(snapshot: RestaurantReadModel, force = false): void {
     const restaurantId = snapshot.restaurant.id;
@@ -56,6 +63,7 @@ class WorkspaceRestaurantDraft {
     ) return;
     this.#loadedRestaurantId = restaurantId;
     this.#loadedKey = key;
+    this.#baselineRevision = snapshot.workspace_revision;
     const next = restaurantDraft(snapshot);
     this.#areaPlacement.reset(next.areas);
     this.#positionPlacement.reset(next.jobFunctions);
@@ -94,7 +102,7 @@ class WorkspaceRestaurantDraft {
   async save(restaurantId: string, snapshot: RestaurantReadModel): Promise<void> {
     if (!this.draft) return;
     const payload = restaurantSavePayload(snapshot, this.draft);
-    await saveRestaurant(restaurantId, snapshot.workspace_revision, payload);
+    await saveRestaurant(restaurantId, this.#baselineRevision, payload);
     this.#loadedRestaurantId = '';
     this.#loadedKey = '';
     this.dirty = false;

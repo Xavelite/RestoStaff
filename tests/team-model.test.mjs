@@ -232,3 +232,26 @@ test('an entered draft NISS remains saveable and is validated separately', () =>
   assert.equal(payload.employees.length, 1);
   assert.equal(payload.legalProfiles[0].national_registry_number, '123');
 });
+
+test('a dirty draft saves with the revision it was built from, not the latest one', async () => {
+  const team = await readFile('src/lib/workspace-ui/workspace-team.svelte.ts', 'utf8');
+  const restaurant = await readFile('src/lib/workspace-ui/workspace-restaurant.svelte.ts', 'utf8');
+
+  // sync() refuses to re-baseline a dirty draft while the snapshot behind it
+  // keeps reloading, so reading the revision at save time submitted stale edits
+  // stamped with a newer revision and slipped past the server's stale-write
+  // guard — silently discarding a second manager's work.
+  for (const [name, source] of [['team', team], ['restaurant', restaurant]]) {
+    assert.match(source, /#baselineRevision/, `${name} lost its draft baseline revision`);
+    assert.match(
+      source,
+      /#baselineRevision = snapshot\.workspace_revision/,
+      `${name} must capture the revision where it establishes the baseline`
+    );
+    assert.doesNotMatch(
+      source,
+      /save(Team|Restaurant)\(\s*restaurantId,\s*snapshot\.workspace_revision/,
+      `${name} must not save with the latest snapshot revision`
+    );
+  }
+});
