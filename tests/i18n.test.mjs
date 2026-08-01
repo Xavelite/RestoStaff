@@ -24,112 +24,40 @@ test('account locale normalization keeps English as the explicit fallback', () =
   assert.equal(localeCode('nl'), 'nl-BE');
 });
 
-test('translations interpolate operational values without losing unknown placeholders', () => {
-  assert.equal(translate('fr', 'Ready until {time}', { time: '18:30' }), "Prêt jusqu'à 18:30");
-  assert.equal(translate('nl', '{count} services / week', { count: 9 }), '9 diensten / week');
+test('messages interpolate operational values without losing unknown placeholders', () => {
+  assert.equal(translate('fr', 'Ready until {time}', { time: '18:30' }), 'Ready until 18:30');
+  assert.equal(translate('nl', '{count} services / week', { count: 9 }), '9 services / week');
+  // An unmatched placeholder survives rather than collapsing to an empty string,
+  // so a missing parameter is visible instead of silently blanking a sentence.
   assert.equal(translate('fr', 'Unknown {value}', {}), 'Unknown {value}');
 });
 
-test('notification templates localize dynamic employee events', () => {
+test('notification templates interpolate dynamic employee events', () => {
   assert.equal(
     translate('fr', '{name} submitted availability', { name: 'Sarah' }),
-    'Sarah a envoyé ses disponibilités'
+    'Sarah submitted availability'
   );
-  assert.equal(translate('nl', 'Week of {week}', { week: '2026-06-29' }), 'Week van 2026-06-29');
+  assert.equal(translate('nl', 'Week of {week}', { week: '2026-06-29' }), 'Week of 2026-06-29');
 });
 
-test('dynamic request and service-slot states are localized', () => {
-  const dynamicLabels = [
-    'rejected',
-    'cancelled',
-    'No activity',
-    'Available',
-    'Partly available',
-    'Unavailable',
-    'Leave pending',
-    'Time off',
-    'Change pending',
-    'Schedule change',
-    'Scheduled',
-    'Missing badge',
-    'Working now',
-    'Worked',
-    'Corrected',
-    'Conflict',
-    'submitted',
-    'draft',
-    'not submitted',
-    'Pending submission',
-    'Time off draft',
-    'Pending request',
-    'Tap the shift to request time off.',
-    'No planned shift.',
-    'Availability is maintained by your manager.',
-    'Past availability is read-only.',
-    'Worked time cannot be replaced by availability.',
-    'Approved leave already covers this service.',
-    'An approved schedule change covers this service.',
-    'Past services are read-only.',
-    'Worked time cannot be changed through employee self-service.',
-    'A time-off request is already pending for this service.',
-    'An approved schedule change already covers this service.',
-    'A schedule change is already pending for this service.',
-    'You can only request time off on a scheduled shift.',
-    'Fixed-schedule employees request time off from planned shifts.'
-  ];
+// The French and Dutch dictionaries were removed deliberately. The three tests
+// that used to live here asserted per-key coverage, which now passes for every
+// possible string and so guards nothing. What still needs guarding is that the
+// dictionary does not quietly grow back: the previous one reached ~6,600 lines
+// of incremental `Object.assign` blocks over a flat global key space, where a
+// later block silently redefined an earlier key and changed visible meaning on
+// unrelated pages.
+test('the message layer stays dictionary-free until it is rebuilt deliberately', async () => {
+  const source = readFileSync('src/lib/i18n/i18n.svelte.ts', 'utf8');
 
-  for (const locale of ['fr', 'nl']) {
-    for (const message of dynamicLabels) assert.equal(hasTranslation(locale, message), true, `${locale}: ${message}`);
-  }
-});
+  assert.doesNotMatch(source, /Object\.assign\(/, 'incremental locale blocks are back');
+  assert.ok(
+    source.split('\n').length < 200,
+    'the message layer grew a dictionary again; rebuild it namespaced instead'
+  );
 
-test('critical account and workflow vocabulary exists in both added languages', () => {
-  const critical = [
-    'Account settings',
-    'Language',
-    'Schedule',
-    'Timesheet',
-    'My service',
-    'My time',
-    'Who are you?',
-    'Clock in',
-    'Request time off',
-    'Ready for payroll approval.',
-    'Restaurant setup saved.',
-    'Partly cloudy',
-    'Rain',
-    'Strong wind watch',
-    'Rain likely',
-    'Rain watch',
-    'Heat watch',
-    'Cold watch',
-    'Wind watch',
-    'Weather looks service-friendly'
-  ];
-
-  for (const locale of ['fr', 'nl']) {
-    for (const message of critical) assert.equal(hasTranslation(locale, message), true, `${locale}: ${message}`);
-  }
-});
-
-test('every literal translation call has French and Dutch coverage', () => {
-  function sourceFiles(directory) {
-    return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-      const target = path.join(directory, entry.name);
-      return entry.isDirectory() ? sourceFiles(target) : [target];
-    });
-  }
-
-  const keys = new Set();
-  for (const file of sourceFiles('src').filter((name) => /\.(svelte|ts)$/.test(name))) {
-    const source = readFileSync(file, 'utf8');
-    for (const match of source.matchAll(/\bt\(\s*(['"])((?:\\.|(?!\1).)*)\1/g)) {
-      keys.add(match[2].replaceAll("\\'", "'").replaceAll('\\"', '"'));
-    }
-  }
-
-  for (const locale of ['fr', 'nl']) {
-    const missing = [...keys].filter((message) => !hasTranslation(locale, message));
-    assert.deepEqual(missing, [], `${locale} is missing: ${missing.join(', ')}`);
-  }
+  // Locale is not stubbed: it still drives every date, time and number format.
+  assert.equal(localeCode('fr'), 'fr-BE');
+  assert.equal(hasTranslation('fr', 'anything at all'), true);
+  assert.equal(translate('nl', 'Clock in'), 'Clock in');
 });

@@ -1,5 +1,10 @@
 <script lang="ts">
   import '../app.css';
+  // The workspace palette belongs to the product, not to the authenticated
+  // route group. Loading it at the root is what actually makes sign-in,
+  // onboarding, the station and the public pages share one design — the
+  // `data-design` attribute alone cannot style what never loaded the sheet.
+  import '$lib/workspace-ui/workspace.css';
   import { onMount } from 'svelte';
   import { page } from '$app/state';
   import { auth } from '$lib/auth/session.svelte';

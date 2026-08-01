@@ -108,13 +108,11 @@
     )
   );
   const activeTabHref = $derived(activeModule ? subNavItemForPath(activeModule, page.url.pathname)?.href ?? '' : '');
-  // The palette is scoped under [data-design='workspace'] so that dialogs and
-  // toasts, which portal to <body>, inherit it too.
+  // `data-design` now lives on the document in app.html so every route shares
+  // the palette from first paint; only the theme choice is read here.
   onMount(() => {
-    document.documentElement.dataset.design = 'workspace';
     workspaceTheme.init();
     return () => {
-      delete document.documentElement.dataset.design;
       delete document.documentElement.dataset.theme;
     };
   });
