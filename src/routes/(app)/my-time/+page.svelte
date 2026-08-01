@@ -58,6 +58,8 @@
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
+  import { badgePolicyFromSettings } from '$lib/badge/badge-policy';
+  import { Clock3 } from '@lucide/svelte';
 
   const snapshot = $derived(workspace.employeeOperations);
   const activeServiceKeySet = $derived(new Set(activeServiceKeys(snapshot?.services)));
@@ -68,6 +70,9 @@
       'Europe/Brussels'
   );
   const today = $derived(todayInTimezone(timezone));
+  const mobileBadgingEnabled = $derived(
+    badgePolicyFromSettings(workspace.bootstrap?.restaurant_settings).employeeMobileBadgingEnabled
+  );
   let selectedDate = $state('');
   let month = $state('');
   let selectedAvailabilitySlots = $state<EmployeeSlotSelection[]>([]);
@@ -689,6 +694,9 @@
   <strong class="period-label">{monthLabel(activeMonth, i18n.intlLocale)}</strong>
   <button class="cl-btn is-icon" type="button" onclick={() => changeMonth(1)} aria-label={t('Next month')}>&rsaquo;</button>
   <span class="toolbar-grow"></span>
+  {#if mobileBadgingEnabled}
+    <a class="cl-btn is-primary" href="/my-time/badge"><Clock3 size={15} />{t('Clock in or out')}</a>
+  {/if}
   {#if hasPendingEdits}
     <span class="pending-copy">{requestCopy()}</span>
     <button class="cl-btn" type="button" disabled={saving} onclick={discardChanges}>{t('Discard')}</button>

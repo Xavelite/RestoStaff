@@ -1,13 +1,17 @@
 import { PUBLIC_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_URL } from '$env/static/public';
 import { supabase } from '$lib/supabase/client';
 import { serviceLabel, type ServiceKey } from '$lib/calendar/date';
+import type { BadgeLocation } from './badge-policy';
 
 type JsonRecord = Record<string, unknown>;
 
-async function rpc(name: string, payload: JsonRecord): Promise<JsonRecord> {
+export async function authenticatedBadgeRpc(
+  name: string,
+  payload: JsonRecord
+): Promise<JsonRecord> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
-  if (!token) throw new Error('Authenticated manager session required.');
+  if (!token) throw new Error('Authenticated session required.');
   const response = await fetch(`${PUBLIC_SUPABASE_URL}/rest/v1/rpc/${name}`, {
     method: 'POST',
     headers: {
@@ -31,9 +35,8 @@ export type BadgeRosterEmployee = {
   lastLocalTime?: string;
 };
 
-// The badge terminal UI (BadgeTerminal.svelte) runs against this small,
-// restaurant-agnostic surface. A manager session and a paired station provide
-// two different implementations; the component never knows which.
+// The badge terminal UI runs against this restaurant-agnostic surface. Its
+// implementation is the signed-out paired station, never a manager session.
 export type BadgeTerminalApi = {
   listRoster: () => Promise<BadgeRosterEmployee[]>;
   verifyPin: (employeeId: string, pin: string) => Promise<BadgeVerification>;
@@ -42,8 +45,10 @@ export type BadgeTerminalApi = {
     token: string;
     photoUrl?: string;
     photoStatus?: string;
+    location?: BadgeLocation;
   }) => Promise<BadgeResult>;
-  // Optional: paired stations skip photo proof (no manager upload session).
+  // Proof remains private; the implementation authenticates either the user
+  // session or the paired station challenge at the Edge boundary.
   uploadProof?: (input: { employeeId: string; token: string; file: File }) => Promise<string>;
 };
 export type BadgeVerification = { token: string; expiresAt: string };
@@ -58,8 +63,7 @@ export type BadgeResult = {
   totalBreakMinutes: number;
 };
 
-async function listBadgeRoster(restaurantId: string): Promise<BadgeRosterEmployee[]> {
-  const result = await rpc('list_badge_roster', { p_restaurant_id: restaurantId });
+export function parseBadgeRoster(result: JsonRecord): BadgeRosterEmployee[] {
   const employees = Array.isArray(result.employees) ? result.employees : [];
   return employees.flatMap((item) => {
     if (!item || typeof item !== 'object') return [];
@@ -83,37 +87,7 @@ async function listBadgeRoster(restaurantId: string): Promise<BadgeRosterEmploye
   });
 }
 
-async function verifyBadgePin(
-  restaurantId: string,
-  employeeId: string,
-  pin: string
-): Promise<BadgeVerification> {
-  const result = await rpc('verify_badge_pin', {
-    p_restaurant_id: restaurantId,
-    p_employee_id: employeeId,
-    p_pin: pin
-  });
-  if (result.ok !== true) throw new Error(String(result.message ?? 'PIN verification failed.'));
-  const token = String(result.badge_token ?? '');
-  if (!token) throw new Error('The server did not issue a badge authorization token.');
-  return { token, expiresAt: String(result.expires_at ?? '') };
-}
-
-async function recordBadge(input: {
-  restaurantId: string;
-  employeeId: string;
-  token: string;
-  photoUrl?: string;
-  photoStatus?: string;
-}): Promise<BadgeResult> {
-  const result = await rpc('record_badge_entry', {
-    p_restaurant_id: input.restaurantId,
-    p_employee_id: input.employeeId,
-    p_badge_token: input.token,
-    p_service_key: null,
-    p_photo_url: input.photoUrl ?? null,
-    p_photo_status: input.photoStatus ?? 'not_required'
-  });
+export function parseBadgeResult(result: JsonRecord): BadgeResult {
   if (result.ok !== true) throw new Error(String(result.message ?? 'Badge entry failed.'));
   return {
     action: result.action === 'out' ? 'out' : 'in',
@@ -127,20 +101,23 @@ async function recordBadge(input: {
   };
 }
 
-async function uploadBadgeProof(input: {
+export async function uploadBadgeProof(input: {
   restaurantId: string;
   employeeId: string;
   token: string;
   file: File;
+  stationToken?: string;
 }): Promise<string> {
-  const { data } = await supabase.auth.getSession();
-  const accessToken = data.session?.access_token;
-  if (!accessToken) throw new Error('Authenticated manager session required.');
+  const accessToken = input.stationToken
+    ? PUBLIC_SUPABASE_ANON_KEY
+    : (await supabase.auth.getSession()).data.session?.access_token;
+  if (!accessToken) throw new Error('An authenticated session or paired station is required.');
   const body = new FormData();
   body.set('restaurant_id', input.restaurantId);
   body.set('employee_id', input.employeeId);
   body.set('badge_token', input.token);
   body.set('proof', input.file);
+  if (input.stationToken) body.set('station_token', input.stationToken);
   const response = await fetch(`${PUBLIC_SUPABASE_URL}/functions/v1/upload-badge-proof`, {
     method: 'POST',
     headers: {
@@ -156,14 +133,4 @@ async function uploadBadgeProof(input: {
   const path = String(result.path ?? '');
   if (!path) throw new Error('Badge proof path is missing.');
   return path;
-}
-
-// Bind the manager (JWT) badge calls to one restaurant for BadgeTerminal.
-export function createManagerBadgeApi(restaurantId: string): BadgeTerminalApi {
-  return {
-    listRoster: () => listBadgeRoster(restaurantId),
-    verifyPin: (employeeId, pin) => verifyBadgePin(restaurantId, employeeId, pin),
-    recordBadge: (input) => recordBadge({ restaurantId, ...input }),
-    uploadProof: (input) => uploadBadgeProof({ restaurantId, ...input })
-  };
 }

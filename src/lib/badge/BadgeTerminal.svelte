@@ -11,6 +11,11 @@
   import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import { personInitials } from '$lib/ui/person';
+  import {
+    captureBadgeLocation,
+    photoRequiredForAction,
+    type BadgePolicy
+  } from '$lib/badge/badge-policy';
 
   // The badge clock, decoupled from how it authenticates: a manager session and
   // a paired station both hand in an api + restaurant identity.
@@ -19,6 +24,7 @@
     restaurantName,
     logoUrl = '',
     timezone,
+    policy,
     headerAction,
     onbadged
   }: {
@@ -26,6 +32,7 @@
     restaurantName: string;
     logoUrl?: string;
     timezone: string;
+    policy: BadgePolicy;
     headerAction?: Snippet;
     onbadged?: (input: { employeeId: string; result: BadgeResult }) => void;
   } = $props();
@@ -44,6 +51,8 @@
   let resultTimer: number | undefined;
 
   const selected = $derived(roster.find((employee) => employee.employeeId === selectedId) ?? null);
+  const intendedAction = $derived<'in' | 'out'>(selected?.clockedIn ? 'out' : 'in');
+  const photoRequired = $derived(photoRequiredForAction(policy, intendedAction));
   const nextAction = $derived(t(selected?.clockedIn ? 'Clock out' : 'Clock in'));
 
   function restaurantTime(date: Date) {
@@ -178,6 +187,11 @@
 
   async function completeBadge() {
     if (!selected || !verification || loading) return;
+    if (photoRequired && !proof) {
+      feedback = t('Take a photo before recording this badge.');
+      feedbackTone = 'warning';
+      return;
+    }
     const employeeId = selected.employeeId;
     const employeeName = selected.displayName;
     loading = true;
@@ -187,11 +201,15 @@
         proof && api.uploadProof
           ? await api.uploadProof({ employeeId, token: verification.token, file: proof })
           : undefined;
+      const location = policy.locationCaptureEnabled
+        ? await captureBadgeLocation()
+        : undefined;
       const recorded = await api.recordBadge({
         employeeId,
         token: verification.token,
         photoUrl,
-        photoStatus: photoUrl ? 'captured' : 'not_required'
+        photoStatus: photoUrl ? 'captured' : 'not_required',
+        location
       });
 
       result = recorded;
@@ -317,10 +335,10 @@
             <p class="expires">
               {t('Ready until {time}', { time: restaurantTime(new Date(verification.expiresAt)) })}
             </p>
-            {#if api.uploadProof}
+            {#if photoRequired && api.uploadProof}
               <label class="proof-upload" for="badge-proof">
-                <strong>{t(proof ? 'Change photo' : 'Add photo')}</strong>
-                <span>{proof ? `${proof.name} (${(proof.size / 1024 / 1024).toFixed(1)} MB)` : t('Optional proof')}</span>
+                <strong>{t(proof ? 'Change photo' : 'Take required photo')}</strong>
+                <span>{proof ? `${proof.name} (${(proof.size / 1024 / 1024).toFixed(1)} MB)` : t('The photo is stored privately with this badge.')}</span>
               </label>
               <input
                 id="badge-proof"
@@ -328,12 +346,19 @@
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
                 capture="user"
+                required
                 onchange={(event) => (proof = event.currentTarget.files?.[0] ?? null)}
               />
             {/if}
+            {#if policy.locationCaptureEnabled}
+              <p class="evidence-note">
+                <span aria-hidden="true">&#9678;</span>
+                {t('This device records its location when you continue.')}
+              </p>
+            {/if}
             <div class="proof-actions">
               <button type="button" class="secondary-action" disabled={loading} onclick={resetChallenge}>{t('Start over')}</button>
-              <button type="button" class="primary-action" disabled={loading} onclick={completeBadge}>
+              <button type="button" class="primary-action" disabled={loading || (photoRequired && !proof)} onclick={completeBadge}>
                 {loading ? t('Recording...') : nextAction}
               </button>
             </div>
@@ -799,6 +824,20 @@
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
   }
+
+  .evidence-note {
+    width: min(100%, 330px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    margin: 12px 0 0;
+    color: var(--rst-ui-muted);
+    font-size: var(--rst-fs-caption);
+    line-height: 1.4;
+    text-align: center;
+  }
+  .evidence-note span { color: var(--rst-ui-action); font-size: var(--rst-fs-body-lg); }
 
   .proof-actions {
     display: flex;

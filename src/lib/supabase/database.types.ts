@@ -5618,8 +5618,13 @@ export type Database = {
       restaurant_settings: {
         Row: {
           active_week_start: string | null
+          badge_location_capture_enabled: boolean
+          badge_photo_clock_in_required: boolean
+          badge_photo_clock_out_required: boolean
+          badge_policy_revision: number
           created_at: string
           currency_code: string
+          employee_mobile_badging_enabled: boolean
           locale: string
           payroll_export_columns: Json | null
           payroll_settings: Json
@@ -5631,8 +5636,13 @@ export type Database = {
         }
         Insert: {
           active_week_start?: string | null
+          badge_location_capture_enabled?: boolean
+          badge_photo_clock_in_required?: boolean
+          badge_photo_clock_out_required?: boolean
+          badge_policy_revision?: number
           created_at?: string
           currency_code?: string
+          employee_mobile_badging_enabled?: boolean
           locale?: string
           payroll_export_columns?: Json | null
           payroll_settings?: Json
@@ -5644,8 +5654,13 @@ export type Database = {
         }
         Update: {
           active_week_start?: string | null
+          badge_location_capture_enabled?: boolean
+          badge_photo_clock_in_required?: boolean
+          badge_photo_clock_out_required?: boolean
+          badge_policy_revision?: number
           created_at?: string
           currency_code?: string
+          employee_mobile_badging_enabled?: boolean
           locale?: string
           payroll_export_columns?: Json | null
           payroll_settings?: Json
@@ -5864,11 +5879,17 @@ export type Database = {
           cancellation_reason: string | null
           cancelled_at: string | null
           cancelled_by_profile_id: string | null
+          clock_in_accuracy_meters: number | null
           clock_in_at: string | null
+          clock_in_latitude: number | null
+          clock_in_longitude: number | null
           clock_in_photo_captured_at: string | null
           clock_in_photo_status: string | null
           clock_in_photo_url: string | null
+          clock_out_accuracy_meters: number | null
           clock_out_at: string | null
+          clock_out_latitude: number | null
+          clock_out_longitude: number | null
           clock_out_photo_captured_at: string | null
           clock_out_photo_status: string | null
           clock_out_photo_url: string | null
@@ -5895,11 +5916,17 @@ export type Database = {
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by_profile_id?: string | null
+          clock_in_accuracy_meters?: number | null
           clock_in_at?: string | null
+          clock_in_latitude?: number | null
+          clock_in_longitude?: number | null
           clock_in_photo_captured_at?: string | null
           clock_in_photo_status?: string | null
           clock_in_photo_url?: string | null
+          clock_out_accuracy_meters?: number | null
           clock_out_at?: string | null
+          clock_out_latitude?: number | null
+          clock_out_longitude?: number | null
           clock_out_photo_captured_at?: string | null
           clock_out_photo_status?: string | null
           clock_out_photo_url?: string | null
@@ -5926,11 +5953,17 @@ export type Database = {
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by_profile_id?: string | null
+          clock_in_accuracy_meters?: number | null
           clock_in_at?: string | null
+          clock_in_latitude?: number | null
+          clock_in_longitude?: number | null
           clock_in_photo_captured_at?: string | null
           clock_in_photo_status?: string | null
           clock_in_photo_url?: string | null
+          clock_out_accuracy_meters?: number | null
           clock_out_at?: string | null
+          clock_out_latitude?: number | null
+          clock_out_longitude?: number | null
           clock_out_photo_captured_at?: string | null
           clock_out_photo_status?: string | null
           clock_out_photo_url?: string | null
@@ -6723,6 +6756,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _badge_apply_evidence: {
+        Args: {
+          p_accuracy_meters: number
+          p_latitude: number
+          p_longitude: number
+          p_photo_url: string
+          p_restaurant_id: string
+          p_result: Json
+        }
+        Returns: Json
+      }
       _badge_record_core: {
         Args: {
           p_actor_profile_id: string
@@ -6815,6 +6859,8 @@ export type Database = {
         Args: { p_photo_url?: string; p_status: string }
         Returns: string
       }
+      badge_policy_json: { Args: { p_restaurant_id: string }; Returns: Json }
+      begin_own_badge: { Args: { p_restaurant_id: string }; Returns: Json }
       begin_restaurant_document_upload: {
         Args: {
           p_access_scope?: string
@@ -7021,6 +7067,10 @@ export type Database = {
           p_restaurant_id: string
           p_to_date: string
         }
+        Returns: Json
+      }
+      get_own_badge_context: {
+        Args: { p_restaurant_id: string }
         Returns: Json
       }
       get_owner_onboarding_draft: { Args: never; Returns: Json }
@@ -7296,10 +7346,49 @@ export type Database = {
         }
         Returns: Json
       }
+      record_badge_entry_station_v2: {
+        Args: {
+          p_accuracy_meters?: number
+          p_badge_token: string
+          p_employee_id: string
+          p_latitude?: number
+          p_longitude?: number
+          p_photo_status?: string
+          p_photo_url?: string
+          p_token: string
+        }
+        Returns: Json
+      }
+      record_badge_entry_v2: {
+        Args: {
+          p_accuracy_meters?: number
+          p_badge_token: string
+          p_employee_id: string
+          p_latitude?: number
+          p_longitude?: number
+          p_photo_status?: string
+          p_photo_url?: string
+          p_restaurant_id: string
+          p_service_key?: string
+        }
+        Returns: Json
+      }
       record_employee_regime_evidence: {
         Args: {
           p_employee_id: string
           p_evidence: Json
+          p_restaurant_id: string
+        }
+        Returns: Json
+      }
+      record_own_badge_entry: {
+        Args: {
+          p_accuracy_meters?: number
+          p_badge_token: string
+          p_latitude?: number
+          p_longitude?: number
+          p_photo_status?: string
+          p_photo_url?: string
           p_restaurant_id: string
         }
         Returns: Json
@@ -7864,6 +7953,16 @@ export type Database = {
         Returns: Json
       }
       service_key_from_display: { Args: { value: string }; Returns: string }
+      set_badge_policy: {
+        Args: {
+          p_employee_mobile_badging_enabled: boolean
+          p_location_capture_enabled: boolean
+          p_photo_clock_in_required: boolean
+          p_photo_clock_out_required: boolean
+          p_restaurant_id: string
+        }
+        Returns: Json
+      }
       set_employee_access_state: {
         Args: {
           p_action: string

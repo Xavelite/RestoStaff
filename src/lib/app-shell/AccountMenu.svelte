@@ -16,7 +16,6 @@
     t,
     type AppLocale
   } from '$lib/i18n/i18n.svelte';
-  import { kiosk } from '$lib/kiosk/kiosk.svelte';
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
   import { appInstall } from '$lib/pwa/app-install.svelte';
   import { popcornPet } from '$lib/pet/popcorn-pet.svelte';
@@ -234,7 +233,7 @@
   let notifyInviteChecked = false;
 
   $effect(() => {
-    if (!workspace.activeId || !appInstall.standalone || kiosk.locked) return;
+    if (!workspace.activeId || !appInstall.standalone) return;
     if (notifyInviteChecked) return;
     notifyInviteChecked = true;
     try {

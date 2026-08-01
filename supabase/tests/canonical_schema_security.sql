@@ -35,6 +35,7 @@ declare
     'public.get_admin_feedback()'::regprocedure,
     'public.get_communications_read_model(uuid)'::regprocedure,
     'public.get_current_memberships()'::regprocedure,
+    'public.get_own_badge_context(uuid)'::regprocedure,
     'public.get_owner_onboarding_draft()'::regprocedure,
     'public.get_pilot_access_state()'::regprocedure,
     'public.get_preview_bootstrap(uuid,text,uuid)'::regprocedure,
@@ -66,11 +67,15 @@ declare
     'public.list_badge_roster(uuid)'::regprocedure,
     'public.list_badge_roster_station(text)'::regprocedure,
     'public.list_restaurant_stations(uuid)'::regprocedure,
+    'public.begin_own_badge(uuid)'::regprocedure,
     'public.preview_payroll_export(uuid,date,date,jsonb)'::regprocedure,
     'public.payroll_readiness_report(uuid,date,date)'::regprocedure,
     'public.publish_workspace_realtime_event(uuid,text,text)'::regprocedure,
     'public.record_badge_entry(uuid,uuid,uuid,text,text,text)'::regprocedure,
     'public.record_badge_entry_station(text,uuid,uuid,text,text)'::regprocedure,
+    'public.record_badge_entry_v2(uuid,uuid,uuid,text,text,text,double precision,double precision,double precision)'::regprocedure,
+    'public.record_badge_entry_station_v2(text,uuid,uuid,text,text,double precision,double precision,double precision)'::regprocedure,
+    'public.record_own_badge_entry(uuid,uuid,text,text,double precision,double precision,double precision)'::regprocedure,
     'public.record_restaurant_document_download(uuid,uuid)'::regprocedure,
     'public.mark_operational_message(uuid,uuid,boolean)'::regprocedure,
     'public.register_push_subscription(uuid,text,text,text,text,text,text)'::regprocedure,
@@ -97,6 +102,7 @@ declare
     'public.set_payroll_export_columns(uuid,jsonb)'::regprocedure,
     'public.set_own_pin(text,uuid)'::regprocedure,
     'public.set_employee_access_state(uuid,uuid,text)'::regprocedure,
+    'public.set_badge_policy(uuid,boolean,boolean,boolean,boolean)'::regprocedure,
     'public.set_restaurant_logo(uuid,text)'::regprocedure,
     'public.set_reservation_status_v2(uuid,uuid,text,text,integer)'::regprocedure,
     'public.finalize_restaurant_document_upload(uuid,uuid)'::regprocedure,
@@ -114,6 +120,7 @@ declare
   v_anon_allowed regprocedure[] := array[
     'public.list_badge_roster_station(text)'::regprocedure,
     'public.record_badge_entry_station(text,uuid,uuid,text,text)'::regprocedure,
+    'public.record_badge_entry_station_v2(text,uuid,uuid,text,text,double precision,double precision,double precision)'::regprocedure,
     'public.verify_badge_pin_station(text,uuid,text)'::regprocedure
   ];
   v_service_allowed regprocedure[] := array[

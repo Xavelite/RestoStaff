@@ -71,3 +71,17 @@ test('Edge checks and hosted fixtures use the official Deno runtime', async () =
   assert.match(packageJson.scripts['check:edge'], /^deno check /);
   assert.match(hostedRunner, /npx --no-install deno run/);
 });
+
+test('badge proof upload accepts only matching user or paired-station challenges', async () => {
+  const source = await readFile(
+    new URL('../supabase/functions/upload-badge-proof/index.ts', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(source, /form\.get\('station_token'\)/);
+  assert.match(source, /\.from\('restaurant_stations'\)[\s\S]+\.eq\('token_hash', stationHash\)[\s\S]+\.is\('revoked_at', null\)/);
+  assert.match(source, /\.eq\('station_id', station\.id\)/);
+  assert.match(source, /role === 'employee' && ownEmployeeId === employeeId/);
+  assert.match(source, /\.eq\('actor_profile_id', profileId\)/);
+  assert.doesNotMatch(source, /console\.log\([^)]*(stationToken|badgeToken)/);
+});

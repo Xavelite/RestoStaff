@@ -46,6 +46,7 @@ Deno.serve(async (request: Request) => {
   const restaurantId = String(form.get('restaurant_id') ?? '');
   const employeeId = String(form.get('employee_id') ?? '');
   const badgeToken = String(form.get('badge_token') ?? '');
+  const stationToken = String(form.get('station_token') ?? '').trim();
   const file = form.get('proof');
   if (!restaurantId || !employeeId || !badgeToken || !(file instanceof File)) {
     return jsonResponse(appOrigin, { error: 'Employee, token and proof image are required.' }, 400);
@@ -54,41 +55,77 @@ Deno.serve(async (request: Request) => {
     return jsonResponse(appOrigin, { error: 'Use a JPEG, PNG or WebP image up to 5 MB.' }, 400);
   }
 
-  const caller = createClient(url, anonKey, {
-    global: { headers: { Authorization: authorization } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-  const [{ data: memberships, error: membershipError }, { data: profileId, error: profileError }] =
-    await Promise.all([
-      caller.rpc('get_current_memberships'),
-      caller.rpc('current_profile_id')
-    ]);
-  if (membershipError || profileError) {
-    return jsonResponse(appOrigin, { error: 'Access could not be verified.' }, 403);
-  }
-  const membership = Array.isArray(memberships)
-    ? memberships.find((item) => String(item.restaurant_id) === restaurantId)
-    : null;
-  if (!['owner', 'manager'].includes(String(membership?.role ?? ''))) {
-    return jsonResponse(appOrigin, { error: 'Owner or manager access is required.' }, 403);
-  }
-
   const admin = createClient(url, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
   const tokenHash = await sha256(badgeToken);
-  const { data: challenge, error: challengeError } = await admin
-    .from('badge_verification_challenges')
-    .select('id')
-    .eq('restaurant_id', restaurantId)
-    .eq('employee_id', employeeId)
-    .eq('actor_profile_id', profileId)
-    .eq('token_hash', tokenHash)
-    .is('used_at', null)
-    .gt('expires_at', new Date().toISOString())
-    .maybeSingle();
+  let challenge: { id: string } | null = null;
+  let challengeError: unknown = null;
+
+  if (stationToken) {
+    const stationHash = await sha256(stationToken);
+    const { data: station, error: stationError } = await admin
+      .from('restaurant_stations')
+      .select('id')
+      .eq('restaurant_id', restaurantId)
+      .eq('token_hash', stationHash)
+      .is('revoked_at', null)
+      .maybeSingle();
+    if (stationError || !station) {
+      return jsonResponse(appOrigin, { error: 'This badge station is no longer paired.' }, 403);
+    }
+    const lookup = await admin
+      .from('badge_verification_challenges')
+      .select('id')
+      .eq('restaurant_id', restaurantId)
+      .eq('employee_id', employeeId)
+      .eq('station_id', station.id)
+      .eq('token_hash', tokenHash)
+      .is('used_at', null)
+      .gt('expires_at', new Date().toISOString())
+      .maybeSingle();
+    challenge = lookup.data;
+    challengeError = lookup.error;
+  } else {
+    const caller = createClient(url, anonKey, {
+      global: { headers: { Authorization: authorization } },
+      auth: { persistSession: false, autoRefreshToken: false }
+    });
+    const [{ data: memberships, error: membershipError }, { data: profileId, error: profileError }] =
+      await Promise.all([
+        caller.rpc('get_current_memberships'),
+        caller.rpc('current_profile_id')
+      ]);
+    if (membershipError || profileError || !profileId) {
+      return jsonResponse(appOrigin, { error: 'Access could not be verified.' }, 403);
+    }
+    const membership = Array.isArray(memberships)
+      ? memberships.find((item) => String(item.restaurant_id) === restaurantId)
+      : null;
+    const role = String(membership?.role ?? '');
+    const ownEmployeeId = String(membership?.employee_id ?? '');
+    const mayUpload =
+      ['owner', 'manager'].includes(role) ||
+      (role === 'employee' && ownEmployeeId === employeeId);
+    if (!mayUpload) {
+      return jsonResponse(appOrigin, { error: 'You cannot attach proof for this employee.' }, 403);
+    }
+    const lookup = await admin
+      .from('badge_verification_challenges')
+      .select('id')
+      .eq('restaurant_id', restaurantId)
+      .eq('employee_id', employeeId)
+      .eq('actor_profile_id', profileId)
+      .eq('token_hash', tokenHash)
+      .is('used_at', null)
+      .gt('expires_at', new Date().toISOString())
+      .maybeSingle();
+    challenge = lookup.data;
+    challengeError = lookup.error;
+  }
+
   if (challengeError || !challenge) {
-    return jsonResponse(appOrigin, { error: 'Badge verification expired. Enter the PIN again.' }, 403);
+    return jsonResponse(appOrigin, { error: 'Badge verification expired. Start the badge again.' }, 403);
   }
 
   const extension =

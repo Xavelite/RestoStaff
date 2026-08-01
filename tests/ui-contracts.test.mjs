@@ -263,8 +263,8 @@ test('there is exactly one app shell, and it owns no account logic of its own', 
   await assert.rejects(() => readFile('src/lib/workspace-ui/workspace-routes.ts', 'utf8'));
 });
 
-test('tenant logos reach both badge terminal entry points and reject SVG uploads', async () => {
-  const manager = await readFile('src/routes/(app)/badge-terminal/terminal/+page.svelte', 'utf8');
+test('the shared badge station is signed out, tenant-branded and cannot expose manager navigation', async () => {
+  const devices = await readFile('src/routes/(app)/badge-terminal/+page.svelte', 'utf8');
   const station = await readFile('src/routes/station/+page.svelte', 'utf8');
   const stationApi = await readFile('src/lib/station/station-api.ts', 'utf8');
   const logoApi = await readFile('src/lib/restaurant/logo-api.ts', 'utf8');
@@ -273,10 +273,14 @@ test('tenant logos reach both badge terminal entry points and reject SVG uploads
     'utf8'
   );
 
-  assert.match(manager, /restaurantLogoUrl\(workspace\.bootstrap\?\.restaurant\.logo_path\)/);
-  assert.match(manager, /\{logoUrl\}/);
+  await assert.rejects(() => readFile('src/routes/(app)/badge-terminal/terminal/+page.svelte', 'utf8'));
+  assert.match(devices, /await auth\.signOut\(\)/);
+  assert.match(devices, /window\.location\.assign\('\/station'\)/);
+  assert.doesNotMatch(devices, /href="\/badge-terminal\/terminal"/);
   assert.match(station, /restaurantLogoUrl\(ctx\.logoPath\)/);
+  assert.match(station, /createStationBadgeApi\(token, restaurantId\)/);
   assert.match(stationApi, /logoPath: String\(result\.logo_path/);
+  assert.match(stationApi, /stationToken: token/);
   assert.doesNotMatch(logoApi, /image\/svg\+xml/);
   assert.match(migration, /'logo_path'/);
   assert.doesNotMatch(migration, /image\/svg\+xml/);

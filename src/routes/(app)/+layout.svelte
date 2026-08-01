@@ -14,7 +14,6 @@
   import { useAppSession } from '$lib/app-shell/app-session.svelte';
   import { exitPreviewSession, signOutOfApp } from '$lib/app-shell/app-actions';
   import { t } from '$lib/i18n/i18n.svelte';
-  import { kiosk } from '$lib/kiosk/kiosk.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { supabase } from '$lib/supabase/client';
   import { toasts } from '$lib/ui/toast.svelte';
@@ -109,13 +108,6 @@
     )
   );
   const activeTabHref = $derived(activeModule ? subNavItemForPath(activeModule, page.url.pathname)?.href ?? '' : '');
-  // Only the terminal screen itself fills the screen — no sidebar, nothing to
-  // wander into while a shared device is on the pass. Its module page, which
-  // lists the paired devices, is an ordinary page.
-  const fullscreen = $derived(
-    page.url.pathname === '/badge-terminal/terminal' || kiosk.locked
-  );
-
   // The palette is scoped under [data-design='workspace'] so that dialogs and
   // toasts, which portal to <body>, inherit it too.
   onMount(() => {
@@ -147,12 +139,6 @@
     const activeSubNav = module ? subNavItemForPath(module, page.url.pathname) : null;
     if (activeSubNav?.roles && !activeSubNav.roles.includes(role)) {
       goto(module?.href ?? roleHome(role), { replaceState: true });
-    }
-  });
-
-  $effect(() => {
-    if (kiosk.locked && page.url.pathname !== '/badge-terminal/terminal') {
-      goto('/badge-terminal/terminal', { replaceState: true });
     }
   });
 
@@ -215,12 +201,7 @@
 {/snippet}
 
 {#if auth.session}
-  {#if fullscreen}
-    <div class="cl-fullscreen">
-      {@render children()}
-    </div>
-  {:else}
-    <div
+  <div
       class="cl-app"
       class:is-rail={sidebarCollapsed || workspaceShellPreferences.sidebarMode === 'auto'}
       class:is-auto-rail={workspaceShellPreferences.sidebarMode === 'auto'}
@@ -378,18 +359,13 @@
           employeeId={workspace.effectiveEmployeeId}
         />
       {/if}
-    </div>
-  {/if}
+  </div>
   <ConfirmHost />
   <UnsavedChangesHost />
   <ToastHost />
 {/if}
 
 <style>
-  .cl-fullscreen {
-    min-height: 100vh;
-    background: var(--rst-ui-bg);
-  }
   .cl-menu-toggle {
     display: none;
     border-color: var(--cl-shell-line);

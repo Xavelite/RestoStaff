@@ -1,15 +1,13 @@
 import { goto } from '$app/navigation';
 import { auth } from '$lib/auth/session.svelte';
-import { kiosk } from '$lib/kiosk/kiosk.svelte';
 import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
 import { toasts } from '$lib/ui/toast.svelte';
 import { workspace } from '$lib/workspace/workspace.svelte';
 
-/** Leaving the app: both shells and the kiosk exit share this one path. */
+/** Leave every authenticated app surface through one path. */
 export async function signOutOfApp(): Promise<void> {
   try {
     await unsavedChanges.runOrRequest(async () => {
-      kiosk.unlock();
       await auth.signOut();
       workspace.reset();
       toasts.clear();

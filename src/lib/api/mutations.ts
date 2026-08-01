@@ -3,6 +3,7 @@ import { PUBLIC_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_URL } from '$env/static/publi
 import type { Database, Json } from '$lib/supabase/database.types';
 import { apiErrorMessage, toApiError } from './error';
 import { asJson } from './json';
+import { parseBadgePolicy, type BadgePolicy } from '$lib/badge/badge-policy';
 
 type JsonObject = { [key: string]: Json | undefined };
 type OperationalEnums = Database['public']['Enums'];
@@ -502,4 +503,26 @@ export async function listRestaurantStations(restaurantId: string): Promise<Rest
       }
     ];
   });
+}
+
+export async function setBadgePolicy(
+  restaurantId: string,
+  policy: Pick<
+    BadgePolicy,
+    | 'photoClockInRequired'
+    | 'photoClockOutRequired'
+    | 'locationCaptureEnabled'
+    | 'employeeMobileBadgingEnabled'
+  >
+): Promise<BadgePolicy> {
+  const data = object(
+    await rpcJson('set_badge_policy', {
+      p_restaurant_id: restaurantId,
+      p_photo_clock_in_required: policy.photoClockInRequired,
+      p_photo_clock_out_required: policy.photoClockOutRequired,
+      p_location_capture_enabled: policy.locationCaptureEnabled,
+      p_employee_mobile_badging_enabled: policy.employeeMobileBadgingEnabled
+    })
+  );
+  return parseBadgePolicy(data.policy);
 }

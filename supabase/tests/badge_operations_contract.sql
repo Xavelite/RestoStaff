@@ -286,6 +286,92 @@ begin
       or (v_recorded->>'total_break_minutes')::integer <> 15 then
     raise exception 'Clock-out after a resumed break did not preserve total break minutes.';
   end if;
+
+  perform public.set_badge_policy(
+    v_restaurant_id,
+    true,
+    false,
+    true,
+    true
+  );
+  v_roster := public.list_badge_roster(v_restaurant_id);
+  if (v_roster#>>'{badge_policy,photo_clock_in_required}')::boolean is not true
+      or (v_roster#>>'{badge_policy,location_capture_enabled}')::boolean is not true
+      or (v_roster#>>'{badge_policy,employee_mobile_badging_enabled}')::boolean is not true then
+    raise exception 'Badge roster did not expose the saved evidence policy.';
+  end if;
+
+  v_verification := public.verify_badge_pin(v_restaurant_id, v_employee_id, '2468');
+  begin
+    perform public.record_badge_entry(
+      v_restaurant_id,
+      v_employee_id,
+      (v_verification->>'badge_token')::uuid,
+      null,
+      null,
+      'not_required'
+    );
+    raise exception 'The legacy badge RPC bypassed the required evidence policy.';
+  exception
+    when others then
+      if sqlerrm not like '%photo is required%' then raise; end if;
+  end;
+
+  v_recorded := public.record_badge_entry_v2(
+    v_restaurant_id,
+    v_employee_id,
+    (v_verification->>'badge_token')::uuid,
+    null,
+    v_restaurant_id::text || '/' || v_employee_id::text || '/fixture.jpg',
+    'captured',
+    50.8467,
+    4.3525,
+    18
+  );
+  if v_recorded->>'action' <> 'in'
+      or (v_recorded->>'photo_recorded')::boolean is not true
+      or (v_recorded->>'location_recorded')::boolean is not true then
+    raise exception 'The evidence-aware badge RPC did not record clock-in evidence.';
+  end if;
+  select id into v_entry_id
+  from public.time_entries
+  where restaurant_id = v_restaurant_id
+    and employee_id = v_employee_id
+    and status = 'open';
+  if not exists (
+    select 1 from public.time_entries
+    where id = v_entry_id
+      and clock_in_latitude = 50.846700
+      and clock_in_longitude = 4.352500
+      and clock_in_accuracy_meters = 18
+  ) then
+    raise exception 'Clock-in location evidence was not attached to the time entry.';
+  end if;
+
+  v_verification := public.verify_badge_pin(v_restaurant_id, v_employee_id, '2468');
+  v_recorded := public.record_badge_entry_v2(
+    v_restaurant_id,
+    v_employee_id,
+    (v_verification->>'badge_token')::uuid,
+    null,
+    null,
+    'not_required',
+    50.8470,
+    4.3530,
+    22
+  );
+  if v_recorded->>'action' <> 'out' then
+    raise exception 'The evidence-aware badge RPC did not clock the employee out.';
+  end if;
+  if not exists (
+    select 1 from public.time_entries
+    where id = v_entry_id
+      and clock_out_latitude = 50.847000
+      and clock_out_longitude = 4.353000
+      and clock_out_accuracy_meters = 22
+  ) then
+    raise exception 'Clock-out location evidence was not attached to the time entry.';
+  end if;
 end
 $verify_automatic_badge_service$;
 

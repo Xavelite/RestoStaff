@@ -6,14 +6,17 @@
   import { createStationBadgeApi, getStationContext } from '$lib/station/station-api';
   import { t } from '$lib/i18n/i18n.svelte';
   import { restaurantLogoUrl } from '$lib/restaurant/logo-api';
+  import { DEFAULT_BADGE_POLICY, type BadgePolicy } from '$lib/badge/badge-policy';
 
   const STORAGE_KEY = 'rst-station-token';
 
   let token = $state('');
   let paired = $state(false);
   let restaurantName = $state('');
+  let restaurantId = $state('');
   let logoUrl = $state('');
   let timezone = $state('Europe/Brussels');
+  let policy = $state<BadgePolicy>(DEFAULT_BADGE_POLICY);
   let codeInput = $state('');
   let pairing = $state(false);
   let checked = $state(false);
@@ -37,15 +40,19 @@
     try {
       const ctx = await getStationContext(clean);
       token = clean;
+      restaurantId = ctx.restaurantId;
       restaurantName = ctx.restaurantName;
       logoUrl = restaurantLogoUrl(ctx.logoPath);
       timezone = ctx.timezone;
+      policy = ctx.policy;
       localStorage.setItem(STORAGE_KEY, clean);
       paired = true;
     } catch {
       if (!silent) error = t('That pairing code is not valid. Ask a manager for a new one.');
       localStorage.removeItem(STORAGE_KEY);
       paired = false;
+      restaurantId = '';
+      policy = DEFAULT_BADGE_POLICY;
     } finally {
       pairing = false;
       checked = true;
@@ -55,13 +62,17 @@
   function unpair() {
     localStorage.removeItem(STORAGE_KEY);
     token = '';
+    restaurantId = '';
     paired = false;
+    policy = DEFAULT_BADGE_POLICY;
     codeInput = '';
     error = '';
     unpairOpen = false;
   }
 
-  const api = $derived(paired && token ? createStationBadgeApi(token) : null);
+  const api = $derived(
+    paired && token && restaurantId ? createStationBadgeApi(token, restaurantId) : null
+  );
 </script>
 
 <svelte:head><title>{t('Badge station')} &middot; restogogo</title></svelte:head>
@@ -70,7 +81,7 @@
   {#if !checked}
     <div class="station-loading"><span class="spinner" aria-hidden="true"></span></div>
   {:else if paired && api}
-    <BadgeTerminal {api} {restaurantName} {logoUrl} {timezone}>
+    <BadgeTerminal {api} {restaurantName} {logoUrl} {timezone} {policy}>
       {#snippet headerAction()}
         <button
           type="button"

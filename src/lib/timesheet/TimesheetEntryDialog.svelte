@@ -33,6 +33,26 @@
 
   let busy = $state(false);
 
+  type BadgeLocations = {
+    clockIn: { latitude: number; longitude: number; accuracyMeters: number } | null;
+    clockOut: { latitude: number; longitude: number; accuracyMeters: number } | null;
+  };
+
+  const badgeLocations = $derived.by<BadgeLocations>(() => {
+    const entry = snapshot?.time_entries.find((item) => item.id === slot?.entryId) as
+      | (Record<string, unknown> & { id: string })
+      | undefined;
+    const point = (edge: 'clock_in' | 'clock_out') => {
+      const latitude = Number(entry?.[`${edge}_latitude`]);
+      const longitude = Number(entry?.[`${edge}_longitude`]);
+      const accuracyMeters = Number(entry?.[`${edge}_accuracy_meters`]);
+      return Number.isFinite(latitude) && Number.isFinite(longitude)
+        ? { latitude, longitude, accuracyMeters: Number.isFinite(accuracyMeters) ? accuracyMeters : 0 }
+        : null;
+    };
+    return { clockIn: point('clock_in'), clockOut: point('clock_out') };
+  });
+
   const adjustments = $derived(
     slot?.entryId
       ? snapshot?.time_entry_adjustments.filter(
@@ -137,6 +157,7 @@
         workAreas={snapshot.work_areas ?? []}
         services={snapshot.services}
         {adjustments}
+        {badgeLocations}
         onsave={saveEntry}
         oncancel={cancelEntry}
         onproof={loadProof}

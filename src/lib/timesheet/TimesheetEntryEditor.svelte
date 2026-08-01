@@ -49,6 +49,7 @@
     workAreas,
     services,
     adjustments,
+    badgeLocations,
     onsave,
     oncancel,
     onproof,
@@ -63,6 +64,10 @@
     workAreas: ManagerOperationsReadModel['work_areas'];
     services: ManagerOperationsReadModel['services'];
     adjustments: ManagerOperationsReadModel['time_entry_adjustments'];
+    badgeLocations: {
+      clockIn: { latitude: number; longitude: number; accuracyMeters: number } | null;
+      clockOut: { latitude: number; longitude: number; accuracyMeters: number } | null;
+    };
     onsave: (values: ActualsEntrySave) => Promise<boolean>;
     oncancel: (values: { reason: string }) => Promise<boolean>;
     onproof: () => Promise<string>;
@@ -211,6 +216,10 @@
 
   function removeBreak(id: string) {
     breaks = breaks.filter((item) => item.id !== id);
+  }
+
+  function mapUrl(point: { latitude: number; longitude: number }): string {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${point.latitude},${point.longitude}`)}`;
   }
 
   function valuesToSave(): ActualsEntrySave {
@@ -376,6 +385,30 @@
       {/each}
     </div>
   </fieldset>
+  {#if badgeLocations.clockIn || badgeLocations.clockOut}
+    <section class="location-evidence">
+      <header>
+        <strong>{t('Badge locations')}</strong>
+        <span>{t('Device coordinates recorded when the employee badged.')}</span>
+      </header>
+      <div>
+        {#if badgeLocations.clockIn}
+          <a href={mapUrl(badgeLocations.clockIn)} target="_blank" rel="noreferrer">
+            <span>{t('Clock in')}</span>
+            <strong>{badgeLocations.clockIn.latitude.toFixed(5)}, {badgeLocations.clockIn.longitude.toFixed(5)}</strong>
+            <small>{t('Accuracy about {meters} m', { meters: Math.round(badgeLocations.clockIn.accuracyMeters) })}</small>
+          </a>
+        {/if}
+        {#if badgeLocations.clockOut}
+          <a href={mapUrl(badgeLocations.clockOut)} target="_blank" rel="noreferrer">
+            <span>{t('Clock out')}</span>
+            <strong>{badgeLocations.clockOut.latitude.toFixed(5)}, {badgeLocations.clockOut.longitude.toFixed(5)}</strong>
+            <small>{t('Accuracy about {meters} m', { meters: Math.round(badgeLocations.clockOut.accuracyMeters) })}</small>
+          </a>
+        {/if}
+      </div>
+    </section>
+  {/if}
   <label class="reason"><span>{t('Manager reason')}</span><input bind:value={reason} disabled={!editable || busy} /></label>
   {#if slot.proof}
     <div class="proof">
@@ -514,6 +547,16 @@
   .break-row { grid-template-columns: repeat(2, minmax(0, 1fr)) 36px; align-items: end; }
   .break-row > button { width: 36px; height: 36px; font-size: var(--rst-fs-title); }
   .proof { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--rst-ui-muted); font-size: var(--rst-fs-label); }
+  .location-evidence { grid-column: 1 / -1; display: grid; gap: 9px; padding: 12px; border: 1px solid var(--rst-ui-line); border-radius: var(--rst-ui-radius-lg); background: var(--rst-ui-surface-field); }
+  .location-evidence > header { display: grid; gap: 2px; }
+  .location-evidence > header strong { color: var(--rst-ui-text); font-size: var(--rst-fs-label); text-transform: uppercase; }
+  .location-evidence > header span { color: var(--rst-ui-muted); font-size: var(--rst-fs-caption); }
+  .location-evidence > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .location-evidence a { display: grid; gap: 2px; padding: 9px 10px; border: 1px solid var(--rst-ui-line); border-radius: var(--rst-ui-radius-md); color: inherit; background: var(--rst-ui-surface-field-strong); text-decoration: none; }
+  .location-evidence a:hover { border-color: var(--rst-ui-action); }
+  .location-evidence a span { color: var(--rst-ui-action); font-size: var(--rst-fs-caption); font-weight: var(--rst-fw-bold); text-transform: uppercase; }
+  .location-evidence a strong { overflow: hidden; color: var(--rst-ui-text); font-size: var(--rst-fs-control); text-overflow: ellipsis; white-space: nowrap; }
+  .location-evidence a small { color: var(--rst-ui-muted); font-size: var(--rst-fs-caption); }
   .proof-preview {
     margin: 0 14px 14px;
     display: grid;
@@ -590,6 +633,7 @@
       grid-template-columns: 1fr;
     }
     .assignment-grid, .break-row { grid-template-columns: 1fr; }
+    .location-evidence > div { grid-template-columns: 1fr; }
     .break-row > button { justify-self: end; }
   }
 </style>

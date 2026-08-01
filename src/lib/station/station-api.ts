@@ -1,11 +1,12 @@
 import { PUBLIC_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_URL } from '$env/static/public';
-import { serviceLabel } from '$lib/calendar/date';
 import type {
   BadgeRosterEmployee,
   BadgeResult,
   BadgeTerminalApi,
   BadgeVerification
 } from '$lib/badge/badge-api';
+import { parseBadgeResult, parseBadgeRoster, uploadBadgeProof } from '$lib/badge/badge-api';
+import { parseBadgePolicy, type BadgeLocation, type BadgePolicy } from '$lib/badge/badge-policy';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -29,40 +30,17 @@ async function stationRpc(name: string, payload: JsonRecord): Promise<JsonRecord
   return result;
 }
 
-function parseRoster(result: JsonRecord): BadgeRosterEmployee[] {
-  const employees = Array.isArray(result.employees) ? result.employees : [];
-  return employees.flatMap((item) => {
-    if (!item || typeof item !== 'object') return [];
-    const row = item as JsonRecord;
-    const employeeId = String(row.employee_id ?? '');
-    const displayName = String(row.display_name ?? '');
-    const serviceKey =
-      typeof row.service_key === 'string' && row.service_key ? row.service_key : undefined;
-    const lastAction = row.last_action === 'in' ? 'in' : row.last_action === 'out' ? 'out' : undefined;
-    return employeeId && displayName
-      ? [
-          {
-            employeeId,
-            displayName,
-            clockedIn: row.clocked_in === true,
-            serviceKey,
-            lastAction,
-            lastLocalTime: row.last_local_time ? String(row.last_local_time) : undefined
-          }
-        ]
-      : [];
-  });
-}
-
 async function listStationRoster(token: string): Promise<BadgeRosterEmployee[]> {
-  return parseRoster(await stationRpc('list_badge_roster_station', { p_token: token }));
+  return parseBadgeRoster(await stationRpc('list_badge_roster_station', { p_token: token }));
 }
 
 type StationContext = {
+  restaurantId: string;
   restaurantName: string;
   logoPath: string;
   timezone: string;
   roster: BadgeRosterEmployee[];
+  policy: BadgePolicy;
 };
 
 // One call that both validates the token (throws if unpaired/revoked) and
@@ -70,10 +48,12 @@ type StationContext = {
 export async function getStationContext(token: string): Promise<StationContext> {
   const result = await stationRpc('list_badge_roster_station', { p_token: token });
   return {
+    restaurantId: String(result.restaurant_id ?? ''),
     restaurantName: String(result.restaurant_name ?? ''),
     logoPath: String(result.logo_path ?? ''),
     timezone: String(result.timezone ?? 'Europe/Brussels'),
-    roster: parseRoster(result)
+    roster: parseBadgeRoster(result),
+    policy: parseBadgePolicy(result.badge_policy)
   };
 }
 
@@ -97,34 +77,37 @@ async function recordStationBadge(input: {
   token: string;
   employeeId: string;
   badgeToken: string;
+  photoUrl?: string;
+  photoStatus?: string;
+  location?: BadgeLocation;
 }): Promise<BadgeResult> {
-  const result = await stationRpc('record_badge_entry_station', {
+  const result = await stationRpc('record_badge_entry_station_v2', {
     p_token: input.token,
     p_employee_id: input.employeeId,
     p_badge_token: input.badgeToken,
-    p_photo_url: null,
-    p_photo_status: 'not_required'
+    p_photo_url: input.photoUrl ?? null,
+    p_photo_status: input.photoStatus ?? 'not_required',
+    p_latitude: input.location?.latitude ?? null,
+    p_longitude: input.location?.longitude ?? null,
+    p_accuracy_meters: input.location?.accuracyMeters ?? null
   });
-  if (result.ok !== true) throw new Error(String(result.message ?? 'Badge entry failed.'));
-  return {
-    action: result.action === 'out' ? 'out' : 'in',
-    localTime: String(result.local_time ?? ''),
-    timezone: String(result.timezone ?? ''),
-    serviceKey: String(result.service_key ?? ''),
-    serviceName: String(result.service_name ?? serviceLabel(String(result.service_key ?? ''))),
-    resumed: result.resumed === true,
-    breakMinutesAdded: Math.max(0, Number(result.break_minutes_added ?? 0)),
-    totalBreakMinutes: Math.max(0, Number(result.total_break_minutes ?? 0))
-  };
+  return parseBadgeResult(result);
 }
 
-// Bind a station token to the BadgeTerminal surface. No uploadProof: a station
-// has no manager session to authorise a photo upload, so proof is skipped.
-export function createStationBadgeApi(token: string): BadgeTerminalApi {
+export function createStationBadgeApi(token: string, restaurantId: string): BadgeTerminalApi {
   return {
     listRoster: () => listStationRoster(token),
     verifyPin: (employeeId, pin) => verifyStationPin(token, employeeId, pin),
     recordBadge: (input) =>
-      recordStationBadge({ token, employeeId: input.employeeId, badgeToken: input.token })
+      recordStationBadge({
+        token,
+        employeeId: input.employeeId,
+        badgeToken: input.token,
+        photoUrl: input.photoUrl,
+        photoStatus: input.photoStatus,
+        location: input.location
+      }),
+    uploadProof: (input) =>
+      uploadBadgeProof({ restaurantId, stationToken: token, ...input })
   };
 }

@@ -18,7 +18,7 @@ type PendingAction = () => void | Promise<void>;
  * One route-leave contract for the whole application.
  *
  * Editable screens register their draft here. Navigation, workspace changes,
- * preview, kiosk entry and sign-out all pass through the same Save / Discard /
+ * preview, workspace switching and sign-out all pass through the same Save / Discard /
  * Stay decision before they are allowed to mutate application context.
  */
 class UnsavedChanges {
@@ -93,7 +93,7 @@ class UnsavedChanges {
 
   /**
    * Use for actions that change context before routing (workspace, preview,
-   * kiosk or sign-out). The action runs immediately only when nothing is dirty.
+   * workspace switch or sign-out). The action runs immediately only when nothing is dirty.
    */
   async runOrRequest(action: PendingAction): Promise<boolean> {
     if (!this.hasDirty) {
