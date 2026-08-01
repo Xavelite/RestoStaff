@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Camera, LocateFixed, MonitorUp, ShieldCheck, Smartphone, TabletSmartphone, Trash2 } from '@lucide/svelte';
+  import { Camera, Copy, ExternalLink, KeyRound, LocateFixed, MonitorUp, ShieldCheck, Smartphone, TabletSmartphone, Trash2 } from '@lucide/svelte';
   import { auth } from '$lib/auth/session.svelte';
   import ActionButton from '$lib/components/ActionButton.svelte';
   import Dialog from '$lib/components/Dialog.svelte';
@@ -8,7 +8,9 @@
     createRestaurantStation,
     listRestaurantStations,
     revokeRestaurantStation,
+    rotateUnusedRestaurantStationToken,
     setBadgePolicy,
+    setEmployeeMobileBadging,
     type RestaurantStation
   } from '$lib/api/mutations';
   import {
@@ -29,7 +31,9 @@
   import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
+  import WorkspaceColChooser from '$lib/workspace-ui/WorkspaceColChooser.svelte';
   import WorkspaceToggle from '$lib/workspace-ui/WorkspaceToggle.svelte';
+  import { createTableView } from '$lib/workspace-ui/table-view.svelte';
 
   let stations = $state<RestaurantStation[]>([]);
   let loading = $state(false);
@@ -37,10 +41,28 @@
   let pairOpen = $state(false);
   let pairLabel = $state('');
   let now = $state(Date.now());
-  // Shown once and never again: the token is only ever stored hashed.
-  let pairedCode = $state('');
+  // Secrets exist only in this manager tab; the database stores hashes.
+  let pairingCodes = $state<Record<string, string>>({});
   let policy = $state<BadgePolicy>(DEFAULT_BADGE_POLICY);
   let policySource = $state('');
+  let mobileBusy = $state('');
+
+  const deviceView = createTableView({
+    storageKey: 'restogogo.badge-device-columns',
+    columns: [
+      { key: 'pairing', label: 'Pairing code' },
+      { key: 'paired', label: 'Paired' },
+      { key: 'last', label: 'Last check-in' },
+      { key: 'status', label: 'Status' }
+    ]
+  });
+  const shown = deviceView.shown;
+  const deviceColumns = $derived(deviceView.columns);
+  const activeEmployees = $derived(
+    (workspace.team?.employees ?? [])
+      .filter((employee) => employee.active)
+      .sort((left, right) => left.display_name.localeCompare(right.display_name))
+  );
 
   const ownerCanConfigure = $derived(
     workspace.effectiveRole === 'owner' && !workspace.isPreview
@@ -61,6 +83,12 @@
     policySource = source;
   });
 
+  $effect(() => {
+    if (workspace.activeId && workspace.canManageOperations && !workspace.team) {
+      void workspace.loadTeam();
+    }
+  });
+
   async function reload() {
     if (!workspace.activeId) return;
     loading = true;
@@ -78,6 +106,7 @@
   });
 
   onMount(() => {
+    deviceView.restore();
     const refresh = window.setInterval(() => {
       now = Date.now();
       if (!loading && document.visibilityState === 'visible') void reload();
@@ -94,9 +123,11 @@
     busy = 'pair';
     try {
       const result = await createRestaurantStation(workspace.activeId, pairLabel.trim());
-      pairedCode = result.token;
+      pairingCodes = { ...pairingCodes, [result.stationId]: result.token };
       pairLabel = '';
       await reload();
+      pairOpen = false;
+      toasts.show(t('Pairing code added to the device row.'), 'success');
     } catch (error) {
       toasts.show(friendlyError(error), 'danger');
     } finally {
@@ -151,13 +182,65 @@
     }
   }
 
-  async function copyPairCode() {
-    if (!pairedCode) return;
+  async function copyText(value: string, success: string) {
+    if (!value) return;
     try {
-      await navigator.clipboard.writeText(pairedCode);
-      toasts.show(t('Copied'), 'success');
+      await navigator.clipboard.writeText(value);
+      toasts.show(t(success), 'success');
     } catch {
       toasts.show(t('Copy the code manually.'), 'warning');
+    }
+  }
+
+  function stationUrl(): string {
+    return typeof location === 'undefined' ? '/station' : `${location.origin}/station`;
+  }
+
+  async function replaceUnusedCode(station: RestaurantStation) {
+    if (!workspace.activeId || station.lastUsedAt || busy) return;
+    const confirmed = await confirmAction({
+      title: 'Create a new pairing code?',
+      body: 'The previous unused code stops working. The replacement is shown in this device row until this page is reloaded.',
+      confirmLabel: 'Create new code',
+      tone: 'primary'
+    });
+    if (!confirmed) return;
+    busy = station.id;
+    try {
+      const token = await rotateUnusedRestaurantStationToken(workspace.activeId, station.id);
+      pairingCodes = { ...pairingCodes, [station.id]: token };
+      toasts.show(t('New pairing code ready.'), 'success');
+    } catch (error) {
+      toasts.show(friendlyError(error), 'danger');
+    } finally {
+      busy = '';
+    }
+  }
+
+  function employeeAccess(employeeId: string) {
+    return workspace.team?.employee_access.find((access) => access.employee_id === employeeId);
+  }
+
+  function phoneEligible(employeeId: string): boolean {
+    const access = employeeAccess(employeeId);
+    return Boolean(
+      access?.profile_id &&
+      access.access_status === 'active' &&
+      access.badge_enabled
+    );
+  }
+
+  async function toggleEmployeePhone(employeeId: string, enabled: boolean) {
+    if (!workspace.activeId || !ownerCanConfigure || mobileBusy) return;
+    mobileBusy = employeeId;
+    try {
+      await setEmployeeMobileBadging(workspace.activeId, employeeId, enabled);
+      await workspace.loadTeam(true);
+      toasts.show(t(enabled ? 'Phone clock enabled.' : 'Phone clock disabled.'), 'success');
+    } catch (error) {
+      toasts.show(friendlyError(error), 'danger');
+    } finally {
+      mobileBusy = '';
     }
   }
 
@@ -238,7 +321,7 @@
       </article>
       <article>
         <span class="setting-icon is-mobile" aria-hidden="true"><Smartphone size={18} /></span>
-        <div><strong>{t('Employee phones')}</strong><span>{t('Let signed-in employees clock only themselves from My time.')}</span></div>
+        <div><strong>{t('Employee phones')}</strong><span>{t('Make phone clocking available only to the employees selected below.')}</span></div>
         <WorkspaceToggle checked={policy.employeeMobileBadgingEnabled} label={t('Allowed')} disabled={!ownerCanConfigure || Boolean(busy)} onchange={(checked) => (policy = { ...policy, employeeMobileBadgingEnabled: checked })} />
       </article>
     </div>
@@ -251,6 +334,10 @@
     {/snippet}
 
     {#snippet actions()}
+      <a class="cl-btn" href="/station" target="_blank" rel="noreferrer">
+        <ExternalLink size={15} aria-hidden="true" />
+        <span>{t('Open pairing page')}</span>
+      </a>
       <button class="cl-btn" type="button" disabled={workspace.isPreview || Boolean(busy)} onclick={() => void useThisDevice()}>
         <MonitorUp size={15} aria-hidden="true" />
         <span>{busy === 'this-device' ? t('Securing device…') : t('Use this device')}</span>
@@ -259,7 +346,7 @@
         class="cl-btn is-primary"
         type="button"
         disabled={workspace.isPreview}
-        onclick={() => { pairedCode = ''; pairLabel = ''; pairOpen = true; }}
+        onclick={() => { pairLabel = ''; pairOpen = true; }}
       >
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M12 5v14M5 12h14" />
@@ -286,6 +373,11 @@
                     : { label: t('Waiting for first connection'), tone: 'warn' as const }
               ]}
               meta={[
+                {
+                  label: t('Pairing code'),
+                  value: pairingCodes[station.id] || (station.lastUsedAt ? t('Protected') : t('Create a new code')),
+                  muted: !pairingCodes[station.id]
+                },
                 { label: t('Paired'), value: stamp(station.createdAt) },
                 { label: t('Last used'), value: stamp(station.lastUsedAt) || t('Never'), muted: !station.lastUsedAt }
               ]}
@@ -305,18 +397,19 @@
           <thead>
             <tr>
               <th class="has-menu"><WorkspaceColMenu label={t('Device')} columnKey="badge-device" /></th>
-              <th class="has-menu"><WorkspaceColMenu label={t('Paired')} columnKey="badge-paired" /></th>
-              <th class="has-menu"><WorkspaceColMenu label={t('Last check-in')} columnKey="badge-last-check-in" /></th>
-              <th class="has-menu"><WorkspaceColMenu label={t('Status')} columnKey="badge-status" /></th>
-              <th class="menu-cell" aria-label={t('Actions')}></th>
+              {#if shown('pairing')}<th class="has-menu"><WorkspaceColMenu label={t('Pairing code')} columnKey="badge-pairing-code" /></th>{/if}
+              {#if shown('paired')}<th class="has-menu"><WorkspaceColMenu label={t('Paired')} columnKey="badge-paired" /></th>{/if}
+              {#if shown('last')}<th class="has-menu"><WorkspaceColMenu label={t('Last check-in')} columnKey="badge-last-check-in" /></th>{/if}
+              {#if shown('status')}<th class="has-menu"><WorkspaceColMenu label={t('Status')} columnKey="badge-status" /></th>{/if}
+              <th class="chooser-col"><WorkspaceColChooser columns={deviceColumns} hidden={deviceView.hidden} ontoggle={deviceView.toggleColumn} /></th>
             </tr>
           </thead>
           <tbody>
             {#if loading && !stations.length}
-              <tr><td colspan="5"><div class="cl-empty"><strong>{t('Loading your workspace')}</strong></div></td></tr>
+              <tr><td colspan={deviceView.colCount + 1}><div class="cl-empty"><strong>{t('Loading your workspace')}</strong></div></td></tr>
             {:else if !stations.length}
               <tr>
-                <td colspan="5">
+                <td colspan={deviceView.colCount + 1}>
                   <div class="cl-empty">
                     <span class="cl-empty__icon" aria-hidden="true"><TabletSmartphone size={18} /></span>
                     <strong>{t('No paired devices')}</strong>
@@ -338,18 +431,34 @@
                       <strong>{station.label}</strong>
                     </span>
                   </td>
-                  <td class="is-quiet">{stamp(station.createdAt)}</td>
-                  <td class="is-quiet">{stamp(station.lastUsedAt) || t('Never')}</td>
-                  <td>
+                  {#if shown('pairing')}
+                    <td class="pairing-cell">
+                      {#if pairingCodes[station.id]}
+                        <button class="pairing-code" type="button" title={t('Copy pairing code')} onclick={() => void copyText(pairingCodes[station.id], 'Pairing code copied.')}>
+                          <code>{pairingCodes[station.id]}</code><Copy size={13} />
+                        </button>
+                      {:else if !station.lastUsedAt}
+                        <button class="inline-link" type="button" disabled={Boolean(busy)} onclick={() => void replaceUnusedCode(station)}>{t('Create new code')}</button>
+                      {:else}
+                        <span class="protected-code"><KeyRound size={13} />{t('Protected')}</span>
+                      {/if}
+                    </td>
+                  {/if}
+                  {#if shown('paired')}<td class="is-quiet">{stamp(station.createdAt)}</td>{/if}
+                  {#if shown('last')}<td class="is-quiet">{stamp(station.lastUsedAt) || t('Never')}</td>{/if}
+                  {#if shown('status')}<td>
                     <WorkspaceStatus
                       label={isOnline(station) ? 'Online' : station.lastUsedAt ? 'Offline' : 'Waiting for first connection'}
                       tone={isOnline(station) ? 'ok' : 'attention'}
                     />
-                  </td>
-                  <td class="menu-cell">
+                  </td>{/if}
+                  <td class="chooser-col">
                     <WorkspaceRowMenu
                       disabled={workspace.isPreview || busy === station.id}
                       items={[
+                        ...(!station.lastUsedAt && !pairingCodes[station.id]
+                          ? [{ label: t('Create new pairing code'), onselect: () => void replaceUnusedCode(station) }]
+                          : []),
                         {
                           label: t('Revoke'),
                           tone: 'danger',
@@ -388,6 +497,11 @@
                 label={isOnline(station) ? 'Online' : station.lastUsedAt ? 'Offline' : 'Waiting for first connection'}
                 tone={isOnline(station) ? 'ok' : 'attention'}
               />
+              {#if pairingCodes[station.id]}
+                <button class="mobile-code" type="button" onclick={() => void copyText(pairingCodes[station.id], 'Pairing code copied.')}><Copy size={14} />{t('Copy code')}</button>
+              {:else if !station.lastUsedAt}
+                <button class="mobile-code" type="button" onclick={() => void replaceUnusedCode(station)}>{t('Create code')}</button>
+              {/if}
               <button
                 class="mobile-device__revoke"
                 type="button"
@@ -402,36 +516,68 @@
       </div>
     {/snippet}
   </WorkspaceTablePanel>
+
+  <section class="phone-access" aria-labelledby="phone-access-title">
+    <header>
+      <div>
+        <span class="phone-access__icon" aria-hidden="true"><Smartphone size={18} /></span>
+        <div>
+          <strong id="phone-access-title">{t('Phone clock access')}</strong>
+          <span>{t('Choose exactly who receives Clock in or out in My time.')}</span>
+        </div>
+      </div>
+      {#if !policy.employeeMobileBadgingEnabled}
+        <span class="phone-access__note">{t('Turn on Employee phones above and save the badging rules first.')}</span>
+      {:else if !ownerCanConfigure}
+        <span class="phone-access__note">{t('Only an owner can change phone access.')}</span>
+      {/if}
+    </header>
+    <div class="phone-list">
+      {#if workspace.moduleLoading && !workspace.team}
+        <div class="phone-empty">{t('Loading your workspace')}</div>
+      {:else if !activeEmployees.length}
+        <div class="phone-empty">{t('No active employees are ready for phone badging.')}</div>
+      {:else}
+        {#each activeEmployees as employee (employee.id)}
+          {@const access = employeeAccess(employee.id)}
+          {@const eligible = phoneEligible(employee.id)}
+          <article>
+            <span class="phone-avatar">{employee.display_name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</span>
+            <div>
+              <strong>{employee.display_name}</strong>
+              <span>{eligible ? t('Signed-in employee account') : t('Invite and enable badge access first')}</span>
+            </div>
+            <WorkspaceToggle
+              checked={access?.mobile_badging_enabled === true}
+              label={t('Phone clock')}
+              disabled={!ownerCanConfigure || !policy.employeeMobileBadgingEnabled || !eligible || Boolean(mobileBusy)}
+              onchange={(checked) => void toggleEmployeePhone(employee.id, checked)}
+            />
+          </article>
+        {/each}
+      {/if}
+    </div>
+  </section>
 </WorkspacePage>
 
 {#snippet pairFooter()}
-  <ActionButton label={t(pairedCode ? 'Close' : 'Cancel')} onclick={() => (pairOpen = false)} />
-  {#if !pairedCode}
-    <ActionButton label={busy === 'pair' ? t('Saving…') : t('Pair a device')} tone="primary" disabled={Boolean(busy)} onclick={pair} />
-  {/if}
+  <ActionButton label={t('Cancel')} onclick={() => (pairOpen = false)} />
+  <ActionButton label={busy === 'pair' ? t('Saving…') : t('Create pairing code')} tone="primary" disabled={Boolean(busy)} onclick={pair} />
 {/snippet}
 
 <Dialog
   open={pairOpen}
   title={t('Pair a device')}
-  description={t('Name the tablet, then enter the code on it once. The code is shown only now.')}
+  description={t('Name the device. Its one-time pairing code will appear in the device grid, ready to copy.')}
   size="small"
   onclose={() => (pairOpen = false)}
   footer={pairFooter}
 >
-  {#if pairedCode}
-    <div class="paired">
-      <span>{t('Pairing code')}</span>
-      <code>{pairedCode}</code>
-      <button type="button" class="copy-code" onclick={() => void copyPairCode()}>{t('Copy code')}</button>
-      <small>{t('Open {url} on the other device and paste this code. It cannot be shown again.', { url: `${location.origin}/station` })}</small>
-    </div>
-  {:else}
-    <label class="cl-label">
-      <span>{t('Device name')}</span>
-      <input class="cl-field" bind:value={pairLabel} placeholder={t('Bar tablet')} />
-    </label>
-  {/if}
+  <label class="cl-label">
+    <span>{t('Device name')}</span>
+    <input class="cl-field" bind:value={pairLabel} placeholder={t('Bar tablet')} />
+  </label>
+  <p class="pair-help"><ExternalLink size={14} />{t('The other device enters this code at {url}.', { url: stationUrl() })}</p>
 </Dialog>
 
 <style>
@@ -519,39 +665,113 @@
     background: color-mix(in srgb, var(--cl-info) 8%, var(--cl-surface));
   }
   .mobile-device-list { display: none; }
-  .paired {
-    display: grid;
-    gap: 8px;
-  }
-  .paired > span {
-    color: var(--cl-muted);
-    font-size: var(--rst-fs-body);
-    font-weight: var(--rst-fw-medium);
-  }
-  .paired code {
-    padding: 12px 14px;
-    border: 1px solid var(--cl-line);
-    border-radius: var(--cl-radius);
-    background: var(--cl-surface-muted);
-    font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
-    font-size: var(--rst-fs-body-lg);
-    word-break: break-all;
-  }
-  .copy-code {
-    justify-self: start;
-    padding: 0;
+  .pairing-cell { max-width: 230px; }
+  .pairing-code,
+  .protected-code,
+  .mobile-code,
+  .inline-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     border: 0;
     color: var(--cl-info);
     background: transparent;
     font: inherit;
-    font-size: var(--rst-fs-body);
-    font-weight: var(--rst-fw-semibold);
-    cursor: pointer;
+    font-size: var(--rst-fs-caption);
   }
-  .paired small {
+  .pairing-code,
+  .mobile-code,
+  .inline-link { cursor: pointer; }
+  .pairing-code {
+    max-width: 100%;
+    padding: 5px 7px;
+    border: 1px solid color-mix(in srgb, var(--cl-info) 22%, var(--cl-line));
+    border-radius: 5px;
+    background: color-mix(in srgb, var(--cl-info) 5%, var(--cl-surface));
+  }
+  .pairing-code code {
+    overflow: hidden;
+    font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pairing-code :global(svg) { flex: 0 0 auto; }
+  .protected-code { color: var(--cl-muted); }
+  .inline-link { padding: 3px 0; font-weight: var(--rst-fw-semibold); }
+  .inline-link:disabled { cursor: default; opacity: .5; }
+  .pair-help {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    margin: 12px 0 0;
+    color: var(--cl-muted);
+    font-size: var(--rst-fs-caption);
+    line-height: 1.5;
+  }
+  .pair-help :global(svg) { flex: 0 0 auto; margin-top: 2px; color: var(--cl-info); }
+  .phone-access {
+    overflow: hidden;
+    border: 1px solid var(--cl-line);
+    border-radius: var(--cl-radius);
+    background: var(--cl-surface);
+  }
+  .phone-access > header {
+    min-height: 58px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--cl-line);
+    background: color-mix(in srgb, var(--cl-info) 4%, var(--cl-surface));
+  }
+  .phone-access > header > div,
+  .phone-list article {
+    display: grid;
+    align-items: center;
+  }
+  .phone-access > header > div {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 10px;
+  }
+  .phone-access > header > div > div,
+  .phone-list article > div { min-width: 0; display: grid; gap: 2px; }
+  .phone-access > header strong,
+  .phone-list strong { color: var(--cl-data-text-strong); font-size: var(--rst-fs-body); }
+  .phone-access > header span,
+  .phone-list article > div span,
+  .phone-access__note { color: var(--cl-muted); font-size: var(--rst-fs-caption); line-height: 1.4; }
+  .phone-access__icon,
+  .phone-avatar {
+    display: grid;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--cl-info) 24%, var(--cl-line));
+    color: var(--cl-info);
+    background: color-mix(in srgb, var(--cl-info) 8%, var(--cl-surface));
+  }
+  .phone-access__icon { width: 32px; height: 32px; border-radius: 7px; }
+  .phone-access__note { max-width: 360px; text-align: right; }
+  .phone-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .phone-list article {
+    min-height: 64px;
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 10px 14px;
+    border-right: 1px solid var(--cl-line);
+    border-bottom: 1px solid var(--cl-line);
+  }
+  .phone-list article:nth-child(2n) { border-right: 0; }
+  .phone-list article:nth-last-child(-n + 2) { border-bottom: 0; }
+  .phone-avatar { width: 34px; height: 34px; border-radius: 50%; font-size: var(--rst-fs-caption); font-weight: var(--rst-fw-bold); }
+  .phone-empty {
+    grid-column: 1 / -1;
+    min-height: 92px;
+    display: grid;
+    place-content: center;
+    padding: 20px;
     color: var(--cl-muted);
     font-size: var(--rst-fs-body);
-    line-height: 1.5;
+    text-align: center;
   }
   @media (max-width: 760px) {
     .policy-panel > header { align-items: flex-start; flex-direction: column; }
@@ -563,6 +783,13 @@
       border-bottom: 1px solid var(--cl-line);
     }
     .policy-grid article:last-child { border-bottom: 0; }
+    .phone-access > header { align-items: flex-start; flex-direction: column; }
+    .phone-access__note { text-align: left; }
+    .phone-list { grid-template-columns: 1fr; }
+    .phone-list article,
+    .phone-list article:nth-child(2n),
+    .phone-list article:nth-last-child(-n + 2) { border-right: 0; border-bottom: 1px solid var(--cl-line); }
+    .phone-list article:last-child { border-bottom: 0; }
     .desktop-device-view { display: none; }
     .mobile-device-list { display: grid; }
     .mobile-device {
@@ -579,7 +806,10 @@
     .mobile-device__copy { min-width: 0; display: grid; gap: 2px; }
     .mobile-device__copy strong { overflow: hidden; color: var(--cl-data-text-strong); font-size: var(--rst-fs-body); text-overflow: ellipsis; white-space: nowrap; }
     .mobile-device__copy span { overflow: hidden; color: var(--cl-muted); font-size: var(--rst-fs-caption); text-overflow: ellipsis; white-space: nowrap; }
+    .mobile-code { grid-column: 2 / 4; justify-self: start; padding: 2px 0; font-weight: var(--rst-fw-semibold); }
     .mobile-device__revoke {
+      grid-column: 4;
+      grid-row: 1;
       width: 30px;
       height: 30px;
       display: grid;

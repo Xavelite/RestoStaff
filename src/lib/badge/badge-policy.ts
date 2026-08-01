@@ -94,3 +94,74 @@ export function captureBadgeLocation(): Promise<BadgeLocation> {
     );
   });
 }
+
+function cameraError(error: unknown): Error {
+  if (error instanceof DOMException && (error.name === 'NotAllowedError' || error.name === 'SecurityError')) {
+    return new Error('Allow camera access to record this badge.');
+  }
+  if (error instanceof DOMException && error.name === 'NotFoundError') {
+    return new Error('No camera is available on this device.');
+  }
+  return new Error('The badge photo could not be captured. Check the camera and try again.');
+}
+
+/** Capture one private badge frame without exposing a file-picker workflow. */
+export async function captureBadgePhoto(): Promise<File> {
+  if (
+    typeof navigator === 'undefined' ||
+    typeof document === 'undefined' ||
+    !navigator.mediaDevices?.getUserMedia
+  ) {
+    throw new Error('Camera capture is not supported on this device.');
+  }
+
+  let stream: MediaStream | null = null;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: {
+        facingMode: 'user',
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      }
+    });
+    const video = document.createElement('video');
+    video.muted = true;
+    video.playsInline = true;
+    video.srcObject = stream;
+    await new Promise<void>((resolve, reject) => {
+      const timeout = window.setTimeout(
+        () => reject(new Error('Camera start timed out.')),
+        10_000
+      );
+      video.onloadedmetadata = () => {
+        window.clearTimeout(timeout);
+        resolve();
+      };
+      video.onerror = () => {
+        window.clearTimeout(timeout);
+        reject(new Error('Camera preview failed.'));
+      };
+    });
+    await video.play();
+    // Give auto-exposure one painted frame before preserving the evidence.
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+
+    const sourceWidth = Math.max(1, video.videoWidth);
+    const sourceHeight = Math.max(1, video.videoHeight);
+    const scale = Math.min(1, 1280 / sourceWidth);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(sourceWidth * scale));
+    canvas.height = Math.max(1, Math.round(sourceHeight * scale));
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Camera capture is unavailable.');
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.82));
+    if (!blob) throw new Error('Camera capture is unavailable.');
+    return new File([blob], `badge-${Date.now()}.jpg`, { type: 'image/jpeg' });
+  } catch (error) {
+    throw cameraError(error);
+  } finally {
+    stream?.getTracks().forEach((track) => track.stop());
+  }
+}

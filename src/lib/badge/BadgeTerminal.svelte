@@ -3,8 +3,7 @@
   import type {
     BadgeRosterEmployee,
     BadgeResult,
-    BadgeTerminalApi,
-    BadgeVerification
+    BadgeTerminalApi
   } from '$lib/badge/badge-api';
   import { friendlyError } from '$lib/api/error-messages';
   import { sound } from '$lib/sound/sound.svelte';
@@ -13,6 +12,7 @@
   import { personInitials } from '$lib/ui/person';
   import {
     captureBadgeLocation,
+    captureBadgePhoto,
     photoRequiredForAction,
     type BadgePolicy
   } from '$lib/badge/badge-policy';
@@ -45,8 +45,7 @@
   let feedbackTone = $state<'info' | 'success' | 'warning' | 'danger'>('info');
   let result = $state<BadgeResult | null>(null);
   let resultName = $state('');
-  let verification = $state<BadgeVerification | null>(null);
-  let proof = $state<File | null>(null);
+  let stage = $state<'checking' | 'evidence' | 'recording' | ''>('');
   let now = $state(new Date());
   let resultTimer: number | undefined;
 
@@ -54,6 +53,17 @@
   const intendedAction = $derived<'in' | 'out'>(selected?.clockedIn ? 'out' : 'in');
   const photoRequired = $derived(photoRequiredForAction(policy, intendedAction));
   const nextAction = $derived(t(selected?.clockedIn ? 'Clock out' : 'Clock in'));
+  const stageLabel = $derived(
+    stage === 'checking'
+      ? t('Checking your PIN')
+      : stage === 'evidence'
+        ? t(photoRequired && policy.locationCaptureEnabled
+          ? 'Capturing photo and location'
+          : photoRequired
+            ? 'Capturing photo'
+            : 'Capturing location')
+        : t('Recording your badge')
+  );
 
   function restaurantTime(date: Date) {
     return date.toLocaleTimeString(i18n.intlLocale, {
@@ -133,8 +143,7 @@
   function resetChallenge() {
     clearResultTimer();
     pin = '';
-    proof = null;
-    verification = null;
+    stage = '';
     result = null;
     resultName = '';
   }
@@ -147,11 +156,11 @@
   }
 
   function digit(value: string) {
-    if (!loading && !verification && !result && pin.length < 4) pin += value;
+    if (!loading && !result && pin.length < 4) pin += value;
   }
 
   function handleKeydown(event: KeyboardEvent) {
-    if (loading || verification || result) return;
+    if (loading || result) return;
     if (/^\d$/.test(event.key)) {
       event.preventDefault();
       digit(event.key);
@@ -169,41 +178,25 @@
 
   async function verify() {
     if (!selected || !/^\d{4}$/.test(pin) || loading) return;
-    loading = true;
-    feedback = '';
-    result = null;
-    try {
-      verification = await api.verifyPin(selected.employeeId, pin);
-      pin = '';
-    } catch (error) {
-      resetChallenge();
-      feedback = friendlyError(error, 'badge');
-      feedbackTone = 'danger';
-      sound.play('error');
-    } finally {
-      loading = false;
-    }
-  }
-
-  async function completeBadge() {
-    if (!selected || !verification || loading) return;
-    if (photoRequired && !proof) {
-      feedback = t('Take a photo before recording this badge.');
-      feedbackTone = 'warning';
-      return;
-    }
     const employeeId = selected.employeeId;
     const employeeName = selected.displayName;
     loading = true;
+    stage = 'checking';
     feedback = '';
+    result = null;
     try {
+      const verification = await api.verifyPin(employeeId, pin);
+      pin = '';
+      stage = 'evidence';
+      const [proof, location] = await Promise.all([
+        photoRequired ? captureBadgePhoto() : Promise.resolve<File | null>(null),
+        policy.locationCaptureEnabled ? captureBadgeLocation() : Promise.resolve(undefined)
+      ]);
       const photoUrl =
         proof && api.uploadProof
           ? await api.uploadProof({ employeeId, token: verification.token, file: proof })
           : undefined;
-      const location = policy.locationCaptureEnabled
-        ? await captureBadgeLocation()
-        : undefined;
+      stage = 'recording';
       const recorded = await api.recordBadge({
         employeeId,
         token: verification.token,
@@ -214,8 +207,7 @@
 
       result = recorded;
       resultName = employeeName;
-      verification = null;
-      proof = null;
+      stage = '';
       roster = roster.map((employee) =>
         employee.employeeId === employeeId
           ? {
@@ -327,41 +319,12 @@
             </p>
             <button type="button" class="secondary-action" onclick={resetChallenge}>{t('Done')}</button>
           </div>
-        {:else if verification}
-          <div class="proof-step">
-            <span class="verified-mark" aria-hidden="true">&#10003;</span>
-            <span class="eyebrow">{t('PIN verified')}</span>
-            <h2>{nextAction}</h2>
-            <p class="expires">
-              {t('Ready until {time}', { time: restaurantTime(new Date(verification.expiresAt)) })}
-            </p>
-            {#if photoRequired && api.uploadProof}
-              <label class="proof-upload" for="badge-proof">
-                <strong>{t(proof ? 'Change photo' : 'Take required photo')}</strong>
-                <span>{proof ? `${proof.name} (${(proof.size / 1024 / 1024).toFixed(1)} MB)` : t('The photo is stored privately with this badge.')}</span>
-              </label>
-              <input
-                id="badge-proof"
-                class="proof-input"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                capture="user"
-                required
-                onchange={(event) => (proof = event.currentTarget.files?.[0] ?? null)}
-              />
-            {/if}
-            {#if policy.locationCaptureEnabled}
-              <p class="evidence-note">
-                <span aria-hidden="true">&#9678;</span>
-                {t('This device records its location when you continue.')}
-              </p>
-            {/if}
-            <div class="proof-actions">
-              <button type="button" class="secondary-action" disabled={loading} onclick={resetChallenge}>{t('Start over')}</button>
-              <button type="button" class="primary-action" disabled={loading || (photoRequired && !proof)} onclick={completeBadge}>
-                {loading ? t('Recording...') : nextAction}
-              </button>
-            </div>
+        {:else if stage}
+          <div class="capture-step" aria-live="polite">
+            <span class="capture-spinner" aria-hidden="true"></span>
+            <span class="eyebrow">{nextAction}</span>
+            <h2>{stageLabel}</h2>
+            <p>{t('Keep this device steady. Your badge will finish automatically.')}</p>
           </div>
         {:else}
           <div class="pin-step">
@@ -660,7 +623,7 @@
   }
 
   .pin-step,
-  .proof-step,
+  .capture-step,
   .success {
     width: min(100%, 420px);
     display: grid;
@@ -670,7 +633,7 @@
   }
 
   .pin-step h2,
-  .proof-step h2,
+  .capture-step h2,
   .success h2 {
     margin: 5px 0 0;
     font-size: var(--rst-fs-title-lg);
@@ -771,7 +734,6 @@
     cursor: default;
   }
 
-  .verified-mark,
   .success-mark {
     display: grid;
     place-items: center;
@@ -781,69 +743,22 @@
     animation: rst-check-pop .45s var(--rst-ease-spring);
   }
 
-  .verified-mark {
-    width: 44px;
-    height: 44px;
-    margin-bottom: 14px;
-    font-size: var(--rst-fs-title-lg);
-  }
-
-  .expires {
-    margin: 7px 0 20px;
+  .capture-step p {
+    max-width: 330px;
+    margin: 8px 0 0;
     color: var(--rst-ui-muted);
-    font-size: var(--rst-fs-label);
-  }
-
-  .proof-upload {
-    width: min(100%, 330px);
-    min-height: 68px;
-    display: grid;
-    place-content: center;
-    gap: 3px;
-    padding: 10px 14px;
-    border: 1px dashed var(--rst-ui-line-strong);
-    border-radius: var(--rst-ui-radius-md);
-    background: var(--rst-ui-surface-field);
-    cursor: pointer;
-  }
-
-  .proof-upload span {
-    overflow: hidden;
-    max-width: 290px;
-    color: var(--rst-ui-muted);
-    font-size: var(--rst-fs-caption);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .proof-input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-  }
-
-  .evidence-note {
-    width: min(100%, 330px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    margin: 12px 0 0;
-    color: var(--rst-ui-muted);
-    font-size: var(--rst-fs-caption);
-    line-height: 1.4;
+    font-size: var(--rst-fs-body);
+    line-height: 1.5;
     text-align: center;
   }
-  .evidence-note span { color: var(--rst-ui-action); font-size: var(--rst-fs-body-lg); }
-
-  .proof-actions {
-    display: flex;
-    justify-content: center;
-    gap: 8px;
-    margin-top: 18px;
+  .capture-spinner {
+    width: 46px;
+    height: 46px;
+    margin-bottom: 16px;
+    border: 3px solid var(--rst-ui-line);
+    border-top-color: var(--rst-ui-action);
+    border-radius: 50%;
+    animation: capture-spin .8s linear infinite;
   }
 
   .success-mark {
@@ -873,6 +788,10 @@
     0%, 100% { transform: translateX(0); }
     25% { transform: translateX(-7px); }
     75% { transform: translateX(7px); }
+  }
+
+  @keyframes capture-spin {
+    to { transform: rotate(360deg); }
   }
 
   @media (max-width: 760px) {
@@ -925,10 +844,5 @@
       padding-inline: 12px;
     }
 
-    .proof-actions {
-      width: 100%;
-      align-items: stretch;
-      flex-direction: column;
-    }
   }
 </style>

@@ -18,6 +18,7 @@ export type OwnBadgeContext = {
   timezone: string;
   employeeId: string;
   displayName: string;
+  mobileBadgingEnabled: boolean;
   clockedIn: boolean;
   serviceKey?: ServiceKey;
   lastAction?: 'in' | 'out';
@@ -40,6 +41,7 @@ export async function getOwnBadgeContext(restaurantId: string): Promise<OwnBadge
     timezone: String(result.timezone ?? 'Europe/Brussels'),
     employeeId,
     displayName: String(result.display_name ?? ''),
+    mobileBadgingEnabled: result.mobile_badging_enabled === true,
     clockedIn: result.clocked_in === true,
     serviceKey: typeof result.service_key === 'string' ? result.service_key : undefined,
     lastAction: result.last_action === 'in' ? 'in' : result.last_action === 'out' ? 'out' : undefined,

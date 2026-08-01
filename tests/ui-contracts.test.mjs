@@ -858,3 +858,24 @@ test('Restaurant profile keeps public presence honest and opening hours compact'
   assert.match(location, /https:\/\/www\.google\.com\/maps\/search\//);
   assert.doesNotMatch(profile, /GOOGLE_MAPS_API_KEY|places\.googleapis\.com/);
 });
+
+test('Badging captures evidence automatically and grants phone clocks employee by employee', async () => {
+  const terminal = await readFile('src/lib/badge/BadgeTerminal.svelte', 'utf8');
+  const mobile = await readFile('src/routes/(app)/my-time/badge/+page.svelte', 'utf8');
+  const devices = await readFile('src/routes/(app)/badge-terminal/+page.svelte', 'utf8');
+  const evidence = await readFile('src/lib/badge/badge-policy.ts', 'utf8');
+
+  assert.match(evidence, /export async function captureBadgePhoto/);
+  assert.match(evidence, /navigator\.mediaDevices\.getUserMedia/);
+  assert.match(terminal, /captureBadgePhoto\(\)/);
+  assert.match(terminal, /Promise\.all\(/);
+  assert.doesNotMatch(terminal, /type="file"|proof-upload/);
+  assert.match(mobile, /captureBadgePhoto\(\)/);
+  assert.match(mobile, /context\.mobileBadgingEnabled/);
+  assert.doesNotMatch(mobile, /type="file"|photo-control/);
+  assert.match(devices, /href="\/station"/);
+  assert.match(devices, /WorkspaceColChooser/);
+  assert.match(devices, /pairingCodes\[station\.id\]/);
+  assert.match(devices, /setEmployeeMobileBadging/);
+  assert.match(devices, /mobile_badging_enabled/);
+});

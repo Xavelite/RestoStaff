@@ -488,6 +488,21 @@ export async function revokeRestaurantStation(
   });
 }
 
+export async function rotateUnusedRestaurantStationToken(
+  restaurantId: string,
+  stationId: string
+): Promise<string> {
+  const data = object(
+    await rpcJson('rotate_unused_restaurant_station_token', {
+      p_restaurant_id: restaurantId,
+      p_station_id: stationId
+    })
+  );
+  const token = String(data.token ?? '');
+  if (!token) throw new Error('The replacement pairing code was not returned.');
+  return token;
+}
+
 export async function listRestaurantStations(restaurantId: string): Promise<RestaurantStation[]> {
   const data = object(await rpcJson('list_restaurant_stations', { p_restaurant_id: restaurantId }));
   const rows = Array.isArray(data.stations) ? data.stations : [];
@@ -525,4 +540,16 @@ export async function setBadgePolicy(
     })
   );
   return parseBadgePolicy(data.policy);
+}
+
+export async function setEmployeeMobileBadging(
+  restaurantId: string,
+  employeeId: string,
+  enabled: boolean
+): Promise<void> {
+  await rpcJson('set_employee_mobile_badging', {
+    p_restaurant_id: restaurantId,
+    p_employee_id: employeeId,
+    p_enabled: enabled
+  });
 }

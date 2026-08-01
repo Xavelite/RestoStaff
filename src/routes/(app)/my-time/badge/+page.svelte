@@ -1,6 +1,5 @@
 <script lang="ts">
   import { Camera, Check, Clock3, LocateFixed, ShieldCheck } from '@lucide/svelte';
-  import { onDestroy } from 'svelte';
   import { friendlyError } from '$lib/api/error-messages';
   import {
     beginOwnBadge,
@@ -12,6 +11,7 @@
   import {
     badgePolicyFromSettings,
     captureBadgeLocation,
+    captureBadgePhoto,
     photoRequiredForAction
   } from '$lib/badge/badge-policy';
   import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
@@ -24,8 +24,6 @@
   let context = $state<OwnBadgeContext | null>(null);
   let loading = $state(true);
   let recording = $state(false);
-  let proof = $state<File | null>(null);
-  let proofPreview = $state('');
   let feedback = $state('');
   let feedbackTone = $state<'info' | 'success' | 'warning' | 'danger'>('info');
   let completedAction = $state<'in' | 'out' | null>(null);
@@ -54,6 +52,7 @@
         timezone: workspace.bootstrap?.restaurant_settings.timezone ?? 'Europe/Brussels',
         employeeId: previewEmployee.id,
         displayName: previewEmployee.display_name,
+        mobileBadgingEnabled: false,
         clockedIn: Boolean(openEntry),
         serviceKey: latest?.service_key,
         lastAction: openEntry ? 'in' : latest ? 'out' : undefined,
@@ -66,10 +65,6 @@
     if (!restaurantId || loadedRestaurantId === restaurantId) return;
     loadedRestaurantId = restaurantId;
     void load(restaurantId);
-  });
-
-  onDestroy(() => {
-    if (proofPreview) URL.revokeObjectURL(proofPreview);
   });
 
   async function load(restaurantId = workspace.activeId ?? '') {
@@ -87,31 +82,20 @@
     }
   }
 
-  function chooseProof(file: File | null) {
-    if (proofPreview) URL.revokeObjectURL(proofPreview);
-    proof = file;
-    proofPreview = file ? URL.createObjectURL(file) : '';
-    feedback = '';
-  }
-
   async function badge() {
     if (!context || recording || workspace.isPreview) return;
-    if (photoRequired && !proof) {
-      feedback = t('Take a photo before recording this badge.');
-      feedbackTone = 'warning';
-      return;
-    }
 
     recording = true;
     feedback = '';
     completedAction = null;
     try {
-      // Ask for device permission while this click is still the initiating user
-      // gesture. The database checks the same policy again before it commits.
-      const location = context.policy.locationCaptureEnabled
-        ? await captureBadgeLocation()
-        : undefined;
       const token = await beginOwnBadge(context.restaurantId);
+      const [proof, location] = await Promise.all([
+        photoRequired ? captureBadgePhoto() : Promise.resolve<File | null>(null),
+        context.policy.locationCaptureEnabled
+          ? captureBadgeLocation()
+          : Promise.resolve(undefined)
+      ]);
       const photoUrl = proof
         ? await uploadOwnBadgeProof({ context, token, file: proof })
         : undefined;
@@ -124,7 +108,6 @@
 
       completedAction = result.action;
       completedTime = result.localTime;
-      chooseProof(null);
       sound.play('success');
       await Promise.all([
         load(context.restaurantId),
@@ -169,11 +152,11 @@
       <span>{feedback}</span>
       <button class="cl-btn" type="button" onclick={() => void load()}>{t('Try again')}</button>
     </section>
-  {:else if !context.policy.employeeMobileBadgingEnabled}
+  {:else if !context.policy.employeeMobileBadgingEnabled || !context.mobileBadgingEnabled}
     <section class="badge-state">
       <span class="state-icon"><ShieldCheck size={21} /></span>
       <strong>{t('Phone badging is off')}</strong>
-      <span>{t('Use the restaurant badge station, or ask an owner to enable employee phones.')}</span>
+      <span>{t('Use the restaurant badge station, or ask an owner to enable phone access for you.')}</span>
     </section>
   {:else}
     <main class="clock-surface">
@@ -229,22 +212,7 @@
         </div>
 
         {#if photoRequired}
-          <label class="photo-control" class:has-photo={Boolean(proofPreview)}>
-            {#if proofPreview}
-              <img src={proofPreview} alt={t('Badge photo preview')} />
-              <span>{t('Retake photo')}</span>
-            {:else}
-              <Camera size={22} />
-              <strong>{t('Take photo')}</strong>
-              <small>{t('The image is stored privately with this time entry.')}</small>
-            {/if}
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              capture="user"
-              onchange={(event) => chooseProof(event.currentTarget.files?.[0] ?? null)}
-            />
-          </label>
+          <p class="automatic-evidence"><Camera size={16} />{t('The camera captures one private frame automatically when you clock.')}</p>
         {/if}
       </section>
 
@@ -252,7 +220,7 @@
         class="clock-button"
         class:is-out={context.clockedIn}
         type="button"
-        disabled={workspace.isPreview || recording || (photoRequired && !proof)}
+        disabled={workspace.isPreview || recording}
         onclick={() => void badge()}
       >
         <Clock3 size={21} />
@@ -370,25 +338,20 @@
   .evidence-grid > span.is-on { border-color: color-mix(in srgb, var(--cl-info) 26%, var(--cl-line)); color: var(--cl-info); background: color-mix(in srgb, var(--cl-info) 5%, var(--cl-surface)); }
   .evidence-grid b { color: var(--cl-ink); font-size: var(--rst-fs-body); }
   .evidence-grid small { grid-column: 2; color: var(--cl-muted); font-size: var(--rst-fs-caption); }
-  .photo-control {
-    min-height: 112px;
-    display: grid;
-    place-items: center;
-    align-content: center;
-    gap: 4px;
-    overflow: hidden;
-    border: 1px dashed var(--cl-line-strong);
+  .automatic-evidence {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 0;
+    padding: 10px 11px;
+    border: 1px solid color-mix(in srgb, var(--cl-info) 22%, var(--cl-line));
     border-radius: var(--cl-radius);
-    color: var(--cl-info);
-    background: var(--cl-surface-muted);
-    text-align: center;
-    cursor: pointer;
+    color: var(--cl-muted);
+    background: color-mix(in srgb, var(--cl-info) 4%, var(--cl-surface));
+    font-size: var(--rst-fs-caption);
+    line-height: 1.45;
   }
-  .photo-control small { color: var(--cl-muted); font-size: var(--rst-fs-caption); }
-  .photo-control input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-  .photo-control.has-photo { position: relative; min-height: 180px; border-style: solid; }
-  .photo-control.has-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  .photo-control.has-photo span { position: absolute; right: 9px; bottom: 9px; padding: 6px 9px; border-radius: 5px; color: white; background: rgb(15 23 42 / 72%); font-size: var(--rst-fs-caption); font-weight: var(--rst-fw-bold); }
+  .automatic-evidence :global(svg) { flex: 0 0 auto; color: var(--cl-info); }
   .clock-button {
     width: calc(100% - 32px);
     min-height: 54px;

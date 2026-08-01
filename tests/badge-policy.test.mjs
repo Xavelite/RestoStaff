@@ -56,3 +56,18 @@ test('badging migration enforces evidence on old and new clients and keeps self 
   assert.match(migration, /revoke all on function public\.badge_policy_json/);
   assert.match(migration, /revoke all on function public\._badge_apply_evidence/);
 });
+
+test('phone clock permission is employee-specific and unused station secrets stay replaceable', async () => {
+  const migration = await readFile(
+    'supabase/migrations/20260801023104_complete_badging_device_and_mobile_access.sql',
+    'utf8'
+  );
+  assert.match(migration, /employee_access[\s\S]+mobile_badging_enabled boolean not null default false/);
+  assert.match(migration, /create or replace function public\.set_employee_mobile_badging/);
+  assert.match(migration, /if not public\.is_owner\(p_restaurant_id\)/);
+  assert.match(migration, /ea\.badge_enabled[\s\S]+ea\.mobile_badging_enabled/);
+  assert.match(migration, /create or replace function public\.rotate_unused_restaurant_station_token/);
+  assert.match(migration, /s\.last_used_at is null/);
+  assert.match(migration, /revoke all on function public\.set_employee_mobile_badging/);
+  assert.match(migration, /revoke all on function public\.rotate_unused_restaurant_station_token/);
+});

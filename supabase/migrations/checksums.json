@@ -162,6 +162,7 @@
     "20260730173642_separate_reservation_setup_from_floor_plan.sql": "c7eac856f61d7928d0c1eab294ce4a7b826dd86dad7468ca5d4d157a3e53cf16",
     "20260731174246_schedule_history_read_model.sql": "7e367497e60093abba5ecd4b7ec073e9a2a3b132707276e01aebef21d01af32e",
     "20260731174659_schedule_history_payload_projection.sql": "9d77784a0e1dd4074fa6f7bc5b5a156ee08a3c88b4577b810d7ec787dd702a87",
-    "20260801014427_complete_badging_policy_and_mobile_clock.sql": "6987b5537c19e60206ebdb21b18030ed900763e2d607fd7fa91268b7cbb00902"
+    "20260801014427_complete_badging_policy_and_mobile_clock.sql": "6987b5537c19e60206ebdb21b18030ed900763e2d607fd7fa91268b7cbb00902",
+    "20260801023104_complete_badging_device_and_mobile_access.sql": "5025d79e89dbdb6a55b99dcf79ffa49c3d0d345c40448a8121df68016358e27e"
   }
 }

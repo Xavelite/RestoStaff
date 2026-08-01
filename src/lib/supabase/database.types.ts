@@ -669,6 +669,7 @@ export type Database = {
           created_at: string
           employee_id: string
           id: string
+          mobile_badging_enabled: boolean
           profile_id: string | null
           restaurant_id: string
           updated_at: string
@@ -679,6 +680,7 @@ export type Database = {
           created_at?: string
           employee_id: string
           id?: string
+          mobile_badging_enabled?: boolean
           profile_id?: string | null
           restaurant_id: string
           updated_at?: string
@@ -689,6 +691,7 @@ export type Database = {
           created_at?: string
           employee_id?: string
           id?: string
+          mobile_badging_enabled?: boolean
           profile_id?: string | null
           restaurant_id?: string
           updated_at?: string
@@ -7653,6 +7656,10 @@ export type Database = {
         Args: { p_restaurant_id: string }
         Returns: Json
       }
+      rotate_unused_restaurant_station_token: {
+        Args: { p_restaurant_id: string; p_station_id: string }
+        Returns: Json
+      }
       save_absence_lifecycle: {
         Args: {
           p_absence_id?: string
@@ -7967,6 +7974,14 @@ export type Database = {
         Args: {
           p_action: string
           p_employee_id: string
+          p_restaurant_id: string
+        }
+        Returns: Json
+      }
+      set_employee_mobile_badging: {
+        Args: {
+          p_employee_id: string
+          p_enabled: boolean
           p_restaurant_id: string
         }
         Returns: Json

@@ -375,4 +375,97 @@ begin
 end
 $verify_automatic_badge_service$;
 
+do $verify_phone_access_and_unused_station_rotation$
+declare
+  v_restaurant_id uuid := gen_random_uuid();
+  v_employee_id uuid := gen_random_uuid();
+  v_owner_profile_id uuid;
+  v_owner_auth_user_id uuid;
+  v_created jsonb;
+  v_rotated jsonb;
+begin
+  select p.id, p.auth_user_id
+  into v_owner_profile_id, v_owner_auth_user_id
+  from public.profiles p
+  join public.restaurant_memberships m on m.profile_id = p.id
+  where p.auth_user_id is not null
+    and m.role = 'owner'
+    and m.status = 'active'
+  order by m.created_at
+  limit 1;
+
+  if v_owner_profile_id is null then
+    v_owner_auth_user_id := gen_random_uuid();
+    insert into auth.users (id, email)
+    values (v_owner_auth_user_id, 'badge-device-' || v_owner_auth_user_id::text || '@example.test');
+    insert into public.profiles (auth_user_id, first_name, last_name, email)
+    values (
+      v_owner_auth_user_id,
+      'Badge',
+      'Device Owner',
+      'badge-device-' || v_owner_auth_user_id::text || '@example.test'
+    )
+    returning id into v_owner_profile_id;
+  end if;
+
+  perform set_config(
+    'request.jwt.claims',
+    jsonb_build_object('sub', v_owner_auth_user_id)::text,
+    true
+  );
+
+  insert into public.restaurants (id, workspace_slug, name, owner_profile_id)
+  values (
+    v_restaurant_id,
+    'badge-device-' || replace(v_restaurant_id::text, '-', ''),
+    'Badge device access contract',
+    v_owner_profile_id
+  );
+  insert into public.restaurant_settings (restaurant_id, timezone)
+  values (v_restaurant_id, 'Europe/Brussels');
+  insert into public.restaurant_memberships (restaurant_id, profile_id, role, status)
+  values (v_restaurant_id, v_owner_profile_id, 'owner', 'active');
+  insert into public.employees (id, restaurant_id, display_name, active)
+  values (v_employee_id, v_restaurant_id, 'Phone Badge Employee', true);
+  insert into public.employee_access (
+    restaurant_id, employee_id, profile_id, access_status, badge_enabled, mobile_badging_enabled
+  ) values (
+    v_restaurant_id, v_employee_id, v_owner_profile_id, 'active', true, false
+  );
+
+  perform public.set_employee_mobile_badging(v_restaurant_id, v_employee_id, true);
+  if not exists (
+    select 1
+    from public.employee_access
+    where restaurant_id = v_restaurant_id
+      and employee_id = v_employee_id
+      and mobile_badging_enabled
+  ) then
+    raise exception 'Phone badging was not granted to the selected employee.';
+  end if;
+
+  v_created := public.create_restaurant_station(v_restaurant_id, 'Unused tablet');
+  v_rotated := public.rotate_unused_restaurant_station_token(
+    v_restaurant_id,
+    (v_created->>'station_id')::uuid
+  );
+  if nullif(v_rotated->>'token', '') is null
+      or v_rotated->>'token' = v_created->>'token' then
+    raise exception 'Unused station pairing code was not replaced.';
+  end if;
+
+  perform 1 from public.resolve_station_token(v_rotated->>'token');
+  begin
+    perform public.rotate_unused_restaurant_station_token(
+      v_restaurant_id,
+      (v_created->>'station_id')::uuid
+    );
+    raise exception 'A connected station accepted pairing-code rotation.';
+  exception
+    when others then
+      if sqlerrm not like '%has not connected%' then raise; end if;
+  end;
+end
+$verify_phone_access_and_unused_station_rotation$;
+
 rollback;
