@@ -879,3 +879,18 @@ test('Badging captures evidence automatically and grants phone clocks employee b
   assert.match(devices, /setEmployeeMobileBadging/);
   assert.match(devices, /mobile_badging_enabled/);
 });
+
+test('the product spells its own name one way', async () => {
+  // The brand appeared as Restogogo, RestoGogo and RestoGoGo across copy, and
+  // the public booking page managed two spellings on one screen. Casing is the
+  // kind of thing nobody notices in review and every customer notices in a
+  // confirmation email.
+  const offenders = [];
+  for (const file of await sourceFiles('src', ['.svelte', '.ts'])) {
+    const source = await readFile(file, 'utf8');
+    for (const match of source.matchAll(/Resto[Gg]o[Gg]o/g)) {
+      if (match[0] !== 'Restogogo') offenders.push(`${file}: ${match[0]}`);
+    }
+  }
+  assert.deepEqual(offenders, []);
+});

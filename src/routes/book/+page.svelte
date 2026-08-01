@@ -297,7 +297,7 @@
 <main class="booking-shell">
   <div class="booking-card">
     <header>
-      <a class="brand" href="https://www.restogogo.com" target="_blank" rel="noreferrer" aria-label="RestoGogo">
+      <a class="brand" href="https://www.restogogo.com" target="_blank" rel="noreferrer" aria-label="Restogogo">
         <i aria-hidden="true">R</i><span>restogogo</span>
       </a>
       {#if context?.restaurant.name}
@@ -444,7 +444,7 @@
 
     <footer>
       <span><i aria-hidden="true"></i>Secure booking</span>
-      <span>Powered by RestoGogo</span>
+      <span>Powered by Restogogo</span>
     </footer>
   </div>
 </main>

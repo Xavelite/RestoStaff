@@ -263,7 +263,7 @@
           <div>
             <span class="eyebrow">{t('Website widget')}</span>
             <h1>{t('Accept bookings on your own website')}</h1>
-            <p>{t('Create a secure booking channel, copy one embed code, and let RestoGogo allocate only tables that are truly available.')}</p>
+            <p>{t('Create a secure booking channel, copy one embed code, and let Restogogo allocate only tables that are truly available.')}</p>
           </div>
           <label class="activation-origin">
             <span>{t('Restaurant website')}</span>
