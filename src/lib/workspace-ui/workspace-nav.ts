@@ -105,8 +105,7 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
       { href: '/team/contracts', label: 'Contracts' },
       { href: '/team/payroll', label: 'Payroll', roles: OWNER },
       { href: '/team/access', label: 'Access' },
-      { href: '/team/absences', label: 'Time off' },
-      { href: '/team/time-off-types', label: 'Time-off types' }
+      { href: '/team/absences', label: 'Time off' }
     ]
   },
   {

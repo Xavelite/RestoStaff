@@ -16,6 +16,14 @@
   import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
   import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
+  import WorkspaceRosterLegend from '$lib/workspace-ui/WorkspaceRosterLegend.svelte';
+
+  /** Payment semantics, phrased once for the legend that replaced the types page. */
+  const PAID_LABEL: Record<string, string> = {
+    paid: 'Paid',
+    unpaid: 'Unpaid',
+    neutral: 'Neutral'
+  };
   import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
   import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
   import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
@@ -121,6 +129,12 @@
 {#if teamContext}
 {@const employeeName = new Map(teamContext.employees.map((employee) => [employee.id, employee.displayName]))}
     {@const typeName = new Map((team?.absence_types ?? []).map((type) => [type.id, type.name]))}
+    {@const typeLegend = (team?.absence_types ?? [])
+      .filter((type) => type.active)
+      .map((type) => ({
+        tone: type.paid_policy === 'paid' ? 'available' : type.paid_policy === 'unpaid' ? 'absence' : 'planned',
+        label: `${type.name} · ${t(PAID_LABEL[type.paid_policy ?? 'neutral'] ?? 'Neutral')}${type.requires_approval ? ` · ${t('Needs approval')}` : ''}`
+      }))}
     {@const allAbsences = team?.absences ?? []}
     {@const filteredAbsences = allAbsences
       .filter((absence) => !view.isExcluded('status', absence.status))
@@ -153,9 +167,6 @@
       {#snippet meta()}
         <span><i class="dot"></i>{t('{count} requests', { count: rows.length })}</span>
         <span><i class="dot is-orange"></i>{t('{count} pending', { count: allAbsences.filter((absence) => absence.status === 'pending').length })}</span>
-      {/snippet}
-      {#snippet actions()}
-        <a class="cl-btn" href="/team/time-off-types">{t('Time-off types')}</a>
       {/snippet}
       {#snippet children()}
       {#if workspaceLayout.cards}
@@ -247,6 +258,11 @@
         </table>
       </div>
       {/if}
+
+      <!-- The time-off types were a whole page of read-only reference data that
+           nobody could edit. They belong here as a legend, next to the requests
+           they classify, exactly as Schedule and Time explain their own colours. -->
+      <WorkspaceRosterLegend items={typeLegend} hint={t('Types are set up with your restaurant policy.')} />
       {/snippet}
     </WorkspaceTablePanel>
 

@@ -12,7 +12,9 @@ test('Team root resolves to People while deeper routes resolve to their exact ta
   assert.deepEqual(subNavItemForPath(team, '/team/payroll')?.roles, ['owner']);
   assert.equal(subNavItemForPath(team, '/team/access')?.href, '/team/access');
   assert.equal(subNavItemForPath(team, '/team/absences')?.href, '/team/absences');
-  assert.equal(subNavItemForPath(team, '/team/time-off-types')?.href, '/team/time-off-types');
+  // Time-off types folded into a legend on Time off. The tab is gone, so its old
+  // URL falls back to the module root rather than resolving to a missing tab.
+  assert.equal(subNavItemForPath(team, '/team/time-off-types')?.href, '/team');
 });
 
 test('Restaurant root and nested routes resolve deterministically', () => {

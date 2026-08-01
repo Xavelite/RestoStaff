@@ -63,41 +63,35 @@ test('the product type scale owns every application font size', async () => {
   assert.deepEqual(violations, []);
 });
 
-test('every rows-or-cards workspace keeps both render contracts', async () => {
-  const paritySurfaces = [
+test('every grid-or-visual workspace keeps both render contracts', async () => {
+  // The toggle switches between a GRID and a VISUAL layout — not between rows
+  // and cards. This test used to name WorkspaceCard for most surfaces, which
+  // quietly made "card" the only legal answer and pushed every page toward the
+  // same shell. It now asserts the contract that actually matters: the surface
+  // reads the shared preference, renders some alternative collection, and still
+  // has its rows. What that alternative looks like — an agenda, a floor band, a
+  // person wall, a timeline — is a design decision per page, not a rule.
+  const surfaces = [
     'src/lib/reservations/ReservationSetupWorkspace.svelte',
-    'src/lib/team/TimeOffPoliciesWorkspace.svelte',
+    'src/lib/reservations/ReservationsWorkspace.svelte',
+    'src/lib/restaurant/OperationalAreasWorkspace.svelte',
     'src/routes/(app)/badge-terminal/+page.svelte',
     'src/routes/(app)/documents/+page.svelte',
     'src/routes/(app)/restaurant/coverage/+page.svelte',
     'src/routes/(app)/restaurant/positions/+page.svelte',
+    'src/routes/(app)/team/+page.svelte',
     'src/routes/(app)/team/absences/+page.svelte',
     'src/routes/(app)/team/access/+page.svelte',
+    'src/routes/(app)/team/contracts/+page.svelte',
+    'src/routes/(app)/team/payroll/+page.svelte',
     'src/routes/(app)/timesheet/live/+page.svelte'
   ];
-  for (const file of paritySurfaces) {
+  const visualCollection =
+    /<WorkspaceCardGrid|<WorkspacePersonCard|class="agenda"|class="area-cards"|class="timeline"|class="leave-lanes"/;
+  for (const file of surfaces) {
     const source = await readFile(file, 'utf8');
     assert.match(source, /workspaceLayout\.cards/, `${file} lost the shared preference`);
-    assert.match(source, /<WorkspaceCardGrid/, `${file} lost its card collection`);
-    assert.match(source, /<WorkspaceCard/, `${file} lost its card records`);
-    assert.match(source, /<table|<WorkspaceTablePanel/, `${file} lost its row records`);
-  }
-
-  // Surfaces whose alternative view outgrew the generic card keep the same
-  // contract — a preference, an alternative collection, and the rows — but name
-  // their own visual, because a floor band, a people wall and a service agenda
-  // are the point rather than a card with different words in it.
-  const bespokeSurfaces = [
-    ['src/lib/restaurant/OperationalAreasWorkspace.svelte', /class="area-cards"/],
-    ['src/lib/reservations/ReservationsWorkspace.svelte', /class="agenda"/],
-    ['src/routes/(app)/team/+page.svelte', /<WorkspacePersonCard/],
-    ['src/routes/(app)/team/contracts/+page.svelte', /<WorkspacePersonCard/],
-    ['src/routes/(app)/team/payroll/+page.svelte', /<WorkspacePersonCard/]
-  ];
-  for (const [file, marker] of bespokeSurfaces) {
-    const source = await readFile(file, 'utf8');
-    assert.match(source, /workspaceLayout\.cards/, `${file} lost the shared preference`);
-    assert.match(source, marker, `${file} lost its alternative collection`);
+    assert.match(source, visualCollection, `${file} lost its visual collection`);
     assert.match(source, /<table|<WorkspaceTablePanel/, `${file} lost its row records`);
   }
   const areas = await readFile('src/lib/restaurant/OperationalAreasWorkspace.svelte', 'utf8');
@@ -152,7 +146,6 @@ test('device preferences live in one topbar menu and domain policy stays in Team
   assert.doesNotMatch(account, /appearance-picker|workspaceTheme|sidebarMode/);
   assert.match(nav, /key: 'settings'/);
   assert.match(nav, /utility: true/);
-  assert.match(nav, /href: '\/team\/time-off-types'/);
 });
 
 test('Schedule and Time share collision-free roster headers and visible column drag feedback', async () => {
@@ -520,7 +513,9 @@ test('operational core exposes planning, attendance and payroll as one workspace
   assert.match(payroll, /href="\/team\/payroll"/);
   assert.match(payroll, /href="\/timesheet"/);
   assert.match(payroll, /href="\/exports"/);
-  assert.match(absences, /href="\/team\/time-off-types"/);
+  // The time-off types page was a tab of read-only reference data nobody could
+  // edit. It is a legend on Time off now, beside the requests it classifies.
+  assert.match(absences, /<WorkspaceRosterLegend items=\{typeLegend\}/);
   assert.doesNotMatch(absences, /href="\/restaurant\/absence-types"/);
   assert.match(absences, /\{#if allAbsences\.length\}\s*<thead>/);
 });
@@ -664,23 +659,16 @@ test('Team and Restaurant use one route-scoped workspace instead of mounting sta
   assert.doesNotMatch(restaurantProfile, /<h2>\{t\('Weekly service periods'\)\}<\/h2>/);
 });
 
-test('Team owns the canonical time-off policy workspace', async () => {
-  const teamPage = await readFile(
-    'src/routes/(app)/team/time-off-types/+page.svelte',
-    'utf8'
-  );
-  const workspace = await readFile(
-    'src/lib/team/TimeOffPoliciesWorkspace.svelte',
-    'utf8'
-  );
-  assert.match(
-    teamPage,
-    /import TimeOffPoliciesWorkspace from '\$lib\/team\/TimeOffPoliciesWorkspace\.svelte'/
-  );
-  assert.match(teamPage, /<TimeOffPoliciesWorkspace \/>/);
-  assert.match(workspace, /<WorkspacePrimaryColMenu/);
-  assert.match(workspace, /rst-time-off-policies-cols-v1/);
-  assert.match(workspace, /rst-restaurant-absence-types-cols-v2/);
+test('time-off types are a legend on Time off, not a tab of their own', async () => {
+  // They were never editable — the workspace had no save, dirty or canSave path
+  // — so an entire tab existed to display six rows of reference data. They now
+  // explain themselves where the requests they classify are actually read.
+  const absences = await readFile('src/routes/(app)/team/absences/+page.svelte', 'utf8');
+  const nav = await readFile('src/lib/workspace-ui/workspace-nav.ts', 'utf8');
+
+  assert.match(absences, /typeLegend/);
+  assert.match(absences, /paid_policy/);
+  assert.doesNotMatch(nav, /time-off-types/);
 });
 
 test('Coverage inherits the same explicit grid contract as every workspace table', async () => {
@@ -745,7 +733,6 @@ test('Planning, Team, Restaurant and Payroll use the same first-column grouping 
     'src/routes/(app)/team/access/+page.svelte',
     'src/routes/(app)/team/absences/+page.svelte',
     'src/routes/(app)/restaurant/positions/+page.svelte',
-    'src/lib/team/TimeOffPoliciesWorkspace.svelte',
     'src/routes/(app)/restaurant/coverage/+page.svelte'
   ];
 
