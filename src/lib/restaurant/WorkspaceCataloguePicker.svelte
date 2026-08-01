@@ -416,7 +416,7 @@
 
   .catalogue-menu {
     position: fixed;
-    z-index: var(--rst-z-popover, 120);
+    z-index: var(--rst-z-popover);
     max-height: min(420px, calc(100vh - 24px));
     overflow-y: auto;
     padding: 6px;

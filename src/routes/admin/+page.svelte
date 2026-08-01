@@ -1135,7 +1135,7 @@
   .protected-note { color: #7c8796; font-size: var(--rst-fs-caption); }
   .empty { height: 100px; color: #7c8796; text-align: center; }
 
-  .modal-backdrop { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(4, 7, 11, .76); backdrop-filter: blur(4px); }
+  .modal-backdrop { position: fixed; z-index: var(--rst-z-overlay); inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(4, 7, 11, .76); backdrop-filter: blur(4px); }
   .modal { width: min(540px, 100%); display: grid; gap: 13px; padding: 22px; border: 1px solid #5a3834; border-radius: 8px; color: #e9edf3; background: #151a22; box-shadow: 0 24px 80px rgba(0, 0, 0, .5); }
   .modal h2 { margin: -2px 0 0; font-size: var(--rst-fs-heading); }
   .modal p { margin: 0; color: #a1abb9; font-size: var(--rst-fs-control); line-height: 1.55; }

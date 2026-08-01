@@ -97,7 +97,7 @@
   {:else}
     <div class="pair">
       <div class="pair-card">
-        <span class="pair-brand" aria-label="Restogogo">
+        <span class="pair-brand" role="img" aria-label="Restogogo">
           <i style="--brand-mark:url('/brand/restogogo-mark.png')" aria-hidden="true"></i>
           <b aria-hidden="true"><em>esto</em><em>gogo</em></b>
         </span>

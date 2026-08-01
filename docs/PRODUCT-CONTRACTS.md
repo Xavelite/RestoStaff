@@ -11,9 +11,10 @@
 | `/restaurant` | Restaurant | Owner, Manager | Areas, positions, services, hours, coverage, and policy |
 | `/documents` | Documents | Owner, Manager | Keep private restaurant and employee records with expiry, access, and audit context |
 | `/reservations` | Reservations | Owner, Manager | Optional entitlement: configure booking rules and manage bookings; disabled by default |
-| `/payroll/employees` | Payroll | Owner | Review employee payroll identity and preparation readiness |
+| `/team/payroll` | Team payroll | Owner | Maintain employee payroll identity and employment values inline with Team |
+| `/payroll` | Payroll | Owner | Configure provider-neutral payroll preparation and review readiness |
 | `/reports` | Reports | Owner, Manager | Experimental entitlement; disabled until metric contracts are approved |
-| `/exports` | Exports | Owner, Manager | Download planning and worked-time files; owners may prepare a social-secretariat draft |
+| `/exports` | Exports | Owner, Manager | Download Schedule and worked-time files; owners may prepare a social-secretariat draft |
 | `/badge-terminal` | Badge terminal | Owner, Manager | Pair devices and open the shared touch-first PIN terminal |
 | `/my-service` | My service | Employee | Weekly shifts, availability, and requests |
 | `/my-time` | My time | Employee | Monthly time, worked hours, leave, and requests |
@@ -79,8 +80,10 @@ Persisted identifiers such as `planning_status`, `actuals_status`, and
   platform admins can preview Owner, Manager, or Employee personas.
 - Pilot feedback carries page and release context automatically. Reporters can
   submit feedback; only platform admins can triage it or write internal notes.
-- English is the default account language; French and Dutch are account-level
-  presentation settings. Stored restaurant names, areas, positions, and notes
+- English is the interface language. English, French and Dutch are account-level
+  regional formats for dates and numbers; translated French and Dutch interface
+  dictionaries are not part of the current pilot contract. Stored restaurant
+  names, areas, positions, and notes
   remain user-authored data and are never machine-translated.
 
 Restaurant areas describe where work happens. Positions describe what people

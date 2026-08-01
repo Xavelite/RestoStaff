@@ -7,7 +7,7 @@
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
   import { validateEmployeeEmploymentTerms } from '$lib/payroll/payroll-api';
   import type { EmployeeDraft } from '$lib/team/team-model';
-  import { belgianNissIssue } from '$lib/team/belgian-identifiers';
+  import { belgianNissIssue } from '$lib/validation/belgian-identifiers';
   import { confirmAction } from '$lib/ui/confirm.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
@@ -256,7 +256,7 @@
     if (form.active) {
       const confirmed = await confirmAction({
         title: 'Archive this employee?',
-        body: 'The employee will disappear from new planning, badge access will be disabled and historical shifts, timesheets, absences and exports will be preserved.',
+        body: 'The employee will disappear from new schedules, badge access will be disabled and historical shifts, timesheets, absences and exports will be preserved.',
         confirmLabel: 'Archive employee',
         cancelLabel: 'Keep active',
         tone: 'danger'

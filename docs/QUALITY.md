@@ -8,6 +8,7 @@ fails when SvelteKit synchronization fails.
 ```powershell
 npm ci
 npm run validate
+npm run test:browser:public
 npm run verify:database:linked
 ```
 
@@ -28,6 +29,17 @@ Review Owner, Manager, and Employee routes at 1440x900, 1024x768, 768x1024,
 390x844, and 360x800. Check direct URL guards, loading/empty/error/read-only
 states, dialogs, keyboard focus, page overflow, mobile navigation,
 and the primary workflow for each role.
+
+`npm run test:browser:public` executes that viewport matrix for sign-in and
+also checks the landing page, signed-out badge station, route guards, viewport
+overflow, and serious automated accessibility findings. Install Chromium once
+on a new workstation with `npx playwright install chromium`.
+
+`npm run test:browser` additionally enables the authenticated role-shell suite.
+It skips each role unless its `E2E_OWNER_*`, `E2E_MANAGER_*`, or
+`E2E_EMPLOYEE_*` email/password pair is present in the process environment.
+Keep those disposable DEV credentials outside Git; CI intentionally runs only
+the public smoke suite.
 
 The shared maximum-width ladder is 1180, 980, 760, and 520 pixels. Schedule and
 Time retain their complete weekly ledger inside a bounded desktop workspace;

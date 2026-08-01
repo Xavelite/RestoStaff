@@ -16,11 +16,15 @@
   import {
     WORKSPACE_AREA_CATALOGUE,
     WORKSPACE_POSITION_CATALOGUE,
-    starterWorkspaceAreas,
-    starterWorkspacePositions,
     workspaceAreaByKey,
     workspacePositionByKey
   } from '$lib/restaurant/workspace-catalogue';
+  import {
+    createInitialOnboardingDraft,
+    normalizeOnboardingDraft,
+    onboardingServiceKey,
+    type OnboardingDraft as Draft
+  } from '$lib/onboarding/onboarding-draft';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import {
     getPilotAccessState,
@@ -28,35 +32,6 @@
     type PilotAccessState
   } from '$lib/pilot/pilot-access';
 
-  type SetupItem = { id: string; name: string; catalogueKey: string };
-  type AssignmentInput = { areaId: string; jobFunctionId: string };
-  type ServiceInput = {
-    id: string;
-    serviceKey: string;
-    name: string;
-    startTime: string;
-    endTime: string;
-    openDays: boolean[];
-  };
-  type EmployeeInput = {
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-    jobFunctionId: string;
-  };
-  type Draft = {
-    step: number;
-    firstName: string;
-    lastName: string;
-    restaurantName: string;
-    city: string;
-    services: ServiceInput[];
-    areas: SetupItem[];
-    functions: SetupItem[];
-    assignments: AssignmentInput[];
-    employees: EmployeeInput[];
-  };
   type Step = {
     key: string;
     label: string;
@@ -125,52 +100,7 @@
     }
   ];
 
-  const initialAreas = starterWorkspaceAreas();
-  const initialPositions = starterWorkspacePositions(initialAreas.map((area) => area.key));
-  const initial: Draft = {
-    step: 0,
-    firstName: '',
-    lastName: '',
-    restaurantName: '',
-    city: '',
-    services: [
-      {
-        id: 'service-lunch',
-        serviceKey: 'lunch',
-        name: 'Day',
-        startTime: '12:00',
-        endTime: '15:00',
-        openDays: [true, true, true, true, true, true, false]
-      },
-      {
-        id: 'service-evening',
-        serviceKey: 'evening',
-        name: 'Night',
-        startTime: '18:00',
-        endTime: '23:00',
-        openDays: [true, true, true, true, true, true, false]
-      }
-    ],
-    areas: initialAreas.map((area) => ({
-      id: `area-${area.key}`,
-      name: area.label,
-      catalogueKey: area.key
-    })),
-    functions: initialPositions.map((position) => ({
-      id: `position-${position.key}`,
-      name: position.label,
-      catalogueKey: position.key
-    })),
-    assignments: initialPositions.flatMap((position) =>
-      position.areaKeys
-        .filter((areaKey) => initialAreas.some((area) => area.key === areaKey))
-        .map((areaKey) => ({
-          areaId: `area-${areaKey}`,
-          jobFunctionId: `position-${position.key}`
-        }))
-    ),
-    employees: []
-  };
+  const initial = createInitialOnboardingDraft();
 
   const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -285,7 +215,7 @@
 
       if (!active) return;
       const savedDraft = Object.keys(serverDraft).length ? serverDraft : localDraft;
-      const nextDraft = normalizeDraft(savedDraft);
+      const nextDraft = normalizeOnboardingDraft(savedDraft, steps.length);
       if (creatingAdditionalRestaurant) {
         nextDraft.firstName ||= String(auth.user?.user_metadata?.first_name ?? '');
         nextDraft.lastName ||= String(auth.user?.user_metadata?.last_name ?? '');
@@ -344,81 +274,6 @@
     }
   });
 
-  function normalizeDraft(candidate: Partial<Draft>): Draft {
-    const legacy = candidate as Partial<Draft> & {
-      lunchStart?: string;
-      lunchEnd?: string;
-      eveningStart?: string;
-      eveningEnd?: string;
-      openDays?: boolean[];
-    };
-    const merged = {
-      ...structuredClone(initial),
-      ...candidate
-    };
-    return {
-      ...merged,
-      step: Math.min(steps.length - 1, Math.max(0, Number(merged.step ?? 0))),
-      services: normalizeServices(legacy),
-      areas: normalizeItems(merged.areas, initial.areas),
-      functions: normalizeItems(merged.functions, initial.functions),
-      assignments: Array.isArray(merged.assignments) ? merged.assignments : initial.assignments,
-      employees: Array.isArray(merged.employees) ? merged.employees : []
-    };
-  }
-
-  function normalizeServices(candidate: Partial<Draft> & {
-    lunchStart?: string;
-    lunchEnd?: string;
-    eveningStart?: string;
-    eveningEnd?: string;
-    openDays?: boolean[];
-  }): ServiceInput[] {
-    const source = Array.isArray(candidate.services)
-      ? candidate.services
-      : candidate.lunchStart || candidate.eveningStart
-        ? [
-            {
-              id: 'service-lunch',
-              serviceKey: 'lunch',
-              name: 'Day',
-              startTime: candidate.lunchStart ?? '12:00',
-              endTime: candidate.lunchEnd ?? '15:00',
-              openDays: candidate.openDays
-            },
-            {
-              id: 'service-evening',
-              serviceKey: 'evening',
-              name: 'Night',
-              startTime: candidate.eveningStart ?? '18:00',
-              endTime: candidate.eveningEnd ?? '23:00',
-              openDays: candidate.openDays
-            }
-          ]
-        : initial.services;
-
-    return source.map((service, serviceIndex) => ({
-      id: String(service.id || `service-${serviceIndex + 1}`),
-      serviceKey:
-        typeof service.serviceKey === 'string' &&
-        /^[a-z][a-z0-9-]{0,39}$/.test(service.serviceKey)
-          ? service.serviceKey
-          : String(service.id) === 'service-lunch'
-            ? 'lunch'
-            : String(service.id) === 'service-evening'
-              ? 'evening'
-              : '',
-      name: String(service.name ?? ''),
-      startTime: String(service.startTime ?? ''),
-      endTime: String(service.endTime ?? ''),
-      openDays: Array.from({ length: 7 }, (_, dayIndex) =>
-        typeof service.openDays?.[dayIndex] === 'boolean'
-          ? Boolean(service.openDays[dayIndex])
-          : initial.services[0].openDays[dayIndex]
-      )
-    }));
-  }
-
   async function submitPilotRequest(): Promise<void> {
     pilotAccessBusy = true;
     feedback = '';
@@ -435,43 +290,15 @@
     }
   }
 
-  function normalizeItems(source: unknown, fallback: SetupItem[]): SetupItem[] {
-    if (!Array.isArray(source)) return structuredClone(fallback);
-    return source
-      .map((item, index) => {
-        const record = item as Partial<SetupItem>;
-        return {
-          id: String(record.id || crypto.randomUUID?.() || `item-${index}`),
-          name: String(record.name ?? ''),
-          catalogueKey: String(record.catalogueKey ?? '')
-        };
-      })
-      .filter((item) => item.id);
-  }
-
   function id(prefix: string) {
     return `${prefix}-${crypto.randomUUID()}`;
-  }
-
-  function serviceKey(service: ServiceInput, index: number): string {
-    if (/^[a-z][a-z0-9-]{0,39}$/.test(service.serviceKey)) {
-      return service.serviceKey;
-    }
-    const normalized = service.name
-      .normalize('NFKD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 40);
-    return /^[a-z]/.test(normalized) ? normalized : `service-${index + 1}`;
   }
 
   function isStepReady(index: number): boolean {
     if (index === 0) return Boolean(draft.firstName.trim() && draft.lastName.trim());
     if (index === 1) return Boolean(draft.restaurantName.trim());
     if (index === 2) {
-      const keys = draft.services.map(serviceKey);
+      const keys = draft.services.map(onboardingServiceKey);
       return Boolean(
         draft.services.length > 0 &&
           new Set(keys).size === keys.length &&
@@ -673,7 +500,7 @@
     saving = true;
     try {
       const configuredServices = draft.services.map((service, index) => ({
-        service_key: serviceKey(service, index),
+        service_key: onboardingServiceKey(service, index),
         name: service.name.trim(),
         sort_order: (index + 1) * 10,
         active: true,

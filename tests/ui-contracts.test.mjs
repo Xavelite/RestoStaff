@@ -760,10 +760,6 @@ test('Restaurant owns the single operational and reservation floor-plan editor',
     'src/routes/(app)/restaurant/floor-plan/+page.svelte',
     'utf8'
   );
-  const reservationRedirect = await readFile(
-    'src/routes/(app)/reservations/floor-plans/+page.ts',
-    'utf8'
-  );
   const workspace = await readFile(
     'src/lib/reservations/ReservationFloorPlansWorkspace.svelte',
     'utf8'
@@ -779,7 +775,6 @@ test('Restaurant owns the single operational and reservation floor-plan editor',
   assert.match(floorPlanPage, /<ReservationFloorPlansWorkspace mode=\{layer\} restaurantContext=\{context\}/);
   assert.match(floorPlanPage, /layer === 'tables'/);
   assert.match(floorPlanPage, /\{#key layer\}/);
-  assert.match(reservationRedirect, /redirect\(307, '\/restaurant\/floor-plan\?layer=tables'\)/);
   assert.match(workspace, /const CANONICAL_FLOOR_LEVELS = \[-1, 0, 1, 2\] as const/);
   assert.match(workspace, /function persistedFloorName\(/);
   assert.doesNotMatch(workspace, /function addFloor\(\)/);

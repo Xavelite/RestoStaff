@@ -154,7 +154,7 @@ test('deployment uses the Vercel adapter outside the Windows local build', async
   assert.match(config, /process\.env\.VERCEL !== '1'/);
 });
 
-test('the deployed app keeps its security headers and badge-camera policy', async () => {
+test('the deployed app keeps its security headers and badge evidence policy', async () => {
   // vercel.json is the only place these are set: losing it would silently drop
   // the camera permission the badge terminal needs to capture proof photos.
   const vercel = JSON.parse(await read('vercel.json'));
@@ -165,6 +165,7 @@ test('the deployed app keeps its security headers and badge-camera policy', asyn
   assert.ok(keys.includes('Strict-Transport-Security'));
   const permissions = global.headers.find((header) => header.key === 'Permissions-Policy');
   assert.match(permissions.value, /camera=\(self\)/);
+  assert.match(permissions.value, /geolocation=\(self\)/);
 
   const application = vercel.headers.find(
     (entry) => entry.source === '/((?!book(?:/|$)).*)'

@@ -171,16 +171,17 @@
   --rst-fw-bold:    700;   /* UI labels, captions, nav, section headings */
   --rst-fw-display: 800;   /* metric values, module headings, hero numbers */
 
-  /* Z-index scale — all positioned elements must use these tokens.
-     Small integers (1–5) are local stacking and stay as literals.
-     Semantic tokens cover all global-chrome layers. */
-  --rst-z-toolbar: 6;          /* floating toolbars and grid action bars */
-  --rst-z-menu: 30;            /* inline action menus and dropdowns */
-  --rst-z-page: 50;            /* full-page layers (login screen) */
+  /* Global z-index scale. Local component layers (table corners, canvas
+     handles, card hit targets) may use small relational integers; persistent
+     chrome, menus, panels and overlays use these semantic tokens. */
+  --rst-z-toolbar: 24;         /* sticky grid headers and page toolbars */
   --rst-z-cell-open: 90;       /* active cells lifted above siblings */
-  --rst-z-topbar: 100;         /* app topbar — highest persistent chrome */
-  --rst-z-popover: 120;        /* floating pickers and autocomplete */
-  --rst-z-panel: 200;          /* notification and slide-in panels */
+  --rst-z-page: 200;           /* full-page layers (login screen) */
+  --rst-z-sidebar: 300;        /* persistent desktop navigation */
+  --rst-z-topbar: 320;         /* persistent app chrome */
+  --rst-z-menu: 340;           /* menus inside persistent chrome */
+  --rst-z-popover: 460;        /* portalled pickers and autocomplete */
+  --rst-z-panel: 600;          /* drawers and floating communication panels */
   --rst-z-overlay: 1000;       /* full-screen overlays */
   --rst-z-toast: 9999;         /* toast notifications — always topmost */
 

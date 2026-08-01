@@ -81,7 +81,7 @@ test('planning period export uses the saved plan and filters by business date', 
     range: { from: '2026-07-27', to: '2026-08-02' }
   });
 
-  assert.equal(file.filename, 'planning-2026-07-27-2026-08-02.csv');
+  assert.equal(file.filename, 'schedule-2026-07-27-2026-08-02.csv');
   assert.deepEqual(file.headers, [
     'Employee',
     'Date',

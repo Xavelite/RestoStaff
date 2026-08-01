@@ -633,7 +633,7 @@
   }
   .column-picker__menu {
     position: absolute;
-    z-index: var(--rst-z-popover, 120);
+    z-index: var(--rst-z-popover);
     top: calc(100% + 6px);
     right: 0;
     width: min(270px, calc(100vw - 32px));

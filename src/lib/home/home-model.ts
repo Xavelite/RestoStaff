@@ -1,6 +1,6 @@
 import type { WorkspaceRole } from '$lib/api/workspace';
 import type { ManagerOperationsReadModel } from '$lib/api/workspace-snapshot';
-import { isValidBelgianNiss } from '../team/belgian-identifiers.ts';
+import { isValidBelgianNiss } from '../validation/belgian-identifiers.ts';
 
 type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 

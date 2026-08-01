@@ -18,6 +18,7 @@
     groupNotificationIncidents,
     type NotificationIncident
   } from '$lib/notifications/notification-incidents';
+  import NotificationSettingsDialog from '$lib/notifications/NotificationSettingsDialog.svelte';
   import type { NotificationFeed, NotificationItem, NotificationType } from '$lib/notifications/notification-model';
   import { sound } from '$lib/sound/sound.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
@@ -717,84 +718,23 @@
   {/if}
 </Dialog>
 
-{#snippet settingsFooter()}
-  <ActionButton label={t('Done')} tone="primary" disabled={saving} onclick={closeSettings} />
-{/snippet}
-
-<Dialog
+<NotificationSettingsDialog
   open={settingsOpen}
-  title={t('Notification settings')}
-  description={t('Choose where each notification can reach you.')}
-  size="medium"
+  {settings}
+  loading={settingsLoading}
+  error={settingsError}
+  {visibleTypes}
+  {pushStatus}
+  {pushBusy}
+  {pushError}
+  {saving}
   onclose={closeSettings}
-  footer={settingsFooter}
->
-  <div class="notification-settings">
-    {#if !settings && settingsLoading}
-      <p>{t('Loading settings…')}</p>
-    {:else if settingsError}
-      <p>{settingsError}</p>
-    {:else}
-      <section class="phone-channel" class:is-connected={pushStatus?.subscribed}>
-        <div class="phone-channel__icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10 5h4M11 18.5h2"/></svg>
-        </div>
-        <div>
-          <strong>{t('Phone notifications')}</strong>
-          <small>
-            {#if pushStatus?.subscribed}
-              {t('This device is connected.')}
-            {:else if pushStatus?.requiresInstall}
-              {t('Add Restogogo to your Home Screen first.')}
-            {:else if pushStatus?.permission === 'denied'}
-              {t('Notifications are blocked in your browser settings.')}
-            {:else if pushStatus && (!pushStatus.configured || !pushStatus.supported)}
-              {t('Phone notifications are unavailable in this environment.')}
-            {:else}
-              {t('Connect this device to receive alerts when Restogogo is closed.')}
-            {/if}
-          </small>
-        </div>
-        {#if pushStatus?.subscribed}
-          <ActionButton label={pushBusy ? t('Disconnecting…') : t('Disconnect')} disabled={pushBusy} onclick={disconnectPhone} />
-        {:else}
-          <ActionButton
-            label={pushBusy ? t('Connecting…') : t('Connect')}
-            tone="primary"
-            disabled={pushBusy || Boolean(pushStatus && (!pushStatus.configured || !pushStatus.supported || pushStatus.requiresInstall || pushStatus.permission === 'denied'))}
-            onclick={connectPhone}
-          />
-        {/if}
-      </section>
-      {#if pushError}<p class="phone-channel__error" role="alert">{t(pushError)}</p>{/if}
-
-      {#if !visibleTypes.length}
-        <p>{t('No notification settings are available for this role yet.')}</p>
-      {/if}
-      {#if visibleTypes.length}
-        <div class="notification-settings__head" aria-hidden="true">
-          <span>{t('Notification')}</span><span>{t('In app')}</span><span>{t('Phone')}</span>
-        </div>
-      {/if}
-      {#each visibleTypes as type (type.code)}
-        <div class="notification-setting">
-          <span class="notification-setting__copy">
-            <strong>{t(type.label)}</strong>
-            <small>{t(type.description)}</small>
-          </span>
-          <label class="channel-check">
-            <span class="sr-only">{t('In app')}: {t(type.label)}</span>
-            <input type="checkbox" checked={inAppEnabled(type)} disabled={saving} onchange={() => toggleType(type, 'in-app')} />
-          </label>
-          <label class="channel-check">
-            <span class="sr-only">{t('Phone')}: {t(type.label)}</span>
-            <input type="checkbox" checked={pushEnabled(type)} disabled={saving || !pushStatus?.subscribed} onchange={() => toggleType(type, 'push')} />
-          </label>
-        </div>
-      {/each}
-    {/if}
-  </div>
-</Dialog>
+  onconnect={connectPhone}
+  ondisconnect={disconnectPhone}
+  {inAppEnabled}
+  {pushEnabled}
+  ontoggle={toggleType}
+/>
 
 <style>
   .notifications-shell { position: relative; }
@@ -868,16 +808,14 @@
   }
   .notification-menu header div,
   .notification-group,
-  .notification-detail,
-  .notification-setting__copy {
+  .notification-detail {
     display: grid;
     gap: 3px;
   }
   .notification-menu small,
   .notification-group > span,
   .notification-empty,
-  .notification-detail p,
-  .notification-settings small {
+  .notification-detail p {
     color: var(--rst-ui-muted);
     font-size: var(--rst-fs-control);
   }
@@ -968,58 +906,6 @@
   .detail-pill.is-critical { color: var(--rst-state-danger-text); background: var(--rst-state-danger-bg); }
   .detail-pill.is-attention { color: var(--rst-state-warning-text); background: var(--rst-state-warning-bg); }
   .detail-pill.is-success { color: var(--rst-state-success-text); background: var(--rst-state-success-bg); }
-  .notification-settings { display: grid; gap: 8px; }
-  .notification-settings > p { margin: 0; color: var(--rst-ui-muted); font-size: var(--rst-fs-body); }
-  .phone-channel {
-    display: grid;
-    grid-template-columns: 38px minmax(0, 1fr) auto;
-    gap: 12px;
-    align-items: center;
-    padding: 12px;
-    border: 1px solid var(--rst-ui-line);
-    border-radius: var(--rst-ui-radius-md);
-    background: var(--rst-ui-section-row);
-  }
-  .phone-channel.is-connected { border-color: var(--rst-state-success-border); background: var(--rst-state-success-bg); }
-  .phone-channel__icon {
-    width: 38px;
-    height: 38px;
-    display: grid;
-    place-items: center;
-    border-radius: var(--rst-ui-radius-round);
-    color: var(--rst-ui-action);
-    background: var(--rst-ui-action-soft, rgba(var(--rst-ui-action-rgb), .12));
-  }
-  .phone-channel__icon svg { width: 21px; height: 21px; }
-  .phone-channel > div:nth-child(2) { display: grid; gap: 3px; }
-  .phone-channel strong { font-size: var(--rst-fs-body); }
-  .phone-channel__error { color: var(--rst-state-danger-text) !important; }
-  .notification-settings__head,
-  .notification-setting {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 56px 56px;
-    gap: 10px;
-    align-items: center;
-  }
-  .notification-settings__head {
-    padding: 4px 12px 0;
-    color: var(--rst-ui-muted);
-    font-size: var(--rst-fs-caption);
-    font-weight: var(--rst-fw-bold);
-    text-transform: uppercase;
-  }
-  .notification-settings__head span:not(:first-child) { text-align: center; }
-  .notification-setting {
-    padding: 11px 12px;
-    border: 1px solid var(--rst-ui-line);
-    border-radius: var(--rst-ui-radius-md);
-    background: var(--rst-ui-section-row);
-  }
-  .notification-setting:hover { background: var(--rst-ui-section-row-hover); }
-  .channel-check { min-height: 32px; display: grid; place-items: center; cursor: pointer; }
-  .channel-check input { width: 17px; height: 17px; margin: 0; accent-color: var(--rst-ui-action); }
-  .channel-check input:disabled { cursor: not-allowed; opacity: .45; }
-  .notification-settings strong { font-size: var(--rst-fs-body); }
   @media (max-width: 520px) {
     .notifications-shell { position: static; }
     .notification-menu {
@@ -1032,10 +918,6 @@
       height: calc(100dvh - 138px - env(safe-area-inset-bottom, 0px));
       max-height: none;
     }
-    .phone-channel { grid-template-columns: 34px minmax(0, 1fr); }
-    .phone-channel > :global(button) { grid-column: 1 / -1; width: 100%; }
-    .notification-settings__head,
-    .notification-setting { grid-template-columns: minmax(0, 1fr) 46px 46px; gap: 6px; }
     .notification-menu header { align-items: flex-start; }
     .notification-header-actions { align-items: flex-end; flex-direction: column; }
   }

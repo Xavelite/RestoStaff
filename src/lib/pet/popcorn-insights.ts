@@ -160,7 +160,7 @@ function managerOperationsInsights(
         note(
           'schedule-leave',
           'attention',
-          'Planning signal',
+          'Schedule signal',
           '{count} time-off requests are waiting and may affect the schedule.',
           { count: pendingLeave }
         )
@@ -529,7 +529,7 @@ function restaurantInsights(
         'restaurant-positions-default',
         'info',
         'Quick tip',
-        'Area links guide planning defaults while still allowing another assignment.'
+        'Area links guide schedule defaults while still allowing another assignment.'
       )
     ];
   }
@@ -724,7 +724,7 @@ function staticInsights(pathname: string): PopcornInsight[] {
     ];
   }
 
-  if (pathname === '/restaurant/floor-plan' || pathname === '/reservations/floor-plans') {
+  if (pathname === '/restaurant/floor-plan') {
     return [
       note(
         'restaurant-floor-plan',

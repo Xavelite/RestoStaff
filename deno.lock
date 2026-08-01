@@ -27,7 +27,9 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:@axe-core/playwright@^4.12.1",
         "npm:@lucide/svelte@^1.27.0",
+        "npm:@playwright/test@^1.62.1",
         "npm:@supabase/supabase-js@^2.108.2",
         "npm:@sveltejs/adapter-static@^3.0.10",
         "npm:@sveltejs/adapter-vercel@^6.3.4",

@@ -109,12 +109,39 @@ security-definer RPCs whose tenant and role checks are exercised by the SQL
 contracts. An RLS-enabled table with no direct policy can therefore be an
 intentional deny-by-default boundary.
 
+The executable access manifest is `supabase/tests/canonical_schema_security.sql`:
+
+- `anon` can execute only the four token-protected badge-station routines;
+- `authenticated` can execute only the reviewed application RPC allowlist;
+- `service_role` can execute only invitation, proof, push and other explicitly
+  server-owned routines;
+- direct authenticated table access is limited to notification types, personal
+  notification preferences and receipts, plus the read-only Realtime event
+  stream; every other business table is RPC-only;
+- every application-owned SQL routine has an explicit `search_path`, and
+  trigger helpers are never directly executable.
+
+On 2026-08-01, the linked DEV advisor review reported 101 RLS-enabled tables
+without direct policies, 115 executable security-definer routines, 131 foreign
+keys without covering indexes and 23 unused indexes. The first two groups match
+the deny-by-default/RPC access model above. DEV tables are currently small, so
+the index notices are a profiling backlog, not permission to add or remove
+indexes mechanically. Recheck query plans with representative pilot volume and
+index only demonstrated joins, deletes or lifecycle queries.
+
 Moving extension-owned objects, changing function security mode, or adding
 indexes can alter generated types, grants, query plans, and bootstrap behavior.
 Make those changes only for a demonstrated security or performance need and
 validate the complete disposable replay afterward. Hosted Auth leaked-password
-protection, backup retention, and recovery guarantees are environment settings,
-not migration substitutes.
+protection is available only on paid Supabase plans; the current DEV organization
+is on Free, so this remains an explicit production-plan gate. Backup retention
+and recovery guarantees are also environment settings, not migration substitutes.
+
+`citext` and `btree_gist` are intentionally retained in `public` for the current
+baseline because the captured schema contains `public.citext` routine and column
+signatures. Relocating either extension requires a reviewed baseline recapture
+and disposable replay; moving it only to silence an advisor would make the two
+bootstrap paths disagree.
 
 ## Pilot tenant promotion
 

@@ -30,9 +30,13 @@
 		"provision:platform-admin": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/provision-platform-admin.ps1",
 		"promote:pilot-tenant": "node scripts/promote-pilot-tenant.mjs",
 		"test": "node --experimental-strip-types --test tests/*.test.mjs",
+		"test:browser": "playwright test",
+		"test:browser:public": "playwright test tests/browser/public-shell.spec.ts",
 		"validate": "npm run check:migrations && npm run test && npm run check && npm run check:edge && npm run check:dead-code && npm run build"
 	},
 	"devDependencies": {
+		"@axe-core/playwright": "^4.12.1",
+		"@playwright/test": "^1.62.1",
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/adapter-vercel": "^6.3.4",
 		"@sveltejs/kit": "^2.66.0",

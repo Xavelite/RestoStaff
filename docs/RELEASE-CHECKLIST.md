@@ -5,10 +5,14 @@
 ```powershell
 npm ci
 npm run validate
+npm run test:browser:public
+npm audit --omit=dev
 ```
 
 Required result: all business/security contract tests pass, `svelte-check`
-reports zero errors and warnings, and the static production build succeeds.
+reports zero errors and warnings, the static production build succeeds, public
+entry points pass the supported viewport/accessibility smoke suite, and
+production dependencies have no known vulnerability.
 
 ## Database and Edge Function gate
 
@@ -26,6 +30,12 @@ reports zero errors and warnings, and the static production build succeeds.
    `/reset-password`.
 7. Enroll every platform operator in TOTP MFA and verify an AAL2 `/admin`
    session.
+8. Review both Supabase security and performance advisors. Reconcile new
+   findings with the access manifest in `docs/DATABASE.md`; do not add policies
+   to RPC-only tables or remove DEV-unused indexes merely to clear notices.
+9. On a paid production plan, enable leaked-password protection. On Free,
+   record the unavailable control explicitly and enforce the strongest supported
+   password policy before admitting pilot users.
 
 ## Role acceptance
 
@@ -53,7 +63,7 @@ Create disposable fixtures using `supabase/seed/create-role-fixtures.ts`.
 
 ## Responsive and accessibility
 
-Check 1440x900, 1024x768, 390x844 and 360x800:
+Check 1440x900, 1024x768, 768x1024, 390x844 and 360x800:
 
 - No page-level horizontal overflow.
 - Mobile weekly boards use selected-day cards.

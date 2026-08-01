@@ -8,7 +8,7 @@
     enterpriseNumberIssue,
     establishmentUnitIssue,
     jointCommitteeIssue
-  } from '$lib/restaurant/belgian-identifiers';
+  } from '$lib/validation/belgian-identifiers';
 
   const readRestaurantContext = useWorkspaceRestaurantContext();
   const context = $derived(readRestaurantContext());

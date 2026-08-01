@@ -219,6 +219,11 @@
     background: #0b121a;
   }
 
+  .landing__bar .wordmark i,
+  .hero .kicker {
+    color: #8da7ff;
+  }
+
   .bar-signin {
     padding: 8px 16px;
     border: 1px solid rgba(255, 250, 242, 0.28);

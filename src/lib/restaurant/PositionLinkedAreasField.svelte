@@ -330,7 +330,7 @@
 
   .linked-areas__menu {
     position: fixed;
-    z-index: 180;
+    z-index: var(--rst-z-popover);
     width: min(320px, calc(100vw - 24px));
     max-height: min(420px, calc(100vh - 24px));
     display: grid;

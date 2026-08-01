@@ -5,13 +5,13 @@ import { readFile } from 'node:fs/promises';
 import {
   belgianNissIssue,
   isValidBelgianNiss
-} from '../src/lib/team/belgian-identifiers.ts';
+} from '../src/lib/validation/belgian-identifiers.ts';
 import {
   enterpriseNumberIssue,
   establishmentUnitIssue,
   isValidBelgianEnterpriseNumber,
   jointCommitteeIssue
-} from '../src/lib/restaurant/belgian-identifiers.ts';
+} from '../src/lib/validation/belgian-identifiers.ts';
 
 test('Belgian identifiers are optional drafts and valid official values are recognized', () => {
   assert.equal(belgianNissIssue(''), null);

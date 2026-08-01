@@ -28,10 +28,6 @@ test('reservation navigation is a live workspace with setup beneath it', () => {
     '/reservations/bookings'
   );
   assert.equal(
-    reservations?.subNav?.some((item) => item.href === '/reservations/floor-plans'),
-    false
-  );
-  assert.equal(
     subNavItemForPath(reservations, '/reservations/setup')?.href,
     '/reservations/setup'
   );

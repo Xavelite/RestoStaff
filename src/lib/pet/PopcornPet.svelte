@@ -130,6 +130,52 @@
     return Math.min(Math.max(value, minimum), Math.max(minimum, maximum));
   }
 
+  function constrainedPosition(
+    positionX: number,
+    positionY: number,
+    baseLeft: number,
+    baseTop: number,
+    width: number,
+    height: number
+  ): { x: number; y: number; left: number; top: number } {
+    const margin = 6;
+    const gap = 10;
+    let left = clamp(baseLeft + positionX, margin, window.innerWidth - margin - width);
+    let top = clamp(baseTop + positionY, margin, window.innerHeight - margin - height);
+
+    for (const element of document.querySelectorAll<HTMLElement>('[data-floating-action]')) {
+      if (element === petRoot || !element.getClientRects().length) continue;
+      const action = element.getBoundingClientRect();
+      const overlaps =
+        left < action.right + gap &&
+        left + width > action.left - gap &&
+        top < action.bottom + gap &&
+        top + height > action.top - gap;
+      if (!overlaps) continue;
+
+      const candidates = [
+        { left: action.left - gap - width, top },
+        { left: action.right + gap, top },
+        { left, top: action.top - gap - height },
+        { left, top: action.bottom + gap }
+      ].filter(
+        (candidate) =>
+          candidate.left >= margin &&
+          candidate.top >= margin &&
+          candidate.left + width <= window.innerWidth - margin &&
+          candidate.top + height <= window.innerHeight - margin
+      );
+      const nearest = candidates.sort(
+        (a, b) =>
+          Math.hypot(a.left - left, a.top - top) -
+          Math.hypot(b.left - left, b.top - top)
+      )[0];
+      if (nearest) ({ left, top } = nearest);
+    }
+
+    return { x: left - baseLeft, y: top - baseTop, left, top };
+  }
+
   function updateBubblePlacement(
     left: number,
     top: number,
@@ -146,19 +192,16 @@
     const rect = petRoot.getBoundingClientRect();
     const baseLeft = rect.left - popcornPet.positionX;
     const baseTop = rect.top - popcornPet.positionY;
-    const margin = 6;
-    const x = clamp(
+    const next = constrainedPosition(
       popcornPet.positionX,
-      margin - baseLeft,
-      window.innerWidth - margin - baseLeft - rect.width
-    );
-    const y = clamp(
       popcornPet.positionY,
-      margin - baseTop,
-      window.innerHeight - margin - baseTop - rect.height
+      baseLeft,
+      baseTop,
+      rect.width,
+      rect.height
     );
-    popcornPet.setPosition(x, y, persist);
-    updateBubblePlacement(baseLeft + x, baseTop + y, rect.width, rect.height);
+    popcornPet.setPosition(next.x, next.y, persist);
+    updateBubblePlacement(next.left, next.top, rect.width, rect.height);
   }
 
   function startDrag(event: PointerEvent): void {
@@ -184,19 +227,16 @@
     if (!dragMoved && Math.hypot(deltaX, deltaY) < 5) return;
     dragMoved = true;
     event.preventDefault();
-    const margin = 6;
-    const x = clamp(
+    const next = constrainedPosition(
       dragStartPositionX + deltaX,
-      margin - dragBaseLeft,
-      window.innerWidth - margin - dragBaseLeft - dragWidth
-    );
-    const y = clamp(
       dragStartPositionY + deltaY,
-      margin - dragBaseTop,
-      window.innerHeight - margin - dragBaseTop - dragHeight
+      dragBaseLeft,
+      dragBaseTop,
+      dragWidth,
+      dragHeight
     );
-    popcornPet.setPosition(x, y);
-    updateBubblePlacement(dragBaseLeft + x, dragBaseTop + y, dragWidth, dragHeight);
+    popcornPet.setPosition(next.x, next.y);
+    updateBubblePlacement(next.left, next.top, dragWidth, dragHeight);
   }
 
   function endDrag(event: PointerEvent): void {

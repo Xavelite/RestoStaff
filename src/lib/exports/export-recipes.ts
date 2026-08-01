@@ -82,7 +82,7 @@ export function planningPeriodCsv(input: {
     );
 
   return {
-    filename: `planning-${input.range.from}-${input.range.to}.csv`,
+    filename: `schedule-${input.range.from}-${input.range.to}.csv`,
     headers: columns.map((column) => translate(planningFieldLabel(column))),
     rows: shifts.map(({ shift, date }) => [
       employeeName.get(shift.employee_id) ?? shift.employee_id,

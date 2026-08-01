@@ -11,7 +11,7 @@
   import {
     ACCOUNT_LOCALE_METADATA_KEY,
     i18n,
-    languageOptions,
+    regionalFormatOptions,
     normalizeLocale,
     t,
     type AppLocale
@@ -50,7 +50,7 @@
   let accountLastName = $state('');
   let accountPassword = $state('');
   let accountPasswordConfirm = $state('');
-  let accountLanguage = $state<AppLocale>('en');
+  let accountLocale = $state<AppLocale>('en');
   let savingAccount = $state(false);
 
   const workspaceOptions = $derived(orderedMemberships(workspace.memberships));
@@ -153,7 +153,7 @@
       employee?.last_name ?? String(auth.user?.user_metadata?.last_name ?? '');
     accountPassword = '';
     accountPasswordConfirm = '';
-    accountLanguage = normalizeLocale(auth.user?.user_metadata?.[ACCOUNT_LOCALE_METADATA_KEY]);
+    accountLocale = normalizeLocale(auth.user?.user_metadata?.[ACCOUNT_LOCALE_METADATA_KEY]);
     open = false;
     accountDialogOpen = true;
   }
@@ -208,11 +208,11 @@
           ...auth.user?.user_metadata,
           first_name: accountFirstName.trim(),
           last_name: accountLastName.trim(),
-          [ACCOUNT_LOCALE_METADATA_KEY]: accountLanguage
+          [ACCOUNT_LOCALE_METADATA_KEY]: accountLocale
         }
       });
       if (error) throw error;
-      i18n.setLocale(accountLanguage);
+      i18n.setLocale(accountLocale);
       accountDialogOpen = false;
       await workspace.reloadBootstrap();
       toasts.show(t('Account updated.'), 'success');
@@ -371,7 +371,7 @@
 <Dialog
   open={accountDialogOpen}
   title={t('Account settings')}
-  description={t('Update your personal profile, language and optionally choose a new app password.')}
+  description={t('Update your personal profile, regional formatting and optionally choose a new app password.')}
   size="small"
   onclose={() => !savingAccount && (accountDialogOpen = false)}
   footer={accountFooter}
@@ -381,9 +381,9 @@
     <label><span>{t('First name')}</span><input autocomplete="given-name" bind:value={accountFirstName} /></label>
     <label><span>{t('Last name')}</span><input autocomplete="family-name" bind:value={accountLastName} /></label>
     <label>
-      <span>{t('Language')}</span>
-      <select bind:value={accountLanguage}>
-        {#each languageOptions as option (option.value)}
+      <span>{t('Regional format')}</span>
+      <select bind:value={accountLocale}>
+        {#each regionalFormatOptions as option (option.value)}
           <option value={option.value}>{option.nativeLabel}</option>
         {/each}
       </select>

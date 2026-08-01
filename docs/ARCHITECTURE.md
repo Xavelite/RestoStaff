@@ -27,6 +27,8 @@ transactional RPCs.
 - `supabase/functions`: authenticated Edge Functions and shared HTTP policy.
 - `supabase/tests`: executable security and workflow contracts.
 - `tests`: focused application behavior and high-value structural guardrails.
+- `tests/browser`: executable public-shell and optional authenticated-role
+  acceptance checks across the supported viewport matrix.
 
 ## Ownership
 

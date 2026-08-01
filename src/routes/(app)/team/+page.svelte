@@ -188,7 +188,7 @@
     if (!active) {
       const confirmed = await confirmAction({
         title: t('Archive {name}?', { name: employee.displayName }),
-        body: t('They will disappear from new planning. Historical shifts, time entries and documents are preserved.'),
+        body: t('They will disappear from new schedules. Historical shifts, time entries and documents are preserved.'),
         confirmLabel: t('Archive employee'),
         cancelLabel: t('Keep active'),
         tone: 'danger'
@@ -856,7 +856,7 @@
   .posmenu__trigger > span { display: grid; overflow: hidden; text-overflow: ellipsis; }
   .posmenu__trigger > span small { overflow: hidden; color: var(--cl-muted); font-size: var(--rst-fs-micro); font-weight: var(--rst-fw-regular); text-overflow: ellipsis; }
   .posmenu__trigger > em { min-width: 18px; height: 18px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--position-color) 30%, var(--cl-line)); border-radius: 999px; color: var(--cl-muted); font-size: var(--rst-fs-micro); font-style: normal; }
-  .posmenu__list { position: fixed; z-index: 460; display: grid; gap: 6px; width: min(340px, calc(100vw - 24px)); max-height: min(420px, calc(100vh - 24px)); overflow: auto; padding: 8px 10px 10px; border: 1px solid var(--cl-line-strong); border-radius: var(--cl-radius); background: var(--cl-surface); box-shadow: 0 14px 36px rgba(15,23,42,.16); }
+  .posmenu__list { position: fixed; z-index: var(--rst-z-popover); display: grid; gap: 6px; width: min(340px, calc(100vw - 24px)); max-height: min(420px, calc(100vh - 24px)); overflow: auto; padding: 8px 10px 10px; border: 1px solid var(--cl-line-strong); border-radius: var(--cl-radius); background: var(--cl-surface); box-shadow: 0 14px 36px rgba(15,23,42,.16); }
   .posmenu__head { position: sticky; top: -8px; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -2px -4px 2px; padding: 8px 8px 9px; border-bottom: 1px solid var(--cl-line); background: var(--cl-surface); }
   .posmenu__head > span { display: grid; gap: 1px; }
   .posmenu__head strong { color: var(--cl-ink); font-size: var(--rst-fs-control); }

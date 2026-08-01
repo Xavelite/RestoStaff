@@ -258,6 +258,7 @@
   class="communications-button"
   class:has-unread={badgeCount > 0}
   class:is-open={open}
+  data-floating-action="communications"
   type="button"
   aria-label={t('Team messages')}
   title={t('Team messages')}
@@ -456,7 +457,7 @@
 {/if}
 
 <style>
-  .communications-button { position: fixed; z-index: var(--rst-z-panel, 200); right: 22px; bottom: max(22px, env(safe-area-inset-bottom, 0px)); width: 52px; min-height: 52px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 1px solid color-mix(in srgb, var(--cl-accent) 72%, white); border-radius: 50%; color: white; background: var(--cl-accent); box-shadow: 0 13px 30px rgba(var(--cl-accent-rgb), .28), 0 3px 10px rgba(15, 23, 42, .18); font: inherit; line-height: 1; cursor: pointer; transition: transform .18s var(--cl-ease), background .18s ease, border-color .18s ease, box-shadow .18s ease; }
+  .communications-button { position: fixed; z-index: var(--rst-z-panel); right: 22px; bottom: max(22px, env(safe-area-inset-bottom, 0px)); width: 52px; min-height: 52px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 1px solid color-mix(in srgb, var(--cl-accent) 72%, white); border-radius: 50%; color: white; background: var(--cl-accent); box-shadow: 0 13px 30px rgba(var(--cl-accent-rgb), .28), 0 3px 10px rgba(15, 23, 42, .18); font: inherit; line-height: 1; cursor: pointer; transition: transform .18s var(--cl-ease), background .18s ease, border-color .18s ease, box-shadow .18s ease; }
   .communications-button:hover { border-color: color-mix(in srgb, var(--cl-accent-hover) 72%, white); color: white; background: var(--cl-accent-hover); box-shadow: 0 16px 34px rgba(var(--cl-accent-rgb), .32), 0 4px 12px rgba(15, 23, 42, .2); transform: translateY(-2px); }
   .communications-button:focus-visible { outline: 3px solid rgba(var(--cl-accent-rgb), .24); outline-offset: 3px; }
   .communications-button:active { transform: translateY(0); }
@@ -467,7 +468,7 @@
      thread between the button pressed and the conversation that opened. */
   .chat {
     position: fixed;
-    z-index: var(--rst-z-panel, 200);
+    z-index: var(--rst-z-panel);
     right: 22px;
     bottom: calc(max(22px, env(safe-area-inset-bottom, 0px)) + 64px);
     width: 384px;

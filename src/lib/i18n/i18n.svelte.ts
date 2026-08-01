@@ -24,10 +24,15 @@ type TranslationParams = Record<string, string | number>;
 const DEFAULT_LOCALE: AppLocale = 'en';
 export const ACCOUNT_LOCALE_METADATA_KEY = 'preferred_language';
 
-export const languageOptions: ReadonlyArray<{ value: AppLocale; label: string; nativeLabel: string }> = [
-  { value: 'en', label: 'English', nativeLabel: 'English' },
-  { value: 'fr', label: 'French', nativeLabel: 'Français' },
-  { value: 'nl', label: 'Dutch', nativeLabel: 'Nederlands' }
+/**
+ * Regional formats are deliberately separate from interface translation.
+ * Message copy remains English until domain-scoped French and Dutch
+ * dictionaries exist; these options currently control dates and numbers only.
+ */
+export const regionalFormatOptions: ReadonlyArray<{ value: AppLocale; label: string; nativeLabel: string }> = [
+  { value: 'en', label: 'English (United Kingdom)', nativeLabel: 'English (United Kingdom)' },
+  { value: 'fr', label: 'French (Belgium)', nativeLabel: 'Français (Belgique)' },
+  { value: 'nl', label: 'Dutch (Belgium)', nativeLabel: 'Nederlands (België)' }
 ];
 
 export function normalizeLocale(value: unknown): AppLocale {

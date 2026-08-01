@@ -1133,7 +1133,7 @@
                   type="checkbox"
                   role="switch"
                   checked={!compactCards}
-                  aria-label={t('Show detailed planning information')}
+                  aria-label={t('Show detailed schedule information')}
                   onchange={toggleCardDensity}
                 />
                 <i aria-hidden="true"><b></b></i>
@@ -1268,7 +1268,7 @@
               {#if !groups.some((group) => group.rows.length)}
                 <div class="cl-empty">
                   <strong>{t('No employees match these filters')}</strong>
-                  <span>{t('Clear a filter to show the full planning team.')}</span>
+                  <span>{t('Clear a filter to show the full schedule team.')}</span>
                 </div>
               {:else}
                 {#each groups as group (group.key)}
@@ -1449,7 +1449,7 @@
               </thead>
               <tbody>
                 {#if !groups.some((group) => group.rows.length)}
-                  <tr><td colspan={grid.days.length + 1}><div class="cl-empty"><strong>{t('No employees match these filters')}</strong><span>{t('Clear a filter to show the full planning team.')}</span></div></td></tr>
+                  <tr><td colspan={grid.days.length + 1}><div class="cl-empty"><strong>{t('No employees match these filters')}</strong><span>{t('Clear a filter to show the full schedule team.')}</span></div></td></tr>
                 {:else}
                   {#each groups as group (group.key)}
                     {#if groupMode !== 'none'}
@@ -1730,7 +1730,7 @@
         <Dialog
           open={showPublishConfirm}
           title={t(week.published ? 'Republish this week?' : 'Publish this week?')}
-          description={t('Publishing keeps the manager in control: warnings remain visible but do not silently change the planning.')}
+          description={t('Publishing keeps the manager in control: warnings remain visible but do not silently change the schedule.')}
           onclose={() => (showPublishConfirm = false)}
         >
           <div class="publish-review">

@@ -15,8 +15,6 @@ export type WorkspaceSubNavItem = {
 export type WorkspaceModule = {
   key: string;
   href: string;
-  /** Legacy or transitional URLs that should still resolve to this module. */
-  aliases?: string[];
   label: string;
   /** One line on the Home tile: what this module is for. */
   summary: string;
@@ -211,7 +209,6 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
   {
     key: 'payroll',
     href: '/payroll',
-    aliases: ['/payroll/employees'],
     label: 'Payroll',
     summary: 'Employment data and social-secretariat readiness',
     icon: 'payroll',
@@ -246,7 +243,7 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     key: 'exports',
     href: '/exports',
     label: 'Exports',
-    summary: 'Operational files for planning, worked time and payroll handoff',
+    summary: 'Operational files for schedules, worked time and payroll handoff',
     icon: 'exports',
     roles: MANAGER,
     navSection: 'records'
@@ -338,13 +335,13 @@ export function modulesForRole(
 export function moduleForPath(pathname: string): WorkspaceModule | null {
   return (
     WORKSPACE_MODULES.filter((module) =>
-      [module.href, ...(module.aliases ?? []), ...(module.subNav?.map((item) => item.href) ?? [])].some(
+      [module.href, ...(module.subNav?.map((item) => item.href) ?? [])].some(
         (href) => pathname === href || pathname.startsWith(`${href}/`)
       )
     ).sort((left, right) => {
       const matchLength = (module: WorkspaceModule) =>
         Math.max(
-          ...[module.href, ...(module.aliases ?? []), ...(module.subNav?.map((item) => item.href) ?? [])]
+          ...[module.href, ...(module.subNav?.map((item) => item.href) ?? [])]
             .filter((href) => pathname === href || pathname.startsWith(`${href}/`))
             .map((href) => href.length)
         );
