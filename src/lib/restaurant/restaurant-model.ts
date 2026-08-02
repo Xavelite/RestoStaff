@@ -486,8 +486,10 @@ export function restaurantSavePayload(
             .filter((areaId) =>
               draft.areas.some((area) => area.id === areaId && area.active)
             );
+          const lostExplicitAreaScope = item.areaIds.length > 0 && areaIds.length === 0;
           return {
             ...itemRow(item, index),
+            active: item.active && !lostExplicitAreaScope,
             catalogue_key: nullable(item.catalogueKey),
             icon_key: nullable(item.iconKey),
             area_ids: areaIds,

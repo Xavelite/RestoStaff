@@ -5,6 +5,8 @@
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { areaInstanceLabelMap } from '$lib/restaurant/area-instance';
+  import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
+  import { invalidPlanningShift } from './schedule-actions';
   import {
     blocksPlanningAssignment,
     defaultPlanningShift,
@@ -108,6 +110,7 @@
   const shiftHours = $derived(
     slot.shift ? hoursBetweenClocks(slot.shift.startsAt, slot.shift.endsAt) : 0
   );
+  const invalidShift = $derived(Boolean(slot.shift && invalidPlanningShift([slot.shift])));
   const hourlyCost = $derived(
     Number(
       snapshot.employee_payroll_profiles.find((item) => item.employee_id === slot.employeeId)
@@ -307,6 +310,13 @@
           <input type="time" disabled={!editable} value={slot.shift.endsAt} onchange={(event) => updateShift('endsAt', event.currentTarget.value)} />
         </label>
       </div>
+
+      {#if invalidShift}
+        <FeedbackBanner
+          tone="danger"
+          message={t('Every planned shift needs a valid start and end time.')}
+        />
+      {/if}
 
       <label class="note">
         <span>{t('Service note')}</span>

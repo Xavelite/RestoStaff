@@ -124,6 +124,14 @@
     excess: number;
   };
 
+  function closeSlotEditor(slot: PlanningGridSlot | null): void {
+    if (slot?.shift && invalidPlanningShift([slot.shift])) {
+      toasts.show(t('Every planned shift needs a valid start and end time.'), 'danger');
+      return;
+    }
+    selectedKey = '';
+  }
+
   const snapshot = $derived(workspace.operations);
   const activeServiceKeySet = $derived(new Set(activeServiceKeys(snapshot?.services)));
   const serviceKeys = $derived(
@@ -1764,7 +1772,7 @@
           ? `${new Intl.DateTimeFormat(i18n.intlLocale, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${selectedSlot.date}T00:00:00Z`))} · ${t(serviceLabel(selectedSlot.serviceKey, snapshot?.services))}`
           : ''}
         flush
-        onclose={() => (selectedKey = '')}
+        onclose={() => closeSlotEditor(selectedSlot)}
       >
         {#if selectedSlot && snapshot && workspace.activeId}
           <ScheduleSlotEditor
@@ -1822,7 +1830,7 @@
         {/if}
         {#snippet footer()}
           <span class="shift-dialog__hint">{t('Draft editing')}</span>
-          <button class="cl-btn is-primary" type="button" onclick={() => (selectedKey = '')}>{t('Done')}</button>
+          <button class="cl-btn is-primary" type="button" disabled={Boolean(selectedSlot?.shift && invalidPlanningShift([selectedSlot.shift]))} onclick={() => closeSlotEditor(selectedSlot)}>{t('Done')}</button>
         {/snippet}
       </Dialog>
 

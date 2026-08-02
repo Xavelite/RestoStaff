@@ -6794,6 +6794,10 @@ export type Database = {
         }
         Returns: Json
       }
+      _publish_badge_actuals_event: {
+        Args: { p_restaurant_id: string }
+        Returns: undefined
+      }
       accept_employee_invite: {
         Args: {
           p_invitation_token: string

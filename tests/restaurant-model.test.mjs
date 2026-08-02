@@ -207,4 +207,13 @@ test('restaurant hours preserve configurable service periods independently', asy
     label: 'Demo, Brussels',
     provider: 'openstreetmap'
   });
+
+  draft.areas.find((area) => area.id === 'area-1').active = false;
+  const archivedAreaPayload = restaurantSavePayload(snapshot, draft);
+  assert.deepEqual(archivedAreaPayload.jobFunctions[0].area_ids, []);
+  assert.equal(
+    archivedAreaPayload.jobFunctions[0].active,
+    false,
+    'a position that loses its explicit area must not silently become global'
+  );
 });

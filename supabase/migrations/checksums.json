@@ -163,6 +163,11 @@
     "20260731174246_schedule_history_read_model.sql": "7e367497e60093abba5ecd4b7ec073e9a2a3b132707276e01aebef21d01af32e",
     "20260731174659_schedule_history_payload_projection.sql": "9d77784a0e1dd4074fa6f7bc5b5a156ee08a3c88b4577b810d7ec787dd702a87",
     "20260801014427_complete_badging_policy_and_mobile_clock.sql": "6987b5537c19e60206ebdb21b18030ed900763e2d607fd7fa91268b7cbb00902",
-    "20260801023104_complete_badging_device_and_mobile_access.sql": "5025d79e89dbdb6a55b99dcf79ffa49c3d0d345c40448a8121df68016358e27e"
+    "20260801023104_complete_badging_device_and_mobile_access.sql": "5025d79e89dbdb6a55b99dcf79ffa49c3d0d345c40448a8121df68016358e27e",
+    "20260802015019_atomic_timesheet_payroll_evidence.sql": "ffc0791e7e7e74d7e874fbaa8d11b0254e60c91ec8b1d95800784f1e6bbfe5d5",
+    "20260802021556_badge_roster_activity_truth.sql": "27ea737e684b984e0b9da2091b3252019ae73c5c0db16502312ae24b297900c2",
+    "20260802022438_badge_station_realtime.sql": "2f0fbca03add7f55955b3d3a7394b631111823ecfd9ef60d390d3d69ec141ec0",
+    "20260802022739_badge_roster_resume_time.sql": "a2ecee703b593ff4a868b9f93f0644b3038cba4b8e0282e9b1c3cd309bdc91e8",
+    "20260802023207_exact_badge_break_total.sql": "b6d756331118397b9fd8f4645ae570a0316a57a80fcbbaee18466588a14c4dc4"
   }
 }

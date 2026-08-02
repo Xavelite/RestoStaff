@@ -370,6 +370,38 @@ test('manager notifications ignore harmless one-slot availability edits', () => 
   assert.equal(items.some((candidate) => candidate.type === 'employee_availability_updated'), false);
 });
 
+test('manager availability notifications describe the saved weekly pattern truthfully', () => {
+  const items = deriveNotifications({
+    restaurantId: 'r1',
+    role: 'manager',
+    employeeId: null,
+    today: '2026-06-23',
+    now: new Date('2026-06-23T10:00:00.000Z'),
+    timezone: 'Europe/Brussels',
+    team: null,
+    operations: {
+      ...baseManager,
+      employee_contracts: [{ employee_id: 'e1', active: true, is_current: true, work_regime: 'weekly_availability' }],
+      employee_availability_slots: [1, 2, 3].map((weekday) => ({
+        employee_id: 'e1',
+        week_start: '2026-06-29',
+        weekday,
+        service_key: 'lunch',
+        availability_state: 'available'
+      })),
+      employee_availability_submissions: [{
+        restaurant_id: 'r1', employee_id: 'e1', week_start: '2026-06-29', status: 'submitted',
+        submitted_at: '2026-06-23T09:00:00.000Z', created_at: '2026-06-23T08:50:00.000Z', updated_at: '2026-06-23T09:00:00.000Z'
+      }]
+    }
+  });
+
+  const item = items.find((candidate) => candidate.type === 'employee_availability_updated');
+  assert.ok(item);
+  assert.equal(item.body, '{count} availability choices saved for week of {week}');
+  assert.deepEqual(item.bodyParams, { count: 3, week: '2026-06-29' });
+});
+
 test('manager notifications ignore stale availability submissions from fixed schedules', () => {
   const items = deriveNotifications({
     restaurantId: 'r1',

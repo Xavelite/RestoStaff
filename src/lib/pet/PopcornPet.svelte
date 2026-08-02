@@ -59,6 +59,9 @@
     })
   );
   const hasAttention = $derived(insights.some((insight) => insight.tone === 'attention'));
+  const resting = $derived(
+    !dragging && !animating && !currentInsight && !invitationVisible && !voiceActive
+  );
 
   $effect(() => {
     const sequence = popcornPet.sequence;
@@ -408,6 +411,7 @@
   <aside
     class="popcorn-pet"
     class:is-dragging={dragging}
+    class:is-resting={resting}
     class:pet-on-right={petOnRight}
     class:bubble-opens-right={bubbleOpensRight}
     class:bubble-opens-below={bubbleOpensBelow}
@@ -537,6 +541,32 @@
     pointer-events: auto;
     touch-action: none;
     -webkit-tap-highlight-color: transparent;
+    transition:
+      width .2s var(--cl-ease),
+      height .2s var(--cl-ease),
+      left .2s var(--cl-ease),
+      opacity .2s var(--cl-ease);
+  }
+
+  .popcorn-pet.is-resting .popcorn-pet__button {
+    width: 76px;
+    height: 76px;
+    left: 76px;
+    opacity: .68;
+  }
+
+  .popcorn-pet.is-resting .popcorn-pet__button:hover,
+  .popcorn-pet.is-resting .popcorn-pet__button:focus-visible {
+    opacity: 1;
+  }
+
+  .popcorn-pet.is-resting .popcorn-pet__close {
+    display: none;
+  }
+
+  .popcorn-pet.is-resting .popcorn-pet__signal {
+    top: 20px;
+    right: 8px;
   }
 
   .popcorn-pet.is-dragging .popcorn-pet__button {
@@ -847,6 +877,12 @@
     .popcorn-pet__button {
       width: 106px;
       height: 106px;
+    }
+
+    .popcorn-pet.is-resting .popcorn-pet__button {
+      width: 58px;
+      height: 58px;
+      left: 48px;
     }
 
     .popcorn-pet__bubble {

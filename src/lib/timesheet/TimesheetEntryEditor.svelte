@@ -13,6 +13,7 @@
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
   import { getTimeEntryPayrollEvidence } from '$lib/payroll/payroll-api';
   import { areaInstanceLabelMap } from '$lib/restaurant/area-instance';
+  import { validateExactBreakIntervals } from './time-entry-validation';
 
   type FeedbackTone = 'info' | 'success' | 'warning' | 'danger';
   type ActualsEntrySave = {
@@ -88,6 +89,7 @@
   let proofUrl = $state('');
   let proofLoading = $state(false);
   let baseline = $state<EditorState | null>(null);
+  let initializedSourceKey = '';
   const areaName = $derived(areaInstanceLabelMap(workAreas));
 
   function currentState(): EditorState {
@@ -140,6 +142,21 @@
 
   $effect(() => {
     const defaults = serviceDefaultHours(slot.serviceKey, services);
+    const sourceKey = JSON.stringify([
+      slot.key,
+      slot.entryId,
+      slot.clockInAt,
+      slot.clockOutAt,
+      slot.breakMinutes,
+      slot.actualJobFunctionId,
+      slot.actualAreaId,
+      slot.plannedRange,
+      defaults.start,
+      defaults.end
+    ]);
+    if (sourceKey === initializedSourceKey) return;
+    if (initializedSourceKey && dirty) return;
+    initializedSourceKey = sourceKey;
     clockIn =
       instantToLocalInput(slot.clockInAt, timezone) ||
       `${slot.date}T${defaults.start}`;
@@ -249,6 +266,28 @@
     }
     if (!clockOutAt && breaks.length > 0) {
       throw new Error(t('Add a clock-out before recording a break.'));
+    }
+    const exactBreakError = clockOutAt
+      ? validateExactBreakIntervals(
+          clockInAt,
+          clockOutAt,
+          breakIntervals.map((item) => ({
+            startedAt: item.started_at,
+            endedAt: item.ended_at
+          }))
+        )
+      : null;
+    if (exactBreakError === 'end_not_after_start') {
+      throw new Error(t('Each break must end after it starts.'));
+    }
+    if (exactBreakError === 'outside_work_interval') {
+      throw new Error(t('Breaks must stay inside the worked interval.'));
+    }
+    if (exactBreakError === 'overlap') {
+      throw new Error(t('Breaks cannot overlap.'));
+    }
+    if (exactBreakError === 'invalid') {
+      throw new Error(t('Enter valid restaurant-local times.'));
     }
     if (clockOutAt && exactBreakMinutes >= enteredGrossHours * 60) {
       throw new Error(t('Break must be shorter than the worked interval.'));
@@ -372,7 +411,7 @@
       <div><strong>{t('Exact unpaid breaks')}</strong><small>{t('{minutes} minutes positioned', { minutes: exactBreakMinutes })}</small></div>
       <button type="button" onclick={addBreak}>{t('Add break')}</button>
     </div>
-    {#if aggregateBreakNeedsPosition}
+    {#if !evidenceLoading && aggregateBreakNeedsPosition}
       <FeedbackBanner tone="warning" message={t('This entry has {minutes} aggregate break minutes. Add the exact start and end before payroll.', { minutes: breakMinutes })} />
     {/if}
     <div class="break-list">

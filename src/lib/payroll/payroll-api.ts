@@ -83,23 +83,3 @@ export async function getTimeEntryPayrollEvidence(
       : []
   };
 }
-
-export async function saveTimeEntryPayrollEvidence(input: {
-  restaurantId: string;
-  timeEntryId: string;
-  actualJobFunctionId: string;
-  actualAreaId: string;
-  breakIntervals: Json;
-  reason: string;
-}) {
-  const { data, error } = await supabase.rpc('save_time_entry_payroll_evidence', {
-    p_restaurant_id: input.restaurantId,
-    p_time_entry_id: input.timeEntryId,
-    p_actual_job_function_id: input.actualJobFunctionId,
-    p_actual_area_id: input.actualAreaId,
-    p_break_intervals: input.breakIntervals,
-    p_reason: input.reason
-  });
-  if (error) throw toApiError(error, 'Payroll evidence could not be saved.');
-  return data;
-}

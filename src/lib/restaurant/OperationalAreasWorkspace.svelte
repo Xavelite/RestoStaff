@@ -250,12 +250,24 @@
       return;
     }
     const linkedPositions = positionCount(area.id);
+    const dependentPositions = positionsForArea(area.id).filter((position) =>
+      !position.areaIds.some((areaId) =>
+        areaId !== area.id && context.draft.areas.some(
+          (candidate) => candidate.id === areaId && candidate.active
+        )
+      )
+    );
     const confirmed = await confirmAction({
       title: t('Archive {name}?', { name: area.name }),
-      body: t(
-        'This removes the area from Schedule and Staffing and unlinks {positions} positions.',
-        { positions: linkedPositions }
-      ),
+      body: dependentPositions.length
+        ? t(
+            'This removes the area from Schedule and Staffing and unlinks {positions} positions. Positions used only here will also be archived, not changed to All areas.',
+            { positions: linkedPositions }
+          )
+        : t(
+            'This removes the area from Schedule and Staffing and unlinks {positions} positions.',
+            { positions: linkedPositions }
+          ),
       confirmLabel: t('Archive area'),
       tone: 'danger'
     });
@@ -265,7 +277,19 @@
       (rule) => rule.areaId !== area.id
     );
     for (const position of context.draft.jobFunctions) {
+      const wasLinked = position.areaIds.includes(area.id);
       position.areaIds = position.areaIds.filter((id) => id !== area.id);
+      if (
+        wasLinked &&
+        position.active &&
+        !position.areaIds.some((areaId) =>
+          context.draft.areas.some(
+            (candidate) => candidate.id === areaId && candidate.active
+          )
+        )
+      ) {
+        position.active = false;
+      }
     }
     restaurantConfig.touch();
   }

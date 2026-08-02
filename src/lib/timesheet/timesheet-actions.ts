@@ -1,5 +1,4 @@
 import { saveAbsence, saveActuals } from '$lib/api/mutations';
-import { saveTimeEntryPayrollEvidence } from '$lib/payroll/payroll-api';
 import { workspaceRealtime } from '$lib/realtime/workspace-realtime.svelte';
 import { workspace } from '$lib/workspace/workspace.svelte';
 import { addDays, localInputToInstant } from '$lib/calendar/date';
@@ -35,7 +34,7 @@ async function persistTimesheetEntry(input: {
   values: TimesheetEntryValues;
 }): Promise<void> {
   const { restaurantId, slot, values } = input;
-  const acknowledgement = await saveActuals({
+  await saveActuals({
     restaurantId,
     action: values.isCorrection ? 'adjust_entry' : 'manual_entry',
     payload: {
@@ -46,21 +45,13 @@ async function persistTimesheetEntry(input: {
       clock_in_at: values.clockInAt,
       clock_out_at: values.clockOutAt || undefined,
       break_minutes: values.breakMinutes,
+      actual_job_function_id: values.actualJobFunctionId,
+      actual_area_id: values.actualAreaId,
+      break_intervals: values.breakIntervals,
       expected_revision: slot.entryRevision ?? undefined,
       reason: values.reason
     }
   });
-  const timeEntryId = slot.entryId ?? acknowledgement.entityId;
-  if (values.clockOutAt && timeEntryId) {
-    await saveTimeEntryPayrollEvidence({
-      restaurantId,
-      timeEntryId,
-      actualJobFunctionId: values.actualJobFunctionId,
-      actualAreaId: values.actualAreaId,
-      breakIntervals: values.breakIntervals,
-      reason: values.reason
-    });
-  }
 }
 
 export async function saveTimesheetEntry(input: {

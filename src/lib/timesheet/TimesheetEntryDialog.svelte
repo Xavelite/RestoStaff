@@ -43,8 +43,11 @@
       | (Record<string, unknown> & { id: string })
       | undefined;
     const point = (edge: 'clock_in' | 'clock_out') => {
-      const latitude = Number(entry?.[`${edge}_latitude`]);
-      const longitude = Number(entry?.[`${edge}_longitude`]);
+      const rawLatitude = entry?.[`${edge}_latitude`];
+      const rawLongitude = entry?.[`${edge}_longitude`];
+      if (rawLatitude == null || rawLongitude == null) return null;
+      const latitude = Number(rawLatitude);
+      const longitude = Number(rawLongitude);
       const accuracyMeters = Number(entry?.[`${edge}_accuracy_meters`]);
       return Number.isFinite(latitude) && Number.isFinite(longitude)
         ? { latitude, longitude, accuracyMeters: Number.isFinite(accuracyMeters) ? accuracyMeters : 0 }

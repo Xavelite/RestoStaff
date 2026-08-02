@@ -243,9 +243,8 @@ function managerNotifications(input: ManagerNotificationInput): NotificationItem
         )
       : [];
 
-    // Harmless one-off availability edits stay in the Schedule activity itself.
-    // The notification bell is reserved for a published conflict or a meaningful
-    // multi-slot weekly update, so managers are informed without being spammed.
+    // A single recorded choice stays in Schedule activity unless it conflicts
+    // with a published shift. A submitted weekly pattern is useful manager context.
     if (!publishedConflicts.length && availabilitySlots.length < 3) continue;
 
     const name = employeeName(operations, submission.employee_id);
@@ -261,7 +260,7 @@ function managerNotifications(input: ManagerNotificationInput): NotificationItem
       titleParams: { name },
       body: publishedConflicts.length
         ? '{count} published shifts now conflict'
-        : '{count} availability slots updated for week of {week}',
+        : '{count} availability choices saved for week of {week}',
       bodyParams: publishedConflicts.length
         ? { count: publishedConflicts.length }
         : { count: availabilitySlots.length, week: submission.week_start },
