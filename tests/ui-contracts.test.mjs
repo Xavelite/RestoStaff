@@ -64,37 +64,30 @@ test('the product type scale owns every application font size', async () => {
 });
 
 test('every grid-or-visual workspace keeps both render contracts', async () => {
-  // The toggle switches between a GRID and a VISUAL layout — not between rows
-  // and cards. This test used to name WorkspaceCard for most surfaces, which
-  // quietly made "card" the only legal answer and pushed every page toward the
-  // same shell. It now asserts the contract that actually matters: the surface
-  // reads the shared preference, renders some alternative collection, and still
-  // has its rows. What that alternative looks like — an agenda, a floor band, a
-  // person wall, a timeline — is a design decision per page, not a rule.
-  const surfaces = [
-    'src/lib/reservations/ReservationSetupWorkspace.svelte',
-    'src/lib/reservations/ReservationsWorkspace.svelte',
-    'src/lib/restaurant/OperationalAreasWorkspace.svelte',
-    'src/routes/(app)/badge-terminal/+page.svelte',
-    'src/routes/(app)/documents/+page.svelte',
-    'src/routes/(app)/restaurant/coverage/+page.svelte',
-    'src/routes/(app)/restaurant/positions/+page.svelte',
-    'src/routes/(app)/team/+page.svelte',
-    'src/routes/(app)/team/absences/+page.svelte',
-    'src/routes/(app)/team/access/+page.svelte',
-    'src/routes/(app)/team/contracts/+page.svelte',
-    'src/routes/(app)/team/payroll/+page.svelte'
-  ];
-  const visualCollection =
-    /<WorkspaceCardGrid|<WorkspacePersonCard|class="access-board"|class="agenda"|class="area-cards"|class="staffing-matrix"|class="timeline"|class="leave-lanes"/;
-  for (const file of surfaces) {
+  // Visual is a question-specific representation, not a synonym for cards.
+  // The marker map protects each domain model and its authoritative row editor.
+  const surfaces = new Map([
+    ['src/lib/reservations/ReservationSetupWorkspace.svelte', /class="booking-rule/],
+    ['src/lib/reservations/ReservationsWorkspace.svelte', /class="agenda"/],
+    ['src/lib/restaurant/OperationalAreasWorkspace.svelte', /class="area-atlas"/],
+    ['src/routes/(app)/badge-terminal/+page.svelte', /class="terminal-console"/],
+    ['src/routes/(app)/documents/+page.svelte', /class="file-shelf"/],
+    ['src/routes/(app)/restaurant/coverage/+page.svelte', /class="staffing-matrix"/],
+    ['src/routes/(app)/restaurant/positions/+page.svelte', /class="role-network"/],
+    ['src/routes/(app)/team/+page.svelte', /class="team-directory"/],
+    ['src/routes/(app)/team/absences/+page.svelte', /class="absence-agenda"/],
+    ['src/routes/(app)/team/access/+page.svelte', /class="access-board"/],
+    ['src/routes/(app)/team/contracts/+page.svelte', /class="contract-ledger"/],
+    ['src/routes/(app)/team/payroll/+page.svelte', /class="payroll-readiness"/]
+  ]);
+  for (const [file, visualMarker] of surfaces) {
     const source = await readFile(file, 'utf8');
     assert.match(source, /workspaceLayout\.visual/, `${file} lost the shared preference`);
-    assert.match(source, visualCollection, `${file} lost its visual collection`);
+    assert.match(source, visualMarker, `${file} lost its domain visual`);
     assert.match(source, /<table|<WorkspaceTablePanel/, `${file} lost its row records`);
   }
   const areas = await readFile('src/lib/restaurant/OperationalAreasWorkspace.svelte', 'utf8');
-  assert.match(areas, /class="area-tile"/);
+  assert.match(areas, /class="area-room"/);
   assert.match(areas, /<table class="cl-table cl-mobile-rows">/);
   assert.doesNotMatch(areas, /WorkspaceViewSwitch|WorkspaceCardGrid/);
 
@@ -882,20 +875,19 @@ test('the product spells its own name one way', async () => {
   assert.deepEqual(offenders, []);
 });
 
-test('Team tabs share one person card and honour the grid grouping', async () => {
-  // People, Contracts and Payroll each had their own person treatment — one
-  // left-edge card with contact rows, two top-rule cards without — on adjacent
-  // tabs of the same module. They also flowed ungrouped in the visual layout
-  // while their grids grouped, silently dropping an organising dimension the
-  // person had chosen in the column menu.
-  for (const file of [
-    'src/routes/(app)/team/+page.svelte',
-    'src/routes/(app)/team/contracts/+page.svelte',
-    'src/routes/(app)/team/payroll/+page.svelte'
-  ]) {
-    const source = await readFile(file, 'utf8');
-    assert.match(source, /<WorkspacePersonCard/, `${file} should use the shared person card`);
-    assert.match(source, /<WorkspaceCardGroup/, `${file} should group its cards like its rows`);
-    assert.doesNotMatch(source, /<WorkspaceCard\s/, `${file} still renders the generic card`);
+test('Team visual tabs share structure without sharing one generic card', async () => {
+  // Adjacent tabs share the outer rhythm and current grouping, while each
+  // answers its own question with a directory, ledger, or readiness matrix.
+  const people = await readFile('src/routes/(app)/team/+page.svelte', 'utf8');
+  const contracts = await readFile('src/routes/(app)/team/contracts/+page.svelte', 'utf8');
+  const payroll = await readFile('src/routes/(app)/team/payroll/+page.svelte', 'utf8');
+
+  for (const [name, source] of [['people', people], ['contracts', contracts], ['payroll', payroll]]) {
+    assert.match(source, /<WorkspaceVisualCanvas/, `${name} lost the shared visual rhythm`);
+    assert.match(source, /<WorkspaceVisualSection/, `${name} lost grouped visual sections`);
+    assert.doesNotMatch(source, /Workspace(?:Person)?Card/, `${name} regressed to a generic card`);
   }
+  assert.match(people, /class="team-directory"/);
+  assert.match(contracts, /class="contract-ledger"/);
+  assert.match(payroll, /class="payroll-readiness"/);
 });

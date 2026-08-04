@@ -26,8 +26,8 @@
   import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
   import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
   import WorkspaceStatus from '$lib/workspace-ui/WorkspaceStatus.svelte';
-  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
-  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
+  import WorkspaceVisualCanvas from '$lib/workspace-ui/WorkspaceVisualCanvas.svelte';
+  import WorkspaceVisualSection from '$lib/workspace-ui/WorkspaceVisualSection.svelte';
   import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
@@ -358,39 +358,50 @@
     {#snippet children()}
       <div class="desktop-device-view">
       {#if workspaceLayout.visual}
-        <!-- A device roster reads by state: a terminal that is live on the floor
-             should not look like one that has never connected. -->
-        <WorkspaceCardGrid>
-          {#each stations as station (station.id)}
-            <WorkspaceCard
-              accent={isOnline(station) ? 'var(--cl-ok, #157f4b)' : station.lastUsedAt ? null : 'var(--rst-state-warning, #d99a1c)'}
-              title={station.label}
-              badges={[
-                isOnline(station)
-                  ? { label: t('Online'), tone: 'ok' as const }
-                  : station.lastUsedAt
-                    ? { label: t('Offline'), tone: 'neutral' as const }
-                    : { label: t('Waiting for first connection'), tone: 'warn' as const }
-              ]}
-              meta={[
-                {
-                  label: t('Pairing code'),
-                  value: pairingCodes[station.id] || (station.lastUsedAt ? t('Protected') : t('Create a new code')),
-                  muted: !pairingCodes[station.id]
-                },
-                { label: t('Paired'), value: stamp(station.createdAt) },
-                { label: t('Last used'), value: stamp(station.lastUsedAt) || t('Never'), muted: !station.lastUsedAt }
-              ]}
-            >
-              {#snippet media()}
-                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <rect x="6" y="3" width="12" height="18" rx="2" />
-                  <path d="M10 17h4" />
-                </svg>
-              {/snippet}
-            </WorkspaceCard>
-          {/each}
-        </WorkspaceCardGrid>
+        <WorkspaceVisualCanvas label={t('Badge devices')}>
+          <WorkspaceVisualSection label={t('Device health')} meta={t('{count} paired', { count: stations.length })}>
+            {#if loading && !stations.length}
+              <div class="cl-empty terminal-empty"><strong>{t('Loading your workspace')}</strong></div>
+            {:else if !stations.length}
+              <div class="cl-empty terminal-empty"><span class="cl-empty__icon" aria-hidden="true"><TabletSmartphone size={18} /></span><strong>{t('No paired devices')}</strong><span>{t('Pair a tablet to run the badge terminal without signing anyone in.')}</span></div>
+            {:else}
+              <div class="terminal-console">
+                {#each stations as station (station.id)}
+                  {@const online = isOnline(station)}
+                  <article class:online class:waiting={!station.lastUsedAt} class="terminal-panel">
+                    <header>
+                      <span class="terminal-screen" aria-hidden="true">
+                        <TabletSmartphone size={19} />
+                        <i></i>
+                      </span>
+                      <span>
+                        <strong>{station.label}</strong>
+                        <small>{online ? t('Online now') : station.lastUsedAt ? t('Currently offline') : t('Waiting for first connection')}</small>
+                      </span>
+                      <WorkspaceStatus label={online ? t('Online') : station.lastUsedAt ? t('Offline') : t('Waiting')} tone={online ? 'ok' : station.lastUsedAt ? 'neutral' : 'attention'} />
+                    </header>
+                    <div class="terminal-panel__signal">
+                      <span><small>{t('Paired')}</small><strong>{stamp(station.createdAt)}</strong></span>
+                      <span><small>{t('Last check-in')}</small><strong>{stamp(station.lastUsedAt) || t('Never')}</strong></span>
+                    </div>
+                    <div class="terminal-panel__pairing">
+                      <span><KeyRound size={15} aria-hidden="true" /><span><small>{t('Pairing code')}</small><strong>{pairingCodes[station.id] || (station.lastUsedAt ? t('Protected after pairing') : t('Code required'))}</strong></span></span>
+                      {#if pairingCodes[station.id]}
+                        <button type="button" title={t('Copy code')} aria-label={t('Copy code')} onclick={() => void copyText(pairingCodes[station.id], 'Pairing code copied.')}><Copy size={15} /></button>
+                      {:else if !station.lastUsedAt}
+                        <button type="button" title={t('Create code')} aria-label={t('Create code')} disabled={Boolean(busy)} onclick={() => void replaceUnusedCode(station)}><KeyRound size={15} /></button>
+                      {/if}
+                    </div>
+                    <footer>
+                      <span>{online ? t('Terminal is checking in normally.') : station.lastUsedAt ? t('Open the terminal on that device to reconnect it.') : t('Enter its pairing code at the station page.')}</span>
+                      <button class="terminal-revoke" type="button" title={t('Revoke device')} aria-label={t('Revoke device')} disabled={Boolean(busy)} onclick={() => void revoke(station)}><Trash2 size={15} /></button>
+                    </footer>
+                  </article>
+                {/each}
+              </div>
+            {/if}
+          </WorkspaceVisualSection>
+        </WorkspaceVisualCanvas>
       {:else}
       <div class="cl-tablewrap">
         <table class="cl-table">
@@ -664,6 +675,36 @@
     color: var(--cl-info);
     background: color-mix(in srgb, var(--cl-info) 8%, var(--cl-surface));
   }
+  .terminal-empty { min-height: 170px; }
+  .terminal-console { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 11px; }
+  .terminal-panel { --terminal-tone: var(--rst-ui-muted); overflow: hidden; border: 1px solid var(--rst-ui-line); border-top: 3px solid var(--terminal-tone); border-radius: var(--rst-ui-radius-md); background: var(--rst-ui-surface); }
+  .terminal-panel.online { --terminal-tone: var(--cl-ok); }
+  .terminal-panel.waiting { --terminal-tone: var(--rst-state-warning); }
+  .terminal-panel > header { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 13px 14px; background: color-mix(in srgb, var(--terminal-tone) 5%, var(--rst-ui-surface)); }
+  .terminal-panel > header > span:nth-child(2) { min-width: 0; display: grid; gap: 2px; }
+  .terminal-panel > header strong,
+  .terminal-panel > header small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .terminal-panel > header strong { font-size: var(--rst-fs-control); }
+  .terminal-panel > header small { color: var(--rst-ui-muted); font-size: var(--rst-fs-caption); }
+  .terminal-screen { position: relative; width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--terminal-tone) 28%, var(--rst-ui-line)); border-radius: 7px; color: var(--terminal-tone); background: var(--rst-ui-surface); }
+  .terminal-screen i { position: absolute; right: 4px; bottom: 4px; width: 7px; height: 7px; border: 2px solid var(--rst-ui-surface); border-radius: 50%; background: var(--terminal-tone); }
+  .terminal-panel__signal { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--rst-ui-line); border-bottom: 1px solid var(--rst-ui-line); }
+  .terminal-panel__signal > span { min-width: 0; display: grid; gap: 3px; padding: 11px 14px; }
+  .terminal-panel__signal > span:first-child { border-right: 1px solid var(--rst-ui-line); }
+  .terminal-panel__signal small,
+  .terminal-panel__pairing small { color: var(--rst-ui-muted); font-size: var(--rst-fs-micro); }
+  .terminal-panel__signal strong,
+  .terminal-panel__pairing strong { overflow: hidden; font-size: var(--rst-fs-caption); text-overflow: ellipsis; white-space: nowrap; }
+  .terminal-panel__pairing { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 14px; }
+  .terminal-panel__pairing > span { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; color: var(--terminal-tone); }
+  .terminal-panel__pairing > span > span { min-width: 0; display: grid; gap: 2px; color: var(--rst-ui-text); }
+  .terminal-panel__pairing > button,
+  .terminal-revoke { width: 28px; height: 28px; flex: 0 0 auto; display: grid; place-items: center; padding: 0; border: 1px solid var(--rst-ui-line); border-radius: 6px; color: var(--rst-ui-muted); background: transparent; cursor: pointer; }
+  .terminal-panel__pairing > button:hover:not(:disabled) { border-color: var(--rst-ui-action); color: var(--rst-ui-action); background: var(--rst-ui-action-soft); }
+  .terminal-panel > footer { min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 14px; border-top: 1px solid var(--rst-ui-line); background: var(--rst-ui-surface-field); }
+  .terminal-panel > footer span { color: var(--rst-ui-muted); font-size: var(--rst-fs-micro); line-height: 1.35; }
+  .terminal-revoke:hover:not(:disabled) { border-color: var(--rst-state-danger); color: var(--rst-state-danger); background: color-mix(in srgb, var(--rst-state-danger) 8%, transparent); }
+  .terminal-panel button:focus-visible { outline: 2px solid var(--rst-ui-action); outline-offset: 2px; }
   .mobile-device-list { display: none; }
   .pairing-cell { max-width: 230px; }
   .pairing-code,

@@ -17,6 +17,8 @@
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
   import WorkspaceTimeRange from '$lib/workspace-ui/WorkspaceTimeRange.svelte';
   import WorkspaceToggle from '$lib/workspace-ui/WorkspaceToggle.svelte';
+  import WorkspaceVisualCanvas from '$lib/workspace-ui/WorkspaceVisualCanvas.svelte';
+  import WorkspaceVisualSection from '$lib/workspace-ui/WorkspaceVisualSection.svelte';
   import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import {
     duplicateAreaTypeCount,
@@ -396,7 +398,7 @@
       });
   }
 
-  async function editAreaFromCard(areaId: string): Promise<void> {
+  async function editAreaFromVisual(areaId: string): Promise<void> {
     workspaceLayout.set('grid');
     view.resetFilters();
     await tick();
@@ -732,29 +734,26 @@
         </table>
       </div>
       {:else if planGroups.length}
-        <div class="area-cards">
+        <WorkspaceVisualCanvas label={t('Areas by floor')}>
           {#each planGroups as group (group.key)}
-            <section class="area-cards__floor" aria-label={group.label}>
-              <header>
-                <span>
-                  <strong>{group.label}</strong>
-                  <small>{group.rows.length === 1 ? t('1 area') : t('{count} areas', { count: group.rows.length })}</small>
-                </span>
-                <span class="area-cards__floor-line" aria-hidden="true"></span>
-              </header>
-              <div class="area-cards__grid">
+            <WorkspaceVisualSection
+              label={group.label}
+              meta={group.rows.length === 1 ? t('1 area') : t('{count} areas', { count: group.rows.length })}
+              tone={group.color}
+            >
+              <div class="area-atlas">
                 {#each group.rows as area (area.id)}
                   {@const stable = placement(area)}
                   {@const linkedPositionRows = positionsForArea(area.id)}
                   <button
-                    class="area-tile"
+                    class="area-room"
                     class:is-archived={!stable.active}
                     style={`--area-tone:${stable.color || 'var(--cl-info)'}`}
                     type="button"
                     aria-label={`${stable.name}, ${positionSummary(area.id)}, ${hoursSummary(stable)}`}
-                    onclick={() => void editAreaFromCard(area.id)}
+                    onclick={() => void editAreaFromVisual(area.id)}
                   >
-                    <span class="area-tile__identity">
+                    <span class="area-room__identity">
                       <WorkspaceAreaIcon
                         icon={stable.iconKey}
                         color={stable.color}
@@ -765,11 +764,11 @@
                         {#if instanceHint(stable)}<small>{instanceHint(stable)}</small>{/if}
                       </span>
                     </span>
-                    <span class="area-tile__positions">
-                      <span class="area-tile__state" class:is-archived={!stable.active}>
+                    <span class="area-room__positions">
+                      <span class="area-room__state" class:is-archived={!stable.active}>
                         <i aria-hidden="true"></i>{t(stable.active ? 'Active' : 'Archived')}
                       </span>
-                      <span class="area-tile__icons" aria-hidden="true">
+                      <span class="area-room__icons" aria-hidden="true">
                         {#each linkedPositionRows.slice(0, 4) as position (position.id)}
                           <WorkspaceAreaIcon
                             icon={position.iconKey || 'support'}
@@ -784,10 +783,10 @@
                         <small>{t(linkedPositionRows.length === 1 ? 'position' : 'positions')}</small>
                       </span>
                     </span>
-                    <span class="area-tile__position-names" class:is-empty={!linkedPositionRows.length}>
+                    <span class="area-room__position-names" class:is-empty={!linkedPositionRows.length}>
                       {positionSummary(area.id)}
                     </span>
-                    <span class="area-tile__hours">
+                    <span class="area-room__hours">
                       {#each activeServices as service (service.serviceKey)}
                         {@const hours = stable.serviceHours[service.serviceKey]}
                         <span>
@@ -800,9 +799,9 @@
                   </button>
                 {/each}
               </div>
-            </section>
+            </WorkspaceVisualSection>
           {/each}
-        </div>
+        </WorkspaceVisualCanvas>
       {:else}
         <div class="cl-empty">
           <strong>{t('No areas yet')}</strong>
@@ -931,54 +930,13 @@
     opacity: 0.35;
   }
 
-  .area-cards {
-    display: grid;
-    gap: 18px;
-    padding: 18px;
-  }
-
-  .area-cards__floor {
-    min-width: 0;
-    display: grid;
-    gap: 9px;
-  }
-
-  .area-cards__floor > header {
-    min-height: 28px;
-    display: grid;
-    grid-template-columns: auto minmax(48px, 1fr);
-    align-items: center;
-    gap: 12px;
-  }
-
-  .area-cards__floor > header > span:first-child {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-  }
-
-  .area-cards__floor > header strong {
-    color: var(--cl-ink);
-    font-size: var(--rst-fs-control);
-  }
-
-  .area-cards__floor > header small {
-    color: var(--cl-muted);
-    font-size: var(--rst-fs-caption);
-  }
-
-  .area-cards__floor-line {
-    height: 1px;
-    background: linear-gradient(90deg, var(--cl-line-strong), transparent);
-  }
-
-  .area-cards__grid {
+  .area-atlas {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(245px, 1fr));
     gap: 10px;
   }
 
-  .area-tile {
+  .area-room {
     --area-tone: var(--cl-info);
     position: relative;
     min-width: 0;
@@ -992,8 +950,7 @@
     border: 1px solid color-mix(in srgb, var(--area-tone) 28%, var(--cl-line));
     border-radius: var(--cl-radius);
     color: var(--cl-ink);
-    background:
-      linear-gradient(135deg, color-mix(in srgb, var(--area-tone) 7%, var(--cl-surface)) 0 58%, var(--cl-surface) 58% 100%);
+    background: color-mix(in srgb, var(--area-tone) 4%, var(--cl-surface));
     box-shadow: inset 0 3px 0 var(--area-tone), 0 1px 2px rgba(15, 23, 42, 0.04);
     font: inherit;
     text-align: left;
@@ -1004,23 +961,23 @@
       transform var(--cl-dur) var(--cl-ease);
   }
 
-  .area-tile:hover {
+  .area-room:hover {
     border-color: color-mix(in srgb, var(--area-tone) 52%, var(--cl-line));
     box-shadow: inset 0 3px 0 var(--area-tone), 0 5px 14px rgba(15, 23, 42, 0.08);
     transform: translateY(-1px);
   }
 
-  .area-tile:focus-visible {
+  .area-room:focus-visible {
     outline: 2px solid color-mix(in srgb, var(--area-tone) 52%, transparent);
     outline-offset: 2px;
   }
 
-  .area-tile.is-archived {
+  .area-room.is-archived {
     opacity: 0.62;
     filter: saturate(0.55);
   }
 
-  .area-tile__identity {
+  .area-room__identity {
     min-width: 0;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
@@ -1028,20 +985,20 @@
     gap: 9px;
   }
 
-  .area-tile__identity > span:last-child {
+  .area-room__identity > span:last-child {
     min-width: 0;
     display: grid;
     gap: 2px;
   }
 
-  .area-tile__identity strong,
-  .area-tile__identity small {
+  .area-room__identity strong,
+  .area-room__identity small {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .area-tile__state {
+  .area-room__state {
     display: inline-flex;
     align-items: center;
     gap: 5px;
@@ -1055,34 +1012,34 @@
     white-space: nowrap;
   }
 
-  .area-tile__positions > .area-tile__state {
+  .area-room__positions > .area-room__state {
     grid-column: 1 / -1;
     justify-self: end;
   }
 
-  .area-tile__state i {
+  .area-room__state i {
     width: 5px;
     height: 5px;
     border-radius: 50%;
     background: currentColor;
   }
 
-  .area-tile__state.is-archived {
+  .area-room__state.is-archived {
     border-color: var(--cl-line);
     color: var(--cl-muted);
     background: var(--cl-surface-muted);
   }
 
-  .area-tile__identity strong {
+  .area-room__identity strong {
     font-size: var(--rst-fs-body);
   }
 
-  .area-tile__identity small {
+  .area-room__identity small {
     color: var(--cl-muted);
     font-size: var(--rst-fs-micro);
   }
 
-  .area-tile__positions {
+  .area-room__positions {
     display: grid;
     grid-template-columns: auto auto;
     align-items: center;
@@ -1090,7 +1047,7 @@
     gap: 5px 8px;
   }
 
-  .area-tile__position-names {
+  .area-room__position-names {
     min-width: 0;
     align-self: center;
     overflow: hidden;
@@ -1100,30 +1057,30 @@
     white-space: nowrap;
   }
 
-  .area-tile__position-names.is-empty { color: var(--cl-muted); }
+  .area-room__position-names.is-empty { color: var(--cl-muted); }
 
-  .area-tile__positions > span:last-child {
+  .area-room__positions > span:last-child {
     display: grid;
     gap: 1px;
     text-align: right;
   }
 
-  .area-tile__positions strong {
+  .area-room__positions strong {
     font-size: var(--rst-fs-body);
     font-variant-numeric: tabular-nums;
   }
 
-  .area-tile__positions small {
+  .area-room__positions small {
     color: var(--cl-muted);
     font-size: var(--rst-fs-micro);
   }
 
-  .area-tile__icons {
+  .area-room__icons {
     display: flex;
     align-items: center;
   }
 
-  .area-tile__icons :global(.area-icon) {
+  .area-room__icons :global(.area-icon) {
     width: 24px;
     height: 24px;
     margin-right: -6px;
@@ -1131,7 +1088,7 @@
     border-radius: 6px;
   }
 
-  .area-tile__hours {
+  .area-room__hours {
     grid-column: 1 / -1;
     align-self: end;
     display: grid;
@@ -1139,7 +1096,7 @@
     gap: 6px;
   }
 
-  .area-tile__hours > span {
+  .area-room__hours > span {
     min-width: 0;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -1151,18 +1108,18 @@
     background: color-mix(in srgb, var(--cl-surface) 78%, transparent);
   }
 
-  .area-tile__hours strong,
-  .area-tile__hours small {
+  .area-room__hours strong,
+  .area-room__hours small {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .area-tile__hours strong {
+  .area-room__hours strong {
     font-size: var(--rst-fs-caption);
   }
 
-  .area-tile__hours small {
+  .area-room__hours small {
     color: var(--cl-muted);
     font-size: var(--rst-fs-micro);
     font-variant-numeric: tabular-nums;
@@ -1173,12 +1130,7 @@
   }
 
   @media (max-width: 760px) {
-    .area-cards {
-      gap: 14px;
-      padding: 12px;
-    }
-
-    .area-cards__grid {
+    .area-atlas {
       grid-template-columns: 1fr;
     }
 

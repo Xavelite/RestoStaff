@@ -9,8 +9,9 @@
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
   import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
   import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
-  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
-  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
+  import WorkspaceTag from '$lib/workspace-ui/WorkspaceTag.svelte';
+  import WorkspaceVisualCanvas from '$lib/workspace-ui/WorkspaceVisualCanvas.svelte';
+  import WorkspaceVisualSection from '$lib/workspace-ui/WorkspaceVisualSection.svelte';
   import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import WorkspaceColChooser from '$lib/workspace-ui/WorkspaceColChooser.svelte';
   import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
@@ -388,7 +389,7 @@
     discard();
   }
 
-  async function editPositionFromCard(positionId: string): Promise<void> {
+  async function editPositionFromVisual(positionId: string): Promise<void> {
     workspaceLayout.set('grid');
     view.resetFilters();
     await tick();
@@ -479,62 +480,85 @@
     {/snippet}
     {#snippet children()}
       {#if workspaceLayout.visual}
-        <div class="position-visual">
+        <WorkspaceVisualCanvas label={t('Position relationships')}>
+          {#if !ordered.length}
+            <div class="cl-empty visual-empty"><strong>{t('No positions yet')}</strong><span>{t('Add the jobs people do on a shift, such as Server, Cook or Bartender.')}</span></div>
+          {:else}
           {#each groups as group (group.key)}
-            <section class="position-visual__group" style={`--group-tone:${group.color || 'var(--cl-line-strong)'}`}>
-              {#if group.label}
-                <header>
-                  <span class="position-visual__group-icon">
+            <WorkspaceVisualSection
+              label={group.label || t('All positions')}
+              meta={group.rows.length === 1 ? t('1 position') : t('{count} positions', { count: group.rows.length })}
+              tone={group.color || 'var(--cl-line-strong)'}
+            >
+              {#snippet icon()}
+                {#if group.label}
                     <WorkspaceAreaIcon
                       icon={view.groupBy === 'category' ? positionCategoryIcon(group.key.replace('category:', '')) : 'support'}
                       color={group.color || 'var(--cl-muted)'}
                       size={15}
                       compact
                     />
-                  </span>
-                  <strong>{group.label}</strong>
-                  <small>{group.rows.length === 1 ? t('1 position') : t('{count} positions', { count: group.rows.length })}</small>
-                  <i aria-hidden="true"></i>
-                </header>
-              {/if}
-              <WorkspaceCardGrid>
+                {/if}
+              {/snippet}
+              <div class="role-network">
                 {#each group.rows as position (position.id)}
+                  {@const stable = placementForPosition(position)}
                   {@const headcount = employeesByPosition.get(position.id)?.size ?? 0}
-                  <WorkspaceCard
-                    accent={positionColor.get(position.id) ?? null}
-                    title={position.name || t('Position')}
-                    subtitle={linkedAreaSetLabel(linkedPositionAreaIds(position))}
-                    badges={[
-                      position.active
-                        ? { label: t('Active'), tone: 'ok' as const }
-                        : { label: t('Archived'), tone: 'neutral' as const },
-                      { label: t('{count} people', { count: headcount }), tone: headcount ? 'accent' as const : 'neutral' as const }
-                    ]}
-                    meta={workspace.canViewFinancials
-                      ? [{ label: t('Estimated hourly cost'), value: `€ ${position.estimatedHourlyCost}` }]
-                      : []}
-                    onactivate={() => void editPositionFromCard(position.id)}
+                  {@const linkedIds = linkedPositionAreaIds(stable)}
+                  {@const linkedAreas = linkedAreaOptions.filter((area) => linkedIds.includes(area.id))}
+                  <button
+                    class="role-path"
+                    class:is-archived={!stable.active}
+                    class:without-cost={!workspace.canViewFinancials}
+                    style={`--role-tone:${positionColor.get(position.id) ?? 'var(--cl-line-strong)'}`}
+                    type="button"
+                    onclick={() => void editPositionFromVisual(position.id)}
                   >
-                    {#snippet media()}
+                    <span class="role-path__identity">
                       <WorkspaceAreaIcon
-                        icon={positionAreaIcon(position)}
+                        icon={positionAreaIcon(stable)}
                         color={positionColor.get(position.id) ?? 'var(--cl-line-strong)'}
                         size={17}
                       />
-                    {/snippet}
-                    {#snippet children()}
+                      <span>
+                        <strong>{stable.name || t('Position')}</strong>
+                        <WorkspaceTag label={t(stable.active ? 'Active' : 'Archived')} tone={stable.active ? 'ok' : 'neutral'} />
+                      </span>
+                    </span>
+                    <span class="role-path__areas">
+                      <small>{t('Works across')}</small>
+                      <span>
+                        {#if linkedAreas.length}
+                          {#each linkedAreas.slice(0, 4) as area (area.id)}
+                            <span class="role-area" style={`--area-tone:${area.color || 'var(--cl-line-strong)'}`}>
+                              <WorkspaceAreaIcon icon={area.iconKey} color={area.color} size={12} compact />
+                              {area.name}
+                            </span>
+                          {/each}
+                          {#if linkedAreas.length > 4}<b>+{linkedAreas.length - 4}</b>{/if}
+                        {:else}
+                          <span class="role-area is-all">{t('All active areas')}</span>
+                        {/if}
+                      </span>
+                    </span>
+                    <span class="role-path__team">
+                      <small>{t('Assigned team')}</small>
                       {#if headcount}
-                        <WorkspacePeopleStack people={peopleForPosition(position.id)} />
+                        <span><WorkspacePeopleStack people={peopleForPosition(position.id)} /><strong>{headcount}</strong></span>
                       {:else}
-                        <span class="position-visual__empty">{t('No staff assigned')}</span>
+                        <em>{t('No staff assigned')}</em>
                       {/if}
-                    {/snippet}
-                  </WorkspaceCard>
+                    </span>
+                    {#if workspace.canViewFinancials}
+                      <span class="role-path__cost"><small>{t('Estimated hourly cost')}</small><strong>€ {stable.estimatedHourlyCost}</strong></span>
+                    {/if}
+                  </button>
                 {/each}
-              </WorkspaceCardGrid>
-            </section>
+              </div>
+            </WorkspaceVisualSection>
           {/each}
-        </div>
+          {/if}
+        </WorkspaceVisualCanvas>
       {:else}
       <div class="cl-tablewrap">
         <table class="cl-table cl-mobile-rows">
@@ -680,29 +704,95 @@
 {/if}
 
 <style>
-  .position-visual {
-    display: grid;
-    gap: 18px;
-    padding: 18px;
+  .role-network {
+    min-width: 820px;
+    overflow: hidden;
+    border: 1px solid var(--cl-line);
+    border-radius: var(--rst-ui-radius-md);
+    background: var(--cl-surface);
   }
-  .position-visual__group { min-width: 0; display: grid; gap: 9px; }
-  .position-visual__group > header {
-    min-height: 28px;
+  .visual-empty { min-height: 220px; }
+  .role-path {
+    --role-tone: var(--cl-line-strong);
+    position: relative;
+    width: 100%;
+    min-width: 0;
+    min-height: 72px;
     display: grid;
-    grid-template-columns: auto auto auto minmax(40px, 1fr);
+    grid-template-columns: minmax(190px, 1.1fr) minmax(260px, 1.5fr) minmax(150px, .8fr) minmax(120px, .55fr);
+    align-items: stretch;
+    padding: 0;
+    border: 0;
+    border-bottom: 1px solid var(--rst-ui-divider-soft);
+    color: var(--cl-ink);
+    background: var(--cl-surface);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background .16s ease;
+  }
+  .role-path:last-child { border-bottom: 0; }
+  .role-path.without-cost { grid-template-columns: minmax(190px, 1.1fr) minmax(260px, 1.5fr) minmax(150px, .8fr); }
+  .role-path::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--role-tone); }
+  .role-path:hover { background: color-mix(in srgb, var(--role-tone) 5%, var(--cl-surface)); }
+  .role-path:focus-visible { z-index: 1; outline: 2px solid color-mix(in srgb, var(--role-tone) 55%, transparent); outline-offset: -2px; }
+  .role-path.is-archived { opacity: .58; }
+  .role-path > span { min-width: 0; padding: 11px 12px; border-right: 1px solid var(--rst-ui-divider-soft); }
+  .role-path > span:last-child { border-right: 0; }
+  .role-path__identity { display: flex; align-items: center; gap: 9px; }
+  .role-path__identity > span:last-child { min-width: 0; display: grid; justify-items: start; gap: 4px; }
+  .role-path__identity strong { overflow: hidden; font-size: var(--rst-fs-control); text-overflow: ellipsis; white-space: nowrap; }
+  .role-path__areas,
+  .role-path__team,
+  .role-path__cost { display: grid; align-content: center; gap: 6px; }
+  .role-path small { color: var(--cl-muted); font-size: var(--rst-fs-micro); font-weight: var(--rst-fw-bold); text-transform: uppercase; }
+  .role-path__areas > span { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+  .role-area {
+    --area-tone: var(--cl-line-strong);
+    max-width: 145px;
+    display: inline-flex;
     align-items: center;
-    gap: 7px;
+    gap: 4px;
+    overflow: hidden;
+    padding: 2px 6px;
+    border: 1px solid color-mix(in srgb, var(--area-tone) 24%, var(--cl-line));
+    border-radius: var(--rst-ui-radius-pill);
+    background: color-mix(in srgb, var(--area-tone) 7%, var(--cl-surface));
+    font-size: var(--rst-fs-micro);
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
-  .position-visual__group > header strong { font-size: var(--rst-fs-control); }
-  .position-visual__group > header small { color: var(--cl-muted); font-size: var(--rst-fs-caption); }
-  .position-visual__group > header i {
-    height: 1px;
-    margin-left: 5px;
-    background: linear-gradient(90deg, color-mix(in srgb, var(--group-tone) 54%, var(--cl-line)), transparent);
+  .role-area.is-all { color: var(--cl-muted); background: var(--cl-surface-muted); }
+  .role-path__areas b { color: var(--cl-muted); font-size: var(--rst-fs-caption); }
+  .role-path__team > span { display: flex; align-items: center; gap: 8px; }
+  .role-path__team strong { color: var(--role-tone); font-size: var(--rst-fs-body); font-variant-numeric: tabular-nums; }
+  .role-path__team em { color: var(--cl-muted); font-size: var(--rst-fs-label); font-style: normal; }
+  .role-path__cost { justify-items: end; text-align: right; }
+  .role-path__cost strong { color: var(--cl-ok); font-size: var(--rst-fs-body-lg); font-variant-numeric: tabular-nums; }
+
+  @media (max-width: 980px) {
+    .role-network { overflow-x: auto; }
   }
-  .position-visual__group-icon { display: inline-flex; }
-  .position-visual__group :global(.card-grid) { padding: 0; }
-  .position-visual__empty { color: var(--cl-muted); font-size: var(--rst-fs-label); }
+
+  @media (max-width: 760px) {
+    .role-network { min-width: 0; overflow: visible; border: 0; background: transparent; }
+    .role-path {
+      min-height: 0;
+      grid-template-columns: minmax(0, 1fr) auto;
+      margin-bottom: 9px;
+      overflow: hidden;
+      border: 1px solid var(--cl-line);
+      border-radius: var(--rst-ui-radius-md);
+    }
+    .role-path:last-child { border-bottom: 1px solid var(--cl-line); }
+    .role-path.without-cost { grid-template-columns: minmax(0, 1fr); }
+    .role-path > span { border-right: 0; }
+    .role-path__identity { border-bottom: 1px solid var(--rst-ui-divider-soft); }
+    .role-path__areas { grid-column: 1 / -1; border-top: 1px solid var(--rst-ui-divider-soft); }
+    .role-path__team { grid-column: 1; }
+    .role-path.without-cost .role-path__team { grid-column: 1 / -1; }
+    .role-path__cost { grid-column: 2; grid-row: 2; }
+  }
 
   .money-field {
     min-width: 112px;

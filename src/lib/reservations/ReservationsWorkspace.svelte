@@ -18,6 +18,7 @@
   import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
   import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
+  import WorkspaceVisualCanvas from '$lib/workspace-ui/WorkspaceVisualCanvas.svelte';
   import ReservationFloorPlan from '$lib/reservations/ReservationFloorPlan.svelte';
   import ReservationStatusBadge from '$lib/reservations/ReservationStatusBadge.svelte';
   import {
@@ -755,7 +756,10 @@
         {/if}
       </section>
     {:else}
-    {#if workspaceLayout.visual && !loading && reservations.length}
+    {#if workspaceLayout.visual}
+      {#if loading && !currentData}
+        <div class="cl-empty visual-booking-empty"><strong>{t('Loading reservations...')}</strong></div>
+      {:else if reservations.length}
       <!-- A service is a clock, not a list. The agenda puts the hour on a spine
            and hangs each booking off the moment it arrives, so a host reads the
            shape of the night — where the rushes are and where the room breathes
@@ -803,6 +807,15 @@
           </li>
         {/each}
       </ol>
+      {:else}
+        <WorkspaceVisualCanvas label={t('Reservation agenda')}>
+          <div class="cl-empty visual-booking-empty">
+            <span class="cl-empty__icon" aria-hidden="true"><CalendarX2 size={18} /></span>
+            <strong>{t('No reservations for this view')}</strong>
+            <span>{t('Add a phone booking or change the service, status or search filter.')}</span>
+          </div>
+        </WorkspaceVisualCanvas>
+      {/if}
     {:else}
     <div class="cl-tablewrap">
       <table class="cl-table cl-mobile-rows reservation-table">
@@ -1197,6 +1210,7 @@
 <style>
   /* The agenda: an hour spine on the left, bookings hanging off it. */
   .agenda { display: grid; align-content: start; gap: 0; margin: 0; padding: 14px 16px 18px; list-style: none; }
+  .visual-booking-empty { min-height: 280px; border: 1px dashed var(--rst-ui-line); border-radius: var(--rst-ui-radius-md); }
 
   .agenda__row { display: grid; grid-template-columns: 52px 18px minmax(0, 1fr); align-items: stretch; }
 

@@ -13,9 +13,8 @@
   import { useWorkspaceTeamContext } from '$lib/workspace-ui/workspace-context';
   import WorkspaceCellBadge from '$lib/workspace-ui/WorkspaceCellBadge.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
-  import WorkspacePersonCard from '$lib/workspace-ui/WorkspacePersonCard.svelte';
-  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
-  import WorkspaceCardGroup from '$lib/workspace-ui/WorkspaceCardGroup.svelte';
+  import WorkspaceVisualCanvas from '$lib/workspace-ui/WorkspaceVisualCanvas.svelte';
+  import WorkspaceVisualSection from '$lib/workspace-ui/WorkspaceVisualSection.svelte';
   import WorkspaceTag from '$lib/workspace-ui/WorkspaceTag.svelte';
   import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
@@ -214,48 +213,68 @@
       {/snippet}
       {#snippet children()}
       {#if workspaceLayout.visual}
-        {#each groups as group (group.key)}
-          {#snippet contractCards()}
-            <WorkspaceCardGrid>
-              {#each group.employees as employee (employee.id)}
-                {@const missing = gaps(employee)}
-                <WorkspacePersonCard
-                  name={employee.displayName || t('New employee')}
-                  accent={employeeColor.get(employee.id) ?? null}
-                  roles={employee.jobFunctionIds.length
-                    ? employee.jobFunctionIds.map((id) => ({
-                        label: team.jobName.get(id) ?? t('No position yet'),
-                        color: positionColor.get(id) ?? null
-                      }))
-                    : [{ label: t('No position yet'), color: null }]}
-                  statusLabel={missing.length
-                    ? t('{count} details missing', { count: missing.length })
-                    : t('Ready')}
-                  statusTone={missing.length ? 'warn' : 'ok'}
-                  onactivate={team.canManageOperations && team.editable ? () => openDetails(employee.id) : null}
-                >
-                  {#snippet tags()}
-                    <WorkspaceTag
-                      label={team.contractName.get(employee.contractTypeId) || t('No contract')}
-                      tone={employee.contractTypeId ? 'neutral' : 'warn'}
-                    />
-                    <WorkspaceTag label={t(REGIME_LABEL[employee.workRegime] ?? employee.workRegime)} />
-                  {/snippet}
-                </WorkspacePersonCard>
-              {/each}
-            </WorkspaceCardGrid>
-          {/snippet}
-          {#if view.grouping && group.label}
-            <WorkspaceCardGroup
-              label={group.label}
+        <WorkspaceVisualCanvas label={t('Contracts')}>
+          {#if !filtered.length}
+            <div class="cl-empty visual-empty"><strong>{t('No active employees')}</strong><span>{t('Add someone to define their contract setup.')}</span></div>
+          {:else}
+          {#each groups as group (group.key)}
+            <WorkspaceVisualSection
+              label={view.grouping && group.label ? group.label : t('Contracts')}
               meta={peopleCountLabel(group.employees.length)}
             >
-              {@render contractCards()}
-            </WorkspaceCardGroup>
-          {:else}
-            {@render contractCards()}
+              <div class="contract-ledger">
+                {#each group.employees as employee (employee.id)}
+                  {@const missing = gaps(employee)}
+                  {@const contractCode = workspace.team?.contract_types.find((item) => item.id === employee.contractTypeId)?.code ?? ''}
+                  <button
+                    class:needs-attention={missing.length > 0}
+                    class="contract-record"
+                    style={`--employee-tone:${employeeColor.get(employee.id) ?? 'var(--rst-ui-action)'}`}
+                    type="button"
+                    disabled={!team.canManageOperations || !team.editable}
+                    onclick={() => openDetails(employee.id)}
+                  >
+                    <span class="contract-record__identity">
+                      <span class="contract-record__avatar">{personInitials(employee.displayName || '?')}</span>
+                      <span>
+                        <strong>{employee.displayName || t('New employee')}</strong>
+                        <small>{team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position yet')}</small>
+                      </span>
+                    </span>
+                    <span class="contract-fact" class:is-missing={!employee.contractTypeId}>
+                      <small>{t('Contract')}</small>
+                      <strong>{team.contractName.get(employee.contractTypeId) || t('Not set')}</strong>
+                    </span>
+                    <span class="contract-fact" class:is-missing={!employee.contractStart}>
+                      <small>{t('Period')}</small>
+                      <strong>{employee.contractStart || t('Not set')}</strong>
+                      <span>{contractCode === 'CDI' ? t('Open ended') : employee.contractEnd || t('End not set')}</span>
+                    </span>
+                    <span class="contract-fact" class:is-missing={!Number(employee.weeklyContractHours)}>
+                      <small>{t('Weekly hours')}</small>
+                      <strong>{employee.weeklyContractHours ? `${employee.weeklyContractHours}h` : t('Not set')}</strong>
+                    </span>
+                    <span class="contract-fact">
+                      <small>{t('Availability mode')}</small>
+                      <strong>{t(REGIME_LABEL[employee.workRegime] ?? employee.workRegime)}</strong>
+                    </span>
+                    <span class="contract-record__readiness">
+                      <span>
+                        <WorkspaceTag
+                          label={missing.length ? t('{count} details missing', { count: missing.length }) : t('Ready')}
+                          tone={missing.length ? 'warn' : 'ok'}
+                        />
+                        <small>{3 - missing.length}/3</small>
+                      </span>
+                      <i><i style={`width:${((3 - missing.length) / 3) * 100}%`}></i></i>
+                    </span>
+                  </button>
+                {/each}
+              </div>
+            </WorkspaceVisualSection>
+          {/each}
           {/if}
-        {/each}
+        </WorkspaceVisualCanvas>
       {:else}
       <div class="cl-tablewrap">
         <table class="cl-table cl-mobile-rows contract-table">
@@ -359,6 +378,68 @@
 {/if}
 
 <style>
+  .contract-ledger {
+    overflow: hidden;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: var(--rst-ui-radius-md);
+    background: var(--rst-ui-surface);
+  }
+  .visual-empty { min-height: 220px; }
+
+  .contract-record {
+    width: 100%;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(210px, 1.35fr) repeat(3, minmax(110px, .8fr)) minmax(150px, 1fr) minmax(136px, .8fr);
+    align-items: center;
+    gap: 0;
+    padding: 0;
+    border: 0;
+    border-bottom: 1px solid var(--rst-ui-line);
+    color: var(--rst-ui-text);
+    background: var(--rst-ui-surface);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--cl-dur) var(--cl-ease);
+  }
+
+  .contract-record:last-child { border-bottom: 0; }
+  .contract-record:hover:not(:disabled) { background: color-mix(in srgb, var(--employee-tone) 4%, var(--rst-ui-surface)); }
+  .contract-record:focus-visible { position: relative; z-index: 1; outline: 2px solid var(--rst-ui-action); outline-offset: -2px; }
+  .contract-record:disabled { cursor: default; }
+
+  .contract-record__identity,
+  .contract-fact,
+  .contract-record__readiness {
+    min-width: 0;
+    min-height: 74px;
+    padding: 12px 14px;
+    border-right: 1px solid var(--rst-ui-line);
+  }
+
+  .contract-record__identity { display: grid; grid-template-columns: 38px minmax(0, 1fr); align-items: center; gap: 10px; }
+  .contract-record__avatar { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--employee-tone) 32%, var(--rst-ui-line)); border-radius: 50%; color: var(--employee-tone); background: color-mix(in srgb, var(--employee-tone) 8%, var(--rst-ui-surface)); font-size: var(--rst-fs-caption); font-weight: var(--rst-fw-bold); }
+  .contract-record__identity > span:last-child,
+  .contract-fact { display: grid; align-content: center; gap: 3px; }
+  .contract-record__identity strong,
+  .contract-record__identity small,
+  .contract-fact strong,
+  .contract-fact span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .contract-record__identity strong { font-size: var(--rst-fs-body); }
+  .contract-record__identity small,
+  .contract-fact small,
+  .contract-fact span { color: var(--rst-ui-muted); font-size: var(--rst-fs-micro); }
+  .contract-fact strong { font-size: var(--rst-fs-caption); font-weight: var(--rst-fw-bold); }
+  .contract-fact.is-missing strong { color: var(--rst-state-warning-text); }
+
+  .contract-record__readiness { display: grid; align-content: center; gap: 8px; border-right: 0; }
+  .contract-record__readiness > span { display: flex; align-items: center; justify-content: space-between; gap: 7px; }
+  .contract-record__readiness small { color: var(--rst-ui-muted); font-size: var(--rst-fs-micro); font-variant-numeric: tabular-nums; }
+  .contract-record__readiness > i { height: 4px; overflow: hidden; border-radius: 999px; background: var(--rst-ui-surface-field-strong); }
+  .contract-record__readiness > i > i { height: 100%; display: block; border-radius: inherit; background: var(--cl-ok); }
+  .contract-record.needs-attention .contract-record__readiness > i > i { background: var(--rst-state-warning); }
+
   .contract-table { min-width: 1080px; }
   .employee-name { font-weight: var(--rst-fw-medium); }
   .cell-value { max-width: 230px; display: block; overflow: hidden; padding: 3px 0; border: 0; background: transparent; color: var(--cl-ink); font: inherit; font-size: var(--rst-fs-body); line-height: 1.35; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
@@ -375,4 +456,21 @@
   .hours-field { min-width: 74px; display: inline-grid; grid-template-columns: minmax(0, 1fr) 14px; align-items: center; }
   .hours-field .grid-field { text-align: right; }
   .hours-field > span { color: var(--cl-muted); font-size: var(--rst-fs-label); }
+
+  @media (max-width: 980px) {
+    .contract-record { grid-template-columns: minmax(190px, 1.2fr) repeat(2, minmax(110px, .8fr)) minmax(136px, .8fr); }
+    .contract-fact:nth-of-type(4),
+    .contract-fact:nth-of-type(5) { display: none; }
+  }
+
+  @media (max-width: 760px) {
+    .contract-ledger { border: 0; background: transparent; }
+    .contract-record { grid-template-columns: 1fr 1fr; margin-bottom: 8px; border: 1px solid var(--rst-ui-line); border-left: 3px solid var(--employee-tone); border-radius: var(--rst-ui-radius-md); }
+    .contract-record:last-child { border-bottom: 1px solid var(--rst-ui-line); }
+    .contract-record__identity { grid-column: 1 / -1; border-right: 0; border-bottom: 1px solid var(--rst-ui-line); }
+    .contract-fact { min-height: 58px; }
+    .contract-fact:nth-of-type(4),
+    .contract-fact:nth-of-type(5) { display: grid; }
+    .contract-record__readiness { grid-column: 1 / -1; min-height: 58px; border-top: 1px solid var(--rst-ui-line); }
+  }
 </style>

@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { CalendarDays, Check, Inbox, X } from '@lucide/svelte';
+  import { Check, Inbox, X } from '@lucide/svelte';
   import { saveAbsence } from '$lib/api/mutations';
   import { friendlyError } from '$lib/api/error-messages';
   import { activeServicePeriods, serviceLabel, type ServiceKey } from '$lib/calendar/date';
-  import { t } from '$lib/i18n/i18n.svelte';
+  import { i18n, t } from '$lib/i18n/i18n.svelte';
   import { personInitials } from '$lib/ui/person';
   import { buildEmployeeColorMap } from '$lib/ui/position-color';
   import { toasts } from '$lib/ui/toast.svelte';
@@ -17,6 +17,8 @@
   import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
   import WorkspaceRosterLegend from '$lib/workspace-ui/WorkspaceRosterLegend.svelte';
+  import WorkspaceVisualCanvas from '$lib/workspace-ui/WorkspaceVisualCanvas.svelte';
+  import WorkspaceVisualSection from '$lib/workspace-ui/WorkspaceVisualSection.svelte';
 
   /** Payment semantics, phrased once for the legend that replaced the types page. */
   const PAID_LABEL: Record<string, string> = {
@@ -64,7 +66,7 @@
 
   type AbsenceRow = ManagerOperationsReadModel['absences'][number];
   type AbsenceGroup = { key: string; label: string; rows: AbsenceRow[] };
-  type AbsenceLane = { status: string; label: string; rows: AbsenceRow[] };
+  type AbsenceMonth = { key: string; label: string; rows: AbsenceRow[] };
 
   function groupedRows(rows: AbsenceRow[], employeeName: Map<string, string>, typeNameForGroup: Map<string, string>): AbsenceGroup[] {
     if (!view.grouping) return [{ key: 'all', label: '', rows }];
@@ -79,17 +81,19 @@
     return [...map.values()].sort((a, b) => a.label.localeCompare(b.label));
   }
 
-  function visualAbsenceLanes(rows: AbsenceRow[]): AbsenceLane[] {
-    const lanes: AbsenceLane[] = [
-      { status: 'pending', label: 'Needs review', rows: [] },
-      { status: 'approved', label: 'Approved', rows: [] },
-      { status: 'rejected', label: 'Rejected', rows: [] },
-      { status: 'cancelled', label: 'Cancelled', rows: [] }
-    ];
+  function visualAbsenceMonths(rows: AbsenceRow[]): AbsenceMonth[] {
+    const months = new Map<string, AbsenceMonth>();
     for (const absence of rows.toSorted((left, right) => right.start_date.localeCompare(left.start_date))) {
-      lanes.find((lane) => lane.status === absence.status)?.rows.push(absence);
+      const key = absence.start_date.slice(0, 7);
+      const date = new Date(`${key}-01T12:00:00Z`);
+      const label = Number.isNaN(date.getTime())
+        ? key
+        : new Intl.DateTimeFormat(i18n.intlLocale, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(date);
+      const month = months.get(key) ?? { key, label, rows: [] };
+      month.rows.push(absence);
+      months.set(key, month);
     }
-    return lanes;
+    return [...months.values()];
   }
 
   function toneFor(status: string): 'success' | 'warning' | 'danger' {
@@ -186,48 +190,44 @@
         {#if !allAbsences.length}
           <div class="cl-empty leave-empty"><span class="cl-empty__icon" aria-hidden="true"><Inbox size={18} /></span><strong>{t('Nothing to review')}</strong><span>{t('Time-off requests appear here as employees send them.')}</span></div>
         {:else}
-          <div class="leave-lanes" aria-label={t('Time off lifecycle')}>
-            {#each visualAbsenceLanes(allAbsences) as lane (lane.status)}
-              <section class="leave-lane is-{lane.status}">
-                <header>
-                  <span><strong>{t(lane.label)}</strong><small>{lane.rows.length}</small></span>
-                  <i aria-hidden="true"></i>
-                </header>
-                <div class="leave-lane__requests">
-                  {#each lane.rows as absence (absence.id)}
+          <WorkspaceVisualCanvas label={t('Time off')}>
+            {#each visualAbsenceMonths(allAbsences) as month (month.key)}
+              <WorkspaceVisualSection label={month.label} meta={t('{count} requests', { count: month.rows.length })}>
+                <div class="absence-agenda">
+                  {#each month.rows as absence (absence.id)}
                     {@const service = asService(absence.service_key)}
-                    <article class="leave-ticket" style={`--person-tone:${employeeColor.get(absence.employee_id) ?? 'var(--cl-line-strong)'}`}>
-                      <header>
+                    <article class="absence-entry is-{absence.status}" style={`--person-tone:${employeeColor.get(absence.employee_id) ?? 'var(--cl-line-strong)'}`}>
+                      <span class="absence-entry__date">
+                        <strong>{absence.start_date.slice(8, 10)}</strong>
+                        <small>{durationLabel(absence)}</small>
+                      </span>
+                      <span class="absence-entry__person">
                         <span class="cl-avatar">{personInitials(employeeName.get(absence.employee_id) ?? '?')}</span>
                         <span>
                           <strong>{employeeName.get(absence.employee_id) ?? '—'}</strong>
                           <small>{typeName.get(absence.absence_type_id ?? '') ?? t('No type')}</small>
                         </span>
-                        <WorkspaceCellBadge label={absence.status} tone={toneFor(absence.status)} icon={iconFor(absence.status)} />
-                      </header>
-                      <div class="leave-ticket__period">
-                        <CalendarDays size={14} aria-hidden="true" />
+                      </span>
+                      <span class="absence-entry__period">
                         <strong>{formatDate(absence.start_date)}{#if absence.end_date !== absence.start_date} → {formatDate(absence.end_date)}{/if}</strong>
-                        <span>{durationLabel(absence)}</span>
-                      </div>
-                      <div class="leave-ticket__meta">
-                        {#if service}<WorkspaceService {service} label={serviceName(service)} />{:else}<span>{t('Full day')}</span>{/if}
-                        {#if absence.employee_comment}<p>{absence.employee_comment}</p>{/if}
-                      </div>
+                        <span>{#if service}<WorkspaceService {service} label={serviceName(service)} />{:else}{t('Full day')}{/if}</span>
+                      </span>
+                      <span class="absence-entry__note">{absence.employee_comment || t('No comment')}</span>
+                      <span class="absence-entry__status"><WorkspaceCellBadge label={absence.status} tone={toneFor(absence.status)} icon={iconFor(absence.status)} /></span>
                       {#if absence.status === 'pending'}
                         <footer>
-                          <button class="cl-btn" type="button" disabled={!teamContext.editable || busy === absence.id} onclick={() => void resolve(absence.id, absence.employee_id, 'reject')}><X size={14} aria-hidden="true" />{t('Reject')}</button>
-                          <button class="cl-btn is-primary" type="button" disabled={!teamContext.editable || busy === absence.id} onclick={() => void resolve(absence.id, absence.employee_id, 'approve')}><Check size={14} aria-hidden="true" />{t('Approve')}</button>
+                          <button class="agenda-action is-reject" title={t('Reject')} aria-label={t('Reject')} type="button" disabled={!teamContext.editable || busy === absence.id} onclick={() => void resolve(absence.id, absence.employee_id, 'reject')}><X size={15} aria-hidden="true" /></button>
+                          <button class="agenda-action is-approve" title={t('Approve')} aria-label={t('Approve')} type="button" disabled={!teamContext.editable || busy === absence.id} onclick={() => void resolve(absence.id, absence.employee_id, 'approve')}><Check size={15} aria-hidden="true" /></button>
                         </footer>
+                      {:else}
+                        <span class="absence-entry__resolved" aria-hidden="true"></span>
                       {/if}
                     </article>
-                  {:else}
-                    <span class="leave-lane__empty">{t('No requests')}</span>
                   {/each}
                 </div>
-              </section>
+              </WorkspaceVisualSection>
             {/each}
-          </div>
+          </WorkspaceVisualCanvas>
         {/if}
       {:else}
       <div class="cl-tablewrap">
@@ -291,50 +291,58 @@
 
 <style>
   .leave-empty { min-height: 190px; }
-  .leave-lanes {
+  .absence-agenda { position: relative; overflow: hidden; border: 1px solid var(--rst-ui-line); border-radius: var(--rst-ui-radius-md); background: var(--rst-ui-surface); }
+  .absence-agenda::before { position: absolute; top: 0; bottom: 0; left: 42px; width: 1px; background: var(--rst-ui-line); content: ''; }
+  .absence-entry {
+    --entry-tone: var(--rst-ui-muted);
+    position: relative;
     display: grid;
-    grid-template-columns: repeat(4, minmax(240px, 1fr));
-    gap: 12px;
-    padding: 14px;
-    overflow-x: auto;
+    grid-template-columns: 66px minmax(190px, 1.15fr) minmax(190px, 1fr) minmax(130px, .8fr) auto 70px;
+    align-items: center;
+    min-height: 74px;
+    border-bottom: 1px solid var(--rst-ui-line);
   }
-  .leave-lane { --lane-tone: var(--cl-line-strong); min-width: 240px; align-self: start; }
-  .leave-lane.is-pending { --lane-tone: var(--rst-state-warning); }
-  .leave-lane.is-approved { --lane-tone: var(--cl-ok); }
-  .leave-lane.is-rejected { --lane-tone: var(--rst-state-danger); }
-  .leave-lane.is-cancelled { --lane-tone: var(--cl-muted); }
-  .leave-lane > header { display: flex; align-items: center; gap: 9px; min-height: 36px; padding: 0 3px 8px; }
-  .leave-lane > header > span { display: flex; align-items: center; gap: 7px; }
-  .leave-lane > header strong { font-size: var(--rst-fs-label); }
-  .leave-lane > header small { min-width: 22px; padding: 2px 6px; border-radius: var(--rst-ui-radius-pill); color: var(--lane-tone); background: color-mix(in srgb, var(--lane-tone) 12%, transparent); font-size: var(--rst-fs-micro); text-align: center; }
-  .leave-lane > header i { flex: 1; height: 1px; background: linear-gradient(90deg, color-mix(in srgb, var(--lane-tone) 40%, transparent), transparent); }
-  .leave-lane__requests { display: grid; gap: 8px; }
-  .leave-ticket {
-    display: grid;
-    gap: 10px;
-    padding: 12px;
-    border: 1px solid var(--cl-line);
-    border-top: 3px solid var(--lane-tone);
-    border-radius: var(--rst-ui-radius-md);
-    background: var(--rst-ui-surface-panel);
-  }
-  .leave-ticket > header { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; }
-  .leave-ticket > header .cl-avatar { --avatar-color: var(--person-tone); }
-  .leave-ticket > header > span:nth-child(2) { min-width: 0; display: grid; gap: 2px; }
-  .leave-ticket > header strong { overflow: hidden; font-size: var(--rst-fs-body); text-overflow: ellipsis; white-space: nowrap; }
-  .leave-ticket > header small { overflow: hidden; color: var(--cl-muted); font-size: var(--rst-fs-caption); text-overflow: ellipsis; white-space: nowrap; }
-  .leave-ticket__period { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px; padding: 9px; border-radius: var(--rst-ui-radius-sm); background: var(--rst-ui-surface-field); font-variant-numeric: tabular-nums; }
-  .leave-ticket__period :global(svg) { color: var(--lane-tone); }
-  .leave-ticket__period strong { font-size: var(--rst-fs-control); }
-  .leave-ticket__period span { color: var(--cl-muted); font-size: var(--rst-fs-caption); font-weight: var(--rst-fw-bold); }
-  .leave-ticket__meta { min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 7px; color: var(--cl-muted); font-size: var(--rst-fs-caption); }
-  .leave-ticket__meta p { min-width: 0; flex: 1 1 100%; overflow: hidden; margin: 0; text-overflow: ellipsis; white-space: nowrap; }
-  .leave-ticket footer { display: flex; justify-content: flex-end; gap: 7px; padding-top: 9px; border-top: 1px solid var(--rst-ui-divider-soft); }
-  .leave-ticket footer .cl-btn { min-height: 30px; }
-  .leave-lane__empty { display: grid; place-items: center; min-height: 92px; border: 1px dashed var(--cl-line); border-radius: var(--rst-ui-radius-md); color: var(--cl-muted); font-size: var(--rst-fs-label); }
+  .absence-entry:last-child { border-bottom: 0; }
+  .absence-entry.is-pending { --entry-tone: var(--rst-state-warning); }
+  .absence-entry.is-approved { --entry-tone: var(--cl-ok); }
+  .absence-entry.is-rejected { --entry-tone: var(--rst-state-danger); }
+  .absence-entry__date { position: relative; z-index: 1; display: grid; place-items: center; gap: 1px; color: var(--entry-tone); }
+  .absence-entry__date::before { position: absolute; z-index: -1; width: 31px; height: 31px; border: 3px solid var(--rst-ui-surface); border-radius: 50%; background: color-mix(in srgb, var(--entry-tone) 13%, var(--rst-ui-surface)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--entry-tone) 30%, var(--rst-ui-line)); content: ''; }
+  .absence-entry__date strong { font-size: var(--rst-fs-control); font-variant-numeric: tabular-nums; }
+  .absence-entry__date small { position: absolute; top: calc(50% + 19px); color: var(--rst-ui-muted); font-size: var(--rst-fs-micro); }
+  .absence-entry__person,
+  .absence-entry__period { min-width: 0; display: flex; align-items: center; gap: 9px; padding: 11px 12px; }
+  .absence-entry__person .cl-avatar { --avatar-color: var(--person-tone); flex: 0 0 auto; }
+  .absence-entry__person > span:last-child,
+  .absence-entry__period { display: grid; align-content: center; gap: 2px; }
+  .absence-entry__person strong,
+  .absence-entry__person small,
+  .absence-entry__period strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .absence-entry__person strong,
+  .absence-entry__period strong { font-size: var(--rst-fs-body); }
+  .absence-entry__person small,
+  .absence-entry__period > span,
+  .absence-entry__note { color: var(--rst-ui-muted); font-size: var(--rst-fs-caption); }
+  .absence-entry__note { overflow: hidden; padding: 11px 12px; text-overflow: ellipsis; white-space: nowrap; }
+  .absence-entry__status { padding: 11px 12px; }
+  .absence-entry footer { display: flex; justify-content: flex-end; gap: 5px; padding-right: 12px; }
+  .agenda-action { width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 1px solid var(--rst-ui-line); border-radius: 50%; color: var(--rst-ui-muted); background: var(--rst-ui-surface); cursor: pointer; }
+  .agenda-action.is-reject:hover:not(:disabled) { border-color: var(--rst-state-danger); color: var(--rst-state-danger); background: color-mix(in srgb, var(--rst-state-danger) 8%, var(--rst-ui-surface)); }
+  .agenda-action.is-approve:hover:not(:disabled) { border-color: var(--cl-ok); color: var(--cl-ok); background: color-mix(in srgb, var(--cl-ok) 8%, var(--rst-ui-surface)); }
+  .agenda-action:focus-visible { outline: 2px solid var(--rst-ui-action); outline-offset: 2px; }
   .period time { color: var(--cl-ink); font-size: var(--rst-fs-body); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  @media (max-width: 980px) {
+    .absence-entry { grid-template-columns: 60px minmax(170px, 1fr) minmax(160px, .9fr) auto 70px; }
+    .absence-entry__note { display: none; }
+    .absence-agenda::before { left: 38px; }
+  }
   @media (max-width: 760px) {
-    .leave-lanes { grid-template-columns: 1fr; padding: 10px; overflow: visible; }
-    .leave-lane { min-width: 0; }
+    .absence-entry { grid-template-columns: 52px minmax(0, 1fr) auto; min-height: 96px; padding-block: 8px; }
+    .absence-agenda::before { left: 33px; }
+    .absence-entry__person { padding-left: 8px; }
+    .absence-entry__period { grid-column: 2; padding: 0 8px 8px; }
+    .absence-entry__status { grid-column: 3; grid-row: 1; align-self: start; padding: 11px 8px 0; }
+    .absence-entry footer,
+    .absence-entry__resolved { grid-column: 3; grid-row: 2; align-self: end; padding: 0 8px 8px 0; }
   }
 </style>

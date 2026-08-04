@@ -23,8 +23,9 @@
   } from '@lucide/svelte';
   import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
-  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
-  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
+  import WorkspaceVisualCanvas from '$lib/workspace-ui/WorkspaceVisualCanvas.svelte';
+  import WorkspaceVisualSection from '$lib/workspace-ui/WorkspaceVisualSection.svelte';
+  import WorkspaceTag from '$lib/workspace-ui/WorkspaceTag.svelte';
   import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import Dialog from '$lib/components/Dialog.svelte';
   import ActionButton from '$lib/components/ActionButton.svelte';
@@ -157,6 +158,20 @@
 
   function categoryCount(category: CategoryFilter): number {
     return activeDocuments.filter((document) => category === 'all' || document.category === category).length;
+  }
+
+  function visualDocumentGroups(items: RestaurantDocument[]) {
+    return DOCUMENT_CATEGORIES
+      .map((category) => ({
+        ...category,
+        documents: items.filter((document) => document.category === category.key)
+      }))
+      .filter((category) => category.documents.length > 0);
+  }
+
+  function fileExtension(filename: string): string {
+    const extension = filename.split('.').pop()?.trim().toUpperCase() ?? '';
+    return extension && extension !== filename.toUpperCase() ? extension.slice(0, 5) : 'FILE';
   }
 
   function dateLabel(value: string | null): string {
@@ -336,47 +351,56 @@
         </header>
 
         {#if filteredDocuments.length && workspaceLayout.visual}
-          <WorkspaceCardGrid>
-            {#each filteredDocuments as document (document.id)}
-              {@const expiryState = documentExpiryState(document.expiresOn, today)}
-              {@const expiring = document.status !== 'archived' && (expiryState === 'expired' || expiryState === 'soon')}
-              <WorkspaceCard
-                accent={document.status === 'archived'
-                  ? null
-                  : expiryState === 'expired'
-                    ? 'var(--rst-state-danger)'
-                    : expiryState === 'soon'
-                      ? 'var(--rst-state-warning, #d99a1c)'
-                      : 'var(--cl-accent)'}
-                title={document.title}
-                subtitle={document.originalFilename}
-                badges={[
-                  { label: t(categoryLabel(document.category)), tone: 'neutral' as const },
-                  ...(document.status === 'archived'
-                    ? [{ label: t('Archived'), tone: 'neutral' as const }]
-                    : expiryState === 'expired'
-                      ? [{ label: t('Expired'), tone: 'danger' as const }]
-                      : expiryState === 'soon'
-                        ? [{ label: t('Due soon'), tone: 'warn' as const }]
-                        : []),
-                  ...(document.accessScope === 'owner'
-                    ? [{ label: t('Owner only'), tone: 'accent' as const }]
-                    : [])
-                ]}
-                meta={[
-                  { label: t('Employee'), value: document.employeeName ?? t('None'), muted: !document.employeeName },
-                  { label: t('Expiry'), value: dateLabel(document.expiresOn), muted: !expiring },
-                  { label: t('Size'), value: formatBytes(document.sizeBytes) },
-                  { label: t('Uploaded'), value: uploadedLabel(document.createdAt) }
-                ]}
-                onactivate={() => (selectedId = document.id)}
-              >
-                {#snippet media()}
-                  <FileText size={18} strokeWidth={1.7} aria-hidden="true" />
-                {/snippet}
-              </WorkspaceCard>
+          <WorkspaceVisualCanvas label={t('Document library')}>
+            {#each visualDocumentGroups(filteredDocuments) as group (group.key)}
+              {@const CategoryIcon = CATEGORY_ICONS[group.key]}
+              {#snippet categoryIcon()}<CategoryIcon size={15} aria-hidden="true" />{/snippet}
+              <WorkspaceVisualSection label={t(group.label)} meta={t('{count} documents in this view', { count: group.documents.length })} icon={categoryIcon}>
+                <div class="file-shelf">
+                  {#each group.documents as document (document.id)}
+                    {@const expiryState = documentExpiryState(document.expiresOn, today)}
+                    <button
+                      class:is-archived={document.status === 'archived'}
+                      class:is-expired={expiryState === 'expired'}
+                      class:is-due={expiryState === 'soon'}
+                      class="document-file"
+                      type="button"
+                      onclick={() => (selectedId = document.id)}
+                    >
+                      <span class="document-cover" aria-hidden="true">
+                        <FileText size={24} strokeWidth={1.5} />
+                        <b>{fileExtension(document.originalFilename)}</b>
+                      </span>
+                      <span class="document-file__content">
+                        <span class="document-file__heading">
+                          <strong>{document.title}</strong>
+                          {#if document.accessScope === 'owner'}<LockKeyhole size={14} aria-label={t('Owner only')} />{/if}
+                        </span>
+                        <small class="document-file__name">{document.originalFilename}</small>
+                        <span class="document-file__tags">
+                          {#if document.status === 'archived'}
+                            <WorkspaceTag label={t('Archived')} />
+                          {:else if expiryState === 'expired'}
+                            <WorkspaceTag label={t('Expired')} tone="danger" />
+                          {:else if expiryState === 'soon'}
+                            <WorkspaceTag label={t('Due soon')} tone="warn" />
+                          {:else}
+                            <WorkspaceTag label={t('Current')} tone="ok" />
+                          {/if}
+                          {#if document.employeeName}<WorkspaceTag label={document.employeeName} tone="quiet" />{/if}
+                        </span>
+                        <span class="document-file__facts">
+                          <span><small>{t('Expiry')}</small><strong>{dateLabel(document.expiresOn)}</strong></span>
+                          <span><small>{t('Size')}</small><strong>{formatBytes(document.sizeBytes)}</strong></span>
+                          <span><small>{t('Uploaded')}</small><strong>{uploadedLabel(document.createdAt)}</strong></span>
+                        </span>
+                      </span>
+                    </button>
+                  {/each}
+                </div>
+              </WorkspaceVisualSection>
             {/each}
-          </WorkspaceCardGrid>
+          </WorkspaceVisualCanvas>
         {:else if filteredDocuments.length}
           <div class="cl-tablewrap">
             <table class="cl-table cl-mobile-rows">
@@ -749,6 +773,28 @@
   .document-list tbody tr { cursor: pointer; }
   .document-list tbody tr:hover { background: var(--rst-ui-hover-bg); }
   .document-list tbody tr.is-archived { opacity: .7; }
+  .file-shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 10px; }
+  .document-file { --file-tone: var(--rst-ui-action); min-width: 0; min-height: 152px; display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 13px; padding: 14px; border: 1px solid var(--rst-ui-line); border-radius: var(--rst-ui-radius-md); color: var(--rst-ui-text); background: var(--rst-ui-surface); font: inherit; text-align: left; cursor: pointer; transition: border-color var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease), transform var(--cl-dur) var(--cl-ease); }
+  .document-file.is-due { --file-tone: var(--rst-state-warning); }
+  .document-file.is-expired { --file-tone: var(--rst-state-danger); }
+  .document-file.is-archived { --file-tone: var(--rst-ui-muted); opacity: .7; }
+  .document-file:hover { border-color: color-mix(in srgb, var(--file-tone) 42%, var(--rst-ui-line)); box-shadow: 0 8px 20px rgba(15, 23, 42, .07); transform: translateY(-1px); }
+  .document-file:focus-visible { outline: 2px solid var(--rst-ui-action); outline-offset: 2px; }
+  .document-cover { position: relative; width: 58px; height: 76px; display: grid; place-items: center; align-self: start; border: 1px solid color-mix(in srgb, var(--file-tone) 30%, var(--rst-ui-line)); border-radius: 4px 8px 4px 4px; color: var(--file-tone); background: color-mix(in srgb, var(--file-tone) 7%, var(--rst-ui-surface)); }
+  .document-cover::after { position: absolute; top: -1px; right: -1px; width: 16px; height: 16px; border-bottom: 1px solid color-mix(in srgb, var(--file-tone) 30%, var(--rst-ui-line)); border-left: 1px solid color-mix(in srgb, var(--file-tone) 30%, var(--rst-ui-line)); border-radius: 0 7px 0 4px; background: var(--rst-ui-surface); content: ''; }
+  .document-cover b { position: absolute; right: 5px; bottom: 6px; left: 5px; overflow: hidden; padding-top: 4px; border-top: 1px solid color-mix(in srgb, var(--file-tone) 24%, var(--rst-ui-line)); font-size: var(--rst-fs-micro); text-align: center; text-overflow: ellipsis; }
+  .document-file__content { min-width: 0; display: grid; align-content: start; gap: 6px; }
+  .document-file__heading { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .document-file__heading strong,
+  .document-file__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .document-file__heading strong { font-size: var(--rst-fs-control); }
+  .document-file__heading :global(svg) { flex: 0 0 auto; color: var(--rst-ui-action); }
+  .document-file__name { color: var(--rst-ui-muted); font-size: var(--rst-fs-micro); }
+  .document-file__tags { min-height: 20px; display: flex; align-items: center; flex-wrap: wrap; gap: 5px; }
+  .document-file__facts { display: grid; grid-template-columns: 1.25fr .65fr 1fr; gap: 8px; padding-top: 7px; border-top: 1px solid var(--rst-ui-line); }
+  .document-file__facts > span { min-width: 0; display: grid; gap: 2px; }
+  .document-file__facts small { color: var(--rst-ui-muted); font-size: var(--rst-fs-micro); }
+  .document-file__facts strong { overflow: hidden; font-size: var(--rst-fs-micro); font-weight: var(--rst-fw-medium); text-overflow: ellipsis; white-space: nowrap; }
   .document-cell { display: flex; align-items: center; gap: 8px; }
   .file-type {
     width: 30px;

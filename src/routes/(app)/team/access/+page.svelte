@@ -10,6 +10,7 @@
   import { useWorkspaceTeamContext } from '$lib/workspace-ui/workspace-context';
   import WorkspaceCellBadge from '$lib/workspace-ui/WorkspaceCellBadge.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
+  import WorkspaceVisualCanvas from '$lib/workspace-ui/WorkspaceVisualCanvas.svelte';
   import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
   import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
@@ -185,9 +186,10 @@
       {/snippet}
       {#snippet children()}
         {#if workspaceLayout.visual}
-          <div class="access-board" aria-label={t('Access readiness')}>
-            {#each visualAccessLanes(ordered(filtered)) as lane (lane.key)}
-              <section class="access-lane is-{lane.key}">
+          <WorkspaceVisualCanvas label={t('Access readiness')} variant="board">
+            <div class="access-board">
+              {#each visualAccessLanes(ordered(filtered)) as lane (lane.key)}
+                <section class="access-lane is-{lane.key}">
                 <header>
                   <span class="access-lane__icon" aria-hidden="true">
                     {#if lane.key === 'enabled'}<CheckCircle2 size={17} />
@@ -225,9 +227,10 @@
                     <span class="access-lane__empty">{t('Nobody here')}</span>
                   {/each}
                 </div>
-              </section>
-            {/each}
-          </div>
+                </section>
+              {/each}
+            </div>
+          </WorkspaceVisualCanvas>
         {:else}
         <div class="cl-tablewrap">
           <table class="cl-table cl-mobile-rows">
@@ -293,11 +296,10 @@
 
 <style>
   .access-board {
+    min-width: 960px;
     display: grid;
     grid-template-columns: repeat(4, minmax(220px, 1fr));
     gap: 12px;
-    padding: 14px;
-    overflow-x: auto;
   }
   .access-lane {
     --lane-tone: var(--cl-line-strong);
@@ -376,10 +378,10 @@
   .empty-link { justify-self: center; color: var(--cl-accent); font-size: var(--rst-fs-body); font-weight: var(--rst-fw-medium); text-decoration: none; }
   .empty-link:hover { text-decoration: underline; }
   @media (max-width: 980px) {
-    .access-board { grid-template-columns: repeat(2, minmax(230px, 1fr)); }
+    .access-board { min-width: 0; grid-template-columns: repeat(2, minmax(230px, 1fr)); }
   }
   @media (max-width: 520px) {
-    .access-board { grid-template-columns: 1fr; padding: 10px; overflow: visible; }
+    .access-board { grid-template-columns: 1fr; }
     .access-lane { min-width: 0; }
   }
 </style>

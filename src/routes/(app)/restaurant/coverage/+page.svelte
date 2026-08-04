@@ -10,6 +10,8 @@
   import WorkspacePicker from '$lib/workspace-ui/WorkspacePicker.svelte';
   import WorkspaceAreaIcon from '$lib/restaurant/WorkspaceAreaIcon.svelte';
   import WorkspaceServiceIcon from '$lib/workspace-ui/WorkspaceServiceIcon.svelte';
+  import WorkspaceVisualCanvas from '$lib/workspace-ui/WorkspaceVisualCanvas.svelte';
+  import WorkspaceVisualSection from '$lib/workspace-ui/WorkspaceVisualSection.svelte';
   import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import { restaurantConfig } from '$lib/workspace-ui/workspace-restaurant.svelte';
   import type {
@@ -459,10 +461,14 @@
         </div>
 
         {#if workspaceLayout.visual}
-          <div class="coverage-desktop staffing-visual">
+          <div class="coverage-desktop">
+          <WorkspaceVisualCanvas label={t('Staffing matrix')}>
+            {#if !ordered.length && !newRows.length}
+              <div class="cl-empty visual-empty"><strong>{t('No staffing rules yet')}</strong><span>{t('Start from linked areas and positions, then enter only the days that need a target.')}</span>{#if suggestedRows.length}<button class="cl-btn suggestion-action" type="button" onclick={stageSuggestions}>{t('Add recommendations')} <span>{suggestedRows.length}</span></button>{/if}</div>
+            {/if}
             {#if newRows.length}
-              <section class="staffing-drafts">
-                <header><strong>{t('New staffing rules')}</strong><small>{newRows.length}</small><i aria-hidden="true"></i></header>
+              <WorkspaceVisualSection label={t('New staffing rules')} meta={`${newRows.length}`} tone="var(--cl-accent)">
+                <div class="staffing-drafts">
                 {#each newRows as row (row.tempId)}
                   {@const pendingKey = row.areaId && row.jobFunctionId && row.serviceKey ? `${row.areaId}|${row.jobFunctionId}|${row.serviceKey}` : ''}
                   {@const duplicate = Boolean(pendingKey) && pendingKey !== row.stagedKey && exists(row.areaId, row.jobFunctionId, row.serviceKey as ServiceKey)}
@@ -475,7 +481,7 @@
                     </div>
                     <div class="cov-strip">
                       {#each WEEKDAYS as day, index (day)}
-                        <label class="cov-strip__day" class:is-set={row.counts[index] != null}>
+                        <label class="cov-strip__day" class:is-set={row.counts[index] != null} class:is-medium={(row.counts[index] ?? 0) >= 3} class:is-high={(row.counts[index] ?? 0) >= 5}>
                           <span>{t(day).slice(0, 3)}</span>
                           <input type="number" min="0" step="1" placeholder="—" value={row.counts[index] ?? ''} aria-label={`${t(day)} ${t('required people')}`} oninput={(event) => setNewCount(row.tempId, index, event.currentTarget.value)} />
                         </label>
@@ -484,18 +490,16 @@
                     {#if duplicate}<p class="staffing-draft__warning">{t('This area, position and service already has a coverage row.')}</p>{/if}
                   </article>
                 {/each}
-              </section>
+                </div>
+              </WorkspaceVisualSection>
             {/if}
             {#each groups as group (group.key)}
-              <section class="staffing-visual__group">
-                {#if group.label}
-                  {@const combinationCount = mergedCoverageRules(group.rows).length}
-                  <header>
-                    <strong>{group.label}</strong>
-                    <small>{combinationCount === 1 ? t('1 staffing combination') : t('{count} staffing combinations', { count: combinationCount })}</small>
-                    <i aria-hidden="true"></i>
-                  </header>
-                {/if}
+              {@const combinationCount = mergedCoverageRules(group.rows).length}
+              <WorkspaceVisualSection
+                label={group.label || t('Staffing requirements')}
+                meta={combinationCount === 1 ? t('1 staffing combination') : t('{count} staffing combinations', { count: combinationCount })}
+                tone={view.groupBy === 'area' ? areaColor.get(group.key) : view.groupBy === 'position' ? positionColor.get(group.key) : null}
+              >
                 <div class="staffing-matrix">
                   <div class="staffing-matrix__head" aria-hidden="true">
                     <span>{t('Position')} · {t('Area')}</span>
@@ -516,7 +520,7 @@
                             <div class="cov-strip">
                               {#each WEEKDAYS as day, index (index)}
                                 {@const value = entry(draft, row, index + 1)}
-                                <label class="cov-strip__day" class:is-set={Boolean(value)}>
+                                <label class="cov-strip__day" class:is-set={Boolean(value)} class:is-medium={(value?.requiredCount ?? 0) >= 3} class:is-high={(value?.requiredCount ?? 0) >= 5}>
                                   <span>{t(day).slice(0, 3)}</span>
                                   <input type="number" min="0" step="1" placeholder="—" value={value?.requiredCount ?? ''} disabled={workspace.isPreview} aria-label={`${t(day)} ${t('required people')}`} oninput={(event) => setCount(row, index + 1, event.currentTarget.value)} />
                                 </label>
@@ -529,8 +533,9 @@
                     </article>
                   {/each}
                 </div>
-              </section>
+              </WorkspaceVisualSection>
             {/each}
+          </WorkspaceVisualCanvas>
           </div>
         {:else}
         <div class="cl-tablewrap coverage-desktop">
@@ -601,17 +606,7 @@
 {/if}
 
 <style>
-  .staffing-visual { display: grid; gap: 20px; padding: 18px; }
-  .staffing-visual__group { min-width: 0; display: grid; gap: 9px; }
-  .staffing-visual__group > header {
-    display: grid;
-    grid-template-columns: auto auto minmax(40px, 1fr);
-    align-items: baseline;
-    gap: 8px;
-  }
-  .staffing-visual__group > header strong { font-size: var(--rst-fs-control); }
-  .staffing-visual__group > header small { color: var(--cl-muted); font-size: var(--rst-fs-caption); }
-  .staffing-visual__group > header i { height: 1px; background: linear-gradient(90deg, var(--cl-line-strong), transparent); }
+  .visual-empty { min-height: 220px; }
   .staffing-matrix { min-width: 790px; overflow: hidden; border: 1px solid var(--cl-line); border-radius: var(--rst-ui-radius-md); background: var(--rst-ui-surface-panel); }
   .staffing-matrix__head { display: grid; grid-template-columns: 220px 118px minmax(0, 1fr) 34px; align-items: center; gap: 10px; min-height: 36px; padding: 0 10px; border-bottom: 1px solid var(--cl-line); color: var(--cl-muted); background: var(--rst-ui-surface-field); font-size: var(--rst-fs-micro); font-weight: var(--rst-fw-bold); text-transform: uppercase; }
   .staffing-matrix__days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; text-align: center; }
@@ -632,10 +627,6 @@
   .staffing-service > button:hover:not(:disabled) { color: var(--cl-problem); background: var(--cl-surface-muted); }
   .staffing-service .cov-strip__day > span { display: none; }
   .staffing-drafts { display: grid; gap: 8px; }
-  .staffing-drafts > header { display: grid; grid-template-columns: auto auto minmax(40px, 1fr); align-items: center; gap: 8px; }
-  .staffing-drafts > header strong { font-size: var(--rst-fs-control); }
-  .staffing-drafts > header small { color: var(--cl-accent); font-size: var(--rst-fs-caption); }
-  .staffing-drafts > header i { height: 1px; background: linear-gradient(90deg, var(--cl-accent-line), transparent); }
   .staffing-draft { display: grid; gap: 10px; padding: 11px; border: 1px solid var(--cl-accent-line); border-left: 3px solid var(--cl-accent); border-radius: var(--rst-ui-radius-md); background: var(--rst-state-selected-bg); }
   .staffing-draft__fields { display: grid; grid-template-columns: repeat(3, minmax(150px, 1fr)) 32px; align-items: center; gap: 8px; }
   .staffing-draft__warning { margin: 0; color: var(--cl-attention); font-size: var(--rst-fs-caption); }
@@ -684,6 +675,17 @@
     color: var(--rst-ui-text);
     background: var(--rst-ui-action-soft);
     font-weight: var(--rst-fw-bold);
+  }
+
+  .cov-strip__day.is-medium input {
+    border-color: color-mix(in srgb, var(--cl-accent) 56%, var(--rst-ui-line));
+    background: color-mix(in srgb, var(--cl-accent) 13%, var(--rst-ui-surface-panel));
+  }
+
+  .cov-strip__day.is-high input {
+    border-color: color-mix(in srgb, var(--cl-accent) 72%, var(--rst-ui-line));
+    color: var(--rst-ui-action);
+    background: color-mix(in srgb, var(--cl-accent) 21%, var(--rst-ui-surface-panel));
   }
 
   .cov-strip__day input:focus {

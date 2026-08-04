@@ -20,9 +20,8 @@
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
   import WorkspacePrimaryColMenu from '$lib/workspace-ui/WorkspacePrimaryColMenu.svelte';
   import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
-  import WorkspacePersonCard from '$lib/workspace-ui/WorkspacePersonCard.svelte';
-  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
-  import WorkspaceCardGroup from '$lib/workspace-ui/WorkspaceCardGroup.svelte';
+  import WorkspaceVisualCanvas from '$lib/workspace-ui/WorkspaceVisualCanvas.svelte';
+  import WorkspaceVisualSection from '$lib/workspace-ui/WorkspaceVisualSection.svelte';
   import WorkspaceTag from '$lib/workspace-ui/WorkspaceTag.svelte';
   import { ACCESS_LABEL, accessTone } from '$lib/team/access-labels';
   import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
@@ -467,56 +466,70 @@
       {/snippet}
       {#snippet children()}
       {#if workspaceLayout.visual}
-        <!-- People are a directory, not records: faces lead, the position colour
-             groups them, and the one dot says whether they can actually sign in.
-             Contact detail stays in the row layout and the employee editor,
-             which is where anyone reading an address is already headed. -->
-        {#each rows as group (group.key)}
-          {#snippet peopleCards()}
-          <WorkspaceCardGrid>
-            {#each group.employees as employee (employee.id)}
-              {@const contract = team.contractName.get(employee.contractTypeId)}
-              <WorkspacePersonCard
-                name={employee.displayName || t('New employee')}
-                accent={employeeColor.get(employee.id) ?? null}
-                roles={employee.jobFunctionIds.length
-                  ? employee.jobFunctionIds.map((id) => ({
-                      label: team.jobName.get(id) ?? t('No position yet'),
-                      color: positionColor.get(id) ?? null
-                    }))
-                  : [{ label: t('No position yet'), color: null }]}
-                statusLabel={employee.active ? t('Active') : t('Archived')}
-                statusTone={employee.active ? 'ok' : 'neutral'}
-                details={[
-                  { kind: 'mail' as const, value: employee.email || t('No email'), muted: !employee.email },
-                  { kind: 'phone' as const, value: employee.phone || t('No phone'), muted: !employee.phone }
-                ]}
-                dimmed={!employee.active}
-                onactivate={team.editable ? () => (detailId = employee.id) : null}
-              >
-                {#snippet tags()}
-                  <WorkspaceTag label={contract || t('No contract')} tone={contract ? 'neutral' : 'warn'} />
-                  <WorkspaceTag
-                    label={t(ACCESS_LABEL[employee.accessState] ?? employee.accessState)}
-                    tone={accessTone(employee.accessState)}
-                  />
-                {/snippet}
-              </WorkspacePersonCard>
-            {/each}
-          </WorkspaceCardGrid>
-          {/snippet}
-          {#if view.grouping && group.label}
-            <WorkspaceCardGroup
-              label={group.label}
-              meta={peopleCountLabel(group.employees.length)}
-              color={group.color ?? null}
-            >
-              {@render peopleCards()}
-            </WorkspaceCardGroup>
+        <WorkspaceVisualCanvas label={t('Team')}>
+          {#if !filtered.length}
+            <div class="cl-empty visual-empty"><strong>{t(rosterTotal ? 'No employees match' : 'No active employees')}</strong><span>{t('Change the filters, or add someone to the team.')}</span></div>
           {:else}
-            {@render peopleCards()}
+          {#each rows as group (group.key)}
+            <WorkspaceVisualSection
+              label={view.grouping && group.label ? group.label : t('People')}
+              meta={peopleCountLabel(group.employees.length)}
+              tone={group.color ?? null}
+            >
+              <div class="team-directory">
+                {#each group.employees as employee (employee.id)}
+                  {@const contract = team.contractName.get(employee.contractTypeId)}
+                  <button
+                    class:dimmed={!employee.active}
+                    class="person-pass"
+                    style={`--person-tone:${employeeColor.get(employee.id) ?? 'var(--rst-ui-action)'}`}
+                    type="button"
+                    disabled={!team.editable}
+                    onclick={() => (detailId = employee.id)}
+                  >
+                    <span class="person-pass__portrait" aria-hidden="true">
+                      <b>{personInitials(employee.displayName || t('New employee'))}</b>
+                      <i class:online={employee.accessState === 'active'}></i>
+                    </span>
+                    <span class="person-pass__content">
+                      <span class="person-pass__heading">
+                        <strong>{employee.displayName || t('New employee')}</strong>
+                        <WorkspaceTag label={employee.active ? t('Active') : t('Archived')} tone={employee.active ? 'ok' : 'neutral'} />
+                      </span>
+                      <span class="person-pass__roles">
+                        {#if employee.jobFunctionIds.length}
+                          {#each employee.jobFunctionIds as roleId (roleId)}
+                            <span style={`--role-tone:${positionColor.get(roleId) ?? 'var(--rst-ui-muted)'}`}>
+                              <i></i>{team.jobName.get(roleId) ?? t('No position yet')}
+                            </span>
+                          {/each}
+                        {:else}
+                          <span class="is-missing"><i></i>{t('No position yet')}</span>
+                        {/if}
+                      </span>
+                      <span class="person-pass__contact" class:is-missing={!employee.email}>
+                        <Mail size={14} strokeWidth={1.8} />
+                        <span>{employee.email || t('No email')}</span>
+                      </span>
+                      <span class="person-pass__contact" class:is-missing={!employee.phone}>
+                        <Phone size={14} strokeWidth={1.8} />
+                        <span>{employee.phone || t('No phone')}</span>
+                      </span>
+                      <span class="person-pass__footer">
+                        <WorkspaceTag label={contract || t('No contract')} tone={contract ? 'neutral' : 'warn'} />
+                        <WorkspaceTag
+                          label={t(ACCESS_LABEL[employee.accessState] ?? employee.accessState)}
+                          tone={accessTone(employee.accessState)}
+                        />
+                      </span>
+                    </span>
+                  </button>
+                {/each}
+              </div>
+            </WorkspaceVisualSection>
+          {/each}
           {/if}
-        {/each}
+        </WorkspaceVisualCanvas>
       {:else}
       <div class="cl-tablewrap">
         <table class="cl-table cl-mobile-rows people-table">
@@ -831,6 +844,98 @@
 {/if}
 
 <style>
+  .team-directory {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+    gap: 10px;
+  }
+  .visual-empty { min-height: 220px; }
+
+  .person-pass {
+    min-width: 0;
+    min-height: 146px;
+    display: grid;
+    grid-template-columns: 68px minmax(0, 1fr);
+    gap: 14px;
+    padding: 14px;
+    border: 1px solid var(--rst-ui-line);
+    border-left: 3px solid var(--person-tone);
+    border-radius: var(--rst-ui-radius-md);
+    color: var(--rst-ui-text);
+    background: var(--rst-ui-surface);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color var(--cl-dur) var(--cl-ease), box-shadow var(--cl-dur) var(--cl-ease), transform var(--cl-dur) var(--cl-ease);
+  }
+
+  .person-pass:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--person-tone) 42%, var(--rst-ui-line));
+    box-shadow: 0 8px 20px rgba(15, 23, 42, .07);
+    transform: translateY(-1px);
+  }
+
+  .person-pass:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--rst-ui-action) 42%, transparent);
+    outline-offset: 2px;
+  }
+
+  .person-pass:disabled { cursor: default; }
+  .person-pass.dimmed { opacity: .66; }
+
+  .person-pass__portrait {
+    position: relative;
+    width: 60px;
+    height: 76px;
+    display: grid;
+    place-items: center;
+    align-self: start;
+    border: 1px solid color-mix(in srgb, var(--person-tone) 34%, var(--rst-ui-line));
+    border-radius: 7px;
+    color: color-mix(in srgb, var(--person-tone) 78%, var(--rst-ui-text));
+    background: color-mix(in srgb, var(--person-tone) 10%, var(--rst-ui-surface));
+  }
+
+  .person-pass__portrait::after {
+    position: absolute;
+    right: 8px;
+    bottom: 7px;
+    left: 8px;
+    height: 2px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--person-tone) 38%, transparent);
+    content: '';
+  }
+
+  .person-pass__portrait b { font-size: var(--rst-fs-title); }
+  .person-pass__portrait i {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    width: 8px;
+    height: 8px;
+    border: 2px solid var(--rst-ui-surface);
+    border-radius: 50%;
+    background: var(--rst-ui-muted);
+    box-sizing: content-box;
+  }
+  .person-pass__portrait i.online { background: var(--cl-ok); }
+
+  .person-pass__content { min-width: 0; display: grid; align-content: start; gap: 7px; }
+  .person-pass__heading { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .person-pass__heading strong { overflow: hidden; font-size: var(--rst-fs-control); text-overflow: ellipsis; white-space: nowrap; }
+  .person-pass__roles { min-height: 20px; display: flex; flex-wrap: wrap; align-items: center; gap: 5px 9px; }
+  .person-pass__roles > span { min-width: 0; display: inline-flex; align-items: center; gap: 5px; color: var(--rst-ui-muted); font-size: var(--rst-fs-caption); }
+  .person-pass__roles i { width: 5px; height: 14px; flex: 0 0 auto; border-radius: 2px; background: var(--role-tone); }
+  .person-pass__roles .is-missing,
+  .person-pass__contact.is-missing { color: var(--rst-state-warning-text); }
+  .person-pass__roles .is-missing i { background: var(--rst-state-warning); }
+
+  .person-pass__contact { min-width: 0; display: grid; grid-template-columns: 15px minmax(0, 1fr); align-items: center; gap: 6px; color: var(--rst-ui-muted); font-size: var(--rst-fs-caption); }
+  .person-pass__contact :global(svg) { color: var(--rst-ui-action); }
+  .person-pass__contact span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .person-pass__footer { display: flex; flex-wrap: wrap; gap: 5px; padding-top: 2px; }
+
   .namefield { min-width: 180px; height: 34px; font-weight: var(--rst-fw-medium); }
   .cellfield { min-width: 150px; height: 34px; }
   .phonefield { min-width: 125px; }
@@ -870,4 +975,10 @@
   .posmenu__list label > i { width: 6px; height: 20px; border-radius: 2px; background: var(--position-color); }
   .posmenu__empty { padding: 8px; color: var(--cl-muted); font-size: var(--rst-fs-control); }
   .is-employee { align-items: flex-start; }
+
+  @media (max-width: 520px) {
+    .team-directory { grid-template-columns: 1fr; }
+    .person-pass { grid-template-columns: 54px minmax(0, 1fr); gap: 11px; padding: 12px; }
+    .person-pass__portrait { width: 50px; height: 64px; }
+  }
 </style>

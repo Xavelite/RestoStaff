@@ -7,8 +7,7 @@
   import WorkspacePicker from '$lib/workspace-ui/WorkspacePicker.svelte';
   import WorkspaceServiceIcon from '$lib/workspace-ui/WorkspaceServiceIcon.svelte';
   import WorkspaceToggle from '$lib/workspace-ui/WorkspaceToggle.svelte';
-  import WorkspaceCard from '$lib/workspace-ui/WorkspaceCard.svelte';
-  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
+  import WorkspaceVisualCanvas from '$lib/workspace-ui/WorkspaceVisualCanvas.svelte';
   import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import { getReservationSetup, saveReservationSetup } from '$lib/reservations/reservation-api';
   import type { ReservationSetup, ReservationSetupDraft } from '$lib/reservations/reservation-types';
@@ -183,35 +182,33 @@
         <div class="setup-loading"><span class="cl-skel"></span><span class="cl-skel"></span><span class="cl-skel"></span></div>
       {:else if draft}
         {#if workspaceLayout.visual}
-          <!-- Each service owns its booking rules, so it owns a card. The grid
-               made you read one service across seven columns to change one number. -->
-          <WorkspaceCardGrid>
+          <WorkspaceVisualCanvas label={t('Booking rules by service')}>
             {#each draft.services as service (service.service_key)}
-              <WorkspaceCard
-                title={t(serviceName(service.service_key))}
-              >
-                {#snippet media()}
-                  <WorkspaceServiceIcon service={service.service_key} size={16} />
-                {/snippet}
-                {#snippet children()}
-                  <div class="svc-fields">
-                    <WorkspaceToggle
-                      checked={service.booking_enabled}
-                      label={service.booking_enabled ? 'Open' : 'Closed'}
-                      onchange={(next) => {
-                        service.booking_enabled = next;
-                        touch();
-                      }}
-                    />
-                    <label class="svc-field">
+              <section class="booking-rule is-{service.service_key}" class:is-closed={!service.booking_enabled}>
+                <header>
+                  <span class="booking-rule__identity">
+                    <span><WorkspaceServiceIcon service={service.service_key} size={18} /></span>
+                    <span><strong>{t(serviceName(service.service_key))}</strong><small>{service.booking_enabled ? t('Accepting online bookings') : t('Bookings closed')}</small></span>
+                  </span>
+                  <WorkspaceToggle
+                    checked={service.booking_enabled}
+                    label={service.booking_enabled ? 'Open' : 'Closed'}
+                    onchange={(next) => {
+                      service.booking_enabled = next;
+                      touch();
+                    }}
+                  />
+                </header>
+                  <div class="booking-rule__steps">
+                    <label class="rule-step">
                       <span>{t('Duration')}</span>
                       <input class="cl-field number-field" type="number" min="15" max="720" step="15" bind:value={service.default_duration_minutes} oninput={touch} />
                     </label>
-                    <label class="svc-field">
+                    <label class="rule-step">
                       <span>{t('Interval')}</span>
                       <input class="cl-field number-field" type="number" min="5" max="120" step="5" bind:value={service.slot_interval_minutes} oninput={touch} />
                     </label>
-                    <div class="svc-field">
+                    <div class="rule-step">
                       <span>{t('Party size')}</span>
                       <span class="range-field">
                         <input class="cl-field number-field" aria-label={t('Minimum party size')} type="number" min="1" max="100" bind:value={service.minimum_party_size} oninput={touch} />
@@ -219,7 +216,7 @@
                         <input class="cl-field number-field" aria-label={t('Maximum party size')} type="number" min="1" max="500" bind:value={service.maximum_party_size} oninput={touch} />
                       </span>
                     </div>
-                    <div class="svc-field">
+                    <div class="rule-step">
                       <span>{t('Capacity model')}</span>
                       <WorkspacePicker
                         value={service.capacity_mode}
@@ -234,7 +231,7 @@
                         }}
                       />
                     </div>
-                    <label class="svc-field">
+                    <label class="rule-step">
                       <span>{t('Service cover limit')}</span>
                       <input
                         class="cl-field cover-field"
@@ -246,7 +243,7 @@
                         oninput={touch}
                       />
                     </label>
-                    <div class="svc-field">
+                    <div class="rule-step">
                       <span>{t('Confirmation')}</span>
                       <WorkspacePicker
                         value={service.automatic_confirmation ? 'automatic' : 'manual'}
@@ -259,10 +256,9 @@
                       />
                     </div>
                   </div>
-                {/snippet}
-              </WorkspaceCard>
+              </section>
             {/each}
-          </WorkspaceCardGrid>
+          </WorkspaceVisualCanvas>
         {:else}
         <div class="cl-tablewrap is-unbounded">
           <table class="cl-table services-grid">
@@ -357,24 +353,23 @@
 </WorkspacePage>
 
 <style>
-  /* Booking rules stack as label-over-control pairs so one service's whole
-     setup is legible without reading across a wide row. */
-  .svc-fields { display: grid; gap: 8px; width: 100%; }
-
-  .svc-field { display: grid; gap: 3px; min-width: 0; }
-
-  .svc-field > span {
-    color: var(--rst-ui-muted);
-    font-size: var(--rst-fs-micro);
-    font-weight: var(--rst-fw-bold);
-    letter-spacing: .04em;
-    text-transform: uppercase;
-  }
-
-  /* The grid sized these inputs for a narrow column; in a card they get the
-     full width, so a placeholder like "No cap" is never clipped. */
-  .svc-field :global(.cl-field) { width: 100%; min-width: 0; }
-  .svc-field .range-field { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 6px; }
+  .booking-rule { --service-tone: var(--rst-ui-action); overflow: hidden; border: 1px solid var(--rst-ui-line); border-top: 3px solid var(--service-tone); border-radius: var(--rst-ui-radius-md); background: var(--rst-ui-surface); }
+  .booking-rule.is-lunch { --service-tone: var(--cl-lunch); }
+  .booking-rule.is-evening { --service-tone: var(--cl-evening); }
+  .booking-rule.is-closed { opacity: .7; }
+  .booking-rule > header { min-height: 58px; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 14px; border-bottom: 1px solid var(--rst-ui-line); background: color-mix(in srgb, var(--service-tone) 5%, var(--rst-ui-surface)); }
+  .booking-rule__identity { min-width: 0; display: flex; align-items: center; gap: 10px; }
+  .booking-rule__identity > span:first-child { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--service-tone) 28%, var(--rst-ui-line)); border-radius: 7px; color: var(--service-tone); background: var(--rst-ui-surface); }
+  .booking-rule__identity > span:last-child { min-width: 0; display: grid; gap: 2px; }
+  .booking-rule__identity strong { font-size: var(--rst-fs-control); }
+  .booking-rule__identity small { color: var(--rst-ui-muted); font-size: var(--rst-fs-caption); }
+  .booking-rule__steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) 1.2fr .8fr 1fr; }
+  .rule-step { position: relative; min-width: 0; min-height: 92px; display: grid; align-content: center; gap: 6px; padding: 14px; border-right: 1px solid var(--rst-ui-line); }
+  .rule-step:last-child { border-right: 0; }
+  .rule-step > span:first-child { color: var(--rst-ui-muted); font-size: var(--rst-fs-micro); font-weight: var(--rst-fw-bold); }
+  .rule-step::before { position: absolute; top: 0; right: 14px; left: 14px; height: 2px; background: linear-gradient(90deg, color-mix(in srgb, var(--service-tone) 34%, transparent), transparent); content: ''; }
+  .rule-step :global(.cl-field) { min-width: 0; width: 100%; }
+  .rule-step .range-field { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 5px; }
 
   .setup-error {
     padding: 10px 12px;
@@ -401,4 +396,15 @@
   .capacity-cell small { color: var(--cl-muted); font-size: var(--rst-fs-micro); }
   .range-field { display: inline-flex; align-items: center; gap: 4px; }
   .range-field i { color: var(--cl-muted); font-style: normal; }
+  @media (max-width: 980px) {
+    .booking-rule__steps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .rule-step:nth-child(3n) { border-right: 0; }
+    .rule-step:nth-child(-n + 3) { border-bottom: 1px solid var(--rst-ui-line); }
+  }
+  @media (max-width: 520px) {
+    .booking-rule__steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .rule-step:nth-child(3n) { border-right: 1px solid var(--rst-ui-line); }
+    .rule-step:nth-child(2n) { border-right: 0; }
+    .rule-step:nth-child(-n + 4) { border-bottom: 1px solid var(--rst-ui-line); }
+  }
 </style>

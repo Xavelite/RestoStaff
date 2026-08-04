@@ -17,10 +17,9 @@
   import WorkspacePicker from '$lib/workspace-ui/WorkspacePicker.svelte';
   import WorkspaceRowMenu from '$lib/workspace-ui/WorkspaceRowMenu.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
-  import WorkspacePersonCard from '$lib/workspace-ui/WorkspacePersonCard.svelte';
-  import WorkspaceCardGroup from '$lib/workspace-ui/WorkspaceCardGroup.svelte';
+  import WorkspaceVisualCanvas from '$lib/workspace-ui/WorkspaceVisualCanvas.svelte';
+  import WorkspaceVisualSection from '$lib/workspace-ui/WorkspaceVisualSection.svelte';
   import WorkspaceTag from '$lib/workspace-ui/WorkspaceTag.svelte';
-  import WorkspaceCardGrid from '$lib/workspace-ui/WorkspaceCardGrid.svelte';
   import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
 
   type GroupBy = 'readiness' | 'worker' | 'basis' | 'none';
@@ -123,6 +122,47 @@
     );
     const name = reference?.name_en || reference?.name_fr || reference?.name_nl || '';
     return name ? `${code} · ${name}` : code;
+  }
+
+  function readinessFields(employee: EmployeeDraft) {
+    return [
+      {
+        key: 'payroll',
+        label: t('Payroll ID'),
+        value: employee.payrollEmployeeId || t('Missing'),
+        ready: Boolean(employee.payrollEmployeeId)
+      },
+      {
+        key: 'registry',
+        label: t('Registry'),
+        value: employee.nationalRegistryNumber ? t('Captured') : t('Missing'),
+        ready: Boolean(employee.nationalRegistryNumber)
+      },
+      {
+        key: 'bank',
+        label: t('Bank'),
+        value: bankLabel(employee),
+        ready: Boolean(employee.iban)
+      },
+      {
+        key: 'function',
+        label: t('CP 302'),
+        value: employee.cp302ReferenceFunctionCode || t('Missing'),
+        ready: Boolean(employee.cp302ReferenceFunctionCode)
+      },
+      {
+        key: 'worker',
+        label: t('Worker'),
+        value: workerLabel(employee),
+        ready: Boolean(employee.workerStatus)
+      },
+      {
+        key: 'salary',
+        label: t('Salary'),
+        value: salaryLabel(employee),
+        ready: Boolean(employee.salaryBasis)
+      }
+    ];
   }
 
   function matches(employee: EmployeeDraft): boolean {
@@ -245,67 +285,63 @@
     {/snippet}
     {#snippet children()}
       {#if workspaceLayout.visual}
-        <!-- Readiness is the question this page answers, but a warning colour on
-             every record is decoration rather than signal: at the pilot start
-             nobody has payroll data yet, so all nine cards were amber. The
-             identity colour leads instead, and readiness is stated as progress
-             so the number moves as details land. Fields nobody has filled in on
-             any record collapse into one line rather than repeating "Not set"
-             four times per card. -->
-        {#each groups as group (group.key)}
-          {#snippet payrollCards()}
-            <WorkspaceCardGrid>
-              {#each group.employees as employee (employee.id)}
-                {@const missing = gaps(employee)}
-                {@const captured = payrollFieldCount - missing.length}
-                <WorkspacePersonCard
-                  name={employee.displayName}
-                  accent={employeeColor.get(employee.id) ?? null}
-                  roles={[{
-                    label: team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position'),
-                    color: employeeColor.get(employee.id) ?? null
-                  }]}
-                  statusLabel={missing.length
-                    ? `${captured}/${payrollFieldCount}`
-                    : t('Ready')}
-                  statusTone={missing.length ? 'warn' : 'ok'}
-                  details={[
-                    ...(shown('payrollId') && employee.payrollEmployeeId
-                      ? [{ kind: 'id' as const, value: employee.payrollEmployeeId }]
-                      : []),
-                    ...(shown('function') && functionLabel(employee) !== t('Not set')
-                      ? [{ kind: 'text' as const, value: functionLabel(employee) }]
-                      : []),
-                    ...(shown('salary') && salaryLabel(employee) !== t('Not set')
-                      ? [{ kind: 'text' as const, value: salaryLabel(employee) }]
-                      : []),
-                    ...(shown('bank') && bankLabel(employee) !== t('Not set')
-                      ? [{ kind: 'text' as const, value: bankLabel(employee) }]
-                      : [])
-                  ]}
-                  onactivate={() => (detailId = employee.id)}
-                >
-                  {#snippet tags()}
-                    {#if missing.length === payrollFieldCount}
-                      <!-- Worker status is one of the six, so when none are set
-                           its "Not set" only repeats the sentence beside it. -->
-                      <WorkspaceTag label={t('Nothing captured yet')} tone="warn" />
-                    {:else}
-                      <WorkspaceTag label={workerLabel(employee)} />
-                    {/if}
-                  {/snippet}
-                </WorkspacePersonCard>
-              {/each}
-            </WorkspaceCardGrid>
-          {/snippet}
-          {#if view.grouping && group.label}
-            <WorkspaceCardGroup label={group.label} meta={peopleCountLabel(group.employees.length)}>
-              {@render payrollCards()}
-            </WorkspaceCardGroup>
+        <WorkspaceVisualCanvas label={t('Payroll')} variant="board">
+          {#if !filtered.length}
+            <div class="cl-empty visual-empty"><strong>{t('No active employees')}</strong><span>{t('Add someone before completing their payroll setup.')}</span></div>
           {:else}
-            {@render payrollCards()}
+          {#each groups as group (group.key)}
+            <WorkspaceVisualSection
+              label={view.grouping && group.label ? group.label : t('Payroll readiness')}
+              meta={peopleCountLabel(group.employees.length)}
+            >
+              <div class="payroll-readiness">
+                <div class="payroll-readiness__head" aria-hidden="true">
+                  <span>{t('Employee')}</span>
+                  <span>{t('Payroll ID')}</span>
+                  <span>{t('Registry')}</span>
+                  <span>{t('Bank')}</span>
+                  <span>{t('CP 302')}</span>
+                  <span>{t('Worker')}</span>
+                  <span>{t('Salary')}</span>
+                  <span>{t('Setup')}</span>
+                </div>
+                {#each group.employees as employee (employee.id)}
+                  {@const missing = gaps(employee)}
+                  {@const captured = payrollFieldCount - missing.length}
+                  <button
+                    class:ready={!missing.length}
+                    class="payroll-readiness__row"
+                    style={`--employee-tone:${employeeColor.get(employee.id) ?? 'var(--rst-ui-action)'}`}
+                    type="button"
+                    onclick={() => (detailId = employee.id)}
+                  >
+                    <span class="payroll-person">
+                      <span>{personInitials(employee.displayName || '?')}</span>
+                      <span>
+                        <strong>{employee.displayName}</strong>
+                        <small>{team.jobName.get(employee.jobFunctionIds[0] ?? '') || t('No position')}</small>
+                      </span>
+                    </span>
+                    {#each readinessFields(employee) as field (field.key)}
+                      <span class:complete={field.ready} class="readiness-cell">
+                        <i aria-hidden="true"></i>
+                        <span>
+                          <small>{field.label}</small>
+                          <strong>{field.value}</strong>
+                        </span>
+                      </span>
+                    {/each}
+                    <span class="readiness-score">
+                      <WorkspaceTag label={missing.length ? `${captured}/${payrollFieldCount}` : t('Ready')} tone={missing.length ? 'warn' : 'ok'} />
+                      <i><i style={`width:${(captured / payrollFieldCount) * 100}%`}></i></i>
+                    </span>
+                  </button>
+                {/each}
+              </div>
+            </WorkspaceVisualSection>
+          {/each}
           {/if}
-        {/each}
+        </WorkspaceVisualCanvas>
       {:else}
       <div class="cl-tablewrap">
         <table class="cl-table cl-mobile-rows payroll-table">
@@ -417,6 +453,99 @@
 {/if}
 
 <style>
+  .payroll-readiness {
+    min-width: 1020px;
+    overflow: hidden;
+    border: 1px solid var(--rst-ui-line);
+    border-radius: var(--rst-ui-radius-md);
+    background: var(--rst-ui-surface);
+  }
+  .visual-empty { min-width: min(680px, 100%); min-height: 220px; }
+
+  .payroll-readiness__head,
+  .payroll-readiness__row {
+    display: grid;
+    grid-template-columns: minmax(200px, 1.35fr) repeat(6, minmax(92px, .72fr)) minmax(90px, .65fr);
+    align-items: stretch;
+  }
+
+  .payroll-readiness__head {
+    min-height: 34px;
+    border-bottom: 1px solid var(--rst-ui-line);
+    color: var(--rst-ui-muted);
+    background: var(--rst-ui-surface-field);
+  }
+
+  .payroll-readiness__head > span {
+    display: flex;
+    align-items: center;
+    padding: 7px 10px;
+    border-right: 1px solid var(--rst-ui-line);
+    font-size: var(--rst-fs-micro);
+    font-weight: var(--rst-fw-bold);
+  }
+
+  .payroll-readiness__row {
+    width: 100%;
+    min-height: 66px;
+    padding: 0;
+    border: 0;
+    border-bottom: 1px solid var(--rst-ui-line);
+    color: var(--rst-ui-text);
+    background: var(--rst-ui-surface);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--cl-dur) var(--cl-ease);
+  }
+
+  .payroll-readiness__row:last-child { border-bottom: 0; }
+  .payroll-readiness__row:hover { background: color-mix(in srgb, var(--employee-tone) 4%, var(--rst-ui-surface)); }
+  .payroll-readiness__row:focus-visible { position: relative; z-index: 1; outline: 2px solid var(--rst-ui-action); outline-offset: -2px; }
+
+  .payroll-person,
+  .readiness-cell,
+  .readiness-score {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 10px;
+    border-right: 1px solid var(--rst-ui-line);
+  }
+
+  .payroll-person > span:first-child {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--employee-tone) 34%, var(--rst-ui-line));
+    border-radius: 50%;
+    color: var(--employee-tone);
+    background: color-mix(in srgb, var(--employee-tone) 8%, var(--rst-ui-surface));
+    font-size: var(--rst-fs-micro);
+    font-weight: var(--rst-fw-bold);
+  }
+
+  .payroll-person > span:last-child,
+  .readiness-cell > span { min-width: 0; display: grid; gap: 2px; }
+  .payroll-person strong,
+  .payroll-person small,
+  .readiness-cell strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .payroll-person strong { font-size: var(--rst-fs-body); }
+  .payroll-person small,
+  .readiness-cell small { color: var(--rst-ui-muted); font-size: var(--rst-fs-micro); }
+  .readiness-cell strong { color: var(--rst-state-warning-text); font-size: var(--rst-fs-micro); font-weight: var(--rst-fw-medium); }
+  .readiness-cell > i { width: 9px; height: 9px; flex: 0 0 auto; border: 2px solid color-mix(in srgb, var(--rst-state-warning) 42%, var(--rst-ui-line)); border-radius: 50%; background: color-mix(in srgb, var(--rst-state-warning) 10%, var(--rst-ui-surface)); }
+  .readiness-cell.complete > i { border-color: color-mix(in srgb, var(--cl-ok) 45%, var(--rst-ui-line)); background: var(--cl-ok); box-shadow: inset 0 0 0 2px var(--rst-ui-surface); }
+  .readiness-cell.complete strong { color: var(--rst-ui-text); }
+
+  .readiness-score { display: grid; align-content: center; gap: 7px; border-right: 0; }
+  .readiness-score > i { height: 4px; overflow: hidden; border-radius: 999px; background: var(--rst-ui-surface-field-strong); }
+  .readiness-score > i > i { height: 100%; display: block; border-radius: inherit; background: var(--rst-state-warning); }
+  .payroll-readiness__row.ready .readiness-score > i > i { background: var(--cl-ok); }
+
   .payroll-table {
     min-width: 1080px;
   }
