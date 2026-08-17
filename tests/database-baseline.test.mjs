@@ -158,6 +158,9 @@ test('the deployed app keeps its security headers and badge evidence policy', as
   // vercel.json is the only place these are set: losing it would silently drop
   // the camera permission the badge terminal needs to capture proof photos.
   const vercel = JSON.parse(await read('vercel.json'));
+  assert.deepEqual(vercel.rewrites, [
+    { source: '/pasta', destination: '/pasta/index.html' }
+  ]);
   const global = vercel.headers.find((entry) => entry.source === '/(.*)');
   const keys = global.headers.map((header) => header.key);
   assert.ok(keys.includes('X-Content-Type-Options'));
