@@ -161,6 +161,11 @@ test('the deployed app keeps its security headers and badge evidence policy', as
   assert.deepEqual(vercel.rewrites, [
     { source: '/pasta', destination: '/pasta/index.html' }
   ]);
+  assert.match(
+    await read('static/pasta/index.html'),
+    /<base href="\/pasta\/">/,
+    'the rewritten public promo must resolve its runtime and image assets below /pasta/'
+  );
   const global = vercel.headers.find((entry) => entry.source === '/(.*)');
   const keys = global.headers.map((header) => header.key);
   assert.ok(keys.includes('X-Content-Type-Options'));
