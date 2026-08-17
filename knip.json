@@ -8,7 +8,8 @@
     "tests/*.test.mjs"
   ],
   "ignore": [
-    "src/lib/supabase/database.types.ts"
+    "src/lib/supabase/database.types.ts",
+    "static/pasta/*.{js,jsx}"
   ],
   "ignoreBinaries": ["powershell"],
   "ignoreDependencies": ["@types/web-push", "deno", "npm", "web-push"],

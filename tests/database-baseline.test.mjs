@@ -168,7 +168,7 @@ test('the deployed app keeps its security headers and badge evidence policy', as
   assert.match(permissions.value, /geolocation=\(self\)/);
 
   const application = vercel.headers.find(
-    (entry) => entry.source === '/((?!book(?:/|$)).*)'
+    (entry) => entry.source === '/((?!book(?:/|$)|pasta(?:/|$)).*)'
   );
   const applicationCsp = application.headers.find(
     (header) => header.key === 'Content-Security-Policy'
@@ -182,6 +182,23 @@ test('the deployed app keeps its security headers and badge evidence policy', as
       (header) => header.key === 'X-Frame-Options' && header.value === 'DENY'
     )
   );
+  assert.doesNotMatch(applicationCsp.value, /'unsafe-eval'|unpkg\.com/);
+
+  // The standalone recipe composition compiles its supplied JSX in-browser.
+  // Keep that relaxed policy isolated from every authenticated application URL.
+  for (const source of ['/pasta', '/pasta/(.*)']) {
+    const pasta = vercel.headers.find((entry) => entry.source === source);
+    const pastaCsp = pasta.headers.find(
+      (header) => header.key === 'Content-Security-Policy'
+    );
+    assert.match(pastaCsp.value, /frame-ancestors 'self'/);
+    assert.match(pastaCsp.value, /script-src[^;]*'unsafe-eval'[^;]*unpkg\.com/);
+    assert.ok(
+      pasta.headers.some(
+        (header) => header.key === 'X-Frame-Options' && header.value === 'SAMEORIGIN'
+      )
+    );
+  }
 
   const publicBooking = vercel.headers.find((entry) => entry.source === '/book');
   const bookingCsp = publicBooking.headers.find(
