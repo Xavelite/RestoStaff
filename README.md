@@ -40,6 +40,14 @@ a production environment, apply its database migrations, deploy the five Edge
 Functions, provision the platform operator, and configure the push scheduler as
 described in [`docs/PRODUCTION-READINESS.md`](docs/PRODUCTION-READINESS.md).
 
+`middleware.ts` temporarily serves a blank page for **all paths** on
+`xbesnard.com` and `www.xbesnard.com`, including signed-in visits and the recipe
+promo. The application source and database are unchanged. Local development,
+preview deployment domains, and `restogogo.com` are not gated. To reopen a
+domain, remove it from `hiddenHosts` and deploy again. The temporary service
+worker also keeps returning visitors from reopening an old offline app shell;
+it does not clear browser accounts or stored preferences.
+
 ## Current documentation
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): code and runtime ownership.

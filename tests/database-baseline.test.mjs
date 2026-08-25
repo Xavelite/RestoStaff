@@ -161,18 +161,6 @@ test('the deployed app keeps its security headers and badge evidence policy', as
   assert.deepEqual(vercel.rewrites, [
     { source: '/pasta', destination: '/pasta/index.html' }
   ]);
-  const holdingPage = await read('src/routes/+page.svelte');
-  assert.match(holdingPage, /<meta name="robots" content="noindex, nofollow, noarchive" \/>/);
-  assert.match(holdingPage, /<div class="holding" aria-hidden="true"><\/div>/);
-  assert.doesNotMatch(holdingPage, /Schedule the week|landing__/);
-  const holdingHeaders = vercel.headers.find((entry) => entry.source === '/');
-  assert.ok(
-    holdingHeaders.headers.some(
-      (header) =>
-        header.key === 'X-Robots-Tag' &&
-        header.value === 'noindex, nofollow, noarchive'
-    )
-  );
   assert.match(
     await read('static/pasta/index.html'),
     /<base href="\/pasta\/">/,
