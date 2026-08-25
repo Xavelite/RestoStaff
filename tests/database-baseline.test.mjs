@@ -159,8 +159,20 @@ test('the deployed app keeps its security headers and badge evidence policy', as
   // the camera permission the badge terminal needs to capture proof photos.
   const vercel = JSON.parse(await read('vercel.json'));
   assert.deepEqual(vercel.rewrites, [
+    { source: '/', destination: '/holding/index.html' },
     { source: '/pasta', destination: '/pasta/index.html' }
   ]);
+  const holdingPage = await read('static/holding/index.html');
+  assert.match(holdingPage, /<meta name="robots" content="noindex, nofollow, noarchive">/);
+  assert.match(holdingPage, /<body>\s*<\/body>/);
+  const holdingHeaders = vercel.headers.find((entry) => entry.source === '/');
+  assert.ok(
+    holdingHeaders.headers.some(
+      (header) =>
+        header.key === 'X-Robots-Tag' &&
+        header.value === 'noindex, nofollow, noarchive'
+    )
+  );
   assert.match(
     await read('static/pasta/index.html'),
     /<base href="\/pasta\/">/,
