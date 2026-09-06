@@ -4,6 +4,7 @@
   import { getPreviewPersonas, type PreviewPersona } from './preview-api';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
+  import { appPath } from '$lib/navigation/app-path';
   import { t } from '$lib/i18n/i18n.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
   import { personInitials } from '$lib/ui/person';
@@ -64,7 +65,7 @@
           returnPath
         });
         onclose();
-        await goto(persona.role === 'employee' ? '/my-service' : '/home');
+        await goto(appPath(persona.role === 'employee' ? '/my-service' : '/home'));
       });
     } catch (error) {
       toasts.show(error instanceof Error ? error.message : String(error), 'danger');

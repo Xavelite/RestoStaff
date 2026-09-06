@@ -4,8 +4,9 @@
   import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
   import WorkspaceIcon from '$lib/workspace-ui/WorkspaceIcon.svelte';
   import { moduleForPath } from '$lib/workspace-ui/workspace-nav';
+  import { logicalPath } from '$lib/navigation/app-path';
 
-  const module = $derived(moduleForPath(page.url.pathname));
+  const module = $derived(moduleForPath(logicalPath(page.url.pathname)));
 </script>
 
 <svelte:head><title>{module ? t(module.label) : t('Coming soon')} &middot; restogogo</title></svelte:head>

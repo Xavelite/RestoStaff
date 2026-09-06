@@ -4,6 +4,7 @@ import { page } from '$app/state';
 import { auth } from '$lib/auth/session.svelte';
 import { amIPlatformAdmin } from '$lib/admin/admin-api';
 import { ACCOUNT_LOCALE_METADATA_KEY, i18n, t } from '$lib/i18n/i18n.svelte';
+import { appPath, logicalPath } from '$lib/navigation/app-path';
 import { appInstall } from '$lib/pwa/app-install.svelte';
 import { workspaceRealtime } from '$lib/realtime/workspace-realtime.svelte';
 import { sound } from '$lib/sound/sound.svelte';
@@ -49,7 +50,7 @@ export function useAppSession(): AppSession {
     const wentOnline = () => {
       online = true;
       if (workspace.activeId) {
-        void workspace.reloadForRoute(page.url.pathname).catch(() => undefined);
+        void workspace.reloadForRoute(logicalPath(page.url.pathname)).catch(() => undefined);
       }
     };
     window.addEventListener('offline', wentOffline);
@@ -73,8 +74,8 @@ export function useAppSession(): AppSession {
   // Guard for every authenticated screen: no session → login.
   $effect(() => {
     if (auth.ready && !auth.session) {
-      const target = `${page.url.pathname}${page.url.search}`;
-      goto(`/login?next=${encodeURIComponent(target)}`, { replaceState: true });
+      const target = `${logicalPath(page.url.pathname)}${page.url.search}`;
+      goto(appPath(`/login?next=${encodeURIComponent(target)}`), { replaceState: true });
     }
   });
 
@@ -122,7 +123,7 @@ export function useAppSession(): AppSession {
             ? t('Timesheet received a live update.')
             : t('Workspace data changed.');
       toasts.show(t('{label} Refreshing…', { label }), 'info', 3000);
-      void workspace.reloadForRoute(page.url.pathname).catch(() => undefined);
+      void workspace.reloadForRoute(logicalPath(page.url.pathname)).catch(() => undefined);
     });
     return () => workspaceRealtime.disconnect();
   });

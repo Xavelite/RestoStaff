@@ -32,6 +32,7 @@
   import { toasts } from '$lib/ui/toast.svelte';
   import { confirmAction } from '$lib/ui/confirm.svelte';
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
+  import { appPath } from '$lib/navigation/app-path';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { AREA_PALETTE, defaultAreaColor } from '$lib/ui/position-color';
   import {
@@ -2048,7 +2049,7 @@
                 <strong>{t('No floor plan yet')}</strong>
                 <span>{mode === 'areas' ? t('Add a standard area to start shaping your restaurant.') : t('Set up areas in Restaurant → Areas before adding tables.')}</span>
                 {#if mode === 'tables'}
-                  <a class="cl-btn is-primary" href="/restaurant/areas">{t('Open Restaurant Areas')}</a>
+                  <a class="cl-btn is-primary" href={appPath('/restaurant/areas')}>{t('Open Restaurant Areas')}</a>
                 {/if}
               </div>
             {/if}

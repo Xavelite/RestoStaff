@@ -11,6 +11,7 @@
   import Dialog from '$lib/components/Dialog.svelte';
   import { friendlyError } from '$lib/api/error-messages';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
+  import { appPath } from '$lib/navigation/app-path';
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
   import WorkspaceTag from '$lib/workspace-ui/WorkspaceTag.svelte';
   import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
@@ -628,7 +629,7 @@
         <a
           class="online-state"
           class:is-enabled={onlineBookingsEnabled}
-          href="/reservations/setup"
+          href={appPath('/reservations/setup')}
           title={t('Open reservation setup')}
         >
           <i></i>
@@ -726,7 +727,7 @@
               {t('Arrivals')}
               <small>{liveReservations.length}</small>
             </button>
-            <a href="/restaurant/floor-plan?layer=tables">
+            <a href={appPath('/restaurant/floor-plan?layer=tables')}>
               {t('Edit layout')}
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
             </a>
@@ -751,7 +752,7 @@
             <span class="cl-empty__icon" aria-hidden="true"><MapPinned size={18} /></span>
             <strong>{t('No reservable room yet')}</strong>
             <span>{t('Set up areas in Restaurant → Areas, then add tables in Reservations → Tables.')}</span>
-            <a class="cl-btn is-primary" href="/restaurant/floor-plan?layer=tables">{t('Open floor plan')}</a>
+            <a class="cl-btn is-primary" href={appPath('/restaurant/floor-plan?layer=tables')}>{t('Open floor plan')}</a>
           </div>
         {/if}
       </section>

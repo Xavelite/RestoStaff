@@ -27,7 +27,9 @@ production dependencies have no known vulnerability.
    `dispatch-push`, and `reservation-public` with the exact environment secrets
    and `APP_ORIGIN`.
 6. Configure Auth redirect URLs for `/onboarding`, `/accept-invite` and
-   `/reset-password`.
+   `/reset-password` at the deployment's actual app mount. The xbesnard
+   development deployment uses `/restogogo/*`; production uses the root of
+   `restogogo.com`.
 7. Enroll every platform operator in TOTP MFA and verify an AAL2 `/admin`
    session.
 8. Review both Supabase security and performance advisors. Reconcile new

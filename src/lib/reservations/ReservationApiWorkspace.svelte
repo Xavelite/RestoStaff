@@ -14,6 +14,7 @@
   } from '$lib/reservations/reservation-api';
   import type { ReservationPublicChannel } from '$lib/reservations/reservation-types';
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
+  import { appUrl } from '$lib/navigation/app-path';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
 
@@ -46,7 +47,7 @@
   const publicKey = $derived(channel?.publicKey ?? '');
   const widgetUrl = $derived(
     publicKey && appOrigin
-      ? `${appOrigin}/book?key=${encodeURIComponent(publicKey)}`
+      ? `${appUrl('/book', appOrigin)}?key=${encodeURIComponent(publicKey)}`
       : ''
   );
   const embedCode = $derived(buildEmbedCode());

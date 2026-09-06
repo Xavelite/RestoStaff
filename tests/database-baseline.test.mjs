@@ -152,6 +152,7 @@ test('deployment uses the Vercel adapter outside the Windows local build', async
   assert.match(config, /vercelAdapter\(\)/);
   assert.match(config, /process\.platform === 'win32'/);
   assert.match(config, /process\.env\.VERCEL !== '1'/);
+  assert.match(config, /VERCEL === '1' \? '\/restogogo' : ''/);
 });
 
 test('the deployed app keeps its security headers and badge evidence policy', async () => {
@@ -159,7 +160,8 @@ test('the deployed app keeps its security headers and badge evidence policy', as
   // the camera permission the badge terminal needs to capture proof photos.
   const vercel = JSON.parse(await read('vercel.json'));
   assert.deepEqual(vercel.rewrites, [
-    { source: '/pasta', destination: '/pasta/index.html' }
+    { source: '/pasta', destination: '/restogogo/pasta/index.html' },
+    { source: '/pasta/(.*)', destination: '/restogogo/pasta/$1' }
   ]);
   assert.match(
     await read('static/pasta/index.html'),
@@ -176,7 +178,7 @@ test('the deployed app keeps its security headers and badge evidence policy', as
   assert.match(permissions.value, /geolocation=\(self\)/);
 
   const application = vercel.headers.find(
-    (entry) => entry.source === '/((?!book(?:/|$)|pasta(?:/|$)).*)'
+    (entry) => entry.source === '/restogogo/((?!book(?:/|$)|pasta(?:/|$)).*)'
   );
   const applicationCsp = application.headers.find(
     (header) => header.key === 'Content-Security-Policy'
@@ -208,7 +210,7 @@ test('the deployed app keeps its security headers and badge evidence policy', as
     );
   }
 
-  const publicBooking = vercel.headers.find((entry) => entry.source === '/book');
+  const publicBooking = vercel.headers.find((entry) => entry.source === '/restogogo/book');
   const bookingCsp = publicBooking.headers.find(
     (header) => header.key === 'Content-Security-Policy'
   );

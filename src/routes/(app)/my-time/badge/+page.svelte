@@ -20,6 +20,7 @@
   import { restaurantLogoUrl } from '$lib/restaurant/logo-api';
   import { sound } from '$lib/sound/sound.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
+  import { appPath } from '$lib/navigation/app-path';
 
   let context = $state<OwnBadgeContext | null>(null);
   let loading = $state(true);
@@ -138,7 +139,7 @@
 <svelte:head><title>{t('Clock in or out')} · restogogo</title></svelte:head>
 
 <div class="mobile-badge">
-  <a class="back-link" href="/my-time">&larr; {t('My time')}</a>
+  <a class="back-link" href={appPath('/my-time')}>&larr; {t('My time')}</a>
 
   {#if loading}
     <section class="badge-state" aria-live="polite">

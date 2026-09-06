@@ -2,6 +2,7 @@
   import { CheckCircle2, Clock3, KeyRound, Mail, Pencil, ShieldOff, UserPlus } from '@lucide/svelte';
   import { onMount, tick } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
+  import { appPath } from '$lib/navigation/app-path';
   import { ACCESS_LABEL } from '$lib/team/access-labels';
   import { personInitials } from '$lib/ui/person';
   import { buildEmployeeColorMap } from '$lib/ui/position-color';
@@ -247,7 +248,7 @@
                 <div class="cl-empty">
                   <strong>{t(activeEmployees.length ? 'No employees match' : 'No active employees')}</strong>
                   <span>{t('Change the filter, or add someone to the team.')}</span>
-                  {#if !activeEmployees.length}<a class="empty-link" href="/team">{t('People')}</a>{/if}
+                  {#if !activeEmployees.length}<a class="empty-link" href={appPath('/team')}>{t('People')}</a>{/if}
                 </div>
               </td></tr></tbody>
             {:else}

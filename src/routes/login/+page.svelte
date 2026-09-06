@@ -3,6 +3,7 @@
   import { page } from '$app/state';
   import { supabase } from '$lib/supabase/client';
   import { auth } from '$lib/auth/session.svelte';
+  import { appPath, appUrl, logicalPath } from '$lib/navigation/app-path';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { roleHome, type RoleHome } from '$lib/workspace/workspace-selection';
 
@@ -30,8 +31,9 @@
     try {
       const url = new URL(value, location.origin);
       if (url.origin !== location.origin) return '/home';
-      if (url.pathname === '/login') return '/home';
-      return `${url.pathname}${url.search}${url.hash}`;
+      const pathname = logicalPath(url.pathname);
+      if (pathname === '/login') return '/home';
+      return `${pathname}${url.search}${url.hash}`;
     } catch {
       return '/home';
     }
@@ -62,7 +64,7 @@
     if (!auth.session || redirecting) return;
     redirecting = true;
     void signedInDestination(mode === 'signup')
-      .then((target) => goto(target, { replaceState: true }))
+      .then((target) => goto(appPath(target), { replaceState: true }))
       .finally(() => {
         redirecting = false;
       });
@@ -78,7 +80,7 @@
         : await supabase.auth.signUp({
             email,
             password,
-            options: { emailRedirectTo: `${location.origin}/onboarding` }
+            options: { emailRedirectTo: appUrl('/onboarding', location.origin) }
           });
     loading = false;
     if (error) {
@@ -89,7 +91,7 @@
       errorMessage = 'Check your email to confirm the account, then continue onboarding.';
       return;
     }
-    await goto(await signedInDestination(mode === 'signup'));
+    await goto(appPath(await signedInDestination(mode === 'signup')));
   }
 
   async function requestReset() {
@@ -101,7 +103,7 @@
     }
     loading = true;
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${location.origin}/reset-password`
+      redirectTo: appUrl('/reset-password', location.origin)
     });
     loading = false;
     if (error) {
@@ -125,8 +127,8 @@
 <main class="login">
   <form class="login__card" onsubmit={signIn}>
     <header class="login__head">
-      <a class="login__brand" href="/" aria-label="restogogo home">
-        <img src="/brand/restogogo-mark.png" alt="" width="46" height="46" />
+      <a class="login__brand" href={appPath('/')} aria-label="restogogo home">
+        <img src={appPath('/brand/restogogo-mark.png')} alt="" width="46" height="46" />
         <b aria-hidden="true"><i>esto</i><i>gogo</i></b>
       </a>
       <div class="login__intro">

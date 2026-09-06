@@ -9,9 +9,10 @@
   import { page } from '$app/state';
   import { auth } from '$lib/auth/session.svelte';
   import { startClientMonitoring } from '$lib/monitoring/client';
+  import { appPath, logicalPath } from '$lib/navigation/app-path';
 
   let { children } = $props();
-  const isPublicBooking = $derived(page.url.pathname === '/book');
+  const isPublicBooking = $derived(logicalPath(page.url.pathname) === '/book');
 
   onMount(() => {
     const stopMonitoring = startClientMonitoring();
@@ -24,9 +25,9 @@
 </script>
 
 <svelte:head>
-  <link rel="icon" href="/brand/favicon.png" sizes="64x64" />
-  <link rel="manifest" href="/manifest.webmanifest" />
-  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  <link rel="icon" href={appPath('/brand/favicon.png')} sizes="64x64" />
+  <link rel="manifest" href={appPath('/manifest.webmanifest')} />
+  <link rel="apple-touch-icon" href={appPath('/icons/apple-touch-icon.png')} />
   <meta name="theme-color" content="#171c24" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />

@@ -1,5 +1,6 @@
 import { goto } from '$app/navigation';
 import { auth } from '$lib/auth/session.svelte';
+import { appPath } from '$lib/navigation/app-path';
 import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
 import { toasts } from '$lib/ui/toast.svelte';
 import { workspace } from '$lib/workspace/workspace.svelte';
@@ -11,7 +12,7 @@ export async function signOutOfApp(): Promise<void> {
       await auth.signOut();
       workspace.reset();
       toasts.clear();
-      await goto('/login');
+      await goto(appPath('/login'));
     });
   } catch (error) {
     toasts.show(error instanceof Error ? error.message : String(error), 'danger');
@@ -23,7 +24,7 @@ export async function exitPreviewSession(): Promise<void> {
   try {
     await unsavedChanges.runOrRequest(async () => {
       const returnPath = await workspace.stopPreview();
-      await goto(returnPath);
+      await goto(appPath(returnPath));
     });
   } catch (error) {
     toasts.show(error instanceof Error ? error.message : String(error), 'danger');

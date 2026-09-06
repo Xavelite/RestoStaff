@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { appPath, appUrl } from '$lib/navigation/app-path';
   import { page } from '$app/state';
   import { onMount } from 'svelte';
   import {
@@ -257,7 +258,7 @@
 
   $effect(() => {
     if (workspace.active && !creatingAdditionalRestaurant) {
-      goto(workspace.active.role === 'employee' ? '/my-service' : '/home', {
+      goto(appPath(workspace.active.role === 'employee' ? '/my-service' : '/home'), {
         replaceState: true
       });
     }
@@ -270,7 +271,7 @@
       workspace.active &&
       !workspace.memberships.some((membership) => membership.role === 'owner')
     ) {
-      goto('/home', { replaceState: true });
+      goto(appPath('/home'), { replaceState: true });
     }
   });
 
@@ -580,7 +581,7 @@
           .resend({
             type: 'signup',
             email,
-            options: { emailRedirectTo: `${location.origin}/home` }
+            options: { emailRedirectTo: appUrl('/home', location.origin) }
           })
           .catch(() => undefined);
       }
@@ -596,7 +597,7 @@
       ) {
         await workspace.select(createdRestaurantId);
       }
-      await goto('/home');
+      await goto(appPath('/home'));
     } catch (error) {
       feedback = error instanceof Error ? error.message : String(error);
       feedbackTone = 'danger';
@@ -620,7 +621,7 @@
       <span class="page-kicker">Restaurant launch</span>
       <h1>Sign in, then build the workspace.</h1>
       <p>The setup board saves progress to the account and turns the restaurant model into real operational data.</p>
-      <a href="/login?next=/onboarding">Open sign in</a>
+      <a href={appPath('/login?next=/onboarding')}>Open sign in</a>
     </section>
   </main>
 {:else}
@@ -653,7 +654,7 @@
             onclick={submitPilotRequest}
           />
         {/if}
-        <a href="/login">Return to sign in</a>
+        <a href={appPath('/login')}>Return to sign in</a>
       </section>
     </main>
   {:else}

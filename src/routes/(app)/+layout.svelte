@@ -21,6 +21,7 @@
   import WorkspaceIcon from '$lib/workspace-ui/WorkspaceIcon.svelte';
   import { workspaceShellPreferences } from '$lib/workspace-ui/workspace-shell-preferences.svelte';
   import { installWorkspaceColumnOrdering } from '$lib/workspace-ui/workspace-column-order';
+  import { appPath, appUrl, logicalPath } from '$lib/navigation/app-path';
   
   import {
     moduleForPath,
@@ -99,7 +100,8 @@
   );
   const primaryModules = $derived(modules.filter((module) => !module.utility));
   const utilityModules = $derived(modules.filter((module) => module.utility));
-  const activeModule = $derived(moduleForPath(page.url.pathname));
+  const routePath = $derived(logicalPath(page.url.pathname));
+  const activeModule = $derived(moduleForPath(routePath));
   const activeTabs = $derived(
     (activeModule?.subNav ?? []).filter(
       (item) =>
@@ -107,7 +109,7 @@
         (workspace.effectiveRole ? item.roles.includes(workspace.effectiveRole) : false)
     )
   );
-  const activeTabHref = $derived(activeModule ? subNavItemForPath(activeModule, page.url.pathname)?.href ?? '' : '');
+  const activeTabHref = $derived(activeModule ? subNavItemForPath(activeModule, routePath)?.href ?? '' : '');
   // `data-design` now lives on the document in app.html so every route shares
   // the palette from first paint; only the theme choice is read here.
   onMount(() => {
@@ -123,7 +125,7 @@
     if (!workspace.loaded || !workspace.active || session.switchingWorkspace) return;
     const role = workspace.effectiveRole;
     if (!role) return;
-    const module = moduleForPath(page.url.pathname);
+    const module = moduleForPath(routePath);
     if (
       module &&
       (
@@ -131,12 +133,12 @@
         !moduleIsEntitled(module.key, workspace.moduleEntitlements)
       )
     ) {
-      goto(roleHome(role), { replaceState: true });
+      goto(appPath(roleHome(role)), { replaceState: true });
       return;
     }
-    const activeSubNav = module ? subNavItemForPath(module, page.url.pathname) : null;
+    const activeSubNav = module ? subNavItemForPath(module, routePath) : null;
     if (activeSubNav?.roles && !activeSubNav.roles.includes(role)) {
-      goto(module?.href ?? roleHome(role), { replaceState: true });
+      goto(appPath(module?.href ?? roleHome(role)), { replaceState: true });
     }
   });
 
@@ -150,7 +152,7 @@
     if (!href) return;
     void tick().then(() => {
       const activeTab = [...document.querySelectorAll<HTMLAnchorElement>('.cl-topbar__tab')]
-        .find((tab) => tab.getAttribute('href') === href);
+        .find((tab) => tab.getAttribute('href') === appPath(href));
       activeTab?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     });
   });
@@ -164,7 +166,7 @@
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email,
-        options: { emailRedirectTo: `${location.origin}/home` }
+        options: { emailRedirectTo: appUrl('/home', location.origin) }
       });
       if (error) throw error;
       verificationSent = true;
@@ -189,7 +191,7 @@
         data-module-key={module.key}
         aria-current={module.key === activeModule?.key ? 'page' : undefined}
         title={t(module.label)}
-        href={module.href}
+        href={appPath(module.href)}
       >
         <WorkspaceIcon name={module.icon} />
         <span>{t(module.label)}</span>
@@ -205,8 +207,8 @@
       class:is-auto-rail={workspaceShellPreferences.sidebarMode === 'auto'}
       data-module={activeModule?.key ?? 'home'}
     >
-      <a class="cl-brand" href="/home" aria-label="Restogogo">
-        <span class="cl-brand__mark" style="--brand-mark:url('/brand/restogogo-mark.png')" aria-hidden="true"></span>
+      <a class="cl-brand" href={appPath('/home')} aria-label="Restogogo">
+        <span class="cl-brand__mark" style={`--brand-mark:url('${appPath('/brand/restogogo-mark.png')}')`} aria-hidden="true"></span>
         <span class="cl-brand__word" aria-hidden="true"><i>esto</i><i>gogo</i></span>
       </a>
 
@@ -237,7 +239,7 @@
                 class="cl-topbar__tab"
                 class:is-active={item.href === activeTabHref}
                 aria-current={item.href === activeTabHref ? 'page' : undefined}
-                href={item.href}
+                href={appPath(item.href)}
               >{t(item.label)}</a>
             {/each}
           </nav>
@@ -340,7 +342,7 @@
             <h1>{t('No active workspace')}</h1>
             <p>{t('Your account is not linked to an active restaurant. Create one if this is a new owner account.')}</p>
             <div class="cl-state__actions">
-              <a class="cl-btn is-primary" href="/onboarding">{t('Set up a restaurant')}</a>
+              <a class="cl-btn is-primary" href={appPath('/onboarding')}>{t('Set up a restaurant')}</a>
             </div>
           </section>
         {:else}

@@ -3,6 +3,7 @@
   import { Volume2, VolumeX, X } from '@lucide/svelte';
   import { onDestroy, onMount } from 'svelte';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
+  import { appPath, logicalPath } from '$lib/navigation/app-path';
   import { sound } from '$lib/sound/sound.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import {
@@ -44,9 +45,10 @@
   let suppressClick = false;
   const cursors = new Map<string, number>();
 
+  const routePath = $derived(logicalPath(page.url.pathname));
   const insights = $derived(
     buildPopcornInsights({
-      pathname: page.url.pathname,
+      pathname: routePath,
       role: workspace.effectiveRole,
       employeeId: workspace.effectiveEmployeeId,
       bootstrap: workspace.bootstrap,
@@ -81,7 +83,7 @@
   });
 
   $effect(() => {
-    const context = `${workspace.activeId ?? ''}|${page.url.pathname}`;
+    const context = `${workspace.activeId ?? ''}|${routePath}`;
     if (observedContext && context !== observedContext) {
       if (bubbleTimer) clearTimeout(bubbleTimer);
       if (motionTimer) clearTimeout(motionTimer);
@@ -265,7 +267,7 @@
             message: 'Open a workspace module and I will surface its useful signals here.'
           }
         ];
-    const path = page.url.pathname;
+    const path = routePath;
     const cursor = cursors.get(path) ?? 0;
     cursors.set(path, cursor + 1);
     return available[cursor % available.length];
@@ -496,11 +498,11 @@
         >
           {#if animating || voiceActive}
             <picture>
-              <source media="(prefers-reduced-motion: reduce)" srcset="/pet/ai-speed-rabbit-idle.gif" />
-              <img src="/pet/ai-speed-rabbit-active.gif" alt="" width="384" height="384" draggable="false" />
+              <source media="(prefers-reduced-motion: reduce)" srcset={appPath('/pet/ai-speed-rabbit-idle.gif')} />
+              <img src={appPath('/pet/ai-speed-rabbit-active.gif')} alt="" width="384" height="384" draggable="false" />
             </picture>
           {:else}
-            <img src="/pet/ai-speed-rabbit-idle.gif" alt="" width="384" height="384" draggable="false" />
+            <img src={appPath('/pet/ai-speed-rabbit-idle.gif')} alt="" width="384" height="384" draggable="false" />
           {/if}
         </span>
       {/key}

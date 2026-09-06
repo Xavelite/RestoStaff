@@ -40,13 +40,16 @@ a production environment, apply its database migrations, deploy the five Edge
 Functions, provision the platform operator, and configure the push scheduler as
 described in [`docs/PRODUCTION-READINESS.md`](docs/PRODUCTION-READINESS.md).
 
-`middleware.ts` temporarily serves a blank page for **all paths** on
-`xbesnard.com` and `www.xbesnard.com`, including signed-in visits and the recipe
-promo. The application source and database are unchanged. Local development,
-preview deployment domains, and `restogogo.com` are not gated. To reopen a
-domain, remove it from `hiddenHosts` and deploy again. The temporary service
-worker also keeps returning visitors from reopening an old offline app shell;
-it does not clear browser accounts or stored preferences.
+The development deployment deliberately shares `xbesnard.com`: `/` is a small
+public project homepage, `/restogogo/` is this application, `/pasta` remains the
+standalone recipe film, and `/game` is reserved for a separate project. Vercel
+builds receive that mount from `svelte.config.js`; localhost stays at `/`, so
+`npm run dev -- --host 127.0.0.1 --port 5555` is unchanged. `middleware.ts`
+owns only the xbesnard host split and redirects old app bookmarks, invitation
+links, and push deep links into `/restogogo`.
+
+The production `restogogo.com` project is a separate deployment and is not
+changed by this repository's xbesnard host routing.
 
 ## Current documentation
 

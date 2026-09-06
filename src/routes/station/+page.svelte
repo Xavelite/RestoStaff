@@ -7,6 +7,7 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import { restaurantLogoUrl } from '$lib/restaurant/logo-api';
   import { DEFAULT_BADGE_POLICY, type BadgePolicy } from '$lib/badge/badge-policy';
+  import { appPath } from '$lib/navigation/app-path';
 
   const STORAGE_KEY = 'rst-station-token';
 
@@ -98,7 +99,7 @@
     <div class="pair">
       <div class="pair-card">
         <span class="pair-brand" role="img" aria-label="Restogogo">
-          <i style="--brand-mark:url('/brand/restogogo-mark.png')" aria-hidden="true"></i>
+          <i style={`--brand-mark:url('${appPath('/brand/restogogo-mark.png')}')`} aria-hidden="true"></i>
           <b aria-hidden="true"><em>esto</em><em>gogo</em></b>
         </span>
         <span class="pair-eyebrow">{t('Badge station')}</span>

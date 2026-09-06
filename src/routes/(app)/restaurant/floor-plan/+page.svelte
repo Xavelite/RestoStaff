@@ -5,6 +5,7 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import { useWorkspaceRestaurantContext } from '$lib/workspace-ui/workspace-context';
   import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
+  import { appPath } from '$lib/navigation/app-path';
 
   const readRestaurantContext = useWorkspaceRestaurantContext();
   const context = $derived(readRestaurantContext());
@@ -17,7 +18,7 @@
       <a
         class:is-active={layer === 'areas'}
         aria-current={layer === 'areas' ? 'page' : undefined}
-        href="/restaurant/floor-plan?layer=areas"
+        href={appPath('/restaurant/floor-plan?layer=areas')}
       >
         <Map size={15} strokeWidth={1.8} aria-hidden="true" />
         <span>{t('Areas')}</span>
@@ -25,7 +26,7 @@
       <a
         class:is-active={layer === 'tables'}
         aria-current={layer === 'tables' ? 'page' : undefined}
-        href="/restaurant/floor-plan?layer=tables"
+        href={appPath('/restaurant/floor-plan?layer=tables')}
       >
         <LayoutGrid size={15} strokeWidth={1.8} aria-hidden="true" />
         <span>{t('Tables')}</span>

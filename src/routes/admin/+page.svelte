@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import { appPath } from '$lib/navigation/app-path';
   import { auth } from '$lib/auth/session.svelte';
   import {
     deleteRestaurant,
@@ -72,7 +73,7 @@
 
   onMount(() => {
     if (auth.ready && !auth.session) {
-      void goto('/login?next=/admin', { replaceState: true });
+      void goto(appPath('/login?next=/admin'), { replaceState: true });
       return;
     }
     void load();
@@ -388,7 +389,7 @@
         </button>
       {/if}
       <button class="quiet-button" type="button" onclick={() => (reportOpen = true)}>Report issue</button>
-      <a class="quiet-button" href="/home">Exit to app</a>
+      <a class="quiet-button" href={appPath('/home')}>Exit to app</a>
     </div>
   </header>
 
@@ -402,7 +403,7 @@
       <h1>Platform operator access required</h1>
       <p>This console is separate from restaurant ownership and is limited to the platform allowlist.</p>
       {#if error}<p class="message is-error">{error}</p>{/if}
-      <a class="text-link" href="/home">Back to the app</a>
+      <a class="text-link" href={appPath('/home')}>Back to the app</a>
     </main>
   {:else if error}
     <main class="gate">
@@ -415,7 +416,7 @@
       </p>
       <div class="gate-actions">
         <button class="quiet-button" type="button" onclick={() => load()}>Try again</button>
-        <a class="text-link" href="/home">Open the app</a>
+        <a class="text-link" href={appPath('/home')}>Open the app</a>
       </div>
     </main>
   {:else if dashboard}

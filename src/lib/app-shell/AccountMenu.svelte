@@ -17,6 +17,7 @@
     type AppLocale
   } from '$lib/i18n/i18n.svelte';
   import { unsavedChanges } from '$lib/navigation/unsaved-changes.svelte';
+  import { appPath, logicalPath } from '$lib/navigation/app-path';
   import { appInstall } from '$lib/pwa/app-install.svelte';
   import { popcornPet } from '$lib/pet/popcorn-pet.svelte';
   import { enablePhonePush, phonePushStatus } from '$lib/push/push-client';
@@ -106,7 +107,7 @@
     try {
       await unsavedChanges.runOrRequest(async () => {
         await workspace.select(restaurantId);
-        await goto(roleHome(membership.role));
+        await goto(appPath(roleHome(membership.role)));
       });
     } catch (error) {
       toasts.show(error instanceof Error ? error.message : String(error), 'danger');
@@ -116,7 +117,7 @@
   function createRestaurant() {
     open = false;
     void unsavedChanges
-      .runOrRequest(() => goto('/onboarding?new=1'))
+      .runOrRequest(() => goto(appPath('/onboarding?new=1')))
       .catch((error) =>
         toasts.show(error instanceof Error ? error.message : String(error), 'danger')
       );
@@ -335,7 +336,7 @@
       {/if}
       {#if isPlatformAdmin}
         <span class="menu-label">{t('Platform admin')}</span>
-        <a class="account-menu__admin" href="/admin" onclick={() => (open = false)}>{t('Platform admin')}</a>
+        <a class="account-menu__admin" href={appPath('/admin')} onclick={() => (open = false)}>{t('Platform admin')}</a>
       {/if}
       <span class="menu-label">{t('Support')}</span>
       <button type="button" onclick={() => { open = false; feedbackOpen = true; }}>{t('Send pilot feedback')}</button>
@@ -391,7 +392,7 @@
     <label><span>{t('New app password (optional)')}</span><input type="password" minlength="8" autocomplete="new-password" bind:value={accountPassword} /></label>
     <label><span>{t('Confirm new password')}</span><input type="password" minlength="8" autocomplete="new-password" bind:value={accountPasswordConfirm} /></label>
     <section class="account-device" aria-label={t('App and notifications')}>
-      <img src="/brand/restogogo-mark.png" alt="" width="34" height="34" />
+      <img src={appPath('/brand/restogogo-mark.png')} alt="" width="34" height="34" />
       <div>
         <strong>{t(appInstall.installed ? 'Restogogo is installed' : 'Install Restogogo')}</strong>
         <small>{t(appInstall.installed
@@ -415,7 +416,7 @@
   onclose={() => (installDialogOpen = false)}
 >
   <div class="install-guide">
-    <img src="/brand/restogogo-mark.png" alt="" width="52" height="52" />
+    <img src={appPath('/brand/restogogo-mark.png')} alt="" width="52" height="52" />
     {#if appInstall.ios}
       <strong>{t('On iPhone or iPad')}</strong>
       <p>{t('Tap Share in Safari, then choose Add to Home Screen and confirm Add.')}</p>
@@ -435,7 +436,7 @@
   onclose={closeNotifyInvite}
 >
   <div class="install-guide">
-    <img src="/brand/restogogo-mark.png" alt="" width="52" height="52" />
+    <img src={appPath('/brand/restogogo-mark.png')} alt="" width="52" height="52" />
     <p>{t('You can change this any time in notification settings.')}</p>
   </div>
 
@@ -462,7 +463,7 @@
   restaurantId={workspace.activeId}
   restaurantName={workspace.active?.restaurant_name ?? ''}
   source="manager"
-  returnPath={page.url.pathname}
+  returnPath={logicalPath(page.url.pathname)}
   onclose={() => (previewPickerOpen = false)}
 />
 

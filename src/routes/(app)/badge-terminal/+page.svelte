@@ -20,6 +20,7 @@
   } from '$lib/badge/badge-policy';
   import { friendlyError } from '$lib/api/error-messages';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
+  import { appPath, appUrl } from '$lib/navigation/app-path';
   import { confirmAction } from '$lib/ui/confirm.svelte';
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
@@ -171,7 +172,7 @@
       localStorage.setItem('rst-station-token', result.token);
       await auth.signOut();
       workspace.reset();
-      window.location.assign('/station');
+      window.location.assign(appPath('/station'));
     } catch (error) {
       localStorage.removeItem('rst-station-token');
       if (stationId && workspace.activeId) {
@@ -193,7 +194,7 @@
   }
 
   function stationUrl(): string {
-    return typeof location === 'undefined' ? '/station' : `${location.origin}/station`;
+    return typeof location === 'undefined' ? appPath('/station') : appUrl('/station', location.origin);
   }
 
   async function replaceUnusedCode(station: RestaurantStation) {
@@ -334,7 +335,7 @@
     {/snippet}
 
     {#snippet actions()}
-      <a class="cl-btn" href="/station" target="_blank" rel="noreferrer">
+      <a class="cl-btn" href={appPath('/station')} target="_blank" rel="noreferrer">
         <ExternalLink size={15} aria-hidden="true" />
         <span>{t('Open pairing page')}</span>
       </a>

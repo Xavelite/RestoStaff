@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { page } from '$app/state';
+  import { appPath } from '$lib/navigation/app-path';
   import {
     saveAbsence,
     saveEmployeeAvailability,
@@ -695,7 +696,7 @@
   <button class="cl-btn is-icon" type="button" onclick={() => changeMonth(1)} aria-label={t('Next month')}>&rsaquo;</button>
   <span class="toolbar-grow"></span>
   {#if mobileBadgingEnabled}
-    <a class="cl-btn is-primary" href="/my-time/badge"><Clock3 size={15} />{t('Clock in or out')}</a>
+    <a class="cl-btn is-primary" href={appPath('/my-time/badge')}><Clock3 size={15} />{t('Clock in or out')}</a>
   {/if}
   {#if hasPendingEdits}
     <span class="pending-copy">{requestCopy()}</span>

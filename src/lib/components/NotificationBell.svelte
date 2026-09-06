@@ -34,6 +34,7 @@
     type PhonePushStatus
   } from '$lib/push/push-client';
   import { isNotificationTypeCode } from '$lib/notifications/notification-model';
+  import { appPath } from '$lib/navigation/app-path';
 
   type SetupNotification = { label: string; href: string };
 
@@ -420,7 +421,7 @@
     await read(item);
     if (item.actionMode === 'route') {
       open = false;
-      await goto(item.targetUrl);
+      await goto(appPath(item.targetUrl));
       return;
     }
     open = false;
@@ -452,7 +453,7 @@
     }
     await readIncident(incident);
     open = false;
-    await goto(incident.primary.targetUrl);
+    await goto(appPath(incident.primary.targetUrl));
   }
 
   async function dismiss(item: NotificationItem) {
@@ -601,7 +602,7 @@
   async function openTarget(item: NotificationItem) {
     detailOpen = false;
     open = false;
-    await goto(item.targetUrl);
+    await goto(appPath(item.targetUrl));
   }
 </script>
 
@@ -648,7 +649,7 @@
           <div class="notification-group">
             <span>{t('Setup')}</span>
             {#each setupNotifications as item (item.label)}
-              <a class="notification-row is-setup" href={item.href} onclick={() => (open = false)}>
+              <a class="notification-row is-setup" href={appPath(item.href)} onclick={() => (open = false)}>
                 <strong>{t(item.label)}</strong>
                 <small>{t('Open setup →')}</small>
               </a>

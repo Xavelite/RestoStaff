@@ -45,7 +45,8 @@ test('PWA and Edge delivery surfaces are wired to durable notification truth', a
   const manifest = JSON.parse(manifestSource);
 
   assert.equal(manifest.display, 'standalone');
-  assert.equal(manifest.start_url, '/');
+  assert.equal(manifest.start_url, './');
+  assert.equal(manifest.scope, './');
   assert.ok(manifest.icons.some((icon) => icon.purpose.includes('maskable')));
   assert.match(worker, /addEventListener\('push'/);
   assert.match(worker, /addEventListener\('notificationclick'/);

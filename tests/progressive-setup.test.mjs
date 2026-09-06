@@ -245,7 +245,7 @@ test('owners can launch another restaurant and switch directly to it', async () 
   assert.match(onboarding, /page\.url\.searchParams\.get\('new'\) === '1'/);
   assert.match(onboarding, /workspace\.memberships\.some\(\s*\(membership\) => membership\.role === 'owner'/);
   assert.match(onboarding, /await workspace\.select\(createdRestaurantId\)/);
-  assert.match(accountMenu, /goto\('\/onboarding\?new=1'\)/);
+  assert.match(accountMenu, /goto\(appPath\('\/onboarding\?new=1'\)\)/);
   assert.match(accountMenu, /membership\.status === 'active' && membership\.role === 'owner'/);
 });
 

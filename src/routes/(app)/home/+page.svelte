@@ -7,6 +7,7 @@
   import { modulesForRole, type WorkspaceModule } from '$lib/workspace-ui/workspace-nav';
   import { buildHomeModel } from '$lib/home/home-model';
   import { getReservationDemand } from '$lib/reservations/reservation-api';
+  import { appPath } from '$lib/navigation/app-path';
 
   type ModuleSignal = {
     value: string | number;
@@ -197,7 +198,7 @@
               {@const signal = moduleSignals[module.key]}
               <a
                 class="module-tile"
-                href={module.href}
+                href={appPath(module.href)}
                 data-module-key={module.key}
                 style={`--tile-color:${MODULE_COLOR[module.key] ?? 'var(--cl-muted)'}`}
               >

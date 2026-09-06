@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { appPath } from '$lib/navigation/app-path';
   import { auth } from '$lib/auth/session.svelte';
   import ActionButton from '$lib/components/ActionButton.svelte';
   import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
@@ -28,7 +29,7 @@
       if (error) throw error;
       feedback = 'Password updated.';
       feedbackTone = 'success';
-      await goto('/home');
+      await goto(appPath('/home'));
     } catch (error) {
       feedback = error instanceof Error ? error.message : String(error);
       feedbackTone = 'danger';

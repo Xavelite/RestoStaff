@@ -1,10 +1,11 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { auth } from '$lib/auth/session.svelte';
+  import { appPath } from '$lib/navigation/app-path';
 
   // Signed-in visitors skip the landing and go straight to their workspace.
   $effect(() => {
-    if (auth.ready && auth.session) goto('/home', { replaceState: true });
+    if (auth.ready && auth.session) goto(appPath('/home'), { replaceState: true });
   });
 
   const modules = [
@@ -79,11 +80,11 @@
   <div class="landing">
     <header class="landing__bar">
       <span class="wordmark"><i>resto</i><b>gogo</b></span>
-      <a class="bar-signin" href="/login">Sign in</a>
+      <a class="bar-signin" href={appPath('/login')}>Sign in</a>
     </header>
 
     <section class="hero" aria-labelledby="landing-title">
-      <div class="hero__photo" aria-hidden="true"></div>
+      <div class="hero__photo" style={`--hero-photo:url('${appPath('/module-backgrounds/home.webp')}')`} aria-hidden="true"></div>
       <div class="hero__overlay" aria-hidden="true"></div>
       <div class="hero__glow" aria-hidden="true"></div>
 
@@ -96,8 +97,8 @@
             without spreadsheets, group chats or guesswork.
           </p>
           <div class="hero__cta">
-            <a class="cta cta--primary" href="/login?mode=signup">Create your workspace</a>
-            <a class="cta cta--ghost" href="/login">Sign in</a>
+            <a class="cta cta--primary" href={appPath('/login?mode=signup')}>Create your workspace</a>
+            <a class="cta cta--ghost" href={appPath('/login')}>Sign in</a>
           </div>
         </div>
 
@@ -172,13 +173,13 @@
       <section class="closing reveal" aria-label="Get started" use:reveal>
         <h2>Ready when your restaurant is.</h2>
         <p>Create the owner account, set up the restaurant, invite the team.</p>
-        <a class="cta cta--primary" href="/login?mode=signup">Create your workspace</a>
+        <a class="cta cta--primary" href={appPath('/login?mode=signup')}>Create your workspace</a>
       </section>
     </main>
 
     <footer class="landing__footer">
       <span class="wordmark"><i>resto</i><b>gogo</b></span>
-      <a href="/login">Sign in</a>
+      <a href={appPath('/login')}>Sign in</a>
     </footer>
   </div>
 {/if}
@@ -261,7 +262,7 @@
 
   .hero__photo {
     inset: -4%;
-    background: url('/module-backgrounds/home.webp') center / cover;
+    background: var(--hero-photo) center / cover;
     transform: scale(1.04);
     z-index: -3;
   }

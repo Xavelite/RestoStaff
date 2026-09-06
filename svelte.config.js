@@ -12,6 +12,11 @@ const adapter =
 		? staticAdapter({ fallback: 'index.html' })
 		: vercelAdapter();
 
+// The development Vercel project shares xbesnard.com with a small public
+// homepage. Local development intentionally stays at `/` so existing commands,
+// tests and browser workflows do not change.
+const base = process.env.RESTOGOGO_BASE_PATH ?? (process.env.VERCEL === '1' ? '/restogogo' : '');
+
 export default {
 	preprocess: vitePreprocess(),
 
@@ -23,6 +28,7 @@ export default {
 	},
 
 	kit: {
-		adapter
+		adapter,
+		paths: { base }
 	}
 };

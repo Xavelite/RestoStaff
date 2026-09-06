@@ -1,10 +1,24 @@
 /// <reference lib="webworker" />
 
-import { build, files, version } from '$service-worker';
+import { base, build, files, version } from '$service-worker';
 
 const worker = self as unknown as ServiceWorkerGlobalScope;
 const CACHE = `restogogo-${version}`;
-const APP_SHELL = [...new Set([...build, ...files, '/'])];
+const appRoot = `${base}/`;
+const APP_SHELL = [...new Set([...build, ...files, appRoot])];
+
+function scopedUrl(value = '/'): URL {
+  const candidate = new URL(value, worker.location.origin);
+  if (
+    candidate.origin === worker.location.origin &&
+    base &&
+    candidate.pathname !== base &&
+    !candidate.pathname.startsWith(`${base}/`)
+  ) {
+    candidate.pathname = `${base}${candidate.pathname}`;
+  }
+  return candidate;
+}
 
 worker.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(APP_SHELL)));
@@ -27,7 +41,7 @@ worker.addEventListener('fetch', (event) => {
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(async () =>
-        (await caches.match('/')) ?? Response.error()
+        (await caches.match(appRoot)) ?? Response.error()
       )
     );
     return;
@@ -56,7 +70,7 @@ worker.addEventListener('push', (event) => {
     payload = { body: event.data?.text() };
   }
 
-  const target = new URL(payload.url || '/', worker.location.origin);
+  const target = scopedUrl(payload.url);
   if (payload.key) target.searchParams.set('push_key', payload.key);
   if (payload.type) target.searchParams.set('push_type', payload.type);
   if (payload.restaurantId) target.searchParams.set('push_restaurant', payload.restaurantId);
@@ -64,8 +78,8 @@ worker.addEventListener('push', (event) => {
   event.waitUntil(
     worker.registration.showNotification(payload.title || 'Restogogo', {
       body: payload.body || 'Something needs your attention.',
-      icon: '/icons/icon-192.png',
-      badge: '/icons/badge-96.png',
+      icon: `${base}/icons/icon-192.png`,
+      badge: `${base}/icons/badge-96.png`,
       tag: payload.key || undefined,
       data: { url: `${target.pathname}${target.search}` },
       requireInteraction: payload.severity === 'critical'
@@ -75,7 +89,7 @@ worker.addEventListener('push', (event) => {
 
 worker.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const target = new URL(String(event.notification.data?.url || '/'), worker.location.origin);
+  const target = scopedUrl(String(event.notification.data?.url || '/'));
   event.waitUntil((async () => {
     const windows = await worker.clients.matchAll({ type: 'window', includeUncontrolled: true });
     const existing = windows.find((client) => new URL(client.url).origin === target.origin);

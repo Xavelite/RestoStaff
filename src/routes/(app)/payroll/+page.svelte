@@ -3,6 +3,7 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import PayrollSetupWorkspace from '$lib/payroll/PayrollSetupWorkspace.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
+  import { appPath } from '$lib/navigation/app-path';
 
   $effect(() => {
     if (workspace.activeId && workspace.canViewFinancials) {
@@ -38,7 +39,7 @@
 <svelte:head><title>{t('Payroll')} &middot; restogogo</title></svelte:head>
 
 <section class="payroll-path" aria-label={t('Payroll workflow')}>
-    <a href="/team/payroll">
+    <a href={appPath('/team/payroll')}>
       <span class="path-icon is-team"><UsersRound size={18} aria-hidden="true" /></span>
       <span>
         <small>{t('Step 1')}</small>
@@ -51,7 +52,7 @@
         <ArrowRight class="path-state" size={16} aria-hidden="true" />
       {/if}
     </a>
-    <a href="/timesheet">
+    <a href={appPath('/timesheet')}>
       <span class="path-icon is-time"><Clock3 size={18} aria-hidden="true" /></span>
       <span>
         <small>{t('Step 2')}</small>
@@ -60,7 +61,7 @@
       </span>
       <ArrowRight class="path-state" size={16} aria-hidden="true" />
     </a>
-    <a href="/exports">
+    <a href={appPath('/exports')}>
       <span class="path-icon is-export"><FileOutput size={18} aria-hidden="true" /></span>
       <span>
         <small>{t('Step 3')}</small>

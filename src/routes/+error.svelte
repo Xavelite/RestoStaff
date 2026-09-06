@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state';
+  import { appPath } from '$lib/navigation/app-path';
 </script>
 
 <svelte:head><title>Something went wrong · restogogo</title></svelte:head>
@@ -10,7 +11,7 @@
   <p>{page.error?.message ?? 'An unexpected error occurred.'}</p>
   <div>
     <button type="button" onclick={() => location.reload()}>Try again</button>
-    <a href="/home">Return home</a>
+    <a href={appPath('/home')}>Return home</a>
   </div>
 </main>
 

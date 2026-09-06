@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { appPath, logicalPath } from '$lib/navigation/app-path';
   import { page } from '$app/state';
   import {
     acceptEmployeeInvite,
@@ -85,7 +86,7 @@
       await workspace.load();
       feedback = 'Invitation accepted. Your workspace is ready.';
       feedbackTone = 'success';
-      await goto('/my-service');
+      await goto(appPath('/my-service'));
     } catch (error) {
       feedback = error instanceof Error ? error.message : String(error);
       feedbackTone = 'danger';
@@ -110,7 +111,7 @@
     {#if !auth.session}
       <a
         class="login"
-        href={`/login?next=${encodeURIComponent(page.url.pathname + page.url.search)}`}
+        href={appPath(`/login?next=${encodeURIComponent(logicalPath(page.url.pathname) + page.url.search)}`)}
       >
         Sign in with the invited account
       </a>

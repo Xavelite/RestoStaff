@@ -106,7 +106,7 @@ test('browser widget uses only publishable gateway credentials', async () => {
   assert.match(page, /five-minute hold/i);
   assert.doesNotMatch(page, /table_ids|tableLabels|table_labels/);
   assert.match(page, /document\.referrer/);
-  assert.match(rootLayout, /page\.url\.pathname === '\/book'/);
+  assert.match(rootLayout, /logicalPath\(page\.url\.pathname\) === '\/book'/);
   assert.match(rootLayout, /\{#if isPublicBooking\}\s*\{@render children\(\)\}/s);
 });
 
@@ -123,7 +123,8 @@ test('Reservations API workspace leads with the website widget', async () => {
   assert.match(workspace, /Server API/);
   assert.match(workspace, /Webhooks/);
   assert.match(workspace, /Upcoming/);
-  assert.match(workspace, /\/book\?key=/);
+  assert.match(workspace, /appUrl\('\/book', appOrigin\)/);
+  assert.match(workspace, /\?key=\$\{encodeURIComponent\(publicKey\)\}/);
   assert.match(workspace, /bootstrap: true/);
   assert.match(workspace, /data\.embed_session/);
 });

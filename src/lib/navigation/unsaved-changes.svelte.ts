@@ -1,4 +1,5 @@
 import { goto } from '$app/navigation';
+import { logicalPath } from '$lib/navigation/app-path';
 
 type UnsavedChangeSource = {
   id: string;
@@ -67,8 +68,9 @@ class UnsavedChanges {
     return dirty.some((source) => {
       const scopes = source.navigationScopes ?? [];
       if (!scopes.length) return true;
+      const pathname = logicalPath(target.pathname);
       return !scopes.some((prefix) =>
-        target.pathname === prefix || target.pathname.startsWith(`${prefix}/`)
+        pathname === prefix || pathname.startsWith(`${prefix}/`)
       );
     });
   }

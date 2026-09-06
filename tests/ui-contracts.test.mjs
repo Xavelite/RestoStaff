@@ -194,7 +194,7 @@ test('the application favicon and icons are product-owned brand assets', async (
 
   // The document must point at the product favicon, never a framework starter.
   const layout = await readFile('src/routes/+layout.svelte', 'utf8');
-  assert.match(layout, /rel="icon" href="\/brand\/favicon\.png"/);
+  assert.match(layout, /rel="icon" href=\{appPath\('\/brand\/favicon\.png'\)\}/);
   assert.doesNotMatch(layout, /svelte-logo|#ff3e00/i);
 });
 
@@ -206,7 +206,7 @@ test('the authenticated topbar uses the theme-aware brand mark and one line-icon
   const css = await readFile('src/lib/workspace-ui/workspace.css', 'utf8');
 
   assert.match(layout, /class="cl-brand__mark"/);
-  assert.match(layout, /--brand-mark:url\('\/brand\/restogogo-mark\.png'\)/);
+  assert.match(layout, /--brand-mark:url\('\$\{appPath\('\/brand\/restogogo-mark\.png'\)\}'\)/);
   assert.match(css, /\.cl-brand__mark\s*\{[\s\S]*?mask:\s*var\(--brand-mark\)/);
   assert.match(login, /restogogo-mark\.png/);
   assert.match(login, /<i>esto<\/i><i>gogo<\/i>/);
@@ -266,7 +266,7 @@ test('the shared badge station is signed out, tenant-branded and cannot expose m
 
   await assert.rejects(() => readFile('src/routes/(app)/badge-terminal/terminal/+page.svelte', 'utf8'));
   assert.match(devices, /await auth\.signOut\(\)/);
-  assert.match(devices, /window\.location\.assign\('\/station'\)/);
+  assert.match(devices, /window\.location\.assign\(appPath\('\/station'\)\)/);
   assert.doesNotMatch(devices, /href="\/badge-terminal\/terminal"/);
   assert.match(station, /restaurantLogoUrl\(ctx\.logoPath\)/);
   assert.match(station, /createStationBadgeApi\(token, restaurantId\)/);
@@ -358,7 +358,7 @@ test('workspace chrome pins navigation and derives tabs directly from the route'
 
   assert.match(layout, /const activeTabs = \$derived\([\s\S]*activeModule\?\.subNav[\s\S]*item\.roles/);
   assert.match(layout, /activeSubNav\?\.roles[\s\S]*activeSubNav\.roles\.includes\(role\)/);
-  assert.match(layout, /subNavItemForPath\(activeModule, page\.url\.pathname\)/);
+  assert.match(layout, /subNavItemForPath\(activeModule, routePath\)/);
   assert.doesNotMatch(layout, /workspaceChrome/);
   assert.match(layout, /\{@render children\(\)\}/);
   assert.doesNotMatch(layout, /#key `\$\{page\.url\.pathname\}\$\{page\.url\.search\}`/);
@@ -508,9 +508,9 @@ test('operational core exposes planning, attendance and payroll as one workspace
   assert.match(reservations, /!reservation\.room_preference_id \|\| liveRoomIds\.has/);
   assert.match(reservations, /t\('Unassigned'\)/);
   assert.match(payroll, /<PayrollSetupWorkspace/);
-  assert.match(payroll, /href="\/team\/payroll"/);
-  assert.match(payroll, /href="\/timesheet"/);
-  assert.match(payroll, /href="\/exports"/);
+  assert.match(payroll, /href=\{appPath\('\/team\/payroll'\)\}/);
+  assert.match(payroll, /href=\{appPath\('\/timesheet'\)\}/);
+  assert.match(payroll, /href=\{appPath\('\/exports'\)\}/);
   // The time-off types page was a tab of read-only reference data nobody could
   // edit. It is a legend on Time off now, beside the requests it classifies.
   assert.match(absences, /<WorkspaceRosterLegend items=\{typeLegend\}/);
@@ -853,7 +853,7 @@ test('Badging captures evidence automatically and grants phone clocks employee b
   assert.match(mobile, /captureBadgePhoto\(\)/);
   assert.match(mobile, /context\.mobileBadgingEnabled/);
   assert.doesNotMatch(mobile, /type="file"|photo-control/);
-  assert.match(devices, /href="\/station"/);
+  assert.match(devices, /href=\{appPath\('\/station'\)\}/);
   assert.match(devices, /WorkspaceColChooser/);
   assert.match(devices, /pairingCodes\[station\.id\]/);
   assert.match(devices, /setEmployeeMobileBadging/);
