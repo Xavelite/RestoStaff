@@ -13,19 +13,31 @@ test('xbesnard.com exposes a small public backstage homepage', async () => {
     const body = await response.text();
     assert.match(body, /You are not lost\. You found the backstage\./);
     assert.match(body, /href="\/restogogo\/"/);
-    assert.match(body, /href="\/game"/);
+    assert.match(body, /href="\/IdleAge\/"/);
+    assert.match(body, /Play IdleAge/);
   }
 });
 
-test('the game address is reserved without exposing unfinished content', async () => {
-  const response = middleware(new Request('https://xbesnard.com/game'));
-  assert.equal(response?.status, 200);
-  assert.match(response.headers.get('x-robots-tag'), /noindex/);
-  assert.match(await response.text(), /still behind the curtain/i);
+test('game aliases reach IdleAge and preserve asset paths and query parameters', () => {
+  for (const [path, destination] of [
+    ['/game', '/IdleAge/'],
+    ['/game/?seed=123', '/IdleAge/?seed=123'],
+    ['/idleage', '/IdleAge/'],
+    ['/IdleAge?seed=123', '/IdleAge/?seed=123'],
+    ['/idleage/assets/example.png?v=1', '/IdleAge/assets/example.png?v=1']
+  ]) {
+    const response = middleware(new Request(`https://xbesnard.com${path}`));
+    assert.equal(response?.status, 307);
+    assert.equal(response.headers.get('location'), `https://xbesnard.com${destination}`);
+  }
 });
 
-test('Restogogo and the recipe film pass through to their deployed artifacts', () => {
+test('IdleAge, Restogogo and the recipe film pass through to their deployed artifacts', () => {
   for (const path of [
+    '/IdleAge/',
+    '/IdleAge/index.html',
+    '/IdleAge/assets/index-example.js',
+    '/IdleAge/assets/structures/approved/thatch-shelter.png',
     '/restogogo/',
     '/restogogo/login',
     '/restogogo/_app/immutable/start.js',
@@ -70,7 +82,7 @@ test('hosting routes never intercept local development, production or preview do
     'https://restostaff-example.vercel.app',
     'https://xbesnard.com.example.com'
   ]) {
-    for (const path of ['/', '/home', '/restogogo/', '/pasta', '/service-worker.js']) {
+    for (const path of ['/', '/home', '/restogogo/', '/pasta', '/IdleAge/', '/game', '/service-worker.js']) {
       assert.equal(middleware(new Request(`${origin}${path}`)), undefined, `${origin}${path}`);
     }
   }

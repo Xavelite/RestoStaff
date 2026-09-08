@@ -160,6 +160,8 @@ test('the deployed app keeps its security headers and badge evidence policy', as
   // the camera permission the badge terminal needs to capture proof photos.
   const vercel = JSON.parse(await read('vercel.json'));
   assert.deepEqual(vercel.rewrites, [
+    { source: '/IdleAge', destination: '/IdleAge/index.html' },
+    { source: '/IdleAge/', destination: '/IdleAge/index.html' },
     { source: '/pasta', destination: '/restogogo/pasta/index.html' },
     { source: '/pasta/(.*)', destination: '/restogogo/pasta/$1' }
   ]);

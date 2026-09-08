@@ -9,6 +9,7 @@
   ],
   "ignore": [
     "src/lib/supabase/database.types.ts",
+    "public-projects/idleage/**",
     "static/pasta/*.{js,jsx}"
   ],
   "ignoreBinaries": ["powershell"],

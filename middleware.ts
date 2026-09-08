@@ -54,45 +54,12 @@ const welcomePage = `<!doctype html>
       <p class="lead">This is where unfinished ideas learn how to behave before anyone calls them a product.</p>
       <nav class="actions" aria-label="Projects">
         <a class="button primary" href="/restogogo/">Open Restogogo <span>Restaurant workspace</span></a>
-        <a class="button" href="/game">Game <span>Still in the workshop</span></a>
+        <a class="button" href="/IdleAge/">Play IdleAge <span>From garden to empire</span></a>
       </nav>
     </main>
     <img class="rabbit" src="/restogogo/pet/ai-speed-rabbit-idle.gif" alt="" width="384" height="384">
     <footer class="bottom">Please mind the cables. Some of them are emotionally important.</footer>
   </div>
-</body>
-</html>`;
-
-const gamePage = `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark">
-  <meta name="robots" content="noindex, nofollow">
-  <link rel="icon" href="data:,">
-  <title>Game workshop | xbesnard.com</title>
-  <style>
-    :root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#f7f9fc;background:#0d121b}
-    *{box-sizing:border-box}
-    body{margin:0;min-height:100svh;display:grid;place-items:center;padding:24px;background:#0d121b}
-    main{width:min(720px,100%);position:relative;padding:54px 0;border-top:1px solid #2a3547;border-bottom:1px solid #2a3547}
-    p{margin:0;color:#9ba8ba;font-size:18px;line-height:1.6}
-    .eyebrow{margin-bottom:14px;color:#5eead4;font-size:13px;font-weight:750;text-transform:uppercase}
-    h1{margin:0 0 20px;color:#fff;font-size:72px;line-height:1;letter-spacing:0}
-    a{display:inline-flex;margin-top:30px;padding-bottom:5px;border-bottom:2px solid #5eead4;color:#fff;text-decoration:none;font-size:14px;font-weight:700}
-    a:hover{color:#5eead4}
-    @media(max-width:700px){h1{font-size:48px}}
-    @media(max-width:420px){h1{font-size:40px}}
-  </style>
-</head>
-<body>
-  <main>
-    <p class="eyebrow">Reserved: /game</p>
-    <h1>The game is still behind the curtain.</h1>
-    <p>The stage is ready. The project will move in here when it has packed its files.</p>
-    <a href="/">Back to the backstage</a>
-  </main>
 </body>
 </html>`;
 
@@ -138,9 +105,15 @@ export default function middleware(request: Request) {
   }
 
   if (url.pathname === '/') return htmlResponse(request, welcomePage);
-  if (url.pathname === '/game' || url.pathname.startsWith('/game/')) {
-    return htmlResponse(request, gamePage, true);
+  // IdleAge is a frozen game release, staged independently of the Restogogo app.
+  const gameAlias = url.pathname.match(/^\/(?:game|idleage)(?:\/(.*))?$/);
+  if (gameAlias) {
+    return Response.redirect(new URL(`/IdleAge/${gameAlias[1] ?? ''}${url.search}`, url), 307);
   }
+  if (url.pathname === '/IdleAge') {
+    return Response.redirect(new URL(`/IdleAge/${url.search}`, url), 307);
+  }
+  if (url.pathname.startsWith('/IdleAge/')) return;
 
   // The existing public recipe film remains available independently.
   if (url.pathname === '/pasta' || url.pathname.startsWith('/pasta/')) return;
