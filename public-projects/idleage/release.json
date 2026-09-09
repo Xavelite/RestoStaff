@@ -1,6 +1,7 @@
 {
   "name": "Idle Age",
-  "release": "2026-09-09",
+  "release": "20260909-235803",
+  "publishedAt": "2026-09-09T22:00:19.5929909+00:00",
   "source": "Incremental Game 2.0",
-  "sourceSnapshotSha256": "717a4f3636584033e534676e38d3fb91167c76770a6c78ca869672542042f3a1"
+  "sourceSnapshotSha256": "22cdd7b22c4f88c71f486fa3223c81183e91e21624560713e25c3de34926d458"
 }
