@@ -1,12 +1,14 @@
 {
   "name": "Idle Age",
-  "release": "20260910-eras",
-  "publishedAt": "2026-09-10T19:32:29.264Z",
+  "release": "20260915-gameplay",
+  "publishedAt": "2026-09-15T02:19:09.383Z",
   "source": "Incremental Game 2.0",
-  "sourceSnapshotSha256": "fd79bcf9e2bfb78e071c5fdd1bab0213933cdfd16f3ac0a720a4d0fa5b7b7d3f",
+  "sourceSnapshotSha256": "9fbb893e1ef62ad7207647040679fc430f10be8486b6cd0a2b148c5ac15a876f",
   "highlights": [
-    "Garden, Tide, Amber and Titan ecosystems",
-    "32 animal species",
-    "Amber and Titan voiced transitions"
+    "Citizen rest, relationships and family balance updates",
+    "Shared construction supplies and no hauling for Adam",
+    "Local storage delivery, explicit building capacities and varied overflow piles",
+    "Citizen carry meter and visual inventory slots",
+    "Refreshed HUD, wildlife inspection, night lighting and world atmosphere"
   ]
 }

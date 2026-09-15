@@ -23,10 +23,18 @@ part of publication. Do not automatically publish ongoing development changes.
 Initial release: 2026-09-08. The complete initial source snapshot and its SHA-256
 inventory are retained locally in `C:/dev/deployments/idleage-20260908/`.
 
-Current release: `20260910-eras`. Garden, Tide, Amber and Titan ecosystems,
+Previous release: `20260910-eras`. Garden, Tide, Amber and Titan ecosystems,
 32 animal species, updated structures, creation/Tide storytelling and the new
 Amber/Titan voiced transitions. Runtime image and audio URLs are scoped under
 `/IdleAge/`, including template-literal asset paths. Restogogo and hosting routes
 are unchanged. Source inventory and previous game output are retained locally
 in `C:/dev/deployments/idleage-20260910-eras/`; `release.json` identifies the exact
 snapshot. Prior production commit: `2047c4d`.
+
+Current release: `20260915-gameplay`. Includes the current HUD and visual
+inventory, citizen rest/family fixes, shared construction supplies, Adam's
+direct inventory, local storage delivery and smaller explicit storage tiers.
+The game snapshot, source SHA-256 inventory and previous publication are kept
+in `C:/dev/deployments/idleage-20260915-gameplay/`. The live `release.json`
+identifies that exact snapshot. Restogogo code and hosting routes are unchanged.
+Prior production commit: `12d8118`.
