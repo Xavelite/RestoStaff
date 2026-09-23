@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFile, readdir } from 'node:fs/promises';
+import path from 'node:path';
 import test from 'node:test';
 
 const {
@@ -94,4 +96,33 @@ test('service keys remain stable and normalize user-defined service names', () =
     ),
     'apres-midi'
   );
+});
+
+test('starter employees use the current disabled access state after every workspace RPC rewrite', async () => {
+  const baseline = await readFile('supabase/baseline/public.sql', 'utf8');
+  const functionStart = baseline.indexOf('CREATE OR REPLACE FUNCTION "public"."setup_owner_workspace"');
+  const functionEnd = baseline.indexOf('ALTER FUNCTION "public"."setup_owner_workspace"', functionStart);
+  const baselineFunction = baseline.slice(functionStart, functionEnd);
+
+  assert.ok(functionStart >= 0 && functionEnd > functionStart);
+  assert.match(baselineFunction, /'disabled', false/);
+  assert.doesNotMatch(baselineFunction, /'not_invited'/);
+
+  const migrationsDirectory = path.join('supabase', 'migrations');
+  const migrationNames = (await readdir(migrationsDirectory))
+    .filter((name) => name.endsWith('.sql'))
+    .sort();
+  const migrationSources = await Promise.all(
+    migrationNames.map((name) => readFile(path.join(migrationsDirectory, name), 'utf8'))
+  );
+  const lastRoutineRewrite = migrationSources.findLastIndex((source) =>
+    /create or replace function public\.setup_owner_workspace/i.test(source)
+  );
+  const finalRepair = migrationNames.indexOf(
+    '20260923121000_fix_onboarding_starter_access_status.sql'
+  );
+
+  assert.ok(finalRepair > lastRoutineRewrite);
+  assert.match(migrationSources[finalRepair], /replace\(v_definition, '''not_invited''', '''disabled'''\)/);
+  assert.match(migrationSources[finalRepair], /unknown employee access status/);
 });

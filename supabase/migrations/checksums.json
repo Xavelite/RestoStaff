@@ -168,6 +168,7 @@
     "20260802021556_badge_roster_activity_truth.sql": "27ea737e684b984e0b9da2091b3252019ae73c5c0db16502312ae24b297900c2",
     "20260802022438_badge_station_realtime.sql": "2f0fbca03add7f55955b3d3a7394b631111823ecfd9ef60d390d3d69ec141ec0",
     "20260802022739_badge_roster_resume_time.sql": "a2ecee703b593ff4a868b9f93f0644b3038cba4b8e0282e9b1c3cd309bdc91e8",
-    "20260802023207_exact_badge_break_total.sql": "b6d756331118397b9fd8f4645ae570a0316a57a80fcbbaee18466588a14c4dc4"
+    "20260802023207_exact_badge_break_total.sql": "b6d756331118397b9fd8f4645ae570a0316a57a80fcbbaee18466588a14c4dc4",
+    "20260923121000_fix_onboarding_starter_access_status.sql": "9e6b3eab61bf09daa423843f111d119af7df928c063e2f4ffb080d2573982f10"
   }
 }
