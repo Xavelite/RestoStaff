@@ -4,8 +4,9 @@ Restogogo is a SvelteKit 2 and Svelte 5 static SPA backed by hosted Supabase.
 The browser uses a publishable key; authorization remains in grants, RLS, and
 transactional RPCs.
 
-Local routes live at `/`. The xbesnard Vercel build mounts the same route tree
-at `/restogogo` through `kit.paths.base`; `src/lib/navigation/app-path.ts` is
+Local routes and the `restogogo.com` deployment live at `/`. The xbesnard
+Vercel project explicitly mounts the same route tree at `/restogogo` through
+`RESTOGOGO_BASE_PATH` and `kit.paths.base`; `src/lib/navigation/app-path.ts` is
 the single adapter between logical product routes and that hosting path.
 Navigation models therefore remain host-independent. Host-only middleware
 serves the xbesnard project homepage and preserves legacy deep links, while the

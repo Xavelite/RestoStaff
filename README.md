@@ -42,14 +42,16 @@ described in [`docs/PRODUCTION-READINESS.md`](docs/PRODUCTION-READINESS.md).
 
 The development deployment deliberately shares `xbesnard.com`: `/` is a small
 public project homepage, `/restogogo/` is this application, `/pasta` remains the
-standalone recipe film, and `/game` is reserved for a separate project. Vercel
-builds receive that mount from `svelte.config.js`; localhost stays at `/`, so
+standalone recipe film, and `/game` is reserved for a separate project. Its
+Vercel project sets `RESTOGOGO_BASE_PATH=/restogogo`; localhost and the
+`restogogo.com` project stay at `/`, so
 `npm run dev -- --host 127.0.0.1 --port 5555` is unchanged. `middleware.ts`
 owns only the xbesnard host split and redirects old app bookmarks, invitation
 links, and push deep links into `/restogogo`.
 
-The production `restogogo.com` project is a separate deployment and is not
-changed by this repository's xbesnard host routing.
+The `restogogo.com` project is a separate root deployment of the same source.
+The xbesnard host routing never intercepts that domain, and Vercel keeps every
+superseded production deployment available for rollback.
 
 ## Current documentation
 

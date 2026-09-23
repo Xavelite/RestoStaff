@@ -3,18 +3,22 @@
   "rewrites": [
     {
       "source": "/IdleAge",
+      "has": [{ "type": "host", "value": "(?:www\\.)?xbesnard\\.com" }],
       "destination": "/IdleAge/index.html"
     },
     {
       "source": "/IdleAge/",
+      "has": [{ "type": "host", "value": "(?:www\\.)?xbesnard\\.com" }],
       "destination": "/IdleAge/index.html"
     },
     {
       "source": "/pasta",
+      "has": [{ "type": "host", "value": "(?:www\\.)?xbesnard\\.com" }],
       "destination": "/restogogo/pasta/index.html"
     },
     {
       "source": "/pasta/(.*)",
+      "has": [{ "type": "host", "value": "(?:www\\.)?xbesnard\\.com" }],
       "destination": "/restogogo/pasta/$1"
     }
   ],
@@ -94,6 +98,13 @@
       ]
     },
     {
+      "source": "/((?!restogogo(?:/|$)|IdleAge(?:/|$)|book(?:/|$)|pasta(?:/|$)).*)",
+      "headers": [
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; frame-src 'self' https://www.openstreetmap.org; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'; upgrade-insecure-requests" }
+      ]
+    },
+    {
       "source": "/restogogo/((?!book(?:/|$)|pasta(?:/|$)).*)",
       "headers": [
         {
@@ -104,6 +115,12 @@
           "key": "Content-Security-Policy",
           "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; frame-src 'self' https://www.openstreetmap.org; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'; upgrade-insecure-requests"
         }
+      ]
+    },
+    {
+      "source": "/book",
+      "headers": [
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors https:; frame-src 'self' https://www.openstreetmap.org; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'; upgrade-insecure-requests" }
       ]
     },
     {

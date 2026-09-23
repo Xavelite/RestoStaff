@@ -12,10 +12,11 @@ const adapter =
 		? staticAdapter({ fallback: 'index.html' })
 		: vercelAdapter();
 
-// The development Vercel project shares xbesnard.com with a small public
-// homepage. Local development intentionally stays at `/` so existing commands,
-// tests and browser workflows do not change.
-const base = process.env.RESTOGOGO_BASE_PATH ?? (process.env.VERCEL === '1' ? '/restogogo' : '');
+// Deployments mount at `/` unless they explicitly opt into a subpath. The
+// xbesnard project sets RESTOGOGO_BASE_PATH=/restogogo; restogogo.com and local
+// development deliberately use the root.
+const configuredBase = process.env.RESTOGOGO_BASE_PATH;
+const base = configuredBase && configuredBase !== '/' ? configuredBase : '';
 
 export default {
 	preprocess: vitePreprocess(),

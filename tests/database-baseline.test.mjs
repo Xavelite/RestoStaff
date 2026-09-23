@@ -152,7 +152,8 @@ test('deployment uses the Vercel adapter outside the Windows local build', async
   assert.match(config, /vercelAdapter\(\)/);
   assert.match(config, /process\.platform === 'win32'/);
   assert.match(config, /process\.env\.VERCEL !== '1'/);
-  assert.match(config, /VERCEL === '1' \? '\/restogogo' : ''/);
+  assert.match(config, /process\.env\.RESTOGOGO_BASE_PATH/);
+  assert.match(config, /configuredBase !== '\/'/);
 });
 
 test('the deployed app keeps its security headers and badge evidence policy', async () => {
@@ -160,10 +161,26 @@ test('the deployed app keeps its security headers and badge evidence policy', as
   // the camera permission the badge terminal needs to capture proof photos.
   const vercel = JSON.parse(await read('vercel.json'));
   assert.deepEqual(vercel.rewrites, [
-    { source: '/IdleAge', destination: '/IdleAge/index.html' },
-    { source: '/IdleAge/', destination: '/IdleAge/index.html' },
-    { source: '/pasta', destination: '/restogogo/pasta/index.html' },
-    { source: '/pasta/(.*)', destination: '/restogogo/pasta/$1' }
+    {
+      source: '/IdleAge',
+      has: [{ type: 'host', value: '(?:www\\.)?xbesnard\\.com' }],
+      destination: '/IdleAge/index.html'
+    },
+    {
+      source: '/IdleAge/',
+      has: [{ type: 'host', value: '(?:www\\.)?xbesnard\\.com' }],
+      destination: '/IdleAge/index.html'
+    },
+    {
+      source: '/pasta',
+      has: [{ type: 'host', value: '(?:www\\.)?xbesnard\\.com' }],
+      destination: '/restogogo/pasta/index.html'
+    },
+    {
+      source: '/pasta/(.*)',
+      has: [{ type: 'host', value: '(?:www\\.)?xbesnard\\.com' }],
+      destination: '/restogogo/pasta/$1'
+    }
   ]);
   assert.match(
     await read('static/pasta/index.html'),
@@ -179,22 +196,25 @@ test('the deployed app keeps its security headers and badge evidence policy', as
   assert.match(permissions.value, /camera=\(self\)/);
   assert.match(permissions.value, /geolocation=\(self\)/);
 
-  const application = vercel.headers.find(
-    (entry) => entry.source === '/restogogo/((?!book(?:/|$)|pasta(?:/|$)).*)'
-  );
-  const applicationCsp = application.headers.find(
-    (header) => header.key === 'Content-Security-Policy'
-  );
-  assert.match(applicationCsp.value, /frame-ancestors 'none'/);
-  // SvelteKit's deployed SPA shell contains its bootstrap inline. Blocking
-  // that script yields a successful HTTP response with a completely blank app.
-  assert.match(applicationCsp.value, /script-src[^;]*'unsafe-inline'/);
-  assert.ok(
-    application.headers.some(
-      (header) => header.key === 'X-Frame-Options' && header.value === 'DENY'
-    )
-  );
-  assert.doesNotMatch(applicationCsp.value, /'unsafe-eval'|unpkg\.com/);
+  for (const source of [
+    '/((?!restogogo(?:/|$)|IdleAge(?:/|$)|book(?:/|$)|pasta(?:/|$)).*)',
+    '/restogogo/((?!book(?:/|$)|pasta(?:/|$)).*)'
+  ]) {
+    const application = vercel.headers.find((entry) => entry.source === source);
+    const applicationCsp = application.headers.find(
+      (header) => header.key === 'Content-Security-Policy'
+    );
+    assert.match(applicationCsp.value, /frame-ancestors 'none'/);
+    // SvelteKit's deployed SPA shell contains its bootstrap inline. Blocking
+    // that script yields a successful HTTP response with a completely blank app.
+    assert.match(applicationCsp.value, /script-src[^;]*'unsafe-inline'/);
+    assert.ok(
+      application.headers.some(
+        (header) => header.key === 'X-Frame-Options' && header.value === 'DENY'
+      )
+    );
+    assert.doesNotMatch(applicationCsp.value, /'unsafe-eval'|unpkg\.com/);
+  }
 
   // The standalone recipe composition compiles its supplied JSX in-browser.
   // Keep that relaxed policy isolated from every authenticated application URL.
@@ -212,10 +232,12 @@ test('the deployed app keeps its security headers and badge evidence policy', as
     );
   }
 
-  const publicBooking = vercel.headers.find((entry) => entry.source === '/restogogo/book');
-  const bookingCsp = publicBooking.headers.find(
-    (header) => header.key === 'Content-Security-Policy'
-  );
-  assert.match(bookingCsp.value, /frame-ancestors https:/);
-  assert.match(bookingCsp.value, /script-src[^;]*'unsafe-inline'/);
+  for (const source of ['/book', '/restogogo/book']) {
+    const publicBooking = vercel.headers.find((entry) => entry.source === source);
+    const bookingCsp = publicBooking.headers.find(
+      (header) => header.key === 'Content-Security-Policy'
+    );
+    assert.match(bookingCsp.value, /frame-ancestors https:/);
+    assert.match(bookingCsp.value, /script-src[^;]*'unsafe-inline'/);
+  }
 });
