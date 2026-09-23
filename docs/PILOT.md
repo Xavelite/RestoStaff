@@ -14,7 +14,7 @@ It prevents a future redesign or audit from silently reopening settled scope.
 | Reports | Disabled by default until elapsed-window metric contracts and business sign-off replace the current exploratory comparisons. |
 | Payroll | Preparation/export only. Experimental calculation and provider-reconciliation RPCs are quarantined from authenticated clients. |
 | Sensitive HR | Owner-only: national registry, bank, salary/cost, tax, and private provider data. Managers retain operational employee and contract access. |
-| Signup | Invitation/allowlist-controlled pilot access. Public visitors may request access but cannot create a tenant without approval. |
+| Signup | Self-service restaurant creation after normal email confirmation. Platform suspension and tenant authorization remain server-enforced; no separate pilot approval is required. |
 | Editing | Broad Team, Restaurant, and floor-plan saves require expected revisions and reject stale writes. |
 | Administration | Platform-admin allowlist plus an AAL2 authenticator session; every mutation is audited. |
 

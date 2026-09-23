@@ -249,6 +249,18 @@ test('owners can launch another restaurant and switch directly to it', async () 
   assert.match(accountMenu, /membership\.status === 'active' && membership\.role === 'owner'/);
 });
 
+test('new owners enter restaurant setup without a manual pilot approval gate', async () => {
+  const onboarding = await readFile('src/routes/onboarding/+page.svelte', 'utf8');
+  const migration = await readFile(
+    'supabase/migrations/20260923150648_open_self_service_restaurant_onboarding.sql',
+    'utf8'
+  );
+
+  assert.doesNotMatch(onboarding, /getPilotAccessState|requestPilotAccess|Your request is under review/);
+  assert.match(migration, /drop trigger if exists enforce_controlled_restaurant_creation/);
+  assert.match(migration, /'can_create_workspace', auth\.uid\(\) is not null/);
+});
+
 
 test('availability remains editable after schedule publication', async () => {
   const migration = await readFile(

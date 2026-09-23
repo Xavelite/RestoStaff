@@ -27,11 +27,6 @@
     type OnboardingDraft as Draft
   } from '$lib/onboarding/onboarding-draft';
   import { workspace } from '$lib/workspace/workspace.svelte';
-  import {
-    getPilotAccessState,
-    requestPilotAccess,
-    type PilotAccessState
-  } from '$lib/pilot/pilot-access';
 
   type Step = {
     key: string;
@@ -113,9 +108,6 @@
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
   let selectedAreaCatalogueKey = $state('');
   let selectedPositionCatalogueKey = $state('');
-  let pilotAccess = $state<PilotAccessState | null>(null);
-  let pilotAccessLoading = $state(true);
-  let pilotAccessBusy = $state(false);
 
   const email = $derived(auth.user?.email ?? '');
   const creatingAdditionalRestaurant = $derived(page.url.searchParams.get('new') === '1');
@@ -187,15 +179,6 @@
   onMount(() => {
     let active = true;
     void (async () => {
-      try {
-        pilotAccess = await getPilotAccessState();
-      } catch (error) {
-        feedback = error instanceof Error ? error.message : String(error);
-        feedbackTone = 'danger';
-      } finally {
-        pilotAccessLoading = false;
-      }
-
       const saved = localStorage.getItem(draftKey);
       let localDraft: Partial<Draft> = {};
       if (saved) {
@@ -274,22 +257,6 @@
       goto(appPath('/home'), { replaceState: true });
     }
   });
-
-  async function submitPilotRequest(): Promise<void> {
-    pilotAccessBusy = true;
-    feedback = '';
-    try {
-      await requestPilotAccess();
-      pilotAccess = await getPilotAccessState();
-      feedback = 'Your pilot request was sent. We will unlock restaurant setup after review.';
-      feedbackTone = 'success';
-    } catch (error) {
-      feedback = error instanceof Error ? error.message : String(error);
-      feedbackTone = 'danger';
-    } finally {
-      pilotAccessBusy = false;
-    }
-  }
 
   function id(prefix: string) {
     return `${prefix}-${crypto.randomUUID()}`;
@@ -625,39 +592,6 @@
     </section>
   </main>
 {:else}
-  {#if pilotAccessLoading}
-    <main class="setup-gate">
-      <section class="gate-hero" aria-busy="true">
-        <span class="page-kicker">Pilot access</span>
-        <h1>Checking your workspace access.</h1>
-        <p>Restaurant creation is controlled during the pilot so every workspace starts with the right support.</p>
-      </section>
-    </main>
-  {:else if !pilotAccess?.canCreateWorkspace}
-    <main class="setup-gate">
-      <section class="gate-hero">
-        <span class="page-kicker">Pilot access</span>
-        <h1>{pilotAccess?.status === 'pending' ? 'Your request is under review.' : 'Request a pilot workspace.'}</h1>
-        <p>
-          {pilotAccess?.status === 'pending'
-            ? 'You can sign in normally. Restaurant setup will unlock as soon as the pilot request is approved.'
-            : pilotAccess?.status === 'declined'
-              ? 'This account is not currently approved for a pilot workspace. You may submit a new request for review.'
-              : 'Restogogo is onboarding restaurants deliberately during the pilot. Send a request and we will unlock the setup board after review.'}
-        </p>
-        {#if feedback}<FeedbackBanner message={feedback} tone={feedbackTone} />{/if}
-        {#if pilotAccess?.status !== 'pending'}
-          <ActionButton
-            label={pilotAccessBusy ? 'Sending request…' : 'Request pilot access'}
-            tone="primary"
-            disabled={pilotAccessBusy}
-            onclick={submitPilotRequest}
-          />
-        {/if}
-        <a href={appPath('/login')}>Return to sign in</a>
-      </section>
-    </main>
-  {:else}
   <main class="launch">
     <header class="launch-hero" aria-labelledby="launch-title">
       <div class="launch-hero__copy">
@@ -946,7 +880,6 @@
       </div>
     </div>
   </main>
-  {/if}
 {/if}
 
 <style>
