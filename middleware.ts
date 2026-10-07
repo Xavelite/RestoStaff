@@ -55,6 +55,7 @@ const welcomePage = `<!doctype html>
       <nav class="actions" aria-label="Projects">
         <a class="button primary" href="/restogogo/">Open Restogogo <span>Restaurant workspace</span></a>
         <a class="button" href="/IdleAge/">Play IdleAge <span>From garden to empire</span></a>
+        <a class="button" href="/universal/">Open Universal <span>Your internet, your way</span></a>
       </nav>
     </main>
     <img class="rabbit" src="/restogogo/pet/ai-speed-rabbit-idle.gif" alt="" width="384" height="384">
@@ -105,6 +106,10 @@ export default function middleware(request: Request) {
   }
 
   if (url.pathname === '/') return htmlResponse(request, welcomePage);
+  if (url.pathname === '/universal') {
+    return Response.redirect(new URL(`/universal/${url.search}`, url), 307);
+  }
+  if (url.pathname.startsWith('/universal/')) return;
   // IdleAge is a frozen game release, staged independently of the Restogogo app.
   const gameAlias = url.pathname.match(/^\/(?:game|idleage)(?:\/(.*))?$/);
   if (gameAlias) {

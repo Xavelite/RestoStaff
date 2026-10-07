@@ -1,0 +1,117 @@
+/* A small peek extends the card; the original preview keeps its dimensions. */
+.inline-card-discussion{position:relative;z-index:4;display:flex;flex-direction:column;gap:7px;min-width:0;width:100%;margin:0;padding:9px 12px 11px;border-top:1px solid var(--line);background:var(--surface);color:var(--text);text-align:left;animation:card-comments-reveal .14s ease-out}
+.card.conversation-selected{border-color:color-mix(in srgb,var(--accent) 55%,var(--line))}
+.inline-discussion-header{display:flex;align-items:center;gap:4px;min-width:0}
+.inline-discussion-header h3{flex:1;min-width:0;font-size:11px;line-height:1.5;margin:0;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inline-discussion-header h3>span{font-size:10px;font-weight:400;margin-left:4px;color:var(--muted)}
+.inline-discussion-header .icon-btn{width:22px;height:22px;color:var(--muted);flex-shrink:0}
+.inline-discussion-header .icon-btn .icon{width:12px;height:12px}
+.inline-discussion-header .icon-btn:hover{color:var(--text);background:var(--hover)}
+.inline-discussion-audience{display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted);margin-right:4px}
+.inline-discussion-audience>.icon{width:10px;height:10px;flex-shrink:0}
+.inline-comment-list{min-width:0}
+.inline-comment-list .comment-row{gap:7px;padding:0;border:0;margin:0}
+.inline-comment-list .comment-row>.social-avatar{width:23px;height:23px;font-size:10px;border-radius:50%;flex-shrink:0}
+.inline-comment-list .comment-row>div{min-width:0}
+.inline-comment-list .comment-byline{gap:6px;min-height:15px}
+.inline-comment-list .comment-byline strong{font-size:10px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inline-comment-list .comment-byline time{font-size:9px;white-space:nowrap}
+.inline-comment-list .comment-row p{font-size:11px;line-height:1.5;margin-top:2px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.inline-comment-list .comment-reply-button{font-size:9px;margin:0 0 0 auto;color:var(--muted);padding:0;flex-shrink:0}
+.inline-comment-list .comment-reply-button:hover{color:var(--accent)}
+.inline-comment-list .comments-empty{padding:3px 0;justify-content:flex-start;font-size:11px}
+.inline-comment-list .comments-empty p{margin:0;line-height:1.5}
+.inline-comment-form{margin:0}
+.inline-comment-compose{display:flex;align-items:flex-end;gap:6px}
+.inline-comment-compose textarea{flex:1;min-width:0;height:33px;min-height:33px;max-height:64px;resize:vertical;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text);font:inherit;font-size:11px;line-height:17px;padding:7px 9px}
+.inline-comment-compose textarea:focus{outline:1px solid var(--accent);outline-offset:1px}
+.inline-comment-compose .primary{flex-shrink:0;width:32px;height:33px;min-height:0;padding:8px;border-radius:10px}
+.inline-comment-compose .primary .icon{width:15px;height:15px}
+.inline-comment-form .social-form-error:empty{display:none}
+.inline-comment-form .replying-to{margin:0 0 6px;display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:10px}
+.inline-comment-form .replying-to .icon-btn{width:21px;height:21px}
+.inline-discussion-private{font-size:10px;color:var(--muted);line-height:1.6;margin:0}
+.card-action-bar [aria-expanded=true]{color:var(--accent)}
+@keyframes card-comments-reveal{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.inline-card-discussion{animation:none}}
+
+/* One visible action row for personal, smart, shared and widget cards. */
+.cards-grid{--card-content-height:213px;--card-actions-height:36px}
+body[data-view="adaptive"] .overview-grid{--card-content-height:181px}
+body[data-view="adaptive"] .shortcuts-row{--card-content-height:110px}
+body[data-view="classic"] .cards-grid{--card-content-height:201px}
+body[data-view="compact"] .cards-grid{--card-content-height:151px}
+body[data-view] .collection-rail{--card-content-height:181px}
+body[data-view] .collection-rail.shortcuts-row{--card-content-height:110px}
+body[data-view="list"] .cards-grid{--card-content-height:84px}
+body[data-view="list"] .collection-rail{--card-content-height:78px}
+body[data-view] .card:has(.card-action-bar){height:calc(var(--card-content-height,213px) + var(--card-actions-height,36px));min-height:0;align-self:start}
+body[data-view] .card:has(.card-action-bar)>.card-main{height:calc(100% - var(--card-actions-height,36px));min-height:0}
+body[data-view] .widget-card:has(.card-action-bar){padding-bottom:calc(16px + var(--card-actions-height,36px))}
+.card .card-action-bar{position:absolute;left:0;right:0;bottom:0;height:var(--card-actions-height,36px);display:flex;align-items:center;justify-content:flex-start;gap:12px;padding:0 12px;border-top:1px solid var(--card-edge);background:color-mix(in srgb,var(--surface) 88%,transparent);z-index:3}
+.card .card-action-bar button,.card .card-action-bar .card-action-stat{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:30px;min-height:30px;padding:4px 2px;font-size:10px;line-height:1;color:var(--muted);font-weight:500;background:none;border:0;opacity:1;white-space:nowrap}
+.card .card-action-bar button:hover{color:var(--text)}
+.card .card-action-bar button[aria-expanded=true]{color:var(--accent)}
+.card .card-action-bar button.liked{color:#ecaabf}
+.card .card-action-bar .live-favorite{margin-left:auto!important}
+.card .card-action-bar .icon{width:14px;height:14px;flex-shrink:0}
+body[data-view] .card:has(.card-action-bar) .card-actions{opacity:1;top:7px;right:7px;transform:none}
+.card:has(.card-action-bar) :is(.smart-hide,.card-actions .icon-btn){width:27px;height:27px}
+.card:has(.card-action-bar) .smart-hide{background:color-mix(in srgb,var(--surface) 85%,transparent);color:var(--soft-text)}
+
+/* Video artwork keeps its own 16:9 area. The caption and actions add height. */
+body[data-view]:not([data-view="compact"]):not([data-view="list"]) .card[data-kind="video"]:has(.card-action-bar){height:auto;display:flex;flex-direction:column}
+body[data-view]:not([data-view="compact"]):not([data-view="list"]) .card[data-kind="video"]:has(.card-action-bar)>.card-main{height:auto;flex:1;min-height:0}
+body[data-view]:not([data-view="compact"]):not([data-view="list"]) .card[data-kind="video"]:has(.card-action-bar) .video-art{flex:none;width:100%;height:auto;aspect-ratio:16/9;min-height:0}
+body[data-view]:not([data-view="compact"]):not([data-view="list"]) .card[data-kind="video"]:has(.card-action-bar) .card-info{min-height:72px;padding:12px 15px;flex:1;width:100%}
+body[data-view]:not([data-view="compact"]):not([data-view="list"]) .card[data-kind="video"]:has(.card-action-bar)>.card-action-bar{position:relative;flex:none}
+
+/* A wrapped preview reserves the same space while the short discussion unfolds. */
+.card{container-type:inline-size}
+body[data-view] .card.comments-expanded{height:auto!important;min-height:0;display:flex;flex-direction:column;align-self:start;padding:0!important;transform:none!important}
+.card-comments-preview{position:relative;isolation:isolate;overflow:hidden;flex:none;width:100%;height:var(--conversation-preview-height);padding:var(--conversation-preview-padding,0)}
+body[data-view] .card.comments-expanded .card-comments-preview>.card-main{height:calc(100% - var(--card-actions-height,36px));min-height:0}
+body[data-view] .card.comments-expanded .card-comments-preview>.card-action-bar{position:absolute;bottom:0}
+.widget-card[data-widget-type=note] .card-action-bar{background:var(--paper);border-top-color:color-mix(in srgb,var(--paper-ink) 18%,transparent)}
+.widget-card[data-widget-type=note] .card-action-bar button{color:var(--paper-ink)}
+@container (max-width:280px){.inline-discussion-audience>span{display:none}.inline-comment-list .comment-byline time{display:none}}
+@container (max-width:160px){
+ .card .card-action-bar{gap:3px;padding:0 5px}
+ .card .card-action-bar button,.card .card-action-bar .card-action-stat{min-width:23px;gap:0}
+ .card .card-action-bar button>span:not(.sr-only){display:none}
+ .inline-card-discussion{padding:8px;gap:6px}
+ .inline-discussion-audience,.inline-comment-list .comment-row>.social-avatar,.inline-comment-list .comment-reply-button{display:none}
+ .inline-discussion-header h3{font-size:10px}
+ .inline-discussion-header h3>span{display:none}
+ .inline-comment-compose{gap:4px}
+ .inline-comment-compose textarea{padding:7px 5px}
+ .inline-comment-compose .primary{width:26px;padding:6px}
+}
+
+/* Full card details are centered, with a preview and conversation side by side. */
+dialog.social-detail{inset:0;margin:auto;width:min(980px,calc(100vw - 40px));max-width:calc(100vw - 40px);height:auto;max-height:88dvh;border:1px solid var(--line);border-radius:20px;overflow:auto;box-shadow:0 30px 100px #0007}
+.social-detail .dialog-header{padding:20px 24px;background:var(--surface);border-bottom:1px solid var(--line)}
+.social-detail .dialog-header h2{font-size:21px;line-height:1.4}
+.social-detail .dialog-body{padding:22px 24px 26px}
+.card-detail-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:26px;align-items:start}
+.card-detail-overview,.card-detail-conversation{min-width:0}
+.card-detail-overview .detail-preview{height:190px;width:100%;display:block;padding:0;text-align:left;cursor:pointer}
+.card-detail-overview .detail-preview .card-visual{height:100%}
+.card-detail-overview .detail-preview .thumbnail{width:100%;height:100%;object-fit:cover}
+.card-detail-overview .detail-description{margin:15px 0;font-size:12px}
+.card-detail-overview .detail-owner{margin:12px 0 17px;gap:8px;flex-wrap:wrap}
+.card-detail-overview .detail-actions{gap:7px;margin-bottom:16px}
+.card-detail-overview .detail-actions button{padding:9px 11px;font-size:10px}
+.card-detail-more{margin-top:15px;border-top:1px solid var(--line);padding-top:14px}
+.card-detail-more>summary{font-size:12px;color:var(--muted);cursor:pointer}
+.card-detail-more[open]>summary{color:var(--accent)}
+.card-detail-conversation{padding-left:24px;border-left:1px solid var(--line)}
+.card-detail-conversation>h3{font-size:15px;margin:0 0 16px}
+.card-detail-conversation .discussion-tabs{margin-top:0;gap:18px}
+.card-detail-conversation .discussion-audience{margin:14px 0}
+.card-detail-conversation .comment-list{max-height:300px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--line) transparent;margin-bottom:16px;padding-right:6px}
+.card-detail-conversation .comment-form{margin-top:18px}
+.card-detail-conversation .comment-form textarea{min-height:72px}
+.card-detail-conversation .comment-form>div{gap:12px;align-items:flex-start;flex-direction:column}
+.card-detail-conversation .comment-form small{max-width:none}
+@media(max-width:700px){dialog.social-detail{width:calc(100vw - 24px);max-width:calc(100vw - 24px);border-radius:16px;max-height:92dvh}.card-detail-layout{grid-template-columns:1fr;gap:20px}.card-detail-conversation{padding-left:0;border-left:0;padding-top:20px;border-top:1px solid var(--line)}.social-detail .dialog-body{padding:18px}.card-detail-overview .detail-preview{height:180px}}

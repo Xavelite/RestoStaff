@@ -1,0 +1,65 @@
+/* Keep the surrounding viewer in the app theme; only document pages are light. */
+.document-preview :is(.office-page, .file-text, .player-content) {
+  color-scheme: light;
+  --bg: #f6f8fa;
+  --surface: #ffffff;
+  --text: #24312c;
+  --muted: #63726d;
+  --soft-text: #45574f;
+  --line: #dce3df;
+  --hover: #edf3ef;
+  --accent: #21764e;
+  --accent-soft: #e4f2e9;
+  background: #ffffff;
+  color: var(--text);
+  border-color: #dce3df;
+}
+dialog.document-preview[open] {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 48px);
+  overflow: hidden;
+}
+.document-preview :is(.dialog-header, .dialog-footer, .preview-note, .office-tabs, .file-info) { flex-shrink: 0; }
+.document-preview .dialog-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.document-preview .dialog-body {
+  padding-top: 20px;
+  padding-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+}
+.document-preview .office-preview { display: flex; flex-direction: column; min-height: 0; }
+.document-preview .office-page:not([hidden]) { min-height: 0; overflow: auto; }
+.document-preview .sheet-scroll { max-height: none; overflow: visible; }
+.document-preview .dialog-footer { background: var(--bg); }
+.document-preview :is(.file-text, .sheet-scroll, .sheet-table, .sheet-table td, .slide-preview, .word-preview, .player-content) {
+  background: #ffffff;
+  color: #24312c;
+}
+.document-preview .sheet-table th {
+  background: #f0f4f2;
+  color: #53645b;
+}
+.document-preview .sheet-table td { font-variant-numeric: tabular-nums; }
+.document-preview .sheet-table tbody tr:hover td { background: #f5faf7; }
+.document-preview .sheet-table th:first-child { position: sticky; left: 0; }
+.document-preview .sheet-table thead th { z-index: 1; }
+.document-preview .sheet-table thead th:first-child { z-index: 2; }
+.document-preview .office-tabs button { background: var(--hover); color: var(--text); }
+.document-preview .office-tabs button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.document-preview :is(.file-text, .word-preview) { line-height: 1.85; }
+.document-preview .file-text { min-height: 0; max-height: none; font-size: 13px; }
+.document-preview .word-preview { padding: 32px 40px; }
+.document-preview .slide-preview { min-height: 300px; }
+.document-preview .file-info { flex-wrap: wrap; margin-bottom: 0; }
+.document-preview :is(.office-page, .file-text) ::selection { background: #cde8d9; color: #183e2c; }
+.document-preview .file-text::selection { background: #cde8d9; color: #183e2c; }

@@ -15,11 +15,13 @@ test('xbesnard.com exposes a small public backstage homepage', async () => {
     assert.match(body, /href="\/restogogo\/"/);
     assert.match(body, /href="\/IdleAge\/"/);
     assert.match(body, /Play IdleAge/);
+    assert.match(body, /href="\/universal\/"/);
   }
 });
 
 test('game aliases reach IdleAge and preserve asset paths and query parameters', () => {
   for (const [path, destination] of [
+    ['/universal?demo=1', '/universal/?demo=1'],
     ['/game', '/IdleAge/'],
     ['/game/?seed=123', '/IdleAge/?seed=123'],
     ['/idleage', '/IdleAge/'],
@@ -34,6 +36,9 @@ test('game aliases reach IdleAge and preserve asset paths and query parameters',
 
 test('IdleAge, Restogogo and the recipe film pass through to their deployed artifacts', () => {
   for (const path of [
+    '/universal/',
+    '/universal/src/app.js',
+    '/universal/api/widgets?kind=news',
     '/IdleAge/',
     '/IdleAge/index.html',
     '/IdleAge/assets/index-example.js',

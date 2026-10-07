@@ -161,6 +161,7 @@ test('the deployed app keeps its security headers and badge evidence policy', as
   // the camera permission the badge terminal needs to capture proof photos.
   const vercel = JSON.parse(await read('vercel.json'));
   assert.deepEqual(vercel.rewrites, [
+    { source: '/universal/', destination: '/universal/index.html' },
     {
       source: '/IdleAge',
       has: [{ type: 'host', value: '(?:www\\.)?xbesnard\\.com' }],
@@ -197,7 +198,7 @@ test('the deployed app keeps its security headers and badge evidence policy', as
   assert.match(permissions.value, /geolocation=\(self\)/);
 
   for (const source of [
-    '/((?!restogogo(?:/|$)|IdleAge(?:/|$)|book(?:/|$)|pasta(?:/|$)).*)',
+    '/((?!restogogo(?:/|$)|IdleAge(?:/|$)|universal(?:/|$)|book(?:/|$)|pasta(?:/|$)).*)',
     '/restogogo/((?!book(?:/|$)|pasta(?:/|$)).*)'
   ]) {
     const application = vercel.headers.find((entry) => entry.source === source);
