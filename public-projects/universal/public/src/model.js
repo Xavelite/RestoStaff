@@ -124,6 +124,7 @@ export function seedState() {
       title: "Your own little universe.",
       subtitle: "All the things you love, in a space that’s yours.",
       theme: "light",
+      palette: "aurora",
       view: "classic",
     },
     updatedAt: Date.now(),
@@ -242,6 +243,7 @@ export function validateState(input) {
     webSuggestions: !!p.webSuggestions,
     foldedCollections: Array.isArray(p.foldedCollections) ? [...new Set(p.foldedCollections.filter(id => s.collections.some(c => c.id === id)))] : [],
     theme: p.theme === "dark" ? "dark" : "light",
+    palette: ["aurora", "nocturne", "classic"].includes(p.palette) ? p.palette : "aurora",
     view: ["adaptive", "classic", "compact", "list"].includes(p.view) ? p.view : "adaptive",
   };
   s.updatedAt = Date.now();

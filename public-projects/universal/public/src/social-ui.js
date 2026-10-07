@@ -70,7 +70,7 @@ export function createSocialUI(ctx) {
   function ownCardTools(card) {
     if(card.launcher)return "";
     const value = effectiveAudience(ctx.state(), card);
-    return action("share", icon(audienceIcon[value]), `data-kind="card" data-id="${esc(card.id)}" aria-label="Share ${esc(card.title)}: ${AUDIENCES[value]}" title="${AUDIENCES[value]}"`, `icon-btn card-audience ${value === (ctx.state().collections.find(c => c.id === card.collectionId)?.visibility || "private") ? "inherited-audience" : ""}`);
+    return action("share", icon(audienceIcon[value]), `data-kind="card" data-id="${esc(card.id)}" aria-label="Share ${esc(card.title)}: ${AUDIENCES[value]}" title="Who can see this? ${AUDIENCES[value]}" aria-haspopup="dialog" aria-expanded="false"`, `icon-btn card-audience ${value === (ctx.state().collections.find(c => c.id === card.collectionId)?.visibility || "private") ? "inherited-audience" : ""}`);
   }
   function collectionTools(collection) {
     const value = collection.visibility || "private";
@@ -270,7 +270,15 @@ export function createSocialUI(ctx) {
     const parent=kind==='card'?space.collections.find(c=>c.id===item.collectionId):null,current=item.visibility||(parent?'inherit':'private'),level={private:0,friends:1,public:2};
     const inherited=parent?.visibility||'private';
     if(document.querySelector('#dialog').open) { const rect=trigger.getBoundingClientRect();ctx.closeModal();trigger={getBoundingClientRect:()=>rect,setAttribute:()=>{}}; }
-    openPopover(trigger,'Who can see this?',`<div class="quick-audiences">${(parent?['inherit','private','friends','public']:['private','friends','public']).map(value=>{const disabled=parent&&value in level&&level[value]>level[inherited];return action('set-audience',icon(audienceIcon[value])+'<span><strong>'+esc(value==='inherit'?'Same as collection':AUDIENCES[value])+'</strong><small>'+esc(disabled?'Limited by your collection':value==='inherit'?AUDIENCES[inherited]:value==='private'?'Keep it in your own space':value==='friends'?'Accepted friends only':'Visible in public discovery')+'</small></span>'+(current===value?icon('check'):''),`data-kind="${kind}" data-id="${esc(id)}" data-value="${value}" aria-pressed="${current===value}" ${disabled?'disabled':''}`,'audience-choice');}).join('')}</div>${parent?`<p class="popover-caption">Home collection: ${esc(parent.name)} · ${AUDIENCES[inherited]}</p>${action('share','Change collection audience',`data-kind="collection" data-id="${esc(parent.id)}"`,'popover-footer')}`:'<p class="popover-caption">Cards marked Only me stay private.</p>'}${action('share-more','More options '+icon('arrow'),`data-kind="${kind}" data-id="${esc(id)}"`,'popover-footer')}`,'sharing-popover');
+    const options = (parent ? ['inherit','private','friends','public'] : ['private','friends','public']).map(value => {
+      const disabled = parent && value in level && level[value] > level[inherited];
+      const label = value === 'inherit' ? 'Same as collection' : AUDIENCES[value];
+      const hint = disabled ? 'Change the collection audience to use this option' : value === 'inherit' ? 'Follows changes to this collection' : value === 'private' ? 'Visible only to you' : value === 'friends' ? 'Visible to accepted friends' : 'Visible in public discovery';
+      return action('set-audience', icon(audienceIcon[value]) + '<span><strong>' + esc(label) + '</strong>' + (value === 'inherit' ? '<small>' + AUDIENCES[inherited] + '</small>' : '') + '</span>' + (current === value ? icon('check') : ''), 'data-kind="' + kind + '" data-id="' + esc(id) + '" data-value="' + value + '" aria-pressed="' + (current === value) + '" title="' + hint + '" ' + (disabled ? 'disabled' : ''), 'audience-choice');
+    }).join('');
+    const caption = parent ? '<p class="audience-limit">' + icon(audienceIcon[inherited]) + '<span><strong>' + esc(parent.name) + '</strong> · ' + AUDIENCES[inherited] + (inherited !== 'public' ? '<small>Your collection limits the available choices.</small>' : '') + '</span></p>' : '<p class="popover-caption">Cards marked Only me stay private.</p>';
+    const footer = '<div class="audience-menu-footer">' + (parent ? action('share','Collection settings','data-kind="collection" data-id="' + esc(parent.id) + '"','text-btn') : '') + action('share-more','More options ' + icon('arrow'),'data-kind="' + kind + '" data-id="' + esc(id) + '"','text-btn') + '</div>';
+    openPopover(trigger, 'Who can see this?', '<div class="quick-audiences">' + options + '</div>' + caption + footer, 'sharing-popover');
   }
   function showShare(kind, id) {
     const space = ctx.state();

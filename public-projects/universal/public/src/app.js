@@ -1,5 +1,6 @@
 import { createComputerUI, computerVisual } from './computer-ui.js';
 import { createDemoSpace } from './demo-space.js';
+import { APPEARANCES, appearanceId, appearanceSettings, nextDarkAppearance } from './appearance.js';
 import { validLauncher, isExecutable, localFileType } from './local-items.js';
 import { stopFlowMedia } from './flow-media.js';
 import { upgradeFinalDemo, upgradeDocumentSample } from './final-demo.js';
@@ -345,7 +346,7 @@ function renderTop({ scope = ui.searchScope || "mine", query = ui.query, searchI
   const profile = social.profiles[social.activeUser];
   const collection = ui.page === "space" && scope === "mine" ? collectionById(ui.collection) : null;
   const placeholder = scope !== "mine" ? "Discover something worth keeping…" : collection ? `Find something in ${collection.name}…` : ui.collection === "favorites" ? "Find a favorite…" : "Find something in your space…";
-  return `<header class="topbar universal-topbar">${button("toggle-sidebar", "Open navigation", "menu", 'aria-controls="main-sidebar" aria-expanded="false"', "icon-btn mobile-menu")}<form class="universal-search" id="global-search-form"><label class="searchbox">${icon("search")}<input id="${searchId}" type="search" placeholder="${esc(placeholder)}" aria-label="${scope === "mine" ? "Search your dashboard" : "Search shared cards, collections, and people"}" value="${esc(query)}" autocomplete="off" aria-controls="instant-results" aria-expanded="false" aria-haspopup="dialog"><kbd ${query ? "hidden" : ""}>/</kbd></label><button type="button" class="icon-btn search-clear" data-action="clear-search" aria-label="Clear search" title="Clear search" ${query ? "" : "hidden"}>${icon("close")}</button><select id="universal-scope" aria-label="Search in"><option value="mine" ${scope === "mine" ? "selected" : ""}>My space</option><option value="friends" ${scope === "friends" ? "selected" : ""}>Friends</option><option value="everyone" ${scope === "everyone" ? "selected" : ""}>Everyone</option></select><button class="search-submit icon-btn" aria-label="Search" type="submit">${icon("arrow")}</button><section id="instant-results" class="instant-results" role="dialog" aria-label="Live search results" hidden></section></form><div class="topbar-right">${socialUI.bell()}${button("theme", "Switch color theme", state.settings.theme === "light" ? "moon" : "sun", "", "icon-btn theme-top")}<button class="profile-switch-small" data-social="page" data-page="profile" aria-label="My profile"><span class="social-avatar tint-${profile.color}">${esc(profile.name.slice(0,1))}</span></button><button class="primary" data-action="add-card">${icon("plus")}<span>Add card</span></button></div></header>`;
+  return `<header class="topbar universal-topbar">${button("toggle-sidebar", "Open navigation", "menu", 'aria-controls="main-sidebar" aria-expanded="false"', "icon-btn mobile-menu")}<form class="universal-search" id="global-search-form"><label class="searchbox">${icon("search")}<input id="${searchId}" type="search" placeholder="${esc(placeholder)}" aria-label="${scope === "mine" ? "Search your dashboard" : "Search shared cards, collections, and people"}" value="${esc(query)}" autocomplete="off" aria-controls="instant-results" aria-expanded="false" aria-haspopup="dialog"><kbd ${query ? "hidden" : ""}>/</kbd></label><button type="button" class="icon-btn search-clear" data-action="clear-search" aria-label="Clear search" title="Clear search" ${query ? "" : "hidden"}>${icon("close")}</button><select id="universal-scope" aria-label="Search in"><option value="mine" ${scope === "mine" ? "selected" : ""}>My space</option><option value="friends" ${scope === "friends" ? "selected" : ""}>Friends</option><option value="everyone" ${scope === "everyone" ? "selected" : ""}>Everyone</option></select><button class="search-submit icon-btn" aria-label="Search" type="submit">${icon("arrow")}</button><section id="instant-results" class="instant-results" role="dialog" aria-label="Live search results" hidden></section></form><div class="topbar-right">${socialUI.bell()}${button("theme", "Choose color theme", "spark", 'aria-haspopup="dialog" aria-expanded="false"', "icon-btn theme-top")}<button class="profile-switch-small" data-social="page" data-page="profile" aria-label="My profile"><span class="social-avatar tint-${profile.color}">${esc(profile.name.slice(0,1))}</span></button><button class="primary" data-action="add-card">${icon("plus")}<span>Add card</span></button></div></header>`;
 }
 function renderGreeting() {
   const date = new Intl.DateTimeFormat("en-GB", {
@@ -492,6 +493,7 @@ function render() {
   document.body.classList.toggle("sidebar-collapsed", sidebarIsCompact());
   document.body.dataset.arrivalMotion=state.dashboard?.pauseMotion?'paused':'running';
   document.body.dataset.theme = state.settings.theme;
+  document.body.dataset.palette = state.settings.theme === 'light' ? 'classic' : state.settings.palette || 'aurora';
   document.body.dataset.view = ui.page === "space" ? state.settings.view : "adaptive";
   document.body.dataset.page = ui.page;
   app.innerHTML = `<div class="app-shell">${renderSidebar()}<main class="main">${ui.page === "space" ? `${renderTop()}${renderGreeting()}${renderToolbar()}<div id="sections">${renderSections()}</div><footer class="footer"><span>${icon("leaf")}A little less searching. A little more living.</span><span>Press <kbd>?</kbd> to find your shortcuts</span></footer>` : ui.page === "compare" ? compareUI.render() : socialUI.render()}</main>${socialUI.dock()}<div id="audio-host"></div></div>`;
@@ -1068,12 +1070,16 @@ function deleteCollectionDialog(id) {
     `${cancelButton}<button type="submit" form="delete-collection-form" class="secondary danger-button">Remove collection</button>`,
   );
 }
+function appearanceMenu(trigger) {
+  const selected = appearanceId(state.settings);
+  openPopover(trigger, 'Make it yours', `<p class="appearance-intro">Choose the mood of your space.</p><div class="appearance-choices" role="group" aria-label="Color theme">${APPEARANCES.map(item => `<button type="button" class="appearance-choice" data-action="set-appearance" data-id="${item.id}" aria-pressed="${selected === item.id}"><span class="appearance-swatch" data-appearance="${item.id}" aria-hidden="true"><i></i><span><b></b><b></b><b></b></span></span><span class="appearance-copy"><strong>${item.name}</strong><small>${item.description}</small></span><span class="appearance-check">${selected === item.id ? icon('check') : ''}</span></button>`).join('')}</div><p class="appearance-hint">Saved for this profile. Press <kbd>T</kbd> to cycle dark themes.</p>`, 'appearance-popover');
+}
 function settingsDialog() {
   const p = state.settings;
   modal(
     "A space that feels like you.",
     "Small details. A big difference.",
-    `<form id="settings-form"><label class="field">What should we call you?<input name="name" value="${esc(p.name)}" maxlength="40" required></label><label class="field">Your dashboard headline<input name="title" value="${esc(p.title)}" maxlength="90" required></label><label class="field">A line underneath<input name="subtitle" value="${esc(p.subtitle)}" maxlength="150"></label><div class="field-row"><label class="field">Appearance<select name="theme"><option value="light" ${p.theme === "light" ? "selected" : ""}>Daylight</option><option value="dark" ${p.theme === "dark" ? "selected" : ""}>After hours</option></select></label><label class="field">Default view<select name="view">${Object.entries(VIEWS).map(([v,label]) => `<option value="${v}" ${p.view === v ? "selected" : ""}>${label}</option>`).join("")}</select></label></div><label class="field">Sidebar<select name="sidebarMode"><option value="auto" ${sidebarMode() === "auto" ? "selected" : ""}>Automatic · compact in smaller windows</option><option value="expanded" ${sidebarMode() === "expanded" ? "selected" : ""}>Expanded · keep labels visible</option><option value="compact" ${sidebarMode() === "compact" ? "selected" : ""}>Compact · icons only</option></select></label><div id="form-error" class="form-error" role="alert"></div></form><section class="settings-section"><h3>New-card highlights</h3><p>New for you lives in the Community feed. New cards stay highlighted inside their collections.</p><button class="secondary" data-action="arrival-motion">${state.dashboard?.pauseMotion?"Resume":"Pause"} new-card animation</button></section><section class="settings-section"><h3>A fresh start.</h3><p>Try a blank canvas or reload the example collections.</p><div class="settings-buttons"><button class="secondary" data-action="reset-confirm" data-id="blank">Start empty</button><button class="secondary" data-action="reset-confirm" data-id="demo">Restore starter cards</button></div></section><p class="settings-footer">No account. No cloud sync. Weather uses Open-Meteo; website logos use Google’s favicon service. Only the chosen city coordinates and website domains are requested. Uploaded files stay in this browser. The ambient sample “Slow orbit” was created for this prototype.</p>`,
+    `<form id="settings-form"><label class="field">What should we call you?<input name="name" value="${esc(p.name)}" maxlength="40" required></label><label class="field">Your dashboard headline<input name="title" value="${esc(p.title)}" maxlength="90" required></label><label class="field">A line underneath<input name="subtitle" value="${esc(p.subtitle)}" maxlength="150"></label><div class="field-row"><label class="field">Appearance<select name="appearance">${APPEARANCES.map(item => `<option value="${item.id}" ${appearanceId(p) === item.id ? "selected" : ""}>${item.name}</option>`).join("")}</select></label><label class="field">Default view<select name="view">${Object.entries(VIEWS).map(([v,label]) => `<option value="${v}" ${p.view === v ? "selected" : ""}>${label}</option>`).join("")}</select></label></div><label class="field">Sidebar<select name="sidebarMode"><option value="auto" ${sidebarMode() === "auto" ? "selected" : ""}>Automatic · compact in smaller windows</option><option value="expanded" ${sidebarMode() === "expanded" ? "selected" : ""}>Expanded · keep labels visible</option><option value="compact" ${sidebarMode() === "compact" ? "selected" : ""}>Compact · icons only</option></select></label><div id="form-error" class="form-error" role="alert"></div></form><section class="settings-section"><h3>New-card highlights</h3><p>New for you lives in the Community feed. New cards stay highlighted inside their collections.</p><button class="secondary" data-action="arrival-motion">${state.dashboard?.pauseMotion?"Resume":"Pause"} new-card animation</button></section><section class="settings-section"><h3>A fresh start.</h3><p>Try a blank canvas or reload the example collections.</p><div class="settings-buttons"><button class="secondary" data-action="reset-confirm" data-id="blank">Start empty</button><button class="secondary" data-action="reset-confirm" data-id="demo">Restore starter cards</button></div></section><p class="settings-footer">No account. No cloud sync. Weather uses Open-Meteo; website logos use Google’s favicon service. Only the chosen city coordinates and website domains are requested. Uploaded files stay in this browser. The ambient sample “Slow orbit” was created for this prototype.</p>`,
     `${cancelButton}<button class="primary" type="submit" form="settings-form">Save preferences</button>`,
   );
 }
@@ -1085,7 +1091,7 @@ function shortcutsDialog() {
       ["Find a card", "/"],
       ["Add a new card", "N"],
       ["Switch dashboard view", "V"],
-      ["Switch light / dark", "T"],
+      ["Cycle dark themes", "T"],
       ["This little guide", "?"],
       ["Close a dialog", "Esc"],
     ]
@@ -1412,7 +1418,7 @@ async function handleAction(action, el) {
       state.settings.sidebarCollapsed = state.settings.sidebarMode === "compact";
       syncSidebar(); await persist(); break;
     case "space-menu":
-      openPopover(el, "Your space", `<div class="menu-list"><button data-action="connections">${icon("link")}Import & connections</button><button data-action="computer-show">${icon("monitor")}App</button><button data-action="organize-collections">${icon("collection")}Organize collections</button><button data-action="compare-open">${icon("compare")}Compare cards</button><button data-action="settings">${icon("settings")}Personalize</button><button data-action="shortcuts">${icon("help")}A little help</button></div><div class="demo-space-tool"><button data-action="create-demo-space">${icon("spark")}<span><strong>Create a demo space</strong><small>A full starter dashboard · no sign-up</small></span>${icon("plus")}</button></div><p class="form-hint">Built around you. · v0.18</p>`, "space-tools-popover"); break;
+      openPopover(el, "Your space", `<div class="menu-list"><button data-action="connections">${icon("link")}Import & connections</button><button data-action="computer-show">${icon("monitor")}App</button><button data-action="organize-collections">${icon("collection")}Organize collections</button><button data-action="compare-open">${icon("compare")}Compare cards</button><button data-action="settings">${icon("settings")}Personalize</button><button data-action="shortcuts">${icon("help")}A little help</button></div><div class="demo-space-tool"><button data-action="create-demo-space">${icon("spark")}<span><strong>Create a demo space</strong><small>A full starter dashboard · no sign-up</small></span>${icon("plus")}</button></div><p class="form-hint">Built around you. · v0.19</p>`, "space-tools-popover"); break;
     case "home":
     case "navigate":
       ui.page = "space";
@@ -1444,10 +1450,14 @@ async function handleAction(action, el) {
       render();
       break;
     case "theme":
-      state.settings.theme =
-        state.settings.theme === "light" ? "dark" : "light";
+      appearanceMenu(el);
+      break;
+    case "set-appearance":
+      if (!APPEARANCES.some(item => item.id === id)) return;
+      Object.assign(state.settings, appearanceSettings(id));
       await persist();
       render();
+      toast(`${APPEARANCES.find(item => item.id === id).name} theme applied.`);
       break;
     case "card-size":
       if (!(el.dataset.size in SIZES)) return;
@@ -1852,7 +1862,7 @@ document.addEventListener("submit", async (e) => {
         name: form.elements.name.value.trim() || "You",
         title: form.elements.title.value.trim() || "Your own little universe.",
         subtitle: form.elements.subtitle.value.trim(),
-        theme: form.elements.theme.value,
+        ...appearanceSettings(form.elements.appearance.value),
         view: form.elements.view.value,
         sidebarMode: form.elements.sidebarMode.value,
         sidebarCollapsed: form.elements.sidebarMode.value === "compact",
@@ -1921,7 +1931,7 @@ document.addEventListener("keydown", (e) => {
   }
   if (e.key.toLowerCase() === "t") {
     e.preventDefault();
-    state.settings.theme = state.settings.theme === "light" ? "dark" : "light";
+    Object.assign(state.settings, appearanceSettings(nextDarkAppearance(state.settings)));
     persist()
       .then(render)
       .catch((err) => toast(err.message));
