@@ -56,57 +56,85 @@ body[data-palette]:not([data-palette="classic"]) .toolbar {
 body[data-palette]:not([data-palette="classic"]) .filter.active {
   background:var(--surface); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 32%,transparent);
 }
-body[data-palette]:not([data-palette="classic"]) .card:not(.widget-card) {
-  background:linear-gradient(140deg,color-mix(in srgb,var(--tint) 92%,var(--surface)),color-mix(in srgb,var(--tint) 57%,var(--surface)));
-  border-color:color-mix(in srgb,var(--tint-ink) 17%,transparent);
+/* The same deep content colors work across every dark interface theme. */
+body[data-theme="dark"] .card.tint-sage { --tint:#174f46; --tint-ink:#acdaca; }
+body[data-theme="dark"] .card.tint-blue { --tint:#244b74; --tint-ink:#b7d3ef; }
+body[data-theme="dark"] .card.tint-rose { --tint:#592e45; --tint-ink:#e8bed1; }
+body[data-theme="dark"] .card.tint-amber { --tint:#654322; --tint-ink:#e8cda8; }
+body[data-theme="dark"] .card.tint-violet { --tint:#453463; --tint-ink:#d2c1ed; }
+body[data-theme="dark"] .card.tint-neutral { --tint:#2c404b; --tint-ink:#c2d5df; }
+body[data-theme="dark"] .card:not(.widget-card) {
+  background:radial-gradient(ellipse at 8% 0%,color-mix(in srgb,var(--tint) 92%,#243241),transparent 90%),linear-gradient(145deg,var(--tint),color-mix(in srgb,var(--tint) 34%,#111b25));
+  border-color:color-mix(in srgb,var(--tint-ink) 19%,transparent);
   box-shadow:inset 0 1px #ffffff06,0 4px 12px #0000000c;
 }
-body[data-palette]:not([data-palette="classic"]) .card:not(.widget-card):hover {
-  border-color:color-mix(in srgb,var(--tint-ink) 44%,transparent); box-shadow:var(--shadow);
+body[data-theme="dark"] .card:not(.widget-card):hover {
+  border-color:color-mix(in srgb,var(--tint-ink) 40%,transparent); box-shadow:var(--shadow);
 }
-body[data-palette]:not([data-palette="classic"]) .card .card-description { opacity:1; color:color-mix(in srgb,var(--tint-ink) 44%,#e1e9ec); }
+body[data-theme="dark"] .card .card-description { opacity:1; color:color-mix(in srgb,var(--tint-ink) 38%,#c8d1dd); }
+/* Photography provides its own color. Keep media captions quiet and readable. */
+body[data-theme="dark"] .card:is([data-kind="video"],[data-kind="audio"],[data-kind="document"]) {
+  background:linear-gradient(140deg,color-mix(in srgb,var(--tint) 14%,var(--surface)),var(--surface));
+  border-color:color-mix(in srgb,var(--muted) 20%,transparent);
+}
+body[data-theme="dark"] .card:is([data-kind="video"],[data-kind="audio"],[data-kind="document"]) .card-description { color:var(--muted); }
 /* A little more stature for the main row; compact shortcuts remain compact. */
 body[data-view="adaptive"] .collection-rail:not(.shortcuts-row),
 body[data-view="adaptive"] .overview-grid:not(.shortcuts-row) { --card-content-height:194px; }
-body[data-view="adaptive"] .cards-grid.collection-rail.shortcuts-row { grid-auto-columns:minmax(160px,calc((100% - 5 * var(--rail-gap))/6)); }
+body[data-view="adaptive"] .cards-grid.collection-rail.shortcuts-row { grid-auto-columns:minmax(180px,calc((100% - 5 * var(--rail-gap))/6)); }
 body[data-view="classic"] .cards-grid.collection-rail,
 body[data-view="compact"] .cards-grid.collection-rail { grid-auto-columns:minmax(190px,calc((100% - 3 * var(--rail-gap))/4)); }
 body[data-view="compact"] .cards-grid.collection-rail { --card-content-height:151px; }
 body[data-view="classic"] .cards-grid.collection-rail { --card-content-height:201px; }
-body[data-view]:not([data-view="compact"]):not([data-view="list"]) .card[data-kind="link"]:not(:has(.book-visual)) .card-main {
-  display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; gap:0;
+body[data-view="adaptive"] .cards-grid.collection-rail:not(.shortcuts-row):has(>.card[data-size="compact"]) { grid-auto-columns:max(134px,calc((100% - 7 * var(--rail-gap))/8)); }
+.card-domain { display:none; }
+/* A website card has three zones: controls, identity, then a grounded caption. */
+body[data-view]:not([data-view="list"]) .card[data-kind="link"]:not(:has(.book-visual)) .card-main {
+  display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; gap:0; padding:40px 18px 17px;
 }
-body[data-view]:not([data-view="compact"]):not([data-view="list"]) .card[data-kind="link"]:not(:has(.book-visual)) .card-visual {
-  height:auto; min-height:0; flex:none; padding:40px 19px 13px; background:none;
+body[data-view]:not([data-view="list"]) .card[data-kind="link"]:not(:has(.book-visual)) .card-visual {
+  height:52px; min-height:0; flex:none; padding:0; background:none; display:flex; align-items:center; justify-content:flex-start; gap:13px; overflow:visible;
 }
-body[data-view]:not([data-view="compact"]):not([data-view="list"]) .card[data-kind="link"]:not(:has(.book-visual)) :is(.brand-logo,.logo-fallback) {
-  width:clamp(58px,22cqi,72px); height:clamp(58px,22cqi,72px); border-radius:14px;
+body[data-view]:not([data-view="list"]) .card[data-kind="link"]:not(:has(.book-visual)) :is(.brand-logo,.logo-fallback) {
+  width:52px; height:52px; flex:none; border-radius:12px;
 }
-body[data-view]:not([data-view="compact"]):not([data-view="list"]) .card[data-kind="link"]:not(:has(.book-visual)) .card-info {
-  flex:1; width:100%; padding:0 19px 15px; min-height:0; text-align:left;
+body[data-view]:not([data-view="list"]) .card[data-kind="link"]:not(:has(.book-visual)) .card-domain {
+  display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10px; color:var(--soft-text); opacity:.68;
+}
+body[data-view]:not([data-view="list"]) .card[data-kind="link"]:not(:has(.book-visual)) .card-info {
+  flex:none; width:100%; margin-top:auto; padding:12px 0 0; min-height:0; text-align:left;
 }
 .card .card-title { line-height:1.35; }
 .card .card-description { margin-top:5px; line-height:1.5; }
-body[data-view]:not([data-view="compact"]):not([data-view="list"]) .card[data-kind="link"]:not(:has(.book-visual)) .card-title { font-size:14px; }
-/* Horizontal shortcuts reserve a top strip for controls instead of covering logos. */
-body[data-view]:not([data-view="list"]) .shortcuts-row .card[data-kind="link"]:not(:has(.book-visual)) .card-main {
-  flex-direction:row; align-items:center; padding:27px 0 7px;
+body[data-view]:not([data-view="list"]) .card[data-kind="link"]:not(:has(.book-visual)) .card-title {
+  font-size:15px; white-space:normal; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2;
 }
-body[data-view]:not([data-view="list"]) .shortcuts-row .card[data-kind="link"]:not(:has(.book-visual)) .card-visual {
-  flex:0 0 56px; width:56px; padding:0 0 0 14px; align-items:center;
+/* Short rows keep a separate strip above the icon and text for corner controls. */
+body[data-view="adaptive"] .shortcuts-row .card[data-kind="link"]:not(:has(.book-visual)) .card-main,
+body[data-view="compact"] .card[data-kind="link"]:not(:has(.book-visual)) .card-main {
+  flex-direction:row; align-items:center; padding:38px 14px 12px; gap:11px;
 }
-body[data-view]:not([data-view="list"]) .shortcuts-row .card[data-kind="link"]:not(:has(.book-visual)) :is(.brand-logo,.logo-fallback) {
-  width:38px; height:38px; border-radius:9px;
+body[data-view="adaptive"] .shortcuts-row .card[data-kind="link"]:not(:has(.book-visual)) .card-visual,
+body[data-view="compact"] .card[data-kind="link"]:not(:has(.book-visual)) .card-visual {
+  flex:0 0 38px; width:38px; height:38px; min-height:0; padding:0;
 }
-body[data-view]:not([data-view="list"]) .shortcuts-row .card[data-kind="link"]:not(:has(.book-visual)) .card-info {
-  flex:1; min-width:0; padding:0 11px 0 9px;
+body[data-view="adaptive"] .shortcuts-row .card[data-kind="link"]:not(:has(.book-visual)) :is(.brand-logo,.logo-fallback),
+body[data-view="compact"] .card[data-kind="link"]:not(:has(.book-visual)) :is(.brand-logo,.logo-fallback) { width:38px; height:38px; border-radius:9px; }
+body[data-view="adaptive"] .shortcuts-row .card[data-kind="link"]:not(:has(.book-visual)) .card-info,
+body[data-view="compact"] .card[data-kind="link"]:not(:has(.book-visual)) .card-info { flex:1; min-width:0; padding:0; margin:0; }
+body[data-view="adaptive"] .shortcuts-row .card[data-kind="link"]:not(:has(.book-visual)) .card-title,
+body[data-view="compact"] .card[data-kind="link"]:not(:has(.book-visual)) .card-title { font-size:12px; -webkit-line-clamp:1; }
+body[data-view="adaptive"] .shortcuts-row .card[data-kind="link"]:not(:has(.book-visual)) .card-description { font-size:10px; }
+body[data-view="adaptive"] .shortcuts-row .card .card-domain,body[data-view="compact"] .card .card-domain { display:none!important; }
+@container (max-width:239px) {
+  body[data-view]:not([data-view="list"]) .card[data-kind="link"]:not(:has(.book-visual)) .card-domain { display:none; }
+  body[data-view]:not([data-view="list"]) .card[data-kind="link"]:not(:has(.book-visual)) .card-title { font-size:12px; }
+  body[data-view]:not([data-view="list"]) .card[data-kind="link"]:not(:has(.book-visual)) .card-main { padding-left:14px; padding-right:14px; }
 }
-body[data-view]:not([data-view="list"]) .shortcuts-row .card[data-kind="link"]:not(:has(.book-visual)) .card-title { font-size:11px; }
-body[data-view]:not([data-view="list"]) .shortcuts-row .card[data-kind="link"]:not(:has(.book-visual)) .card-description { font-size:10px; }
-body[data-view="compact"] .card:not(.widget-card):not(:has(.book-visual)) .card-main { flex-direction:row; align-items:center; padding:33px 14px 13px; gap:12px; }
-body[data-view="compact"] .card[data-kind="link"]:not(:has(.book-visual)) .card-visual { flex:none; width:42px; height:42px; min-height:0; padding:0; }
-body[data-view="compact"] .card[data-kind="link"]:not(:has(.book-visual)) :is(.brand-logo,.logo-fallback) { width:40px; height:40px; }
-body[data-view="compact"] .card[data-kind="link"]:not(:has(.book-visual)) .card-info { flex:1; min-width:0; padding:0; }
+@container (min-width:300px) {
+  body[data-view]:not([data-view="compact"]):not([data-view="list"]) .card[data-kind="link"]:not(:has(.book-visual)) :is(.brand-logo,.logo-fallback) { width:60px; height:60px; }
+  body[data-view]:not([data-view="compact"]):not([data-view="list"]) .card[data-kind="link"]:not(:has(.book-visual)) .card-visual { height:60px; }
+}
 /* Same top corners for every owned card. These must never depend on hover. */
 body[data-view] .card .card-audience,
 body[data-view] .card:hover .card-audience,
@@ -146,20 +174,45 @@ body[data-view="list"] .widget-card .widget-content { padding-left:24px; padding
 body[data-view="list"] .widget-card .widget-content>.widget-eyebrow { padding-left:0; padding-right:0; }
 body[data-view="list"] .card[data-kind="link"]:not(:has(.book-visual)) .card-visual { padding-left:33px; width:90px; }
 .card .document-mini { top:39px; }
-/* Book covers keep their own proportions, even in narrow discovery cards. */
-body[data-view]:not([data-view="list"]) .card:has(.book-visual) .card-main { display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; padding:0; }
-body[data-view]:not([data-view="list"]) .card .book-visual { display:flex; justify-content:center; align-items:center; height:130px; min-height:130px; width:100%; flex:none; padding:33px 10px 10px; background:none; }
-.card .book-visual .book-cover { width:66px; min-height:85px; height:85px; padding:9px 6px 9px 12px; gap:6px; border-right-width:2px; }
-.card .book-cover strong { font-size:10px; }
-.card .book-cover small { font-size:7px; }
-.card .book-cover>.icon,.card .book-visual>.file-badge { display:none; }
-body[data-view]:not([data-view="list"]) .card:has(.book-visual) .card-info { padding:7px 12px 12px; width:100%; min-height:0; }
-.card:has(.book-visual) .card-title { font-size:12px; }
-.card:has(.book-visual) .card-description { font-size:10px; white-space:normal; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:1; overflow:hidden; }
-body[data-view="compact"] .card .book-visual { height:91px; min-height:91px; padding-top:30px; padding-bottom:4px; }
-body[data-view="compact"] .card .book-cover { min-height:56px; height:56px; width:46px; padding:5px 4px 5px 9px; }
-body[data-view="compact"] .card .book-cover strong { font-size:7px; }
-body[data-view="compact"] .card .book-cover small { display:none; }
+.card .audio-art .audio-source { top:15px; left:44px; }
+.card:has(.card-audience) .personal-arrival-label { top:12px; left:42px; }
+/* Books are readable library entries, with complete covers above the action row. */
+body[data-view]:not([data-view="list"]) .card:has(.book-visual) .card-main {
+  display:flex; flex-direction:row; align-items:center; justify-content:flex-start; gap:17px; padding:38px 18px 17px;
+}
+body[data-view]:not([data-view="list"]) .card .card-main .book-visual {
+  display:flex; justify-content:center; align-items:center; height:116px; min-height:0; width:78px; flex:0 0 78px; padding:0; background:none; overflow:visible;
+}
+.card .card-main .book-visual .book-cover { width:78px; min-height:116px; height:116px; padding:10px 7px 10px 14px; gap:7px; border-right-width:2px; overflow:hidden; flex:none; }
+.card .card-main .book-cover strong { font-size:8.5px; line-height:1.25; white-space:normal; overflow-wrap:normal; }
+.card .card-main .book-cover small { font-size:7px; line-height:1.25; }
+.card .card-main .book-cover>.icon,.card .card-main .book-visual>.file-badge { display:none; }
+body[data-view]:not([data-view="list"]) .card:has(.book-visual) .card-info { flex:1; min-width:0; padding:0; width:auto; min-height:0; }
+.card:has(.book-visual) .card-title { font-size:14px; white-space:normal; text-overflow:clip; }
+.card:has(.book-visual) .card-description { font-size:11px; white-space:normal; display:block; overflow:visible; }
+.book-format { display:flex; align-items:center; gap:5px; margin-top:15px; color:var(--muted); font-size:9px; }
+.book-format .icon { width:11px; height:11px; }
+@container (max-width:259px) {
+  body[data-view]:not([data-view="list"]) .card:has(.book-visual) .card-main { gap:12px; padding-left:13px; padding-right:13px; }
+  body[data-view]:not([data-view="list"]) .card .card-main .book-visual { width:61px; flex-basis:61px; height:94px; }
+  .card .card-main .book-visual .book-cover { width:61px; min-height:94px; height:94px; padding:8px 5px 8px 11px; }
+  .card .card-main .book-cover strong { font-size:6.5px; }
+  .card .card-main .book-cover small { font-size:6px; }
+  .card:has(.book-visual) .card-title { font-size:12px; }
+  .card:has(.book-visual) .card-description { font-size:10px; }
+  .card:has(.book-visual) .book-format { margin-top:10px; }
+}
+body[data-view="compact"] .card:has(.book-visual) .card-main { gap:12px; padding:37px 14px 13px; }
+body[data-view="compact"] .card .card-main .book-visual { width:56px; flex-basis:56px; height:84px; }
+body[data-view="compact"] .card .card-main .book-cover { width:56px; min-height:84px; height:84px; padding:7px 4px 7px 10px; }
+body[data-view="compact"] .card .card-main .book-cover strong { font-size:6.25px; }
+body[data-view="compact"] .card .card-main .book-cover small { display:none; }
+body[data-view="compact"] .card:has(.book-visual) .book-format { display:none; }
+body[data-view="list"] .card .card-main .book-visual { min-height:0; padding:0 0 0 27px; width:83px; background:none; }
+body[data-view="list"] .card .card-main .book-cover { width:40px; min-height:57px; height:57px; padding:5px 3px 5px 8px; }
+body[data-view="list"] .card .card-main .book-cover strong { display:none; }
+body[data-view="list"] .card .card-main .book-cover>.icon { display:block; width:17px; height:17px; }
+body[data-view="list"] .card .card-main .book-cover small,body[data-view="list"] .card:has(.book-visual) .book-format { display:none; }
 /* Actions belong to the card, rather than an identical navy strip on every tile. */
 .card .card-action-bar {
   background:transparent; border-top:1px solid color-mix(in srgb,var(--tint-ink) 12%,transparent);

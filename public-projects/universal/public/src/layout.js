@@ -9,6 +9,7 @@ export function cardKind(card) {
 
 export function cardSize(card, collection = {}) {
   if (Object.hasOwn(SIZES, card.size) && card.size !== "auto") return card.size;
+  if (card.contentKind === "book") return "standard";
   if (card.type === "video" || cardKind(card) === "picture") return "wide";
   if (card.type === "link") return /daily|essential/i.test(`${collection.id} ${collection.name}`) ? "standard" : "compact";
   return "standard";

@@ -392,6 +392,11 @@ function renderToolbar() {
       "",
     )}</div><div class="view-controls">${ui.collection === "all" && state.collections.length ? button("collapse-all", `${allFolded ? "Expand" : "Collapse"} all collections`, "down", `aria-expanded="${!allFolded}" ${overview ? "" : "hidden"}`, `icon-btn fold-all ${allFolded ? "all-folded" : ""}`) : ""}<label class="layout-select">${icon(state.settings.view === "list" ? "list" : "grid")}<select id="dashboard-view" aria-label="Dashboard layout">${Object.entries(VIEWS).map(([value,label]) => `<option value="${value}" ${state.settings.view === value ? "selected" : ""}>${label}</option>`).join("")}</select></label></div></div>`;
 }
+function cardInfo(c) {
+  const book = c.contentKind === 'book' && c.type === 'link';
+  const subtitle = book ? c.creator || 'Book' : c.description || domain(c.url) || c.fileName || typeNames[c.type];
+  return `<div class="card-info"><div class="card-title" title="${esc(c.title)}">${esc(c.title)}</div><div class="card-description">${esc(subtitle)}</div>${book ? '<span class="book-format">Read online ' + icon('arrow') + '</span>' : ''}</div>`;
+}
 function cardVisual(c) {
   const localVisual=computerVisual(c);if(localVisual)return localVisual;
   if(c.contentKind==='book'&&c.type==='link')return `<div class="card-visual book-visual"><span class="book-cover">${icon('book')}<strong>${esc(c.title)}</strong><small>${esc(c.creator||'')}</small></span><span class="file-badge">EBOOK LINK</span></div>`;
@@ -399,7 +404,7 @@ function cardVisual(c) {
   if (c.type === "widget") return `<div class="card-visual shared-widget-symbol">${icon(typeIcons.widget)}</div>`;
   if (c.type === "link") {
     const host = domain(c.url);
-    return `<div class="card-visual"><div class="visual-grid"></div><div class="brand-halo"></div><img class="brand-logo" src="${esc(logoForURL(c.url))}" alt="" loading="lazy" referrerpolicy="no-referrer"><span class="logo-fallback" hidden>${icon("globe")}</span></div>`;
+    return `<div class="card-visual"><div class="visual-grid"></div><div class="brand-halo"></div><img class="brand-logo" src="${esc(logoForURL(c.url))}" alt="" loading="lazy" referrerpolicy="no-referrer"><span class="logo-fallback" hidden>${icon("globe")}</span><span class="card-domain">${esc(host)}</span></div>`;
   }
   if (c.type === "video") {
     const v = videoSource(c.url);
@@ -436,7 +441,7 @@ function renderCard(c, collection = collectionById(c.collectionId), isNew=false)
   const footer = `<div class="card-action-bar live-member-actions">${liveCardActions(social,social.activeUser,social.activeUser,c,{personal:true})}</div>`;
   if (c.type === "widget")
     return `<article class="card widget-card tint-${c.color}" ${presentation} data-widget-type="${esc(c.widget)}" data-card="${esc(c.id)}" data-collection="${esc(collection?.id || c.collectionId)}" draggable="${!reference}" aria-label="${esc(c.title)} widget">${actions}<div class="widget-content" data-widget="${esc(c.id)}">${dashboardWidget(c)}</div>${footer}</article>`;
-  return `<article class="card tint-${c.color} ${isNew?"is-arrival is-new":""} ${c.type === "audio" ? "audio-card" : ""} ${audioId() === c.id && !activeAudio?.paused ? "playing" : ""}" ${presentation} data-card="${esc(c.id)}" data-collection="${esc(collection?.id || c.collectionId)}" draggable="${!reference}">${isNew?`<span class="personal-arrival-label">${icon("spark")}New</span>`:""}${actions}<button class="card-main" draggable="${!reference}" title="${reference ? "Also saved in this collection" : "Click to open · Drag to arrange"}" data-action="open-card" ${extras} aria-label="${c.launcher ? "Launch" : c.type === "audio" ? "Play" : c.type === "video" ? "Watch" : c.type === "file" ? "Preview" : "Open"} ${esc(c.title)}">${cardVisual(c)}<div class="card-info"><div class="card-title">${esc(c.title)}</div><div class="card-description">${esc(c.description || domain(c.url) || c.fileName || typeNames[c.type])}</div><span class="card-open">${icon("arrow")}</span></div></button>${footer}</article>`;
+  return `<article class="card tint-${c.color} ${isNew?"is-arrival is-new":""} ${c.type === "audio" ? "audio-card" : ""} ${audioId() === c.id && !activeAudio?.paused ? "playing" : ""}" ${presentation} data-card="${esc(c.id)}" data-collection="${esc(collection?.id || c.collectionId)}" draggable="${!reference}">${isNew?`<span class="personal-arrival-label">${icon("spark")}New</span>`:""}${actions}<button class="card-main" draggable="${!reference}" title="${reference ? "Also saved in this collection" : "Click to open · Drag to arrange"}" data-action="open-card" ${extras} aria-label="${c.launcher ? "Launch" : c.type === "audio" ? "Play" : c.type === "video" ? "Watch" : c.type === "file" ? "Preview" : "Open"} ${esc(c.title)}">${cardVisual(c)}${cardInfo(c)}</button>${footer}</article>`;
 }
 function smartEntries(collection) {
   return collectionEntries(social,social.activeUser,collection).filter(e=> {
@@ -447,7 +452,7 @@ function smartEntries(collection) {
 }
 function renderDiscovery(entry,collection) {
   const c=entry.card,extra=`data-id="${esc(collection.id)}" data-key="${esc(entry.key)}"`;
-  return `<article class="card smart-discovery live-member ${entry.isNew?'is-new ':''}tint-${esc(c.color||'sage')}" data-kind="${cardKind(c)}" data-size="${cardSize(c,collection)}" style="--card-units:${cardUnits(c,collection)}">${entry.isNew?'<span class="smart-card-label">'+icon('spark')+'New</span>':''}<button class="icon-btn smart-hide" data-action="live-card-menu" ${extra} aria-label="Options for ${esc(c.title)}">${icon('more')}</button><button class="card-main" data-action="smart-open" ${extra} aria-label="Open ${esc(c.title)}">${cardVisual(c)}<div class="card-info"><div class="card-title">${esc(c.title)}</div><div class="card-description">${esc(c.description||domain(c.url))}</div></div></button><div class="smart-card-footer live-member-actions card-action-bar">${liveCardActions(social,social.activeUser,entry.owner,c)}</div></article>`;
+  return `<article class="card smart-discovery live-member ${entry.isNew?'is-new ':''}tint-${esc(c.color||'sage')}" data-kind="${cardKind(c)}" data-size="${cardSize(c,collection)}" style="--card-units:${cardUnits(c,collection)}">${entry.isNew?'<span class="smart-card-label">'+icon('spark')+'New</span>':''}<button class="icon-btn smart-hide" data-action="live-card-menu" ${extra} aria-label="Options for ${esc(c.title)}">${icon('more')}</button><button class="card-main" data-action="smart-open" ${extra} aria-label="Open ${esc(c.title)}">${cardVisual(c)}${cardInfo(c)}</button><div class="smart-card-footer live-member-actions card-action-bar">${liveCardActions(social,social.activeUser,entry.owner,c)}</div></article>`;
 }
 function collectionPlaybackCards(id) {
  const col=collectionById(id);if(!col)return [];
@@ -1418,7 +1423,7 @@ async function handleAction(action, el) {
       state.settings.sidebarCollapsed = state.settings.sidebarMode === "compact";
       syncSidebar(); await persist(); break;
     case "space-menu":
-      openPopover(el, "Your space", `<div class="menu-list"><button data-action="connections">${icon("link")}Import & connections</button><button data-action="computer-show">${icon("monitor")}App</button><button data-action="organize-collections">${icon("collection")}Organize collections</button><button data-action="compare-open">${icon("compare")}Compare cards</button><button data-action="settings">${icon("settings")}Personalize</button><button data-action="shortcuts">${icon("help")}A little help</button></div><div class="demo-space-tool"><button data-action="create-demo-space">${icon("spark")}<span><strong>Create a demo space</strong><small>A full starter dashboard · no sign-up</small></span>${icon("plus")}</button></div><p class="form-hint">Built around you. · v0.19</p>`, "space-tools-popover"); break;
+      openPopover(el, "Your space", `<div class="menu-list"><button data-action="connections">${icon("link")}Import & connections</button><button data-action="computer-show">${icon("monitor")}App</button><button data-action="organize-collections">${icon("collection")}Organize collections</button><button data-action="compare-open">${icon("compare")}Compare cards</button><button data-action="settings">${icon("settings")}Personalize</button><button data-action="shortcuts">${icon("help")}A little help</button></div><div class="demo-space-tool"><button data-action="create-demo-space">${icon("spark")}<span><strong>Create a demo space</strong><small>A full starter dashboard · no sign-up</small></span>${icon("plus")}</button></div><p class="form-hint">Built around you. · v0.19.1</p>`, "space-tools-popover"); break;
     case "home":
     case "navigate":
       ui.page = "space";
@@ -2153,7 +2158,7 @@ async function init() {
   state = social.spaces[social.activeUser];
   (state.settings.foldedCollections || []).forEach(id => overviewFolded.add(id));
   socialUI = createSocialUI({ data: () => social, state: () => state, ui: () => ui,
-    modal, closeModal, render, persist, hydrate, cardVisual, toast, switchUser, openShared, stopPlayback, renderArrivals: () => highlightsUI.renderFeed(), topbar: renderTop, addCard: id => startCard("link", null, id) });
+    modal, closeModal, render, persist, hydrate, cardVisual, cardInfo, toast, switchUser, openShared, stopPlayback, renderArrivals: () => highlightsUI.renderFeed(), topbar: renderTop, addCard: id => startCard("link", null, id) });
   computerUI=createComputerUI({data:()=>social,state:()=>state,ui:()=>ui,modal,closeModal,closePopover,render,persist,toast,refreshState:()=>{state=social.spaces[social.activeUser];},acceptFormFile:acceptCardFile,acceptFormFolder:async()=>{if(!draft||draft.type!=='file')return false;await chooseLocalForForm('folder');return true;},acceptFormLink:url=>{if(!draft)return;captureForm();delete draft.launcher;draft.source='url';draft.url=safeURL(url);draft.localHint='';showCardForm();updateURLPreview();},openAppForm:(collectionId,id,hint)=>startCard('app',id||null,collectionId,hint),selectApp:({launcher,label,appId})=>{
     if(draft?.type!=='app'||!document.querySelector('#card-form'))return false;
     captureForm();Object.assign(draft,{launcher,appLabel:label,appCatalogId:appId,source:'url',url:'',selectedFile:null});
