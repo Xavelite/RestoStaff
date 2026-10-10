@@ -19,6 +19,10 @@
   import Dialog from '$lib/components/Dialog.svelte';
   import RosterExportDialog from '$lib/exports/RosterExportDialog.svelte';
   import type { PreparedExport } from '$lib/exports/export-download';
+  import {
+    buildWeeklyRosterExport,
+    weeklyRosterFlatTable
+  } from '$lib/exports/weekly-roster';
   import { friendlyError } from '$lib/api/error-messages';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import { confirmAction } from '$lib/ui/confirm.svelte';
@@ -711,39 +715,41 @@
       .filter((employee) => employee.active)
       .toSorted((left, right) => left.display_name.localeCompare(right.display_name));
     const dayDates = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
-    const rows = activeEmployees.map((employee) => {
-      const employeeShifts = scheduleDraft.shifts.filter(
-        (shift) => shift.employeeId === employee.id
-      );
-      const cells = dayDates.map((_, index) =>
-        employeeShifts
-          .filter((shift) => shift.weekday === index + 1)
-          .toSorted((left, right) => left.startsAt.localeCompare(right.startsAt))
-          .map((shift) => {
-            const assignment = [
-              areaName.get(shift.areaId) ?? '',
-              snapshot.job_functions.find((item) => item.id === shift.jobFunctionId)?.name ?? ''
-            ].filter(Boolean).join(' · ');
-            return `${shift.startsAt}–${shift.endsAt}${assignment ? `\n${assignment}` : ''}`;
-          })
-          .join('\n')
-      );
-      const hours = employeeShifts.reduce(
-        (total, shift) => total + hoursBetweenClocks(shift.startsAt, shift.endsAt),
-        0
-      );
-      return [employee.display_name, ...cells, formatHours(hours)];
+    const roster = buildWeeklyRosterExport({
+      restaurantName: snapshot.restaurant.name,
+      employeeLabel: t('Employee'),
+      totalLabel: t('Week'),
+      staffLabel: t('Staff scheduled'),
+      hoursLabel: t('Planned hours'),
+      employees: activeEmployees.map((employee) => ({
+        id: employee.id,
+        name: employee.display_name
+      })),
+      days: dayDates.map((date) => ({
+        date,
+        label: weekdayDateLabel(date, i18n.intlLocale)
+      })),
+      services: serviceKeys.map((key) => ({
+        key,
+        label: t(serviceLabel(key, snapshot.services))
+      })),
+      shifts: scheduleDraft.shifts.map((shift) => ({
+        employeeId: shift.employeeId,
+        date: dayDates[shift.weekday - 1] ?? '',
+        serviceKey: shift.serviceKey,
+        startsAt: shift.startsAt,
+        endsAt: shift.endsAt,
+        position:
+          snapshot.job_functions.find((item) => item.id === shift.jobFunctionId)?.name ?? ''
+      }))
     });
+    const flatTable = weeklyRosterFlatTable(roster);
     return {
       filename: `schedule-roster-${weekStart}.xlsx`,
       title: t('Schedule roster'),
       periodLabel: weekLabel(weekStart, i18n.intlLocale),
-      headers: [
-        t('Employee'),
-        ...dayDates.map((date) => weekdayDateLabel(date, i18n.intlLocale)),
-        t('Total')
-      ],
-      rows
+      ...flatTable,
+      roster
     };
   }
 
