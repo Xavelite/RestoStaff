@@ -3786,6 +3786,70 @@ export type Database = {
           },
         ]
       }
+      platform_admin_support_sessions: {
+        Row: {
+          admin_profile_id: string
+          auth_session_id: string
+          end_reason: string | null
+          ended_at: string | null
+          expires_at: string
+          id: string
+          restaurant_id: string
+          started_at: string
+          target_employee_id: string | null
+          target_profile_id: string
+          target_role: string
+        }
+        Insert: {
+          admin_profile_id: string
+          auth_session_id: string
+          end_reason?: string | null
+          ended_at?: string | null
+          expires_at: string
+          id?: string
+          restaurant_id: string
+          started_at?: string
+          target_employee_id?: string | null
+          target_profile_id: string
+          target_role: string
+        }
+        Update: {
+          admin_profile_id?: string
+          auth_session_id?: string
+          end_reason?: string | null
+          ended_at?: string | null
+          expires_at?: string
+          id?: string
+          restaurant_id?: string
+          started_at?: string
+          target_employee_id?: string | null
+          target_profile_id?: string
+          target_role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_admin_support_sessions_admin_profile_id_fkey"
+            columns: ["admin_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_admin_support_sessions_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_admin_support_sessions_target_profile_id_fkey"
+            columns: ["target_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       platform_admins: {
         Row: {
           created_at: string
@@ -6821,6 +6885,19 @@ export type Database = {
         Args: { p_profile_id: string; p_restaurant_id: string }
         Returns: string
       }
+      active_platform_support_session: {
+        Args: never
+        Returns: {
+          admin_profile_id: string
+          expires_at: string
+          restaurant_id: string
+          started_at: string
+          support_session_id: string
+          target_employee_id: string
+          target_profile_id: string
+          target_role: string
+        }[]
+      }
       actuals_snapshot_for_week: {
         Args: { p_restaurant_id: string; p_week_start: string }
         Returns: Json
@@ -6862,6 +6939,7 @@ export type Database = {
         Args: { p_origin: string; p_public_key: string }
         Returns: undefined
       }
+      authenticated_profile_id: { Args: never; Returns: string }
       badge_photo_status_to_db: {
         Args: { p_photo_url?: string; p_status: string }
         Returns: string
@@ -6990,6 +7068,7 @@ export type Database = {
         Returns: Json
       }
       crypt: { Args: { password: string; salt: string }; Returns: string }
+      current_auth_session_id: { Args: never; Returns: string }
       current_profile_id: { Args: never; Returns: string }
       derive_employee_employment_terms: {
         Args: { p_employee_id: string; p_facts: Json; p_restaurant_id: string }
@@ -7016,6 +7095,7 @@ export type Database = {
         Args: { p_restaurant_id: string }
         Returns: Json
       }
+      end_platform_support_session: { Args: never; Returns: Json }
       ensure_reservation_public_channel: {
         Args: { p_default_origin: string; p_restaurant_id: string }
         Returns: Json
@@ -7032,6 +7112,7 @@ export type Database = {
         | { Args: { type: string }; Returns: string }
         | { Args: { iter_count: number; type: string }; Returns: string }
       generate_four_digit_pin: { Args: never; Returns: string }
+      get_active_platform_support_session: { Args: never; Returns: Json }
       get_admin_feedback: { Args: never; Returns: Json }
       get_communications_read_model: {
         Args: { p_restaurant_id: string }
@@ -8062,6 +8143,10 @@ export type Database = {
         Returns: Json
       }
       slugify_workspace: { Args: { input: string }; Returns: string }
+      start_platform_support_session: {
+        Args: { p_restaurant_id: string; p_target_profile_id: string }
+        Returns: Json
+      }
       submit_pilot_feedback: {
         Args: {
           p_actor_role: string
@@ -8173,12 +8258,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -8202,11 +8287,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -8227,11 +8312,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -8252,11 +8337,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -8269,11 +8354,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

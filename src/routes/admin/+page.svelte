@@ -25,6 +25,7 @@
   } from '$lib/admin/admin-api';
   import PreviewDialog from '$lib/preview/PreviewDialog.svelte';
   import FeedbackDialog from '$lib/feedback/FeedbackDialog.svelte';
+  import ToastHost from '$lib/components/ToastHost.svelte';
 
   type View = 'restaurants' | 'users' | 'access' | 'feedback' | 'audit';
   type RestaurantFilter = 'all' | 'active' | 'suspended';
@@ -522,7 +523,7 @@
                     </td>
                     <td class="row-actions">
                       <button type="button" class="secondary-button" disabled={!restaurant.active} onclick={() => (previewTarget = restaurant)}>
-                        Preview
+                        Open as…
                       </button>
                       <button
                         type="button"
@@ -810,6 +811,8 @@
   role="platform_admin"
   onclose={() => (reportOpen = false)}
 />
+
+<ToastHost />
 
 {#if deleteTarget}
   <div class="modal-backdrop" role="presentation" onclick={(event) => event.target === event.currentTarget && (deleteTarget = null)}>

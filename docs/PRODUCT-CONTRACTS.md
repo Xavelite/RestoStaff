@@ -18,7 +18,7 @@
 | `/badge-terminal` | Badge terminal | Owner, Manager | Pair devices and open the shared touch-first PIN terminal |
 | `/my-service` | My service | Employee | Weekly shifts, availability, and requests |
 | `/my-time` | My time | Employee | Monthly time, worked hours, leave, and requests |
-| `/admin` | Platform admin | Platform admin | Restaurants, account access, read-only previews, pilot feedback, suspension, deletion, and audit |
+| `/admin` | Platform admin | Platform admin | Restaurants, account access, previews, audited support sessions, pilot feedback, suspension, deletion, and audit |
 
 Badge is an Owner/Manager navigation destination with a deliberately
 kiosk-focused page structure. Employees navigate only My service and My time.
@@ -26,7 +26,11 @@ Direct URL guards enforce the same boundaries as navigation.
 
 Platform administration is not a restaurant role. It uses a separate audited
 entitlement and an AAL2 authenticator session, remains outside the restaurant
-shell, and can suspend a restaurant as a complete tenant-access boundary.
+shell, and can suspend a restaurant as a complete tenant-access boundary. A
+platform admin may start a two-hour support session as an existing account.
+That session is tied to the operator's current Auth session, keeps the real
+operator signed in, applies the target account's ordinary role boundaries, and
+records its start and end in the platform audit.
 
 Visible product language uses Schedule, Time, Payroll,
 Exports, Badge terminal, My service, and My time.
@@ -74,10 +78,14 @@ Persisted identifiers such as `planning_status`, `actuals_status`, and
 - Managers can send concise operational messages to all active employees or a
   selected group. Read and acknowledgement receipts are per recipient and phone
   delivery follows each recipient's notification preferences.
-- Manager and platform-admin previews are read-only server projections. They do
-  not impersonate Auth users, expose mutation RPCs, or change the signed-in
-  operator's authorization. Managers can preview employees in their restaurant;
-  platform admins can preview Owner, Manager, or Employee personas.
+- Manager previews and the platform admin's Preview action are read-only server
+  projections. They do not change the signed-in operator's authorization.
+  Managers can preview employees in their restaurant; platform admins can
+  preview Owner, Manager, or Employee personas. Separately, a platform admin
+  with AAL2 may use the explicit Work as action for an account-backed persona.
+  Normal read and mutation RPCs then resolve that person's effective profile,
+  so support has exactly that user's restaurant role rather than a blanket
+  service-role bypass. A persistent banner identifies the live support mode.
 - Pilot feedback carries page and release context automatically. Reporters can
   submit feedback; only platform admins can triage it or write internal notes.
 - English is the interface language. English, French and Dutch are account-level

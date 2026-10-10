@@ -26,8 +26,9 @@ production Restogogo deployment remains independent.
   framing, toolbars, dialogs, and workspace-level behavior.
 - `src/lib/communications`: operational messages, delivery receipts, and their
   phone-notification projection.
-- `src/lib/preview` and `src/lib/feedback`: read-only role projection and
-  contextual pilot-reporting boundaries.
+- `src/lib/preview`, `src/lib/support`, and `src/lib/feedback`: read-only role
+  projection, audited platform-support delegation, and contextual
+  pilot-reporting boundaries.
 - `src/lib/components`: globally shared presentation primitives.
 - `src/lib/styles`: product tokens and shared visual contracts.
 - `supabase/migrations`: incremental changes for existing projects.
@@ -60,7 +61,12 @@ authenticated RPCs enforce a separate platform-admin entitlement plus an AAL2
 authenticator session, and every operator mutation is audited. Restaurant roles
 never imply platform access.
 Its preview picker reads dedicated reduced models; it never changes the Auth
-session or adopts another person's authorization.
+session or adopts another person's authorization. Its separate Work as action
+creates a short-lived support delegation bound to the operator's Auth session.
+The real admin session remains intact while `current_profile_id()` resolves the
+selected account for normal restaurant APIs. The target's existing membership,
+role, suspension, and tenant state remain authoritative; no service-role token
+is exposed to the browser.
 
 Normal authenticated pages use one app topbar, role-aware navigation, a
 compact module toolbar, and a focused workspace. Route groups own related
@@ -110,3 +116,9 @@ Preview mode is an application-owned, read-only projection with a persistent
 identity banner and inert mutation controls. Pilot feedback captures route,
 release, role, locale, viewport, and browser context through a security-definer
 RPC; the platform-admin inbox owns triage status and internal notes.
+
+Platform support mode is deliberately different from Preview. It requires an
+AAL2 platform admin, an existing account-backed restaurant membership, and an
+active tenant. It expires after two hours, records start/end events, shows a
+persistent live-action banner, and can always return to `/admin` without
+changing either person's password or Supabase Auth session.

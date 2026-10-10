@@ -61,6 +61,36 @@ test('pilot migrations enforce entitlements, revisions and privileged boundaries
   assert.match(adminPage, /\{:else if error\}/);
 });
 
+test('platform support sessions preserve real role boundaries and an explicit audit trail', async () => {
+  const [migration, picker, workspaceStore, appShell] = await Promise.all([
+    source('supabase/migrations/20261010130932_platform_admin_support_sessions.sql'),
+    source('src/lib/preview/PreviewDialog.svelte'),
+    source('src/lib/workspace/workspace.svelte.ts'),
+    source('src/routes/(app)/+layout.svelte')
+  ]);
+
+  assert.match(migration, /create table public\.platform_admin_support_sessions/i);
+  assert.match(migration, /alter table public\.platform_admin_support_sessions enable row level security/i);
+  assert.match(migration, /revoke all on table public\.platform_admin_support_sessions from public, anon, authenticated/i);
+  assert.match(migration, /v_admin_profile_id uuid := public\.require_platform_admin\(\)/i);
+  assert.match(migration, /auth_session_id = public\.current_auth_session_id\(\)/i);
+  assert.match(migration, /coalesce\(auth\.jwt\(\)->>'aal', 'aal1'\) = 'aal2'/i);
+  assert.match(migration, /membership\.status = 'active'/i);
+  assert.match(migration, /restaurant\.active/i);
+  assert.match(migration, /now\(\) \+ interval '2 hours'/i);
+  assert.match(migration, /'support_session_started'/i);
+  assert.match(migration, /'support_session_ended'/i);
+  assert.match(migration, /membership\.profile_id = public\.current_profile_id\(\)/i);
+  assert.doesNotMatch(migration, /grant execute on function public\.start_platform_support_session[\s\S]*service_role/i);
+
+  assert.match(picker, /source === 'admin'[\s\S]*t\('Work as'\)/);
+  assert.match(picker, /!persona\.canActAs/);
+  assert.match(workspaceStore, /startSupport\(restaurantId: string, targetProfileId: string\)/);
+  assert.match(workspaceStore, /getActivePlatformSupportSession\(\)/);
+  assert.match(appShell, /Changes are real and audited/);
+  assert.match(appShell, /exitSupportSession/);
+});
+
 test('pilot documentation records the constrained release truth', async () => {
   const pilot = await source('docs/PILOT.md');
   const payroll = await source('docs/PAYROLL.md');

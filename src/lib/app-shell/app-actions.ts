@@ -9,6 +9,7 @@ import { workspace } from '$lib/workspace/workspace.svelte';
 export async function signOutOfApp(): Promise<void> {
   try {
     await unsavedChanges.runOrRequest(async () => {
+      if (workspace.isSupport) await workspace.stopSupport();
       await auth.signOut();
       workspace.reset();
       toasts.clear();
@@ -24,6 +25,18 @@ export async function exitPreviewSession(): Promise<void> {
   try {
     await unsavedChanges.runOrRequest(async () => {
       const returnPath = await workspace.stopPreview();
+      await goto(appPath(returnPath));
+    });
+  } catch (error) {
+    toasts.show(error instanceof Error ? error.message : String(error), 'danger');
+  }
+}
+
+/** End a real, audited admin support session and return to platform administration. */
+export async function exitSupportSession(): Promise<void> {
+  try {
+    await unsavedChanges.runOrRequest(async () => {
+      const returnPath = await workspace.stopSupport();
       await goto(appPath(returnPath));
     });
   } catch (error) {

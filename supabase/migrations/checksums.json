@@ -170,6 +170,8 @@
     "20260802022739_badge_roster_resume_time.sql": "a2ecee703b593ff4a868b9f93f0644b3038cba4b8e0282e9b1c3cd309bdc91e8",
     "20260802023207_exact_badge_break_total.sql": "b6d756331118397b9fd8f4645ae570a0316a57a80fcbbaee18466588a14c4dc4",
     "20260923121000_fix_onboarding_starter_access_status.sql": "9e6b3eab61bf09daa423843f111d119af7df928c063e2f4ffb080d2573982f10",
-    "20260923150648_open_self_service_restaurant_onboarding.sql": "33fe683656129560405ded16a544e632e561095bb662734bbe636ea0c031168d"
+    "20260923150648_open_self_service_restaurant_onboarding.sql": "33fe683656129560405ded16a544e632e561095bb662734bbe636ea0c031168d",
+    "20261010130932_platform_admin_support_sessions.sql": "de6681adf13dedfaf2afe5cf1bf41aaa90680921290d73849125e1581e458dbe",
+    "20261010131529_harden_support_session_grants.sql": "6a0a0c3b9085d07afac4ffd95e960715b630bd6fd4791987bc61905b6680f4f9"
   }
 }

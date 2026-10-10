@@ -12,7 +12,7 @@
   import PopcornPet from '$lib/pet/PopcornPet.svelte';
   import AccountMenu from '$lib/app-shell/AccountMenu.svelte';
   import { useAppSession } from '$lib/app-shell/app-session.svelte';
-  import { exitPreviewSession, signOutOfApp } from '$lib/app-shell/app-actions';
+  import { exitPreviewSession, exitSupportSession, signOutOfApp } from '$lib/app-shell/app-actions';
   import { t } from '$lib/i18n/i18n.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { supabase } from '$lib/supabase/client';
@@ -299,8 +299,16 @@
         </aside>
       {/if}
 
-      <main class="cl-main" class:is-preview={workspace.isPreview}>
-        {#if workspace.preview}
+      <main class="cl-main" class:is-preview={workspace.isPreview} class:is-support={workspace.isSupport}>
+        {#if workspace.support}
+          <div class="cl-notice is-support" role="status">
+            <span>
+              <strong>{t('Working as {name}', { name: workspace.support.displayName })}</strong>
+              · {t('Changes are real and audited')}
+            </span>
+            <button class="cl-btn" type="button" onclick={exitSupportSession}>{t('Return to admin')}</button>
+          </div>
+        {:else if workspace.preview}
           <div class="cl-notice" role="status">
             <span>{t('Previewing {name}', { name: workspace.preview.displayName })} · {t('Read only')}</span>
             <button class="cl-btn" type="button" onclick={exitPreviewSession}>{t('Exit preview')}</button>
@@ -389,6 +397,15 @@
     background: var(--cl-surface);
     font-size: var(--rst-fs-body);
   }
+  .cl-notice.is-support {
+    position: sticky;
+    top: 0;
+    z-index: var(--rst-z-toolbar);
+    border-color: color-mix(in srgb, var(--rst-ui-action) 38%, var(--cl-line));
+    background: color-mix(in srgb, var(--rst-ui-action) 9%, var(--cl-surface));
+    box-shadow: 0 8px 24px rgba(15, 23, 42, .08);
+  }
+  .cl-notice.is-support strong { color: var(--rst-ui-action); }
   .cl-state {
     display: grid;
     gap: 8px;

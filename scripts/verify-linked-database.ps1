@@ -95,6 +95,7 @@ $workflowContracts = @(
   'model_integrity_contract.sql',
   'notification_payroll_contract.sql',
   'push_notification_contract.sql',
+  'platform_admin_support_session_contract.sql',
   'document_library_contract.sql',
   'reservation_identity_preflight.sql',
   'reservation_contract.sql'

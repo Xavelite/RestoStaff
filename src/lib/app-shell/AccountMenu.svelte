@@ -27,7 +27,7 @@
   import { toasts } from '$lib/ui/toast.svelte';
   import { workspace } from '$lib/workspace/workspace.svelte';
   import { orderedMemberships, roleHome } from '$lib/workspace/workspace-selection';
-  import { exitPreviewSession, signOutOfApp } from './app-actions';
+  import { exitPreviewSession, exitSupportSession, signOutOfApp } from './app-actions';
 
   let {
     isPlatformAdmin = false,
@@ -298,7 +298,10 @@
         <strong>{workspace.active?.restaurant_name ?? t('Account')}</strong>
         <small>{auth.user?.email} · {workspace.effectiveRole ?? t('Account')}</small>
       </header>
-      {#if workspace.isPreview}
+      {#if workspace.isSupport}
+        <span class="menu-label">{t('Admin support')}</span>
+        <button type="button" onclick={() => { open = false; void exitSupportSession(); }}>{t('Return to platform admin')}</button>
+      {:else if workspace.isPreview}
         <button type="button" onclick={() => { open = false; void exitPreviewSession(); }}>{t('Exit preview')}</button>
       {:else}
         <span class="menu-label">{t('Workspace')}</span>
@@ -334,7 +337,7 @@
           {popcornPet.visible ? t('Hide Popcorn') : t('Call Popcorn')}
         </button>
       {/if}
-      {#if isPlatformAdmin}
+      {#if isPlatformAdmin && !workspace.isSupport}
         <span class="menu-label">{t('Platform admin')}</span>
         <a class="account-menu__admin" href={appPath('/admin')} onclick={() => (open = false)}>{t('Platform admin')}</a>
       {/if}

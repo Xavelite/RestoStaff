@@ -14,6 +14,8 @@ export type PreviewPersona = {
   key: string;
   role: WorkspaceRole;
   employeeId: string | null;
+  profileId: string | null;
+  canActAs: boolean;
   displayName: string;
   detail: string;
 };
@@ -35,6 +37,8 @@ export async function getPreviewPersonas(restaurantId: string): Promise<PreviewP
       key: String(row.key ?? ''),
       role,
       employeeId: typeof row.employee_id === 'string' ? row.employee_id : null,
+      profileId: typeof row.profile_id === 'string' ? row.profile_id : null,
+      canActAs: row.can_act_as === true && typeof row.profile_id === 'string',
       displayName: String(row.display_name ?? 'Preview'),
       detail: String(row.detail ?? '')
     }];

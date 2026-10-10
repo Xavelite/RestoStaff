@@ -29,10 +29,12 @@ declare
     'public.current_profile_id()'::regprocedure,
     'public.discard_manager_planning_draft(uuid,date,bigint)'::regprocedure,
     'public.document_storage_object_access(text,text,bigint,text)'::regprocedure,
+    'public.end_platform_support_session()'::regprocedure,
     'public.get_employee_invitation_context(uuid,text)'::regprocedure,
     'public.get_employee_employment_terms(uuid)'::regprocedure,
     'public.get_insights_cost_rates(uuid)'::regprocedure,
     'public.get_admin_feedback()'::regprocedure,
+    'public.get_active_platform_support_session()'::regprocedure,
     'public.get_communications_read_model(uuid)'::regprocedure,
     'public.get_current_memberships()'::regprocedure,
     'public.get_own_badge_context(uuid)'::regprocedure,
@@ -111,6 +113,7 @@ declare
     'public.ensure_reservation_public_channel_v2(uuid,text)'::regprocedure,
     'public.rotate_reservation_public_channel_v2(uuid)'::regprocedure,
     'public.setup_owner_workspace_v2(text,text,citext,text,text,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb)'::regprocedure,
+    'public.start_platform_support_session(uuid,uuid)'::regprocedure,
     'public.send_operational_message(uuid,text,uuid[],text,boolean)'::regprocedure,
     'public.submit_pilot_feedback(uuid,text,text,text,text,text,text,text,text)'::regprocedure,
     'public.update_own_profile(text,text)'::regprocedure,
@@ -496,7 +499,8 @@ begin
     'public.resolve_station_token(text)'::regprocedure
   ]
   loop
-    if position('r.active' in pg_get_functiondef(v_routine)) = 0 then
+    if position('r.active' in pg_get_functiondef(v_routine)) = 0
+       and position('restaurant.active' in pg_get_functiondef(v_routine)) = 0 then
       raise exception 'Restaurant suspension is not enforced by %.', v_routine;
     end if;
   end loop;

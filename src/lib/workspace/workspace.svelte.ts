@@ -23,6 +23,12 @@ import {
 } from './capabilities';
 import { getPreviewBootstrap, getPreviewModule, getPreviewOperations } from '$lib/preview/preview-api';
 import type { WorkspaceRole } from '$lib/api/workspace';
+import {
+  endPlatformSupportSession,
+  getActivePlatformSupportSession,
+  startPlatformSupportSession,
+  type PlatformSupportSession
+} from '$lib/support/platform-support-api';
 
 const ACTIVE_WORKSPACE_KEY = 'restogogo.active-workspace';
 
@@ -62,6 +68,7 @@ class WorkspaceStore {
   moduleLoading = $state(false);
   error = $state('');
   preview = $state<PreviewSession | null>(null);
+  support = $state<PlatformSupportSession | null>(null);
   #requestId = 0;
   #operationsRequestId = 0;
   #employeeRequestId = 0;
@@ -91,6 +98,10 @@ class WorkspaceStore {
 
   get isPreview(): boolean {
     return this.preview !== null;
+  }
+
+  get isSupport(): boolean {
+    return this.support !== null;
   }
 
   get effectiveRole(): WorkspaceRole | null {
@@ -133,6 +144,25 @@ class WorkspaceStore {
     this.clearModules();
   }
 
+  async startSupport(restaurantId: string, targetProfileId: string): Promise<void> {
+    const support = await startPlatformSupportSession(restaurantId, targetProfileId);
+    this.preview = null;
+    this.support = support;
+    this.activeId = support.restaurantId;
+    this.loaded = false;
+    this.loading = false;
+    this.error = '';
+    this.clearModules();
+    rememberWorkspaceId(support.restaurantId);
+    await this.load();
+  }
+
+  async stopSupport(): Promise<string> {
+    await endPlatformSupportSession();
+    this.reset();
+    return '/admin';
+  }
+
   async stopPreview(): Promise<string> {
     const returnPath = this.preview?.returnPath ?? '/home';
     this.preview = null;
@@ -146,11 +176,14 @@ class WorkspaceStore {
     this.loaded = false;
     this.error = '';
     try {
+      const support = await getActivePlatformSupportSession();
+      if (support) rememberWorkspaceId(support.restaurantId);
       const memberships = await getCurrentMemberships();
       const activeId =
         preferredMembership(memberships, storedWorkspaceId())?.restaurant_id ?? null;
       const bootstrap = activeId ? await getWorkspaceBootstrap(activeId) : null;
       if (requestId !== this.#requestId) return;
+      this.support = support;
       this.memberships = memberships;
       this.activeId = activeId;
       this.bootstrap = bootstrap;
@@ -334,6 +367,7 @@ class WorkspaceStore {
     this.moduleLoading = false;
     this.error = '';
     this.preview = null;
+    this.support = null;
     rememberWorkspaceId(null);
   }
 
