@@ -172,6 +172,7 @@
     "20260923121000_fix_onboarding_starter_access_status.sql": "9e6b3eab61bf09daa423843f111d119af7df928c063e2f4ffb080d2573982f10",
     "20260923150648_open_self_service_restaurant_onboarding.sql": "33fe683656129560405ded16a544e632e561095bb662734bbe636ea0c031168d",
     "20261010130932_platform_admin_support_sessions.sql": "de6681adf13dedfaf2afe5cf1bf41aaa90680921290d73849125e1581e458dbe",
-    "20261010131529_harden_support_session_grants.sql": "6a0a0c3b9085d07afac4ffd95e960715b630bd6fd4791987bc61905b6680f4f9"
+    "20261010131529_harden_support_session_grants.sql": "6a0a0c3b9085d07afac4ffd95e960715b630bd6fd4791987bc61905b6680f4f9",
+    "20261010143000_simplify_platform_admin_access.sql": "6d05a99a2683326c2a840daaab8a25c4dd0d8e4097e42e28d79f664e1cf10b7c"
   }
 }

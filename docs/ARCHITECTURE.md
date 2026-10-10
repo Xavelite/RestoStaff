@@ -57,13 +57,13 @@ Mutation RPCs compare the browser's expected revision inside the transaction
 and return a conflict before replacing newer work.
 
 `/admin` is a platform-operator console outside the restaurant app shell. Its
-authenticated RPCs enforce a separate platform-admin entitlement plus an AAL2
-authenticator session, and every operator mutation is audited. Restaurant roles
+authenticated RPCs enforce a separate platform-admin entitlement, and every
+operator mutation is audited. Restaurant roles
 never imply platform access.
 Its preview picker reads dedicated reduced models; it never changes the Auth
 session or adopts another person's authorization. Its separate Work as action
 creates a short-lived support delegation bound to the operator's Auth session.
-The real admin session remains intact while `current_profile_id()` resolves the
+The real password-authenticated admin session remains intact while `current_profile_id()` resolves the
 selected account for normal restaurant APIs. The target's existing membership,
 role, suspension, and tenant state remain authoritative; no service-role token
 is exposed to the browser.
@@ -117,8 +117,8 @@ identity banner and inert mutation controls. Pilot feedback captures route,
 release, role, locale, viewport, and browser context through a security-definer
 RPC; the platform-admin inbox owns triage status and internal notes.
 
-Platform support mode is deliberately different from Preview. It requires an
-AAL2 platform admin, an existing account-backed restaurant membership, and an
+Platform support mode is deliberately different from Preview. It requires a
+platform admin, an existing account-backed restaurant membership, and an
 active tenant. It expires after two hours, records start/end events, shows a
 persistent live-action banner, and can always return to `/admin` without
 changing either person's password or Supabase Auth session.

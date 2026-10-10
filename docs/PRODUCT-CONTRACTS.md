@@ -25,7 +25,7 @@ kiosk-focused page structure. Employees navigate only My service and My time.
 Direct URL guards enforce the same boundaries as navigation.
 
 Platform administration is not a restaurant role. It uses a separate audited
-entitlement and an AAL2 authenticator session, remains outside the restaurant
+allowlist entitlement, remains outside the restaurant
 shell, and can suspend a restaurant as a complete tenant-access boundary. A
 platform admin may start a two-hour support session as an existing account.
 That session is tied to the operator's current Auth session, keeps the real
@@ -82,7 +82,7 @@ Persisted identifiers such as `planning_status`, `actuals_status`, and
   projections. They do not change the signed-in operator's authorization.
   Managers can preview employees in their restaurant; platform admins can
   preview Owner, Manager, or Employee personas. Separately, a platform admin
-  with AAL2 may use the explicit Work as action for an account-backed persona.
+  may use the explicit Work as action for an account-backed persona.
   Normal read and mutation RPCs then resolve that person's effective profile,
   so support has exactly that user's restaurant role rather than a blanket
   service-role bypass. A persistent banner identifies the live support mode.

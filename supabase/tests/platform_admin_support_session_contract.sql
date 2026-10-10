@@ -1,4 +1,4 @@
--- AAL2 platform support resolves ordinary restaurant calls through the target
+-- Platform support resolves ordinary restaurant calls through the target
 -- account while retaining the real operator for exit and audit.
 begin;
 
@@ -54,7 +54,6 @@ select set_config(
   'request.jwt.claims',
   jsonb_build_object(
     'sub', (select value from support_context where key = 'admin_auth'),
-    'aal', 'aal2',
     'session_id', (select value from support_context where key = 'auth_session')
   )::text,
   true

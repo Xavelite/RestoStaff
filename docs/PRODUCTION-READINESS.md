@@ -18,8 +18,8 @@ enough. For a new environment:
    `DATABASE.md`.
 2. Configure the exact Auth site URL and allowed redirects. Provision platform
    operators explicitly with `npm run provision:platform-admin`; a restaurant
-   role never grants platform access. Enroll a TOTP authenticator and verify the
-   resulting AAL2 session before opening `/admin`.
+   role never grants platform access. Verify `/admin` with the operator's normal
+   authenticated session.
 3. Set `APP_ORIGIN` and function secrets, then deploy all five Edge Functions.
    Generate Web Push keys with `npm run generate:push-keys`. Build only the
    public key into the frontend; keep private and dispatch secrets in Supabase.

@@ -30,8 +30,7 @@ production dependencies have no known vulnerability.
    `/reset-password` at the deployment's actual app mount. The xbesnard
    development deployment uses `/restogogo/*`; production uses the root of
    `restogogo.com`.
-7. Enroll every platform operator in TOTP MFA and verify an AAL2 `/admin`
-   session.
+7. Provision every platform operator explicitly and verify `/admin` access.
 8. Review both Supabase security and performance advisors. Reconcile new
    findings with the access manifest in `docs/DATABASE.md`; do not add policies
    to RPC-only tables or remove DEV-unused indexes merely to clear notices.

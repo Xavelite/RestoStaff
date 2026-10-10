@@ -273,8 +273,6 @@
           ? 'Search feedback, pages or reporters'
           : 'Search actions, operators or targets'
   );
-  const mfaRequired = $derived(/two-step verification is required/i.test(error));
-
   async function saveFeedback(item: AdminFeedback, status = item.status) {
     if (busyId) return;
     busyId = item.id;
@@ -408,13 +406,9 @@
     </main>
   {:else if error}
     <main class="gate">
-      <span class="eyebrow">{mfaRequired ? 'Security check' : 'Admin unavailable'}</span>
-      <h1>{mfaRequired ? 'Two-step verification required' : 'Platform data could not be loaded'}</h1>
-      <p>
-        {mfaRequired
-          ? 'Open Account settings in the app and verify an authenticator code before returning here.'
-          : error}
-      </p>
+      <span class="eyebrow">Admin unavailable</span>
+      <h1>Platform data could not be loaded</h1>
+      <p>{error}</p>
       <div class="gate-actions">
         <button class="quiet-button" type="button" onclick={() => load()}>Try again</button>
         <a class="text-link" href={appPath('/home')}>Open the app</a>

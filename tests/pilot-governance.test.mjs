@@ -36,8 +36,8 @@ test('pilot migrations enforce entitlements, revisions and privileged boundaries
   const quarantine = await source(
     'supabase/migrations/20260729233500_quarantine_experimental_modules.sql'
   );
-  const adminMfa = await source(
-    'supabase/migrations/20260729234700_require_platform_admin_mfa.sql'
+  const adminAccess = await source(
+    'supabase/migrations/20261010143000_simplify_platform_admin_access.sql'
   );
   const retiredVenueBoundary = await source(
     'supabase/migrations/20260730001717_retire_atomic_venue_browser_boundary.sql'
@@ -53,17 +53,19 @@ test('pilot migrations enforce entitlements, revisions and privileged boundaries
   assert.doesNotMatch(serviceBoundaries, /p_service\s+in\s+\('lunch',\s*'evening'\)/i);
   assert.match(quarantine, /revoke all on function public\.calculate_payroll_run/i);
   assert.match(quarantine, /reports.*'disabled'/is);
-  assert.match(adminMfa, /aal2/);
+  assert.match(adminAccess, /create or replace function public\.require_platform_admin\(\)/i);
+  assert.doesNotMatch(adminAccess, /auth\.jwt\(\)->>'aal'/i);
   assert.match(retiredVenueBoundary, /save_venue_model_v2/);
   assert.match(retiredVenueBoundary, /from public, anon, authenticated/i);
   assert.match(retiredVenueBoundary, /to service_role/i);
-  assert.match(adminPage, /Two-step verification required/);
+  assert.doesNotMatch(adminPage, /Two-step verification required/);
   assert.match(adminPage, /\{:else if error\}/);
 });
 
 test('platform support sessions preserve real role boundaries and an explicit audit trail', async () => {
-  const [migration, picker, workspaceStore, appShell] = await Promise.all([
+  const [migration, finalAccess, picker, workspaceStore, appShell] = await Promise.all([
     source('supabase/migrations/20261010130932_platform_admin_support_sessions.sql'),
+    source('supabase/migrations/20261010143000_simplify_platform_admin_access.sql'),
     source('src/lib/preview/PreviewDialog.svelte'),
     source('src/lib/workspace/workspace.svelte.ts'),
     source('src/routes/(app)/+layout.svelte')
@@ -74,7 +76,7 @@ test('platform support sessions preserve real role boundaries and an explicit au
   assert.match(migration, /revoke all on table public\.platform_admin_support_sessions from public, anon, authenticated/i);
   assert.match(migration, /v_admin_profile_id uuid := public\.require_platform_admin\(\)/i);
   assert.match(migration, /auth_session_id = public\.current_auth_session_id\(\)/i);
-  assert.match(migration, /coalesce\(auth\.jwt\(\)->>'aal', 'aal1'\) = 'aal2'/i);
+  assert.doesNotMatch(finalAccess, /auth\.jwt\(\)->>'aal'/i);
   assert.match(migration, /membership\.status = 'active'/i);
   assert.match(migration, /restaurant\.active/i);
   assert.match(migration, /now\(\) \+ interval '2 hours'/i);
