@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import { t } from '$lib/i18n/i18n.svelte';
+  import MobileActionDock from './MobileActionDock.svelte';
 
   let {
     meta,
@@ -47,4 +48,14 @@
     </div>
   </div>
   {@render children()}
+
+  {#if hasSaveContract}
+    <MobileActionDock
+      visible={dirty}
+      {saving}
+      canSubmit={canSave}
+      ondiscard={() => ondiscard?.()}
+      onsubmit={() => onsave?.()}
+    />
+  {/if}
 </section>

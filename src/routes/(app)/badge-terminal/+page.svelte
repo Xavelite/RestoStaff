@@ -31,6 +31,7 @@
   import WorkspaceVisualSection from '$lib/workspace-ui/WorkspaceVisualSection.svelte';
   import { workspaceLayout } from '$lib/workspace-ui/workspace-layout.svelte';
   import WorkspaceTablePanel from '$lib/workspace-ui/WorkspaceTablePanel.svelte';
+  import MobileActionDock from '$lib/workspace-ui/MobileActionDock.svelte';
   import WorkspaceColMenu from '$lib/workspace-ui/WorkspaceColMenu.svelte';
   import WorkspaceColChooser from '$lib/workspace-ui/WorkspaceColChooser.svelte';
   import WorkspaceToggle from '$lib/workspace-ui/WorkspaceToggle.svelte';
@@ -149,6 +150,10 @@
     } finally {
       busy = '';
     }
+  }
+
+  function discardPolicy(): void {
+    policy = badgePolicyFromSettings(workspace.bootstrap?.restaurant_settings);
   }
 
   async function useThisDevice() {
@@ -294,7 +299,7 @@
       </div>
       {#if ownerCanConfigure}
         <button
-          class="cl-btn is-primary"
+          class="cl-btn is-primary desktop-policy-save"
           type="button"
           disabled={!policyDirty || Boolean(busy)}
           onclick={() => void savePolicy()}
@@ -570,6 +575,16 @@
       {/if}
     </div>
   </section>
+
+  <MobileActionDock
+    visible={ownerCanConfigure && policyDirty}
+    status={t('Unsaved badging rules')}
+    primaryLabel="Save settings"
+    saving={busy === 'policy'}
+    canSubmit={!busy}
+    ondiscard={discardPolicy}
+    onsubmit={() => void savePolicy()}
+  />
 </WorkspacePage>
 
 {#snippet pairFooter()}
@@ -816,6 +831,7 @@
     text-align: center;
   }
   @media (max-width: 760px) {
+    .desktop-policy-save { display: none; }
     .policy-panel > header { align-items: flex-start; flex-direction: column; }
     .policy-grid { grid-template-columns: 1fr; }
     .policy-grid article,

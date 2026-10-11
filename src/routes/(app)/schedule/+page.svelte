@@ -70,6 +70,7 @@
   import WorkspaceGroupRow from '$lib/workspace-ui/WorkspaceGroupRow.svelte';
   import WorkspaceServiceIcon from '$lib/workspace-ui/WorkspaceServiceIcon.svelte';
   import WorkspaceMobileDayPicker from '$lib/workspace-ui/WorkspaceMobileDayPicker.svelte';
+  import MobileActionDock from '$lib/workspace-ui/MobileActionDock.svelte';
   import WorkspaceRosterLegend from '$lib/workspace-ui/WorkspaceRosterLegend.svelte';
   import {
     scheduleDraft,
@@ -1739,6 +1740,16 @@
             hint={t('Click a free day or evening half to plan instantly. Drag a shift between halves to move it.')}
           />
 
+          <MobileActionDock
+            visible={scheduleDraft.dirty}
+            status={t('Unsaved schedule changes')}
+            primaryLabel="Save draft"
+            {saving}
+            canSubmit={week.editable}
+            ondiscard={() => snapshot && scheduleDraft.reset(snapshot, week.weekStart)}
+            onsubmit={() => void persistDraft(week.weekStart, week.revision, week.published)}
+          />
+
         </section>
 
         <Dialog
@@ -2111,6 +2122,7 @@
   }
   @media (max-width: 760px) {
     .schedule-head__left { display: none; }
+    .schedule-head__right :global(.cl-inline-save) { display: none; }
     .schedule-wrap { display: none; }
     .republish-note { justify-self: stretch; margin: 0 0 8px; text-align: center; line-height: 1.35; }
 

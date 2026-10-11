@@ -29,6 +29,7 @@
   import ActionButton from '$lib/components/ActionButton.svelte';
   import FeedbackBanner from '$lib/components/FeedbackBanner.svelte';
   import WorkspacePage from '$lib/workspace-ui/WorkspacePage.svelte';
+  import MobileActionDock from '$lib/workspace-ui/MobileActionDock.svelte';
   import StatusPill from '$lib/components/StatusPill.svelte';
   import EmployeeSlotDialog from '$lib/employee/EmployeeSlotDialog.svelte';
   import {
@@ -699,9 +700,9 @@
     <a class="cl-btn is-primary" href={appPath('/my-time/badge')}><Clock3 size={15} />{t('Clock in or out')}</a>
   {/if}
   {#if hasPendingEdits}
-    <span class="pending-copy">{requestCopy()}</span>
-    <button class="cl-btn" type="button" disabled={saving} onclick={discardChanges}>{t('Discard')}</button>
-    <button class="cl-btn is-primary" type="button" disabled={!canSave} onclick={saveChanges}>{t(saving ? 'Submitting…' : 'Submit')}</button>
+    <span class="pending-copy desktop-request-action">{requestCopy()}</span>
+    <button class="cl-btn desktop-request-action" type="button" disabled={saving} onclick={discardChanges}>{t('Discard')}</button>
+    <button class="cl-btn is-primary desktop-request-action" type="button" disabled={!canSave} onclick={saveChanges}>{t(saving ? 'Submitting…' : 'Submit')}</button>
   {/if}
 {/snippet}
 
@@ -914,6 +915,17 @@
           </section>
         </aside>
       </div>
+
+      <MobileActionDock
+        visible={hasPendingEdits}
+        status={requestCopy()}
+        primaryLabel="Submit"
+        busyLabel="Submitting…"
+        {saving}
+        canSubmit={canSave}
+        ondiscard={discardChanges}
+        onsubmit={saveChanges}
+      />
     </div>
 
   <EmployeeSlotDialog
@@ -1235,6 +1247,10 @@
     .time-layout {
       grid-template-columns: 1fr;
     }
+  }
+
+  @media (max-width: 760px) {
+    .desktop-request-action { display: none; }
   }
 
   @media (max-width: 520px) {
