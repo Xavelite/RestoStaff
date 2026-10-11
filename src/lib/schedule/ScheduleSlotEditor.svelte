@@ -11,6 +11,7 @@
     blocksPlanningAssignment,
     defaultPlanningShift,
     planningAssignmentOptions,
+    planningShiftWithAssignment,
     type PlanningGridSlot,
     type PlanningNoteDraft,
     type PlanningShiftDraft
@@ -87,7 +88,12 @@
     snapshot.work_areas.filter(
       (area) =>
         area.active &&
-        assignmentPairs.some((assignment) => assignment.areaId === area.id)
+        assignmentPairs.some(
+          (assignment) =>
+            assignment.areaId === area.id &&
+            (!slot.shift?.jobFunctionId ||
+              assignment.jobFunctionId === slot.shift.jobFunctionId)
+        )
     )
   );
   const areaName = $derived(areaInstanceLabelMap(snapshot.work_areas));
@@ -95,11 +101,7 @@
     snapshot.job_functions.filter(
       (job) =>
         job.active &&
-        assignmentPairs.some(
-          (assignment) =>
-            assignment.jobFunctionId === job.id &&
-            (!slot.shift?.areaId || assignment.areaId === slot.shift.areaId)
-        )
+        assignmentPairs.some((assignment) => assignment.jobFunctionId === job.id)
     )
   );
   const note = $derived(
@@ -187,24 +189,34 @@
     field: 'areaId' | 'jobFunctionId' | 'startsAt' | 'endsAt',
     value: string
   ) {
-    const nextValue =
-      field === 'areaId'
-        ? {
-            areaId: value,
-            jobFunctionId:
-              assignmentPairs.find(
-                (assignment) =>
-                  assignment.areaId === value &&
-                  assignment.jobFunctionId === slot.shift?.jobFunctionId
-              )?.jobFunctionId ??
-              assignmentPairs.find((assignment) => assignment.areaId === value)
-                ?.jobFunctionId ??
-              ''
-          }
-        : { [field]: value };
+    if (!slot.shift) return;
+    let nextShift: PlanningShiftDraft;
+    if (field === 'areaId') {
+      const assignment =
+        assignmentPairs.find(
+          (item) =>
+            item.areaId === value && item.jobFunctionId === slot.shift?.jobFunctionId
+        ) ?? assignmentPairs.find((item) => item.areaId === value);
+      nextShift = planningShiftWithAssignment(snapshot, slot.shift, slot.date, {
+        areaId: value,
+        jobFunctionId: assignment?.jobFunctionId ?? ''
+      });
+    } else if (field === 'jobFunctionId') {
+      const assignment =
+        assignmentPairs.find(
+          (item) =>
+            item.jobFunctionId === value && item.areaId === slot.shift?.areaId
+        ) ?? assignmentPairs.find((item) => item.jobFunctionId === value);
+      nextShift = planningShiftWithAssignment(snapshot, slot.shift, slot.date, {
+        areaId: assignment?.areaId ?? '',
+        jobFunctionId: value
+      });
+    } else {
+      nextShift = { ...slot.shift, [field]: value };
+    }
     onchange(
       draft.map((shift) =>
-        shift === slot.shift ? { ...shift, ...nextValue } : shift
+        shift === slot.shift ? nextShift : shift
       )
     );
   }

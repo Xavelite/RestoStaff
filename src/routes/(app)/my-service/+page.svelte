@@ -629,9 +629,9 @@
   {/if}
   <span class="toolbar-grow"></span>
   {#if hasPendingEdits}
-    <span class="pending-copy">{requestCopy()}</span>
-    <button class="cl-btn" type="button" disabled={saving} onclick={discardChanges}>{t('Discard')}</button>
-    <button class="cl-btn is-primary" type="button" disabled={!canSave} onclick={saveChanges}>{t(saving ? 'Submitting…' : 'Submit')}</button>
+    <span class="pending-copy desktop-request-action">{requestCopy()}</span>
+    <button class="cl-btn desktop-request-action" type="button" disabled={saving} onclick={discardChanges}>{t('Discard')}</button>
+    <button class="cl-btn is-primary desktop-request-action" type="button" disabled={!canSave} onclick={saveChanges}>{t(saving ? 'Submitting…' : 'Submit')}</button>
   {/if}
 {/snippet}
 
@@ -646,7 +646,7 @@
       </div>
     </div>
 
-    <div class="employee-workspace">
+    <div class="employee-workspace" class:has-mobile-actions={hasPendingEdits}>
       <FeedbackBanner message={feedback} tone={feedbackTone} />
 
       <section class="agenda" aria-label={t('Weekly agenda')}>
@@ -681,6 +681,16 @@
           </article>
         {/each}
       </section>
+
+      {#if hasPendingEdits}
+        <section class="mobile-request-actions" aria-label={t('Pending changes')}>
+          <span>{requestCopy()}</span>
+          <div>
+            <button class="cl-btn" type="button" disabled={saving} onclick={discardChanges}>{t('Discard')}</button>
+            <button class="cl-btn is-primary" type="button" disabled={!canSave} onclick={saveChanges}>{t(saving ? 'Submitting…' : 'Submit')}</button>
+          </div>
+        </section>
+      {/if}
     </div>
 
     <EmployeeSlotDialog
@@ -714,6 +724,7 @@
   .summary-stat__value { color: var(--cl-ink); font-size: var(--rst-fs-body-lg); font-weight: var(--rst-fw-bold); line-height: 1.35; }
 
   .agenda { display: grid; gap: 8px; }
+  .mobile-request-actions { display: none; }
   .agenda-day {
     display: grid;
     grid-template-columns: 84px minmax(0, 1fr);
@@ -781,6 +792,34 @@
     }
     .agenda-day { grid-template-columns: 1fr; gap: 10px; }
     .agenda-day__date { grid-auto-flow: column; align-items: baseline; justify-content: start; gap: 8px; }
-    .pending-copy { display: none; }
+    .desktop-request-action { display: none; }
+    .employee-workspace.has-mobile-actions { padding-bottom: 94px; }
+    .mobile-request-actions {
+      position: fixed;
+      z-index: var(--rst-z-panel);
+      right: 14px;
+      bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+      left: 14px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px;
+      border: 1px solid var(--cl-line-strong);
+      border-radius: var(--cl-radius);
+      background: color-mix(in srgb, var(--cl-surface) 94%, transparent);
+      box-shadow: 0 14px 34px rgba(15, 23, 42, .16);
+      backdrop-filter: blur(14px);
+    }
+    .mobile-request-actions > span {
+      overflow: hidden;
+      color: var(--cl-muted);
+      font-size: var(--rst-fs-label);
+      font-weight: var(--rst-fw-bold);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .mobile-request-actions > div { display: flex; gap: 6px; }
+    .mobile-request-actions .cl-btn { min-height: 40px; }
   }
 </style>

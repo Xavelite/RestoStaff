@@ -367,18 +367,65 @@ export function slotContext(
   };
 }
 
-function defaultServiceTimes(
+function planningServiceTimes(
   snapshot: ManagerOperationsReadModel,
   date: string,
-  serviceKey: ServiceKey
+  serviceKey: ServiceKey,
+  areaId = ''
 ): { start: string; end: string } {
+  const areaDefaults = areaId
+    ? (snapshot.area_service_defaults ?? []).find(
+        (item) => item.area_id === areaId && item.service_key === serviceKey
+      )
+    : null;
   const row = snapshot.opening_hours.find(
     (hours) => hours.weekday === weekday(date) && hours.service_key === serviceKey
   );
   const defaults = serviceDefaultHours(serviceKey, snapshot.services);
   return {
-    start: clockLabel(row?.opens_at) || defaults.start,
-    end: clockLabel(row?.closes_at) || defaults.end
+    start:
+      clockLabel(areaDefaults?.start_time) ||
+      clockLabel(row?.opens_at) ||
+      defaults.start,
+    end:
+      clockLabel(areaDefaults?.end_time) ||
+      clockLabel(row?.closes_at) ||
+      defaults.end
+  };
+}
+
+/**
+ * An area change follows that area's service hours only while the shift still
+ * has the previous automatic hours. Any manual time edit makes the manager's
+ * choice authoritative for subsequent area or position changes.
+ */
+export function planningShiftWithAssignment(
+  snapshot: ManagerOperationsReadModel,
+  shift: PlanningShiftDraft,
+  date: string,
+  assignment: Pick<PlanningShiftDraft, 'areaId' | 'jobFunctionId'>
+): PlanningShiftDraft {
+  const previousDefaults = planningServiceTimes(
+    snapshot,
+    date,
+    shift.serviceKey,
+    shift.areaId
+  );
+  const usesAutomaticTimes =
+    shift.startsAt === previousDefaults.start && shift.endsAt === previousDefaults.end;
+  const nextDefaults = planningServiceTimes(
+    snapshot,
+    date,
+    shift.serviceKey,
+    assignment.areaId
+  );
+
+  return {
+    ...shift,
+    ...assignment,
+    ...(usesAutomaticTimes
+      ? { startsAt: nextDefaults.start, endsAt: nextDefaults.end }
+      : {})
   };
 }
 
@@ -394,7 +441,12 @@ export function defaultPlanningShift(
     slot.employeeId,
     slot.serviceKey
   )[0] ?? { jobFunctionId: '', areaId: '' };
-  const times = defaultServiceTimes(snapshot, slot.date, slot.serviceKey);
+  const times = planningServiceTimes(
+    snapshot,
+    slot.date,
+    slot.serviceKey,
+    assignment.areaId
+  );
   return {
     employeeId: slot.employeeId,
     weekday: slot.weekday,
@@ -414,9 +466,9 @@ type PlanningAssignmentOption = {
 };
 
 /**
- * Scheduling eligibility comes from active employees, positions and areas.
- * Staffing coverage only ranks useful suggestions; it never removes a valid
- * operational choice from the planner.
+ * Position-area links define the areas that belong to a position. A position
+ * without links deliberately remains valid in every active area; this is the
+ * product's progressive-setup rule. Staffing coverage only ranks suggestions.
  */
 export function planningAssignmentOptions(
   snapshot: ManagerOperationsReadModel,
@@ -433,6 +485,11 @@ export function planningAssignmentOptions(
   const employeeOrder = new Map(
     employeeAssignments.map((row, index) => [row.job_function_id, index])
   );
+  const employeeDefaultArea = new Map(
+    employeeAssignments.flatMap((row) =>
+      row.default_area_id ? [[row.job_function_id, row.default_area_id] as const] : []
+    )
+  );
   const jobs = [...activeJobs].sort((left, right) => {
     const leftOrder = employeeOrder.get(left.id);
     const rightOrder = employeeOrder.get(right.id);
@@ -444,18 +501,33 @@ export function planningAssignmentOptions(
     return left.sort_order - right.sort_order || left.name.localeCompare(right.name);
   });
 
-  const linkedPositionAreas = new Set(
-    (snapshot.job_function_areas ?? [])
-      .filter((row) => row.active)
-      .map((row) => `${row.job_function_id}|${row.area_id}`)
+  const activePositionAreaLinks = (snapshot.job_function_areas ?? []).filter(
+    (row) => row.active
   );
+  const linkedPositionAreas = new Set(
+    activePositionAreaLinks.map((row) => `${row.job_function_id}|${row.area_id}`)
+  );
+  const linkedAreasByPosition = new Map<string, Set<string>>();
+  for (const row of activePositionAreaLinks) {
+    const linkedAreas = linkedAreasByPosition.get(row.job_function_id) ?? new Set<string>();
+    linkedAreas.add(row.area_id);
+    linkedAreasByPosition.set(row.job_function_id, linkedAreas);
+  }
   const recommended = new Set(
     snapshot.coverage_requirements
       .filter((row) => row.active && row.service_key === serviceKey)
       .map((row) => `${row.job_function_id}|${row.area_id}`)
   );
   const options = jobs.flatMap((job) => {
-    const areas = [...activeAreas].sort((left, right) => {
+    const linkedAreas = linkedAreasByPosition.get(job.id);
+    const eligibleAreas = linkedAreas?.size
+      ? activeAreas.filter((area) => linkedAreas.has(area.id))
+      : activeAreas;
+    const areas = [...eligibleAreas].sort((left, right) => {
+      const preferredAreaId = employeeDefaultArea.get(job.id);
+      const leftPreferred = left.id === preferredAreaId;
+      const rightPreferred = right.id === preferredAreaId;
+      if (leftPreferred !== rightPreferred) return leftPreferred ? -1 : 1;
       const leftLinked = linkedPositionAreas.has(`${job.id}|${left.id}`);
       const rightLinked = linkedPositionAreas.has(`${job.id}|${right.id}`);
       if (leftLinked !== rightLinked) return leftLinked ? -1 : 1;
@@ -472,6 +544,11 @@ export function planningAssignmentOptions(
     const leftEmployee = employeeOrder.has(left.jobFunctionId);
     const rightEmployee = employeeOrder.has(right.jobFunctionId);
     if (leftEmployee !== rightEmployee) return leftEmployee ? -1 : 1;
+    const leftPreferred =
+      employeeDefaultArea.get(left.jobFunctionId) === left.areaId;
+    const rightPreferred =
+      employeeDefaultArea.get(right.jobFunctionId) === right.areaId;
+    if (leftPreferred !== rightPreferred) return leftPreferred ? -1 : 1;
     const leftRelated = linkedPositionAreas.has(`${left.jobFunctionId}|${left.areaId}`);
     const rightRelated = linkedPositionAreas.has(`${right.jobFunctionId}|${right.areaId}`);
     if (leftRelated !== rightRelated) return leftRelated ? -1 : 1;

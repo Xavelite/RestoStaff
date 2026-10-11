@@ -597,6 +597,9 @@ test('unsaved changes guard routes and context-changing account actions', async 
   assert.match(actions, /unsavedChanges\.runOrRequest/);
   assert.match(scheduleWeek, /unsavedChanges\.runOrRequest/);
   assert.match(myService, /unsavedChanges\.register/);
+  assert.match(myService, /hasPendingEdits[\s\S]*mobile-request-actions/);
+  assert.match(myService, /\.mobile-request-actions[\s\S]*position: fixed/);
+  assert.match(myService, /disabled=\{!canSave\}[\s\S]*Submitting…[\s\S]*Submit/);
   assert.match(myTime, /unsavedChanges\.register/);
   assert.match(timesheetEditor, /id: 'timesheet-entry-editor'/);
   assert.match(timesheet, /selectEntry[\s\S]*unsavedChanges\.runOrRequest/);

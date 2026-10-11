@@ -9,12 +9,14 @@ import {
 import { buildEmployeeWeek, employeeMonth } from '../src/lib/employee/employee-model.ts';
 import {
   buildPlanningWeek,
+  defaultPlanningShift,
   planningAssignmentOptions,
   planningContractOverages,
   planningDraftForWeek,
   planningOperationalWarnings,
   planningOverlapKeys,
-  planningOverlaps
+  planningOverlaps,
+  planningShiftWithAssignment
 } from '../src/lib/schedule/schedule-model.ts';
 import { parseManagerOperationsReadModel } from '../src/lib/api/workspace-snapshot.ts';
 
@@ -95,7 +97,7 @@ test('adjacent and overnight shifts are not treated as overlaps', () => {
   assert.deepEqual(planningOverlaps(shifts), []);
 });
 
-test('planning suggests an employee position and its linked area without restricting valid choices', () => {
+test('planning follows position-area links while unlinked positions remain valid everywhere', () => {
   const snapshot = parseManagerOperationsReadModel({
     restaurant: { id: 'restaurant-1' },
     restaurant_settings: {},
@@ -140,12 +142,139 @@ test('planning suggests an employee position and its linked area without restric
     areaId: 'bar',
     recommended: false
   });
-  assert.equal(options.length, 4);
+  assert.equal(options.length, 3);
+  assert.deepEqual(
+    options.filter((option) => option.jobFunctionId === 'bartender'),
+    [{ jobFunctionId: 'bartender', areaId: 'bar', recommended: false }]
+  );
   assert.ok(options.some((option) =>
     option.jobFunctionId === 'server'
     && option.areaId === 'hall'
     && option.recommended
   ));
+});
+
+test('planning prefers the employee default area inside the position matrix', () => {
+  const snapshot = parseManagerOperationsReadModel({
+    restaurant: { id: 'restaurant-1' },
+    restaurant_settings: {},
+    work_areas: [
+      { id: 'inside', name: 'Inside', active: true, sort_order: 0 },
+      { id: 'terrace', name: 'Terrace', active: true, sort_order: 1 }
+    ],
+    job_functions: [
+      { id: 'server', name: 'Server', active: true, sort_order: 0 }
+    ],
+    employee_job_functions: [
+      {
+        employee_id: 'employee-1',
+        job_function_id: 'server',
+        default_area_id: 'terrace',
+        active: true,
+        is_primary: true
+      }
+    ],
+    job_function_areas: [
+      { job_function_id: 'server', area_id: 'inside', active: true },
+      { job_function_id: 'server', area_id: 'terrace', active: true }
+    ]
+  });
+
+  assert.equal(
+    planningAssignmentOptions(snapshot, 'employee-1', 'lunch')[0]?.areaId,
+    'terrace'
+  );
+});
+
+test('planning defaults to area service hours before restaurant opening hours', () => {
+  const modelSnapshot = parseManagerOperationsReadModel({
+    restaurant: { id: 'restaurant-1' },
+    restaurant_settings: {},
+    services: [
+      {
+        service_key: 'lunch',
+        name: 'Lunch',
+        active: true,
+        sort_order: 0,
+        metadata: { default_start: '12:00', default_end: '15:00' }
+      }
+    ],
+    work_areas: [{ id: 'terrace', name: 'Terrace', active: true, sort_order: 0 }],
+    job_functions: [{ id: 'server', name: 'Server', active: true, sort_order: 0 }],
+    employee_job_functions: [
+      { employee_id: 'employee-1', job_function_id: 'server', active: true, is_primary: true }
+    ],
+    job_function_areas: [
+      { job_function_id: 'server', area_id: 'terrace', active: true, is_primary: true }
+    ],
+    opening_hours: [
+      { weekday: 1, service_key: 'lunch', is_open: true, opens_at: '12:00', closes_at: '15:00' }
+    ],
+    area_service_defaults: [
+      { area_id: 'terrace', service_key: 'lunch', start_time: '11:30', end_time: '15:30' }
+    ]
+  });
+
+  const shift = defaultPlanningShift(modelSnapshot, {
+    employeeId: 'employee-1',
+    weekday: 1,
+    date: '2026-06-15',
+    serviceKey: 'lunch'
+  });
+
+  assert.equal(shift?.startsAt, '11:30');
+  assert.equal(shift?.endsAt, '15:30');
+});
+
+test('area changes rebase automatic hours but preserve manual overrides', () => {
+  const modelSnapshot = parseManagerOperationsReadModel({
+    restaurant: { id: 'restaurant-1' },
+    restaurant_settings: {},
+    services: [
+      {
+        service_key: 'lunch',
+        name: 'Lunch',
+        active: true,
+        sort_order: 0,
+        metadata: { default_start: '12:00', default_end: '15:00' }
+      }
+    ],
+    opening_hours: [
+      { weekday: 1, service_key: 'lunch', is_open: true, opens_at: '12:00', closes_at: '15:00' }
+    ],
+    area_service_defaults: [
+      { area_id: 'inside', service_key: 'lunch', start_time: '11:30', end_time: '15:00' },
+      { area_id: 'terrace', service_key: 'lunch', start_time: '11:45', end_time: '15:30' }
+    ]
+  });
+  const automatic = {
+    employeeId: 'employee-1',
+    weekday: 1,
+    serviceKey: 'lunch',
+    areaId: 'inside',
+    jobFunctionId: 'server',
+    startsAt: '11:30',
+    endsAt: '15:00',
+    source: 'manual'
+  };
+
+  const rebased = planningShiftWithAssignment(
+    modelSnapshot,
+    automatic,
+    '2026-06-15',
+    { areaId: 'terrace', jobFunctionId: 'server' }
+  );
+  assert.equal(rebased.startsAt, '11:45');
+  assert.equal(rebased.endsAt, '15:30');
+
+  const manual = planningShiftWithAssignment(
+    modelSnapshot,
+    { ...automatic, startsAt: '12:10', endsAt: '16:00' },
+    '2026-06-15',
+    { areaId: 'terrace', jobFunctionId: 'server' }
+  );
+  assert.equal(manual.startsAt, '12:10');
+  assert.equal(manual.endsAt, '16:00');
 });
 
 test('contract-hour overages ignore undefined regimes and report the exact excess', () => {
